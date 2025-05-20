@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../src:firebase/src:firebase:config';
+import { auth } from './firebase/config';
 import Login from './Login';
 import Review from './Review';
 
