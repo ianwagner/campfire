@@ -1,17 +1,23 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebase/config';
-import Login from './Login';
-import Review from './Review';
-import CreateAdGroup from './CreateAdGroup';
-import AdGroupDetail from './AdGroupDetail';
-import DesignerDashboard from './DesignerDashboard';
-import ClientDashboard from './ClientDashboard';
-import RoleGuard from './RoleGuard';
-import useUserRole from './useUserRole';
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  Link,
+} from "react-router-dom";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "./firebase/config";
+import Login from "./Login";
+import Review from "./Review";
+import CreateAdGroup from "./CreateAdGroup";
+import AdGroupDetail from "./AdGroupDetail";
+import DesignerDashboard from "./DesignerDashboard";
+import ClientDashboard from "./ClientDashboard";
+import RoleGuard from "./RoleGuard";
+import useUserRole from "./useUserRole";
 
 const App = () => {
   const [user, setUser] = React.useState(null);
@@ -26,6 +32,14 @@ const App = () => {
   }, []);
 
   const { role, loading: roleLoading } = useUserRole(user?.uid);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Failed to sign out", err);
+    }
+  };
 
   if (loading || roleLoading) {
     return <div className="text-center mt-10">Loading...</div>;
@@ -44,15 +58,22 @@ const App = () => {
       <div className="min-h-screen flex flex-col">
         <header className="p-2 bg-gray-100 text-sm">
           {user && role && (
-            <nav className="space-x-4">
-              {role === 'client' && <Link to="/dashboard/client">Dashboard</Link>}
-              {role === 'designer' && (
-                <>
-                  <Link to="/dashboard/designer">Dashboard</Link>
-                  <Link to="/create-group">Create Group</Link>
-                </>
-              )}
-            </nav>
+            <div className="flex justify-between items-center">
+              <nav className="space-x-4">
+                {role === "client" && (
+                  <Link to="/dashboard/client">Dashboard</Link>
+                )}
+                {role === "designer" && (
+                  <>
+                    <Link to="/dashboard/designer">Dashboard</Link>
+                    <Link to="/create-group">Create Group</Link>
+                  </>
+                )}
+              </nav>
+              <button onClick={handleLogout} className="underline">
+                Log Out
+              </button>
+            </div>
           )}
         </header>
         <div className="flex-grow">
@@ -70,14 +91,22 @@ const App = () => {
             <Route
               path="/"
               element={
-                user ? <Navigate to={`/dashboard/${role}`} replace /> : <Navigate to="/login" replace />
+                user ? (
+                  <Navigate to={`/dashboard/${role}`} replace />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
               }
             />
             <Route
               path="/dashboard/designer"
               element={
                 user ? (
-                  <RoleGuard requiredRole="designer" userRole={role} loading={roleLoading}>
+                  <RoleGuard
+                    requiredRole="designer"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
                     <DesignerDashboard />
                   </RoleGuard>
                 ) : (
@@ -89,7 +118,11 @@ const App = () => {
               path="/dashboard/client"
               element={
                 user ? (
-                  <RoleGuard requiredRole="client" userRole={role} loading={roleLoading}>
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
                     <ClientDashboard user={user} />
                   </RoleGuard>
                 ) : (
@@ -101,7 +134,11 @@ const App = () => {
               path="/create-group"
               element={
                 user ? (
-                  <RoleGuard requiredRole="designer" userRole={role} loading={roleLoading}>
+                  <RoleGuard
+                    requiredRole="designer"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
                     <CreateAdGroup />
                   </RoleGuard>
                 ) : (
@@ -113,7 +150,11 @@ const App = () => {
               path="/ad-group/:id"
               element={
                 user ? (
-                  <RoleGuard requiredRole="designer" userRole={role} loading={roleLoading}>
+                  <RoleGuard
+                    requiredRole="designer"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
                     <AdGroupDetail />
                   </RoleGuard>
                 ) : (
