@@ -3,12 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../src:firebase/src:firebase:config';
 import Login from './Login';
-
-const Review = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <h2 className="text-2xl">Ad Review Placeholder</h2>
-  </div>
-);
+import Review from './Review';
 
 const App = () => {
   const [user, setUser] = React.useState(null);
@@ -32,7 +27,7 @@ const App = () => {
         <Route path="/login" element={<Login onLogin={() => setUser(auth.currentUser)} />} />
         <Route
           path="/"
-          element={user ? <Review /> : <Navigate to="/login" replace />}
+          element={user ? <Review user={user} /> : <Navigate to="/login" replace />}
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
