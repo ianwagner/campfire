@@ -10,6 +10,7 @@ import {
   addDoc,
   onSnapshot,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import { uploadFile } from './uploadFile';
@@ -63,12 +64,14 @@ const AdGroupDetail = () => {
   const markReady = async () => {
     setReadyLoading(true);
     try {
-      await updateDoc(doc(db, 'adGroups', id), { status: 'ready' });
+      const batch = writeBatch(db);
       for (const asset of assets) {
-        await updateDoc(doc(db, 'adGroups', id, 'assets', asset.id), {
+        batch.update(doc(db, 'adGroups', id, 'assets', asset.id), {
           status: 'pending',
         });
       }
+      batch.update(doc(db, 'adGroups', id), { status: 'ready' });
+      await batch.commit();
     } catch (err) {
       console.error('Failed to mark ready', err);
     } finally {
