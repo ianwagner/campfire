@@ -8,7 +8,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyDZ7h9KXAwIvzqFf9gMrMBOJvkMxSMjjRw",
   authDomain: "tak-campfire.firebaseapp.com",
   projectId: "tak-campfire",
-  storageBucket: "tak-campfire.appspot.com", // ✅ fixed this
+  storageBucket: "tak-campfire-main.appspot.com",
   messagingSenderId: "198332728326",
   appId: "1:198332728326:web:d7eec9d577fb30fa916f87"
 };
