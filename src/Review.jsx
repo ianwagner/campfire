@@ -1,3 +1,5 @@
+// © 2025 Studio Tak. All rights reserved.
+// This file is part of a proprietary software project. Do not distribute.
 import React, { useState, useEffect } from 'react';
 import {
   collection,

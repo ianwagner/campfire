@@ -1,3 +1,5 @@
+// © 2025 Studio Tak. All rights reserved.
+// This file is part of a proprietary software project. Do not distribute.
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -23,14 +25,21 @@ const App = () => {
 
   return (
     <Router>
-      <Routes>
-        <Route path="/login" element={<Login onLogin={() => setUser(auth.currentUser)} />} />
-        <Route
-          path="/"
-          element={user ? <Review user={user} /> : <Navigate to="/login" replace />}
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <div className="min-h-screen flex flex-col">
+        <div className="flex-grow">
+          <Routes>
+            <Route path="/login" element={<Login onLogin={() => setUser(auth.currentUser)} />} />
+            <Route
+              path="/"
+              element={user ? <Review user={user} /> : <Navigate to="/login" replace />}
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+        <footer className="text-sm text-gray-400 text-center mt-4">
+          © 2025 Studio Tak. All rights reserved.
+        </footer>
+      </div>
     </Router>
   );
 };
