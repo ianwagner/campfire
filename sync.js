@@ -1,5 +1,18 @@
 const admin = require('firebase-admin');
 const { google } = require('googleapis');
+const fs = require('fs');
+const path = require('path');
+
+// Load variables from .env if present (without external dependencies)
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([^#=]+)\s*=\s*(.*)\s*$/);
+    if (m && !process.env[m[1]]) {
+      process.env[m[1]] = m[2];
+    }
+  }
+}
 
 // Path to the service account key is read from the standard env var
 const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;

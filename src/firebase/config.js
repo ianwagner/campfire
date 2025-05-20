@@ -4,15 +4,17 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // ✅ Fixed: Correct Firebase config
+// Configuration is read from the Vite environment so that sensitive values can
+// be provided via a `.env` file.
 const firebaseConfig = {
-  apiKey: "AIzaSyDZ7h9KXAwIvzqFf9gMrMBOJvkMxSMjjRw",
-  authDomain: "tak-campfire.firebaseapp.com",
-  projectId: "tak-campfire",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   // Bucket is manually created in Google Cloud Storage, not a Firebase-managed
-  // bucket, so omit the .appspot.com suffix.
-  storageBucket: "tak-campfire-main",
-  messagingSenderId: "198332728326",
-  appId: "1:198332728326:web:d7eec9d577fb30fa916f87"
+  // bucket, so omit the `.appspot.com` suffix.
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // ✅ Initialize Firebase
