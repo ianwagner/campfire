@@ -11,11 +11,12 @@ import {
   onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db, storage } from './firebase/config';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db } from './firebase/config';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const AdGroupDetail = () => {
   const { id } = useParams();
+  const storage = getStorage();
   const [group, setGroup] = useState(null);
   const [files, setFiles] = useState([]);
   const [assets, setAssets] = useState([]);
