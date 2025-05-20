@@ -1,21 +1,22 @@
-// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// ✅ Fixed: Correct Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyDZ7h9KXAwIvzqFf9gMrMBOJvkMxSMjjRw",
   authDomain: "tak-campfire.firebaseapp.com",
   projectId: "tak-campfire",
-  storageBucket: "tak-campfire.firebasestorage.app",
+  storageBucket: "tak-campfire.appspot.com", // ✅ fixed this
   messagingSenderId: "198332728326",
-  appId: "1:198332728326:web:d7eec9d577fb30fa916f87",
-  measurementId: "G-HR9YW7Y4H0"
+  appId: "1:198332728326:web:d7eec9d577fb30fa916f87"
 };
 
-// Initialize Firebase
+// ✅ Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+
+// ✅ Export services you'll use
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
