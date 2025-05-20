@@ -12,11 +12,10 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { uploadFile } from './uploadFile';
 
 const AdGroupDetail = () => {
   const { id } = useParams();
-  const storage = getStorage();
   const [group, setGroup] = useState(null);
   const [files, setFiles] = useState([]);
   const [assets, setAssets] = useState([]);
@@ -43,9 +42,7 @@ const AdGroupDetail = () => {
     setUploading(true);
     for (const file of files) {
       try {
-        const storageRef = ref(storage, `adGroups/${id}/${file.name}`);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
+        const url = await uploadFile(file, id);
         await addDoc(collection(db, 'adGroups', id, 'assets'), {
           adGroupId: id,
           filename: file.name,
