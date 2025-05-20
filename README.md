@@ -22,3 +22,26 @@ Google Sheet into Firestore.
 The script reads the `sheetId` field from each document in the `adBatches`
 collection, loads rows from the `Recipes` tab, and writes metadata documents
 under `adBatches/{batchId}/ads`.
+
+## Environment Variables
+
+The React application reads Firebase configuration values from Vite's
+environment. Create a `.env` file in the project root with the following
+variables:
+
+```bash
+VITE_FIREBASE_API_KEY=your-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-auth-domain
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-storage-bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+VITE_FIREBASE_APP_ID=your-app-id
+```
+
+These values correspond to your Firebase project's configuration. Vite will load
+them automatically when running `npm run dev` or `npm run build`.
+
+The `sync.js` utility also reads `GOOGLE_APPLICATION_CREDENTIALS` and
+`FIREBASE_STORAGE_BUCKET` from the environment. If you use a `.env` file, include
+those variables as well so `npm run sync` can locate your service account key and
+bucket.
