@@ -33,6 +33,9 @@ const Review = ({ user }) => {
           }
         });
         setAds(list);
+        console.log('Fetched ads:', list);
+        console.log('Ad length:', list.length);
+        console.log('Current index:', currentIndex);
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
@@ -70,6 +73,10 @@ const Review = ({ user }) => {
 
   if (loading) {
     return <div className="text-center mt-10">Loading...</div>;
+  }
+
+  if (!ads || ads.length === 0) {
+    return <div>No ads assigned to your account.</div>;
   }
 
   if (currentIndex >= ads.length) {
