@@ -7,7 +7,7 @@ import {
   addDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '../src:firebase/src:firebase:config';
+import { db } from './firebase/config';
 
 const Review = ({ user }) => {
   const [ads, setAds] = useState([]);
