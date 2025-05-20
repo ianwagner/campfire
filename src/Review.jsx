@@ -16,6 +16,8 @@ const Review = ({ user }) => {
   const [showComment, setShowComment] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [responses, setResponses] = useState([]);
+  const [secondPass, setSecondPass] = useState(false);
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -53,14 +55,19 @@ const Review = ({ user }) => {
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
     setSubmitting(true);
+    const respObj = {
+      adUrl: currentAd,
+      response: responseType,
+      comment: responseType === 'edit' ? comment : '',
+      pass: secondPass ? 'second' : 'initial',
+    };
     try {
       await addDoc(collection(db, 'responses'), {
         clientId: user.uid,
-        adUrl: currentAd,
-        response: responseType,
-        comment: responseType === 'edit' ? comment : '',
+        ...respObj,
         timestamp: serverTimestamp(),
       });
+      setResponses((prev) => [...prev, respObj]);
       setComment('');
       setShowComment(false);
       setCurrentIndex((i) => i + 1);
@@ -80,16 +87,40 @@ const Review = ({ user }) => {
   }
 
   if (currentIndex >= ads.length) {
+    const rejectedAds = responses
+      .filter((r) => r.response === 'reject')
+      .map((r) => r.adUrl);
+
+    const handleReviewRejected = () => {
+      setAds(rejectedAds);
+      setCurrentIndex(0);
+      setSecondPass(true);
+      setResponses([]);
+    };
+
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
         <h2 className="text-2xl">Thank you for your feedback!</h2>
+        <p>You reviewed {responses.length} ads.</p>
+        {!secondPass && rejectedAds.length > 0 && (
+          <button
+            onClick={handleReviewRejected}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Review Rejected Ads
+          </button>
+        )}
       </div>
     );
   }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
-      <img src={currentAd} alt="Ad" className="max-w-full h-auto" />
+      <img
+        src={currentAd}
+        alt="Ad"
+        className="max-w-full max-h-[80vh] mx-auto rounded shadow"
+      />
       <div className="space-x-2">
         <button
           onClick={() => submitResponse('approve')}
