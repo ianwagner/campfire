@@ -100,13 +100,36 @@ const AdGroupDetail = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {assets.map((a) => (
-          <div key={a.id} className="border rounded p-2 flex flex-col items-center">
-            <img src={a.firebaseUrl} alt={a.filename} className="w-full h-32 object-cover mb-2" />
-            <p className="text-xs break-words text-center">{a.filename}</p>
-          </div>
-        ))}
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="px-2 py-1 text-left">Filename</th>
+              <th className="px-2 py-1 text-left">Status</th>
+              <th className="px-2 py-1 text-left">Comment</th>
+              <th className="px-2 py-1 text-left">&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody>
+            {assets.map((a) => (
+              <tr key={a.id} className="border-b">
+                <td className="px-2 py-1 break-all">{a.filename}</td>
+                <td className="px-2 py-1">{a.status}</td>
+                <td className="px-2 py-1">{a.comment || '-'}</td>
+                <td className="px-2 py-1">
+                  <a
+                    href={a.firebaseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    View
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div className="mt-6">
