@@ -6,8 +6,11 @@ import {
   getDocs,
   query,
   where,
+  doc,
+  deleteDoc,
 } from 'firebase/firestore';
-import { auth, db } from './firebase/config';
+import { listAll, ref, deleteObject } from 'firebase/storage';
+import { auth, db, storage } from './firebase/config';
 import CreateAdGroup from './CreateAdGroup';
 
 const DesignerDashboard = () => {
@@ -56,6 +59,41 @@ const DesignerDashboard = () => {
     fetchGroups();
   }, []);
 
+  const deleteGroup = async (groupId) => {
+    if (!window.confirm('Delete this group?')) return;
+    try {
+      const assetSnap = await getDocs(
+        collection(db, 'adGroups', groupId, 'assets')
+      );
+      await Promise.all(
+        assetSnap.docs.map((d) =>
+          deleteDoc(doc(db, 'adGroups', groupId, 'assets', d.id))
+        )
+      );
+
+      const crossQuery = query(
+        collection(db, 'adAssets'),
+        where('adGroupId', '==', groupId)
+      );
+      const crossSnap = await getDocs(crossQuery);
+      await Promise.all(
+        crossSnap.docs.map((d) => deleteDoc(doc(db, 'adAssets', d.id)))
+      );
+
+      const removeFolder = async (folderRef) => {
+        const res = await listAll(folderRef);
+        await Promise.all(res.items.map((i) => deleteObject(i)));
+        await Promise.all(res.prefixes.map((p) => removeFolder(p)));
+      };
+      await removeFolder(ref(storage, `adGroups/${groupId}`));
+
+      await deleteDoc(doc(db, 'adGroups', groupId));
+      setGroups((prev) => prev.filter((g) => g.id !== groupId));
+    } catch (err) {
+      console.error('Failed to delete group', err);
+    }
+  };
+
   return (
     <div className="p-4">
       <div className="flex justify-between items-start">
@@ -103,6 +141,12 @@ const DesignerDashboard = () => {
                     >
                       View Details
                     </Link>
+                    <button
+                      onClick={() => deleteGroup(g.id)}
+                      className="ml-2 text-red-600 underline"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
