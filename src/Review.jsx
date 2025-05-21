@@ -11,6 +11,7 @@ import {
   doc,
   updateDoc,
   arrayUnion,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 
@@ -153,7 +154,7 @@ const Review = ({ user, brandCodes = [] }) => {
           history: arrayUnion({
             userId: user.uid,
             action: newStatus,
-            timestamp: serverTimestamp(),
+            timestamp: Timestamp.now(),
           }),
           ...(responseType === 'approve' ? { isResolved: true } : {}),
           ...(responseType === 'edit' ? { isResolved: false } : {}),
