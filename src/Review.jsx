@@ -131,26 +131,63 @@ const Review = ({ user, brandCodes = [] }) => {
         timestamp: serverTimestamp(),
       });
       if (currentAd.assetId && currentAd.adGroupId) {
+        const assetRef = doc(
+          db,
+          'adGroups',
+          currentAd.adGroupId,
+          'assets',
+          currentAd.assetId
+        );
         const newStatus =
           responseType === 'approve'
             ? 'approved'
             : responseType === 'reject'
             ? 'rejected'
             : 'edit_requested';
-        await updateDoc(
-          doc(db, 'adGroups', currentAd.adGroupId, 'assets', currentAd.assetId),
-          {
-            status: newStatus,
-            comment: responseType === 'edit' ? comment : '',
-            lastUpdatedBy: user.uid,
+
+        const updateData = {
+          status: newStatus,
+          comment: responseType === 'edit' ? comment : '',
+          lastUpdatedBy: user.uid,
+          lastUpdatedAt: serverTimestamp(),
+          history: arrayUnion({
+            userId: user.uid,
+            action: newStatus,
+            timestamp: serverTimestamp(),
+          }),
+          ...(responseType === 'approve' ? { isResolved: true } : {}),
+          ...(responseType === 'edit' ? { isResolved: false } : {}),
+        };
+
+        await updateDoc(assetRef, updateData);
+
+        if (responseType === 'edit') {
+          await addDoc(collection(db, 'adGroups', currentAd.adGroupId, 'assets'), {
+            adGroupId: currentAd.adGroupId,
+            filename: currentAd.filename || '',
+            firebaseUrl: '',
+            uploadedAt: null,
+            status: 'new',
+            comment: null,
+            lastUpdatedBy: null,
             lastUpdatedAt: serverTimestamp(),
-            history: arrayUnion({
-              userId: user.uid,
-              action: newStatus,
-              timestamp: serverTimestamp(),
-            }),
-          }
-        );
+            history: [],
+            version: (currentAd.version || 1) + 1,
+            parentAdId: currentAd.assetId,
+            isResolved: false,
+          });
+        } else if (responseType === 'approve' && currentAd.parentAdId) {
+          await updateDoc(
+            doc(
+              db,
+              'adGroups',
+              currentAd.adGroupId,
+              'assets',
+              currentAd.parentAdId
+            ),
+            { isResolved: true }
+          );
+        }
       }
       setResponses((prev) => ({ ...prev, [adUrl]: respObj }));
       setComment('');

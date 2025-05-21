@@ -24,6 +24,8 @@ const AdGroupDetail = () => {
   const [assets, setAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
+  const [versionFiles, setVersionFiles] = useState({});
+  const [versionUploading, setVersionUploading] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -56,6 +58,9 @@ const AdGroupDetail = () => {
           lastUpdatedBy: null,
           lastUpdatedAt: serverTimestamp(),
           history: [],
+          version: 1,
+          parentAdId: null,
+          isResolved: false,
         });
       } catch (err) {
         console.error('Upload failed', err);
@@ -63,6 +68,29 @@ const AdGroupDetail = () => {
     }
     setFiles([]);
     setUploading(false);
+  };
+
+  const uploadVersion = async (assetId) => {
+    const file = versionFiles[assetId];
+    if (!file) return;
+    setVersionUploading(assetId);
+    try {
+      const url = await uploadFile(file, id);
+      await updateDoc(doc(db, 'adGroups', id, 'assets', assetId), {
+        filename: file.name,
+        firebaseUrl: url,
+        uploadedAt: serverTimestamp(),
+      });
+      setVersionFiles((prev) => {
+        const obj = { ...prev };
+        delete obj[assetId];
+        return obj;
+      });
+    } catch (err) {
+      console.error('Failed to upload version', err);
+    } finally {
+      setVersionUploading(null);
+    }
   };
 
   const markReady = async () => {
@@ -139,10 +167,11 @@ const AdGroupDetail = () => {
           <thead>
             <tr className="border-b">
               <th className="px-2 py-1 text-left">Filename</th>
+              <th className="px-2 py-1 text-left">Version</th>
               <th className="px-2 py-1 text-left">Status</th>
               <th className="px-2 py-1 text-left">Last Updated</th>
               <th className="px-2 py-1 text-left">Comment</th>
-              <th className="px-2 py-1 text-left">&nbsp;</th>
+              <th className="px-2 py-1 text-left">Upload</th>
               <th className="px-2 py-1 text-left">Delete</th>
             </tr>
           </thead>
@@ -151,6 +180,7 @@ const AdGroupDetail = () => {
               <React.Fragment key={a.id}>
               <tr className="border-b">
                 <td className="px-2 py-1 break-all">{a.filename}</td>
+                <td className="px-2 py-1 text-center">{a.version || 1}</td>
                 <td className="px-2 py-1">{a.status}</td>
                 <td className="px-2 py-1">
                   {a.lastUpdatedAt?.toDate
@@ -159,14 +189,35 @@ const AdGroupDetail = () => {
                 </td>
                 <td className="px-2 py-1">{a.comment || '-'}</td>
                 <td className="px-2 py-1">
-                  <a
-                    href={a.firebaseUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
-                  >
-                    View
-                  </a>
+                  {a.status === 'new' ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="file"
+                        onChange={(e) =>
+                          setVersionFiles((prev) => ({
+                            ...prev,
+                            [a.id]: e.target.files[0],
+                          }))
+                        }
+                      />
+                      <button
+                        onClick={() => uploadVersion(a.id)}
+                        disabled={!versionFiles[a.id] || versionUploading === a.id}
+                        className="px-2 py-1 bg-blue-500 text-white rounded"
+                      >
+                        {versionUploading === a.id ? 'Uploading...' : 'Save'}
+                      </button>
+                    </div>
+                  ) : (
+                    <a
+                      href={a.firebaseUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      View
+                    </a>
+                  )}
                 </td>
                 <td className="px-2 py-1 text-center">
                   <button
@@ -179,7 +230,7 @@ const AdGroupDetail = () => {
               </tr>
               {Array.isArray(a.history) && a.history.length > 0 && (
                 <tr className="border-b text-xs bg-gray-50">
-                  <td colSpan="6" className="px-2 py-1">
+                  <td colSpan="7" className="px-2 py-1">
                     {a.history.map((h, idx) => (
                       <div key={idx} className="mb-1">
                         {h.timestamp?.toDate
