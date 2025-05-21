@@ -30,12 +30,20 @@ const Review = ({ user, brandCodes = [] }) => {
         );
         const snapshot = await getDocs(q);
         const list = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          if (Array.isArray(data.ads)) {
-            list.push(...data.ads);
+        for (const batchDoc of snapshot.docs) {
+          const adsSnap = await getDocs(
+            collection(db, 'adBatches', batchDoc.id, 'ads')
+          );
+          for (const adDoc of adsSnap.docs) {
+            const adData = adDoc.data();
+            list.push({
+              ...adData,
+              ...(batchDoc.data().brandCode
+                ? { brandCode: batchDoc.data().brandCode }
+                : {}),
+            });
           }
-        });
+        }
         setAds(list);
         console.log('Fetched ads:', list);
         console.log('Ad length:', list.length);
