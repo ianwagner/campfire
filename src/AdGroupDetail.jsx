@@ -24,7 +24,6 @@ const AdGroupDetail = () => {
   const [assets, setAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
-  const [versionFiles, setVersionFiles] = useState({});
   const [versionUploading, setVersionUploading] = useState(null);
 
   useEffect(() => {
@@ -70,8 +69,7 @@ const AdGroupDetail = () => {
     setUploading(false);
   };
 
-  const uploadVersion = async (assetId) => {
-    const file = versionFiles[assetId];
+  const uploadVersion = async (assetId, file) => {
     if (!file) return;
     setVersionUploading(assetId);
     try {
@@ -80,11 +78,6 @@ const AdGroupDetail = () => {
         filename: file.name,
         firebaseUrl: url,
         uploadedAt: serverTimestamp(),
-      });
-      setVersionFiles((prev) => {
-        const obj = { ...prev };
-        delete obj[assetId];
-        return obj;
       });
     } catch (err) {
       console.error('Failed to upload version', err);
@@ -193,20 +186,18 @@ const AdGroupDetail = () => {
                     <div className="flex items-center space-x-2">
                       <input
                         type="file"
-                        onChange={(e) =>
-                          setVersionFiles((prev) => ({
-                            ...prev,
-                            [a.id]: e.target.files[0],
-                          }))
-                        }
+                        onChange={(e) => {
+                          const f = e.target.files[0];
+                          if (f) {
+                            uploadVersion(a.id, f);
+                          }
+                        }}
                       />
-                      <button
-                        onClick={() => uploadVersion(a.id)}
-                        disabled={!versionFiles[a.id] || versionUploading === a.id}
-                        className="px-2 py-1 bg-blue-500 text-white rounded"
-                      >
-                        {versionUploading === a.id ? 'Uploading...' : 'Save'}
-                      </button>
+                      {versionUploading === a.id ? (
+                        <span className="text-sm text-gray-600">Uploading...</span>
+                      ) : a.firebaseUrl ? (
+                        <span className="text-sm text-green-600">Uploaded</span>
+                      ) : null}
                     </div>
                   ) : (
                     <a
