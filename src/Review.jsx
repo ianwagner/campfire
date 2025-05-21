@@ -20,6 +20,7 @@ const Review = ({ user, brandCodes = [] }) => {
   const [submitting, setSubmitting] = useState(false);
   const [responses, setResponses] = useState([]);
   const [secondPass, setSecondPass] = useState(false);
+  const [groupResults, setGroupResults] = useState({});
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -65,6 +66,8 @@ const Review = ({ user, brandCodes = [] }) => {
               ...(groupDoc.data().brandCode
                 ? { brandCode: groupDoc.data().brandCode }
                 : {}),
+              adGroupId: groupDoc.id,
+              adGroupName: groupDoc.data().name || 'Untitled',
             }));
           })
         );
@@ -111,6 +114,25 @@ const Review = ({ user, brandCodes = [] }) => {
         timestamp: serverTimestamp(),
       });
       setResponses((prev) => [...prev, respObj]);
+      if (currentAd.adGroupId) {
+        setGroupResults((prev) => {
+          const existing = prev[currentAd.adGroupId] || {
+            id: currentAd.adGroupId,
+            name: currentAd.adGroupName || 'Untitled',
+            thumbnail: currentAd.firebaseUrl || adUrl,
+            approved: 0,
+          };
+          return {
+            ...prev,
+            [currentAd.adGroupId]: {
+              ...existing,
+              thumbnail: existing.thumbnail || currentAd.firebaseUrl || adUrl,
+              approved:
+                existing.approved + (responseType === 'approve' ? 1 : 0),
+            },
+          };
+        });
+      }
       setComment('');
       setShowComment(false);
       setCurrentIndex((i) => i + 1);
@@ -144,7 +166,21 @@ const Review = ({ user, brandCodes = [] }) => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
         <h2 className="text-2xl">Thank you for your feedback!</h2>
-        <p>You reviewed {responses.length} ads.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full max-w-4xl">
+          {Object.values(groupResults).map((g) => (
+            <div key={g.id} className="border rounded shadow p-4 flex flex-col items-center">
+              {g.thumbnail && (
+                <img
+                  src={g.thumbnail}
+                  alt={g.name}
+                  className="w-full h-32 object-cover mb-2 rounded"
+                />
+              )}
+              <h3 className="font-semibold mb-1 text-center">{g.name}</h3>
+              <p className="text-sm">Approved: {g.approved}</p>
+            </div>
+          ))}
+        </div>
         {!secondPass && rejectedAds.length > 0 && (
           <button
             onClick={handleReviewRejected}
