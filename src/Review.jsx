@@ -14,14 +14,14 @@ import {
 import { db } from './firebase/config';
 
 const Review = ({ user, brandCodes = [] }) => {
-  const [ads, setAds] = useState([]);
+  const [ads, setAds] = useState([]); // full list of ads
+  const [reviewAds, setReviewAds] = useState([]); // ads being reviewed in the current pass
   const [currentIndex, setCurrentIndex] = useState(0);
   const [comment, setComment] = useState('');
   const [showComment, setShowComment] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [responses, setResponses] = useState([]);
-  const [secondPass, setSecondPass] = useState(false);
+  const [responses, setResponses] = useState({}); // map of adUrl -> response object
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -76,6 +76,7 @@ const Review = ({ user, brandCodes = [] }) => {
 
         const list = [...adsPerBatch.flat(), ...adsPerGroup.flat()];
         setAds(list);
+        setReviewAds(list);
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
@@ -85,6 +86,7 @@ const Review = ({ user, brandCodes = [] }) => {
 
     if (!user?.uid || brandCodes.length === 0) {
       setAds([]);
+      setReviewAds([]);
       setLoading(false);
       return;
     }
@@ -92,7 +94,7 @@ const Review = ({ user, brandCodes = [] }) => {
     fetchAds();
   }, [user, brandCodes]);
 
-  const currentAd = ads[currentIndex];
+  const currentAd = reviewAds[currentIndex];
   const adUrl =
     currentAd && typeof currentAd === 'object'
       ? currentAd.adUrl || currentAd.firebaseUrl
@@ -101,6 +103,7 @@ const Review = ({ user, brandCodes = [] }) => {
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
     currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
+  const selectedResponse = responses[adUrl]?.response;
 
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
@@ -109,7 +112,7 @@ const Review = ({ user, brandCodes = [] }) => {
       adUrl,
       response: responseType,
       comment: responseType === 'edit' ? comment : '',
-      pass: secondPass ? 'second' : 'initial',
+      pass: responses[adUrl] ? 'revisit' : 'initial',
       ...(brandCode ? { brandCode } : {}),
       ...(groupName ? { groupName } : {}),
     };
@@ -133,7 +136,7 @@ const Review = ({ user, brandCodes = [] }) => {
           }
         );
       }
-      setResponses((prev) => [...prev, respObj]);
+      setResponses((prev) => ({ ...prev, [adUrl]: respObj }));
       setComment('');
       setShowComment(false);
       setCurrentIndex((i) => i + 1);
@@ -152,28 +155,33 @@ const Review = ({ user, brandCodes = [] }) => {
     return <div>No ads assigned to your account.</div>;
   }
 
-  if (currentIndex >= ads.length) {
-    const rejectedAds = responses
-      .filter((r) => r.response === 'reject')
-      .map((r) => r.adUrl);
-
-    const groupSummary = responses.reduce((acc, r) => {
+  if (currentIndex >= reviewAds.length) {
+    const allResponses = Object.values(responses);
+    const approvedCount = allResponses.filter((r) => r.response === 'approve').length;
+    const rejectedAds = ads.filter((a) => {
+      const url = a.adUrl || a.firebaseUrl;
+      return responses[url]?.response === 'reject';
+    });
+    const groupSummary = allResponses.reduce((acc, r) => {
       if (!r.groupName) return acc;
       acc[r.groupName] = (acc[r.groupName] || 0) + 1;
       return acc;
     }, {});
 
     const handleReviewRejected = () => {
-      setAds(rejectedAds);
+      setReviewAds(rejectedAds);
       setCurrentIndex(0);
-      setSecondPass(true);
-      setResponses([]);
+    };
+
+    const handleReviewAll = () => {
+      setReviewAds(ads);
+      setCurrentIndex(0);
     };
 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
         <h2 className="text-2xl">Thank you for your feedback!</h2>
-        <p>You reviewed {responses.length} ads.</p>
+        <p>You approved {approvedCount}/{ads.length} ads.</p>
         {Object.keys(groupSummary).length > 0 && (
           <table className="min-w-full text-sm mt-2">
             <thead>
@@ -192,14 +200,20 @@ const Review = ({ user, brandCodes = [] }) => {
             </tbody>
           </table>
         )}
-        {!secondPass && rejectedAds.length > 0 && (
+        {rejectedAds.length > 0 && (
           <button
             onClick={handleReviewRejected}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           >
-            Review Rejected Ads
+            See Rejected Ads
           </button>
         )}
+        <button
+          onClick={handleReviewAll}
+          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+        >
+          See All
+        </button>
       </div>
     );
   }
@@ -214,21 +228,21 @@ const Review = ({ user, brandCodes = [] }) => {
       <div className="space-x-2">
         <button
           onClick={() => submitResponse('approve')}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+          className={`px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
           disabled={submitting}
         >
           Approve
         </button>
         <button
           onClick={() => submitResponse('reject')}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+          className={`px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
           disabled={submitting}
         >
           Reject
         </button>
         <button
           onClick={() => setShowComment(true)}
-          className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+          className={`px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
           disabled={submitting}
         >
           Request Edit
