@@ -45,3 +45,18 @@ The `sync.js` utility also reads `GOOGLE_APPLICATION_CREDENTIALS` and
 `FIREBASE_STORAGE_BUCKET` from the environment. If you use a `.env` file, include
 those variables as well so `npm run sync` can locate your service account key and
 bucket.
+
+## Deploying to Vercel
+
+When hosting on Vercel the application runs entirely in the browser. Client-side
+routes therefore need a rewrite so any URL renders the app's `index.html`.
+Create a `vercel.json` file with the following contents:
+
+```json
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
+
+Without this rule Vercel would serve 404 pages for client-side routes. The
+rewrite ensures navigation works correctly.
