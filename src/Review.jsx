@@ -29,21 +29,22 @@ const Review = ({ user, brandCodes = [] }) => {
           where('brandCode', 'in', brandCodes)
         );
         const snapshot = await getDocs(q);
-        const list = [];
-        for (const batchDoc of snapshot.docs) {
-          const adsSnap = await getDocs(
-            collection(db, 'adBatches', batchDoc.id, 'ads')
-          );
-          for (const adDoc of adsSnap.docs) {
-            const adData = adDoc.data();
-            list.push({
-              ...adData,
+
+        const adsPerBatch = await Promise.all(
+          snapshot.docs.map(async (batchDoc) => {
+            const adsSnap = await getDocs(
+              collection(db, 'adBatches', batchDoc.id, 'ads')
+            );
+            return adsSnap.docs.map((adDoc) => ({
+              ...adDoc.data(),
               ...(batchDoc.data().brandCode
                 ? { brandCode: batchDoc.data().brandCode }
                 : {}),
-            });
-          }
-        }
+            }));
+          })
+        );
+
+        const list = adsPerBatch.flat();
         setAds(list);
         console.log('Fetched ads:', list);
         console.log('Ad length:', list.length);
