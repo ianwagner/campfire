@@ -46,9 +46,6 @@ const Review = ({ user, brandCodes = [] }) => {
 
         const list = adsPerBatch.flat();
         setAds(list);
-        console.log('Fetched ads:', list);
-        console.log('Ad length:', list.length);
-        console.log('Current index:', currentIndex);
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
