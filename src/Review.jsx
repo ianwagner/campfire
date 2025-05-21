@@ -24,14 +24,14 @@ const Review = ({ user, brandCodes = [] }) => {
   useEffect(() => {
     const fetchAds = async () => {
       try {
-        const q = query(
+        const batchQuery = query(
           collection(db, 'adBatches'),
           where('brandCode', 'in', brandCodes)
         );
-        const snapshot = await getDocs(q);
+        const batchSnap = await getDocs(batchQuery);
 
         const adsPerBatch = await Promise.all(
-          snapshot.docs.map(async (batchDoc) => {
+          batchSnap.docs.map(async (batchDoc) => {
             const adsSnap = await getDocs(
               collection(db, 'adBatches', batchDoc.id, 'ads')
             );
@@ -44,7 +44,32 @@ const Review = ({ user, brandCodes = [] }) => {
           })
         );
 
-        const list = adsPerBatch.flat();
+        const groupQuery = query(
+          collection(db, 'adGroups'),
+          where('brandCode', 'in', brandCodes),
+          where('status', '==', 'ready')
+        );
+        const groupSnap = await getDocs(groupQuery);
+
+        const adsPerGroup = await Promise.all(
+          groupSnap.docs.map(async (groupDoc) => {
+            const assetsSnap = await getDocs(
+              query(
+                collection(db, 'adGroups', groupDoc.id, 'assets'),
+                where('status', '==', 'pending')
+              )
+            );
+            return assetsSnap.docs.map((assetDoc) => ({
+              ...assetDoc.data(),
+              firebaseUrl: assetDoc.data().firebaseUrl,
+              ...(groupDoc.data().brandCode
+                ? { brandCode: groupDoc.data().brandCode }
+                : {}),
+            }));
+          })
+        );
+
+        const list = [...adsPerBatch.flat(), ...adsPerGroup.flat()];
         setAds(list);
       } catch (err) {
         console.error('Failed to load ads', err);
@@ -64,7 +89,9 @@ const Review = ({ user, brandCodes = [] }) => {
 
   const currentAd = ads[currentIndex];
   const adUrl =
-    currentAd && typeof currentAd === 'object' ? currentAd.adUrl : currentAd;
+    currentAd && typeof currentAd === 'object'
+      ? currentAd.adUrl || currentAd.firebaseUrl
+      : currentAd;
   const brandCode =
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
 
