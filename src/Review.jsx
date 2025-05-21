@@ -19,6 +19,11 @@ const Review = ({ user, brandCodes = [] }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [comment, setComment] = useState('');
   const [showComment, setShowComment] = useState(false);
+  const [clientNote, setClientNote] = useState('');
+  const [showClientNote, setShowClientNote] = useState(false);
+  const [noteSubmitting, setNoteSubmitting] = useState(false);
+  const [rejectionStreak, setRejectionStreak] = useState(0);
+  const [showStreakModal, setShowStreakModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
@@ -143,10 +148,41 @@ const Review = ({ user, brandCodes = [] }) => {
       setComment('');
       setShowComment(false);
       setCurrentIndex((i) => i + 1);
+      if (responseType === 'reject') {
+        const newStreak = rejectionStreak + 1;
+        setRejectionStreak(newStreak);
+        if (newStreak >= 5) {
+          setShowStreakModal(true);
+        }
+      } else {
+        setRejectionStreak(0);
+      }
     } catch (err) {
       console.error('Failed to submit response', err);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const submitNote = async () => {
+    if (!currentAd?.adGroupId) {
+      setShowClientNote(false);
+      setClientNote('');
+      return;
+    }
+    setNoteSubmitting(true);
+    try {
+      await updateDoc(doc(db, 'adGroups', currentAd.adGroupId), {
+        clientNote: clientNote.trim(),
+        clientNoteTimestamp: serverTimestamp(),
+        hasClientNote: true,
+      });
+    } catch (err) {
+      console.error('Failed to submit note', err);
+    } finally {
+      setNoteSubmitting(false);
+      setClientNote('');
+      setShowClientNote(false);
     }
   };
 
@@ -223,6 +259,34 @@ const Review = ({ user, brandCodes = [] }) => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+      {showStreakModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-sm">
+            <p className="mb-4">Oops, 5 in a row! Drop a note and we’ll regroup?</p>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowStreakModal(false);
+                  setShowClientNote(true);
+                  setRejectionStreak(0);
+                }}
+                className="px-3 py-1 bg-blue-600 text-white rounded"
+              >
+                Drop a note and pause
+              </button>
+              <button
+                onClick={() => {
+                  setShowStreakModal(false);
+                  setRejectionStreak(0);
+                }}
+                className="px-3 py-1 bg-gray-400 text-white rounded"
+              >
+                Keep reviewing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <img
         src={adUrl}
         alt="Ad"
@@ -267,6 +331,35 @@ const Review = ({ user, brandCodes = [] }) => {
           >
             Submit
           </button>
+        </div>
+      )}
+      {showClientNote && (
+        <div className="flex flex-col items-center space-y-2 w-full max-w-sm">
+          <textarea
+            value={clientNote}
+            onChange={(e) => setClientNote(e.target.value)}
+            className="w-full p-2 border rounded"
+            rows={3}
+            placeholder="Leave a note for the designer..."
+          />
+          <div className="space-x-2">
+            <button
+              onClick={submitNote}
+              disabled={noteSubmitting}
+              className="px-4 py-2 bg-blue-500 text-white rounded"
+            >
+              Submit Note
+            </button>
+            <button
+              onClick={() => {
+                setShowClientNote(false);
+                setClientNote('');
+              }}
+              className="px-4 py-2 bg-gray-300 rounded"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
     </div>

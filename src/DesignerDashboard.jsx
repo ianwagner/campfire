@@ -16,6 +16,7 @@ import CreateAdGroup from './CreateAdGroup';
 const DesignerDashboard = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [viewNote, setViewNote] = useState(null);
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -122,6 +123,7 @@ const DesignerDashboard = () => {
                 <th className="border px-2 py-1">Approved</th>
                 <th className="border px-2 py-1">Rejected</th>
                 <th className="border px-2 py-1">Edit</th>
+                <th className="border px-2 py-1">Note</th>
                 <th className="border px-2 py-1">Actions</th>
               </tr>
             </thead>
@@ -134,6 +136,21 @@ const DesignerDashboard = () => {
                   <td className="border px-2 py-1 text-center">{g.counts.approved}</td>
                   <td className="border px-2 py-1 text-center">{g.counts.rejected}</td>
                   <td className="border px-2 py-1 text-center">{g.counts.edit}</td>
+                  <td className="border px-2 py-1 text-center">
+                    {g.clientNote ? (
+                      <>
+                        <span className="text-sm text-red-600 italic">Note left by client</span>
+                        <button
+                          onClick={() => setViewNote(g.clientNote)}
+                          className="ml-2 text-blue-500 underline"
+                        >
+                          View Note
+                        </button>
+                      </>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
                   <td className="border px-2 py-1 text-center">
                     <Link
                       to={`/ad-group/${g.id}`}
@@ -156,6 +173,19 @@ const DesignerDashboard = () => {
       </div>
 
       <CreateAdGroup />
+      {viewNote && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-sm">
+            <p className="mb-4 whitespace-pre-wrap">{viewNote}</p>
+            <button
+              onClick={() => setViewNote(null)}
+              className="px-3 py-1 bg-blue-600 text-white rounded"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
