@@ -11,8 +11,10 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
+  deleteDoc,
 } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { deleteObject, ref } from 'firebase/storage';
+import { db, storage } from './firebase/config';
 import { uploadFile } from './uploadFile';
 
 const AdGroupDetail = () => {
@@ -79,6 +81,33 @@ const AdGroupDetail = () => {
     }
   };
 
+  const deleteAsset = async (asset) => {
+    const confirmDelete = window.confirm('Delete this asset?');
+    if (!confirmDelete) return;
+    try {
+      await deleteDoc(doc(db, 'adGroups', id, 'assets', asset.id));
+      try {
+        await deleteDoc(doc(db, 'adAssets', asset.id));
+      } catch (err) {
+        // optional root doc may not exist
+      }
+      if (asset.filename || asset.firebaseUrl) {
+        try {
+          const fileRef = ref(
+            storage,
+            asset.firebaseUrl || `adGroups/${id}/${asset.filename}`
+          );
+          await deleteObject(fileRef);
+        } catch (err) {
+          console.error('Failed to delete storage file', err);
+        }
+      }
+      setAssets((prev) => prev.filter((a) => a.id !== asset.id));
+    } catch (err) {
+      console.error('Failed to delete asset', err);
+    }
+  };
+
   if (!group) {
     return <div className="text-center mt-10">Loading...</div>;
   }
@@ -108,6 +137,7 @@ const AdGroupDetail = () => {
               <th className="px-2 py-1 text-left">Status</th>
               <th className="px-2 py-1 text-left">Comment</th>
               <th className="px-2 py-1 text-left">&nbsp;</th>
+              <th className="px-2 py-1 text-left">Delete</th>
             </tr>
           </thead>
           <tbody>
@@ -125,6 +155,14 @@ const AdGroupDetail = () => {
                   >
                     View
                   </a>
+                </td>
+                <td className="px-2 py-1 text-center">
+                  <button
+                    onClick={() => deleteAsset(a)}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    🗑️
+                  </button>
                 </td>
               </tr>
             ))}
