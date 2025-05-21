@@ -10,6 +10,7 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
+  arrayUnion,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 
@@ -130,17 +131,24 @@ const Review = ({ user, brandCodes = [] }) => {
         timestamp: serverTimestamp(),
       });
       if (currentAd.assetId && currentAd.adGroupId) {
+        const newStatus =
+          responseType === 'approve'
+            ? 'approved'
+            : responseType === 'reject'
+            ? 'rejected'
+            : 'edit_requested';
         await updateDoc(
           doc(db, 'adGroups', currentAd.adGroupId, 'assets', currentAd.assetId),
           {
-            status:
-              responseType === 'approve'
-                ? 'approved'
-                : responseType === 'reject'
-                ? 'rejected'
-                : 'edit',
+            status: newStatus,
             comment: responseType === 'edit' ? comment : '',
-            reviewedBy: user.uid,
+            lastUpdatedBy: user.uid,
+            lastUpdatedAt: serverTimestamp(),
+            history: arrayUnion({
+              userId: user.uid,
+              action: newStatus,
+              timestamp: serverTimestamp(),
+            }),
           }
         );
       }

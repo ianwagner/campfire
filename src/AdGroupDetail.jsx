@@ -52,8 +52,10 @@ const AdGroupDetail = () => {
           firebaseUrl: url,
           uploadedAt: serverTimestamp(),
           status: 'draft',
-          reviewedBy: null,
           comment: null,
+          lastUpdatedBy: null,
+          lastUpdatedAt: serverTimestamp(),
+          history: [],
         });
       } catch (err) {
         console.error('Upload failed', err);
@@ -70,6 +72,9 @@ const AdGroupDetail = () => {
       for (const asset of assets) {
         batch.update(doc(db, 'adGroups', id, 'assets', asset.id), {
           status: 'pending',
+          lastUpdatedBy: null,
+          lastUpdatedAt: serverTimestamp(),
+          history: [],
         });
       }
       batch.update(doc(db, 'adGroups', id), { status: 'ready' });
@@ -135,6 +140,7 @@ const AdGroupDetail = () => {
             <tr className="border-b">
               <th className="px-2 py-1 text-left">Filename</th>
               <th className="px-2 py-1 text-left">Status</th>
+              <th className="px-2 py-1 text-left">Last Updated</th>
               <th className="px-2 py-1 text-left">Comment</th>
               <th className="px-2 py-1 text-left">&nbsp;</th>
               <th className="px-2 py-1 text-left">Delete</th>
@@ -142,9 +148,15 @@ const AdGroupDetail = () => {
           </thead>
           <tbody>
             {assets.map((a) => (
-              <tr key={a.id} className="border-b">
+              <React.Fragment key={a.id}>
+              <tr className="border-b">
                 <td className="px-2 py-1 break-all">{a.filename}</td>
                 <td className="px-2 py-1">{a.status}</td>
+                <td className="px-2 py-1">
+                  {a.lastUpdatedAt?.toDate
+                    ? a.lastUpdatedAt.toDate().toLocaleString()
+                    : '-'}
+                </td>
                 <td className="px-2 py-1">{a.comment || '-'}</td>
                 <td className="px-2 py-1">
                   <a
@@ -165,6 +177,21 @@ const AdGroupDetail = () => {
                   </button>
                 </td>
               </tr>
+              {Array.isArray(a.history) && a.history.length > 0 && (
+                <tr className="border-b text-xs bg-gray-50">
+                  <td colSpan="6" className="px-2 py-1">
+                    {a.history.map((h, idx) => (
+                      <div key={idx} className="mb-1">
+                        {h.timestamp?.toDate
+                          ? h.timestamp.toDate().toLocaleString()
+                          : ''}{' '}
+                        - {h.userId}: {h.action}
+                      </div>
+                    ))}
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
