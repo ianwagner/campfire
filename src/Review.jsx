@@ -99,6 +99,8 @@ const Review = ({ user, brandCodes = [] }) => {
       : currentAd;
   const brandCode =
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
+  const groupName =
+    currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
 
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
@@ -109,6 +111,7 @@ const Review = ({ user, brandCodes = [] }) => {
       comment: responseType === 'edit' ? comment : '',
       pass: secondPass ? 'second' : 'initial',
       ...(brandCode ? { brandCode } : {}),
+      ...(groupName ? { groupName } : {}),
     };
     try {
       await addDoc(collection(db, 'responses'), {
@@ -154,6 +157,12 @@ const Review = ({ user, brandCodes = [] }) => {
       .filter((r) => r.response === 'reject')
       .map((r) => r.adUrl);
 
+    const groupSummary = responses.reduce((acc, r) => {
+      if (!r.groupName) return acc;
+      acc[r.groupName] = (acc[r.groupName] || 0) + 1;
+      return acc;
+    }, {});
+
     const handleReviewRejected = () => {
       setAds(rejectedAds);
       setCurrentIndex(0);
@@ -165,6 +174,24 @@ const Review = ({ user, brandCodes = [] }) => {
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
         <h2 className="text-2xl">Thank you for your feedback!</h2>
         <p>You reviewed {responses.length} ads.</p>
+        {Object.keys(groupSummary).length > 0 && (
+          <table className="min-w-full text-sm mt-2">
+            <thead>
+              <tr className="border-b">
+                <th className="px-2 py-1 text-left">Group</th>
+                <th className="px-2 py-1 text-left">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(groupSummary).map(([g, c]) => (
+                <tr key={g} className="border-b">
+                  <td className="px-2 py-1">{g}</td>
+                  <td className="px-2 py-1 text-center">{c}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
         {!secondPass && rejectedAds.length > 0 && (
           <button
             onClick={handleReviewRejected}

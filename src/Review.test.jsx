@@ -84,3 +84,40 @@ test('submitResponse updates asset status', async () => {
     }
   );
 });
+
+test('shows group summary after reviewing ads', async () => {
+  const batchSnapshot = { docs: [] };
+  const groupSnapshot = {
+    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1', name: 'Group 1' }) }],
+  };
+  const assetSnapshot = {
+    docs: [
+      { id: 'asset1', data: () => ({ firebaseUrl: 'url1' }) },
+      { id: 'asset2', data: () => ({ firebaseUrl: 'url2' }) },
+    ],
+  };
+
+  getDocs
+    .mockResolvedValueOnce(batchSnapshot)
+    .mockResolvedValueOnce(groupSnapshot)
+    .mockResolvedValueOnce(assetSnapshot);
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+  );
+
+  fireEvent.click(screen.getByText('Approve'));
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
+  );
+
+  fireEvent.click(screen.getByText('Approve'));
+
+  await waitFor(() => screen.getByText('Thank you for your feedback!'));
+
+  expect(screen.getByText('Group 1')).toBeInTheDocument();
+  expect(screen.getByText('2')).toBeInTheDocument();
+});
