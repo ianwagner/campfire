@@ -8,6 +8,7 @@ jest.mock('./firebase/config', () => ({ db: {} }));
 const getDocs = jest.fn();
 const updateDoc = jest.fn();
 const docMock = jest.fn((...args) => args.slice(1).join('/'));
+const arrayUnion = jest.fn((val) => val);
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
@@ -18,6 +19,7 @@ jest.mock('firebase/firestore', () => ({
   serverTimestamp: jest.fn(),
   doc: (...args) => docMock(...args),
   updateDoc: (...args) => updateDoc(...args),
+  arrayUnion: (...args) => arrayUnion(...args),
 }));
 
 afterEach(() => {
@@ -83,11 +85,11 @@ test('submitResponse updates asset status', async () => {
 
   expect(updateDoc).toHaveBeenCalledWith(
     'adGroups/group1/assets/asset1',
-    {
+    expect.objectContaining({
       status: 'approved',
       comment: '',
-      reviewedBy: 'u1',
-    }
+      lastUpdatedBy: 'u1',
+    })
   );
 });
 

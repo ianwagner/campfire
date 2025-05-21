@@ -39,7 +39,7 @@ const DesignerDashboard = () => {
               const status = a.data().status;
               if (status === 'approved') approved += 1;
               if (status === 'rejected') rejected += 1;
-              if (status === 'edit') edit += 1;
+              if (status === 'edit_requested') edit += 1;
             });
             return {
               id: d.id,
