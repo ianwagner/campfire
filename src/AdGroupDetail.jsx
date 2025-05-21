@@ -11,6 +11,7 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
+  deleteDoc,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import { uploadFile } from './uploadFile';
@@ -22,6 +23,15 @@ const AdGroupDetail = () => {
   const [assets, setAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
+
+  const deleteAsset = async (assetId) => {
+    try {
+      await deleteDoc(doc(db, 'adGroups', id, 'assets', assetId));
+      setAssets((prev) => prev.filter((a) => a.id !== assetId));
+    } catch (err) {
+      console.error('Failed to delete asset', err);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -108,6 +118,7 @@ const AdGroupDetail = () => {
               <th className="px-2 py-1 text-left">Status</th>
               <th className="px-2 py-1 text-left">Comment</th>
               <th className="px-2 py-1 text-left">&nbsp;</th>
+              <th className="px-2 py-1 text-left">Delete</th>
             </tr>
           </thead>
           <tbody>
@@ -125,6 +136,9 @@ const AdGroupDetail = () => {
                   >
                     View
                   </a>
+                </td>
+                <td className="px-2 py-1 text-red-600 underline cursor-pointer">
+                  <button onClick={() => deleteAsset(a.id)}>Delete</button>
                 </td>
               </tr>
             ))}

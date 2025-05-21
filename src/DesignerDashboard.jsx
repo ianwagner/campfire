@@ -6,6 +6,9 @@ import {
   getDocs,
   query,
   where,
+  onSnapshot,
+  deleteDoc,
+  doc,
 } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 import CreateAdGroup from './CreateAdGroup';
@@ -14,15 +17,24 @@ const DesignerDashboard = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const handleDelete = async (groupId) => {
+    try {
+      await deleteDoc(doc(db, 'adGroups', groupId));
+      setGroups((prev) => prev.filter((g) => g.id !== groupId));
+    } catch (err) {
+      console.error('Failed to delete group', err);
+    }
+  };
+
   useEffect(() => {
-    const fetchGroups = async () => {
-      setLoading(true);
-      try {
-        const q = query(
-          collection(db, 'adGroups'),
-          where('uploadedBy', '==', auth.currentUser?.uid || '')
-        );
-        const snap = await getDocs(q);
+    setLoading(true);
+    const q = query(
+      collection(db, 'adGroups'),
+      where('uploadedBy', '==', auth.currentUser?.uid || '')
+    );
+    const unsub = onSnapshot(
+      q,
+      async (snap) => {
         const list = await Promise.all(
           snap.docs.map(async (d) => {
             let approved = 0;
@@ -45,15 +57,16 @@ const DesignerDashboard = () => {
           })
         );
         setGroups(list);
-      } catch (err) {
+        setLoading(false);
+      },
+      (err) => {
         console.error('Failed to fetch groups', err);
         setGroups([]);
-      } finally {
         setLoading(false);
       }
-    };
+    );
 
-    fetchGroups();
+    return () => unsub();
   }, []);
 
   return (
@@ -85,6 +98,7 @@ const DesignerDashboard = () => {
                 <th className="border px-2 py-1">Rejected</th>
                 <th className="border px-2 py-1">Edit</th>
                 <th className="border px-2 py-1">Actions</th>
+                <th className="border px-2 py-1">Delete</th>
               </tr>
             </thead>
             <tbody>
@@ -103,6 +117,14 @@ const DesignerDashboard = () => {
                     >
                       View Details
                     </Link>
+                  </td>
+                  <td className="border px-2 py-1 text-center">
+                    <button
+                      onClick={() => handleDelete(g.id)}
+                      className="text-red-600 underline"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
