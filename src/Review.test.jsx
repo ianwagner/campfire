@@ -16,6 +16,10 @@ jest.mock('firebase/firestore', () => ({
   serverTimestamp: jest.fn(),
 }));
 
+afterEach(() => {
+  jest.clearAllMocks();
+});
+
 test('loads ads from subcollections', async () => {
   const batchSnapshot = {
     docs: [
