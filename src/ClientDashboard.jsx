@@ -3,7 +3,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
 import Review from './Review';
 
-const ClientDashboard = ({ user }) => {
+const ClientDashboard = ({ user, brandCodes }) => {
   return (
     <div className="p-4">
       <div className="flex justify-between items-start">

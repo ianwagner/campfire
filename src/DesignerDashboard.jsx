@@ -13,7 +13,7 @@ import { listAll, ref, deleteObject } from 'firebase/storage';
 import { auth, db, storage } from './firebase/config';
 import CreateAdGroup from './CreateAdGroup';
 
-const DesignerDashboard = () => {
+const DesignerDashboard = ({ brandCodes }) => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -155,7 +155,7 @@ const DesignerDashboard = () => {
         )}
       </div>
 
-      <CreateAdGroup />
+      <CreateAdGroup brandCodes={brandCodes} />
     </div>
   );
 };

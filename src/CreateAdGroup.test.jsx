@@ -18,7 +18,7 @@ jest.mock('react-router-dom', () => ({
 test('renders Create Ad Group heading', () => {
   render(
     <MemoryRouter>
-      <CreateAdGroup />
+      <CreateAdGroup brandCodes={['test']} />
     </MemoryRouter>
   );
   expect(screen.getByText(/Create Ad Group/i)).toBeInTheDocument();

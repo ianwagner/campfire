@@ -1,39 +1,16 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 
-const CreateAdGroup = () => {
+const CreateAdGroup = ({ brandCodes = [] }) => {
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
-  const [brandCodes, setBrandCodes] = useState([]);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const fetchCodes = async () => {
-      if (!auth.currentUser?.uid) {
-        setBrandCodes([]);
-        return;
-      }
-      try {
-        const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        const codes = snap.exists() ? snap.data().brandCodes : [];
-        if (Array.isArray(codes)) {
-          setBrandCodes(codes);
-        } else {
-          setBrandCodes([]);
-        }
-      } catch (err) {
-        console.error('Failed to fetch brand codes', err);
-        setBrandCodes([]);
-      }
-    };
-    fetchCodes();
-  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
