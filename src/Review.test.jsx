@@ -38,11 +38,14 @@ test('loads ads from subcollections', async () => {
     docs: [{ id: 'asset1', data: () => ({ firebaseUrl: 'url2' }) }],
   };
 
-  getDocs
-    .mockResolvedValueOnce(batchSnapshot)
-    .mockResolvedValueOnce(adsSnapshot)
-    .mockResolvedValueOnce(groupSnapshot)
-    .mockResolvedValueOnce(assetSnapshot);
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
+    if (col[1] === 'adBatches' && col[col.length - 1] === 'ads') return Promise.resolve(adsSnapshot);
+    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -60,10 +63,13 @@ test('submitResponse updates asset status', async () => {
     docs: [{ id: 'asset1', data: () => ({ firebaseUrl: 'url2' }) }],
   };
 
-  getDocs
-    .mockResolvedValueOnce(batchSnapshot)
-    .mockResolvedValueOnce(groupSnapshot)
-    .mockResolvedValueOnce(assetSnapshot);
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
+    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -97,10 +103,13 @@ test('shows group summary after reviewing ads', async () => {
     ],
   };
 
-  getDocs
-    .mockResolvedValueOnce(batchSnapshot)
-    .mockResolvedValueOnce(groupSnapshot)
-    .mockResolvedValueOnce(assetSnapshot);
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
+    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 

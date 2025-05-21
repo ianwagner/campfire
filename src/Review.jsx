@@ -30,49 +30,52 @@ const Review = ({ user, brandCodes = [] }) => {
           collection(db, 'adBatches'),
           where('brandCode', 'in', brandCodes)
         );
-        const batchSnap = await getDocs(batchQuery);
-
-        const adsPerBatch = await Promise.all(
-          batchSnap.docs.map(async (batchDoc) => {
-            const adsSnap = await getDocs(
-              collection(db, 'adBatches', batchDoc.id, 'ads')
-            );
-            return adsSnap.docs.map((adDoc) => ({
-              ...adDoc.data(),
-              ...(batchDoc.data().brandCode
-                ? { brandCode: batchDoc.data().brandCode }
-                : {}),
-            }));
-          })
-        );
-
         const groupQuery = query(
           collection(db, 'adGroups'),
           where('brandCode', 'in', brandCodes),
           where('status', '==', 'ready')
         );
-        const groupSnap = await getDocs(groupQuery);
 
-        const adsPerGroup = await Promise.all(
-          groupSnap.docs.map(async (groupDoc) => {
-            const assetsSnap = await getDocs(
-              query(
-                collection(db, 'adGroups', groupDoc.id, 'assets'),
-                where('status', '==', 'pending')
-              )
-            );
-            return assetsSnap.docs.map((assetDoc) => ({
-              ...assetDoc.data(),
-              assetId: assetDoc.id,
-              adGroupId: groupDoc.id,
-              groupName: groupDoc.data().name,
-              firebaseUrl: assetDoc.data().firebaseUrl,
-              ...(groupDoc.data().brandCode
-                ? { brandCode: groupDoc.data().brandCode }
-                : {}),
-            }));
-          })
-        );
+        const [batchSnap, groupSnap] = await Promise.all([
+          getDocs(batchQuery),
+          getDocs(groupQuery),
+        ]);
+
+        const [adsPerBatch, adsPerGroup] = await Promise.all([
+          Promise.all(
+            batchSnap.docs.map(async (batchDoc) => {
+              const adsSnap = await getDocs(
+                collection(db, 'adBatches', batchDoc.id, 'ads')
+              );
+              return adsSnap.docs.map((adDoc) => ({
+                ...adDoc.data(),
+                ...(batchDoc.data().brandCode
+                  ? { brandCode: batchDoc.data().brandCode }
+                  : {}),
+              }));
+            })
+          ),
+          Promise.all(
+            groupSnap.docs.map(async (groupDoc) => {
+              const assetsSnap = await getDocs(
+                query(
+                  collection(db, 'adGroups', groupDoc.id, 'assets'),
+                  where('status', '==', 'pending')
+                )
+              );
+              return assetsSnap.docs.map((assetDoc) => ({
+                ...assetDoc.data(),
+                assetId: assetDoc.id,
+                adGroupId: groupDoc.id,
+                groupName: groupDoc.data().name,
+                firebaseUrl: assetDoc.data().firebaseUrl,
+                ...(groupDoc.data().brandCode
+                  ? { brandCode: groupDoc.data().brandCode }
+                  : {}),
+              }));
+            })
+          ),
+        ]);
 
         const list = [...adsPerBatch.flat(), ...adsPerGroup.flat()];
         setAds(list);
