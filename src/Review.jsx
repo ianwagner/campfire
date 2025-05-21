@@ -8,6 +8,8 @@ import {
   getDocs,
   addDoc,
   serverTimestamp,
+  doc,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 
@@ -61,6 +63,9 @@ const Review = ({ user, brandCodes = [] }) => {
             );
             return assetsSnap.docs.map((assetDoc) => ({
               ...assetDoc.data(),
+              assetId: assetDoc.id,
+              adGroupId: groupDoc.id,
+              groupName: groupDoc.data().name,
               firebaseUrl: assetDoc.data().firebaseUrl,
               ...(groupDoc.data().brandCode
                 ? { brandCode: groupDoc.data().brandCode }
@@ -110,6 +115,21 @@ const Review = ({ user, brandCodes = [] }) => {
         ...respObj,
         timestamp: serverTimestamp(),
       });
+      if (currentAd.assetId && currentAd.adGroupId) {
+        await updateDoc(
+          doc(db, 'adGroups', currentAd.adGroupId, 'assets', currentAd.assetId),
+          {
+            status:
+              responseType === 'approve'
+                ? 'approved'
+                : responseType === 'reject'
+                ? 'rejected'
+                : 'edit',
+            comment: responseType === 'edit' ? comment : '',
+            reviewedBy: user.uid,
+          }
+        );
+      }
       setResponses((prev) => [...prev, respObj]);
       setComment('');
       setShowComment(false);
