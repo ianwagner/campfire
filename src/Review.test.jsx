@@ -7,6 +7,7 @@ jest.mock('./firebase/config', () => ({ db: {} }));
 
 const getDocs = jest.fn();
 const updateDoc = jest.fn();
+const addDoc = jest.fn();
 const docMock = jest.fn((...args) => args.slice(1).join('/'));
 const arrayUnion = jest.fn((val) => val);
 
@@ -15,7 +16,7 @@ jest.mock('firebase/firestore', () => ({
   query: jest.fn((...args) => args),
   where: jest.fn(),
   getDocs: (...args) => getDocs(...args),
-  addDoc: jest.fn(),
+  addDoc: (...args) => addDoc(...args),
   serverTimestamp: jest.fn(),
   doc: (...args) => docMock(...args),
   updateDoc: (...args) => updateDoc(...args),
@@ -89,7 +90,46 @@ test('submitResponse updates asset status', async () => {
       status: 'approved',
       comment: '',
       lastUpdatedBy: 'u1',
+      isResolved: true,
     })
+  );
+});
+
+test('request edit creates new version doc', async () => {
+  const batchSnapshot = { docs: [] };
+  const groupSnapshot = {
+    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1', name: 'Group 1' }) }],
+  };
+  const assetSnapshot = {
+    docs: [{ id: 'asset1', data: () => ({ firebaseUrl: 'url2', filename: 'f1.png', version: 1 }) }],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
+    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
+  );
+
+  fireEvent.click(screen.getByText('Request Edit'));
+  fireEvent.change(screen.getByPlaceholderText('Add comments...'), {
+    target: { value: 'fix' },
+  });
+  fireEvent.click(screen.getByText('Submit'));
+
+  await waitFor(() => expect(addDoc).toHaveBeenCalled());
+
+  const call = addDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][1] === 'adGroups');
+  expect(call).toBeTruthy();
+  expect(call[1]).toEqual(
+    expect.objectContaining({ parentAdId: 'asset1', version: 2, status: 'new', isResolved: false })
   );
 });
 
