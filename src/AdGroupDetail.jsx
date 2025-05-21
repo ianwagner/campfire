@@ -12,7 +12,9 @@ import {
   serverTimestamp,
   writeBatch,
 } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { db, storage } from './firebase/config';
+import { ref, deleteObject } from 'firebase/storage';
+import { deleteDoc } from 'firebase/firestore';
 import { uploadFile } from './uploadFile';
 
 const AdGroupDetail = () => {
@@ -61,6 +63,15 @@ const AdGroupDetail = () => {
     setUploading(false);
   };
 
+  const deleteAsset = async (asset) => {
+    try {
+      await deleteObject(ref(storage, `adGroups/${id}/${asset.filename}`));
+      await deleteDoc(doc(db, 'adGroups', id, 'assets', asset.id));
+    } catch (err) {
+      console.error('Failed to delete asset', err);
+    }
+  };
+
   const markReady = async () => {
     setReadyLoading(true);
     try {
@@ -107,7 +118,7 @@ const AdGroupDetail = () => {
               <th className="px-2 py-1 text-left">Filename</th>
               <th className="px-2 py-1 text-left">Status</th>
               <th className="px-2 py-1 text-left">Comment</th>
-              <th className="px-2 py-1 text-left">&nbsp;</th>
+              <th className="px-2 py-1 text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -125,6 +136,12 @@ const AdGroupDetail = () => {
                   >
                     View
                   </a>
+                  <button
+                    onClick={() => deleteAsset(a)}
+                    className="ml-2 text-red-600 hover:underline"
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}
