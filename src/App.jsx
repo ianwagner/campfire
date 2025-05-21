@@ -31,7 +31,7 @@ const App = () => {
     return () => unsub();
   }, []);
 
-  const { role, loading: roleLoading } = useUserRole(user?.uid);
+  const { role, brandCodes, loading: roleLoading } = useUserRole(user?.uid);
 
   const handleLogout = async () => {
     try {
@@ -123,7 +123,7 @@ const App = () => {
                     userRole={role}
                     loading={roleLoading}
                   >
-                    <ClientDashboard user={user} />
+                    <ClientDashboard user={user} brandCodes={brandCodes} />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
