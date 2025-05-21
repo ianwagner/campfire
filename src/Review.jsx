@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 
-const Review = ({ user }) => {
+const Review = ({ user, brandCodes = [] }) => {
   const [ads, setAds] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [comment, setComment] = useState('');
@@ -26,7 +26,7 @@ const Review = ({ user }) => {
       try {
         const q = query(
           collection(db, 'adBatches'),
-          where('clientId', '==', user.uid)
+          where('brandCode', 'in', brandCodes)
         );
         const snapshot = await getDocs(q);
         const list = [];
@@ -47,10 +47,14 @@ const Review = ({ user }) => {
       }
     };
 
-    if (user?.uid) {
-      fetchAds();
+    if (!user?.uid || brandCodes.length === 0) {
+      setAds([]);
+      setLoading(false);
+      return;
     }
-  }, [user]);
+
+    fetchAds();
+  }, [user, brandCodes]);
 
   const currentAd = ads[currentIndex];
 
