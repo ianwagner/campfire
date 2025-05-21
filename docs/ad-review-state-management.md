@@ -13,6 +13,9 @@ Each ad asset (stored under `adGroups/{groupId}/assets/{assetId}`) includes the 
   "status": "pending",                   // "pending" | "approved" | "rejected" | "edit_requested"
   "lastUpdatedBy": "<userId>",           // reviewer who last changed the status
   "lastUpdatedAt": "2025-05-20T21:47:00Z",
+  "version": 1,
+  "parentAdId": null,                    // asset ID of the original ad, null for first version
+  "isResolved": false,
   "history": [                            // ordered list of all changes
     {
       "userId": "<userId>",
@@ -26,6 +29,10 @@ Each ad asset (stored under `adGroups/{groupId}/assets/{assetId}`) includes the 
 * `status` – the current state of the ad asset.
 * `lastUpdatedBy` – the `uid` of the reviewer who last made a change.
 * `lastUpdatedAt` – ISO timestamp when the status was last updated.
+* `version` – sequential version number starting at 1.
+* `parentAdId` – reference to the original ad asset for tracking revisions.
+* `isResolved` – when true, this ad (and its versions) no longer appear in the review queue.
+
 * `history` – append-only array of change objects; newest entry reflects the current status.
 
 ## State Transitions
@@ -34,6 +41,12 @@ Each ad asset (stored under `adGroups/{groupId}/assets/{assetId}`) includes the 
    - The UI writes the new `status`, updates `lastUpdatedBy` and `lastUpdatedAt` with the reviewer’s ID and server timestamp, and pushes an entry to `history`.
    - No restrictions are enforced; any reviewer may overwrite the previous value.
 3. **Viewing History** – Designers and reviewers read the full `history` array to see every action taken. The most recent entry indicates the current state.
+
+## Ad Revisions and Versions
+When a designer uploads a revised ad, a new document is created in the same collection. Copy `parentAdId` from the original, set `version` to the next number, and reset `status` to `pending`. Keep `isResolved` false so the revision appears in the queue.
+
+### Resolving Ads
+When the revised ad is approved, set `isResolved` to true on all documents with the same `parentAdId`. The final version remains `approved` but all related ads are hidden from further review.
 
 ## Designer Dashboard Requirements
 - The dashboard displays the latest status (`status`, `lastUpdatedBy`, `lastUpdatedAt`).
