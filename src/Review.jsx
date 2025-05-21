@@ -21,36 +21,41 @@ const Review = ({ user }) => {
   const [responses, setResponses] = useState([]);
   const [secondPass, setSecondPass] = useState(false);
 
-  useEffect(() => {
-    const fetchAds = async () => {
-      try {
-        const q = query(
-          collection(db, 'adBatches'),
-          where('clientId', '==', user.uid)
-        );
-        const snapshot = await getDocs(q);
-        const list = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          if (Array.isArray(data.ads)) {
-            list.push(...data.ads);
-          }
-        });
-        setAds(list);
-        console.log('Fetched ads:', list);
-        console.log('Ad length:', list.length);
-        console.log('Current index:', currentIndex);
-      } catch (err) {
-        console.error('Failed to load ads', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    useEffect(() => {
+      const fetchAds = async () => {
+        setLoading(true);
+        try {
+          const q = query(
+            collection(db, 'adBatches'),
+            where('clientId', '==', user.uid)
+          );
+          const snapshot = await getDocs(q);
+          const batchAds = await Promise.all(
+            snapshot.docs.map(async (d) => {
+              const adsSnap = await getDocs(
+                collection(db, 'adBatches', d.id, 'ads')
+              );
+              return adsSnap.docs
+                .map((a) => a.data().adUrl)
+                .filter(Boolean);
+            })
+          );
+          const list = batchAds.flat();
+          setAds(list);
+          console.log('Fetched ads:', list);
+          console.log('Ad length:', list.length);
+          console.log('Current index:', currentIndex);
+        } catch (err) {
+          console.error('Failed to load ads', err);
+        } finally {
+          setLoading(false);
+        }
+      };
 
-    if (user?.uid) {
-      fetchAds();
-    }
-  }, [user]);
+      if (user?.uid) {
+        fetchAds();
+      }
+    }, [user]);
 
   const currentAd = ads[currentIndex];
 
