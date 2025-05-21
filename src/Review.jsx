@@ -57,19 +57,23 @@ const Review = ({ user, brandCodes = [] }) => {
   }, [user, brandCodes]);
 
   const currentAd = ads[currentIndex];
+  const adUrl =
+    currentAd && typeof currentAd === 'object' ? currentAd.adUrl : currentAd;
+  const brandCode =
+    currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
 
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
     setSubmitting(true);
     const respObj = {
-      adUrl: currentAd,
+      adUrl,
       response: responseType,
       comment: responseType === 'edit' ? comment : '',
       pass: secondPass ? 'second' : 'initial',
+      ...(brandCode ? { brandCode } : {}),
     };
     try {
       await addDoc(collection(db, 'responses'), {
-        clientId: user.uid,
         ...respObj,
         timestamp: serverTimestamp(),
       });
@@ -123,7 +127,7 @@ const Review = ({ user, brandCodes = [] }) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
       <img
-        src={currentAd}
+        src={adUrl}
         alt="Ad"
         className="max-w-full max-h-[80vh] mx-auto rounded shadow"
       />
