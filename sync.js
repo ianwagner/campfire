@@ -59,7 +59,7 @@ async function syncBatch(doc) {
   const batchData = doc.data();
   const sheetId = batchData.sheetId;
   if (!sheetId) return;
-  const clientId = batchData.clientId;
+  const brandCode = batchData.brandCode;
 
   const recipes = await fetchRecipes(sheetId);
   for (const r of recipes) {
@@ -70,7 +70,7 @@ async function syncBatch(doc) {
       .collection('ads')
       .doc(r.filename)
       .set({
-        clientId,
+        brandCode,
         filename: r.filename,
         adUrl,
         copy: r.copy,

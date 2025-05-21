@@ -24,11 +24,7 @@ const Review = ({ user }) => {
   useEffect(() => {
     const fetchAds = async () => {
       try {
-        const q = query(
-          collection(db, 'adBatches'),
-          where('clientId', '==', user.uid)
-        );
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocs(collection(db, 'adBatches'));
         const list = [];
         snapshot.forEach((doc) => {
           const data = doc.data();
@@ -65,7 +61,6 @@ const Review = ({ user }) => {
     };
     try {
       await addDoc(collection(db, 'responses'), {
-        clientId: user.uid,
         ...respObj,
         timestamp: serverTimestamp(),
       });
