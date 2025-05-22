@@ -6,6 +6,7 @@ import Review from './Review';
 jest.mock('./firebase/config', () => ({ db: {} }));
 
 const getDocs = jest.fn();
+const getDoc = jest.fn();
 const updateDoc = jest.fn();
 const addDoc = jest.fn();
 const docMock = jest.fn((...args) => args.slice(1).join('/'));
@@ -16,6 +17,7 @@ jest.mock('firebase/firestore', () => ({
   query: jest.fn((...args) => args),
   where: jest.fn(),
   getDocs: (...args) => getDocs(...args),
+  getDoc: (...args) => getDoc(...args),
   addDoc: (...args) => addDoc(...args),
   serverTimestamp: jest.fn(),
   doc: (...args) => docMock(...args),
@@ -220,4 +222,38 @@ test('filters ads by last login and still shows summary', async () => {
 
   await waitFor(() => screen.getByText('Thank you for your feedback!'));
   expect(screen.getByText('Thank you for your feedback!')).toBeInTheDocument();
+});
+
+test('shows all ads for group review when none new', async () => {
+  const groupDoc = {
+    exists: () => true,
+    data: () => ({ name: 'Group 1', brandCode: 'BR1' }),
+  };
+  const assetSnapshot = {
+    docs: [
+      { id: 'asset1', data: () => ({ firebaseUrl: 'url1', status: 'approved' }) },
+    ],
+  };
+
+  getDoc.mockResolvedValue(groupDoc);
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      return Promise.resolve(assetSnapshot);
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(
+    <Review
+      user={{ uid: 'u1', metadata: { lastSignInTime: '2024-05-01T00:00:00Z' } }}
+      groupId="group1"
+    />
+  );
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+  );
+
+  expect(screen.getByText('Reject')).toHaveClass('opacity-50');
 });

@@ -39,10 +39,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
           if (groupSnap.exists()) {
             const assetsSnap = await getDocs(
-              query(
-                collection(db, 'adGroups', groupId, 'assets'),
-                where('status', '==', 'pending')
-              )
+              collection(db, 'adGroups', groupId, 'assets')
             );
             list = assetsSnap.docs.map((assetDoc) => ({
               ...assetDoc.data(),
@@ -117,8 +114,9 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           : null;
 
         let filtered = list;
+        let newer = [];
         if (lastLogin) {
-          const newer = list.filter((a) => {
+          newer = list.filter((a) => {
             const updated = a.lastUpdatedAt?.toDate
               ? a.lastUpdatedAt.toDate()
               : a.lastUpdatedAt instanceof Date
@@ -129,6 +127,21 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           if (newer.length > 0) {
             filtered = newer;
           }
+        }
+
+        if (newer.length === 0) {
+          const initial = {};
+          list.forEach((ad) => {
+            let resp;
+            if (ad.status === 'approved') resp = 'approve';
+            else if (ad.status === 'rejected') resp = 'reject';
+            else if (ad.status === 'edit_requested') resp = 'edit';
+            if (resp) {
+              const url = ad.adUrl || ad.firebaseUrl;
+              initial[url] = { adUrl: url, response: resp };
+            }
+          });
+          setResponses(initial);
         }
 
         setReviewAds(filtered);
