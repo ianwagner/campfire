@@ -24,7 +24,8 @@ const AdGroupDetail = () => {
   const [assets, setAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
-  const [versionUploading, setVersionUploading] = useState(null);
+  
+  const [selectedVersions, setSelectedVersions] = useState({});
 
   useEffect(() => {
     const load = async () => {
@@ -40,6 +41,35 @@ const AdGroupDetail = () => {
     });
     return () => unsub();
   }, [id]);
+
+  useEffect(() => {
+    const map = {};
+    assets.forEach((a) => { map[a.id] = a; });
+    const getRootId = (asset) => {
+      let cur = asset;
+      while (cur.parentAdId && map[cur.parentAdId]) {
+        cur = map[cur.parentAdId];
+      }
+      return cur.id;
+    };
+    const groups = {};
+    assets.forEach((a) => {
+      const rootId = getRootId(a);
+      if (!groups[rootId]) groups[rootId] = [];
+      groups[rootId].push(a);
+    });
+    Object.values(groups).forEach((arr) => arr.sort((a,b)=>(a.version||1)-(b.version||1)));
+    setGroupedAssets(groups);
+    setSelectedVersions((prev) => {
+      const next = { ...prev };
+      Object.entries(groups).forEach(([rid, arr]) => {
+        if (!next[rid] || !arr.find((v) => v.id === next[rid])) {
+          next[rid] = arr[arr.length - 1].id;
+        }
+      });
+      return next;
+    });
+  }, [assets]);
 
   const handleUpload = async () => {
     if (!files.length) return;
@@ -160,6 +190,7 @@ const AdGroupDetail = () => {
           <thead>
             <tr className="border-b">
               <th className="px-2 py-1 text-left">Filename</th>
+              <th className="px-2 py-1 text-left">Versions</th>
               <th className="px-2 py-1 text-left">Version</th>
               <th className="px-2 py-1 text-left">Status</th>
               <th className="px-2 py-1 text-left">Last Updated</th>
@@ -169,12 +200,30 @@ const AdGroupDetail = () => {
             </tr>
           </thead>
           <tbody>
-            {assets.map((a) => (
-              <React.Fragment key={a.id}>
-              <tr className="border-b">
-                <td className="px-2 py-1 break-all">{a.filename}</td>
-                <td className="px-2 py-1 text-center">{a.version || 1}</td>
-                <td className="px-2 py-1">{a.status}</td>
+            {Object.entries(groupedAssets).map(([rootId, list]) => {
+              const selectedId = selectedVersions[rootId] || list[list.length - 1].id;
+              const a = list.find((v) => v.id === selectedId) || list[list.length - 1];
+              return (
+                <React.Fragment key={rootId}>
+                <tr className="border-b">
+                  <td className="px-2 py-1 break-all">{a.filename}</td>
+                  <td className="px-2 py-1">
+                    {list.map((v) => (
+                      <button
+                        key={v.id}
+                        onClick={() =>
+                          setSelectedVersions((prev) => ({ ...prev, [rootId]: v.id }))
+                        }
+                        className={`mr-1 px-2 py-0.5 rounded text-xs ${
+                          selectedId === v.id ? 'bg-blue-500 text-white' : 'bg-gray-200'
+                        }`}
+                      >
+                        v{v.version || 1}
+                      </button>
+                    ))}
+                  </td>
+                  <td className="px-2 py-1 text-center">{a.version || 1}</td>
+                  <td className="px-2 py-1">{a.status}</td>
                 <td className="px-2 py-1">
                   {a.lastUpdatedAt?.toDate
                     ? a.lastUpdatedAt.toDate().toLocaleString()
@@ -221,7 +270,7 @@ const AdGroupDetail = () => {
               </tr>
               {Array.isArray(a.history) && a.history.length > 0 && (
                 <tr className="border-b text-xs bg-gray-50">
-                  <td colSpan="7" className="px-2 py-1">
+                  <td colSpan="8" className="px-2 py-1">
                     {a.history.map((h, idx) => (
                       <div key={idx} className="mb-1">
                         {h.timestamp?.toDate

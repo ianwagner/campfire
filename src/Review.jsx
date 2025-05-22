@@ -29,7 +29,10 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [responses, setResponses] = useState({}); // map of adUrl -> response object
+
+  const [responses, setResponses] = useState({});
+  
+  const [currentVersionIndex, setCurrentVersionIndex] = useState(0); // map of adUrl -> response object
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -41,7 +44,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
             const assetsSnap = await getDocs(
               collection(db, 'adGroups', groupId, 'assets')
             );
-            list = assetsSnap.docs.map((assetDoc) => ({
+            const allAssets = assetsSnap.docs.map((assetDoc) => ({
               ...assetDoc.data(),
               assetId: assetDoc.id,
               adGroupId: groupId,
@@ -50,6 +53,31 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
               ...(groupSnap.data().brandCode
                 ? { brandCode: groupSnap.data().brandCode }
                 : {}),
+            }));
+            const map = {};
+            allAssets.forEach((a) => {
+              map[a.assetId] = a;
+            });
+            const getRootId = (asset) => {
+              let cur = asset;
+              while (cur.parentAdId && map[cur.parentAdId]) {
+                cur = map[cur.parentAdId];
+              }
+              return cur.assetId;
+            };
+            const groups = {};
+            allAssets.forEach((a) => {
+              const root = getRootId(a);
+              if (!groups[root]) groups[root] = [];
+              groups[root].push(a);
+            });
+            Object.values(groups).forEach((arr) =>
+              arr.sort((a, b) => (a.version || 1) - (b.version || 1))
+            );
+            list = allAssets.map((a) => ({
+              ...a,
+              rootId: getRootId(a),
+              versions: groups[getRootId(a)],
             }));
           }
         } else {
@@ -85,12 +113,9 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
             Promise.all(
               groupSnap.docs.map(async (groupDoc) => {
                 const assetsSnap = await getDocs(
-                  query(
-                    collection(db, 'adGroups', groupDoc.id, 'assets'),
-                    where('status', '==', 'pending')
-                  )
+                  collection(db, 'adGroups', groupDoc.id, 'assets')
                 );
-                return assetsSnap.docs.map((assetDoc) => ({
+                const allAssets = assetsSnap.docs.map((assetDoc) => ({
                   ...assetDoc.data(),
                   assetId: assetDoc.id,
                   adGroupId: groupDoc.id,
@@ -99,6 +124,32 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
                   ...(groupDoc.data().brandCode
                     ? { brandCode: groupDoc.data().brandCode }
                     : {}),
+                }));
+                const map = {};
+                allAssets.forEach((a) => {
+                  map[a.assetId] = a;
+                });
+                const getRootId = (asset) => {
+                  let cur = asset;
+                  while (cur.parentAdId && map[cur.parentAdId]) {
+                    cur = map[cur.parentAdId];
+                  }
+                  return cur.assetId;
+                };
+                const groups = {};
+                allAssets.forEach((a) => {
+                  const root = getRootId(a);
+                  if (!groups[root]) groups[root] = [];
+                  groups[root].push(a);
+                });
+                Object.values(groups).forEach((arr) =>
+                  arr.sort((a, b) => (a.version || 1) - (b.version || 1))
+                );
+                const pending = allAssets.filter((a) => a.status === 'pending');
+                return pending.map((a) => ({
+                  ...a,
+                  rootId: getRootId(a),
+                  versions: groups[getRootId(a)],
                 }));
               })
             ),
@@ -164,10 +215,21 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
   }, [user, brandCodes, groupId]);
 
   const currentAd = reviewAds[currentIndex];
-  const adUrl =
-    currentAd && typeof currentAd === 'object'
-      ? currentAd.adUrl || currentAd.firebaseUrl
+
+  useEffect(() => {
+    if (currentAd && Array.isArray(currentAd.versions)) {
+      setCurrentVersionIndex(currentAd.versions.length - 1);
+    }
+  }, [currentAd]);
+  const displayAd =
+    currentAd && Array.isArray(currentAd.versions)
+      ? currentAd.versions[currentVersionIndex] ||
+        currentAd.versions[currentAd.versions.length - 1]
       : currentAd;
+  const adUrl =
+    displayAd && typeof displayAd === 'object'
+      ? displayAd.adUrl || displayAd.firebaseUrl
+      : displayAd;
   const brandCode =
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
@@ -397,6 +459,21 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
         alt="Ad"
         className="max-w-full max-h-[80vh] mx-auto rounded shadow"
       />
+      {currentAd?.versions?.length > 1 && (
+        <div className="space-x-1">
+          {currentAd.versions.map((v, idx) => (
+            <button
+              key={v.assetId || idx}
+              onClick={() => setCurrentVersionIndex(idx)}
+              className={`px-2 py-0.5 text-xs rounded ${
+                idx === currentVersionIndex ? 'bg-blue-500 text-white' : 'bg-gray-200'
+              }`}
+            >
+              v{v.version || idx + 1}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="space-x-2">
         <button
           onClick={() => submitResponse('approve')}

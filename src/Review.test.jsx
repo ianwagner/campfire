@@ -44,7 +44,7 @@ test('loads ads from subcollections', async () => {
   };
 
   getDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[0] : args;
+    const col = Array.isArray(args) && Array.isArray(args[0]) ? args[0] : args;
     if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
     if (col[1] === 'adBatches' && col[col.length - 1] === 'ads') return Promise.resolve(adsSnapshot);
     if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
@@ -69,7 +69,7 @@ test('submitResponse updates asset status', async () => {
   };
 
   getDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[0] : args;
+    const col = Array.isArray(args) && Array.isArray(args[0]) ? args[0] : args;
     if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
     if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
@@ -107,7 +107,7 @@ test('request edit creates new version doc', async () => {
   };
 
   getDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[0] : args;
+    const col = Array.isArray(args) && Array.isArray(args[0]) ? args[0] : args;
     if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
     if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
@@ -148,7 +148,7 @@ test('shows group summary after reviewing ads', async () => {
   };
 
   getDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[0] : args;
+    const col = Array.isArray(args) && Array.isArray(args[0]) ? args[0] : args;
     if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
     if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
@@ -200,7 +200,7 @@ test('filters ads by last login and still shows summary', async () => {
   };
 
   getDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[0] : args;
+    const col = Array.isArray(args) && Array.isArray(args[0]) ? args[0] : args;
     if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
     if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
@@ -237,7 +237,7 @@ test('shows all ads for group review when none new', async () => {
 
   getDoc.mockResolvedValue(groupDoc);
   getDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[0] : args;
+    const col = Array.isArray(args) && Array.isArray(args[0]) ? args[0] : args;
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
       return Promise.resolve(assetSnapshot);
     }
