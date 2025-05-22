@@ -251,7 +251,10 @@ const AdGroupDetail = () => {
                         {h.timestamp?.toDate
                           ? h.timestamp.toDate().toLocaleString()
                           : ''}{' '}
-                        - {h.userId}: {h.action}
+                        - {h.userEmail || h.userId}: {h.action}
+                        {h.action === 'edit_requested' && h.comment
+                          ? ` - ${h.comment}`
+                          : ''}
                       </div>
                     ))}
                   </td>
