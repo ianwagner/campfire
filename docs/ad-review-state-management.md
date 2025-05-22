@@ -35,6 +35,8 @@ Each ad asset (stored under `adGroups/{groupId}/assets/{assetId}`) includes the 
 
 * `history` – append-only array of change objects; newest entry reflects the current status.
 
+Newly uploaded ads start in the `pending` state so they are immediately visible to reviewers.
+
 ## State Transitions
 1. **Loading** – When the review UI loads, it queries all pending ad assets from Firestore and reads the current `status`, `lastUpdatedBy`, `lastUpdatedAt`, and `history` fields.
 2. **Changing Status** – When a reviewer chooses Approve, Reject, or Request Edit:

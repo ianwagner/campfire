@@ -45,7 +45,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                 thumbnail = data.firebaseUrl;
               }
               const st = data.status;
-              if (st !== 'pending' && st !== 'new' && st !== 'draft') {
+              if (st !== 'pending') {
                 reviewed += 1;
               }
               if (st === 'approved') approved += 1;
