@@ -43,7 +43,7 @@ test('loads ads from subcollections', async () => {
     docs: [
       {
         id: 'asset1',
-        data: () => ({ firebaseUrl: 'url2', status: 'pending', isResolved: false }),
+        data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: false }),
       },
     ],
   };
@@ -73,7 +73,7 @@ test('submitResponse updates asset status', async () => {
     docs: [
       {
         id: 'asset1',
-        data: () => ({ firebaseUrl: 'url2', status: 'pending', isResolved: false }),
+        data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: false }),
       },
     ],
   };
@@ -120,7 +120,7 @@ test('request edit creates new version doc', async () => {
           firebaseUrl: 'url2',
           filename: 'f1.png',
           version: 1,
-          status: 'pending',
+          status: 'ready',
           isResolved: false,
         }),
       },
@@ -205,11 +205,11 @@ test('shows group summary after reviewing ads', async () => {
     docs: [
       {
         id: 'asset1',
-        data: () => ({ firebaseUrl: 'url1', status: 'pending', isResolved: false }),
+        data: () => ({ firebaseUrl: 'url1', status: 'ready', isResolved: false }),
       },
       {
         id: 'asset2',
-        data: () => ({ firebaseUrl: 'url2', status: 'pending', isResolved: false }),
+        data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: false }),
       },
     ],
   };
@@ -254,7 +254,7 @@ test('filters ads by last login and still shows summary', async () => {
         data: () => ({
           firebaseUrl: 'old',
           lastUpdatedAt: { toDate: () => new Date('2024-01-01T00:00:00Z') },
-          status: 'pending',
+          status: 'ready',
           isResolved: false,
         }),
       },
@@ -263,7 +263,7 @@ test('filters ads by last login and still shows summary', async () => {
         data: () => ({
           firebaseUrl: 'new',
           lastUpdatedAt: { toDate: () => new Date('2024-03-01T00:00:00Z') },
-          status: 'pending',
+          status: 'ready',
           isResolved: false,
         }),
       },
@@ -304,11 +304,11 @@ test('resolved ads are excluded from pending review', async () => {
     docs: [
       {
         id: 'asset1',
-        data: () => ({ firebaseUrl: 'url1', status: 'pending', isResolved: false }),
+        data: () => ({ firebaseUrl: 'url1', status: 'ready', isResolved: false }),
       },
       {
         id: 'asset2',
-        data: () => ({ firebaseUrl: 'url2', status: 'pending', isResolved: true }),
+        data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: true }),
       },
     ],
   };
