@@ -12,6 +12,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./firebase/config";
 import Login from "./Login";
 import Review from "./Review";
+import ClientReview from "./ClientReview";
 import CreateAdGroup from "./CreateAdGroup";
 import AdGroupDetail from "./AdGroupDetail";
 import DesignerDashboard from "./DesignerDashboard";
@@ -156,6 +157,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdGroupDetail />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/review/:groupId"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <ClientReview user={user} />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { signOut } from 'firebase/auth';
+import { Link } from 'react-router-dom';
 import { auth, db } from './firebase/config';
 import {
   collection,
@@ -114,9 +115,10 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                 })
               : '';
             return (
-              <div
+              <Link
                 key={g.id}
-                className="border rounded shadow bg-white overflow-hidden"
+                to={`/review/${g.id}`}
+                className="border rounded shadow bg-white overflow-hidden block hover:shadow-md"
               >
                 <div className="flex flex-col md:flex-row">
                   {g.thumbnail && (
@@ -152,7 +154,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
