@@ -238,6 +238,19 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
             isResolved: false,
           });
         } else if (responseType === 'approve' && currentAd.parentAdId) {
+          const relatedQuery = query(
+            collection(db, 'adGroups', currentAd.adGroupId, 'assets'),
+            where('parentAdId', '==', currentAd.parentAdId)
+          );
+          const relatedSnap = await getDocs(relatedQuery);
+          await Promise.all(
+            relatedSnap.docs.map((d) =>
+              updateDoc(
+                doc(db, 'adGroups', currentAd.adGroupId, 'assets', d.id),
+                { isResolved: true }
+              )
+            )
+          );
           await updateDoc(
             doc(
               db,
