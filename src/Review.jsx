@@ -87,7 +87,8 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
                 const assetsSnap = await getDocs(
                   query(
                     collection(db, 'adGroups', groupDoc.id, 'assets'),
-                    where('status', '==', 'pending')
+                    where('status', '==', 'pending'),
+                    where('isResolved', '==', false)
                   )
                 );
                 return assetsSnap.docs.map((assetDoc) => ({

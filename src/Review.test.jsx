@@ -40,7 +40,12 @@ test('loads ads from subcollections', async () => {
     docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1' }) }],
   };
   const assetSnapshot = {
-    docs: [{ id: 'asset1', data: () => ({ firebaseUrl: 'url2' }) }],
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({ firebaseUrl: 'url2', status: 'pending', isResolved: false }),
+      },
+    ],
   };
 
   getDocs.mockImplementation((args) => {
@@ -65,7 +70,12 @@ test('submitResponse updates asset status', async () => {
     docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1', name: 'Group 1' }) }],
   };
   const assetSnapshot = {
-    docs: [{ id: 'asset1', data: () => ({ firebaseUrl: 'url2' }) }],
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({ firebaseUrl: 'url2', status: 'pending', isResolved: false }),
+      },
+    ],
   };
 
   getDocs.mockImplementation((args) => {
@@ -103,7 +113,18 @@ test('request edit creates new version doc', async () => {
     docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1', name: 'Group 1' }) }],
   };
   const assetSnapshot = {
-    docs: [{ id: 'asset1', data: () => ({ firebaseUrl: 'url2', filename: 'f1.png', version: 1 }) }],
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url2',
+          filename: 'f1.png',
+          version: 1,
+          status: 'pending',
+          isResolved: false,
+        }),
+      },
+    ],
   };
 
   getDocs.mockImplementation((args) => {
@@ -142,8 +163,14 @@ test('shows group summary after reviewing ads', async () => {
   };
   const assetSnapshot = {
     docs: [
-      { id: 'asset1', data: () => ({ firebaseUrl: 'url1' }) },
-      { id: 'asset2', data: () => ({ firebaseUrl: 'url2' }) },
+      {
+        id: 'asset1',
+        data: () => ({ firebaseUrl: 'url1', status: 'pending', isResolved: false }),
+      },
+      {
+        id: 'asset2',
+        data: () => ({ firebaseUrl: 'url2', status: 'pending', isResolved: false }),
+      },
     ],
   };
 
@@ -187,6 +214,8 @@ test('filters ads by last login and still shows summary', async () => {
         data: () => ({
           firebaseUrl: 'old',
           lastUpdatedAt: { toDate: () => new Date('2024-01-01T00:00:00Z') },
+          status: 'pending',
+          isResolved: false,
         }),
       },
       {
@@ -194,6 +223,8 @@ test('filters ads by last login and still shows summary', async () => {
         data: () => ({
           firebaseUrl: 'new',
           lastUpdatedAt: { toDate: () => new Date('2024-03-01T00:00:00Z') },
+          status: 'pending',
+          isResolved: false,
         }),
       },
     ],
@@ -222,6 +253,45 @@ test('filters ads by last login and still shows summary', async () => {
 
   await waitFor(() => screen.getByText('Thank you for your feedback!'));
   expect(screen.getByText('Thank you for your feedback!')).toBeInTheDocument();
+});
+
+test('resolved ads are excluded from pending review', async () => {
+  const batchSnapshot = { docs: [] };
+  const groupSnapshot = {
+    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1' }) }],
+  };
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({ firebaseUrl: 'url1', status: 'pending', isResolved: false }),
+      },
+      {
+        id: 'asset2',
+        data: () => ({ firebaseUrl: 'url2', status: 'pending', isResolved: true }),
+      },
+    ],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
+    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      return Promise.resolve({ docs: assetSnapshot.docs.filter((d) => !d.data().isResolved) });
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+  );
+
+  fireEvent.click(screen.getByText('Approve'));
+
+  await waitFor(() => screen.getByText('Thank you for your feedback!'));
 });
 
 test('shows all ads for group review when none new', async () => {
