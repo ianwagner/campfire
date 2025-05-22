@@ -438,7 +438,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           </div>
         </div>
       )}
-      <div className="relative flex justify-center items-start w-full">
+      <div className="relative flex justify-center items-start w-fit mx-auto">
         <img
           src={adUrl}
           alt="Ad"
