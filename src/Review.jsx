@@ -438,14 +438,14 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           </div>
         </div>
       )}
-      <div className="flex items-start justify-center space-x-4">
+      <div className="relative flex justify-center items-start w-full">
         <img
           src={adUrl}
           alt="Ad"
           className="max-w-full max-h-[80vh] mx-auto rounded shadow"
         />
         {secondPass && (
-          <div>
+          <div className="absolute left-full ml-4 top-0">
             <button
               onClick={() => setShowHistory((p) => !p)}
               className="flex items-center space-x-1 bg-white p-2 rounded shadow"
