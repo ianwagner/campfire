@@ -20,7 +20,6 @@ import { uploadFile } from './uploadFile';
 const AdGroupDetail = () => {
   const { id } = useParams();
   const [group, setGroup] = useState(null);
-  const [files, setFiles] = useState([]);
   const [assets, setAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
@@ -41,10 +40,10 @@ const AdGroupDetail = () => {
     return () => unsub();
   }, [id]);
 
-  const handleUpload = async () => {
-    if (!files.length) return;
+  const handleUpload = async (selectedFiles) => {
+    if (!selectedFiles || selectedFiles.length === 0) return;
     setUploading(true);
-    for (const file of files) {
+    for (const file of Array.from(selectedFiles)) {
       try {
         const url = await uploadFile(file, id);
         await addDoc(collection(db, 'adGroups', id, 'assets'), {
@@ -65,7 +64,6 @@ const AdGroupDetail = () => {
         console.error('Upload failed', err);
       }
     }
-    setFiles([]);
     setUploading(false);
   };
 
@@ -86,11 +84,10 @@ const AdGroupDetail = () => {
     }
   };
 
-  const toggleAssetStatus = async (asset) => {
-    const newStatus = asset.status === 'ready' ? 'pending' : 'ready';
+  const updateAssetStatus = async (assetId, status) => {
     try {
-      await updateDoc(doc(db, 'adGroups', id, 'assets', asset.id), {
-        status: newStatus,
+      await updateDoc(doc(db, 'adGroups', id, 'assets', assetId), {
+        status,
       });
     } catch (err) {
       console.error('Failed to update asset status', err);
@@ -103,7 +100,7 @@ const AdGroupDetail = () => {
       const batch = writeBatch(db);
       for (const asset of assets) {
         batch.update(doc(db, 'adGroups', id, 'assets', asset.id), {
-          status: 'pending',
+          status: 'ready',
           lastUpdatedBy: null,
           lastUpdatedAt: serverTimestamp(),
           history: [],
@@ -156,14 +153,18 @@ const AdGroupDetail = () => {
       <p className="text-sm text-gray-500 mb-4">Status: {group.status}</p>
 
       <div className="mb-4">
-        <input type="file" multiple onChange={(e) => setFiles(Array.from(e.target.files))} />
-        <button
-          onClick={handleUpload}
-          disabled={uploading || files.length === 0}
-          className="ml-2 px-3 py-1 bg-blue-500 text-white rounded"
-        >
-          {uploading ? 'Uploading...' : 'Upload'}
-        </button>
+        <input
+          type="file"
+          multiple
+          onChange={(e) => {
+            const sel = e.target.files;
+            handleUpload(sel);
+            e.target.value = null;
+          }}
+        />
+        {uploading && (
+          <span className="ml-2 text-sm text-gray-600">Uploading...</span>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -186,14 +187,17 @@ const AdGroupDetail = () => {
                 <td className="px-2 py-1 break-all">{a.filename}</td>
                 <td className="px-2 py-1 text-center">{a.version || 1}</td>
                 <td className="px-2 py-1">
-                  <label className="flex items-center space-x-1">
-                    <input
-                      type="checkbox"
-                      checked={a.status === 'ready'}
-                      onChange={() => toggleAssetStatus(a)}
-                    />
-                    <span>{a.status}</span>
-                  </label>
+                  <select
+                    className="p-1 border rounded"
+                    value={a.status}
+                    onChange={(e) => updateAssetStatus(a.id, e.target.value)}
+                  >
+                    <option value="pending">pending</option>
+                    <option value="ready">ready</option>
+                    <option value="approved">approved</option>
+                    <option value="rejected">rejected</option>
+                    <option value="edit_requested">edit_requested</option>
+                  </select>
                 </td>
                 <td className="px-2 py-1">
                   {a.lastUpdatedAt?.toDate

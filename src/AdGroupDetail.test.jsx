@@ -57,8 +57,8 @@ test('toggles asset status to ready', async () => {
   );
 
   await screen.findByText('f1.png');
-  const checkbox = screen.getByRole('checkbox');
-  fireEvent.click(checkbox);
+  const select = screen.getByRole('combobox');
+  fireEvent.change(select, { target: { value: 'ready' } });
 
   await waitFor(() => expect(updateDoc).toHaveBeenCalled());
   expect(updateDoc).toHaveBeenCalledWith('adGroups/group1/assets/asset1', { status: 'ready' });
@@ -77,8 +77,8 @@ test('toggles asset status back to pending', async () => {
   );
 
   await screen.findByText('f1.png');
-  const checkbox = screen.getByRole('checkbox');
-  fireEvent.click(checkbox);
+  const select = screen.getByRole('combobox');
+  fireEvent.change(select, { target: { value: 'pending' } });
 
   await waitFor(() => expect(updateDoc).toHaveBeenCalled());
   expect(updateDoc).toHaveBeenCalledWith('adGroups/group1/assets/asset1', { status: 'pending' });
