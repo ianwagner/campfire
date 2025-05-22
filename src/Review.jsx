@@ -41,16 +41,18 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
             const assetsSnap = await getDocs(
               collection(db, 'adGroups', groupId, 'assets')
             );
-            list = assetsSnap.docs.map((assetDoc) => ({
-              ...assetDoc.data(),
-              assetId: assetDoc.id,
-              adGroupId: groupId,
-              groupName: groupSnap.data().name,
-              firebaseUrl: assetDoc.data().firebaseUrl,
-              ...(groupSnap.data().brandCode
-                ? { brandCode: groupSnap.data().brandCode }
-                : {}),
-            }));
+            list = assetsSnap.docs
+              .map((assetDoc) => ({
+                ...assetDoc.data(),
+                assetId: assetDoc.id,
+                adGroupId: groupId,
+                groupName: groupSnap.data().name,
+                firebaseUrl: assetDoc.data().firebaseUrl,
+                ...(groupSnap.data().brandCode
+                  ? { brandCode: groupSnap.data().brandCode }
+                  : {}),
+              }))
+              .filter((a) => a.status !== 'pending');
           }
         } else {
           const batchQuery = query(

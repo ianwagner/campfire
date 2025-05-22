@@ -367,3 +367,35 @@ test('shows all ads for group review when none new', async () => {
 
   expect(screen.getByText('Reject')).toHaveClass('opacity-50');
 });
+
+test('pending ads are hidden from group review', async () => {
+  const groupDoc = {
+    exists: () => true,
+    data: () => ({ name: 'Group 1', brandCode: 'BR1' }),
+  };
+  const assetSnapshot = {
+    docs: [
+      { id: 'asset1', data: () => ({ firebaseUrl: 'url1', status: 'ready' }) },
+      { id: 'asset2', data: () => ({ firebaseUrl: 'url2', status: 'pending' }) },
+    ],
+  };
+
+  getDoc.mockResolvedValue(groupDoc);
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      return Promise.resolve(assetSnapshot);
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+  );
+
+  fireEvent.click(screen.getByText('Approve'));
+
+  await waitFor(() => screen.getByText('Thank you for your feedback!'));
+});
