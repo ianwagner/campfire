@@ -227,7 +227,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
             filename: currentAd.filename || '',
             firebaseUrl: '',
             uploadedAt: null,
-            status: 'new',
+            status: 'pending',
             comment: null,
             lastUpdatedBy: null,
             lastUpdatedAt: serverTimestamp(),

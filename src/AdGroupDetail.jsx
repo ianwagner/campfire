@@ -52,7 +52,7 @@ const AdGroupDetail = () => {
           filename: file.name,
           firebaseUrl: url,
           uploadedAt: serverTimestamp(),
-          status: 'draft',
+          status: 'pending',
           comment: null,
           lastUpdatedBy: null,
           lastUpdatedAt: serverTimestamp(),
@@ -202,7 +202,7 @@ const AdGroupDetail = () => {
                 </td>
                 <td className="px-2 py-1">{a.comment || '-'}</td>
                 <td className="px-2 py-1">
-                  {a.status === 'new' ? (
+                  {!a.firebaseUrl ? (
                     <div className="flex items-center space-x-2">
                       <input
                         type="file"
