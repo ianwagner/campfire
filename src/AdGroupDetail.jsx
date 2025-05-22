@@ -86,6 +86,17 @@ const AdGroupDetail = () => {
     }
   };
 
+  const toggleAssetStatus = async (asset) => {
+    const newStatus = asset.status === 'ready' ? 'pending' : 'ready';
+    try {
+      await updateDoc(doc(db, 'adGroups', id, 'assets', asset.id), {
+        status: newStatus,
+      });
+    } catch (err) {
+      console.error('Failed to update asset status', err);
+    }
+  };
+
   const markReady = async () => {
     setReadyLoading(true);
     try {
@@ -174,7 +185,16 @@ const AdGroupDetail = () => {
               <tr className="border-b">
                 <td className="px-2 py-1 break-all">{a.filename}</td>
                 <td className="px-2 py-1 text-center">{a.version || 1}</td>
-                <td className="px-2 py-1">{a.status}</td>
+                <td className="px-2 py-1">
+                  <label className="flex items-center space-x-1">
+                    <input
+                      type="checkbox"
+                      checked={a.status === 'ready'}
+                      onChange={() => toggleAssetStatus(a)}
+                    />
+                    <span>{a.status}</span>
+                  </label>
+                </td>
                 <td className="px-2 py-1">
                   {a.lastUpdatedAt?.toDate
                     ? a.lastUpdatedAt.toDate().toLocaleString()
