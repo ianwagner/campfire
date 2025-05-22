@@ -92,7 +92,7 @@ const AdGroupDetail = () => {
       const batch = writeBatch(db);
       for (const asset of assets) {
         batch.update(doc(db, 'adGroups', id, 'assets', asset.id), {
-          status: 'pending',
+          status: 'ready',
           lastUpdatedBy: null,
           lastUpdatedAt: serverTimestamp(),
           history: [],
@@ -182,7 +182,7 @@ const AdGroupDetail = () => {
                 </td>
                 <td className="px-2 py-1">{a.comment || '-'}</td>
                 <td className="px-2 py-1">
-                  {a.status === 'new' ? (
+                  {a.status === 'pending' ? (
                     <div className="flex items-center space-x-2">
                       <input
                         type="file"

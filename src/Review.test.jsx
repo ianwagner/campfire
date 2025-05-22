@@ -131,7 +131,7 @@ test('request edit creates new version doc', async () => {
   const call = addDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][1] === 'adGroups');
   expect(call).toBeTruthy();
   expect(call[1]).toEqual(
-    expect.objectContaining({ parentAdId: 'asset1', version: 2, status: 'new', isResolved: false })
+    expect.objectContaining({ parentAdId: 'asset1', version: 2, status: 'pending', isResolved: false })
   );
 });
 

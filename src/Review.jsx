@@ -39,7 +39,10 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
           if (groupSnap.exists()) {
             const assetsSnap = await getDocs(
-              collection(db, 'adGroups', groupId, 'assets')
+              query(
+                collection(db, 'adGroups', groupId, 'assets'),
+                where('status', '==', 'ready')
+              )
             );
             list = assetsSnap.docs.map((assetDoc) => ({
               ...assetDoc.data(),
@@ -87,7 +90,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
                 const assetsSnap = await getDocs(
                   query(
                     collection(db, 'adGroups', groupDoc.id, 'assets'),
-                    where('status', '==', 'pending')
+                    where('status', '==', 'ready')
                   )
                 );
                 return assetsSnap.docs.map((assetDoc) => ({
@@ -227,7 +230,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
             filename: currentAd.filename || '',
             firebaseUrl: '',
             uploadedAt: null,
-            status: 'new',
+            status: 'pending',
             comment: null,
             lastUpdatedBy: null,
             lastUpdatedAt: serverTimestamp(),
