@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { signOut } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 import { auth, db } from './firebase/config';
 import {
   collection,
@@ -9,8 +10,10 @@ import {
 } from 'firebase/firestore';
 
 const ClientDashboard = ({ user, brandCodes = [] }) => {
+  const navigate = useNavigate();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showNewOnly, setShowNewOnly] = useState(false);
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -81,6 +84,9 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
   const lastLogin = user?.metadata?.lastSignInTime
     ? new Date(user.metadata.lastSignInTime)
     : null;
+  const displayGroups = showNewOnly
+    ? groups.filter((g) => lastLogin && g.lastUpdated && g.lastUpdated > lastLogin)
+    : groups;
 
   return (
     <div className="p-4">
@@ -98,8 +104,20 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
       ) : groups.length === 0 ? (
         <p>No ad groups found.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {groups.map((g) => {
+        <>
+          <div className="mb-2">
+            <label className="text-sm">
+              <input
+                type="checkbox"
+                checked={showNewOnly}
+                onChange={(e) => setShowNewOnly(e.target.checked)}
+                className="mr-1"
+              />
+              Show new only
+            </label>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          {displayGroups.map((g) => {
             const isNew = lastLogin && g.lastUpdated && g.lastUpdated > lastLogin;
             const date = g.lastUpdated
               ? g.lastUpdated
@@ -116,7 +134,9 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
             return (
               <div
                 key={g.id}
-                className="border rounded shadow bg-white overflow-hidden"
+                data-testid={`group-card-${g.id}`}
+                onClick={() => navigate(`/review/${g.id}`)}
+                className="border rounded shadow bg-white overflow-hidden cursor-pointer"
               >
                 <div className="flex flex-col md:flex-row">
                   {g.thumbnail && (
@@ -156,6 +176,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
             );
           })}
         </div>
+        </>
       )}
     </div>
   );
