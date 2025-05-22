@@ -35,6 +35,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
   const [secondPass, setSecondPass] = useState(
     reviewedKey ? localStorage.getItem(reviewedKey) === 'true' : false
   );
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     setEditing(false);
@@ -435,12 +436,60 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           </div>
         </div>
       )}
-      <div className="flex items-center space-x-4">
+      <div className="flex items-start space-x-4">
         <img
           src={adUrl}
           alt="Ad"
           className="max-w-full max-h-[80vh] mx-auto rounded shadow"
         />
+        {secondPass && (
+          <div>
+            <button
+              onClick={() => setShowHistory((p) => !p)}
+              className="text-sm underline flex items-center space-x-1"
+            >
+              <span>{currentAd?.filename}</span>
+              <span>{showHistory ? '▼' : '▶'}</span>
+            </button>
+            {showHistory && (
+              <div className="mt-2 border rounded p-2 text-xs w-48 bg-white shadow">
+                {Array.isArray(currentAd?.history) && currentAd.history.length > 0 ? (
+                  [...currentAd.history]
+                    .sort(
+                      (a, b) =>
+                        (a.timestamp?.toMillis?.() || 0) -
+                        (b.timestamp?.toMillis?.() || 0)
+                    )
+                    .map((h, idx) => {
+                      const colorMap = {
+                        approved: 'text-green-600',
+                        rejected: 'text-black',
+                        edit_requested: 'text-orange-500',
+                      };
+                      const textMap = {
+                        approved: 'Approved',
+                        rejected: 'Rejected',
+                        edit_requested: 'Edit Requested',
+                      };
+                      const cls = colorMap[h.action] || '';
+                      return (
+                        <div key={idx} className={`mb-1 ${cls}`}>
+                          {h.timestamp?.toDate
+                            ? h.timestamp.toDate().toLocaleString()
+                            : ''}{' '}
+                          - {textMap[h.action] || h.action} -{' '}
+                          {h.userEmail || h.userId}
+                          {h.comment ? `: ${h.comment}` : ''}
+                        </div>
+                      );
+                    })
+                ) : (
+                  <div>No history</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showSecondView ? (
