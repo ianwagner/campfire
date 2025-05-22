@@ -30,6 +30,15 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
+  const [editing, setEditing] = useState(false);
+  const reviewedKey = groupId ? `reviewComplete-${groupId}` : null;
+  const [secondPass, setSecondPass] = useState(
+    reviewedKey ? localStorage.getItem(reviewedKey) === 'true' : false
+  );
+
+  useEffect(() => {
+    setEditing(false);
+  }, [currentIndex]);
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -180,6 +189,12 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
   const groupName =
     currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
   const selectedResponse = responses[adUrl]?.response;
+  const showSecondView = secondPass && selectedResponse && !editing;
+  const statusMap = {
+    approve: 'Approved',
+    reject: 'Rejected',
+    edit: 'Edit Requested',
+  };
 
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
@@ -286,6 +301,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
       console.error('Failed to submit response', err);
     } finally {
       setSubmitting(false);
+      setEditing(false);
     }
   };
 
@@ -325,6 +341,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
         `lastViewed-${groupId}`,
         new Date().toISOString()
       );
+      localStorage.setItem(`reviewComplete-${groupId}`, 'true');
     }
     const allResponses = Object.values(responses);
     const approvedCount = allResponses.filter((r) => r.response === 'approve').length;
@@ -418,80 +435,124 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           </div>
         </div>
       )}
-      <img
-        src={adUrl}
-        alt="Ad"
-        className="max-w-full max-h-[80vh] mx-auto rounded shadow"
-      />
-      <div className="space-x-2">
-        <button
-          onClick={() => submitResponse('approve')}
-          className={`px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
-          disabled={submitting}
-        >
-          Approve
-        </button>
-        <button
-          onClick={() => submitResponse('reject')}
-          className={`px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
-          disabled={submitting}
-        >
-          Reject
-        </button>
-        <button
-          onClick={() => setShowComment(true)}
-          className={`px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
-          disabled={submitting}
-        >
-          Request Edit
-        </button>
-      </div>
-      {showComment && (
-        <div className="flex flex-col items-center space-y-2 w-full max-w-sm">
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            className="w-full p-2 border rounded"
-            placeholder="Add comments..."
-            rows={3}
-          />
+      <div className="flex items-center space-x-4">
+        {showSecondView && (
           <button
-            onClick={() => submitResponse('edit')}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            disabled={submitting}
+            aria-label="Previous"
+            onClick={() =>
+              setCurrentIndex((i) => Math.max(0, i - 1))
+            }
+            disabled={currentIndex === 0}
+            className="text-2xl px-2"
           >
-            Submit
+            &lt;
+          </button>
+        )}
+        <img
+          src={adUrl}
+          alt="Ad"
+          className="max-w-full max-h-[80vh] mx-auto rounded shadow"
+        />
+        {showSecondView && (
+          <button
+            aria-label="Next"
+            onClick={() =>
+              setCurrentIndex((i) => Math.min(reviewAds.length - 1, i + 1))
+            }
+            disabled={currentIndex === reviewAds.length - 1}
+            className="text-2xl px-2"
+          >
+            &gt;
+          </button>
+        )}
+      </div>
+
+      {showSecondView ? (
+        <div className="text-center space-y-2">
+          <p className="text-lg">{statusMap[selectedResponse]}</p>
+          {selectedResponse === 'edit' && currentAd.comment && (
+            <p className="text-sm">{currentAd.comment}</p>
+          )}
+          <button
+            onClick={() => setEditing(true)}
+            className="px-4 py-2 bg-gray-300 rounded"
+          >
+            Change
           </button>
         </div>
-      )}
-      {showClientNote && (
-        <div className="flex flex-col items-center space-y-2 w-full max-w-sm">
-          <textarea
-            value={clientNote}
-            onChange={(e) => setClientNote(e.target.value)}
-            className="w-full p-2 border rounded"
-            rows={3}
-            placeholder="Leave a note for the designer..."
-          />
+      ) : (
+        <>
           <div className="space-x-2">
             <button
-              onClick={submitNote}
-              disabled={noteSubmitting}
-              className="px-4 py-2 bg-blue-500 text-white rounded"
+              onClick={() => submitResponse('approve')}
+              className={`px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
+              disabled={submitting}
             >
-              Submit Note
+              Approve
             </button>
             <button
-              onClick={() => {
-                setShowClientNote(false);
-                setClientNote('');
-              }}
-              className="px-4 py-2 bg-gray-300 rounded"
+              onClick={() => submitResponse('reject')}
+              className={`px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
+              disabled={submitting}
             >
-              Cancel
+              Reject
+            </button>
+            <button
+              onClick={() => setShowComment(true)}
+              className={`px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
+              disabled={submitting}
+            >
+              Request Edit
             </button>
           </div>
-        </div>
+          {showComment && (
+            <div className="flex flex-col items-center space-y-2 w-full max-w-sm">
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="Add comments..."
+                rows={3}
+              />
+              <button
+                onClick={() => submitResponse('edit')}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                disabled={submitting}
+              >
+                Submit
+              </button>
+            </div>
+          )}
+          {showClientNote && (
+            <div className="flex flex-col items-center space-y-2 w-full max-w-sm">
+              <textarea
+                value={clientNote}
+                onChange={(e) => setClientNote(e.target.value)}
+                className="w-full p-2 border rounded"
+                rows={3}
+                placeholder="Leave a note for the designer..."
+              />
+              <div className="space-x-2">
+                <button
+                  onClick={submitNote}
+                  disabled={noteSubmitting}
+                  className="px-4 py-2 bg-blue-500 text-white rounded"
+                >
+                  Submit Note
+                </button>
+                <button
+                  onClick={() => {
+                    setShowClientNote(false);
+                    setClientNote('');
+                  }}
+                  className="px-4 py-2 bg-gray-300 rounded"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

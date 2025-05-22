@@ -399,3 +399,46 @@ test('pending ads are hidden from group review', async () => {
 
   await waitFor(() => screen.getByText('Thank you for your feedback!'));
 });
+
+test('shows second pass status with change option', async () => {
+  localStorage.setItem('reviewComplete-group1', 'true');
+
+  const groupDoc = {
+    exists: () => true,
+    data: () => ({ name: 'Group 1', brandCode: 'BR1' }),
+  };
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'approved',
+          comment: 'note',
+        }),
+      },
+    ],
+  };
+
+  getDoc.mockResolvedValue(groupDoc);
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      return Promise.resolve(assetSnapshot);
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+
+  await waitFor(() => screen.getByText('Approved'));
+
+  expect(screen.getByText('Change')).toBeInTheDocument();
+  expect(screen.queryByText('Approve')).not.toBeInTheDocument();
+
+  expect(screen.getByLabelText('Next')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByText('Change'));
+
+  expect(screen.getByText('Approve')).toBeInTheDocument();
+});
