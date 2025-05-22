@@ -86,7 +86,20 @@ const Review = ({ user, brandCodes = [] }) => {
 
         const list = [...adsPerBatch.flat(), ...adsPerGroup.flat()];
         setAds(list);
-        setReviewAds(list);
+
+        const lastLogin = user?.metadata?.lastSignInTime
+          ? new Date(user.metadata.lastSignInTime)
+          : null;
+        const freshAds = lastLogin
+          ? list.filter((a) => {
+              const updated = a.lastUpdatedAt?.toDate
+                ? a.lastUpdatedAt.toDate()
+                : null;
+              return updated && updated > lastLogin;
+            })
+          : [];
+
+        setReviewAds(freshAds.length > 0 ? freshAds : list);
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
