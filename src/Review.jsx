@@ -234,7 +234,9 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           lastUpdatedAt: serverTimestamp(),
           history: arrayUnion({
             userId: user.uid,
+            userEmail: user.email,
             action: newStatus,
+            comment: responseType === 'edit' ? comment : '',
             timestamp: Timestamp.now(),
           }),
           ...(responseType === 'approve' ? { isResolved: true } : {}),
