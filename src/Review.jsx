@@ -436,7 +436,15 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
         </div>
       )}
       <div className="flex items-center space-x-4">
-        {showSecondView && (
+        <img
+          src={adUrl}
+          alt="Ad"
+          className="max-w-full max-h-[80vh] mx-auto rounded shadow"
+        />
+      </div>
+
+      {showSecondView ? (
+        <div className="flex items-center space-x-4">
           <button
             aria-label="Previous"
             onClick={() =>
@@ -447,13 +455,18 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           >
             &lt;
           </button>
-        )}
-        <img
-          src={adUrl}
-          alt="Ad"
-          className="max-w-full max-h-[80vh] mx-auto rounded shadow"
-        />
-        {showSecondView && (
+          <div className="text-center space-y-2">
+            <p className="text-lg">{statusMap[selectedResponse]}</p>
+            {selectedResponse === 'edit' && currentAd.comment && (
+              <p className="text-sm">{currentAd.comment}</p>
+            )}
+            <button
+              onClick={() => setEditing(true)}
+              className="px-4 py-2 bg-gray-300 rounded"
+            >
+              Change
+            </button>
+          </div>
           <button
             aria-label="Next"
             onClick={() =>
@@ -463,21 +476,6 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
             className="text-2xl px-2"
           >
             &gt;
-          </button>
-        )}
-      </div>
-
-      {showSecondView ? (
-        <div className="text-center space-y-2">
-          <p className="text-lg">{statusMap[selectedResponse]}</p>
-          {selectedResponse === 'edit' && currentAd.comment && (
-            <p className="text-sm">{currentAd.comment}</p>
-          )}
-          <button
-            onClick={() => setEditing(true)}
-            className="px-4 py-2 bg-gray-300 rounded"
-          >
-            Change
           </button>
         </div>
       ) : (
