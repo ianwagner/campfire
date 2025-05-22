@@ -135,6 +135,46 @@ test('request edit creates new version doc', async () => {
   );
 });
 
+test('approving a revision resolves all related docs', async () => {
+  const batchSnapshot = { docs: [] };
+  const groupSnapshot = {
+    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1', name: 'Group 1' }) }],
+  };
+  const assetSnapshot = {
+    docs: [{ id: 'rev1', data: () => ({ firebaseUrl: 'rev.png', parentAdId: 'orig1' }) }],
+  };
+  const relatedSnapshot = {
+    docs: [
+      { id: 'rev1', data: () => ({}) },
+      { id: 'rev2', data: () => ({}) },
+    ],
+  };
+
+  let callCount = 0;
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
+    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      callCount++;
+      return Promise.resolve(callCount === 1 ? assetSnapshot : relatedSnapshot);
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'rev.png'));
+
+  fireEvent.click(screen.getByText('Approve'));
+
+  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+
+  const paths = updateDoc.mock.calls.map((c) => c[0]);
+  expect(paths).toContain('adGroups/group1/assets/rev2');
+  expect(paths).toContain('adGroups/group1/assets/orig1');
+});
+
 test('shows group summary after reviewing ads', async () => {
   const batchSnapshot = { docs: [] };
   const groupSnapshot = {
