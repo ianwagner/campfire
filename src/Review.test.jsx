@@ -103,7 +103,17 @@ test('request edit creates new version doc', async () => {
     docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1', name: 'Group 1' }) }],
   };
   const assetSnapshot = {
-    docs: [{ id: 'asset1', data: () => ({ firebaseUrl: 'url2', filename: 'f1.png', version: 1 }) }],
+    docs: [
+      {
+        id: 'asset2',
+        data: () => ({
+          firebaseUrl: 'url2',
+          filename: 'f1.png',
+          version: 2,
+          parentAdId: 'asset1',
+        }),
+      },
+    ],
   };
 
   getDocs.mockImplementation((args) => {
@@ -131,7 +141,12 @@ test('request edit creates new version doc', async () => {
   const call = addDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][1] === 'adGroups');
   expect(call).toBeTruthy();
   expect(call[1]).toEqual(
-    expect.objectContaining({ parentAdId: 'asset1', version: 2, status: 'pending', isResolved: false })
+    expect.objectContaining({
+      parentAdId: 'asset1',
+      version: 3,
+      status: 'pending',
+      isResolved: false,
+    })
   );
 });
 

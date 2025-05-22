@@ -233,7 +233,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
             lastUpdatedAt: serverTimestamp(),
             history: [],
             version: (currentAd.version || 1) + 1,
-            parentAdId: currentAd.assetId,
+            parentAdId: currentAd.parentAdId || currentAd.assetId,
             isResolved: false,
           });
         } else if (responseType === 'approve' && currentAd.parentAdId) {
