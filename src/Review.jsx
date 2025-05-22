@@ -438,7 +438,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           </div>
         </div>
       )}
-      <div className="flex items-start space-x-4">
+      <div className="flex items-start justify-center space-x-4">
         <img
           src={adUrl}
           alt="Ad"
@@ -448,13 +448,13 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           <div>
             <button
               onClick={() => setShowHistory((p) => !p)}
-              className="text-sm underline flex items-center space-x-1"
+              className="flex items-center space-x-1 bg-white p-2 rounded shadow"
             >
               <span>{currentAd?.filename}</span>
               <span>{showHistory ? '▼' : '▶'}</span>
             </button>
             {showHistory && (
-              <div className="mt-2 border rounded p-2 text-xs w-48 bg-white shadow">
+              <div className="mt-2 p-2 text-xs w-48">
                 {Array.isArray(currentAd?.history) && currentAd.history.length > 0 ? (
                   [...currentAd.history]
                     .sort(
