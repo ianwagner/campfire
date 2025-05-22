@@ -172,3 +172,52 @@ test('shows group summary after reviewing ads', async () => {
   expect(screen.getByText('Group 1')).toBeInTheDocument();
   expect(screen.getByText('2')).toBeInTheDocument();
 });
+
+test('filters ads by last login and still shows summary', async () => {
+  const batchSnapshot = { docs: [] };
+  const groupSnapshot = {
+    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1', name: 'Group 1' }) }],
+  };
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'old',
+          lastUpdatedAt: { toDate: () => new Date('2024-01-01T00:00:00Z') },
+        }),
+      },
+      {
+        id: 'asset2',
+        data: () => ({
+          firebaseUrl: 'new',
+          lastUpdatedAt: { toDate: () => new Date('2024-03-01T00:00:00Z') },
+        }),
+      },
+    ],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
+    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(
+    <Review
+      user={{ uid: 'u1', metadata: { lastSignInTime: '2024-02-01T00:00:00Z' } }}
+      brandCodes={['BR1']}
+    />
+  );
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'new')
+  );
+
+  fireEvent.click(screen.getByText('Approve'));
+
+  await waitFor(() => screen.getByText('Thank you for your feedback!'));
+  expect(screen.getByText('Thank you for your feedback!')).toBeInTheDocument();
+});
