@@ -110,7 +110,11 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
 
         setAds(list);
 
-        const lastLogin = user?.metadata?.lastSignInTime
+        const key = groupId ? `lastViewed-${groupId}` : null;
+        const stored = key ? localStorage.getItem(key) : null;
+        const lastLogin = stored
+          ? new Date(stored)
+          : user?.metadata?.lastSignInTime
           ? new Date(user.metadata.lastSignInTime)
           : null;
 
@@ -314,6 +318,12 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
   }
 
   if (currentIndex >= reviewAds.length) {
+    if (groupId) {
+      localStorage.setItem(
+        `lastViewed-${groupId}`,
+        new Date().toISOString()
+      );
+    }
     const allResponses = Object.values(responses);
     const approvedCount = allResponses.filter((r) => r.response === 'approve').length;
     const rejectedAds = ads.filter((a) => {

@@ -101,7 +101,9 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
           {groups.map((g) => {
-            const isNew = lastLogin && g.lastUpdated && g.lastUpdated > lastLogin;
+            const viewedStr = localStorage.getItem(`lastViewed-${g.id}`);
+            const lastViewed = viewedStr ? new Date(viewedStr) : lastLogin;
+            const isNew = g.lastUpdated && (!lastViewed || g.lastUpdated > lastViewed);
             const date = g.lastUpdated
               ? g.lastUpdated
               : g.createdAt?.toDate
