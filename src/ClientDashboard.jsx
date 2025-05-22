@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth, db } from './firebase/config';
 import {
@@ -114,9 +115,10 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                 })
               : '';
             return (
-              <div
+              <Link
+                to={`/review/${g.id}`}
                 key={g.id}
-                className="border rounded shadow bg-white overflow-hidden"
+                className="border rounded shadow bg-white overflow-hidden block"
               >
                 <div className="flex flex-col md:flex-row">
                   {g.thumbnail && (
@@ -152,7 +154,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
