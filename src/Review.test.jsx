@@ -11,6 +11,7 @@ const updateDoc = jest.fn();
 const addDoc = jest.fn();
 const docMock = jest.fn((...args) => args.slice(1).join('/'));
 const arrayUnion = jest.fn((val) => val);
+const increment = jest.fn((val) => val);
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
@@ -24,6 +25,7 @@ jest.mock('firebase/firestore', () => ({
   doc: (...args) => docMock(...args),
   updateDoc: (...args) => updateDoc(...args),
   arrayUnion: (...args) => arrayUnion(...args),
+  increment: (...args) => increment(...args),
 }));
 
 afterEach(() => {

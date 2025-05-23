@@ -14,6 +14,7 @@ import {
   updateDoc,
   arrayUnion,
   Timestamp,
+  increment,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 
@@ -228,6 +229,38 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
         };
 
         await updateDoc(assetRef, updateData);
+
+        const prevStatus = currentAd.status;
+        const newState = newStatus;
+        let incReviewed = 0;
+        let incApproved = 0;
+        let incRejected = 0;
+        let incEdit = 0;
+        if (prevStatus === 'ready') {
+          incReviewed += 1;
+        }
+        if (prevStatus !== newState) {
+          if (prevStatus === 'approved') incApproved -= 1;
+          if (prevStatus === 'rejected') incRejected -= 1;
+          if (prevStatus === 'edit_requested') incEdit -= 1;
+          if (newState === 'approved') incApproved += 1;
+          if (newState === 'rejected') incRejected += 1;
+          if (newState === 'edit_requested') incEdit += 1;
+        }
+
+        const groupRef = doc(db, 'adGroups', currentAd.adGroupId);
+        const gSnap = await getDoc(groupRef);
+        const updateObj = {
+          ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
+          ...(incApproved ? { approvedCount: increment(incApproved) } : {}),
+          ...(incRejected ? { rejectedCount: increment(incRejected) } : {}),
+          ...(incEdit ? { editCount: increment(incEdit) } : {}),
+          lastUpdated: serverTimestamp(),
+          ...(gSnap.exists() && !gSnap.data().thumbnailUrl
+            ? { thumbnailUrl: currentAd.firebaseUrl }
+            : {}),
+        };
+        await updateDoc(groupRef, updateObj);
 
         if (responseType === 'edit') {
           await addDoc(collection(db, 'adGroups', currentAd.adGroupId, 'assets'), {
