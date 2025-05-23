@@ -47,6 +47,12 @@ const CreateAdGroup = () => {
         uploadedBy: auth.currentUser?.uid || null,
         createdAt: serverTimestamp(),
         status: 'draft',
+        reviewedCount: 0,
+        approvedCount: 0,
+        editCount: 0,
+        rejectedCount: 0,
+        thumbnailUrl: '',
+        lastUpdated: serverTimestamp(),
       });
       navigate(`/ad-group/${docRef.id}`);
     } catch (err) {
