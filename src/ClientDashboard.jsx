@@ -134,25 +134,15 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                     <div className="flex items-center mb-1">
                       <h3 className="font-medium flex-grow">{g.name}</h3>
                       {isNew && (
-                        <span className="ml-2 bg-red-500 text-black text-xs px-2 py-0.5 rounded-full">
-                          NEW
-                        </span>
+                        <span className="ml-2 tag tag-new">NEW</span>
                       )}
                     </div>
                     <p className="text-sm text-gray-500 mb-2">{dateStr}</p>
                     <div className="mt-auto flex flex-wrap gap-1 text-xs">
-                      <span className="bg-gray-200 px-2 py-0.5 rounded-full">
-                        REVIEWED {g.counts.reviewed}
-                      </span>
-                      <span className="bg-gray-200 px-2 py-0.5 rounded-full">
-                        APPROVED {g.counts.approved}
-                      </span>
-                      <span className="bg-gray-200 px-2 py-0.5 rounded-full">
-                        EDIT REQUEST {g.counts.edit}
-                      </span>
-                      <span className="bg-gray-200 px-2 py-0.5 rounded-full">
-                        REJECTED {g.counts.rejected}
-                      </span>
+                      <span className="tag tag-pill">REVIEWED {g.counts.reviewed}</span>
+                      <span className="tag tag-pill">APPROVED {g.counts.approved}</span>
+                      <span className="tag tag-pill">EDIT REQUEST {g.counts.edit}</span>
+                      <span className="tag tag-pill">REJECTED {g.counts.rejected}</span>
                     </div>
                   </div>
                 </div>
