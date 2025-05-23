@@ -397,14 +397,14 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
         {rejectedAds.length > 0 && (
           <button
             onClick={handleReviewRejected}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="btn-primary"
           >
             See Rejected Ads
           </button>
         )}
         <button
           onClick={handleReviewAll}
-          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+          className="btn-secondary"
         >
           See All
         </button>
@@ -425,7 +425,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
                   setShowClientNote(true);
                   setRejectionStreak(0);
                 }}
-                className="px-3 py-1 bg-blue-600 text-white rounded"
+                className="btn-primary px-3 py-1"
               >
                 Drop a note and pause
               </button>
@@ -434,7 +434,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
                   setShowStreakModal(false);
                   setRejectionStreak(0);
                 }}
-                className="px-3 py-1 bg-gray-400 text-white rounded"
+                className="btn-secondary px-3 py-1 text-white"
               >
                 Keep reviewing
               </button>
@@ -506,7 +506,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
               setCurrentIndex((i) => Math.max(0, i - 1))
             }
             disabled={currentIndex === 0}
-            className="text-2xl px-2"
+            className="btn-arrow"
           >
             &lt;
           </button>
@@ -517,7 +517,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
             )}
             <button
               onClick={() => setEditing(true)}
-              className="px-4 py-2 bg-gray-300 rounded"
+              className="btn-secondary"
             >
               Change
             </button>
@@ -528,7 +528,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
               setCurrentIndex((i) => Math.min(reviewAds.length - 1, i + 1))
             }
             disabled={currentIndex === reviewAds.length - 1}
-            className="text-2xl px-2"
+            className="btn-arrow"
           >
             &gt;
           </button>
@@ -538,21 +538,21 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           <div className="space-x-2">
             <button
               onClick={() => submitResponse('approve')}
-              className={`px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
+              className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
               disabled={submitting}
             >
               Approve
             </button>
             <button
               onClick={() => submitResponse('reject')}
-              className={`px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
+              className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
               disabled={submitting}
             >
               Reject
             </button>
             <button
               onClick={() => setShowComment(true)}
-              className={`px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
+              className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
               disabled={submitting}
             >
               Request Edit
@@ -569,7 +569,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
               />
               <button
                 onClick={() => submitResponse('edit')}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="btn-primary"
                 disabled={submitting}
               >
                 Submit
@@ -589,7 +589,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
                 <button
                   onClick={submitNote}
                   disabled={noteSubmitting}
-                  className="px-4 py-2 bg-blue-500 text-white rounded"
+                  className="btn-primary"
                 >
                   Submit Note
                 </button>
@@ -598,7 +598,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
                     setShowClientNote(false);
                     setClientNote('');
                   }}
-                  className="px-4 py-2 bg-gray-300 rounded"
+                  className="btn-secondary"
                 >
                   Cancel
                 </button>

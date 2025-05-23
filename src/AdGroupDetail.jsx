@@ -237,7 +237,7 @@ const AdGroupDetail = () => {
                 <td className="px-2 py-1 text-center">
                   <button
                     onClick={() => deleteAsset(a)}
-                    className="text-red-600 hover:text-red-800"
+                    className="btn-delete"
                   >
                     🗑️
                   </button>
@@ -270,7 +270,7 @@ const AdGroupDetail = () => {
         <button
           onClick={markReady}
           disabled={readyLoading || assets.length === 0 || group.status === 'ready'}
-          className="px-4 py-2 bg-green-600 text-white rounded"
+          className="btn-approve"
         >
           {readyLoading ? 'Processing...' : 'Mark as Ready for Review'}
         </button>
