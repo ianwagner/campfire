@@ -127,6 +127,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                     <img
                       src={g.thumbnail}
                       alt={g.name}
+                      loading="lazy"
                       className="w-full md:w-32 h-48 md:h-auto object-cover"
                     />
                   )}
