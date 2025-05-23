@@ -422,7 +422,13 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
       )}
       <div className="relative flex justify-center items-start w-fit mx-auto">
         {!secondPass && (
-          <div className="w-full max-w-md h-2 bg-gray-200 rounded">
+          <div
+            className="w-full max-w-md h-2 bg-gray-200 rounded"
+            role="progressbar"
+            aria-valuenow={progress}
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
             <div
               className="h-full bg-green-500 transition-all"
               style={{ width: `${progress}%` }}

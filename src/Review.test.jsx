@@ -557,11 +557,11 @@ test('progress bar reflects current index', async () => {
   });
   getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  const { container } = render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'url1'));
 
-  const bar = container.querySelector('.bg-green-500');
+  const bar = screen.getByRole('progressbar').firstChild;
   expect(bar).toHaveStyle('width: 0%');
 
   fireEvent.click(screen.getByText('Approve'));
