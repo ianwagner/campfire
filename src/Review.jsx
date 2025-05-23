@@ -539,13 +539,6 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
         <>
           <div className="space-x-2">
             <button
-              onClick={() => submitResponse('approve')}
-              className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
-              disabled={submitting}
-            >
-              Approve
-            </button>
-            <button
               onClick={() => submitResponse('reject')}
               className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
               disabled={submitting}
@@ -558,6 +551,13 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
               disabled={submitting}
             >
               Request Edit
+            </button>
+            <button
+              onClick={() => submitResponse('approve')}
+              className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
+              disabled={submitting}
+            >
+              Approve
             </button>
           </div>
           {showComment && (
