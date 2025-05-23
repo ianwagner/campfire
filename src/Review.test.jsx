@@ -532,3 +532,35 @@ test('does not reset review flag when in second pass', async () => {
 
   window.localStorage.setItem = original;
 });
+
+test('progress bar reflects current index', async () => {
+  const batchSnapshot = { docs: [] };
+  const groupSnapshot = {
+    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1' }) }],
+  };
+  const assetSnapshot = {
+    docs: [
+      { id: 'asset1', data: () => ({ firebaseUrl: 'url1', status: 'ready', isResolved: false }) },
+      { id: 'asset2', data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: false }) },
+    ],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
+    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'url1'));
+
+  const bar = screen.getByRole('progressbar');
+  expect(bar.firstChild).toHaveStyle('width: 0%');
+
+  fireEvent.click(screen.getByText('Approve'));
+
+  await waitFor(() => expect(bar.firstChild).toHaveStyle('width: 50%'));
+});
