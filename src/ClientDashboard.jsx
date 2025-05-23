@@ -28,45 +28,23 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
           where('status', '==', 'ready')
         );
         const snap = await getDocs(q);
-        const list = await Promise.all(
-          snap.docs.map(async (d) => {
-            const assetsSnap = await getDocs(
-              collection(db, 'adGroups', d.id, 'assets')
-            );
-            let reviewed = 0;
-            let approved = 0;
-            let edit = 0;
-            let rejected = 0;
-            let thumbnail = '';
-            let lastUpdated = null;
-            assetsSnap.forEach((a) => {
-              const data = a.data();
-              if (!thumbnail && data.firebaseUrl) {
-                thumbnail = data.firebaseUrl;
-              }
-              const st = data.status;
-              if (st !== 'ready') {
-                reviewed += 1;
-              }
-              if (st === 'approved') approved += 1;
-              if (st === 'edit_requested') edit += 1;
-              if (st === 'rejected') rejected += 1;
-              const updated = data.lastUpdatedAt?.toDate
-                ? data.lastUpdatedAt.toDate()
-                : null;
-              if (updated && (!lastUpdated || updated > lastUpdated)) {
-                lastUpdated = updated;
-              }
-            });
-            return {
-              id: d.id,
-              ...d.data(),
-              thumbnail,
-              lastUpdated,
-              counts: { reviewed, approved, edit, rejected },
-            };
-          })
-        );
+        const list = snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            ...data,
+            thumbnail: data.thumbnailUrl || '',
+            lastUpdated: data.lastUpdated?.toDate
+              ? data.lastUpdated.toDate()
+              : null,
+            counts: {
+              reviewed: data.reviewedCount || 0,
+              approved: data.approvedCount || 0,
+              edit: data.editCount || 0,
+              rejected: data.rejectedCount || 0,
+            },
+          };
+        });
         setGroups(list);
       } catch (err) {
         console.error('Failed to fetch groups', err);

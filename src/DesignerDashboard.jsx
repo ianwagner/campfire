@@ -27,27 +27,18 @@ const DesignerDashboard = () => {
           where('uploadedBy', '==', auth.currentUser?.uid || '')
         );
         const snap = await getDocs(q);
-        const list = await Promise.all(
-          snap.docs.map(async (d) => {
-            let approved = 0;
-            let rejected = 0;
-            let edit = 0;
-            const assetsSnap = await getDocs(
-              collection(db, 'adGroups', d.id, 'assets')
-            );
-            assetsSnap.forEach((a) => {
-              const status = a.data().status;
-              if (status === 'approved') approved += 1;
-              if (status === 'rejected') rejected += 1;
-              if (status === 'edit_requested') edit += 1;
-            });
-            return {
-              id: d.id,
-              ...d.data(),
-              counts: { approved, rejected, edit },
-            };
-          })
-        );
+        const list = snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            ...data,
+            counts: {
+              approved: data.approvedCount || 0,
+              rejected: data.rejectedCount || 0,
+              edit: data.editCount || 0,
+            },
+          };
+        });
         setGroups(list);
       } catch (err) {
         console.error('Failed to fetch groups', err);

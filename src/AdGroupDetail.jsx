@@ -1,6 +1,6 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   doc,
@@ -24,6 +24,23 @@ const AdGroupDetail = () => {
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
+  const countsRef = useRef(null);
+
+  const summarize = (list) => {
+    let reviewed = 0;
+    let approved = 0;
+    let edit = 0;
+    let rejected = 0;
+    let thumbnail = '';
+    list.forEach((a) => {
+      if (!thumbnail && a.firebaseUrl) thumbnail = a.firebaseUrl;
+      if (a.status !== 'ready') reviewed += 1;
+      if (a.status === 'approved') approved += 1;
+      if (a.status === 'edit_requested') edit += 1;
+      if (a.status === 'rejected') rejected += 1;
+    });
+    return { reviewed, approved, edit, rejected, thumbnail };
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -39,6 +56,44 @@ const AdGroupDetail = () => {
     });
     return () => unsub();
   }, [id]);
+
+  useEffect(() => {
+    if (group) {
+      countsRef.current = {
+        reviewed: group.reviewedCount || 0,
+        approved: group.approvedCount || 0,
+        edit: group.editCount || 0,
+        rejected: group.rejectedCount || 0,
+      };
+    }
+  }, [group]);
+
+  useEffect(() => {
+    if (!group) return;
+    const summary = summarize(assets);
+    const prev = countsRef.current || {};
+    const changed =
+      summary.reviewed !== prev.reviewed ||
+      summary.approved !== prev.approved ||
+      summary.edit !== prev.edit ||
+      summary.rejected !== prev.rejected ||
+      (!group.thumbnailUrl && summary.thumbnail);
+    if (changed) {
+      const update = {
+        reviewedCount: summary.reviewed,
+        approvedCount: summary.approved,
+        editCount: summary.edit,
+        rejectedCount: summary.rejected,
+        lastUpdated: serverTimestamp(),
+        ...(group.thumbnailUrl ? {} : summary.thumbnail ? { thumbnailUrl: summary.thumbnail } : {}),
+      };
+      updateDoc(doc(db, 'adGroups', id), update).catch((err) =>
+        console.error('Failed to update summary', err)
+      );
+      countsRef.current = summary;
+      setGroup((p) => ({ ...p, ...update }));
+    }
+  }, [assets, group, id]);
 
   const handleUpload = async (selectedFiles) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
