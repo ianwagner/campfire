@@ -446,6 +446,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
         <img
           src={adUrl}
           alt="Ad"
+          loading="lazy"
           className="max-w-full max-h-[80vh] mx-auto rounded shadow"
         />
         {secondPass && (
