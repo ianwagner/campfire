@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   collection,
+  collectionGroup,
   query,
   where,
   getDocs,
@@ -65,59 +66,31 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
               .filter((a) => a.status !== 'pending');
           }
         } else {
-          const batchQuery = query(
-            collection(db, 'adBatches'),
-            where('brandCode', 'in', brandCodes)
-          );
-          const groupQuery = query(
-            collection(db, 'adGroups'),
+          const q = query(
+            collectionGroup(db, 'assets'),
             where('brandCode', 'in', brandCodes),
-            where('status', '==', 'ready')
+            where('status', '==', 'ready'),
+            where('isResolved', '==', false)
           );
-
-          const [batchSnap, groupSnap] = await Promise.all([
-            getDocs(batchQuery),
-            getDocs(groupQuery),
-          ]);
-
-          const [adsPerBatch, adsPerGroup] = await Promise.all([
-            Promise.all(
-              batchSnap.docs.map(async (batchDoc) => {
-                const adsSnap = await getDocs(
-                  collection(db, 'adBatches', batchDoc.id, 'ads')
-                );
-                return adsSnap.docs.map((adDoc) => ({
-                  ...adDoc.data(),
-                  ...(batchDoc.data().brandCode
-                    ? { brandCode: batchDoc.data().brandCode }
-                    : {}),
-                }));
-              })
-            ),
-            Promise.all(
-              groupSnap.docs.map(async (groupDoc) => {
-                const assetsSnap = await getDocs(
-                  query(
-                    collection(db, 'adGroups', groupDoc.id, 'assets'),
-                    where('status', '==', 'ready'),
-                    where('isResolved', '==', false)
-                  )
-                );
-                return assetsSnap.docs.map((assetDoc) => ({
-                  ...assetDoc.data(),
-                  assetId: assetDoc.id,
-                  adGroupId: groupDoc.id,
-                  groupName: groupDoc.data().name,
-                  firebaseUrl: assetDoc.data().firebaseUrl,
-                  ...(groupDoc.data().brandCode
-                    ? { brandCode: groupDoc.data().brandCode }
-                    : {}),
-                }));
-              })
-            ),
-          ]);
-
-          list = [...adsPerBatch.flat(), ...adsPerGroup.flat()];
+          const snap = await getDocs(q);
+          const groupCache = {};
+          list = await Promise.all(
+            snap.docs.map(async (d) => {
+              const data = d.data();
+              const adGroupId = data.adGroupId || d.ref.parent.parent.id;
+              if (!groupCache[adGroupId]) {
+                const gSnap = await getDoc(doc(db, 'adGroups', adGroupId));
+                groupCache[adGroupId] = gSnap.exists() ? gSnap.data().name : '';
+              }
+              return {
+                ...data,
+                assetId: d.id,
+                adGroupId,
+                groupName: groupCache[adGroupId],
+                firebaseUrl: data.firebaseUrl,
+              };
+            })
+          );
         }
 
         setAds(list);
@@ -251,6 +224,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
         if (responseType === 'edit') {
           await addDoc(collection(db, 'adGroups', currentAd.adGroupId, 'assets'), {
             adGroupId: currentAd.adGroupId,
+            brandCode: currentAd.brandCode || '',
             filename: currentAd.filename || '',
             firebaseUrl: '',
             uploadedAt: null,

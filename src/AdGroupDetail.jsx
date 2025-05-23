@@ -48,6 +48,7 @@ const AdGroupDetail = () => {
         const url = await uploadFile(file, id);
         await addDoc(collection(db, 'adGroups', id, 'assets'), {
           adGroupId: id,
+          brandCode: group?.brandCode || '',
           filename: file.name,
           firebaseUrl: url,
           uploadedAt: serverTimestamp(),

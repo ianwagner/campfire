@@ -61,3 +61,10 @@ The system intentionally avoids role-based permissions or locking mechanics. All
 ## Error Handling
 If a status update fails (e.g. network error), the UI should surface the failure to the reviewer and allow them to retry. Firestore writes should be wrapped in try/catch blocks with appropriate user feedback.
 
+## Cross-Collection Queries
+When reviewers open the dashboard they may want to see all ready assets across
+multiple ad groups. The UI uses Firestore's `collectionGroup` queries to read
+every `assets` subcollection in a single request. Because each asset document
+stores its `brandCode`, the query can filter by brand without loading each group
+first.
+
