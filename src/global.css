@@ -37,7 +37,7 @@
     @apply text-2xl px-2;
   }
   .btn-approve {
-    @apply bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600;
+    @apply text-green-700 font-bold text-lg bg-gradient-to-b from-green-100 to-green-300 px-6 py-2 rounded-full border border-white shadow-md hover:brightness-105; 
   }
   .btn-reject {
     @apply bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600;
