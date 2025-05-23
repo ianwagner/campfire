@@ -172,6 +172,14 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
     edit: 'Edit Requested',
   };
 
+  useEffect(() => {
+    const next = reviewAds[currentIndex + 1];
+    if (next) {
+      const img = new Image();
+      img.src = next.adUrl || next.firebaseUrl;
+    }
+  }, [currentIndex, reviewAds]);
+
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
     setSubmitting(true);
