@@ -72,6 +72,17 @@
   @apply absolute inset-0 flex items-center justify-center text-green-600 pointer-events-none;
   font-size: 4rem;
   animation: approve-bounce 0.4s forwards;
+  z-index: 1;
+  position: absolute;
+}
+.approve-check::before {
+  content: '';
+  position: absolute;
+  width: 4rem;
+  height: 4rem;
+  background-color: #d1fae5;
+  border-radius: 9999px;
+  z-index: -1;
 }
 @keyframes approve-glow {
   0% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
