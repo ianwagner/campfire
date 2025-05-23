@@ -7,6 +7,8 @@ import {
   getDocs,
   query,
   where,
+  doc,
+  updateDoc,
 } from 'firebase/firestore';
 
 const ClientDashboard = ({ user, brandCodes = [] }) => {
@@ -28,23 +30,70 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
           where('status', '==', 'ready')
         );
         const snap = await getDocs(q);
-        const list = snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            ...data,
-            thumbnail: data.thumbnailUrl || '',
-            lastUpdated: data.lastUpdated?.toDate
-              ? data.lastUpdated.toDate()
-              : null,
-            counts: {
-              reviewed: data.reviewedCount || 0,
-              approved: data.approvedCount || 0,
-              edit: data.editCount || 0,
-              rejected: data.rejectedCount || 0,
-            },
-          };
-        });
+        const list = await Promise.all(
+          snap.docs.map(async (d) => {
+            const data = d.data();
+            const group = {
+              id: d.id,
+              ...data,
+              thumbnail: data.thumbnailUrl || '',
+              lastUpdated: data.lastUpdated?.toDate
+                ? data.lastUpdated.toDate()
+                : null,
+              counts: {
+                reviewed: data.reviewedCount || 0,
+                approved: data.approvedCount || 0,
+                edit: data.editCount || 0,
+                rejected: data.rejectedCount || 0,
+              },
+            };
+
+            const needsSummary =
+              !data.thumbnailUrl ||
+              data.reviewedCount === undefined ||
+              data.approvedCount === undefined ||
+              data.editCount === undefined ||
+              data.rejectedCount === undefined;
+
+            if (needsSummary) {
+              const assetSnap = await getDocs(
+                collection(db, 'adGroups', d.id, 'assets')
+              );
+              const summary = { reviewed: 0, approved: 0, edit: 0, rejected: 0, thumbnail: '' };
+              assetSnap.docs.forEach((adDoc) => {
+                const ad = adDoc.data();
+                if (!summary.thumbnail && ad.firebaseUrl) summary.thumbnail = ad.firebaseUrl;
+                if (ad.status !== 'ready') summary.reviewed += 1;
+                if (ad.status === 'approved') summary.approved += 1;
+                if (ad.status === 'edit_requested') summary.edit += 1;
+                if (ad.status === 'rejected') summary.rejected += 1;
+              });
+
+              group.thumbnail = group.thumbnail || summary.thumbnail;
+              group.counts = {
+                reviewed: summary.reviewed,
+                approved: summary.approved,
+                edit: summary.edit,
+                rejected: summary.rejected,
+              };
+
+              try {
+                const update = {
+                  reviewedCount: summary.reviewed,
+                  approvedCount: summary.approved,
+                  editCount: summary.edit,
+                  rejectedCount: summary.rejected,
+                  ...(data.thumbnailUrl ? {} : summary.thumbnail ? { thumbnailUrl: summary.thumbnail } : {}),
+                };
+                await updateDoc(doc(db, 'adGroups', d.id), update);
+              } catch (err) {
+                console.error('Failed to update group summary', err);
+              }
+            }
+
+            return group;
+          })
+        );
         setGroups(list);
       } catch (err) {
         console.error('Failed to fetch groups', err);
