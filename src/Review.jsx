@@ -171,6 +171,11 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
     reject: 'Rejected',
     edit: 'Edit Requested',
   };
+  const colorMap = {
+    approve: 'text-green-700',
+    reject: 'text-gray-700',
+    edit: 'text-black',
+  };
 
   useEffect(() => {
     const next = reviewAds[currentIndex + 1];
@@ -431,14 +436,14 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
       <div className="relative flex flex-col items-center w-fit mx-auto">
         {!secondPass && (
           <div
-            className="w-full max-w-md h-2 bg-gray-200 rounded"
+            className="w-full max-w-md h-4 bg-gray-200 rounded-full shadow-inner mb-2.5"
             role="progressbar"
             aria-valuenow={progress}
             aria-valuemin="0"
             aria-valuemax="100"
           >
             <div
-              className="h-full bg-green-500 transition-all"
+              className="h-full bg-green-500 transition-all rounded-full"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -447,7 +452,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           src={adUrl}
           alt="Ad"
           loading="lazy"
-          className="max-w-full max-h-[80vh] mx-auto rounded shadow"
+          className="max-w-[90%] max-h-[72vh] mx-auto rounded shadow"
         />
         {secondPass && (
           <div className="absolute left-full ml-4 top-0">
@@ -501,18 +506,19 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
 
       {showSecondView ? (
         <div className="flex items-center space-x-4">
-          <button
-            aria-label="Previous"
-            onClick={() =>
-              setCurrentIndex((i) => Math.max(0, i - 1))
-            }
-            disabled={currentIndex === 0}
-            className="btn-arrow"
-          >
-            &lt;
-          </button>
+          {currentIndex > 0 && (
+            <button
+              aria-label="Previous"
+              onClick={() =>
+                setCurrentIndex((i) => Math.max(0, i - 1))
+              }
+              className="btn-arrow"
+            >
+              &lt;
+            </button>
+          )}
           <div className="text-center space-y-2">
-            <p className="text-lg">{statusMap[selectedResponse]}</p>
+            <p className={`text-lg ${colorMap[selectedResponse]}`}>{statusMap[selectedResponse]}</p>
             {selectedResponse === 'edit' && currentAd.comment && (
               <p className="text-sm">{currentAd.comment}</p>
             )}
@@ -523,16 +529,17 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
               Change
             </button>
           </div>
-          <button
-            aria-label="Next"
-            onClick={() =>
-              setCurrentIndex((i) => Math.min(reviewAds.length - 1, i + 1))
-            }
-            disabled={currentIndex === reviewAds.length - 1}
-            className="btn-arrow"
-          >
-            &gt;
-          </button>
+          {currentIndex < reviewAds.length - 1 && (
+            <button
+              aria-label="Next"
+              onClick={() =>
+                setCurrentIndex((i) => Math.min(reviewAds.length - 1, i + 1))
+              }
+              className="btn-arrow"
+            >
+              &gt;
+            </button>
+          )}
         </div>
       ) : (
         <>
