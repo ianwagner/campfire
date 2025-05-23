@@ -420,7 +420,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           </div>
         </div>
       )}
-      <div className="relative flex justify-center items-start w-fit mx-auto">
+      <div className="relative flex flex-col items-center w-fit mx-auto">
         {!secondPass && (
           <div
             className="w-full max-w-md h-2 bg-gray-200 rounded"
