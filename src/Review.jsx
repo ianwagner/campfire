@@ -189,6 +189,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
 
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
+    setAnimating(responseType);
     setSubmitting(true);
     const respObj = {
       adUrl,
@@ -319,7 +320,6 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
       setResponses((prev) => ({ ...prev, [adUrl]: respObj }));
       setComment('');
       setShowComment(false);
-      setAnimating(responseType);
       setTimeout(() => {
         setCurrentIndex((i) => i + 1);
         if (responseType === 'reject') {
@@ -471,11 +471,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           </div>
         </div>
       )}
-      <div
-        className={`relative flex flex-col items-center w-fit mx-auto ${
-          animating === 'reject' ? 'reject-fade' : ''
-        } ${animating === 'approve' ? 'approve-glow' : ''}`}
-      >
+      <div className="relative flex flex-col items-center w-fit mx-auto">
         {!secondPass && (
           <div
             className="w-full max-w-md h-4 bg-gray-200 rounded-full shadow-inner mb-2.5"
@@ -490,15 +486,19 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
             />
           </div>
         )}
-        <img
-          src={adUrl}
-          alt="Ad"
-          loading="lazy"
-          className="max-w-[90%] max-h-[72vh] mx-auto rounded shadow"
-        />
-        {animating === 'approve' && (
-          <div className="approve-check">✓</div>
-        )}
+        <div className="relative">
+          <img
+            src={adUrl}
+            alt="Ad"
+            loading="lazy"
+            className={`max-w-[90%] max-h-[72vh] mx-auto rounded shadow ${
+              animating === 'reject' ? 'reject-fade' : ''
+            } ${animating === 'approve' ? 'approve-glow' : ''}`}
+          />
+          {animating === 'approve' && (
+            <div className="approve-check">✓</div>
+          )}
+        </div>
         {secondPass && (
           <div className="absolute left-full ml-4 top-0">
             <button
