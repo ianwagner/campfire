@@ -141,7 +141,7 @@ test('request edit creates new version doc', async () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
   );
 
-  fireEvent.click(screen.getByText('Request Edit'));
+  fireEvent.click(screen.getByLabelText('Request Edit'));
   fireEvent.change(screen.getByPlaceholderText('Add comments...'), {
     target: { value: 'fix' },
   });

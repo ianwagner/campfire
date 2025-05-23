@@ -559,8 +559,9 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
               onClick={() => setShowComment(true)}
               className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
               disabled={submitting}
+              aria-label="Request Edit"
             >
-              Request Edit
+              ✏️
             </button>
             <button
               onClick={() => submitResponse('approve')}
