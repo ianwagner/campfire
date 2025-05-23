@@ -521,7 +521,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
         </div>
       ) : (
         <>
-          <div className="space-x-2">
+          <div className="flex space-x-4">
             <button
               onClick={() => submitResponse('reject')}
               className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
@@ -572,7 +572,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
                 rows={3}
                 placeholder="Leave a note for the designer..."
               />
-              <div className="space-x-2">
+              <div className="flex space-x-2">
                 <button
                   onClick={submitNote}
                   disabled={noteSubmitting}
