@@ -14,6 +14,7 @@ const arrayUnion = jest.fn((val) => val);
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
+  collectionGroup: jest.fn((...args) => args),
   query: jest.fn((...args) => args),
   where: jest.fn(),
   getDocs: (...args) => getDocs(...args),
@@ -30,32 +31,27 @@ afterEach(() => {
 });
 
 test('loads ads from subcollections', async () => {
-  const batchSnapshot = {
-    docs: [{ id: 'batch1', data: () => ({ brandCode: 'BR1' }) }],
-  };
-  const adsSnapshot = {
-    docs: [{ id: 'ad1', data: () => ({ adUrl: 'url1' }) }],
-  };
-  const groupSnapshot = {
-    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1' }) }],
-  };
   const assetSnapshot = {
     docs: [
       {
         id: 'asset1',
-        data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: false }),
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
       },
     ],
   };
 
   getDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
-    if (col[1] === 'adBatches' && col[col.length - 1] === 'ads') return Promise.resolve(adsSnapshot);
-    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
-    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -65,26 +61,27 @@ test('loads ads from subcollections', async () => {
 });
 
 test('submitResponse updates asset status', async () => {
-  const batchSnapshot = { docs: [] };
-  const groupSnapshot = {
-    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1', name: 'Group 1' }) }],
-  };
   const assetSnapshot = {
     docs: [
       {
         id: 'asset1',
-        data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: false }),
+        data: () => ({
+          firebaseUrl: 'url2',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
       },
     ],
   };
 
   getDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
-    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
-    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -108,10 +105,6 @@ test('submitResponse updates asset status', async () => {
 });
 
 test('request edit creates new version doc', async () => {
-  const batchSnapshot = { docs: [] };
-  const groupSnapshot = {
-    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1', name: 'Group 1' }) }],
-  };
   const assetSnapshot = {
     docs: [
       {
@@ -122,6 +115,8 @@ test('request edit creates new version doc', async () => {
           version: 1,
           status: 'ready',
           isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
         }),
       },
     ],
@@ -129,11 +124,10 @@ test('request edit creates new version doc', async () => {
 
   getDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
-    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
-    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -157,12 +151,18 @@ test('request edit creates new version doc', async () => {
 });
 
 test('approving a revision resolves all related docs', async () => {
-  const batchSnapshot = { docs: [] };
-  const groupSnapshot = {
-    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1', name: 'Group 1' }) }],
-  };
   const assetSnapshot = {
-    docs: [{ id: 'rev1', data: () => ({ firebaseUrl: 'rev.png', parentAdId: 'orig1' }) }],
+    docs: [
+      {
+        id: 'rev1',
+        data: () => ({
+          firebaseUrl: 'rev.png',
+          parentAdId: 'orig1',
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
   };
   const relatedSnapshot = {
     docs: [
@@ -171,17 +171,14 @@ test('approving a revision resolves all related docs', async () => {
     ],
   };
 
-  let callCount = 0;
   getDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
-    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
-    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
-      callCount++;
-      return Promise.resolve(callCount === 1 ? assetSnapshot : relatedSnapshot);
-    }
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets')
+      return Promise.resolve(relatedSnapshot);
     return Promise.resolve({ docs: [] });
   });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -197,30 +194,37 @@ test('approving a revision resolves all related docs', async () => {
 });
 
 test('shows group summary after reviewing ads', async () => {
-  const batchSnapshot = { docs: [] };
-  const groupSnapshot = {
-    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1', name: 'Group 1' }) }],
-  };
   const assetSnapshot = {
     docs: [
       {
         id: 'asset1',
-        data: () => ({ firebaseUrl: 'url1', status: 'ready', isResolved: false }),
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
       },
       {
         id: 'asset2',
-        data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: false }),
+        data: () => ({
+          firebaseUrl: 'url2',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
       },
     ],
   };
 
   getDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
-    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
-    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -243,10 +247,6 @@ test('shows group summary after reviewing ads', async () => {
 });
 
 test('filters ads by last login and still shows summary', async () => {
-  const batchSnapshot = { docs: [] };
-  const groupSnapshot = {
-    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1', name: 'Group 1' }) }],
-  };
   const assetSnapshot = {
     docs: [
       {
@@ -256,6 +256,8 @@ test('filters ads by last login and still shows summary', async () => {
           lastUpdatedAt: { toDate: () => new Date('2024-01-01T00:00:00Z') },
           status: 'ready',
           isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
         }),
       },
       {
@@ -265,6 +267,8 @@ test('filters ads by last login and still shows summary', async () => {
           lastUpdatedAt: { toDate: () => new Date('2024-03-01T00:00:00Z') },
           status: 'ready',
           isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
         }),
       },
     ],
@@ -272,11 +276,10 @@ test('filters ads by last login and still shows summary', async () => {
 
   getDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
-    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
-    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(
     <Review
@@ -296,32 +299,38 @@ test('filters ads by last login and still shows summary', async () => {
 });
 
 test('resolved ads are excluded from pending review', async () => {
-  const batchSnapshot = { docs: [] };
-  const groupSnapshot = {
-    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1' }) }],
-  };
   const assetSnapshot = {
     docs: [
       {
         id: 'asset1',
-        data: () => ({ firebaseUrl: 'url1', status: 'ready', isResolved: false }),
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
       },
       {
         id: 'asset2',
-        data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: true }),
+        data: () => ({
+          firebaseUrl: 'url2',
+          status: 'ready',
+          isResolved: true,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
       },
     ],
   };
 
   getDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
-    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
-    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+    if (col[1] === 'assets')
       return Promise.resolve({ docs: assetSnapshot.docs.filter((d) => !d.data().isResolved) });
-    }
     return Promise.resolve({ docs: [] });
   });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -534,24 +543,19 @@ test('does not reset review flag when in second pass', async () => {
 });
 
 test('progress bar reflects current index', async () => {
-  const batchSnapshot = { docs: [] };
-  const groupSnapshot = {
-    docs: [{ id: 'group1', data: () => ({ brandCode: 'BR1' }) }],
-  };
   const assetSnapshot = {
     docs: [
-      { id: 'asset1', data: () => ({ firebaseUrl: 'url1', status: 'ready', isResolved: false }) },
-      { id: 'asset2', data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: false }) },
+      { id: 'asset1', data: () => ({ firebaseUrl: 'url1', status: 'ready', isResolved: false, adGroupId: 'group1', brandCode: 'BR1' }) },
+      { id: 'asset2', data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: false, adGroupId: 'group1', brandCode: 'BR1' }) },
     ],
   };
 
   getDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'adBatches' && col.length === 2) return Promise.resolve(batchSnapshot);
-    if (col[1] === 'adGroups' && col.length === 2) return Promise.resolve(groupSnapshot);
-    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   const { container } = render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
