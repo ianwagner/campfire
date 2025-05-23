@@ -37,10 +37,10 @@
     @apply text-2xl w-12 h-12 bg-gray-200 rounded-[20%] border border-white shadow-md flex items-center justify-center;
   }
   .btn-approve {
-    @apply text-green-700 font-bold text-lg bg-gradient-to-b from-green-100 to-green-300 px-6 py-2 rounded-full border border-white shadow-md hover:brightness-105; 
+    @apply text-green-700 font-bold text-lg bg-gradient-to-b from-green-100 to-green-300 px-6 py-2 rounded-full border border-white shadow-md transition-transform duration-150 active:scale-95; 
   }
   .btn-reject {
-    @apply bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600;
+    @apply text-grey-700 font-bold text-lg bg-gray-200 px-6 py-2 rounded-full border border-white shadow-md hover:brightness-105;
   }
   .btn-edit {
     @apply bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600;
