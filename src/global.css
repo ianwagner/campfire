@@ -37,16 +37,25 @@
     @apply text-2xl w-12 h-12 bg-gray-200 rounded-[20%] border border-white shadow-md flex items-center justify-center;
   }
   .btn-approve {
-    @apply text-green-700 font-bold text-lg bg-gradient-to-b from-green-100 to-green-300 px-6 py-2 rounded-full border border-white shadow-md transition-transform duration-150 active:scale-95; 
+    @apply text-green-700 font-bold text-lg bg-gradient-to-b from-green-100 to-green-300 px-6 py-2 rounded-full border border-white shadow-md transition-transform duration-150 active:scale-95 hover:scale-105;
   }
   .btn-reject {
     @apply text-gray-700 font-bold text-lg bg-gray-200 px-6 py-2 rounded-full border border-white shadow-md hover:brightness-105;
   }
   .btn-edit {
-    @apply bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600;
+    @apply bg-black text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-800;
   }
   .btn-delete {
     @apply text-red-600 hover:text-red-800;
+  }
+  .tag {
+    @apply text-xs px-2 py-0.5 rounded-full;
+  }
+  .tag-new {
+    @apply bg-red-500 text-black;
+  }
+  .tag-pill {
+    @apply bg-gray-200;
   }
   input,
   textarea,
