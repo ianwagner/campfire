@@ -287,6 +287,10 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           );
         }
       }
+      if (groupId) {
+        localStorage.setItem(`lastViewed-${groupId}`, new Date().toISOString());
+        localStorage.setItem(`reviewComplete-${groupId}`, 'false');
+      }
       setResponses((prev) => ({ ...prev, [adUrl]: respObj }));
       setComment('');
       setShowComment(false);

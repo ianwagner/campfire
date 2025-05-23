@@ -400,6 +400,53 @@ test('pending ads are hidden from group review', async () => {
   await waitFor(() => screen.getByText('Thank you for your feedback!'));
 });
 
+test('submitResponse records last viewed time for group', async () => {
+  const original = window.localStorage.setItem;
+  const setItem = jest.fn();
+  window.localStorage.setItem = setItem;
+
+  const groupDoc = {
+    exists: () => true,
+    data: () => ({ name: 'Group 1', brandCode: 'BR1' }),
+  };
+  const assetSnapshot = {
+    docs: [
+      { id: 'asset1', data: () => ({ firebaseUrl: 'url1', status: 'ready', isResolved: false }) },
+    ],
+  };
+
+  getDoc.mockResolvedValue(groupDoc);
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      return Promise.resolve(assetSnapshot);
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+  );
+
+  fireEvent.click(screen.getByText('Approve'));
+
+  await waitFor(() => screen.getByText('Thank you for your feedback!'));
+
+  const lastViewedCall = setItem.mock.calls.find(
+    (c) => c[0] === 'lastViewed-group1'
+  );
+  expect(lastViewedCall).toBeTruthy();
+
+  const reviewFalseCall = setItem.mock.calls.find(
+    (c) => c[0] === 'reviewComplete-group1' && c[1] === 'false'
+  );
+  expect(reviewFalseCall).toBeTruthy();
+
+  window.localStorage.setItem = original;
+});
+
 test('shows second pass status with change option', async () => {
   localStorage.setItem('reviewComplete-group1', 'true');
 
