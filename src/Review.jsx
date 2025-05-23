@@ -191,6 +191,8 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
     currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
   const selectedResponse = responses[adUrl]?.response;
   const showSecondView = secondPass && selectedResponse && !editing;
+  const progress =
+    reviewAds.length > 0 ? (currentIndex / reviewAds.length) * 100 : 0;
   const statusMap = {
     approve: 'Approved',
     reject: 'Rejected',
@@ -444,7 +446,15 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           </div>
         </div>
       )}
-      <div className="relative flex justify-center items-start w-fit mx-auto">
+      <div className="relative flex flex-col items-center w-fit mx-auto">
+        {!secondPass && (
+          <div className="w-full max-w-md h-2 bg-gray-200 rounded">
+            <div
+              className="h-full bg-green-500 transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        )}
         <img
           src={adUrl}
           alt="Ad"
