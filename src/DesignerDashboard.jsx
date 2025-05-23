@@ -101,7 +101,7 @@ const DesignerDashboard = () => {
         <h1 className="text-2xl mb-4">Designer Dashboard</h1>
         <button
           onClick={() => signOut(auth)}
-          className="text-sm text-gray-500 hover:text-black underline mt-4"
+          className="btn-logout mt-4"
         >
           Log Out
         </button>
@@ -160,7 +160,7 @@ const DesignerDashboard = () => {
                     </Link>
                     <button
                       onClick={() => deleteGroup(g.id)}
-                      className="ml-2 text-red-600 underline"
+                      className="ml-2 underline btn-delete"
                     >
                       Delete
                     </button>
@@ -179,7 +179,7 @@ const DesignerDashboard = () => {
             <p className="mb-4 whitespace-pre-wrap">{viewNote}</p>
             <button
               onClick={() => setViewNote(null)}
-              className="px-3 py-1 bg-blue-600 text-white rounded"
+              className="btn-primary px-3 py-1"
             >
               Close
             </button>

@@ -41,7 +41,7 @@ const Login = ({ onLogin }) => {
         {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
         <button
           type="submit"
-          className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+          className="w-full btn-primary"
         >
           Sign In
         </button>

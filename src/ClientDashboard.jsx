@@ -89,7 +89,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
         <h1 className="text-2xl mb-4">Client Dashboard</h1>
         <button
           onClick={() => signOut(auth)}
-          className="text-sm text-gray-500 hover:text-black underline mt-4"
+          className="btn-logout mt-4"
         >
           Log Out
         </button>

@@ -71,7 +71,7 @@ const App = () => {
                   </>
                 )}
               </nav>
-              <button onClick={handleLogout} className="underline">
+              <button onClick={handleLogout} className="btn-logout">
                 Log Out
               </button>
             </div>
