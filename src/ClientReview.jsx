@@ -8,7 +8,7 @@ const ClientReview = (props) => {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <div className="flex-grow md:ml-56">
+      <div className="flex-grow">
         <Review {...props} groupId={groupId} />
       </div>
     </div>
