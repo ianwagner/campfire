@@ -61,9 +61,17 @@ Create a `vercel.json` file with the following contents:
 Without this rule Vercel would serve 404 pages for client-side routes. The
 rewrite ensures navigation works correctly.
 
-## Admin Account Creation
+## Admin Account Management
 
-Navigate to `/admin/accounts` to create client or designer accounts. The form
-calls `createUserWithEmailAndPassword` and then writes a user document to
-Firestore. Both operations are wrapped in a `try/catch` block. If either step
-fails the error message is shown so the admin can correct the input and retry.
+Visit `/admin/accounts` to view all user accounts. Admins can edit the role or
+brand codes directly in the table and delete accounts when necessary. To create
+a new account use `/admin/accounts/new`, which opens the original creation
+form. The form calls `createUserWithEmailAndPassword` and then writes a user
+document to Firestore. Both operations are wrapped in a `try/catch` block. If
+either step fails the error message is shown so the admin can correct the input
+and retry.
+
+## Admin Brand Management
+
+Similarly, `/admin/brands` lists all brands with inline edit and delete
+controls. New brands can be added via `/admin/brands/new`.
