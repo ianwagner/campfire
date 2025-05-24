@@ -8,6 +8,7 @@ const tabs = [
   { label: 'Request', path: '/request' },
   { label: 'Brand Setup', path: '/brand-setup' },
   { label: 'Account Settings', path: '/account-settings' },
+  { label: 'MFA Setup', path: '/enroll-mfa' },
 ];
 
 const Sidebar = () => {

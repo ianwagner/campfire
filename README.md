@@ -75,3 +75,13 @@ and retry.
 
 Similarly, `/admin/brands` lists all brands with inline edit and delete
 controls. New brands can be added via `/admin/brands/new`.
+
+## Multi-Factor Authentication
+
+1. In the Firebase console open **Authentication &gt; Sign-in method**.
+2. Scroll to **Multi-factor authentication** and enable SMS. Add your site's
+   domain to the reCAPTCHA list and register any test phone numbers for
+   development.
+3. Deploy the application and sign in. Admin and client users can visit
+   `/enroll-mfa` from the sidebar to enroll a phone number. The page sends an
+   SMS code and completes enrollment using Firebase's `multiFactor` APIs.

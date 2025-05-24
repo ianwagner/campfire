@@ -8,6 +8,7 @@ const tabs = [
   { label: 'Ad Groups', path: '/dashboard/admin' },
   { label: 'Users', path: '/admin/accounts' },
   { label: 'Brands', path: '/admin/brands' },
+  { label: 'MFA Setup', path: '/enroll-mfa' },
 ];
 
 const AdminSidebar = () => {
