@@ -25,6 +25,7 @@ import DesignerAccountSettings from "./DesignerAccountSettings";
 import AdminAccountForm from "./AdminAccountForm";
 import RoleGuard from "./RoleGuard";
 import useUserRole from "./useUserRole";
+import AdminBrandForm from "./AdminBrandForm";
 
 const App = () => {
   const [user, setUser] = React.useState(null);
@@ -271,6 +272,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdGroupDetail />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/brands"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="admin"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <AdminBrandForm />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
