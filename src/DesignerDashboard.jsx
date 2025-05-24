@@ -13,7 +13,7 @@ import { auth, db, storage } from './firebase/config';
 import DesignerSidebar from './DesignerSidebar';
 import CreateAdGroup from './CreateAdGroup';
 
-const DesignerDashboard = () => {
+const DesignerDashboard = ({ showSidebar = true }) => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewNote, setViewNote] = useState(null);
@@ -88,7 +88,7 @@ const DesignerDashboard = () => {
 
   return (
     <div className="flex min-h-screen">
-      <DesignerSidebar />
+      {showSidebar && <DesignerSidebar />}
       <div className="flex-grow p-4">
         <h1 className="text-2xl mb-4">Designer Dashboard</h1>
 
