@@ -24,12 +24,12 @@ test('admin sidebar has md width class', () => {
   expect(sidebarDiv).toHaveClass('md:flex');
 });
 
-test('navigates to designer dashboard when Create Brand clicked', () => {
+test('navigates to brands page when Brands clicked', () => {
   render(
     <MemoryRouter>
       <AdminSidebar />
     </MemoryRouter>
   );
-  fireEvent.click(screen.getByText('Create Brand'));
-  expect(navigate).toHaveBeenCalledWith('/dashboard/designer');
+  fireEvent.click(screen.getByText('Brands'));
+  expect(navigate).toHaveBeenCalledWith('/admin/brands');
 });
