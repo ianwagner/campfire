@@ -4,9 +4,10 @@ import { signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
 
 const tabs = [
+  { label: 'Dashboard', path: '/dashboard/admin' },
   { label: 'Ad Groups', path: '/dashboard/admin' },
-  { label: 'Create Brand', path: '/dashboard/designer' },
-  { label: 'Manage Accounts', path: '/admin/accounts' },
+  { label: 'Users', path: '/admin/accounts' },
+  { label: 'Brands', path: '/admin/brands' },
 ];
 
 const AdminSidebar = () => {

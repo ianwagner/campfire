@@ -139,7 +139,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole="designer"
+                    requiredRole="admin"
                     userRole={role}
                     loading={roleLoading}
                   >
