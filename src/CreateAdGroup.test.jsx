@@ -23,3 +23,12 @@ test('renders Create Ad Group heading', () => {
   );
   expect(screen.getByText(/Create Ad Group/i)).toBeInTheDocument();
 });
+
+test('hides sidebar when showSidebar is false', () => {
+  render(
+    <MemoryRouter>
+      <CreateAdGroup showSidebar={false} />
+    </MemoryRouter>
+  );
+  expect(screen.queryByText(/Log Out/i)).not.toBeInTheDocument();
+});

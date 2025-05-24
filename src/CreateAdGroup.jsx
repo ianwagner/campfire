@@ -6,7 +6,7 @@ import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/fires
 import { db, auth } from './firebase/config';
 import DesignerSidebar from './DesignerSidebar';
 
-const CreateAdGroup = () => {
+const CreateAdGroup = ({ showSidebar = true }) => {
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
   const [brandCodes, setBrandCodes] = useState([]);
@@ -65,7 +65,7 @@ const CreateAdGroup = () => {
 
   return (
     <div className="flex min-h-screen">
-      <DesignerSidebar />
+      {showSidebar && <DesignerSidebar />}
       <div className="flex-grow p-4 max-w-md mx-auto mt-10">
         <h1 className="text-2xl mb-4">Create Ad Group</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
