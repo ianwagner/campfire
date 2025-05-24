@@ -26,7 +26,7 @@ const Sidebar = () => {
   };
 
   return (
-    <div className="w-56 h-screen border-r bg-white p-4 flex flex-col space-y-2">
+    <div className="w-56 md:w-56 h-screen border-r bg-white p-4 flex flex-col space-y-2">
       {tabs.map((tab) => {
         const isActive = tab.path && location.pathname.startsWith(tab.path);
         const classes =
