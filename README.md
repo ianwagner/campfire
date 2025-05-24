@@ -71,17 +71,18 @@ document to Firestore. Both operations are wrapped in a `try/catch` block. If
 either step fails the error message is shown so the admin can correct the input
 and retry.
 
+
+## Setting Admin Custom Claims
+
+After creating an admin user you need to assign the `admin` custom claim so the application recognizes the account as an administrator. Run the provided `setAdminClaim.js` script with the user's UID:
+
+```bash
+node setAdminClaim.js <uid>
+```
+
+The script loads your service account credentials from the `GOOGLE_APPLICATION_CREDENTIALS` environment variable (it also reads variables from `.env` if present). Once executed, the specified user will have `{ admin: true }` in their custom claims. You can verify this in the Firebase console or by fetching the user record with the Admin SDK.
+
 ## Admin Brand Management
 
 Similarly, `/admin/brands` lists all brands with inline edit and delete
 controls. New brands can be added via `/admin/brands/new`.
-
-## Multi-Factor Authentication
-
-1. In the Firebase console open **Authentication &gt; Sign-in method**.
-2. Scroll to **Multi-factor authentication** and enable SMS. Add your site's
-   domain to the reCAPTCHA list and register any test phone numbers for
-   development.
-3. Deploy the application and sign in. Admin and client users can visit
-   `/enroll-mfa` from the sidebar to enroll a phone number. The page sends an
-   SMS code and completes enrollment using Firebase's `multiFactor` APIs.
