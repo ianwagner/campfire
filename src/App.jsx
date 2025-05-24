@@ -23,9 +23,11 @@ import AccountSettings from "./AccountSettings";
 import DesignerNotifications from "./DesignerNotifications";
 import DesignerAccountSettings from "./DesignerAccountSettings";
 import AdminAccountForm from "./AdminAccountForm";
+import AdminAccounts from "./AdminAccounts";
 import RoleGuard from "./RoleGuard";
 import useUserRole from "./useUserRole";
 import AdminBrandForm from "./AdminBrandForm";
+import AdminBrands from "./AdminBrands";
 
 const App = () => {
   const [user, setUser] = React.useState(null);
@@ -136,6 +138,22 @@ const App = () => {
             />
             <Route
               path="/admin/accounts"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="admin"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <AdminAccounts />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/accounts/new"
               element={
                 user ? (
                   <RoleGuard
@@ -280,6 +298,22 @@ const App = () => {
             />
             <Route
               path="/admin/brands"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="admin"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <AdminBrands />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/brands/new"
               element={
                 user ? (
                   <RoleGuard
