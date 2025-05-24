@@ -16,6 +16,7 @@ import {
 import { deleteObject, ref } from 'firebase/storage';
 import { db, storage } from './firebase/config';
 import { uploadFile } from './uploadFile';
+import DesignerSidebar from './DesignerSidebar';
 
 const AdGroupDetail = () => {
   const { id } = useParams();
@@ -203,8 +204,10 @@ const AdGroupDetail = () => {
   }
 
   return (
-    <div className="p-4 max-w-3xl mx-auto">
-      <h1 className="text-2xl mb-2">{group.name}</h1>
+    <div className="flex min-h-screen">
+      <DesignerSidebar />
+      <div className="flex-grow p-4 max-w-3xl mx-auto">
+        <h1 className="text-2xl mb-2">{group.name}</h1>
       <p className="text-sm text-gray-500">Brand: {group.brandCode}</p>
       <p className="text-sm text-gray-500 mb-4">Status: {group.status}</p>
 
@@ -330,6 +333,8 @@ const AdGroupDetail = () => {
         >
           {readyLoading ? 'Processing...' : 'Mark as Ready for Review'}
         </button>
+      </div>
+        </div>
       </div>
     </div>
   );
