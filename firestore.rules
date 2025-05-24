@@ -1,0 +1,13 @@
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /admin/{document=**} {
+      allow read, write: if request.auth.token.admin == true;
+    }
+    match /designers/{designerId}/{document=**} {
+      allow read, write: if request.auth.uid == designerId;
+    }
+    match /brands/{brandId}/{document=**} {
+      allow read, write: if request.auth.uid == brandId;
+    }
+  }
+}
