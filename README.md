@@ -71,6 +71,17 @@ document to Firestore. Both operations are wrapped in a `try/catch` block. If
 either step fails the error message is shown so the admin can correct the input
 and retry.
 
+
+## Setting Admin Custom Claims
+
+After creating an admin user you need to assign the `admin` custom claim so the application recognizes the account as an administrator. Run the provided `setAdminClaim.js` script with the user's UID:
+
+```bash
+node setAdminClaim.js <uid>
+```
+
+The script loads your service account credentials from the `GOOGLE_APPLICATION_CREDENTIALS` environment variable (it also reads variables from `.env` if present). Once executed, the specified user will have `{ admin: true }` in their custom claims. You can verify this in the Firebase console or by fetching the user record with the Admin SDK.
+
 ## Admin Brand Management
 
 Similarly, `/admin/brands` lists all brands with inline edit and delete
