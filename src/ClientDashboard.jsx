@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { auth, db } from './firebase/config';
+import { db } from './firebase/config';
+import Sidebar from './Sidebar';
 import {
   collection,
   getDocs,
@@ -111,16 +111,10 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
     : null;
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-start">
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <div className="flex-grow p-4">
         <h1 className="text-2xl mb-4">Client Dashboard</h1>
-        <button
-          onClick={() => signOut(auth)}
-          className="btn-logout mt-4"
-        >
-          Log Out
-        </button>
-      </div>
       {loading ? (
         <p>Loading groups...</p>
       ) : groups.length === 0 ? (
@@ -179,6 +173,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 };

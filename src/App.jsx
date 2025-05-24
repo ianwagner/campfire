@@ -17,6 +17,9 @@ import CreateAdGroup from "./CreateAdGroup";
 import AdGroupDetail from "./AdGroupDetail";
 import DesignerDashboard from "./DesignerDashboard";
 import ClientDashboard from "./ClientDashboard";
+import Request from "./Request";
+import BrandSetup from "./BrandSetup";
+import AccountSettings from "./AccountSettings";
 import RoleGuard from "./RoleGuard";
 import useUserRole from "./useUserRole";
 
@@ -141,6 +144,54 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <ClientReview user={user} brandCodes={brandCodes} />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/request"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <Request />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/brand-setup"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <BrandSetup />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/account-settings"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <AccountSettings />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
