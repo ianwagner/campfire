@@ -336,7 +336,6 @@ const AdGroupDetail = () => {
       </div>
         </div>
       </div>
-    </div>
   );
 };
 
