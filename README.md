@@ -86,3 +86,41 @@ The script loads your service account credentials from the `GOOGLE_APPLICATION_C
 
 Similarly, `/admin/brands` lists all brands with inline edit and delete
 controls. New brands can be added via `/admin/brands/new`.
+
+## Authentication
+
+The project uses Firebase Authentication for admin access. The `Login` component
+found in `src/Login.jsx` calls `signInWithEmailAndPassword` when the form is
+submitted:
+
+```jsx
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from './firebase/config';
+
+await signInWithEmailAndPassword(auth, email, password);
+```
+
+Account creation occurs through `AdminAccountForm` which creates the Firebase
+user and stores metadata in Firestore:
+
+```jsx
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from './firebase/config';
+
+const cred = await createUserWithEmailAndPassword(auth, email, password);
+await setDoc(doc(db, 'users', cred.user.uid), { role, brandCodes: codes });
+```
+
+Users can sign out from the sidebar. `AdminSidebar` exposes a logout button that
+simply calls `signOut`:
+
+```jsx
+import { signOut } from 'firebase/auth';
+import { auth } from './firebase/config';
+
+signOut(auth);
+```
+
+Multi-factor authentication enrollment is not implemented in the current code
+base.
