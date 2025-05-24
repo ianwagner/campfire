@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
+import DesignerSidebar from './DesignerSidebar';
 
 const CreateAdGroup = () => {
   const [name, setName] = useState('');
@@ -63,8 +64,10 @@ const CreateAdGroup = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-4">
-      <h1 className="text-2xl mb-4">Create Ad Group</h1>
+    <div className="flex min-h-screen">
+      <DesignerSidebar />
+      <div className="flex-grow p-4 max-w-md mx-auto mt-10">
+        <h1 className="text-2xl mb-4">Create Ad Group</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block mb-1 text-sm font-medium">Group Name</label>
@@ -114,6 +117,7 @@ const CreateAdGroup = () => {
           {loading ? 'Creating...' : 'Create Group'}
         </button>
       </form>
+      </div>
     </div>
   );
 };

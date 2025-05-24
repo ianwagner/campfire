@@ -20,6 +20,8 @@ import ClientDashboard from "./ClientDashboard";
 import Request from "./Request";
 import BrandSetup from "./BrandSetup";
 import AccountSettings from "./AccountSettings";
+import DesignerNotifications from "./DesignerNotifications";
+import DesignerAccountSettings from "./DesignerAccountSettings";
 import RoleGuard from "./RoleGuard";
 import useUserRole from "./useUserRole";
 
@@ -112,6 +114,38 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <DesignerDashboard />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/designer/notifications"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="designer"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <DesignerNotifications />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/designer/account-settings"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="designer"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <DesignerAccountSettings />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
