@@ -6,7 +6,6 @@ import {
   Routes,
   Route,
   Navigate,
-  Link,
 } from "react-router-dom";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./firebase/config";
@@ -62,26 +61,6 @@ const App = () => {
   return (
     <Router>
       <div className="min-h-screen flex flex-col">
-        <header className="p-2 bg-gray-100 text-sm">
-          {user && role && (
-            <div className="flex justify-between items-center">
-              <nav className="space-x-4">
-                {role === "client" && (
-                  <Link to="/dashboard/client">Dashboard</Link>
-                )}
-                {role === "designer" && (
-                  <>
-                    <Link to="/dashboard/designer">Dashboard</Link>
-                    <Link to="/create-group">Create Group</Link>
-                  </>
-                )}
-              </nav>
-              <button onClick={handleLogout} className="btn-logout">
-                Log Out
-              </button>
-            </div>
-          )}
-        </header>
         <div className="flex-grow">
           <Routes>
             <Route
