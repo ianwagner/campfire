@@ -60,3 +60,10 @@ Create a `vercel.json` file with the following contents:
 
 Without this rule Vercel would serve 404 pages for client-side routes. The
 rewrite ensures navigation works correctly.
+
+## Admin Account Creation
+
+Navigate to `/admin/accounts` to create client or designer accounts. The form
+calls `createUserWithEmailAndPassword` and then writes a user document to
+Firestore. Both operations are wrapped in a `try/catch` block. If either step
+fails the error message is shown so the admin can correct the input and retry.
