@@ -60,3 +60,20 @@ Create a `vercel.json` file with the following contents:
 
 Without this rule Vercel would serve 404 pages for client-side routes. The
 rewrite ensures navigation works correctly.
+
+## Admin Role
+
+The application now supports an **admin** role used to manage brands and user
+accounts. Admins access their dashboard at `/dashboard/admin` which provides
+links to additional pages for managing data:
+
+- `/admin/brands` – view all brands and create new ones
+- `/admin/brands/new` – form for creating a brand code
+- `/admin/accounts` – manage clients and designers
+- `/admin/accounts/new` – create a new user account
+
+Creating a brand is typically the first step. Admins enter the brand name and a
+unique code on the **New Brand** page. Once a brand exists, admins can create a
+client or designer account from the **New Account** page and assign the brand
+code to that user. Clients use these brand codes when requesting work so
+designers see which assets belong to which brand.
