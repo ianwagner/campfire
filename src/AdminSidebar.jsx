@@ -5,7 +5,7 @@ import { auth } from './firebase/config';
 
 const tabs = [
   { label: 'Ad Groups', path: '/dashboard/admin' },
-  { label: 'Create Brand', path: '/admin/brands' },
+  { label: 'Create Brand', path: '/dashboard/designer' },
   { label: 'Manage Accounts', path: '/admin/accounts' },
 ];
 
