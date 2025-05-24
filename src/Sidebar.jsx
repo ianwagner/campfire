@@ -14,6 +14,7 @@ const tabs = [
 const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [open, setOpen] = React.useState(false);
 
   const handleClick = (tab) => {
     if (tab.action === 'logout') {
@@ -25,8 +26,8 @@ const Sidebar = () => {
     }
   };
 
-  return (
-    <div className="w-56 md:w-56 h-screen border-r bg-white p-4 flex flex-col space-y-2">
+  const menuItems = (
+    <>
       {tabs.map((tab) => {
         const isActive = tab.path && location.pathname.startsWith(tab.path);
         const classes =
@@ -40,7 +41,40 @@ const Sidebar = () => {
           </button>
         );
       })}
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <div className="hidden md:flex w-56 h-screen border-r bg-white p-4 flex-col space-y-2">
+        {menuItems}
+      </div>
+
+      {/* Mobile hamburger */}
+      <button
+        type="button"
+        aria-label="Menu"
+        className="md:hidden fixed top-2 left-2 m-2 text-2xl z-40"
+        onClick={() => setOpen(true)}
+      >
+        &#9776;
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 bg-white p-4 flex flex-col space-y-2 z-50">
+          <button
+            type="button"
+            aria-label="Close menu"
+            className="self-end mb-4 text-2xl"
+            onClick={() => setOpen(false)}
+          >
+            &times;
+          </button>
+          {menuItems}
+        </div>
+      )}
+    </>
   );
 };
 
