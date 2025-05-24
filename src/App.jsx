@@ -28,6 +28,7 @@ import RoleGuard from "./RoleGuard";
 import useUserRole from "./useUserRole";
 import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
+import EnrollMfa from "./EnrollMfa";
 
 const App = () => {
   const [user, setUser] = React.useState(null);
@@ -258,6 +259,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AccountSettings />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/enroll-mfa"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole={["admin", "client"]}
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <EnrollMfa user={user} role={role} />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

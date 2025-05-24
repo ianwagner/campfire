@@ -86,12 +86,3 @@ The script loads your service account credentials from the `GOOGLE_APPLICATION_C
 
 Similarly, `/admin/brands` lists all brands with inline edit and delete
 controls. New brands can be added via `/admin/brands/new`.
-
-## Deploying Firestore Security Rules
-
-Run the following command to upload the rules defined in `firestore.rules`:
-
-```bash
-firebase deploy --only firestore:rules
-```
-
