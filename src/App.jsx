@@ -22,6 +22,7 @@ import BrandSetup from "./BrandSetup";
 import AccountSettings from "./AccountSettings";
 import DesignerNotifications from "./DesignerNotifications";
 import DesignerAccountSettings from "./DesignerAccountSettings";
+import AdminAccountForm from "./AdminAccountForm";
 import RoleGuard from "./RoleGuard";
 import useUserRole from "./useUserRole";
 
@@ -126,6 +127,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <DesignerAccountSettings />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/accounts"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="designer"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <AdminAccountForm />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
