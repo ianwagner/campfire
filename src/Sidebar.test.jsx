@@ -14,6 +14,6 @@ test('sidebar has md width class', () => {
     </MemoryRouter>
   );
   const sidebarDiv = container.querySelector('.border-r');
-  expect(sidebarDiv).toHaveClass('w-56');
+  expect(sidebarDiv).toHaveClass('w-[250px]');
   expect(sidebarDiv).toHaveClass('md:flex');
 });

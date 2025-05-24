@@ -8,7 +8,6 @@ const tabs = [
   { label: 'Request', path: '/request' },
   { label: 'Brand Setup', path: '/brand-setup' },
   { label: 'Account Settings', path: '/account-settings' },
-  { label: 'Log Out', action: 'logout' },
 ];
 
 const Sidebar = () => {
@@ -17,13 +16,13 @@ const Sidebar = () => {
   const [open, setOpen] = React.useState(false);
 
   const handleClick = (tab) => {
-    if (tab.action === 'logout') {
-      signOut(auth).catch((err) => console.error('Failed to sign out', err));
-      return;
-    }
     if (tab.path) {
       navigate(tab.path);
     }
+  };
+
+  const handleLogout = () => {
+    signOut(auth).catch((err) => console.error('Failed to sign out', err));
   };
 
   const menuItems = (
@@ -47,8 +46,14 @@ const Sidebar = () => {
   return (
     <>
       {/* Desktop sidebar */}
-      <div className="hidden md:flex w-56 h-screen border-r bg-white p-4 flex-col space-y-2">
+      <div className="hidden md:flex w-[250px] h-screen border-r bg-white p-4 flex-col space-y-2">
         {menuItems}
+        <button
+          onClick={handleLogout}
+          className="mt-auto text-gray-700 hover:bg-gray-100 w-full text-left px-3 py-2"
+        >
+          Log Out
+        </button>
       </div>
 
       {/* Mobile hamburger */}
@@ -62,7 +67,7 @@ const Sidebar = () => {
       </button>
 
       {open && (
-        <div className="fixed inset-0 bg-white p-4 flex flex-col space-y-2 z-50">
+        <div className="fixed inset-0 bg-white p-4 flex flex-col h-full space-y-2 z-50">
           <button
             type="button"
             aria-label="Close menu"
@@ -72,6 +77,12 @@ const Sidebar = () => {
             &times;
           </button>
           {menuItems}
+          <button
+            onClick={handleLogout}
+            className="mt-auto text-gray-700 hover:bg-gray-100 w-full text-left px-3 py-2"
+          >
+            Log Out
+          </button>
         </div>
       )}
     </>
