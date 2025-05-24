@@ -6,7 +6,15 @@ const RoleGuard = ({ loading, userRole, requiredRole, children }) => {
     return <div className="text-center mt-10">Loading...</div>;
   }
 
-  if (userRole && userRole !== requiredRole) {
+  const allowedRoles = Array.isArray(requiredRole)
+    ? requiredRole
+    : [requiredRole];
+
+  if (
+    requiredRole &&
+    userRole &&
+    !allowedRoles.includes(userRole)
+  ) {
     return <Navigate to={`/dashboard/${userRole}`} replace />;
   }
 
