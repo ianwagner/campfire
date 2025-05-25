@@ -367,6 +367,7 @@ const AdGroupDetail = () => {
           {readyLoading ? 'Processing...' : 'Mark as Ready for Review'}
         </button>
       </div>
+    </div>
   );
 };
 
