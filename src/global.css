@@ -5,6 +5,7 @@
 @layer base {
   :root {
     --accent-color: #ea580c;
+    --accent-color-10: rgba(234, 88, 12, 0.1);
   }
   body {
     @apply bg-white text-gray-900 font-sans;
@@ -71,6 +72,9 @@
   }
   .bg-accent {
     background-color: var(--accent-color);
+  }
+  .bg-accent-10 {
+    background-color: var(--accent-color-10);
   }
   .border-accent {
     border-color: var(--accent-color);
