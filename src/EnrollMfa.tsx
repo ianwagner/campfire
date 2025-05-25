@@ -12,11 +12,6 @@ interface EnrollMfaProps {
   role: string;
 }
 
-const recaptchaVerifier = new RecaptchaVerifier(
-  'recaptcha-container',
-  { size: 'invisible', callback: () => {} },
-  auth
-);
 
 const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
   const [phoneNumber, setPhoneNumber] = useState<string>('');
@@ -41,10 +36,12 @@ const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
       const mfaSession = await multiFactor(auth.currentUser!).getSession();
       const phoneProvider = new PhoneAuthProvider(auth);
       const phoneOptions = { phoneNumber, session: mfaSession };
-      const id = await phoneProvider.verifyPhoneNumber(
-        phoneOptions,
-        recaptchaVerifier
+      const verifier = new RecaptchaVerifier(
+        'recaptcha-container',
+        { size: 'invisible', callback: () => {} },
+        auth
       );
+      const id = await phoneProvider.verifyPhoneNumber(phoneOptions, verifier);
       setVerificationId(id);
       setStep('verify');
     } catch (err: any) {
