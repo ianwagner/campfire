@@ -42,3 +42,17 @@ test('shows children when factors exist', () => {
   expect(screen.getByText('child')).toBeInTheDocument();
   expect(navigate).not.toHaveBeenCalled();
 });
+
+test('redirects agency to enroll page when no factors', () => {
+  const { multiFactor } = require('firebase/auth');
+  navigate.mockClear();
+  multiFactor.mockReturnValue({ enrolledFactors: [] });
+
+  render(
+    <RequireMfa user={{}} role="agency">
+      <div>child</div>
+    </RequireMfa>
+  );
+
+  expect(navigate).toHaveBeenCalledWith('/enroll-mfa', { replace: true });
+});

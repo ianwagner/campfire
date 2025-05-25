@@ -9,7 +9,7 @@ const RequireMfa = ({ user, role, children }) => {
   React.useEffect(() => {
     if (
       user &&
-      ['admin', 'client'].includes(role) &&
+      ['admin', 'client', 'agency'].includes(role) &&
       multiFactor(user).enrolledFactors.length === 0 &&
       location.pathname !== '/enroll-mfa'
     ) {

@@ -67,3 +67,8 @@ test('shows message when recent login required', async () => {
     await screen.findByText(/Please sign in again to enroll MFA/i)
   ).toBeInTheDocument();
 });
+
+test('allows enrollment for agency role', () => {
+  render(<EnrollMfa user={{ emailVerified: true } as any} role="agency" />);
+  expect(screen.getByLabelText(/Phone Number/i)).toBeInTheDocument();
+});
