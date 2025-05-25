@@ -49,12 +49,17 @@ const SidebarBase = ({ tabs = [] }) => {
           className="mx-auto mt-4 mb-4 w-40"
         />
         {menuItems}
-        <button
-          onClick={handleLogout}
-          className="mt-auto text-gray-700 hover:bg-gray-100 w-full text-center font-bold px-3 py-2"
-        >
-          Log Out
-        </button>
+        <div className="mt-auto flex flex-col items-center space-y-1">
+          <button
+            onClick={handleLogout}
+            className="text-gray-700 hover:bg-gray-100 w-full text-center font-bold px-3 py-2"
+          >
+            Log Out
+          </button>
+          <footer className="text-xs text-gray-400 text-center">
+            © 2025 Studio Tak. All rights reserved.
+          </footer>
+        </div>
       </div>
 
       {/* Mobile hamburger */}
@@ -83,12 +88,17 @@ const SidebarBase = ({ tabs = [] }) => {
             className="mx-auto mt-4 mb-4 w-40"
           />
           {menuItems}
-          <button
-            onClick={handleLogout}
-            className="mt-auto text-gray-700 hover:bg-gray-100 w-full text-center font-bold px-3 py-2"
-          >
-            Log Out
-          </button>
+          <div className="mt-auto flex flex-col items-center space-y-1">
+            <button
+              onClick={handleLogout}
+              className="text-gray-700 hover:bg-gray-100 w-full text-center font-bold px-3 py-2"
+            >
+              Log Out
+            </button>
+            <footer className="text-xs text-gray-400 text-center">
+              © 2025 Studio Tak. All rights reserved.
+            </footer>
+          </div>
         </div>
       )}
     </>
