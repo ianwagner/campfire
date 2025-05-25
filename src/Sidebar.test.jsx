@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import Sidebar from './Sidebar';
 
-jest.mock('./firebase/config', () => ({ auth: {} }));
+jest.mock('./firebase/config', () => ({ auth: {}, db: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
 
 test('sidebar has md width class', () => {

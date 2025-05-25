@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import AdminSidebar from './AdminSidebar';
 
-jest.mock('./firebase/config', () => ({ auth: {} }));
+jest.mock('./firebase/config', () => ({ auth: {}, db: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
 const navigate = jest.fn();
 jest.mock('react-router-dom', () => ({
