@@ -24,7 +24,8 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt }) => {
   const menuItems = (
     <>
       {tabs.map((tab) => {
-        const isActive = tab.path && location.pathname.startsWith(tab.path);
+        const currentPath = location.pathname + location.search;
+        const isActive = tab.path && currentPath.startsWith(tab.path);
         const classes =
           (isActive
             ? 'text-accent font-medium border border-accent bg-accent-10 '
