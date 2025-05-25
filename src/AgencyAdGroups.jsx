@@ -61,6 +61,12 @@ const AgencyAdGroups = () => {
                   <Link to={`/ad-group/${g.id}`} className="text-blue-500 underline">
                     View Details
                   </Link>
+                  <Link
+                    to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
+                    className="ml-2 text-blue-500 underline"
+                  >
+                    Review
+                  </Link>
                 </td>
               </tr>
             ))}
