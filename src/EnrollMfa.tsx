@@ -1,56 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, type FormEvent } from 'react';
 import {
   RecaptchaVerifier,
   PhoneAuthProvider,
-  PhoneMultiFactorGenerator,
   multiFactor,
 } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import { auth } from './firebase/config';
 
-const EnrollMfa = ({ user, role }) => {
-  const [phone, setPhone] = useState('');
-  const [code, setCode] = useState('');
-  const [verificationId, setVerificationId] = useState('');
-  const [step, setStep] = useState('start');
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+interface EnrollMfaProps {
+  user: User | null;
+  role: string;
+}
+
+const recaptchaVerifier = new RecaptchaVerifier(
+  'recaptcha-container',
+  { size: 'invisible', callback: () => {} },
+  auth
+);
+
+const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
+  const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [code, setCode] = useState<string>('');
+  const [verificationId, setVerificationId] = useState<string>('');
+  const [sending, setSending] = useState<boolean>(false);
+  const [verifying, setVerifying] = useState<boolean>(false);
+  const [step, setStep] = useState<'start' | 'verify' | 'done'>('start');
+  const [error, setError] = useState<string>('');
+  const [message, setMessage] = useState<string>('');
 
   if (!user || !['admin', 'client'].includes(role)) {
     return <p className="p-4">MFA enrollment not allowed for this account.</p>;
   }
 
-  const sendCode = async (e) => {
+  const sendCode = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setMessage('');
+    setSending(true);
     try {
-      const session = await multiFactor(user).getSession();
-      const phoneInfoOptions = { phoneNumber: phone, session };
-      const verifier = new RecaptchaVerifier(
-        'mfa-recaptcha',
-        { size: 'invisible' },
-        auth
+      const mfaSession = await multiFactor(auth.currentUser!).getSession();
+      const phoneProvider = new PhoneAuthProvider(auth);
+      const phoneOptions = { phoneNumber, session: mfaSession };
+      const id = await phoneProvider.verifyPhoneNumber(
+        phoneOptions,
+        recaptchaVerifier
       );
-      const provider = new PhoneAuthProvider(auth);
-      const id = await provider.verifyPhoneNumber(phoneInfoOptions, verifier);
       setVerificationId(id);
       setStep('verify');
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
+    } finally {
+      setSending(false);
     }
   };
 
-  const verifyCode = async (e) => {
+  const verifyCode = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    setVerifying(true);
     try {
       const cred = PhoneAuthProvider.credential(verificationId, code);
-      const assertion = PhoneMultiFactorGenerator.assertion(cred);
-      await multiFactor(user).enroll(assertion, 'phone');
+      await multiFactor(auth.currentUser!).enroll(cred, 'Phone');
       setMessage('Enrollment complete');
       setStep('done');
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -63,15 +79,15 @@ const EnrollMfa = ({ user, role }) => {
               <label className="block mb-1 text-sm font-medium">Phone Number</label>
               <input
                 type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
                 className="w-full p-2 border rounded"
                 required
               />
             </div>
             {error && <p className="text-red-500 text-sm">{error}</p>}
-            <button type="submit" className="w-full btn-primary">
-              Send Code
+            <button type="submit" className="w-full btn-primary" disabled={sending}>
+              {sending ? 'Sending...' : 'Send Code'}
             </button>
           </form>
         )}
@@ -88,13 +104,13 @@ const EnrollMfa = ({ user, role }) => {
               />
             </div>
             {error && <p className="text-red-500 text-sm">{error}</p>}
-            <button type="submit" className="w-full btn-primary">
-              Verify
+            <button type="submit" className="w-full btn-primary" disabled={verifying}>
+              {verifying ? 'Verifying...' : 'Verify'}
             </button>
           </form>
         )}
         {message && <p className="text-green-600 mt-2 text-sm">{message}</p>}
-        <div id="mfa-recaptcha"></div>
+        <div id="recaptcha-container" />
       </div>
     </div>
   );
