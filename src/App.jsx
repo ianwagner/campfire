@@ -10,6 +10,7 @@ import {
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./firebase/config";
 import Login from "./Login";
+import SignUpStepper from "./SignUpStepper";
 import Review from "./Review";
 import ClientReview from "./ClientReview";
 import ReviewRoute from "./ReviewRoute";
@@ -89,6 +90,16 @@ const App = () => {
                   <Navigate to={defaultPath} replace />
                 ) : (
                   <Login onLogin={() => setUser(auth.currentUser)} />
+                )
+              }
+            />
+            <Route
+              path="/signup"
+              element={
+                user ? (
+                  <Navigate to={defaultPath} replace />
+                ) : (
+                  <SignUpStepper />
                 )
               }
             />
