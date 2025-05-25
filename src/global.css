@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --accent-color: #ea580c;
+  }
   body {
     @apply bg-white text-gray-900 font-sans;
     font-family: 'Rubik', sans-serif;
@@ -62,6 +65,15 @@
   textarea,
   select {
     @apply border rounded px-2 py-1;
+  }
+  .text-accent {
+    color: var(--accent-color);
+  }
+  .bg-accent {
+    background-color: var(--accent-color);
+  }
+  .border-accent {
+    border-color: var(--accent-color);
   }
 }
 @keyframes approve-bounce {
