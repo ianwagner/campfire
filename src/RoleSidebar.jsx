@@ -1,4 +1,6 @@
 import React from 'react';
+// These components are thin wrappers around SidebarBase that supply
+// role specific tab configurations.
 import Sidebar from './Sidebar';
 import AdminSidebar from './AdminSidebar';
 import DesignerSidebar from './DesignerSidebar';

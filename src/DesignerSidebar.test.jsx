@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import DesignerSidebar from './DesignerSidebar';
 
-jest.mock('./firebase/config', () => ({ auth: {} }));
+jest.mock('./firebase/config', () => ({ auth: {}, db: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
 
 test('designer sidebar has md width class', () => {
@@ -17,3 +17,4 @@ test('designer sidebar has md width class', () => {
   expect(sidebarDiv).toHaveClass('w-[250px]');
   expect(sidebarDiv).toHaveClass('md:flex');
 });
+
