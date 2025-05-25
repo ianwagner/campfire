@@ -39,7 +39,7 @@ const Sidebar = () => {
           (isActive
             ? 'text-accent font-medium border border-accent bg-accent-10 '
             : 'text-gray-700 hover:bg-accent-10 border border-transparent ') +
-          'rounded-lg w-full text-left px-3 py-2';
+          'rounded-lg w-full text-center px-3 py-2';
         return (
           <button key={tab.label} onClick={() => handleClick(tab)} className={classes}>
             {tab.label}
@@ -56,7 +56,7 @@ const Sidebar = () => {
         <img
           src={settings.logoUrl || defaultLogo}
           alt="Studio Tak logo"
-          className="mx-auto mb-4 w-32"
+          className="mx-auto mt-4 mb-4 w-40"
         />
         {menuItems}
         <button
@@ -90,7 +90,7 @@ const Sidebar = () => {
           <img
             src={settings.logoUrl || defaultLogo}
             alt="Studio Tak logo"
-            className="mx-auto mb-4 w-32"
+            className="mx-auto mt-4 mb-4 w-40"
           />
           {menuItems}
           <button
