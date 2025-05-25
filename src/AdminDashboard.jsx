@@ -4,12 +4,10 @@ import {
   collection,
   getDocs,
   query,
-  doc,
-  deleteDoc,
   where,
 } from 'firebase/firestore';
-import { listAll, ref, deleteObject } from 'firebase/storage';
-import { db, storage } from './firebase/config';
+import { db } from './firebase/config';
+import deleteGroup from './utils/deleteGroup';
 import CreateAdGroup from './CreateAdGroup';
 
 const AdminDashboard = () => {
@@ -47,36 +45,10 @@ const AdminDashboard = () => {
     fetchGroups();
   }, []);
 
-  const deleteGroup = async (groupId, brandCode, groupName) => {
+  const handleDeleteGroup = async (groupId, brandCode, groupName) => {
     if (!window.confirm('Delete this group?')) return;
     try {
-      const assetSnap = await getDocs(
-        collection(db, 'adGroups', groupId, 'assets')
-      );
-      await Promise.all(
-        assetSnap.docs.map((d) =>
-          deleteDoc(doc(db, 'adGroups', groupId, 'assets', d.id))
-        )
-      );
-
-      const crossQuery = query(
-        collection(db, 'adAssets'),
-        where('adGroupId', '==', groupId)
-      );
-      const crossSnap = await getDocs(crossQuery);
-      await Promise.all(
-        crossSnap.docs.map((d) => deleteDoc(doc(db, 'adAssets', d.id)))
-      );
-
-      const removeFolder = async (folderRef) => {
-        const res = await listAll(folderRef);
-        await Promise.all(res.items.map((i) => deleteObject(i)));
-        await Promise.all(res.prefixes.map((p) => removeFolder(p)));
-      };
-      const path = `Campfire/Brands/${brandCode}/Adgroups/${groupName}`;
-      await removeFolder(ref(storage, path));
-
-      await deleteDoc(doc(db, 'adGroups', groupId));
+      await deleteGroup(groupId, brandCode, groupName);
       setGroups((prev) => prev.filter((g) => g.id !== groupId));
     } catch (err) {
       console.error('Failed to delete group', err);
@@ -139,7 +111,7 @@ const AdminDashboard = () => {
                       View Details
                     </Link>
                     <button
-                      onClick={() => deleteGroup(g.id, g.brandCode, g.name)}
+                      onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
                       className="ml-2 underline btn-delete"
                     >
                       Delete
