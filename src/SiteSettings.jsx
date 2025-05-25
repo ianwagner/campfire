@@ -1,25 +1,44 @@
 import React, { useEffect, useState } from 'react';
 import AdminSidebar from './AdminSidebar';
 import useSiteSettings from './useSiteSettings';
+import { uploadLogo } from './uploadLogo';
 
 const SiteSettings = () => {
   const { settings, saveSettings } = useSiteSettings();
   const [logoUrl, setLogoUrl] = useState('');
+  const [logoFile, setLogoFile] = useState(null);
   const [accentColor, setAccentColor] = useState('#ea580c');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     setLogoUrl(settings.logoUrl || '');
+    setLogoFile(null);
     setAccentColor(settings.accentColor || '#ea580c');
   }, [settings]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    setLogoFile(file || null);
+    if (file) {
+      setLogoUrl(URL.createObjectURL(file));
+    } else {
+      setLogoUrl(settings.logoUrl || '');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
     try {
-      await saveSettings({ logoUrl, accentColor });
+      let url = logoUrl;
+      if (logoFile) {
+        url = await uploadLogo(logoFile);
+      }
+      await saveSettings({ logoUrl: url, accentColor });
+      setLogoUrl(url);
+      setLogoFile(null);
       setMessage('Settings saved');
     } catch (err) {
       console.error('Failed to save settings', err);
@@ -36,13 +55,16 @@ const SiteSettings = () => {
         <h1 className="text-2xl mb-4">Site Settings</h1>
         <form onSubmit={handleSubmit} className="space-y-4 max-w-sm">
           <div>
-            <label className="block mb-1 text-sm font-medium">Logo URL</label>
+            <label className="block mb-1 text-sm font-medium">Logo</label>
             <input
-              type="text"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
               className="w-full p-2 border rounded"
             />
+            {logoUrl && (
+              <img src={logoUrl} alt="Logo preview" className="mt-2 w-32" />
+            )}
           </div>
           <div>
             <label className="block mb-1 text-sm font-medium">Accent Color</label>
