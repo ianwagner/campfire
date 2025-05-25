@@ -17,3 +17,4 @@ test('designer sidebar has md width class', () => {
   expect(sidebarDiv).toHaveClass('w-[250px]');
   expect(sidebarDiv).toHaveClass('md:flex');
 });
+
