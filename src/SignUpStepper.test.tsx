@@ -49,3 +49,26 @@ test('sends verification email after signup', async () => {
   expect(addDoc).toHaveBeenCalled();
   expect(setDoc).toHaveBeenCalledWith('userDoc', expect.objectContaining({ agencyId: 'a1' }));
 });
+
+test('navigates to MFA enrollment after account creation', async () => {
+  createUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+  render(<SignUpStepper />);
+
+  fireEvent.change(screen.getByLabelText('Company Name'), {
+    target: { value: 'Acme' },
+  });
+  fireEvent.click(screen.getByText('Next'));
+
+  fireEvent.change(screen.getByLabelText('Full Name'), {
+    target: { value: 'Tester' },
+  });
+  fireEvent.change(screen.getByLabelText('Email'), {
+    target: { value: 't@e.com' },
+  });
+  fireEvent.change(screen.getByLabelText('Password'), {
+    target: { value: 'pass' },
+  });
+  fireEvent.click(screen.getByText('Create Account'));
+
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith('/enroll-mfa'));
+});
