@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from './firebase/config';
-import Sidebar from './Sidebar';
 import {
   collection,
   getDocs,
@@ -111,10 +110,8 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
     : null;
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex-grow p-4">
-        <h1 className="text-2xl mb-4">Client Dashboard</h1>
+    <div className="min-h-screen p-4">
+      <h1 className="text-2xl mb-4">Client Dashboard</h1>
       {loading ? (
         <p>Loading groups...</p>
       ) : groups.length === 0 ? (

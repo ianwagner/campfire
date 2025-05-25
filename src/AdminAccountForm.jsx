@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
-import AdminSidebar from './AdminSidebar';
 
 const AdminAccountForm = () => {
   const [email, setEmail] = useState('');
@@ -42,9 +41,7 @@ const AdminAccountForm = () => {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <AdminSidebar />
-      <div className="flex-grow p-4 max-w-md mx-auto mt-10">
+    <div className="min-h-screen p-4 max-w-md mx-auto mt-10">
         <h1 className="text-2xl mb-4">Create Account</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -95,8 +92,7 @@ const AdminAccountForm = () => {
           </button>
         </form>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 export default AdminAccountForm;

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import AdminSidebar from './AdminSidebar';
 import useSiteSettings from './useSiteSettings';
 import { uploadLogo } from './uploadLogo';
 
@@ -49,9 +48,7 @@ const SiteSettings = () => {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <AdminSidebar />
-      <div className="flex-grow p-4">
+    <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Site Settings</h1>
         <form onSubmit={handleSubmit} className="space-y-4 max-w-sm">
           <div>
@@ -80,7 +77,6 @@ const SiteSettings = () => {
             {loading ? 'Saving...' : 'Save Settings'}
           </button>
         </form>
-      </div>
     </div>
   );
 };

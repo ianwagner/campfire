@@ -51,7 +51,7 @@ const DesignerSidebar = () => {
   return (
     <>
       {/* Desktop sidebar */}
-      <div className="hidden md:flex w-[250px] h-screen border-r bg-white p-4 flex-col space-y-2">
+      <div className="hidden md:flex fixed top-0 left-0 w-[250px] h-screen border-r bg-white p-4 flex-col space-y-2">
         <img
           src={settings.logoUrl || defaultLogo}
           alt="Studio Tak logo"
@@ -60,7 +60,7 @@ const DesignerSidebar = () => {
         {menuItems}
         <button
           onClick={handleLogout}
-          className="mt-auto text-gray-700 hover:bg-gray-100 w-full text-left px-3 py-2"
+          className="mt-auto text-gray-700 hover:bg-gray-100 w-full text-center font-bold px-3 py-2"
         >
           Log Out
         </button>
@@ -94,7 +94,7 @@ const DesignerSidebar = () => {
           {menuItems}
           <button
             onClick={handleLogout}
-            className="mt-auto text-gray-700 hover:bg-gray-100 w-full text-left px-3 py-2"
+            className="mt-auto text-gray-700 hover:bg-gray-100 w-full text-center font-bold px-3 py-2"
           >
             Log Out
           </button>

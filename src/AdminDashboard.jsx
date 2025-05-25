@@ -10,7 +10,6 @@ import {
 } from 'firebase/firestore';
 import { listAll, ref, deleteObject } from 'firebase/storage';
 import { db, storage } from './firebase/config';
-import AdminSidebar from './AdminSidebar';
 import CreateAdGroup from './CreateAdGroup';
 
 const AdminDashboard = () => {
@@ -85,9 +84,7 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <AdminSidebar />
-      <div className="flex-grow p-4">
+    <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Admin Dashboard</h1>
 
       <div className="mb-8">
@@ -173,7 +170,6 @@ const AdminDashboard = () => {
         </div>
       )}
     </div>
-  </div>
   );
 };
 
