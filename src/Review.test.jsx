@@ -106,6 +106,48 @@ test('submitResponse updates asset status', async () => {
   );
 });
 
+test('submitResponse includes reviewer name', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url2',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+
+  render(
+    <Review user={{ uid: 'u1', email: 'e@test.com' }} reviewerName="Alice" brandCodes={['BR1']} />
+  );
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
+  );
+
+  fireEvent.click(screen.getByText('Approve'));
+
+  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+
+  const respCall = addDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][3] === 'responses');
+  expect(respCall[1]).toEqual(expect.objectContaining({ reviewerName: 'Alice' }));
+
+  const update = updateDoc.mock.calls[0][1];
+  expect(update.history.userName).toBe('Alice');
+});
+
 test('request edit creates new version doc', async () => {
   const assetSnapshot = {
     docs: [
