@@ -2,6 +2,7 @@ import React, { useState, type FormEvent } from 'react';
 import {
   RecaptchaVerifier,
   PhoneAuthProvider,
+  PhoneMultiFactorGenerator,
   multiFactor,
   sendEmailVerification,
   signOut,
@@ -97,7 +98,8 @@ const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
     setVerifying(true);
     try {
       const cred = PhoneAuthProvider.credential(verificationId, code);
-      await multiFactor(auth.currentUser!).enroll(cred, 'Phone');
+      const assertion = PhoneMultiFactorGenerator.assertion(cred);
+      await multiFactor(auth.currentUser!).enroll(assertion, 'Phone');
       setMessage('Enrollment complete');
       setStep('done');
     } catch (err: any) {
