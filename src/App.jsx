@@ -12,11 +12,13 @@ import { auth } from "./firebase/config";
 import Login from "./Login";
 import Review from "./Review";
 import ClientReview from "./ClientReview";
+import ReviewRoute from "./ReviewRoute";
 import CreateAdGroup from "./CreateAdGroup";
 import AdGroupDetail from "./AdGroupDetail";
 import DesignerDashboard from "./DesignerDashboard";
 import ClientDashboard from "./ClientDashboard";
 import AdminDashboard from "./AdminDashboard";
+import AgencyDashboard from "./AgencyDashboard";
 import Request from "./Request";
 import BrandSetup from "./BrandSetup";
 import AccountSettings from "./AccountSettings";
@@ -45,7 +47,7 @@ const App = () => {
     return () => unsub();
   }, []);
 
-  const { role, brandCodes, loading: roleLoading } = useUserRole(user?.uid);
+  const { role, brandCodes, agencyId, loading: roleLoading } = useUserRole(user?.uid);
 
   const handleLogout = async () => {
     try {
@@ -58,6 +60,11 @@ const App = () => {
   if (loading || roleLoading) {
     return <div className="text-center mt-10">Loading...</div>;
   }
+
+  const defaultPath =
+    role === 'agency'
+      ? `/agency/dashboard?agencyId=${agencyId}`
+      : `/dashboard/${role}`;
 
   if (user && !role) {
     return (
@@ -79,7 +86,7 @@ const App = () => {
               path="/login"
               element={
                 user ? (
-                  <Navigate to={`/dashboard/${role}`} replace />
+                  <Navigate to={defaultPath} replace />
                 ) : (
                   <Login onLogin={() => setUser(auth.currentUser)} />
                 )
@@ -89,7 +96,7 @@ const App = () => {
               path="/"
               element={
                 user ? (
-                  <Navigate to={`/dashboard/${role}`} replace />
+                  <Navigate to={defaultPath} replace />
                 ) : (
                   <Navigate to="/login" replace />
                 )
@@ -208,19 +215,25 @@ const App = () => {
               }
             />
             <Route
-              path="/review/:groupId"
+              path="/agency/dashboard"
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole="client"
+                    requiredRole="agency"
                     userRole={role}
                     loading={roleLoading}
                   >
-                    <ClientReview user={user} brandCodes={brandCodes} />
+                    <AgencyDashboard />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
                 )
+              }
+            />
+            <Route
+              path="/review/:groupId"
+              element={
+                <ReviewRoute />
               }
             />
             <Route
