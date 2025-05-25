@@ -10,7 +10,6 @@ import {
 } from 'firebase/firestore';
 import { listAll, ref, deleteObject } from 'firebase/storage';
 import { auth, db, storage } from './firebase/config';
-import DesignerSidebar from './DesignerSidebar';
 import CreateAdGroup from './CreateAdGroup';
 
 const DesignerDashboard = () => {
@@ -88,9 +87,7 @@ const DesignerDashboard = () => {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <DesignerSidebar />
-      <div className="flex-grow p-4">
+    <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Designer Dashboard</h1>
 
       <div className="mb-8">
@@ -173,7 +170,6 @@ const DesignerDashboard = () => {
         </div>
       )}
     </div>
-  </div>
   );
 };
 

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from './firebase/config';
-import AdminSidebar from './AdminSidebar';
 
 const AdminBrands = () => {
   const [brands, setBrands] = useState([]);
@@ -60,9 +59,7 @@ const AdminBrands = () => {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <AdminSidebar />
-      <div className="flex-grow p-4">
+    <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Brands</h1>
         <a href="/admin/brands/new" className="underline text-blue-500 block mb-2">Add Brand</a>
         {loading ? (
@@ -130,8 +127,7 @@ const AdminBrands = () => {
           </table>
         )}
       </div>
-    </div>
-  );
+    );
 };
 
 export default AdminBrands;

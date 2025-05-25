@@ -1,13 +1,8 @@
 import React from 'react';
-import Sidebar from './Sidebar';
-
 const AccountSettings = () => (
-  <div className="flex min-h-screen">
-    <Sidebar />
-    <div className="flex-grow p-4">
-      <h1 className="text-2xl mb-4">Account Settings</h1>
-      <p>Coming soon...</p>
-    </div>
+  <div className="min-h-screen p-4">
+    <h1 className="text-2xl mb-4">Account Settings</h1>
+    <p>Coming soon...</p>
   </div>
 );
 

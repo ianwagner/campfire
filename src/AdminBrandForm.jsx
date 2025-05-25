@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
-import AdminSidebar from './AdminSidebar';
 
 const AdminBrandForm = () => {
   const [code, setCode] = useState('');
@@ -32,9 +31,7 @@ const AdminBrandForm = () => {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <AdminSidebar />
-      <div className="flex-grow p-4 flex flex-col items-center">
+    <div className="min-h-screen p-4 flex flex-col items-center">
         <h1 className="text-2xl mb-4">Add Brand</h1>
         <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-sm">
           <div>
@@ -66,8 +63,7 @@ const AdminBrandForm = () => {
           </button>
         </form>
       </div>
-    </div>
-  );
+    );
 };
 
 export default AdminBrandForm;

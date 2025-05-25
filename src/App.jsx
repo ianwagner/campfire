@@ -31,6 +31,7 @@ import AdminBrands from "./AdminBrands";
 import EnrollMfa from "./EnrollMfa";
 import RequireMfa from "./RequireMfa";
 import SiteSettings from "./SiteSettings";
+import RoleSidebar from "./RoleSidebar";
 
 const App = () => {
   const [user, setUser] = React.useState(null);
@@ -69,9 +70,11 @@ const App = () => {
   return (
     <Router>
       <RequireMfa user={user} role={role}>
-        <div className="min-h-screen flex flex-col">
-        <div className="flex-grow">
-          <Routes>
+        <div className="min-h-screen flex">
+          {user && <RoleSidebar role={role} />}
+          <div className="flex flex-col flex-grow" style={{ marginLeft: user ? 250 : 0 }}>
+            <div className="flex-grow">
+              <Routes>
             <Route
               path="/login"
               element={
@@ -365,14 +368,15 @@ const App = () => {
               }
             />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              </Routes>
+            </div>
+            <footer className="text-sm text-gray-400 text-center mt-4">
+              © 2025 Studio Tak. All rights reserved.
+            </footer>
+          </div>
         </div>
-        <footer className="text-sm text-gray-400 text-center mt-4">
-          © 2025 Studio Tak. All rights reserved.
-        </footer>
-      </div>
       </RequireMfa>
-    </Router>
+      </Router>
   );
 };
 
