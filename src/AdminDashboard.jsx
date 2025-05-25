@@ -110,6 +110,12 @@ const AdminDashboard = () => {
                     >
                       View Details
                     </Link>
+                    <Link
+                      to={`/review/${g.id}`}
+                      className="ml-2 text-blue-500 underline"
+                    >
+                      Review
+                    </Link>
                     <button
                       onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
                       className="ml-2 underline btn-delete"
