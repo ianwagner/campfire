@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import Review from './Review';
 import AgencyTheme from './AgencyTheme';
@@ -9,7 +9,49 @@ const PublicReview = () => {
   const { groupId } = useParams();
   const query = new URLSearchParams(useLocation().search);
   const agencyId = query.get('agency');
-  const reviewerName = query.get('name') || '';
+  const queryName = query.get('name');
+  const storedName =
+    typeof localStorage !== 'undefined'
+      ? localStorage.getItem('reviewerName')
+      : '';
+  const initialName = queryName || storedName || '';
+  const [reviewerName, setReviewerName] = useState(initialName);
+  const [tempName, setTempName] = useState(initialName);
+
+  useEffect(() => {
+    if (queryName) {
+      setReviewerName(queryName);
+    }
+  }, [queryName]);
+
+  useEffect(() => {
+    if (reviewerName) {
+      localStorage.setItem('reviewerName', reviewerName);
+    }
+  }, [reviewerName]);
+
+  if (!reviewerName) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-2">
+        <label className="text-lg" htmlFor="reviewerName">Your Name</label>
+        <input
+          id="reviewerName"
+          type="text"
+          value={tempName}
+          onChange={(e) => setTempName(e.target.value)}
+          className="w-full max-w-xs p-2 border rounded"
+        />
+        <button
+          onClick={() => setReviewerName(tempName.trim())}
+          className="btn-primary"
+          disabled={!tempName.trim()}
+        >
+          Start Review
+        </button>
+      </div>
+    );
+  }
+
   return (
     <AgencyTheme agencyId={agencyId}>
       <Review user={dummyUser} groupId={groupId} reviewerName={reviewerName} />

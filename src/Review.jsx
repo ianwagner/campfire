@@ -537,14 +537,14 @@ const Review = ({ user, brandCodes = [], groupId = null, reviewerName = '' }) =>
                       };
                       const cls = colorMap[h.action] || '';
                       return (
-                        <div key={idx} className={`mb-1 ${cls}`}>
-                          {h.timestamp?.toDate
-                            ? h.timestamp.toDate().toLocaleString()
-                            : ''}{' '}
-                          - {textMap[h.action] || h.action} -{' '}
-                          {h.userEmail || h.userId}
-                          {h.comment ? `: ${h.comment}` : ''}
-                        </div>
+                          <div key={idx} className={`mb-1 ${cls}`}>
+                            {h.timestamp?.toDate
+                              ? h.timestamp.toDate().toLocaleString()
+                              : ''}{' '}
+                            - {textMap[h.action] || h.action} -{' '}
+                            {h.userName || h.userEmail || h.userId}
+                            {h.comment ? `: ${h.comment}` : ''}
+                          </div>
                       );
                     })
                 ) : (
