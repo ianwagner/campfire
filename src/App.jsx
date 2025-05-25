@@ -35,6 +35,9 @@ import EnrollMfa from "./EnrollMfa";
 import RequireMfa from "./RequireMfa";
 import SiteSettings from "./SiteSettings";
 import RoleSidebar from "./RoleSidebar";
+import AgencyThemeSettings from "./AgencyThemeSettings";
+import AgencyBrands from "./AgencyBrands";
+import AgencyAdGroups from "./AgencyAdGroups";
 
 const App = () => {
   const [user, setUser] = React.useState(null);
@@ -79,7 +82,7 @@ const App = () => {
     <Router>
       <RequireMfa user={user} role={role}>
         <div className="min-h-screen flex">
-          {user && <RoleSidebar role={role} />}
+          {user && <RoleSidebar role={role} agencyId={agencyId} />}
           <div className="flex flex-col flex-grow" style={{ marginLeft: user ? 250 : 0 }}>
             <div className="flex-grow">
               <Routes>
@@ -235,6 +238,54 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AgencyDashboard />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/agency/theme"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="agency"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <AgencyThemeSettings />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/agency/brands"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="agency"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <AgencyBrands />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/agency/ad-groups"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="agency"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <AgencyAdGroups />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

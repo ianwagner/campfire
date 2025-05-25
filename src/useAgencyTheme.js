@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 
 const defaultAgency = { logoUrl: '', themeColor: '#00ABFF' };
@@ -50,7 +50,22 @@ const useAgencyTheme = (agencyId) => {
     fetchAgency();
   }, [agencyId]);
 
-  return { agency, loading };
+  const saveAgency = async (data) => {
+    if (!agencyId) return;
+    await setDoc(doc(db, 'agencies', agencyId), data, { merge: true });
+    setAgency((prev) => {
+      const updated = { ...prev, ...data };
+      const color = updated.themeColor || defaultAgency.themeColor;
+      document.documentElement.style.setProperty('--accent-color', color);
+      document.documentElement.style.setProperty(
+        '--accent-color-10',
+        hexToRgba(color, 0.1)
+      );
+      return updated;
+    });
+  };
+
+  return { agency, loading, saveAgency };
 };
 
 export default useAgencyTheme;
