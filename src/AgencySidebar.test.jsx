@@ -8,10 +8,11 @@ jest.mock('./useAgencyTheme', () => () => ({ agency: { logoUrl: '', name: 'Test 
 jest.mock('./firebase/config', () => ({ auth: {}, db: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
 const navigate = jest.fn();
+let location = { pathname: '/current', search: '' };
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => navigate,
-  useLocation: () => ({ pathname: '/current' }),
+  useLocation: () => location,
 }));
 
 test('agency sidebar has md width class', () => {
@@ -23,5 +24,16 @@ test('agency sidebar has md width class', () => {
   const sidebarDiv = container.querySelector('.border-r');
   expect(sidebarDiv).toHaveClass('w-[250px]');
   expect(sidebarDiv).toHaveClass('md:flex');
+});
+
+test('dashboard tab is active when query matches', () => {
+  location = { pathname: '/agency/dashboard', search: '?agencyId=123' };
+  const { getByText } = render(
+    <MemoryRouter>
+      <AgencySidebar agencyId="123" />
+    </MemoryRouter>
+  );
+  const btn = getByText('Dashboard');
+  expect(btn).toHaveClass('text-accent');
 });
 
