@@ -1,6 +1,8 @@
 import SidebarBase from './components/SidebarBase';
+import useAgencyTheme from './useAgencyTheme';
 
 const AgencySidebar = ({ agencyId }) => {
+  const { agency } = useAgencyTheme(agencyId);
   const q = agencyId ? `?agencyId=${agencyId}` : '';
   const tabs = [
     { label: 'Dashboard', path: `/agency/dashboard${q}` },
@@ -8,7 +10,13 @@ const AgencySidebar = ({ agencyId }) => {
     { label: 'Brands', path: `/agency/brands${q}` },
     { label: 'Theme', path: `/agency/theme${q}` },
   ];
-  return <SidebarBase tabs={tabs} />;
+  return (
+    <SidebarBase
+      tabs={tabs}
+      logoUrl={agency.logoUrl}
+      logoAlt={`${agency.name || 'Agency'} logo`}
+    />
+  );
 };
 
 export default AgencySidebar;
