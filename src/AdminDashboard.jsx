@@ -48,7 +48,7 @@ const AdminDashboard = () => {
     fetchGroups();
   }, []);
 
-  const deleteGroup = async (groupId) => {
+  const deleteGroup = async (groupId, brandCode, groupName) => {
     if (!window.confirm('Delete this group?')) return;
     try {
       const assetSnap = await getDocs(
@@ -74,7 +74,8 @@ const AdminDashboard = () => {
         await Promise.all(res.items.map((i) => deleteObject(i)));
         await Promise.all(res.prefixes.map((p) => removeFolder(p)));
       };
-      await removeFolder(ref(storage, `adGroups/${groupId}`));
+      const path = `Campfire/Brands/${brandCode}/Adgroups/${groupName}`;
+      await removeFolder(ref(storage, path));
 
       await deleteDoc(doc(db, 'adGroups', groupId));
       setGroups((prev) => prev.filter((g) => g.id !== groupId));
@@ -141,7 +142,7 @@ const AdminDashboard = () => {
                       View Details
                     </Link>
                     <button
-                      onClick={() => deleteGroup(g.id)}
+                      onClick={() => deleteGroup(g.id, g.brandCode, g.name)}
                       className="ml-2 underline btn-delete"
                     >
                       Delete

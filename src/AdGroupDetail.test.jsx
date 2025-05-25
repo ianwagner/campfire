@@ -9,8 +9,11 @@ jest.mock('./firebase/config', () => ({ db: {} }));
 const getDoc = jest.fn();
 const onSnapshot = jest.fn();
 const updateDoc = jest.fn();
+const getDocs = jest.fn();
 const docMock = jest.fn((...args) => args.slice(1).join('/'));
 const collectionMock = jest.fn((...args) => args);
+const queryMock = jest.fn((...args) => args);
+const whereMock = jest.fn((...args) => args);
 
 jest.mock('firebase/firestore', () => ({
   doc: (...args) => docMock(...args),
@@ -22,6 +25,9 @@ jest.mock('firebase/firestore', () => ({
   writeBatch: jest.fn(() => ({ update: jest.fn(), commit: jest.fn() })),
   addDoc: jest.fn(),
   deleteDoc: jest.fn(),
+  getDocs: (...args) => getDocs(...args),
+  query: (...args) => queryMock(...args),
+  where: (...args) => whereMock(...args),
 }));
 
 jest.mock('firebase/storage', () => ({ ref: jest.fn(), deleteObject: jest.fn() }));
@@ -38,6 +44,7 @@ beforeEach(() => {
     id: 'group1',
     data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'draft' }),
   });
+  getDocs.mockResolvedValue({ empty: true, docs: [] });
 });
 
 afterEach(() => {

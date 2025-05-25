@@ -12,6 +12,9 @@ import {
   serverTimestamp,
   writeBatch,
   deleteDoc,
+  query,
+  where,
+  getDocs,
 } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
 import { db, storage } from './firebase/config';
@@ -21,6 +24,7 @@ import DesignerSidebar from './DesignerSidebar';
 const AdGroupDetail = () => {
   const { id } = useParams();
   const [group, setGroup] = useState(null);
+  const [brandName, setBrandName] = useState('');
   const [assets, setAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
@@ -57,6 +61,25 @@ const AdGroupDetail = () => {
     });
     return () => unsub();
   }, [id]);
+
+  useEffect(() => {
+    const loadBrand = async () => {
+      if (!group?.brandCode) return;
+      try {
+        const q = query(collection(db, 'brands'), where('code', '==', group.brandCode));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          setBrandName(snap.docs[0].data().name || group.brandCode);
+        } else {
+          setBrandName(group.brandCode);
+        }
+      } catch (err) {
+        console.error('Failed to fetch brand name', err);
+        setBrandName(group.brandCode);
+      }
+    };
+    loadBrand();
+  }, [group?.brandCode]);
 
   useEffect(() => {
     if (group) {
@@ -101,7 +124,12 @@ const AdGroupDetail = () => {
     setUploading(true);
     for (const file of Array.from(selectedFiles)) {
       try {
-        const url = await uploadFile(file, id);
+        const url = await uploadFile(
+          file,
+          id,
+          brandName || group?.brandCode,
+          group?.name || id
+        );
         await addDoc(collection(db, 'adGroups', id, 'assets'), {
           adGroupId: id,
           brandCode: group?.brandCode || '',
@@ -128,7 +156,12 @@ const AdGroupDetail = () => {
     if (!file) return;
     setVersionUploading(assetId);
     try {
-      const url = await uploadFile(file, id);
+      const url = await uploadFile(
+        file,
+        id,
+        brandName || group?.brandCode,
+        group?.name || id
+      );
       await updateDoc(doc(db, 'adGroups', id, 'assets', assetId), {
         filename: file.name,
         firebaseUrl: url,
@@ -186,7 +219,10 @@ const AdGroupDetail = () => {
         try {
           const fileRef = ref(
             storage,
-            asset.firebaseUrl || `adGroups/${id}/${asset.filename}`
+            asset.firebaseUrl ||
+              `Campfire/Brands/${brandName || group?.brandCode}/Adgroups/${
+                group?.name || id
+              }/${asset.filename}`
           );
           await deleteObject(fileRef);
         } catch (err) {
