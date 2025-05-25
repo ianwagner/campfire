@@ -3,9 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
 import useSiteSettings from './useSiteSettings';
-
-const defaultLogo =
-  'https://firebasestorage.googleapis.com/v0/b/tak-campfire-main/o/StudioTak%2Flogo_new.webp?alt=media&token=1f08d552-6c85-444d-ac4f-1e895e97e5bd';
+import { DEFAULT_LOGO_URL } from './constants';
 
 const tabs = [
   { label: 'Notifications', path: '/designer/notifications' },
@@ -53,7 +51,7 @@ const DesignerSidebar = () => {
       {/* Desktop sidebar */}
       <div className="hidden md:flex fixed top-0 left-0 w-[250px] h-screen border-r bg-white p-4 flex-col space-y-2">
         <img
-          src={settings.logoUrl || defaultLogo}
+          src={settings.logoUrl || DEFAULT_LOGO_URL}
           alt="Studio Tak logo"
           className="mx-auto mt-4 mb-4 w-40"
         />
@@ -87,7 +85,7 @@ const DesignerSidebar = () => {
             &times;
           </button>
           <img
-            src={settings.logoUrl || defaultLogo}
+            src={settings.logoUrl || DEFAULT_LOGO_URL}
             alt="Studio Tak logo"
             className="mx-auto mt-4 mb-4 w-40"
           />
