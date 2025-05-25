@@ -46,7 +46,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt }) => {
         <img
           src={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
           alt={logoAlt || 'Logo'}
-          className="mx-auto mt-4 mb-4 w-40"
+          className="mx-auto mt-4 mb-4 max-h-16 w-auto"
         />
         {menuItems}
         <div className="mt-auto flex flex-col items-center space-y-1">
@@ -85,7 +85,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt }) => {
           <img
             src={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
             alt={logoAlt || 'Logo'}
-            className="mx-auto mt-4 mb-4 w-40"
+            className="mx-auto mt-4 mb-4 max-h-16 w-auto"
           />
           {menuItems}
           <div className="mt-auto flex flex-col items-center space-y-1">
