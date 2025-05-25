@@ -38,7 +38,7 @@ const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
     return '+' + e164;
   };
 
-  if (!user || !['admin', 'client'].includes(role)) {
+  if (!user || !['admin', 'client', 'agency'].includes(role)) {
     return <p className="p-4">MFA enrollment not allowed for this account.</p>;
   }
 
