@@ -31,9 +31,9 @@ const Login = ({ onLogin }) => {
             session: resolver.session,
           };
           const verifier = new RecaptchaVerifier(
+            auth,
             'recaptcha-container',
-            { size: 'invisible' },
-            auth
+            { size: 'invisible' }
           );
           const provider = new PhoneAuthProvider(auth);
           const id = await provider.verifyPhoneNumber(phoneInfoOptions, verifier);
