@@ -23,7 +23,7 @@ function AgencyDashboard() {
         <img
           src={agency.logoUrl}
           alt={`${agency.name} logo`}
-          className="mb-4 w-40"
+          className="mb-4 max-h-16 w-auto"
         />
       )}
       {/* Dashboard content here */}
