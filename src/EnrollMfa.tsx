@@ -37,9 +37,9 @@ const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
       const phoneProvider = new PhoneAuthProvider(auth);
       const phoneOptions = { phoneNumber, session: mfaSession };
       const verifier = new RecaptchaVerifier(
+        auth,
         'recaptcha-container',
-        { size: 'invisible', callback: () => {} },
-        auth
+        { size: 'invisible', callback: () => {} }
       );
       const id = await phoneProvider.verifyPhoneNumber(phoneOptions, verifier);
       setVerificationId(id);
