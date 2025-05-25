@@ -200,10 +200,15 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
       ...(groupName ? { groupName } : {}),
     };
     try {
-      await addDoc(collection(db, 'responses'), {
-        ...respObj,
-        timestamp: serverTimestamp(),
-      });
+      if (currentAd.adGroupId) {
+        await addDoc(
+          collection(db, 'adGroups', currentAd.adGroupId, 'responses'),
+          {
+            ...respObj,
+            timestamp: serverTimestamp(),
+          }
+        );
+      }
       if (currentAd.assetId && currentAd.adGroupId) {
         const assetRef = doc(
           db,
