@@ -12,6 +12,14 @@ jest.mock('firebase/auth', () => ({
   PhoneAuthProvider: jest.fn(() => ({ verifyPhoneNumber: jest.fn() })),
   multiFactor: jest.fn(() => ({ getSession: jest.fn() })),
   sendEmailVerification: (...args) => sendEmailVerification(...args),
+  signOut: jest.fn(),
+}));
+
+const navigate = jest.fn();
+
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => navigate,
 }));
 
 afterEach(() => {
@@ -28,4 +36,27 @@ test('resends verification email when button clicked', () => {
   render(<EnrollMfa user={{ emailVerified: false } as any} role="admin" />);
   fireEvent.click(screen.getByText(/Resend Verification Email/i));
   expect(sendEmailVerification).toHaveBeenCalled();
+});
+
+test('shows message when recent login required', async () => {
+  const { multiFactor } = require('firebase/auth');
+  multiFactor.mockReturnValue({
+    getSession: jest.fn().mockRejectedValue({
+      code: 'auth/requires-recent-login',
+      message: 'need login',
+    }),
+  });
+
+  render(
+    <EnrollMfa user={{ emailVerified: true } as any} role="admin" />
+  );
+
+  fireEvent.change(screen.getByLabelText(/Phone Number/i), {
+    target: { value: '+10000000000' },
+  });
+  fireEvent.click(screen.getByText('Send Code'));
+
+  expect(
+    await screen.findByText(/Please sign in again to enroll MFA/i)
+  ).toBeInTheDocument();
 });

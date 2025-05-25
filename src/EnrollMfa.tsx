@@ -4,9 +4,11 @@ import {
   PhoneAuthProvider,
   multiFactor,
   sendEmailVerification,
+  signOut,
 } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { auth } from './firebase/config';
+import { useNavigate } from 'react-router-dom';
 
 interface EnrollMfaProps {
   user: User | null;
@@ -23,6 +25,7 @@ const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
   const [step, setStep] = useState<'start' | 'verify' | 'done'>('start');
   const [error, setError] = useState<string>('');
   const [message, setMessage] = useState<string>('');
+  const navigate = useNavigate();
 
   if (!user || !['admin', 'client'].includes(role)) {
     return <p className="p-4">MFA enrollment not allowed for this account.</p>;
@@ -63,7 +66,13 @@ const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
       setVerificationId(id);
       setStep('verify');
     } catch (err: any) {
-      setError(err.message);
+      if (err.code === 'auth/requires-recent-login') {
+        setMessage('Please sign in again to enroll MFA.');
+        await signOut(auth);
+        navigate('/login');
+      } else {
+        setError(err.message);
+      }
     } finally {
       setSending(false);
     }
