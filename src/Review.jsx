@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 
-const Review = ({ user, brandCodes = [], groupId = null }) => {
+const Review = ({ user, brandCodes = [], groupId = null, reviewerName = '' }) => {
   const [ads, setAds] = useState([]); // full list of ads
   const [reviewAds, setReviewAds] = useState([]); // ads being reviewed in the current pass
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -198,6 +198,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
       pass: responses[adUrl] ? 'revisit' : 'initial',
       ...(brandCode ? { brandCode } : {}),
       ...(groupName ? { groupName } : {}),
+      ...(reviewerName ? { reviewerName } : {}),
     };
     try {
       if (currentAd.adGroupId) {
@@ -232,6 +233,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           history: arrayUnion({
             userId: user.uid,
             userEmail: user.email,
+            userName: reviewerName,
             action: newStatus,
             comment: responseType === 'edit' ? comment : '',
             timestamp: Timestamp.now(),

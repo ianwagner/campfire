@@ -7,10 +7,12 @@ const dummyUser = { uid: 'public', email: 'public@campfire' };
 
 const PublicReview = () => {
   const { groupId } = useParams();
-  const agencyId = new URLSearchParams(useLocation().search).get('agency');
+  const query = new URLSearchParams(useLocation().search);
+  const agencyId = query.get('agency');
+  const reviewerName = query.get('name') || '';
   return (
     <AgencyTheme agencyId={agencyId}>
-      <Review user={dummyUser} groupId={groupId} />
+      <Review user={dummyUser} groupId={groupId} reviewerName={reviewerName} />
     </AgencyTheme>
   );
 };
