@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 
-const Review = ({ user, brandCodes = [], groupId = null }) => {
+const Review = ({ user, brandCodes = [], groupId = null, reviewerName = '' }) => {
   const [ads, setAds] = useState([]); // full list of ads
   const [reviewAds, setReviewAds] = useState([]); // ads being reviewed in the current pass
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -232,6 +232,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
           history: arrayUnion({
             userId: user.uid,
             userEmail: user.email,
+            reviewerName,
             action: newStatus,
             comment: responseType === 'edit' ? comment : '',
             timestamp: Timestamp.now(),
@@ -540,7 +541,7 @@ const Review = ({ user, brandCodes = [], groupId = null }) => {
                             ? h.timestamp.toDate().toLocaleString()
                             : ''}{' '}
                           - {textMap[h.action] || h.action} -{' '}
-                          {h.userEmail || h.userId}
+                          {h.reviewerName || h.userEmail || h.userId}
                           {h.comment ? `: ${h.comment}` : ''}
                         </div>
                       );
