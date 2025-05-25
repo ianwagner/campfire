@@ -37,8 +37,8 @@ const Sidebar = () => {
         const isActive = tab.path && location.pathname.startsWith(tab.path);
         const classes =
           (isActive
-            ? 'text-accent font-medium border border-accent '
-            : 'text-gray-700 hover:bg-gray-100 border border-transparent ') +
+            ? 'text-accent font-medium border border-accent bg-accent-10 '
+            : 'text-gray-700 hover:bg-accent-10 border border-transparent ') +
           'rounded-lg w-full text-left px-3 py-2';
         return (
           <button key={tab.label} onClick={() => handleClick(tab)} className={classes}>
