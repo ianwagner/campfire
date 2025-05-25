@@ -3,6 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
 
+const logoUrl =
+  'https://firebasestorage.googleapis.com/v0/b/tak-campfire-main/o/StudioTak%2Flogo_new.webp?alt=media&token=1f08d552-6c85-444d-ac4f-1e895e97e5bd';
+
 const tabs = [
   { label: 'Dashboard', path: '/dashboard/client' },
   { label: 'Request', path: '/request' },
@@ -48,6 +51,7 @@ const Sidebar = () => {
     <>
       {/* Desktop sidebar */}
       <div className="hidden md:flex w-[250px] h-screen border-r bg-white p-4 flex-col space-y-2">
+        <img src={logoUrl} alt="Studio Tak logo" className="mx-auto mb-4 w-32" />
         {menuItems}
         <button
           onClick={handleLogout}
@@ -77,6 +81,7 @@ const Sidebar = () => {
           >
             &times;
           </button>
+          <img src={logoUrl} alt="Studio Tak logo" className="mx-auto mb-4 w-32" />
           {menuItems}
           <button
             onClick={handleLogout}
