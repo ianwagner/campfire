@@ -115,6 +115,12 @@ await setDoc(doc(db, 'users', cred.user.uid), { role, brandCodes: codes });
 Newly created accounts will automatically receive a verification email. They
 must verify their address before they can enroll multi-factor authentication.
 
+End users can self-register at `/signup`. The page collects basic information,
+creates the Firebase account. Selecting "Agency" also creates a new `agencies`
+document and stores the generated `agencyId` on the user record, while
+selecting "Brand" results in a `client` role. All new accounts automatically
+receive a verification email and are then directed to MFA enrollment.
+
 Users can sign out from the sidebar. `AdminSidebar` exposes a logout button that
 simply calls `signOut`:
 
