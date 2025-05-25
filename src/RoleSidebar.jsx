@@ -3,10 +3,10 @@ import AdminSidebar from './AdminSidebar';
 import DesignerSidebar from './DesignerSidebar';
 import AgencySidebar from './AgencySidebar';
 
-const RoleSidebar = ({ role }) => {
+const RoleSidebar = ({ role, agencyId }) => {
   if (role === 'admin') return <AdminSidebar />;
   if (role === 'designer') return <DesignerSidebar />;
-  if (role === 'agency') return <AgencySidebar />;
+  if (role === 'agency') return <AgencySidebar agencyId={agencyId} />;
   return <Sidebar />;
 };
 
