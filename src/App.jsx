@@ -29,6 +29,7 @@ import useUserRole from "./useUserRole";
 import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
 import EnrollMfa from "./EnrollMfa";
+import RequireMfa from "./RequireMfa";
 
 const App = () => {
   const [user, setUser] = React.useState(null);
@@ -66,7 +67,8 @@ const App = () => {
 
   return (
     <Router>
-      <div className="min-h-screen flex flex-col">
+      <RequireMfa user={user} role={role}>
+        <div className="min-h-screen flex flex-col">
         <div className="flex-grow">
           <Routes>
             <Route
@@ -352,6 +354,7 @@ const App = () => {
           © 2025 Studio Tak. All rights reserved.
         </footer>
       </div>
+      </RequireMfa>
     </Router>
   );
 };
