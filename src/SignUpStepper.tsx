@@ -1,7 +1,7 @@
 import React, { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { doc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -37,12 +37,23 @@ const SignUpStepper: React.FC = () => {
     setLoading(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
+      let agencyId: string | undefined;
+      if (businessType === 'agency') {
+        const agencyRef = await addDoc(collection(db, 'agencies'), {
+          name: companyName.trim(),
+          themeColor: '#00ABFF',
+          logoUrl: '',
+        });
+        agencyId = agencyRef.id;
+      }
       await setDoc(doc(db, 'users', cred.user.uid), {
         role: businessType,
         companyName: companyName.trim(),
         fullName: fullName.trim(),
         email: email.trim(),
+        ...(agencyId ? { agencyId } : {}),
       });
+      await sendEmailVerification(cred.user);
       navigate('/enroll-mfa');
     } catch (err: any) {
       setError(err.message);
@@ -64,7 +75,7 @@ const SignUpStepper: React.FC = () => {
                 className="w-full p-2 border rounded"
               >
                 <option value="agency">Agency</option>
-                <option value="brand">Brand</option>
+                <option value="client">Brand</option>
               </select>
             </div>
             <div>
