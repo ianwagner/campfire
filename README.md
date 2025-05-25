@@ -112,6 +112,9 @@ const cred = await createUserWithEmailAndPassword(auth, email, password);
 await setDoc(doc(db, 'users', cred.user.uid), { role, brandCodes: codes });
 ```
 
+Newly created accounts will automatically receive a verification email. They
+must verify their address before they can enroll multi-factor authentication.
+
 Users can sign out from the sidebar. `AdminSidebar` exposes a logout button that
 simply calls `signOut`:
 

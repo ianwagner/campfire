@@ -3,6 +3,7 @@ import {
   RecaptchaVerifier,
   PhoneAuthProvider,
   multiFactor,
+  sendEmailVerification,
 } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { auth } from './firebase/config';
@@ -25,6 +26,23 @@ const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
 
   if (!user || !['admin', 'client'].includes(role)) {
     return <p className="p-4">MFA enrollment not allowed for this account.</p>;
+  }
+
+  if (!user.emailVerified) {
+    return (
+      <div className="flex justify-center p-4">
+        <div className="w-80 space-y-2">
+          <p>Please verify your email before enrolling MFA</p>
+          <button
+            type="button"
+            className="w-full btn-primary"
+            onClick={() => sendEmailVerification(user)}
+          >
+            Resend Verification Email
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const sendCode = async (e: FormEvent) => {
