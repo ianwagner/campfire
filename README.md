@@ -131,3 +131,12 @@ the app checks `multiFactor.enrolledFactors` for the user and redirects to
 verification code and completes `multiFactor().enroll()` once confirmed.
 Phone numbers entered on this screen are automatically formatted as E.164,
 so typing `15555551234` will result in `+15555551234` in the field.
+
+## Running Tests
+
+Use Jest to run unit tests for React components. Install dependencies and run:
+
+```bash
+npm install
+npm test
+```
