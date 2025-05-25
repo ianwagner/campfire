@@ -38,6 +38,13 @@ test('resends verification email when button clicked', () => {
   expect(sendEmailVerification).toHaveBeenCalled();
 });
 
+test('formats phone number input to E.164', () => {
+  render(<EnrollMfa user={{ emailVerified: true } as any} role="admin" />);
+  const input = screen.getByLabelText(/Phone Number/i) as HTMLInputElement;
+  fireEvent.change(input, { target: { value: '15551234567' } });
+  expect(input.value).toBe('+15551234567');
+});
+
 test('shows message when recent login required', async () => {
   const { multiFactor } = require('firebase/auth');
   multiFactor.mockReturnValue({

@@ -27,6 +27,16 @@ const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
   const [message, setMessage] = useState<string>('');
   const navigate = useNavigate();
 
+  const formatPhoneNumber = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (!digits) return '';
+    let e164 = digits;
+    if (digits[0] !== '1' && digits.length === 10) {
+      e164 = '1' + digits;
+    }
+    return '+' + e164;
+  };
+
   if (!user || !['admin', 'client'].includes(role)) {
     return <p className="p-4">MFA enrollment not allowed for this account.</p>;
   }
@@ -56,7 +66,10 @@ const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
     try {
       const mfaSession = await multiFactor(auth.currentUser!).getSession();
       const phoneProvider = new PhoneAuthProvider(auth);
-      const phoneOptions = { phoneNumber, session: mfaSession };
+      const phoneOptions = {
+        phoneNumber: formatPhoneNumber(phoneNumber),
+        session: mfaSession,
+      };
       const verifier = new RecaptchaVerifier(
         auth,
         'recaptcha-container',
@@ -104,7 +117,7 @@ const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
               <input
                 type="tel"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={(e) => setPhoneNumber(formatPhoneNumber(e.target.value))}
                 className="w-full p-2 border rounded"
                 required
               />
