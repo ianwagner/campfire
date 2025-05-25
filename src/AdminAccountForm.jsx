@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 import AdminSidebar from './AdminSidebar';
@@ -28,7 +28,8 @@ const AdminAccountForm = () => {
         role,
         brandCodes: codes,
       });
-      setSuccess('Account created');
+      await sendEmailVerification(cred.user);
+      setSuccess('Account created. Ask the user to verify their email.');
       setEmail('');
       setPassword('');
       setRole('client');
