@@ -30,6 +30,7 @@ import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
 import EnrollMfa from "./EnrollMfa";
 import RequireMfa from "./RequireMfa";
+import SiteSettings from "./SiteSettings";
 
 const App = () => {
   const [user, setUser] = React.useState(null);
@@ -325,6 +326,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminBrands />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/site-settings"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="admin"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <SiteSettings />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

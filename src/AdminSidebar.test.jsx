@@ -33,3 +33,12 @@ test('navigates to brands page when Brands clicked', () => {
   fireEvent.click(screen.getByText('Brands'));
   expect(navigate).toHaveBeenCalledWith('/admin/brands');
 });
+
+test('renders Site Settings tab', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  expect(screen.getByText('Site Settings')).toBeInTheDocument();
+});

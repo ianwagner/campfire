@@ -2,8 +2,9 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
+import useSiteSettings from './useSiteSettings';
 
-const logoUrl =
+const defaultLogo =
   'https://firebasestorage.googleapis.com/v0/b/tak-campfire-main/o/StudioTak%2Flogo_new.webp?alt=media&token=1f08d552-6c85-444d-ac4f-1e895e97e5bd';
 
 const tabs = [
@@ -18,6 +19,7 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = React.useState(false);
+  const { settings } = useSiteSettings();
 
   const handleClick = (tab) => {
     if (tab.path) {
@@ -35,7 +37,7 @@ const Sidebar = () => {
         const isActive = tab.path && location.pathname.startsWith(tab.path);
         const classes =
           (isActive
-            ? 'bg-orange-50 text-orange-600 font-medium border border-orange-500 rounded-lg '
+            ? 'text-accent font-medium border border-accent bg-gray-100 '
             : 'text-gray-700 hover:bg-gray-100 ') +
           'w-full text-left px-3 py-2';
         return (
@@ -51,7 +53,11 @@ const Sidebar = () => {
     <>
       {/* Desktop sidebar */}
       <div className="hidden md:flex w-[250px] h-screen border-r bg-white p-4 flex-col space-y-2">
-        <img src={logoUrl} alt="Studio Tak logo" className="mx-auto mb-4 w-32" />
+        <img
+          src={settings.logoUrl || defaultLogo}
+          alt="Studio Tak logo"
+          className="mx-auto mb-4 w-32"
+        />
         {menuItems}
         <button
           onClick={handleLogout}
@@ -81,7 +87,11 @@ const Sidebar = () => {
           >
             &times;
           </button>
-          <img src={logoUrl} alt="Studio Tak logo" className="mx-auto mb-4 w-32" />
+          <img
+            src={settings.logoUrl || defaultLogo}
+            alt="Studio Tak logo"
+            className="mx-auto mb-4 w-32"
+          />
           {menuItems}
           <button
             onClick={handleLogout}
