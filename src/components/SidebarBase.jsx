@@ -5,7 +5,7 @@ import { auth } from '../firebase/config';
 import useSiteSettings from '../useSiteSettings';
 import { DEFAULT_LOGO_URL } from '../constants';
 
-const SidebarBase = ({ tabs = [] }) => {
+const SidebarBase = ({ tabs = [], logoUrl, logoAlt }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = React.useState(false);
@@ -44,8 +44,8 @@ const SidebarBase = ({ tabs = [] }) => {
       {/* Desktop sidebar */}
       <div className="hidden md:flex fixed top-0 left-0 w-[250px] h-screen border-r bg-white p-4 flex-col space-y-2">
         <img
-          src={settings.logoUrl || DEFAULT_LOGO_URL}
-          alt="Studio Tak logo"
+          src={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
+          alt={logoAlt || 'Logo'}
           className="mx-auto mt-4 mb-4 w-40"
         />
         {menuItems}
@@ -78,8 +78,8 @@ const SidebarBase = ({ tabs = [] }) => {
             &times;
           </button>
           <img
-            src={settings.logoUrl || DEFAULT_LOGO_URL}
-            alt="Studio Tak logo"
+            src={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
+            alt={logoAlt || 'Logo'}
             className="mx-auto mt-4 mb-4 w-40"
           />
           {menuItems}
