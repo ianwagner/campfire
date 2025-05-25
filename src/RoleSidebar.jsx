@@ -1,4 +1,3 @@
-import React from 'react';
 import Sidebar from './Sidebar';
 import AdminSidebar from './AdminSidebar';
 import DesignerSidebar from './DesignerSidebar';

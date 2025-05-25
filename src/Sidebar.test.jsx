@@ -2,15 +2,17 @@ import React from 'react';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
-import Sidebar from './Sidebar';
+import SidebarBase from './components/SidebarBase';
 
 jest.mock('./firebase/config', () => ({ auth: {}, db: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
 
+const tabs = [{ label: 'Dashboard', path: '/dashboard' }];
+
 test('sidebar has md width class', () => {
   const { container } = render(
     <MemoryRouter>
-      <Sidebar />
+      <SidebarBase tabs={tabs} />
     </MemoryRouter>
   );
   const sidebarDiv = container.querySelector('.border-r');
