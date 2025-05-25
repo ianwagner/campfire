@@ -170,7 +170,6 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
           })}
         </div>
       )}
-      </div>
     </div>
   );
 };
