@@ -122,5 +122,7 @@ import { auth } from './firebase/config';
 signOut(auth);
 ```
 
-Multi-factor authentication enrollment is not implemented in the current code
-base.
+Admin and client accounts must enroll a second factor. After signing in,
+the app checks `multiFactor.enrolledFactors` for the user and redirects to
+`/enroll-mfa` if no factors are present. The enrollment screen sends an SMS
+verification code and completes `multiFactor().enroll()` once confirmed.
