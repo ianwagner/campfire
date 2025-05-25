@@ -445,9 +445,6 @@ const App = () => {
             <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>
-            <footer className="text-sm text-gray-400 text-center mt-4">
-              © 2025 Studio Tak. All rights reserved.
-            </footer>
           </div>
         </div>
       </RequireMfa>
