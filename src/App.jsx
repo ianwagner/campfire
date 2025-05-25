@@ -300,7 +300,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole={["admin", "client"]}
+                    requiredRole={["admin", "client", "agency"]}
                     userRole={role}
                     loading={roleLoading}
                   >

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase/config';
 
 const useUserRole = (uid) => {
@@ -17,10 +17,11 @@ const useUserRole = (uid) => {
       return;
     }
 
-    const fetchRole = async () => {
-      setLoading(true);
-      try {
-        const snap = await getDoc(doc(db, 'users', uid));
+    setLoading(true);
+    const ref = doc(db, 'users', uid);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
         if (snap.exists()) {
           const data = snap.data();
           setRole(data.role || null);
@@ -32,17 +33,18 @@ const useUserRole = (uid) => {
           setBrandCodes([]);
           setAgencyId(null);
         }
-      } catch (err) {
+        setLoading(false);
+      },
+      (err) => {
         console.error('Failed to fetch user role', err);
         setRole(null);
         setBrandCodes([]);
         setAgencyId(null);
-      } finally {
         setLoading(false);
       }
-    };
+    );
 
-    fetchRole();
+    return () => unsub();
   }, [uid]);
 
   return { role, brandCodes, agencyId, loading };
