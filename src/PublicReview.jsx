@@ -19,6 +19,7 @@ const PublicReview = () => {
   const initialName = queryName || storedName || '';
   const [reviewerName, setReviewerName] = useState(initialName);
   const [tempName, setTempName] = useState(initialName);
+  const [anonError, setAnonError] = useState('');
   const didSignIn = useRef(false);
 
   useEffect(() => {
@@ -27,9 +28,10 @@ const PublicReview = () => {
         .then(() => {
           didSignIn.current = true;
         })
-        .catch((err) =>
-          console.error('Anonymous sign-in failed', err)
-        );
+        .catch((err) => {
+          console.error('Anonymous sign-in failed', err);
+          setAnonError(err.message);
+        });
     }
     return () => {
       if (didSignIn.current && auth.currentUser?.isAnonymous) {
@@ -51,6 +53,12 @@ const PublicReview = () => {
       localStorage.setItem('reviewerName', reviewerName);
     }
   }, [reviewerName]);
+
+  if (anonError) {
+    return (
+      <div className="p-4 text-center text-red-500">{anonError}</div>
+    );
+  }
 
   if (!reviewerName) {
     return (
