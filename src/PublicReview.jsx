@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { signInAnonymously, signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
@@ -19,15 +19,20 @@ const PublicReview = () => {
   const initialName = queryName || storedName || '';
   const [reviewerName, setReviewerName] = useState(initialName);
   const [tempName, setTempName] = useState(initialName);
+  const didSignIn = useRef(false);
 
   useEffect(() => {
-    if (!auth.currentUser) {
-      signInAnonymously(auth).catch((err) =>
-        console.error('Anonymous sign-in failed', err)
-      );
+    if (!auth.currentUser && !didSignIn.current) {
+      signInAnonymously(auth)
+        .then(() => {
+          didSignIn.current = true;
+        })
+        .catch((err) =>
+          console.error('Anonymous sign-in failed', err)
+        );
     }
     return () => {
-      if (auth.currentUser?.isAnonymous) {
+      if (didSignIn.current && auth.currentUser?.isAnonymous) {
         signOut(auth).catch((err) =>
           console.error('Failed to sign out', err)
         );
