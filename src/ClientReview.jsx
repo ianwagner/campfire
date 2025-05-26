@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import Review from './Review';
-import AgencyTheme from './AgencyTheme';
 
 const ClientReview = (props) => {
   const { groupId } = useParams();
@@ -41,14 +40,11 @@ const ClientReview = (props) => {
       groupId={groupId}
       reviewerName={reviewerName}
       userRole={userRole}
+      agencyId={agencyId}
     />
   );
 
-  return agencyId ? (
-    <AgencyTheme agencyId={agencyId}>{reviewElem}</AgencyTheme>
-  ) : (
-    <div className="min-h-screen">{reviewElem}</div>
-  );
+  return <div className="min-h-screen">{reviewElem}</div>;
 };
 
 export default ClientReview;

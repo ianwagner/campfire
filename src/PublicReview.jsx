@@ -3,7 +3,6 @@ import { useParams, useLocation } from 'react-router-dom';
 import { signInAnonymously, signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
 import Review from './Review';
-import AgencyTheme from './AgencyTheme';
 
 const PublicReview = () => {
   const { groupId } = useParams();
@@ -94,14 +93,15 @@ const PublicReview = () => {
   const userObj = { uid: 'public', email: queryEmail || 'public@campfire' };
 
   return (
-    <AgencyTheme agencyId={agencyId}>
+    <div className="min-h-screen">
       <Review
         user={userObj}
         groupId={groupId}
         reviewerName={reviewerName}
         userRole={reviewerRole}
+        agencyId={agencyId}
       />
-    </AgencyTheme>
+    </div>
   );
 };
 
