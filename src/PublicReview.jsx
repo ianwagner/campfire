@@ -5,19 +5,20 @@ import { auth } from './firebase/config';
 import Review from './Review';
 import AgencyTheme from './AgencyTheme';
 
-const dummyUser = { uid: 'public', email: 'public@campfire' };
-
 const PublicReview = () => {
   const { groupId } = useParams();
   const query = new URLSearchParams(useLocation().search);
   const agencyId = query.get('agency');
   const queryName = query.get('name');
+  const queryEmail = query.get('email');
+  const queryRole = query.get('role');
   const storedName =
     typeof localStorage !== 'undefined'
       ? localStorage.getItem('reviewerName')
       : '';
   const initialName = queryName || storedName || '';
   const [reviewerName, setReviewerName] = useState(initialName);
+  const reviewerRole = queryRole || null;
   const [tempName, setTempName] = useState(initialName);
   const [anonError, setAnonError] = useState('');
   const didSignIn = useRef(false);
@@ -82,9 +83,16 @@ const PublicReview = () => {
     );
   }
 
+  const userObj = { uid: 'public', email: queryEmail || 'public@campfire' };
+
   return (
     <AgencyTheme agencyId={agencyId}>
-      <Review user={dummyUser} groupId={groupId} reviewerName={reviewerName} />
+      <Review
+        user={userObj}
+        groupId={groupId}
+        reviewerName={reviewerName}
+        userRole={reviewerRole}
+      />
     </AgencyTheme>
   );
 };

@@ -6,20 +6,29 @@ import {
   query,
   where,
 } from 'firebase/firestore';
-import { db } from './firebase/config';
-
-const copyLink = (id, agencyId) => {
-  const url = `${window.location.origin}/review/${id}${agencyId ? `?agency=${agencyId}` : ''}`;
-  navigator.clipboard
-    .writeText(url)
-    .then(() => window.alert('Link copied to clipboard'))
-    .catch((err) => console.error('Failed to copy link', err));
-};
+import { auth, db } from './firebase/config';
+import useUserRole from './useUserRole';
 
 const AgencyAdGroups = () => {
   const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const user = auth.currentUser;
+  const { role } = useUserRole(user?.uid);
+
+  const copyLink = (id, agency) => {
+    let url = `${window.location.origin}/review/${id}${agency ? `?agency=${agency}` : ''}`;
+    const params = new URLSearchParams();
+    if (user?.displayName) params.set('name', user.displayName);
+    if (user?.email) params.set('email', user.email);
+    if (role) params.set('role', role);
+    const str = params.toString();
+    if (str) url += (agency ? '&' : '?') + str;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => window.alert('Link copied to clipboard'))
+      .catch((err) => console.error('Failed to copy link', err));
+  };
 
   useEffect(() => {
     const fetchGroups = async () => {

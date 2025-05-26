@@ -17,7 +17,8 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
-import { db, storage } from './firebase/config';
+import { auth, db, storage } from './firebase/config';
+import useUserRole from './useUserRole';
 import { uploadFile } from './uploadFile';
 
 const AdGroupDetail = () => {
@@ -29,6 +30,7 @@ const AdGroupDetail = () => {
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
   const countsRef = useRef(null);
+  const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
   const summarize = (list) => {
     let reviewed = 0;
@@ -351,7 +353,11 @@ const AdGroupDetail = () => {
                         {h.timestamp?.toDate
                           ? h.timestamp.toDate().toLocaleString()
                           : ''}{' '}
-                        - {h.userEmail || h.userId}: {h.action}
+                        - {h.userName || h.userEmail || h.userId}
+                        {userRole === 'admin' && h.userRole
+                          ? ` (${h.userRole})`
+                          : ''}
+                        : {h.action}
                         {h.action === 'edit_requested' && h.comment
                           ? ` - ${h.comment}`
                           : ''}

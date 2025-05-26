@@ -9,19 +9,28 @@ import {
 import { auth, db } from './firebase/config';
 import deleteGroup from './utils/deleteGroup';
 import CreateAdGroup from './CreateAdGroup';
-
-const copyLink = (id) => {
-  const url = `${window.location.origin}/review/${id}`;
-  navigator.clipboard
-    .writeText(url)
-    .then(() => window.alert('Link copied to clipboard'))
-    .catch((err) => console.error('Failed to copy link', err));
-};
+import useUserRole from './useUserRole';
 
 const DesignerDashboard = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewNote, setViewNote] = useState(null);
+  const user = auth.currentUser;
+  const { role } = useUserRole(user?.uid);
+
+  const copyLink = (id) => {
+    let url = `${window.location.origin}/review/${id}`;
+    const params = new URLSearchParams();
+    if (user?.displayName) params.set('name', user.displayName);
+    if (user?.email) params.set('email', user.email);
+    if (role) params.set('role', role);
+    const str = params.toString();
+    if (str) url += `?${str}`;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => window.alert('Link copied to clipboard'))
+      .catch((err) => console.error('Failed to copy link', err));
+  };
 
   useEffect(() => {
     const fetchGroups = async () => {
