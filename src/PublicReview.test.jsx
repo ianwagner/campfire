@@ -32,3 +32,13 @@ test('shows error when anonymous sign-in fails', async () => {
   );
   expect(await screen.findByText('oops')).toBeInTheDocument();
 });
+
+test('shows loading indicator while signing in', () => {
+  signInAnonymously.mockResolvedValue({});
+  render(
+    <MemoryRouter>
+      <PublicReview />
+    </MemoryRouter>
+  );
+  expect(screen.getByText('Loading...')).toBeInTheDocument();
+});
