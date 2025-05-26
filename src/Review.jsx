@@ -234,25 +234,63 @@ const Review = ({
             ? 'rejected'
             : 'edit_requested';
 
+        const historyEntry = {
+          userId: user.uid,
+          userEmail: user.email,
+          userName: reviewerName,
+          ...(userRole ? { userRole } : {}),
+          action: newStatus,
+          comment: responseType === 'edit' ? comment : '',
+          timestamp: Timestamp.now(),
+        };
+
         const updateData = {
           status: newStatus,
           comment: responseType === 'edit' ? comment : '',
           lastUpdatedBy: user.uid,
           lastUpdatedAt: serverTimestamp(),
-          history: arrayUnion({
-            userId: user.uid,
-            userEmail: user.email,
-            userName: reviewerName,
-            ...(userRole ? { userRole } : {}),
-            action: newStatus,
-            comment: responseType === 'edit' ? comment : '',
-            timestamp: Timestamp.now(),
-          }),
+          history: arrayUnion(historyEntry),
           ...(responseType === 'approve' ? { isResolved: true } : {}),
           ...(responseType === 'edit' ? { isResolved: false } : {}),
         };
 
         await updateDoc(assetRef, updateData);
+
+        // update local state so history reflects the reviewer's name
+        setAds((prev) =>
+          prev.map((a) =>
+            a.assetId === currentAd.assetId
+              ? {
+                  ...a,
+                  status: newStatus,
+                  comment: responseType === 'edit' ? comment : '',
+                  ...(responseType === 'approve'
+                    ? { isResolved: true }
+                    : responseType === 'edit'
+                    ? { isResolved: false }
+                    : {}),
+                  history: [...(a.history || []), historyEntry],
+                }
+              : a
+          )
+        );
+        setReviewAds((prev) =>
+          prev.map((a) =>
+            a.assetId === currentAd.assetId
+              ? {
+                  ...a,
+                  status: newStatus,
+                  comment: responseType === 'edit' ? comment : '',
+                  ...(responseType === 'approve'
+                    ? { isResolved: true }
+                    : responseType === 'edit'
+                    ? { isResolved: false }
+                    : {}),
+                  history: [...(a.history || []), historyEntry],
+                }
+              : a
+          )
+        );
 
         const prevStatus = currentAd.status;
         const newState = newStatus;

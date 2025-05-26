@@ -85,7 +85,7 @@ const PublicReview = () => {
           className="btn-primary"
           disabled={!tempName.trim()}
         >
-          Start Review
+          Continue as Guest
         </button>
       </div>
     );
