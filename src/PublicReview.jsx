@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
+import { signInAnonymously } from 'firebase/auth';
+import { auth } from './firebase/config';
 import Review from './Review';
 import AgencyTheme from './AgencyTheme';
 
@@ -17,6 +19,14 @@ const PublicReview = () => {
   const initialName = queryName || storedName || '';
   const [reviewerName, setReviewerName] = useState(initialName);
   const [tempName, setTempName] = useState(initialName);
+
+  useEffect(() => {
+    if (!auth.currentUser) {
+      signInAnonymously(auth).catch((err) =>
+        console.error('Anonymous sign-in failed', err)
+      );
+    }
+  }, []);
 
   useEffect(() => {
     if (queryName) {
