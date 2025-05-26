@@ -6,7 +6,7 @@ const AdminBrands = () => {
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ code: '', name: '' });
+  const [form, setForm] = useState({ code: '', name: '', agencyId: '' });
 
   useEffect(() => {
     const fetchBrands = async () => {
@@ -28,7 +28,11 @@ const AdminBrands = () => {
 
   const startEdit = (brand) => {
     setEditId(brand.id);
-    setForm({ code: brand.code || '', name: brand.name || '' });
+    setForm({
+      code: brand.code || '',
+      name: brand.name || '',
+      agencyId: brand.agencyId || '',
+    });
   };
 
   const cancelEdit = () => setEditId(null);
@@ -38,9 +42,14 @@ const AdminBrands = () => {
       await updateDoc(doc(db, 'brands', id), {
         code: form.code,
         name: form.name,
+        agencyId: form.agencyId,
       });
       setBrands((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, code: form.code, name: form.name } : b))
+        prev.map((b) =>
+          b.id === id
+            ? { ...b, code: form.code, name: form.name, agencyId: form.agencyId }
+            : b
+        )
       );
       setEditId(null);
     } catch (err) {
@@ -72,6 +81,7 @@ const AdminBrands = () => {
               <tr>
                 <th className="border px-2 py-1">Code</th>
                 <th className="border px-2 py-1">Name</th>
+                <th className="border px-2 py-1">Agency ID</th>
                 <th className="border px-2 py-1">Actions</th>
               </tr>
             </thead>
@@ -100,6 +110,20 @@ const AdminBrands = () => {
                       />
                     ) : (
                       brand.name
+                    )}
+                  </td>
+                  <td className="border px-2 py-1">
+                    {editId === brand.id ? (
+                      <input
+                        type="text"
+                        value={form.agencyId}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, agencyId: e.target.value }))
+                        }
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      brand.agencyId || ''
                     )}
                   </td>
                   <td className="border px-2 py-1 text-center">
