@@ -70,7 +70,8 @@ const App = () => {
       ? `/agency/dashboard?agencyId=${agencyId}`
       : `/dashboard/${role}`;
 
-  if (user && !user.isAnonymous && !role) {
+  const signedIn = user && !user.isAnonymous;
+  if (signedIn && !role) {
     return (
       <div className="flex items-center justify-center min-h-screen text-center">
         No role assigned to this account. Please contact support.
@@ -82,8 +83,8 @@ const App = () => {
     <Router>
       <RequireMfa user={user} role={role}>
         <div className="min-h-screen flex">
-          {user && <RoleSidebar role={role} agencyId={agencyId} />}
-          <div className="flex flex-col flex-grow" style={{ marginLeft: user ? 250 : 0 }}>
+          {signedIn && <RoleSidebar role={role} agencyId={agencyId} />}
+          <div className="flex flex-col flex-grow" style={{ marginLeft: signedIn ? 250 : 0 }}>
             <div className="flex-grow">
               <Routes>
             <Route
