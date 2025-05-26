@@ -1,6 +1,7 @@
 [
   {
-    "origin": ["https://campfire-sigma-topaz.vercel.app"],
+    "origin": ["https://campfire-sigma-topaz.vercel.app",
+      "https://campfire.studiotak.co"],
     "method": ["GET", "POST", "PUT"],
     "maxAgeSeconds": 3600,
     "responseHeader": ["Content-Type", "Authorization"]
