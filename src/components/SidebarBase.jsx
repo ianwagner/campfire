@@ -5,11 +5,18 @@ import { auth } from '../firebase/config';
 import useSiteSettings from '../useSiteSettings';
 import { DEFAULT_LOGO_URL } from '../constants';
 
-const SidebarBase = ({ tabs = [], logoUrl, logoAlt }) => {
+/**
+ * Common sidebar layout.
+ *
+ * @param {Object} props
+ * @param {boolean} [props.applySiteAccent=true] When false the sidebar will not
+ * apply the global site accent color. This allows callers to control theming.
+ */
+const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = React.useState(false);
-  const { settings } = useSiteSettings();
+  const { settings } = useSiteSettings(applySiteAccent);
 
   const handleClick = (tab) => {
     if (tab.path) {

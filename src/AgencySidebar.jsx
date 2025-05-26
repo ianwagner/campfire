@@ -15,6 +15,8 @@ const AgencySidebar = ({ agencyId }) => {
       tabs={tabs}
       logoUrl={agency.logoUrl}
       logoAlt={`${agency.name} logo`}
+      /* prevent site accent from overriding agency theme */
+      applySiteAccent={false}
     />
   );
 };
