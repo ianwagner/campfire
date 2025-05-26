@@ -70,7 +70,7 @@ const App = () => {
       ? `/agency/dashboard?agencyId=${agencyId}`
       : `/dashboard/${role}`;
 
-  if (user && !role) {
+  if (user && !user.isAnonymous && !role) {
     return (
       <div className="flex items-center justify-center min-h-screen text-center">
         No role assigned to this account. Please contact support.
