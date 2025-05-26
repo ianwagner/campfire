@@ -4,6 +4,7 @@ import '@testing-library/jest-dom';
 import Review from './Review';
 
 jest.mock('./firebase/config', () => ({ db: {} }));
+jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 
 const getDocs = jest.fn();
 const getDoc = jest.fn();

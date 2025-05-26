@@ -17,6 +17,8 @@ import {
   increment,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
+import useAgencyTheme from './useAgencyTheme';
+import { DEFAULT_LOGO_URL } from './constants';
 
 const Review = ({
   user,
@@ -24,6 +26,7 @@ const Review = ({
   brandCodes = [],
   groupId = null,
   reviewerName = '',
+  agencyId = null,
 }) => {
   const [ads, setAds] = useState([]); // full list of ads
   const [reviewAds, setReviewAds] = useState([]); // ads being reviewed in the current pass
@@ -45,6 +48,7 @@ const Review = ({
   );
   const [showHistory, setShowHistory] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
+  const { agency } = useAgencyTheme(agencyId);
 
   useEffect(() => {
     setEditing(false);
@@ -527,6 +531,13 @@ const Review = ({
         </div>
       )}
       <div className="relative flex flex-col items-center w-fit mx-auto">
+        {agencyId && (
+          <img
+            src={agency.logoUrl || DEFAULT_LOGO_URL}
+            alt={`${agency.name || 'Agency'} logo`}
+            className="mb-2 max-h-16 w-auto"
+          />
+        )}
         {!secondPass && (
           <div
             className="w-full max-w-md h-4 bg-gray-200 rounded-full shadow-inner mb-2.5"
