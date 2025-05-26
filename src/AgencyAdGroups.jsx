@@ -8,6 +8,14 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 
+const copyLink = (id, agencyId) => {
+  const url = `${window.location.origin}/review/${id}${agencyId ? `?agency=${agencyId}` : ''}`;
+  navigator.clipboard
+    .writeText(url)
+    .then(() => window.alert('Link copied to clipboard'))
+    .catch((err) => console.error('Failed to copy link', err));
+};
+
 const AgencyAdGroups = () => {
   const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
   const [groups, setGroups] = useState([]);
@@ -67,6 +75,12 @@ const AgencyAdGroups = () => {
                   >
                     Review
                   </Link>
+                  <button
+                    onClick={() => copyLink(g.id, agencyId)}
+                    className="ml-2 text-blue-500 underline"
+                  >
+                    Share Link
+                  </button>
                 </td>
               </tr>
             ))}
