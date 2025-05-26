@@ -25,7 +25,24 @@
     </style>
     <script>
       document.documentElement.classList.add('loading');
-      const accent = localStorage.getItem('accentColor');
+      const params = new URLSearchParams(window.location.search);
+      const agencyId = window.location.pathname.startsWith('/agency/')
+        ? params.get('agencyId')
+        : null;
+      const accent = (() => {
+        if (agencyId) {
+          try {
+            const stored = localStorage.getItem(`agencyTheme-${agencyId}`);
+            if (stored) {
+              const { themeColor } = JSON.parse(stored);
+              if (themeColor) return themeColor;
+            }
+          } catch (e) {
+            /* ignore parse errors */
+          }
+        }
+        return localStorage.getItem('accentColor');
+      })();
       if (accent) {
         const hexToRgba = (hex, alpha = 0.1) => {
           let h = hex.replace('#', '');
