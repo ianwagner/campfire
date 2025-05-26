@@ -70,6 +70,8 @@ const App = () => {
       ? `/agency/dashboard?agencyId=${agencyId}`
       : `/dashboard/${role}`;
 
+  const signedIn = user && !user.isAnonymous;
+
   if (user && !role) {
     return (
       <div className="flex items-center justify-center min-h-screen text-center">
@@ -89,7 +91,7 @@ const App = () => {
             <Route
               path="/login"
               element={
-                user ? (
+                signedIn ? (
                   <Navigate to={defaultPath} replace />
                 ) : (
                   <Login onLogin={() => setUser(auth.currentUser)} />
@@ -99,7 +101,7 @@ const App = () => {
             <Route
               path="/signup"
               element={
-                user ? (
+                signedIn ? (
                   <Navigate to={defaultPath} replace />
                 ) : (
                   <SignUpStepper />
@@ -109,7 +111,7 @@ const App = () => {
             <Route
               path="/"
               element={
-                user ? (
+                signedIn ? (
                   <Navigate to={defaultPath} replace />
                 ) : (
                   <Navigate to="/login" replace />
@@ -119,7 +121,7 @@ const App = () => {
             <Route
               path="/dashboard/designer"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="designer"
                     userRole={role}
@@ -135,7 +137,7 @@ const App = () => {
             <Route
               path="/designer/notifications"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="designer"
                     userRole={role}
@@ -151,7 +153,7 @@ const App = () => {
             <Route
               path="/designer/account-settings"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="designer"
                     userRole={role}
@@ -167,7 +169,7 @@ const App = () => {
             <Route
               path="/admin/accounts"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="admin"
                     userRole={role}
@@ -183,7 +185,7 @@ const App = () => {
             <Route
               path="/admin/accounts/new"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="admin"
                     userRole={role}
@@ -199,7 +201,7 @@ const App = () => {
             <Route
               path="/dashboard/client"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="client"
                     userRole={role}
@@ -215,7 +217,7 @@ const App = () => {
             <Route
               path="/dashboard/admin"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="admin"
                     userRole={role}
@@ -231,7 +233,7 @@ const App = () => {
             <Route
               path="/agency/dashboard"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="agency"
                     userRole={role}
@@ -247,7 +249,7 @@ const App = () => {
             <Route
               path="/agency/theme"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="agency"
                     userRole={role}
@@ -263,7 +265,7 @@ const App = () => {
             <Route
               path="/agency/brands"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="agency"
                     userRole={role}
@@ -279,7 +281,7 @@ const App = () => {
             <Route
               path="/agency/ad-groups"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="agency"
                     userRole={role}
@@ -301,7 +303,7 @@ const App = () => {
             <Route
               path="/request"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="client"
                     userRole={role}
@@ -317,7 +319,7 @@ const App = () => {
             <Route
               path="/brand-setup"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="client"
                     userRole={role}
@@ -333,7 +335,7 @@ const App = () => {
             <Route
               path="/account-settings"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="client"
                     userRole={role}
@@ -349,7 +351,7 @@ const App = () => {
             <Route
               path="/enroll-mfa"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole={["admin", "client", "agency"]}
                     userRole={role}
@@ -365,7 +367,7 @@ const App = () => {
             <Route
               path="/create-group"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="designer"
                     userRole={role}
@@ -381,7 +383,7 @@ const App = () => {
             <Route
               path="/ad-group/:id"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole={["designer", "admin"]}
                     userRole={role}
@@ -397,7 +399,7 @@ const App = () => {
             <Route
               path="/admin/brands"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="admin"
                     userRole={role}
@@ -413,7 +415,7 @@ const App = () => {
             <Route
               path="/admin/site-settings"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="admin"
                     userRole={role}
@@ -429,7 +431,7 @@ const App = () => {
             <Route
               path="/admin/brands/new"
               element={
-                user ? (
+                signedIn ? (
                   <RoleGuard
                     requiredRole="admin"
                     userRole={role}
