@@ -25,13 +25,12 @@ const PublicReview = () => {
 
   useEffect(() => {
     if (!auth.currentUser && !didSignIn.current) {
+      didSignIn.current = true;
       signInAnonymously(auth)
-        .then(() => {
-          didSignIn.current = true;
-        })
         .catch((err) => {
           console.error('Anonymous sign-in failed', err);
           setAnonError(err.message);
+          didSignIn.current = false;
         });
     }
     return () => {
