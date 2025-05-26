@@ -18,7 +18,13 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 
-const Review = ({ user, brandCodes = [], groupId = null, reviewerName = '' }) => {
+const Review = ({
+  user,
+  userRole = null,
+  brandCodes = [],
+  groupId = null,
+  reviewerName = '',
+}) => {
   const [ads, setAds] = useState([]); // full list of ads
   const [reviewAds, setReviewAds] = useState([]); // ads being reviewed in the current pass
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -199,6 +205,9 @@ const Review = ({ user, brandCodes = [], groupId = null, reviewerName = '' }) =>
       ...(brandCode ? { brandCode } : {}),
       ...(groupName ? { groupName } : {}),
       ...(reviewerName ? { reviewerName } : {}),
+      ...(user?.email ? { userEmail: user.email } : {}),
+      ...(user?.uid ? { userId: user.uid } : {}),
+      ...(userRole ? { userRole } : {}),
     };
     try {
       if (currentAd.adGroupId) {
@@ -234,6 +243,7 @@ const Review = ({ user, brandCodes = [], groupId = null, reviewerName = '' }) =>
             userId: user.uid,
             userEmail: user.email,
             userName: reviewerName,
+            ...(userRole ? { userRole } : {}),
             action: newStatus,
             comment: responseType === 'edit' ? comment : '',
             timestamp: Timestamp.now(),

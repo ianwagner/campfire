@@ -12,8 +12,10 @@ const ReviewRoute = () => {
 
   if (loading) return <div className="text-center mt-10">Loading...</div>;
 
-  if (user && role === 'client') {
-    return <ClientReview user={user} brandCodes={brandCodes} />;
+  if (user) {
+    return (
+      <ClientReview user={user} brandCodes={brandCodes} userRole={role} />
+    );
   }
 
   const agencyId = query.get('agency');
