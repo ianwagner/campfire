@@ -14,7 +14,14 @@ const hexToRgba = (hex, alpha = 1) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-const useSiteSettings = () => {
+/**
+ * Fetches global site settings such as logo and accent color.
+ *
+ * @param {boolean} [applyAccent=true] When false the accent color CSS variables
+ * will not be updated. This is useful on pages that manage their own theme
+ * (e.g. agency pages).
+ */
+const useSiteSettings = (applyAccent = true) => {
   const [settings, setSettings] = useState(defaultSettings);
   const [loading, setLoading] = useState(true);
 
@@ -26,24 +33,28 @@ const useSiteSettings = () => {
           const data = snap.data();
           setSettings({ ...defaultSettings, ...data });
           const color = data.accentColor || defaultSettings.accentColor;
-          document.documentElement.style.setProperty(
-            '--accent-color',
-            color
-          );
-          document.documentElement.style.setProperty(
-            '--accent-color-10',
-            hexToRgba(color, 0.1)
-          );
+          if (applyAccent) {
+            document.documentElement.style.setProperty(
+              '--accent-color',
+              color
+            );
+            document.documentElement.style.setProperty(
+              '--accent-color-10',
+              hexToRgba(color, 0.1)
+            );
+          }
         } else {
           await setDoc(doc(db, 'settings', 'site'), defaultSettings);
-          document.documentElement.style.setProperty(
-            '--accent-color',
-            defaultSettings.accentColor
-          );
-          document.documentElement.style.setProperty(
-            '--accent-color-10',
-            hexToRgba(defaultSettings.accentColor, 0.1)
-          );
+          if (applyAccent) {
+            document.documentElement.style.setProperty(
+              '--accent-color',
+              defaultSettings.accentColor
+            );
+            document.documentElement.style.setProperty(
+              '--accent-color-10',
+              hexToRgba(defaultSettings.accentColor, 0.1)
+            );
+          }
         }
       } catch (err) {
         console.error('Failed to fetch site settings', err);
@@ -56,7 +67,7 @@ const useSiteSettings = () => {
   }, []);
 
   useEffect(() => {
-    if (settings.accentColor) {
+    if (settings.accentColor && applyAccent) {
       document.documentElement.style.setProperty(
         '--accent-color',
         settings.accentColor

@@ -4,7 +4,13 @@ import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import AgencySidebar from './AgencySidebar';
 
-jest.mock('./useAgencyTheme', () => () => ({ agency: { logoUrl: '', name: 'Test Agency' } }));
+jest.mock('./useAgencyTheme', () => () => {
+  const React = require('react');
+  React.useEffect(() => {
+    document.documentElement.style.setProperty('--accent-color', '#123456');
+  }, []);
+  return { agency: { logoUrl: '', name: 'Test Agency', themeColor: '#123456' } };
+});
 jest.mock('./firebase/config', () => ({ auth: {}, db: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
 const navigate = jest.fn();
@@ -35,5 +41,16 @@ test('dashboard tab is active when query matches', () => {
   );
   const btn = getByText('Dashboard');
   expect(btn).toHaveClass('text-accent');
+});
+
+test('accent color uses agency theme on render', () => {
+  render(
+    <MemoryRouter>
+      <AgencySidebar agencyId="123" />
+    </MemoryRouter>
+  );
+  expect(
+    document.documentElement.style.getPropertyValue('--accent-color')
+  ).toBe('#123456');
 });
 
