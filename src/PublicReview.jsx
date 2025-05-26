@@ -5,6 +5,10 @@ import { auth } from './firebase/config';
 import Review from './Review';
 import AgencyTheme from './AgencyTheme';
 
+// Track whether we've attempted anonymous auth across mounts to avoid
+// hitting Firebase rate limits when React StrictMode double-mounts.
+let attemptedAnonSignIn = false;
+
 const PublicReview = () => {
   const { groupId } = useParams();
   const query = new URLSearchParams(useLocation().search);
@@ -24,21 +28,23 @@ const PublicReview = () => {
   const didSignIn = useRef(false);
 
   useEffect(() => {
-    if (!auth.currentUser && !didSignIn.current) {
-      signInAnonymously(auth)
-        .then(() => {
-          didSignIn.current = true;
-        })
-        .catch((err) => {
-          console.error('Anonymous sign-in failed', err);
-          setAnonError(err.message);
-        });
+    if (!auth.currentUser && !attemptedAnonSignIn) {
+      attemptedAnonSignIn = true;
+      didSignIn.current = true;
+      signInAnonymously(auth).catch((err) => {
+        console.error('Anonymous sign-in failed', err);
+        setAnonError(err.message);
+        didSignIn.current = false;
+        attemptedAnonSignIn = false;
+      });
     }
     return () => {
       if (didSignIn.current && auth.currentUser?.isAnonymous) {
-        signOut(auth).catch((err) =>
-          console.error('Failed to sign out', err)
-        );
+        signOut(auth)
+          .catch((err) => console.error('Failed to sign out', err))
+          .finally(() => {
+            attemptedAnonSignIn = false;
+          });
       }
     };
   }, []);

@@ -32,3 +32,15 @@ test('shows error when anonymous sign-in fails', async () => {
   );
   expect(await screen.findByText('oops')).toBeInTheDocument();
 });
+
+test('anonymous sign-in only happens once in StrictMode', () => {
+  signInAnonymously.mockResolvedValue({});
+  render(
+    <React.StrictMode>
+      <MemoryRouter>
+        <PublicReview />
+      </MemoryRouter>
+    </React.StrictMode>
+  );
+  expect(signInAnonymously).toHaveBeenCalledTimes(1);
+});
