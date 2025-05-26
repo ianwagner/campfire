@@ -204,6 +204,14 @@ const AdGroupDetail = () => {
     }
   };
 
+  const shareLink = () => {
+    const url = `${window.location.origin}/review/${id}`;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => window.alert('Link copied to clipboard'))
+      .catch((err) => console.error('Failed to copy link', err));
+  };
+
   const deleteAsset = async (asset) => {
     const confirmDelete = window.confirm('Delete this asset?');
     if (!confirmDelete) return;
@@ -365,6 +373,9 @@ const AdGroupDetail = () => {
           className="btn-approve"
         >
           {readyLoading ? 'Processing...' : 'Mark as Ready for Review'}
+        </button>
+        <button onClick={shareLink} className="ml-2 btn-primary px-3 py-1">
+          Share Link
         </button>
       </div>
     </div>

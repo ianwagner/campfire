@@ -10,6 +10,14 @@ import { auth, db } from './firebase/config';
 import deleteGroup from './utils/deleteGroup';
 import CreateAdGroup from './CreateAdGroup';
 
+const copyLink = (id) => {
+  const url = `${window.location.origin}/review/${id}`;
+  navigator.clipboard
+    .writeText(url)
+    .then(() => window.alert('Link copied to clipboard'))
+    .catch((err) => console.error('Failed to copy link', err));
+};
+
 const DesignerDashboard = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -113,6 +121,12 @@ const DesignerDashboard = () => {
                     >
                       View Details
                     </Link>
+                    <button
+                      onClick={() => copyLink(g.id)}
+                      className="ml-2 text-blue-500 underline"
+                    >
+                      Share Link
+                    </button>
                     <button
                       onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
                       className="ml-2 underline btn-delete"
