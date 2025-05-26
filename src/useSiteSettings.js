@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 
-const defaultSettings = { logoUrl: '', accentColor: '#ea580c' };
+const storedAccent = localStorage.getItem('accentColor');
+const defaultSettings = { logoUrl: '', accentColor: storedAccent || '#ea580c' };
 
 const hexToRgba = (hex, alpha = 1) => {
   let h = hex.replace('#', '');
@@ -42,6 +43,7 @@ const useSiteSettings = (applyAccent = true) => {
               '--accent-color-10',
               hexToRgba(color, 0.1)
             );
+            localStorage.setItem('accentColor', color);
           }
         } else {
           await setDoc(doc(db, 'settings', 'site'), defaultSettings);
@@ -54,6 +56,7 @@ const useSiteSettings = (applyAccent = true) => {
               '--accent-color-10',
               hexToRgba(defaultSettings.accentColor, 0.1)
             );
+            localStorage.setItem('accentColor', defaultSettings.accentColor);
           }
         }
       } catch (err) {
@@ -76,12 +79,16 @@ const useSiteSettings = (applyAccent = true) => {
         '--accent-color-10',
         hexToRgba(settings.accentColor, 0.1)
       );
+      localStorage.setItem('accentColor', settings.accentColor);
     }
   }, [settings.accentColor]);
 
   const saveSettings = async (newSettings) => {
     await setDoc(doc(db, 'settings', 'site'), newSettings, { merge: true });
     setSettings((prev) => ({ ...prev, ...newSettings }));
+    if (newSettings.accentColor) {
+      localStorage.setItem('accentColor', newSettings.accentColor);
+    }
   };
 
   return { settings, loading, saveSettings };
