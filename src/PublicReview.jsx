@@ -41,11 +41,9 @@ const PublicReview = () => {
       setLoading(false);
     }
     return () => {
-      if (didSignIn.current && auth.currentUser?.isAnonymous) {
-        signOut(auth).catch((err) =>
-          console.error('Failed to sign out', err)
-        );
-      }
+      // Keep the anonymous session active across page visits so we don't
+      // repeatedly create new anonymous accounts. Leaving the user signed in
+      // avoids hitting Firebase's "too-many-requests" throttle.
     };
   }, []);
 
