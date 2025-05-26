@@ -4,6 +4,7 @@ import { signInAnonymously, signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
 import Review from './Review';
 
+import ThemeToggle from './ThemeToggle';
 const PublicReview = () => {
   const { groupId } = useParams();
   const query = new URLSearchParams(useLocation().search);
@@ -93,7 +94,8 @@ const PublicReview = () => {
   const userObj = { uid: 'public', email: queryEmail || 'public@campfire' };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen relative">
+      <ThemeToggle className="absolute top-2 right-2" />
       <Review
         user={userObj}
         groupId={groupId}
@@ -103,6 +105,7 @@ const PublicReview = () => {
       />
     </div>
   );
+
 };
 
 export default PublicReview;
