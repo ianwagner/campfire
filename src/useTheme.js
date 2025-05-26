@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
 
+// Cache reference to matchMedia if available. In test environments like
+// Jest's jsdom it may be undefined.
+const matchMediaRef =
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia.bind(window)
+    : null;
+
 const getPreference = () => {
   if (typeof localStorage === 'undefined') return 'system';
   return localStorage.getItem('theme') || 'system';
@@ -7,9 +14,13 @@ const getPreference = () => {
 
 const getResolved = (pref) => {
   if (pref === 'system') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light';
+    if (matchMediaRef) {
+      return matchMediaRef('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light';
+    }
+    // Default to light when matchMedia isn't available
+    return 'light';
   }
   return pref;
 };
@@ -27,12 +38,14 @@ const useTheme = () => {
 
     apply(preference);
 
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const media = matchMediaRef ? matchMediaRef('(prefers-color-scheme: dark)') : null;
     const handleChange = () => {
       if (preference === 'system') apply('system');
     };
-    if (preference === 'system') media.addEventListener('change', handleChange);
-    return () => media.removeEventListener('change', handleChange);
+    if (preference === 'system' && media) media.addEventListener('change', handleChange);
+    return () => {
+      if (media) media.removeEventListener('change', handleChange);
+    };
   }, [preference]);
 
   const setTheme = (pref) => {
