@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { signInAnonymously } from 'firebase/auth';
+import { signInAnonymously, signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
 import Review from './Review';
 import AgencyTheme from './AgencyTheme';
@@ -26,6 +26,13 @@ const PublicReview = () => {
         console.error('Anonymous sign-in failed', err)
       );
     }
+    return () => {
+      if (auth.currentUser?.isAnonymous) {
+        signOut(auth).catch((err) =>
+          console.error('Failed to sign out', err)
+        );
+      }
+    };
   }, []);
 
   useEffect(() => {
