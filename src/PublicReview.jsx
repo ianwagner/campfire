@@ -106,4 +106,6 @@ const PublicReview = () => {
     </div>
   );
 
+};
+
 export default PublicReview;
