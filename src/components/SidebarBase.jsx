@@ -35,8 +35,8 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
         const isActive = tab.path && currentPath.startsWith(tab.path);
         const classes =
           (isActive
-            ? 'text-accent font-medium border border-accent bg-accent-10 '
-            : 'text-gray-700 hover:bg-accent-10 border border-transparent ') +
+            ? 'text-accent font-medium border border-accent bg-accent-10 dark:bg-[var(--dark-sidebar-hover)] '
+            : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 dark:hover:bg-[var(--dark-sidebar-hover)] border border-transparent ') +
           'rounded-lg w-full text-center px-3 py-2';
         return (
           <button key={tab.label} onClick={() => handleClick(tab)} className={classes}>
@@ -50,7 +50,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
   return (
     <>
       {/* Desktop sidebar */}
-      <div className="hidden md:flex fixed top-0 left-0 w-[250px] border-r bg-white p-4 flex-col h-screen justify-between">
+      <div className="hidden md:flex fixed top-0 left-0 w-[250px] border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] p-4 flex-col h-screen justify-between">
         <div className="space-y-2">
           <img
             src={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
@@ -62,11 +62,11 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
         <div className="flex flex-col items-center space-y-1">
           <button
             onClick={handleLogout}
-            className="text-gray-700 hover:bg-gray-100 w-full text-center font-bold px-3 py-2"
+            className="text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] w-full text-center font-bold px-3 py-2"
           >
             Log Out
           </button>
-          <footer className="text-xs text-gray-400 text-center">
+          <footer className="text-xs text-gray-400 dark:text-gray-500 text-center">
             © 2025 Studio Tak. All rights reserved.
           </footer>
         </div>
@@ -83,7 +83,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
       </button>
 
         {open && (
-          <div className="fixed inset-0 bg-white p-4 flex flex-col h-full justify-between z-50">
+          <div className="fixed inset-0 bg-white dark:bg-[var(--dark-sidebar-bg)] p-4 flex flex-col h-full justify-between z-50">
             <div className="space-y-2">
               <button
                 type="button"
@@ -103,11 +103,11 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
             <div className="flex flex-col items-center space-y-1">
               <button
                 onClick={handleLogout}
-                className="text-gray-700 hover:bg-gray-100 w-full text-center font-bold px-3 py-2"
+                className="text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] w-full text-center font-bold px-3 py-2"
               >
                 Log Out
               </button>
-              <footer className="text-xs text-gray-400 text-center">
+              <footer className="text-xs text-gray-400 dark:text-gray-500 text-center">
                 © 2025 Studio Tak. All rights reserved.
               </footer>
             </div>

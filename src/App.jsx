@@ -38,6 +38,12 @@ import RoleSidebar from "./RoleSidebar";
 import AgencyThemeSettings from "./AgencyThemeSettings";
 import AgencyBrands from "./AgencyBrands";
 import AgencyAdGroups from "./AgencyAdGroups";
+import useTheme from "./useTheme";
+
+const ThemeWatcher = () => {
+  useTheme();
+  return null;
+};
 
 const App = () => {
   const [user, setUser] = React.useState(null);
@@ -81,6 +87,7 @@ const App = () => {
 
   return (
     <Router>
+      <ThemeWatcher />
       <RequireMfa user={user} role={role}>
         <div className="min-h-screen flex">
           {signedIn && <RoleSidebar role={role} agencyId={agencyId} />}

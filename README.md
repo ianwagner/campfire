@@ -146,3 +146,21 @@ Use Jest to run unit tests for React components. Install dependencies and run:
 npm install
 npm test
 ```
+
+## Theme Customization
+
+Dark mode colors are defined in `src/global.css`. The `:root` section exposes CSS
+variables so you can tweak the palette:
+
+```css
+:root {
+  --accent-color: #ea580c;
+  --accent-color-10: rgba(234, 88, 12, 0.1);
+  --dark-bg: #111827;
+  --dark-text: #f3f4f6;
+  --dark-sidebar-bg: #1f2937;
+  --dark-sidebar-hover: #374151;
+}
+```
+
+Update these values to change the site's dark theme without editing the markup.
