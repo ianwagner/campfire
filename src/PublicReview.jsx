@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { signInAnonymously, signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
+
+let attemptedAnonSignIn = false;
 import Review from './Review';
 import AgencyTheme from './AgencyTheme';
 
@@ -24,21 +26,24 @@ const PublicReview = () => {
   const didSignIn = useRef(false);
 
   useEffect(() => {
-    if (!auth.currentUser && !didSignIn.current) {
+    if (!auth.currentUser && !attemptedAnonSignIn) {
+      attemptedAnonSignIn = true;
+      didSignIn.current = true;
       signInAnonymously(auth)
-        .then(() => {
-          didSignIn.current = true;
-        })
         .catch((err) => {
           console.error('Anonymous sign-in failed', err);
           setAnonError(err.message);
+          didSignIn.current = false;
+          attemptedAnonSignIn = false;
         });
     }
     return () => {
       if (didSignIn.current && auth.currentUser?.isAnonymous) {
-        signOut(auth).catch((err) =>
-          console.error('Failed to sign out', err)
-        );
+        signOut(auth)
+          .catch((err) => console.error('Failed to sign out', err))
+          .finally(() => {
+            attemptedAnonSignIn = false;
+          });
       }
     };
   }, []);
