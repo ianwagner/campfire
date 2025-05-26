@@ -5,6 +5,8 @@ import { auth } from './firebase/config';
 import Review from './Review';
 import AgencyTheme from './AgencyTheme';
 
+let attemptedAnonSignIn = false;
+
 const PublicReview = () => {
   const { groupId } = useParams();
   const query = new URLSearchParams(useLocation().search);
@@ -24,18 +26,20 @@ const PublicReview = () => {
   const didSignIn = useRef(false);
 
   useEffect(() => {
-    if (!auth.currentUser && !didSignIn.current) {
+    if (!auth.currentUser && !attemptedAnonSignIn) {
+      attemptedAnonSignIn = true;
+      didSignIn.current = true;
       signInAnonymously(auth)
-        .then(() => {
-          didSignIn.current = true;
-        })
         .catch((err) => {
           console.error('Anonymous sign-in failed', err);
           setAnonError(err.message);
+          didSignIn.current = false;
+          attemptedAnonSignIn = false;
         });
     }
     return () => {
       if (didSignIn.current && auth.currentUser?.isAnonymous) {
+        attemptedAnonSignIn = false;
         signOut(auth).catch((err) =>
           console.error('Failed to sign out', err)
         );
