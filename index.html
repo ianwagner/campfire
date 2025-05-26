@@ -43,6 +43,12 @@
         }
         return localStorage.getItem('accentColor');
       })();
+      const themePref = localStorage.getItem("theme") || "system";
+      const applyTheme = (p) => {
+        const dark = p === "dark" || (p === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+      };
+      applyTheme(themePref);
       if (accent) {
         const hexToRgba = (hex, alpha = 0.1) => {
           let h = hex.replace('#', '');
