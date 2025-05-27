@@ -8,6 +8,7 @@ import {
   updateDoc,
   collection,
   addDoc,
+  setDoc,
   onSnapshot,
   serverTimestamp,
   writeBatch,
@@ -26,7 +27,7 @@ const AdGroupDetail = () => {
   const { id } = useParams();
   const [group, setGroup] = useState(null);
   const [brandName, setBrandName] = useState('');
-  const [assets, setAssets] = useState([]);
+  const [assets, setAssets] = useState([]); // ad sizes
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
@@ -41,10 +42,11 @@ const AdGroupDetail = () => {
     let thumbnail = '';
     list.forEach((a) => {
       if (!thumbnail && a.firebaseUrl) thumbnail = a.firebaseUrl;
-      if (a.status !== 'ready') reviewed += 1;
-      if (a.status === 'approved') approved += 1;
-      if (a.status === 'edit_requested') edit += 1;
-      if (a.status === 'rejected') rejected += 1;
+      const st = a.recipeStatus || 'pending';
+      if (st !== 'ready') reviewed += 1;
+      if (st === 'approved') approved += 1;
+      if (st === 'edit_requested') edit += 1;
+      if (st === 'rejected') rejected += 1;
     });
     return { reviewed, approved, edit, rejected, thumbnail };
   };
@@ -57,9 +59,14 @@ const AdGroupDetail = () => {
       }
     };
     load();
-    const unsub = onSnapshot(collection(db, 'adGroups', id, 'assets'), (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setAssets(list);
+    const unsub = onSnapshot(collection(db, 'adGroups', id, 'recipes'), async (snap) => {
+      const all = await Promise.all(
+        snap.docs.map(async (r) => {
+          const sizesSnap = await getDocs(collection(db, 'adGroups', id, 'recipes', r.id, 'sizes'));
+          return sizesSnap.docs.map((s) => ({ id: s.id, recipeId: r.id, recipeStatus: r.data().status, ...s.data() }));
+        })
+      );
+      setAssets(all.flat());
     });
     return () => unsub();
   }, [id]);
@@ -143,7 +150,7 @@ const AdGroupDetail = () => {
   }, [assets]);
 
   const getRecipeStatus = (list) => {
-    const unique = Array.from(new Set(list.map((a) => a.status)));
+    const unique = Array.from(new Set(list.map((a) => a.recipeStatus)));
     return unique.length === 1 ? unique[0] : 'mixed';
   };
 
@@ -183,23 +190,28 @@ const AdGroupDetail = () => {
           group?.name || id
         );
         const info = parseAdFilename(file.name);
-        await addDoc(collection(db, 'adGroups', id, 'assets'), {
-          adGroupId: id,
-          brandCode: info.brandCode || group?.brandCode || '',
-          adGroupCode: info.adGroupCode || '',
-          recipeCode: info.recipeCode || '',
+        const recipeId = info.recipeCode || 'unknown';
+        const recipeRef = doc(db, 'adGroups', id, 'recipes', recipeId);
+        const rSnap = await getDoc(recipeRef);
+        if (!rSnap.exists()) {
+          await setDoc(recipeRef, {
+            adGroupId: id,
+            brandCode: info.brandCode || group?.brandCode || '',
+            recipeCode: recipeId,
+            status: 'pending',
+            comment: null,
+            lastUpdatedBy: null,
+            lastUpdatedAt: serverTimestamp(),
+            history: [],
+            isResolved: false,
+          });
+        }
+        await addDoc(collection(recipeRef, 'sizes'), {
           aspectRatio: info.aspectRatio || '',
           filename: file.name,
           firebaseUrl: url,
           uploadedAt: serverTimestamp(),
-          status: 'pending',
-          comment: null,
-          lastUpdatedBy: null,
-          lastUpdatedAt: serverTimestamp(),
-          history: [],
           version: info.version || 1,
-          parentAdId: null,
-          isResolved: false,
         });
       } catch (err) {
         console.error('Upload failed', err);
@@ -208,9 +220,9 @@ const AdGroupDetail = () => {
     setUploading(false);
   };
 
-  const uploadVersion = async (assetId, file) => {
+  const uploadVersion = async (recipeId, sizeId, file) => {
     if (!file) return;
-    setVersionUploading(assetId);
+    setVersionUploading(sizeId);
     try {
       const url = await uploadFile(
         file,
@@ -218,7 +230,7 @@ const AdGroupDetail = () => {
         brandName || group?.brandCode,
         group?.name || id
       );
-      await updateDoc(doc(db, 'adGroups', id, 'assets', assetId), {
+      await updateDoc(doc(db, 'adGroups', id, 'recipes', recipeId, 'sizes', sizeId), {
         filename: file.name,
         firebaseUrl: url,
         uploadedAt: serverTimestamp(),
@@ -230,35 +242,25 @@ const AdGroupDetail = () => {
     }
   };
 
-  const updateAssetStatus = async (assetId, status) => {
-    try {
-      await updateDoc(doc(db, 'adGroups', id, 'assets', assetId), {
-        status,
-      });
-    } catch (err) {
-      console.error('Failed to update asset status', err);
-    }
-  };
 
   const updateRecipeStatus = async (recipeCode, status) => {
-    const groupAssets = assets.filter((a) => {
+    const recipeDoc = assets.find((a) => {
       const info = parseAdFilename(a.filename || '');
       return (info.recipeCode || 'unknown') === recipeCode;
     });
-    if (groupAssets.length === 0) return;
-    const batch = writeBatch(db);
-    groupAssets.forEach((a) => {
-      batch.update(doc(db, 'adGroups', id, 'assets', a.id), {
-        status,
-        lastUpdatedBy: auth.currentUser?.uid || null,
-        lastUpdatedAt: serverTimestamp(),
-      });
-    });
+    if (!recipeDoc) return;
     try {
-      await batch.commit();
+      await updateDoc(
+        doc(db, 'adGroups', id, 'recipes', recipeDoc.recipeId),
+        {
+          status,
+          lastUpdatedBy: auth.currentUser?.uid || null,
+          lastUpdatedAt: serverTimestamp(),
+        }
+      );
       setAssets((prev) =>
         prev.map((a) =>
-          groupAssets.some((g) => g.id === a.id) ? { ...a, status } : a
+          a.recipeId === recipeDoc.recipeId ? { ...a, recipeStatus: status } : a
         )
       );
     } catch (err) {
@@ -270,8 +272,9 @@ const AdGroupDetail = () => {
     setReadyLoading(true);
     try {
       const batch = writeBatch(db);
-      for (const asset of assets) {
-        batch.update(doc(db, 'adGroups', id, 'assets', asset.id), {
+      const recipeIds = Array.from(new Set(assets.map((a) => a.recipeId)));
+      for (const rid of recipeIds) {
+        batch.update(doc(db, 'adGroups', id, 'recipes', rid), {
           status: 'ready',
           lastUpdatedBy: null,
           lastUpdatedAt: serverTimestamp(),
@@ -299,7 +302,7 @@ const AdGroupDetail = () => {
     const confirmDelete = window.confirm('Delete this asset?');
     if (!confirmDelete) return;
     try {
-      await deleteDoc(doc(db, 'adGroups', id, 'assets', asset.id));
+      await deleteDoc(doc(db, 'adGroups', id, 'recipes', asset.recipeId, 'sizes', asset.id));
       try {
         await deleteDoc(doc(db, 'adAssets', asset.id));
       } catch (err) {
@@ -392,18 +395,8 @@ const AdGroupDetail = () => {
                     <tr className="border-b">
                       <td className="px-2 py-1 break-all">{a.filename}</td>
                       <td className="px-2 py-1 text-center">{a.version || 1}</td>
-                      <td className="px-2 py-1" style={{ color: statusColors[a.status] }}>
-                        <select
-                          className="p-1 border rounded"
-                          value={a.status}
-                          onChange={(e) => updateAssetStatus(a.id, e.target.value)}
-                        >
-                          <option value="pending">pending</option>
-                          <option value="ready">ready</option>
-                          <option value="approved">approved</option>
-                          <option value="rejected">rejected</option>
-                          <option value="edit_requested">edit_requested</option>
-                        </select>
+                      <td className="px-2 py-1" style={{ color: statusColors[a.recipeStatus] }}>
+                        {a.recipeStatus}
                       </td>
                       <td className="px-2 py-1">
                         {a.lastUpdatedAt?.toDate
@@ -419,7 +412,7 @@ const AdGroupDetail = () => {
                               onChange={(e) => {
                                 const f = e.target.files[0];
                                 if (f) {
-                                  uploadVersion(a.id, f);
+                                  uploadVersion(a.recipeId, a.id, f);
                                 }
                               }}
                             />

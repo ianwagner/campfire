@@ -51,12 +51,13 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-test('toggles asset status to ready', async () => {
+test('updates recipe status to ready', async () => {
   onSnapshot.mockImplementation((col, cb) => {
-    cb({ docs: [{ id: 'asset1', data: () => ({ filename: 'f1.png', status: 'pending' }) }] });
+    cb({ docs: [{ id: '01', data: () => ({ status: 'pending' }) }] });
     return jest.fn();
   });
-
+  getDocs.mockResolvedValueOnce({ docs: [{ id: 'size1', data: () => ({ filename: 'f1.png' }) }] });
+  
   render(
     <MemoryRouter>
       <AdGroupDetail />
@@ -68,14 +69,15 @@ test('toggles asset status to ready', async () => {
   fireEvent.change(select, { target: { value: 'ready' } });
 
   await waitFor(() => expect(updateDoc).toHaveBeenCalled());
-  expect(updateDoc).toHaveBeenCalledWith('adGroups/group1/assets/asset1', { status: 'ready' });
+  expect(updateDoc).toHaveBeenCalledWith('adGroups/group1/recipes/01', expect.objectContaining({ status: 'ready' }));
 });
 
-test('toggles asset status back to pending', async () => {
+test('updates recipe status back to pending', async () => {
   onSnapshot.mockImplementation((col, cb) => {
-    cb({ docs: [{ id: 'asset1', data: () => ({ filename: 'f1.png', status: 'ready' }) }] });
+    cb({ docs: [{ id: '01', data: () => ({ status: 'ready' }) }] });
     return jest.fn();
   });
+  getDocs.mockResolvedValueOnce({ docs: [{ id: 'size1', data: () => ({ filename: 'f1.png' }) }] });
 
   render(
     <MemoryRouter>
@@ -88,5 +90,5 @@ test('toggles asset status back to pending', async () => {
   fireEvent.change(select, { target: { value: 'pending' } });
 
   await waitFor(() => expect(updateDoc).toHaveBeenCalled());
-  expect(updateDoc).toHaveBeenCalledWith('adGroups/group1/assets/asset1', { status: 'pending' });
+  expect(updateDoc).toHaveBeenCalledWith('adGroups/group1/recipes/01', expect.objectContaining({ status: 'pending' }));
 });

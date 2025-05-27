@@ -54,19 +54,12 @@ const Review = ({
   const { agency } = useAgencyTheme(agencyId);
 
   const recipeGroups = useMemo(() => {
-    const map = {};
-    ads.forEach((a) => {
-      const info = parseAdFilename(a.filename || '');
-      const recipe = a.recipeCode || info.recipeCode || 'unknown';
-      const aspect = a.aspectRatio || info.aspectRatio || '';
-      const item = { ...a, recipeCode: recipe, aspectRatio: aspect };
-      if (!map[recipe]) map[recipe] = [];
-      map[recipe].push(item);
-    });
-    const order = { '9x16': 0, '3x5': 1, '1x1': 2 };
-    return Object.entries(map).map(([recipeCode, list]) => {
-      list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
-      return { recipeCode, assets: list };
+    return ads.map((r) => {
+      const order = { '9x16': 0, '3x5': 1, '1x1': 2 };
+      const sorted = [...(r.sizes || [])].sort(
+        (a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99)
+      );
+      return { recipeCode: r.recipeCode, assets: sorted };
     });
   }, [ads]);
 
@@ -89,25 +82,28 @@ const Review = ({
         if (groupId) {
           const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
           if (groupSnap.exists()) {
-            const assetsSnap = await getDocs(
-              collection(db, 'adGroups', groupId, 'assets')
+            const recipesSnap = await getDocs(
+              collection(db, 'adGroups', groupId, 'recipes')
             );
-            list = assetsSnap.docs
-              .map((assetDoc) => ({
-                ...assetDoc.data(),
-                assetId: assetDoc.id,
-                adGroupId: groupId,
-                groupName: groupSnap.data().name,
-                firebaseUrl: assetDoc.data().firebaseUrl,
-                ...(groupSnap.data().brandCode
-                  ? { brandCode: groupSnap.data().brandCode }
-                  : {}),
-              }))
-              .filter((a) => a.status !== 'pending');
+            list = await Promise.all(
+              recipesSnap.docs.map(async (recipeDoc) => {
+                const sizesSnap = await getDocs(
+                  collection(db, 'adGroups', groupId, 'recipes', recipeDoc.id, 'sizes')
+                );
+                return {
+                  recipeId: recipeDoc.id,
+                  adGroupId: groupId,
+                  groupName: groupSnap.data().name,
+                  brandCode: groupSnap.data().brandCode || '',
+                  ...recipeDoc.data(),
+                  sizes: sizesSnap.docs.map((s) => ({ id: s.id, ...s.data() })),
+                };
+              })
+            ).then((arr) => arr.filter((r) => r.status !== 'pending'));
           }
         } else {
           const q = query(
-            collectionGroup(db, 'assets'),
+            collectionGroup(db, 'recipes'),
             where('brandCode', 'in', brandCodes),
             where('status', '==', 'ready'),
             where('isResolved', '==', false)
@@ -122,29 +118,19 @@ const Review = ({
                 const gSnap = await getDoc(doc(db, 'adGroups', adGroupId));
                 groupCache[adGroupId] = gSnap.exists() ? gSnap.data().name : '';
               }
+              const sizesSnap = await getDocs(collection(d.ref, 'sizes'));
               return {
-                ...data,
-                assetId: d.id,
+                recipeId: d.id,
                 adGroupId,
                 groupName: groupCache[adGroupId],
-                firebaseUrl: data.firebaseUrl,
+                ...data,
+                sizes: sizesSnap.docs.map((s) => ({ id: s.id, ...s.data() })),
               };
             })
           );
         }
 
-        const order = { '9x16': 0, '3x5': 1, '1x1': 2 };
-        list.sort((a, b) => {
-          const infoA = parseAdFilename(a.filename || '');
-          const infoB = parseAdFilename(b.filename || '');
-          const rA = a.recipeCode || infoA.recipeCode || '';
-          const rB = b.recipeCode || infoB.recipeCode || '';
-          if (rA < rB) return -1;
-          if (rA > rB) return 1;
-          const aAsp = a.aspectRatio || infoA.aspectRatio || '';
-          const bAsp = b.aspectRatio || infoB.aspectRatio || '';
-          return (order[aAsp] ?? 99) - (order[bAsp] ?? 99);
-        });
+        list.sort((a, b) => a.recipeCode.localeCompare(b.recipeCode));
 
         setAds(list);
 
@@ -189,29 +175,14 @@ const Review = ({
 
         // prefer 9x16 or 3x5 for hero selection
         const prefOrder = ['9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
-        const getRecipe = (a) =>
-          a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
-        const getAspect = (a) =>
-          a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
-
-        const map = {};
-        filtered.forEach((a) => {
-          const r = getRecipe(a);
-          if (!map[r]) map[r] = [];
-          map[r].push(a);
+        const heroList = list.map((r) => {
+          const hero = prefOrder.reduce(
+            (acc, asp) => acc || (r.sizes || []).find((s) => s.aspectRatio === asp),
+            null
+          ) || (r.sizes || [])[0];
+          return { ...r, hero };
         });
-        const heroList = Object.values(map).map((list) => {
-          for (const asp of prefOrder) {
-            const found = list.find((x) => getAspect(x) === asp);
-            if (found) return found;
-          }
-          return list[0];
-        });
-        heroList.sort((a, b) => {
-          const rA = getRecipe(a);
-          const rB = getRecipe(b);
-          return rA.localeCompare(rB);
-        });
+        heroList.sort((a, b) => a.recipeCode.localeCompare(b.recipeCode));
         setReviewAds(heroList);
         setCurrentIndex(0);
       } catch (err) {
@@ -232,14 +203,9 @@ const Review = ({
   }, [user, brandCodes, groupId]);
 
   const currentAd = reviewAds[currentIndex];
-  const adUrl =
-    currentAd && typeof currentAd === 'object'
-      ? currentAd.adUrl || currentAd.firebaseUrl
-      : currentAd;
-  const brandCode =
-    currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
-  const groupName =
-    currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
+  const adUrl = currentAd?.hero?.firebaseUrl;
+  const brandCode = currentAd?.brandCode;
+  const groupName = currentAd?.groupName;
   const selectedResponse = responses[adUrl]?.response;
   const showSecondView = secondPass && selectedResponse && !editing;
   const progress =
@@ -255,14 +221,14 @@ const Review = ({
     edit: 'text-black',
   };
 
-  const currentInfo = currentAd ? parseAdFilename(currentAd.filename || '') : {};
+  const currentInfo = currentAd ? parseAdFilename(currentAd.hero?.filename || '') : {};
   const currentRecipe = currentAd?.recipeCode || currentInfo.recipeCode;
   const currentRecipeGroup = recipeGroups.find(
     (g) => g.recipeCode === currentRecipe
   );
   const otherSizes = currentRecipeGroup
     ? currentRecipeGroup.assets.filter(
-        (a) => (a.adUrl || a.firebaseUrl) !== adUrl
+        (a) => a.firebaseUrl !== adUrl
       )
     : [];
 
@@ -300,13 +266,13 @@ const Review = ({
           }
         );
       }
-      if (currentAd.assetId && currentAd.adGroupId) {
+      if (currentAd.recipeId && currentAd.adGroupId) {
         const assetRef = doc(
           db,
           'adGroups',
           currentAd.adGroupId,
-          'assets',
-          currentAd.assetId
+          'recipes',
+          currentAd.recipeId
         );
         const newStatus =
           responseType === 'approve'
@@ -339,37 +305,17 @@ const Review = ({
 
         // update local state so history reflects the reviewer's name
         setAds((prev) =>
-          prev.map((a) =>
-            a.assetId === currentAd.assetId
-              ? {
-                  ...a,
-                  status: newStatus,
-                  comment: responseType === 'edit' ? comment : '',
-                  ...(responseType === 'approve'
-                    ? { isResolved: true }
-                    : responseType === 'edit'
-                    ? { isResolved: false }
-                    : {}),
-                  history: [...(a.history || []), historyEntry],
-                }
-              : a
+          prev.map((r) =>
+            r.recipeId === currentAd.recipeId
+              ? { ...r, status: newStatus, comment: responseType === 'edit' ? comment : '', isResolved: updateData.isResolved, history: [...(r.history || []), historyEntry] }
+              : r
           )
         );
         setReviewAds((prev) =>
-          prev.map((a) =>
-            a.assetId === currentAd.assetId
-              ? {
-                  ...a,
-                  status: newStatus,
-                  comment: responseType === 'edit' ? comment : '',
-                  ...(responseType === 'approve'
-                    ? { isResolved: true }
-                    : responseType === 'edit'
-                    ? { isResolved: false }
-                    : {}),
-                  history: [...(a.history || []), historyEntry],
-                }
-              : a
+          prev.map((r) =>
+            r.recipeId === currentAd.recipeId
+              ? { ...r, status: newStatus, comment: responseType === 'edit' ? comment : '', isResolved: updateData.isResolved, history: [...(r.history || []), historyEntry] }
+              : r
           )
         );
 
@@ -400,52 +346,12 @@ const Review = ({
           ...(incEdit ? { editCount: increment(incEdit) } : {}),
           lastUpdated: serverTimestamp(),
           ...(gSnap.exists() && !gSnap.data().thumbnailUrl
-            ? { thumbnailUrl: currentAd.firebaseUrl }
+            ? { thumbnailUrl: adUrl }
             : {}),
         };
         await updateDoc(groupRef, updateObj);
 
-        if (responseType === 'edit') {
-          await addDoc(collection(db, 'adGroups', currentAd.adGroupId, 'assets'), {
-            adGroupId: currentAd.adGroupId,
-            brandCode: currentAd.brandCode || '',
-            filename: currentAd.filename || '',
-            firebaseUrl: '',
-            uploadedAt: null,
-            status: 'pending',
-            comment: null,
-            lastUpdatedBy: null,
-            lastUpdatedAt: serverTimestamp(),
-            history: [],
-            version: (currentAd.version || 1) + 1,
-            parentAdId: currentAd.assetId,
-            isResolved: false,
-          });
-        } else if (responseType === 'approve' && currentAd.parentAdId) {
-          const relatedQuery = query(
-            collection(db, 'adGroups', currentAd.adGroupId, 'assets'),
-            where('parentAdId', '==', currentAd.parentAdId)
-          );
-          const relatedSnap = await getDocs(relatedQuery);
-          await Promise.all(
-            relatedSnap.docs.map((d) =>
-              updateDoc(
-                doc(db, 'adGroups', currentAd.adGroupId, 'assets', d.id),
-                { isResolved: true }
-              )
-            )
-          );
-          await updateDoc(
-            doc(
-              db,
-              'adGroups',
-              currentAd.adGroupId,
-              'assets',
-              currentAd.parentAdId
-            ),
-            { isResolved: true }
-          );
-        }
+        // sizes do not have individual status
       }
       if (groupId) {
         localStorage.setItem(`lastViewed-${groupId}`, new Date().toISOString());
@@ -504,7 +410,7 @@ const Review = ({
   }
 
   if (!ads || ads.length === 0) {
-    return <div>No ads assigned to your account.</div>;
+    return <div>No ad recipes assigned to your account.</div>;
   }
 
   if (currentIndex >= reviewAds.length) {
@@ -517,30 +423,16 @@ const Review = ({
     }
     const allResponses = Object.values(responses);
     const approvedCount = allResponses.filter((r) => r.response === 'approve').length;
-    const approvedAds = ads.filter((a) => {
-      const url = a.adUrl || a.firebaseUrl;
+    const order = { '9x16': 0, '3x5': 1, '1x1': 2 };
+    const approvedRecipes = ads.filter((r) => {
+      const url = (r.hero || {}).firebaseUrl;
       return responses[url]?.response === 'approve';
     });
-    const approvedMap = {};
-    const order = { '9x16': 0, '3x5': 1, '1x1': 2 };
-    approvedAds.forEach((a) => {
-      const info = parseAdFilename(a.filename || '');
-      const recipe = a.recipeCode || info.recipeCode || 'unknown';
-      const aspect = a.aspectRatio || info.aspectRatio || '';
-      const item = { ...a, recipeCode: recipe, aspectRatio: aspect };
-      if (!approvedMap[recipe]) approvedMap[recipe] = [];
-      approvedMap[recipe].push(item);
-    });
-    const approvedGroups = Object.entries(approvedMap).map(([recipeCode, list]) => {
-      list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
-      return { recipeCode, assets: list };
-    });
-    const heroGroups = approvedGroups.map((g) => {
-      const hero =
-        g.assets.find((a) => a.aspectRatio === '9x16') ||
-        g.assets.find((a) => a.aspectRatio === '3x5') ||
-        g.assets[0];
-      return { recipeCode: g.recipeCode, hero, assets: g.assets };
+    const heroGroups = approvedRecipes.map((r) => {
+      const sorted = [...(r.sizes || [])].sort(
+        (a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99)
+      );
+      return { recipeCode: r.recipeCode, hero: r.hero, assets: sorted };
     });
 
     const handleReviewAll = () => {
@@ -553,7 +445,7 @@ const Review = ({
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
         <h2 className="text-2xl">Thank you for your feedback!</h2>
-        <p>You approved {approvedCount}/{ads.length} ads.</p>
+        <p>You approved {approvedCount}/{ads.length} ad sets.</p>
         <div className="w-full max-w-2xl grid grid-cols-2 md:grid-cols-3 gap-2">
           {(finalGallery ? heroGroups : heroGroups.slice(0, 3)).map((g) => {
             const showSet = finalGallery ? g.assets : [g.hero];
