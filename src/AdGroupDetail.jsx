@@ -357,14 +357,13 @@ const AdGroupDetail = () => {
               <th>Delete</th>
             </tr>
           </thead>
-          <tbody>
-            {recipeGroups.map((g) => (
-              <React.Fragment key={g.recipeCode}>
-                <tr className="table-row-group">
-                  <td colSpan="2" className="font-semibold">
-                    Recipe {g.recipeCode}
-                  </td>
-                  <td>
+          {recipeGroups.map((g) => (
+            <tbody key={g.recipeCode} className="table-row-group">
+              <tr>
+                <td colSpan="2" className="font-semibold">
+                  Recipe {g.recipeCode}
+                </td>
+                <td>
                     {userRole === 'designer' ? (
                       getRecipeStatus(g.assets) === 'pending' ? (
                         <select
@@ -470,7 +469,7 @@ const AdGroupDetail = () => {
                       </td>
                     </tr>
                     {Array.isArray(a.history) && a.history.length > 0 && (
-                      <tr className="table-row-group text-xs">
+                      <tr className="history-row text-xs">
                         <td colSpan="7">
                           {a.history.map((h, idx) => (
                             <div key={idx} className="mb-1">
@@ -486,11 +485,10 @@ const AdGroupDetail = () => {
                         </td>
                       </tr>
                     )}
-                  </React.Fragment>
-                ))}
-              </React.Fragment>
-            ))}
-          </tbody>
+                    </React.Fragment>
+                  ))}
+            </tbody>
+              ))}
         </table>
       </div>
 

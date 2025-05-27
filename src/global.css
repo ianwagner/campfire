@@ -167,6 +167,9 @@
   .table-row-group {
     background-color: var(--table-row-alt-bg);
   }
+  .history-row {
+    background-color: var(--table-row-alt-bg);
+  }
   .status-badge {
     @apply px-2 py-0.5 rounded-full font-semibold;
     display: inline-block;
