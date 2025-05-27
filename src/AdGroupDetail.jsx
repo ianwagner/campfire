@@ -142,6 +142,11 @@ const AdGroupDetail = () => {
     });
   }, [assets]);
 
+  const getRecipeStatus = (list) => {
+    const unique = Array.from(new Set(list.map((a) => a.status)));
+    return unique.length === 1 ? unique[0] : 'mixed';
+  };
+
   const statusColors = {
     approved: 'var(--approved-color)',
     rejected: 'var(--rejected-color)',
@@ -232,6 +237,32 @@ const AdGroupDetail = () => {
       });
     } catch (err) {
       console.error('Failed to update asset status', err);
+    }
+  };
+
+  const updateRecipeStatus = async (recipeCode, status) => {
+    const groupAssets = assets.filter((a) => {
+      const info = parseAdFilename(a.filename || '');
+      return (info.recipeCode || 'unknown') === recipeCode;
+    });
+    if (groupAssets.length === 0) return;
+    const batch = writeBatch(db);
+    groupAssets.forEach((a) => {
+      batch.update(doc(db, 'adGroups', id, 'assets', a.id), {
+        status,
+        lastUpdatedBy: auth.currentUser?.uid || null,
+        lastUpdatedAt: serverTimestamp(),
+      });
+    });
+    try {
+      await batch.commit();
+      setAssets((prev) =>
+        prev.map((a) =>
+          groupAssets.some((g) => g.id === a.id) ? { ...a, status } : a
+        )
+      );
+    } catch (err) {
+      console.error('Failed to update recipe status', err);
     }
   };
 
@@ -337,9 +368,24 @@ const AdGroupDetail = () => {
             {recipeGroups.map((g) => (
               <React.Fragment key={g.recipeCode}>
                 <tr className="border-b bg-gray-50">
-                  <td colSpan="7" className="px-2 py-1 font-semibold">
+                  <td colSpan="2" className="px-2 py-1 font-semibold">
                     Recipe {g.recipeCode}
                   </td>
+                  <td className="px-2 py-1" style={{ color: statusColors[getRecipeStatus(g.assets)] }}>
+                    <select
+                      className="p-1 border rounded"
+                      value={getRecipeStatus(g.assets)}
+                      onChange={(e) => updateRecipeStatus(g.recipeCode, e.target.value)}
+                    >
+                      <option value="pending">pending</option>
+                      <option value="ready">ready</option>
+                      <option value="approved">approved</option>
+                      <option value="rejected">rejected</option>
+                      <option value="edit_requested">edit_requested</option>
+                      <option value="mixed" disabled>mixed</option>
+                    </select>
+                  </td>
+                  <td colSpan="4" />
                 </tr>
                 {g.assets.map((a) => (
                   <React.Fragment key={a.id}>
