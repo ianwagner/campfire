@@ -197,3 +197,11 @@
 .size-thumb {
   @apply absolute top-0 left-0 object-contain transition-transform duration-500 ease-in-out;
 }
+
+.progress-bar {
+  @apply w-full max-w-md h-4 bg-gray-200 rounded-full shadow-inner mb-2.5;
+}
+
+.progress-bar-inner {
+  @apply h-full bg-green-500 transition-all rounded-full;
+}
