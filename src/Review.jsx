@@ -629,14 +629,14 @@ const Review = ({
         {/* Gallery view removed */}
         {!secondPass && (
           <div
-            className="w-full max-w-md h-4 bg-gray-200 rounded-full shadow-inner mb-2.5"
+            className="progress-bar"
             role="progressbar"
             aria-valuenow={progress}
             aria-valuemin="0"
             aria-valuemax="100"
           >
             <div
-              className="h-full bg-green-500 transition-all rounded-full"
+              className="progress-bar-inner"
               style={{ width: `${progress}%` }}
             />
           </div>
