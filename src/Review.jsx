@@ -79,6 +79,10 @@ const Review = ({
   }, [currentIndex]);
 
   useEffect(() => {
+    if (showSizes) setShowHistory(false);
+  }, [showSizes]);
+
+  useEffect(() => {
     const fetchAds = async () => {
       try {
         let list = [];
@@ -542,6 +546,8 @@ const Review = ({
     const handleReviewAll = () => {
       setReviewAds(ads);
       setCurrentIndex(0);
+      setSecondPass(true);
+      setShowHistory(false);
     };
 
     return (
@@ -679,7 +685,7 @@ const Review = ({
             )}
           </div>
         </div>
-        {secondPass && (
+        {secondPass && !showSizes && (
           <div className="absolute left-full ml-4 top-0">
             <button
               onClick={() => setShowHistory((p) => !p)}
