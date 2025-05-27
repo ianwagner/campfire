@@ -30,9 +30,9 @@
     --approve-color: #00AB47;
     --approve-color-10: rgba(0, 171, 71, 0.1);
     --reject-color: #FF5C5C;
-    --reject-color-10: rgba(255, 183, 0, 0.1);
+    --reject-color-10: rgba(255, 92, 92, 0.1);
     --edit-color: #FFB700;
-    --edit-color-10: rgba(0, 171, 71, 0.1);
+    --edit-color-10: rgba(255, 183, 0, 0.1);
   }
   body {
     @apply bg-white text-gray-900 dark:bg-[var(--dark-bg)] dark:text-[var(--dark-text)];
