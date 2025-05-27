@@ -191,9 +191,11 @@
 
 .size-container {
   position: relative;
+  overflow: hidden;
   @apply transition-transform duration-500 ease-in-out;
 }
 
 .size-thumb {
   @apply absolute top-0 left-0 object-contain transition-transform duration-500 ease-in-out;
+  opacity: 0;
 }

@@ -1,12 +1,15 @@
 # Ad Review UI State Management Design
 
 ## Overview
-The ad review interface allows multiple reviewers to provide feedback on ad assets. To keep the state simple and flexible, each ad document stores a single status field that is updated by any reviewer. Every change is appended to a `history` array so that designers can see how decisions evolved over time.
+The ad review interface allows multiple reviewers to provide feedback on ad assets. To keep the state simple and flexible, each recipe document stores a single status field that is updated by any reviewer. Every change is appended to a `history` array so that designers can see how decisions evolved over time.
 
 The system does **not** implement roles or locking. Any reviewer can change the status at any time. The most recent action represents the current state.
 
 ## Data Model
-Each ad asset (stored under `adGroups/{groupId}/assets/{assetId}`) includes the following fields:
+Ad assets are now stored under `adGroups/{groupId}/recipes/{recipeCode}/sizes/{sizeId}`.
+The `adRecipe` document stores the review status for all its sizes, while each
+`adSize` document only keeps file metadata. An `adRecipe` document includes the
+following fields:
 
 ```json
 {
@@ -26,19 +29,19 @@ Each ad asset (stored under `adGroups/{groupId}/assets/{assetId}`) includes the 
 }
 ```
 
-* `status` – the current state of the ad asset.
+* `status` – the current state of the recipe.
 * `lastUpdatedBy` – the `uid` of the reviewer who last made a change.
 * `lastUpdatedAt` – ISO timestamp when the status was last updated.
 * `version` – sequential version number starting at 1.
 * `parentAdId` – reference to the original ad asset for tracking revisions.
-* `isResolved` – when true, this ad (and its versions) no longer appear in the review queue.
+* `isResolved` – when true, this recipe (and its versions) no longer appear in the review queue.
 
 * `history` – append-only array of change objects; newest entry reflects the current status.
 
-Newly uploaded ads start in the `pending` state so they are immediately visible to reviewers.
+Newly uploaded recipes start in the `pending` state so they are immediately visible to reviewers.
 
 ## State Transitions
-1. **Loading** – When the review UI loads, it queries all pending ad assets from Firestore and reads the current `status`, `lastUpdatedBy`, `lastUpdatedAt`, and `history` fields.
+1. **Loading** – When the review UI loads, it queries all pending ad recipes from Firestore and reads the current `status`, `lastUpdatedBy`, `lastUpdatedAt`, and `history` fields.
 2. **Changing Status** – When a reviewer chooses Approve, Reject, or Request Edit:
    - The UI writes the new `status`, updates `lastUpdatedBy` and `lastUpdatedAt` with the reviewer’s ID and server timestamp, and pushes an entry to `history`.
    - No restrictions are enforced; any reviewer may overwrite the previous value.
@@ -62,9 +65,9 @@ The system intentionally avoids role-based permissions or locking mechanics. All
 If a status update fails (e.g. network error), the UI should surface the failure to the reviewer and allow them to retry. Firestore writes should be wrapped in try/catch blocks with appropriate user feedback.
 
 ## Cross-Collection Queries
-When reviewers open the dashboard they may want to see all ready assets across
+When reviewers open the dashboard they may want to see all ready recipes across
 multiple ad groups. The UI uses Firestore's `collectionGroup` queries to read
-every `assets` subcollection in a single request. Because each asset document
+every `recipes` subcollection in a single request. Because each recipe document
 stores its `brandCode`, the query can filter by brand without loading each group
-first.
+first. Size documents are fetched from each recipe as needed.
 
