@@ -47,6 +47,8 @@ Newly uploaded ads start in the `pending` state so they are immediately visible 
 ## Ad Revisions and Versions
 When a designer uploads a revised ad, a new document is created in the same collection. Copy `parentAdId` from the original, set `version` to the next number, and reset `status` to `pending`. Keep `isResolved` false so the revision appears in the queue.
 
+When the designer marks the revision `ready`, the previous ad's status is changed to `archived`. The review UI only displays the latest version but allows reviewers to open a modal and toggle between the newest and archived versions for reference.
+
 ### Resolving Ads
 When the revised ad is approved, set `isResolved` to true on all documents with the same `parentAdId`. The final version remains `approved` but all related ads are hidden from further review.
 
