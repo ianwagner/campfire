@@ -43,6 +43,9 @@ const Review = ({
   const [submitting, setSubmitting] = useState(false);
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
   const [editing, setEditing] = useState(false);
+  const [allAds, setAllAds] = useState([]); // includes all non-pending versions
+  const [versionModal, setVersionModal] = useState(null); // {current, previous}
+  const [versionView, setVersionView] = useState('current');
   const [finalGallery, setFinalGallery] = useState(false);
   const reviewedKey = groupId ? `reviewComplete-${groupId}` : null;
   const [secondPass, setSecondPass] = useState(
@@ -146,6 +149,18 @@ const Review = ({
           return (order[aAsp] ?? 99) - (order[bAsp] ?? 99);
         });
 
+        // keep highest version per ad
+        const versionMap = {};
+        list.forEach((a) => {
+          const root = a.parentAdId || a.assetId;
+          if (!versionMap[root] || (versionMap[root].version || 1) < (a.version || 1)) {
+            versionMap[root] = a;
+          }
+        });
+        const deduped = Object.values(versionMap);
+
+        setAllAds(list);
+        list = deduped;
         setAds(list);
 
         const key = groupId ? `lastViewed-${groupId}` : null;
@@ -244,6 +259,16 @@ const Review = ({
   const showSecondView = secondPass && selectedResponse && !editing;
   const progress =
     reviewAds.length > 0 ? (currentIndex / reviewAds.length) * 100 : 0;
+
+  const openVersionModal = () => {
+    if (!currentAd || !currentAd.parentAdId) return;
+    const prev = allAds.find((a) => a.assetId === currentAd.parentAdId);
+    if (!prev) return;
+    setVersionModal({ current: currentAd, previous: prev });
+    setVersionView('current');
+  };
+
+  const closeVersionModal = () => setVersionModal(null);
   const statusMap = {
     approve: 'Approved',
     reject: 'Rejected',
@@ -666,6 +691,9 @@ const Review = ({
                 animating === 'reject' ? 'reject-fade' : ''
               } ${animating === 'approve' ? 'approve-glow' : ''}`}
             />
+            {currentAd && (currentAd.version || 1) > 1 && (
+              <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
+            )}
             {otherSizes.map((a, idx) => (
               <img
                 key={idx}
@@ -846,6 +874,28 @@ const Review = ({
             </div>
           )}
         </>
+      )}
+      {versionModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-md text-center">
+            <div className="mb-2 space-x-2">
+              <button onClick={() => setVersionView('current')} className="btn-secondary px-2 py-1">
+                V{versionModal.current.version || 1}
+              </button>
+              <button onClick={() => setVersionView('previous')} className="btn-secondary px-2 py-1">
+                V{versionModal.previous.version || 1} (replaced)
+              </button>
+            </div>
+            <img
+              src={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
+              alt="Ad version"
+              className="max-w-full max-h-[70vh] mx-auto"
+            />
+            <button onClick={closeVersionModal} className="mt-2 btn-primary px-3 py-1">
+              Close
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -228,6 +228,14 @@ const AdGroupDetail = () => {
       await updateDoc(doc(db, 'adGroups', id, 'assets', assetId), {
         status,
       });
+      if (status === 'ready') {
+        const asset = assets.find((a) => a.id === assetId);
+        if (asset?.parentAdId) {
+          await updateDoc(doc(db, 'adGroups', id, 'assets', asset.parentAdId), {
+            status: 'archived',
+          });
+        }
+      }
     } catch (err) {
       console.error('Failed to update asset status', err);
     }
@@ -388,6 +396,7 @@ const AdGroupDetail = () => {
                         <option value="approved">approved</option>
                         <option value="rejected">rejected</option>
                         <option value="edit_requested">edit_requested</option>
+                        <option value="archived">archived</option>
                         <option value="mixed" disabled>mixed</option>
                       </select>
                     )}
@@ -424,6 +433,7 @@ const AdGroupDetail = () => {
                             <option value="approved">approved</option>
                             <option value="rejected">rejected</option>
                             <option value="edit_requested">edit_requested</option>
+                            <option value="archived">archived</option>
                           </select>
                         )}
                       </td>
