@@ -37,6 +37,18 @@
     --pending-color: #666666;
     --pending-color-10: rgba(102, 102, 102, 0.1);
     --rejected-color: var(--reject-color);
+    /* table layout variables */
+    --table-border-color: #e5e7eb; /* gray-200 */
+    --table-head-bg: #f3f4f6; /* gray-100 */
+    --table-row-alt-bg: #f9fafb; /* gray-50 */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+  }
+  html.dark {
+    --table-border-color: var(--dark-sidebar-hover);
+    --table-head-bg: var(--dark-sidebar-hover);
+    --table-row-alt-bg: var(--dark-sidebar-bg);
   }
   body {
     @apply bg-white text-gray-900 dark:bg-[var(--dark-bg)] dark:text-[var(--dark-text)];
@@ -138,13 +150,22 @@
   .loading {
     visibility: hidden;
   }
-  .data-table {
-    @apply w-full text-sm border-collapse;
+  .ad-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-base);
   }
-  .data-table th,
-  .data-table td {
-    @apply border px-2 py-1;
+  .ad-table th,
+  .ad-table td {
+    border: 1px solid var(--table-border-color);
+    padding: var(--space-xs) var(--space-sm);
     text-align: left;
+  }
+  .ad-table thead {
+    background-color: var(--table-head-bg);
+  }
+  .table-row-group {
+    background-color: var(--table-row-alt-bg);
   }
   .status-badge {
     @apply px-2 py-0.5 rounded-full font-semibold;

@@ -78,8 +78,8 @@ const AdminAccounts = () => {
         ) : accounts.length === 0 ? (
           <p>No accounts found.</p>
         ) : (
-          <table className="data-table">
-            <thead className="bg-gray-100">
+          <table className="ad-table">
+            <thead>
               <tr>
                 <th>ID</th>
                 <th>Role</th>

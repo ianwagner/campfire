@@ -86,8 +86,8 @@ const DesignerDashboard = () => {
         ) : groups.length === 0 ? (
           <p>No ad groups found.</p>
         ) : (
-          <table className="data-table">
-            <thead className="bg-gray-100">
+          <table className="ad-table">
+            <thead>
               <tr>
                 <th>Group Name</th>
                 <th>Brand</th>
