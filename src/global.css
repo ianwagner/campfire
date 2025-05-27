@@ -87,16 +87,16 @@
     border: 1px solid var(--approve-color);
     background-color: var(--approve-color-10);
     padding: 8px 24px;
-    border-radius: 9999;
+    border-radius: 9999px;
   }
   .btn-reject {
     @apply text-lg hover:brightness-105;
     font-weight: var(--font-weight-bold);
-    color: var(--approve-color);
+    color: var(--reject-color);
     border: 1px solid var(--reject-color);
     background-color: var(--reject-color-10);
     padding: 8px 24px;
-    border-radius: 9999;
+    border-radius: 9999px;
   }
   .btn-edit {
     @apply bg-black text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-800;
