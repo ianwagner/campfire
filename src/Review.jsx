@@ -1,6 +1,6 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   collection,
   collectionGroup,
@@ -19,6 +19,7 @@ import {
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
+import parseAdFilename from './utils/parseAdFilename';
 
 const Review = ({
   user,
@@ -42,6 +43,8 @@ const Review = ({
   const [submitting, setSubmitting] = useState(false);
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
   const [editing, setEditing] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
+  const [openRecipe, setOpenRecipe] = useState(null);
   const reviewedKey = groupId ? `reviewComplete-${groupId}` : null;
   const [secondPass, setSecondPass] = useState(
     reviewedKey ? localStorage.getItem(reviewedKey) === 'true' : false
@@ -49,6 +52,23 @@ const Review = ({
   const [showHistory, setShowHistory] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const { agency } = useAgencyTheme(agencyId);
+
+  const recipeGroups = useMemo(() => {
+    const map = {};
+    ads.forEach((a) => {
+      const info = parseAdFilename(a.filename || '');
+      const recipe = a.recipeCode || info.recipeCode || 'unknown';
+      const aspect = a.aspectRatio || info.aspectRatio || '';
+      const item = { ...a, recipeCode: recipe, aspectRatio: aspect };
+      if (!map[recipe]) map[recipe] = [];
+      map[recipe].push(item);
+    });
+    const order = { '3x5': 0, '9x16': 1, '1x1': 2 };
+    return Object.entries(map).map(([recipeCode, list]) => {
+      list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
+      return { recipeCode, assets: list };
+    });
+  }, [ads]);
 
   useEffect(() => {
     setEditing(false);
@@ -537,6 +557,64 @@ const Review = ({
             alt={`${agency.name || 'Agency'} logo`}
             className="mb-2 max-h-16 w-auto"
           />
+        )}
+        <button
+          onClick={() => setShowGallery((p) => !p)}
+          className="btn-secondary mb-2"
+        >
+          {showGallery ? 'Hide Gallery' : 'Show Gallery'}
+        </button>
+        {showGallery && (
+          <div className="w-full max-w-md mb-4">
+            {recipeGroups.map((g) => {
+              const hero = g.assets.find((a) => a.aspectRatio === '3x5') || g.assets[0];
+              return (
+                <div key={g.recipeCode} className="mb-4 border rounded p-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium">Recipe {g.recipeCode}</h3>
+                      <p className="text-xs text-gray-500">{g.assets.length} sizes</p>
+                    </div>
+                    <button
+                      className="btn-primary px-2 py-1 text-sm"
+                      onClick={() =>
+                        setOpenRecipe(openRecipe === g.recipeCode ? null : g.recipeCode)
+                      }
+                    >
+                      {openRecipe === g.recipeCode ? 'Close sizes' : 'View all sizes'}
+                    </button>
+                  </div>
+                  <div className="mt-2">
+                    {openRecipe === g.recipeCode ? (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {g.assets.map((a) => (
+                          <div key={a.assetId || a.id} className="text-center text-xs">
+                            {a.firebaseUrl && (
+                              <img
+                                src={a.firebaseUrl}
+                                alt={a.filename}
+                                className="w-full object-contain"
+                              />
+                            )}
+                            <div>{a.aspectRatio}</div>
+                            <div className="break-all">{a.filename}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      hero && (
+                        <img
+                          src={hero.firebaseUrl}
+                          alt={hero.filename}
+                          className="w-full object-contain"
+                        />
+                      )
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
         {!secondPass && (
           <div
