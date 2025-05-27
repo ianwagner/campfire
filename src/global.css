@@ -94,10 +94,10 @@
     @apply text-xs px-2 py-0.5 rounded-full;
   }
   .tag-new {
-    @apply bg-red-500 text-black;
+    background-color: var(--accent-color);
   }
   .tag-pill {
-    @apply bg-gray-200;
+    background-color: var(--accent-color-10);
   }
   input,
   textarea,
