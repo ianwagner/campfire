@@ -78,20 +78,20 @@ const AdminAccounts = () => {
         ) : accounts.length === 0 ? (
           <p>No accounts found.</p>
         ) : (
-          <table className="min-w-full border text-sm">
+          <table className="data-table">
             <thead className="bg-gray-100">
               <tr>
-                <th className="border px-2 py-1">ID</th>
-                <th className="border px-2 py-1">Role</th>
-                <th className="border px-2 py-1">Brand Codes</th>
-                <th className="border px-2 py-1">Actions</th>
+                <th>ID</th>
+                <th>Role</th>
+                <th>Brand Codes</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {accounts.map((acct) => (
                 <tr key={acct.id}>
-                  <td className="border px-2 py-1">{acct.id}</td>
-                  <td className="border px-2 py-1">
+                  <td>{acct.id}</td>
+                  <td>
                     {editId === acct.id ? (
                       <select
                         value={form.role}
@@ -108,7 +108,7 @@ const AdminAccounts = () => {
                       acct.role || ''
                     )}
                   </td>
-                  <td className="border px-2 py-1">
+                  <td>
                     {editId === acct.id ? (
                       <input
                         type="text"
@@ -124,7 +124,7 @@ const AdminAccounts = () => {
                       ''
                     )}
                   </td>
-                  <td className="border px-2 py-1 text-center">
+                  <td className="text-center">
                     {editId === acct.id ? (
                       <>
                         <button

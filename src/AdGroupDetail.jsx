@@ -147,13 +147,6 @@ const AdGroupDetail = () => {
     return unique.length === 1 ? unique[0] : 'mixed';
   };
 
-  const statusColors = {
-    approved: 'var(--approved-color)',
-    rejected: 'var(--rejected-color)',
-    ready: 'var(--pending-color)',
-    pending: 'var(--pending-color)',
-    edit_requested: 'var(--pending-color)',
-  };
 
   const handleUpload = async (selectedFiles) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
@@ -330,7 +323,7 @@ const AdGroupDetail = () => {
   }
 
   return (
-    <div className="min-h-screen p-4 max-w-3xl mx-auto">
+    <div className="min-h-screen p-4 ">
         <h1 className="text-2xl mb-2">{group.name}</h1>
       <p className="text-sm text-gray-500">Brand: {group.brandCode}</p>
       <p className="text-sm text-gray-500 mb-4">Status: {group.status}</p>
@@ -351,67 +344,97 @@ const AdGroupDetail = () => {
       </div>
 
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
+      <div>
+        <table className="data-table">
           <thead>
             <tr className="border-b">
-              <th className="px-2 py-1 text-left">Filename</th>
-              <th className="px-2 py-1 text-left">Version</th>
-              <th className="px-2 py-1 text-left">Status</th>
-              <th className="px-2 py-1 text-left">Last Updated</th>
-              <th className="px-2 py-1 text-left">Comment</th>
-              <th className="px-2 py-1 text-left">Upload</th>
-              <th className="px-2 py-1 text-left">Delete</th>
+              <th className="text-left">Filename</th>
+              <th className="text-left">Version</th>
+              <th className="text-left">Status</th>
+              <th className="text-left">Last Updated</th>
+              <th className="text-left">Comment</th>
+              <th className="text-left">Upload</th>
+              <th className="text-left">Delete</th>
             </tr>
           </thead>
           <tbody>
             {recipeGroups.map((g) => (
               <React.Fragment key={g.recipeCode}>
                 <tr className="border-b bg-gray-50">
-                  <td colSpan="2" className="px-2 py-1 font-semibold">
+                  <td colSpan="2" className="font-semibold">
                     Recipe {g.recipeCode}
                   </td>
-                  <td className="px-2 py-1" style={{ color: statusColors[getRecipeStatus(g.assets)] }}>
-                    <select
-                      className="p-1 border rounded"
-                      value={getRecipeStatus(g.assets)}
-                      onChange={(e) => updateRecipeStatus(g.recipeCode, e.target.value)}
-                    >
-                      <option value="pending">pending</option>
-                      <option value="ready">ready</option>
-                      <option value="approved">approved</option>
-                      <option value="rejected">rejected</option>
-                      <option value="edit_requested">edit_requested</option>
-                      <option value="mixed" disabled>mixed</option>
-                    </select>
+                  <td>
+                    {userRole === 'designer' ? (
+                      getRecipeStatus(g.assets) === 'pending' ? (
+                        <select
+                          className="p-1 border rounded"
+                          value="pending"
+                          onChange={(e) => updateRecipeStatus(g.recipeCode, e.target.value)}
+                        >
+                          <option value="pending">pending</option>
+                          <option value="ready">ready</option>
+                        </select>
+                      ) : (
+                        <span className={`status-badge status-${getRecipeStatus(g.assets)}`}>{getRecipeStatus(g.assets)}</span>
+                      )
+                    ) : (
+                      <select
+                        className="p-1 border rounded"
+                        value={getRecipeStatus(g.assets)}
+                        onChange={(e) => updateRecipeStatus(g.recipeCode, e.target.value)}
+                      >
+                        <option value="pending">pending</option>
+                        <option value="ready">ready</option>
+                        <option value="approved">approved</option>
+                        <option value="rejected">rejected</option>
+                        <option value="edit_requested">edit_requested</option>
+                        <option value="mixed" disabled>mixed</option>
+                      </select>
+                    )}
                   </td>
                   <td colSpan="4" />
                 </tr>
                 {g.assets.map((a) => (
                   <React.Fragment key={a.id}>
                     <tr className="border-b">
-                      <td className="px-2 py-1 break-all">{a.filename}</td>
-                      <td className="px-2 py-1 text-center">{a.version || 1}</td>
-                      <td className="px-2 py-1" style={{ color: statusColors[a.status] }}>
-                        <select
-                          className="p-1 border rounded"
-                          value={a.status}
-                          onChange={(e) => updateAssetStatus(a.id, e.target.value)}
-                        >
-                          <option value="pending">pending</option>
-                          <option value="ready">ready</option>
-                          <option value="approved">approved</option>
-                          <option value="rejected">rejected</option>
-                          <option value="edit_requested">edit_requested</option>
-                        </select>
+                      <td className="break-all">{a.filename}</td>
+                      <td className="text-center">{a.version || 1}</td>
+                      <td>
+                        {userRole === 'designer' ? (
+                          a.status === 'pending' ? (
+                            <select
+                              className="p-1 border rounded"
+                              value="pending"
+                              onChange={(e) => updateAssetStatus(a.id, e.target.value)}
+                            >
+                              <option value="pending">pending</option>
+                              <option value="ready">ready</option>
+                            </select>
+                          ) : (
+                            <span className={`status-badge status-${a.status}`}>{a.status}</span>
+                          )
+                        ) : (
+                          <select
+                            className="p-1 border rounded"
+                            value={a.status}
+                            onChange={(e) => updateAssetStatus(a.id, e.target.value)}
+                          >
+                            <option value="pending">pending</option>
+                            <option value="ready">ready</option>
+                            <option value="approved">approved</option>
+                            <option value="rejected">rejected</option>
+                            <option value="edit_requested">edit_requested</option>
+                          </select>
+                        )}
                       </td>
-                      <td className="px-2 py-1">
+                      <td>
                         {a.lastUpdatedAt?.toDate
                           ? a.lastUpdatedAt.toDate().toLocaleString()
                           : '-'}
                       </td>
-                      <td className="px-2 py-1">{a.comment || '-'}</td>
-                      <td className="px-2 py-1">
+                      <td>{a.comment || '-'}</td>
+                      <td>
                         {!a.firebaseUrl ? (
                           <div className="flex items-center space-x-2">
                             <input
@@ -440,7 +463,7 @@ const AdGroupDetail = () => {
                           </a>
                         )}
                       </td>
-                      <td className="px-2 py-1 text-center">
+                      <td className="text-center">
                         <button onClick={() => deleteAsset(a)} className="btn-delete">
                           🗑️
                         </button>
@@ -448,7 +471,7 @@ const AdGroupDetail = () => {
                     </tr>
                     {Array.isArray(a.history) && a.history.length > 0 && (
                       <tr className="border-b text-xs bg-gray-50">
-                        <td colSpan="7" className="px-2 py-1">
+                        <td colSpan="7">
                           {a.history.map((h, idx) => (
                             <div key={idx} className="mb-1">
                               {h.timestamp?.toDate
