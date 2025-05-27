@@ -44,6 +44,8 @@ const Review = ({
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
   const [editing, setEditing] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [showRecipeGallery, setShowRecipeGallery] = useState(false);
+  const [showGroupGallery, setShowGroupGallery] = useState(false);
   const [openRecipe, setOpenRecipe] = useState(null);
   const reviewedKey = groupId ? `reviewComplete-${groupId}` : null;
   const [secondPass, setSecondPass] = useState(
@@ -124,6 +126,19 @@ const Review = ({
             })
           );
         }
+
+        const order = { '3x5': 0, '9x16': 1, '1x1': 2 };
+        list.sort((a, b) => {
+          const infoA = parseAdFilename(a.filename || '');
+          const infoB = parseAdFilename(b.filename || '');
+          const rA = a.recipeCode || infoA.recipeCode || '';
+          const rB = b.recipeCode || infoB.recipeCode || '';
+          if (rA < rB) return -1;
+          if (rA > rB) return 1;
+          const aAsp = a.aspectRatio || infoA.aspectRatio || '';
+          const bAsp = b.aspectRatio || infoB.aspectRatio || '';
+          return (order[aAsp] ?? 99) - (order[bAsp] ?? 99);
+        });
 
         setAds(list);
 
@@ -208,6 +223,12 @@ const Review = ({
     reject: 'text-gray-700',
     edit: 'text-black',
   };
+
+  const currentInfo = currentAd ? parseAdFilename(currentAd.filename || '') : {};
+  const currentRecipe = currentAd?.recipeCode || currentInfo.recipeCode;
+  const currentRecipeGroup = recipeGroups.find(
+    (g) => g.recipeCode === currentRecipe
+  );
 
   useEffect(() => {
     const next = reviewAds[currentIndex + 1];
@@ -516,6 +537,12 @@ const Review = ({
         >
           See All
         </button>
+        <button
+          onClick={() => setShowGroupGallery(true)}
+          className="btn-secondary"
+        >
+          Show Gallery
+        </button>
       </div>
     );
   }
@@ -545,6 +572,66 @@ const Review = ({
                 className="btn-secondary px-3 py-1 text-white"
               >
                 Keep reviewing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showRecipeGallery && currentRecipeGroup && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-md">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {currentRecipeGroup.assets.map((a) => (
+                <div key={a.assetId || a.id} className="text-center text-xs">
+                  {a.firebaseUrl && (
+                    <img
+                      src={a.firebaseUrl}
+                      alt={a.filename}
+                      className="w-full object-contain"
+                    />
+                  )}
+                  <div>{a.aspectRatio}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 text-right">
+              <button
+                onClick={() => setShowRecipeGallery(false)}
+                className="btn-primary px-3 py-1"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showGroupGallery && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-2xl">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {ads.map((a) => {
+                const info = parseAdFilename(a.filename || '');
+                const aspect = a.aspectRatio || info.aspectRatio || '';
+                return (
+                  <div key={a.assetId || a.id} className="text-center text-xs">
+                    {a.firebaseUrl && (
+                      <img
+                        src={a.firebaseUrl}
+                        alt={a.filename}
+                        className="w-full object-contain"
+                      />
+                    )}
+                    <div>{aspect}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 text-right">
+              <button
+                onClick={() => setShowGroupGallery(false)}
+                className="btn-primary px-3 py-1"
+              >
+                Close
               </button>
             </div>
           </div>
@@ -630,18 +717,26 @@ const Review = ({
             />
           </div>
         )}
-        <div className="relative">
-          <img
-            src={adUrl}
-            alt="Ad"
-            loading="lazy"
-            className={`max-w-[90%] max-h-[72vh] mx-auto rounded shadow ${
-              animating === 'reject' ? 'reject-fade' : ''
-            } ${animating === 'approve' ? 'approve-glow' : ''}`}
-          />
-          {animating === 'approve' && (
-            <div className="approve-check">✓</div>
-          )}
+        <div className="flex items-start">
+          <div className="relative">
+            <img
+              src={adUrl}
+              alt="Ad"
+              loading="lazy"
+              className={`max-w-[90%] max-h-[72vh] mx-auto rounded shadow ${
+                animating === 'reject' ? 'reject-fade' : ''
+              } ${animating === 'approve' ? 'approve-glow' : ''}`}
+            />
+            {animating === 'approve' && (
+              <div className="approve-check">✓</div>
+            )}
+          </div>
+          <button
+            onClick={() => setShowRecipeGallery(true)}
+            className="btn-secondary ml-4 mt-2"
+          >
+            See all sizes
+          </button>
         </div>
         {secondPass && (
           <div className="absolute left-full ml-4 top-0">
