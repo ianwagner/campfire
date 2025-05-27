@@ -513,16 +513,6 @@ const Review = ({
     }
     const allResponses = Object.values(responses);
     const approvedCount = allResponses.filter((r) => r.response === 'approve').length;
-    const rejectedAds = ads.filter((a) => {
-      const url = a.adUrl || a.firebaseUrl;
-      return responses[url]?.response === 'reject';
-    });
-    const groupSummary = allResponses.reduce((acc, r) => {
-      if (!r.groupName) return acc;
-      acc[r.groupName] = (acc[r.groupName] || 0) + 1;
-      return acc;
-    }, {});
-
     const approvedAds = ads.filter((a) => {
       const url = a.adUrl || a.firebaseUrl;
       return responses[url]?.response === 'approve';
@@ -548,11 +538,6 @@ const Review = ({
         g.assets[0];
       return { recipeCode: g.recipeCode, hero, assets: g.assets };
     });
-
-    const handleReviewRejected = () => {
-      setReviewAds(rejectedAds);
-      setCurrentIndex(0);
-    };
 
     const handleReviewAll = () => {
       setReviewAds(ads);
@@ -580,32 +565,7 @@ const Review = ({
             );
           })}
         </div>
-        {Object.keys(groupSummary).length > 0 && (
-          <table className="min-w-full text-sm mt-2">
-            <thead>
-              <tr className="border-b">
-                <th className="px-2 py-1 text-left">Group</th>
-                <th className="px-2 py-1 text-left">Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(groupSummary).map(([g, c]) => (
-                <tr key={g} className="border-b">
-                  <td className="px-2 py-1">{g}</td>
-                  <td className="px-2 py-1 text-center">{c}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {rejectedAds.length > 0 && (
-          <button
-            onClick={handleReviewRejected}
-            className="btn-primary"
-          >
-            See Rejected Ads
-          </button>
-        )}
+        {/* table and rejected button removed */}
         <button
           onClick={handleReviewAll}
           className="btn-secondary"
@@ -684,7 +644,14 @@ const Review = ({
           </button>
         )}
         <div className="flex justify-center">
-          <div className="relative size-container">
+          <div
+            className="relative size-container transition-transform"
+            style={{
+              transform: showSizes
+                ? `translateX(-${otherSizes.length * 55}%)`
+                : 'translateX(0)',
+            }}
+          >
             <img
               src={adUrl}
               alt="Ad"
@@ -703,6 +670,7 @@ const Review = ({
                   transform: showSizes
                     ? `translateX(${(idx + 1) * 110}%)`
                     : 'translateX(0)',
+                  opacity: showSizes ? 1 : 0,
                 }}
               />
             ))}

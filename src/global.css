@@ -33,6 +33,9 @@
     --reject-color-10: rgba(255, 92, 92, 0.1);
     --edit-color: #FFB700;
     --edit-color-10: rgba(255, 183, 0, 0.1);
+    --approved-color: var(--approve-color);
+    --pending-color: #666666;
+    --rejected-color: var(--reject-color);
   }
   body {
     @apply bg-white text-gray-900 dark:bg-[var(--dark-bg)] dark:text-[var(--dark-text)];
