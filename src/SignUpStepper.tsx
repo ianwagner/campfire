@@ -1,6 +1,7 @@
 import React, { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { doc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 
@@ -41,7 +42,7 @@ const SignUpStepper: React.FC = () => {
       if (businessType === 'agency') {
         const agencyRef = await addDoc(collection(db, 'agencies'), {
           name: companyName.trim(),
-          themeColor: '#00ABFF',
+          themeColor: DEFAULT_ACCENT_COLOR,
           logoUrl: '',
         });
         agencyId = agencyRef.id;

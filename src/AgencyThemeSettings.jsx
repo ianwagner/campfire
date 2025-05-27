@@ -2,19 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import useAgencyTheme from './useAgencyTheme';
 import { uploadLogo } from './uploadLogo';
+import { DEFAULT_ACCENT_COLOR } from './themeColors';
 
 const AgencyThemeSettings = () => {
   const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
   const { agency, saveAgency } = useAgencyTheme(agencyId);
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState(null);
-  const [themeColor, setThemeColor] = useState('#00ABFF');
+  const [themeColor, setThemeColor] = useState(DEFAULT_ACCENT_COLOR);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     setLogoUrl(agency.logoUrl || '');
-    setThemeColor(agency.themeColor || '#00ABFF');
+    setThemeColor(agency.themeColor || DEFAULT_ACCENT_COLOR);
     setLogoFile(null);
   }, [agency]);
 

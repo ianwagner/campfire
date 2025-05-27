@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
+import { DEFAULT_ACCENT_COLOR } from './themeColors';
 
 const storedAccent = localStorage.getItem('accentColor');
-const defaultSettings = { logoUrl: '', accentColor: storedAccent || '#ea580c' };
+const defaultSettings = { logoUrl: '', accentColor: storedAccent || DEFAULT_ACCENT_COLOR };
 
 const hexToRgba = (hex, alpha = 1) => {
   let h = hex.replace('#', '');

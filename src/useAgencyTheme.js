@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
+import { DEFAULT_ACCENT_COLOR } from './themeColors';
 
-const defaultAgency = { logoUrl: '', themeColor: '#00ABFF' };
+const defaultAgency = { logoUrl: '', themeColor: DEFAULT_ACCENT_COLOR };
 
 const getStoredAgency = (id) => {
   if (!id) return null;
