@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { signInAnonymously, signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
-import Review from './Review';
+import RecipeReview from './RecipeReview';
 
 import ThemeToggle from './ThemeToggle';
 const PublicReview = () => {
@@ -96,7 +96,7 @@ const PublicReview = () => {
   return (
     <div className="min-h-screen relative">
       <ThemeToggle className="absolute top-2 right-2" />
-      <Review
+      <RecipeReview
         user={userObj}
         groupId={groupId}
         reviewerName={reviewerName}

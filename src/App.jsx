@@ -11,7 +11,6 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./firebase/config";
 import Login from "./Login";
 import SignUpStepper from "./SignUpStepper.tsx";
-import Review from "./Review";
 import ClientReview from "./ClientReview";
 import ReviewRoute from "./ReviewRoute";
 import CreateAdGroup from "./CreateAdGroup";
