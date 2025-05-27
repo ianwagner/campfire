@@ -336,22 +336,22 @@ const AdGroupDetail = () => {
 
 
       <div>
-        <table className="data-table">
+        <table className="ad-table">
           <thead>
-            <tr className="border-b">
-              <th className="text-left">Filename</th>
-              <th className="text-left">Version</th>
-              <th className="text-left">Status</th>
-              <th className="text-left">Last Updated</th>
-              <th className="text-left">Comment</th>
-              <th className="text-left">Upload</th>
-              <th className="text-left">Delete</th>
+            <tr>
+              <th>Filename</th>
+              <th>Version</th>
+              <th>Status</th>
+              <th>Last Updated</th>
+              <th>Comment</th>
+              <th>Upload</th>
+              <th>Delete</th>
             </tr>
           </thead>
           <tbody>
             {recipeGroups.map((g) => (
               <React.Fragment key={g.recipeCode}>
-                <tr className="border-b bg-gray-50">
+                <tr className="table-row-group">
                   <td colSpan="2" className="font-semibold">
                     Recipe {g.recipeCode}
                   </td>
@@ -388,7 +388,7 @@ const AdGroupDetail = () => {
                 </tr>
                 {g.assets.map((a) => (
                   <React.Fragment key={a.id}>
-                    <tr className="border-b">
+                    <tr>
                       <td className="break-all">{a.filename}</td>
                       <td className="text-center">{a.version || 1}</td>
                       <td>-</td>
@@ -434,7 +434,7 @@ const AdGroupDetail = () => {
                       </td>
                     </tr>
                     {Array.isArray(a.history) && a.history.length > 0 && (
-                      <tr className="border-b text-xs bg-gray-50">
+                      <tr className="table-row-group text-xs">
                         <td colSpan="7">
                           {a.history.map((h, idx) => (
                             <div key={idx} className="mb-1">
