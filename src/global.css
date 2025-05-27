@@ -8,8 +8,8 @@
     --accent-color-10: rgba(234, 88, 12, 0.1);
     --dark-bg: #131F24; /* gray-900 */
     --dark-text: #f3f4f6; /* gray-100 */
-    --dark-sidebar-bg: #212A2F; /* gray-800 */
-    --dark-sidebar-hover: #374151; /* gray-700 */
+    --dark-sidebar-bg: #1B282D; /* gray-800 */
+    --dark-sidebar-hover: #37464F; /* gray-700 */
   }
   body {
     @apply bg-white text-gray-900 font-sans dark:bg-[var(--dark-bg)] dark:text-[var(--dark-text)];
