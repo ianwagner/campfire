@@ -49,6 +49,7 @@ const Review = ({
     reviewedKey ? localStorage.getItem(reviewedKey) === 'true' : false
   );
   const [showHistory, setShowHistory] = useState(false);
+  const [showSizes, setShowSizes] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const { agency } = useAgencyTheme(agencyId);
 
@@ -71,6 +72,10 @@ const Review = ({
 
   useEffect(() => {
     setEditing(false);
+  }, [currentIndex]);
+
+  useEffect(() => {
+    setShowSizes(false);
   }, [currentIndex]);
 
   useEffect(() => {
@@ -251,6 +256,11 @@ const Review = ({
   const currentRecipeGroup = recipeGroups.find(
     (g) => g.recipeCode === currentRecipe
   );
+  const otherSizes = currentRecipeGroup
+    ? currentRecipeGroup.assets.filter(
+        (a) => (a.adUrl || a.firebaseUrl) !== adUrl
+      )
+    : [];
 
   useEffect(() => {
     const next = reviewAds[currentIndex + 1];
@@ -513,6 +523,32 @@ const Review = ({
       return acc;
     }, {});
 
+    const approvedAds = ads.filter((a) => {
+      const url = a.adUrl || a.firebaseUrl;
+      return responses[url]?.response === 'approve';
+    });
+    const approvedMap = {};
+    const order = { '9x16': 0, '3x5': 1, '1x1': 2 };
+    approvedAds.forEach((a) => {
+      const info = parseAdFilename(a.filename || '');
+      const recipe = a.recipeCode || info.recipeCode || 'unknown';
+      const aspect = a.aspectRatio || info.aspectRatio || '';
+      const item = { ...a, recipeCode: recipe, aspectRatio: aspect };
+      if (!approvedMap[recipe]) approvedMap[recipe] = [];
+      approvedMap[recipe].push(item);
+    });
+    const approvedGroups = Object.entries(approvedMap).map(([recipeCode, list]) => {
+      list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
+      return { recipeCode, assets: list };
+    });
+    const heroGroups = approvedGroups.map((g) => {
+      const hero =
+        g.assets.find((a) => a.aspectRatio === '9x16') ||
+        g.assets.find((a) => a.aspectRatio === '3x5') ||
+        g.assets[0];
+      return { recipeCode: g.recipeCode, hero, assets: g.assets };
+    });
+
     const handleReviewRejected = () => {
       setReviewAds(rejectedAds);
       setCurrentIndex(0);
@@ -528,12 +564,8 @@ const Review = ({
         <h2 className="text-2xl">Thank you for your feedback!</h2>
         <p>You approved {approvedCount}/{ads.length} ads.</p>
         <div className="w-full max-w-2xl grid grid-cols-2 md:grid-cols-3 gap-2">
-          {recipeGroups.map((g) => {
-            const hero =
-              g.assets.find((a) => a.aspectRatio === '9x16') ||
-              g.assets.find((a) => a.aspectRatio === '3x5') ||
-              g.assets[0];
-            const showSet = finalGallery ? g.assets : [hero];
+          {(finalGallery ? heroGroups : heroGroups.slice(0, 3)).map((g) => {
+            const showSet = finalGallery ? g.assets : [g.hero];
             return (
               <div key={g.recipeCode} className="text-center text-xs">
                 {showSet.map((a, idx) => (
@@ -578,13 +610,13 @@ const Review = ({
           onClick={handleReviewAll}
           className="btn-secondary"
         >
-          See All
+          Adjust Approvals
         </button>
         <button
           onClick={() => setFinalGallery((p) => !p)}
           className="btn-secondary"
         >
-          {finalGallery ? 'Close Gallery' : 'Show Gallery'}
+          {finalGallery ? 'Close Gallery' : 'View Gallery'}
         </button>
       </div>
     );
@@ -643,21 +675,37 @@ const Review = ({
             />
           </div>
         )}
-        {currentRecipeGroup && (
-          <div className="text-xs text-gray-500 mb-2">
+        {currentRecipeGroup && currentRecipeGroup.assets.length > 1 && (
+          <button
+            onClick={() => setShowSizes((p) => !p)}
+            className="text-xs text-gray-500 mb-2 px-2 py-0.5 rounded-full transition-colors hover:bg-gray-200"
+          >
             {currentRecipeGroup.assets.length} sizes
-          </div>
+          </button>
         )}
         <div className="flex justify-center">
-          <div className="relative">
+          <div className="relative size-container">
             <img
               src={adUrl}
               alt="Ad"
               loading="lazy"
-              className={`max-w-[90%] max-h-[72vh] mx-auto rounded shadow ${
+              className={`relative z-10 max-w-[90%] max-h-[72vh] mx-auto rounded shadow ${
                 animating === 'reject' ? 'reject-fade' : ''
               } ${animating === 'approve' ? 'approve-glow' : ''}`}
             />
+            {otherSizes.map((a, idx) => (
+              <img
+                key={idx}
+                src={a.firebaseUrl}
+                alt={a.filename}
+                className="size-thumb max-w-[90%] max-h-[72vh] mx-auto rounded shadow"
+                style={{
+                  transform: showSizes
+                    ? `translateX(${(idx + 1) * 110}%)`
+                    : 'translateX(0)',
+                }}
+              />
+            ))}
             {animating === 'approve' && (
               <div className="approve-check">✓</div>
             )}
