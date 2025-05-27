@@ -30,7 +30,6 @@ const AdGroupDetail = () => {
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
-  const [openRecipe, setOpenRecipe] = useState(null);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
@@ -134,10 +133,22 @@ const AdGroupDetail = () => {
     });
     const order = { '3x5': 0, '9x16': 1, '1x1': 2 };
     return Object.entries(map).map(([recipeCode, list]) => {
-      list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
+      list.sort((a, b) => {
+        const diff = (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99);
+        if (diff !== 0) return diff;
+        return (a.version || 1) - (b.version || 1);
+      });
       return { recipeCode, assets: list };
     });
   }, [assets]);
+
+  const statusColors = {
+    approved: 'var(--approved-color)',
+    rejected: 'var(--rejected-color)',
+    ready: 'var(--pending-color)',
+    pending: 'var(--pending-color)',
+    edit_requested: 'var(--pending-color)',
+  };
 
   const handleUpload = async (selectedFiles) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
@@ -308,54 +319,6 @@ const AdGroupDetail = () => {
         )}
       </div>
 
-      {recipeGroups.map((g) => {
-        const hero = g.assets.find((a) => a.aspectRatio === '3x5') || g.assets[0];
-        return (
-          <div key={g.recipeCode} className="mb-4 border rounded p-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium">Recipe {g.recipeCode}</h3>
-                <p className="text-xs text-gray-500">{g.assets.length} sizes</p>
-              </div>
-              <button
-                className="btn-primary px-2 py-1 text-sm"
-                onClick={() =>
-                  setOpenRecipe(openRecipe === g.recipeCode ? null : g.recipeCode)
-                }
-              >
-                {openRecipe === g.recipeCode ? 'Close sizes' : 'View all sizes'}
-              </button>
-            </div>
-            <div className="mt-2">
-              {openRecipe === g.recipeCode ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {g.assets.map((a) => (
-                    <div key={a.id} className="text-center text-xs">
-                      {a.firebaseUrl && (
-                        <img
-                          src={a.firebaseUrl}
-                          alt={a.filename}
-                          className="w-full object-contain"
-                        />
-                      )}
-                      <div>{a.aspectRatio}</div>
-                      <div className="break-all">{a.filename}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                hero && (
-                  <img
-                    src={hero.firebaseUrl}
-                    alt={hero.filename}
-                    className="w-full object-contain"
-                  />
-                )
-              )}
-            </div>
-          </div>
-        );
-      })}
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
@@ -371,89 +334,91 @@ const AdGroupDetail = () => {
             </tr>
           </thead>
           <tbody>
-            {assets.map((a) => (
-              <React.Fragment key={a.id}>
-              <tr className="border-b">
-                <td className="px-2 py-1 break-all">{a.filename}</td>
-                <td className="px-2 py-1 text-center">{a.version || 1}</td>
-                <td className="px-2 py-1">
-                  <select
-                    className="p-1 border rounded"
-                    value={a.status}
-                    onChange={(e) => updateAssetStatus(a.id, e.target.value)}
-                  >
-                    <option value="pending">pending</option>
-                    <option value="ready">ready</option>
-                    <option value="approved">approved</option>
-                    <option value="rejected">rejected</option>
-                    <option value="edit_requested">edit_requested</option>
-                  </select>
-                </td>
-                <td className="px-2 py-1">
-                  {a.lastUpdatedAt?.toDate
-                    ? a.lastUpdatedAt.toDate().toLocaleString()
-                    : '-'}
-                </td>
-                <td className="px-2 py-1">{a.comment || '-'}</td>
-                <td className="px-2 py-1">
-                  {!a.firebaseUrl ? (
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="file"
-                        onChange={(e) => {
-                          const f = e.target.files[0];
-                          if (f) {
-                            uploadVersion(a.id, f);
-                          }
-                        }}
-                      />
-                      {versionUploading === a.id ? (
-                        <span className="text-sm text-gray-600">Uploading...</span>
-                      ) : a.firebaseUrl ? (
-                        <span className="text-sm text-green-600">Uploaded</span>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <a
-                      href={a.firebaseUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      View
-                    </a>
-                  )}
-                </td>
-                <td className="px-2 py-1 text-center">
-                  <button
-                    onClick={() => deleteAsset(a)}
-                    className="btn-delete"
-                  >
-                    🗑️
-                  </button>
-                </td>
-              </tr>
-              {Array.isArray(a.history) && a.history.length > 0 && (
-                <tr className="border-b text-xs bg-gray-50">
-                  <td colSpan="7" className="px-2 py-1">
-                    {a.history.map((h, idx) => (
-                      <div key={idx} className="mb-1">
-                        {h.timestamp?.toDate
-                          ? h.timestamp.toDate().toLocaleString()
-                          : ''}{' '}
-                        - {h.userName || h.userEmail || h.userId}
-                        {userRole === 'admin' && h.userRole
-                          ? ` (${h.userRole})`
-                          : ''}
-                        : {h.action}
-                        {h.action === 'edit_requested' && h.comment
-                          ? ` - ${h.comment}`
-                          : ''}
-                      </div>
-                    ))}
+            {recipeGroups.map((g) => (
+              <React.Fragment key={g.recipeCode}>
+                <tr className="border-b bg-gray-50">
+                  <td colSpan="7" className="px-2 py-1 font-semibold">
+                    Recipe {g.recipeCode}
                   </td>
                 </tr>
-              )}
+                {g.assets.map((a) => (
+                  <React.Fragment key={a.id}>
+                    <tr className="border-b">
+                      <td className="px-2 py-1 break-all">{a.filename}</td>
+                      <td className="px-2 py-1 text-center">{a.version || 1}</td>
+                      <td className="px-2 py-1" style={{ color: statusColors[a.status] }}>
+                        <select
+                          className="p-1 border rounded"
+                          value={a.status}
+                          onChange={(e) => updateAssetStatus(a.id, e.target.value)}
+                        >
+                          <option value="pending">pending</option>
+                          <option value="ready">ready</option>
+                          <option value="approved">approved</option>
+                          <option value="rejected">rejected</option>
+                          <option value="edit_requested">edit_requested</option>
+                        </select>
+                      </td>
+                      <td className="px-2 py-1">
+                        {a.lastUpdatedAt?.toDate
+                          ? a.lastUpdatedAt.toDate().toLocaleString()
+                          : '-'}
+                      </td>
+                      <td className="px-2 py-1">{a.comment || '-'}</td>
+                      <td className="px-2 py-1">
+                        {!a.firebaseUrl ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="file"
+                              onChange={(e) => {
+                                const f = e.target.files[0];
+                                if (f) {
+                                  uploadVersion(a.id, f);
+                                }
+                              }}
+                            />
+                            {versionUploading === a.id ? (
+                              <span className="text-sm text-gray-600">Uploading...</span>
+                            ) : a.firebaseUrl ? (
+                              <span className="text-sm text-green-600">Uploaded</span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <a
+                            href={a.firebaseUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            View
+                          </a>
+                        )}
+                      </td>
+                      <td className="px-2 py-1 text-center">
+                        <button onClick={() => deleteAsset(a)} className="btn-delete">
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                    {Array.isArray(a.history) && a.history.length > 0 && (
+                      <tr className="border-b text-xs bg-gray-50">
+                        <td colSpan="7" className="px-2 py-1">
+                          {a.history.map((h, idx) => (
+                            <div key={idx} className="mb-1">
+                              {h.timestamp?.toDate
+                                ? h.timestamp.toDate().toLocaleString()
+                                : ''}{' '}
+                              - {h.userName || h.userEmail || h.userId}
+                              {userRole === 'admin' && h.userRole ? ` (${h.userRole})` : ''}
+                              : {h.action}
+                              {h.action === 'edit_requested' && h.comment ? ` - ${h.comment}` : ''}
+                            </div>
+                          ))}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
               </React.Fragment>
             ))}
           </tbody>
