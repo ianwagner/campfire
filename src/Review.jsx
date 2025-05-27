@@ -43,8 +43,6 @@ const Review = ({
   const [submitting, setSubmitting] = useState(false);
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
   const [editing, setEditing] = useState(false);
-  const [showGallery, setShowGallery] = useState(false);
-  const [openRecipe, setOpenRecipe] = useState(null);
   const [finalGallery, setFinalGallery] = useState(false);
   const reviewedKey = groupId ? `reviewComplete-${groupId}` : null;
   const [secondPass, setSecondPass] = useState(
@@ -64,7 +62,7 @@ const Review = ({
       if (!map[recipe]) map[recipe] = [];
       map[recipe].push(item);
     });
-    const order = { '3x5': 0, '9x16': 1, '1x1': 2 };
+    const order = { '9x16': 0, '3x5': 1, '1x1': 2 };
     return Object.entries(map).map(([recipeCode, list]) => {
       list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
       return { recipeCode, assets: list };
@@ -126,7 +124,7 @@ const Review = ({
           );
         }
 
-        const order = { '3x5': 0, '9x16': 1, '1x1': 2 };
+        const order = { '9x16': 0, '3x5': 1, '1x1': 2 };
         list.sort((a, b) => {
           const infoA = parseAdFilename(a.filename || '');
           const infoB = parseAdFilename(b.filename || '');
@@ -180,7 +178,8 @@ const Review = ({
           setResponses(initial);
         }
 
-        const prefOrder = ['3x5', '1x1', '9x16', '4x5', 'Pinterest', 'Snapchat'];
+        // prefer 9x16 or 3x5 for hero selection
+        const prefOrder = ['9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
         const getRecipe = (a) =>
           a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
         const getAspect = (a) =>
@@ -531,7 +530,9 @@ const Review = ({
         <div className="w-full max-w-2xl grid grid-cols-2 md:grid-cols-3 gap-2">
           {recipeGroups.map((g) => {
             const hero =
-              g.assets.find((a) => a.aspectRatio === '3x5') || g.assets[0];
+              g.assets.find((a) => a.aspectRatio === '9x16') ||
+              g.assets.find((a) => a.aspectRatio === '3x5') ||
+              g.assets[0];
             const showSet = finalGallery ? g.assets : [hero];
             return (
               <div key={g.recipeCode} className="text-center text-xs">
@@ -627,64 +628,7 @@ const Review = ({
             className="mb-2 max-h-16 w-auto"
           />
         )}
-        <button
-          onClick={() => setShowGallery((p) => !p)}
-          className="btn-secondary mb-2"
-        >
-          {showGallery ? 'Hide Gallery' : 'Show Gallery'}
-        </button>
-        {showGallery && (
-          <div className="w-full max-w-md mb-4">
-            {recipeGroups.map((g) => {
-              const hero = g.assets.find((a) => a.aspectRatio === '3x5') || g.assets[0];
-              return (
-                <div key={g.recipeCode} className="mb-4 border rounded p-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium">Recipe {g.recipeCode}</h3>
-                      <p className="text-xs text-gray-500">{g.assets.length} sizes</p>
-                    </div>
-                    <button
-                      className="btn-primary px-2 py-1 text-sm"
-                      onClick={() =>
-                        setOpenRecipe(openRecipe === g.recipeCode ? null : g.recipeCode)
-                      }
-                    >
-                      {openRecipe === g.recipeCode ? 'Close sizes' : 'View all sizes'}
-                    </button>
-                  </div>
-                  <div className="mt-2">
-                    {openRecipe === g.recipeCode ? (
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {g.assets.map((a) => (
-                          <div key={a.assetId || a.id} className="text-center text-xs">
-                            {a.firebaseUrl && (
-                              <img
-                                src={a.firebaseUrl}
-                                alt={a.filename}
-                                className="w-full object-contain"
-                              />
-                            )}
-                            <div>{a.aspectRatio}</div>
-                            <div className="break-all">{a.filename}</div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      hero && (
-                        <img
-                          src={hero.firebaseUrl}
-                          alt={hero.filename}
-                          className="w-full object-contain"
-                        />
-                      )
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {/* Gallery view removed */}
         {!secondPass && (
           <div
             className="w-full max-w-md h-4 bg-gray-200 rounded-full shadow-inner mb-2.5"
@@ -697,6 +641,11 @@ const Review = ({
               className="h-full bg-green-500 transition-all rounded-full"
               style={{ width: `${progress}%` }}
             />
+          </div>
+        )}
+        {currentRecipeGroup && (
+          <div className="text-xs text-gray-500 mb-2">
+            {currentRecipeGroup.assets.length} sizes
           </div>
         )}
         <div className="flex justify-center">
