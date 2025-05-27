@@ -223,6 +223,15 @@ const AdGroupDetail = () => {
     }
   };
 
+  const updateAssetStatus = async (assetId, status) => {
+    try {
+      await updateDoc(doc(db, 'adGroups', id, 'assets', assetId), {
+        status,
+      });
+    } catch (err) {
+      console.error('Failed to update asset status', err);
+    }
+  };
 
   const updateRecipeStatus = async (recipeCode, status) => {
     const groupAssets = assets.filter((a) => {
@@ -391,7 +400,34 @@ const AdGroupDetail = () => {
                     <tr className="border-b">
                       <td className="break-all">{a.filename}</td>
                       <td className="text-center">{a.version || 1}</td>
-                      <td>-</td>
+                      <td>
+                        {userRole === 'designer' ? (
+                          a.status === 'pending' ? (
+                            <select
+                              className="p-1 border rounded"
+                              value="pending"
+                              onChange={(e) => updateAssetStatus(a.id, e.target.value)}
+                            >
+                              <option value="pending">pending</option>
+                              <option value="ready">ready</option>
+                            </select>
+                          ) : (
+                            <span className={`status-badge status-${a.status}`}>{a.status}</span>
+                          )
+                        ) : (
+                          <select
+                            className="p-1 border rounded"
+                            value={a.status}
+                            onChange={(e) => updateAssetStatus(a.id, e.target.value)}
+                          >
+                            <option value="pending">pending</option>
+                            <option value="ready">ready</option>
+                            <option value="approved">approved</option>
+                            <option value="rejected">rejected</option>
+                            <option value="edit_requested">edit_requested</option>
+                          </select>
+                        )}
+                      </td>
                       <td>
                         {a.lastUpdatedAt?.toDate
                           ? a.lastUpdatedAt.toDate().toLocaleString()

@@ -300,12 +300,14 @@ const Review = ({
           }
         );
       }
-
-      const recipeAssets = currentRecipeGroup
-        ? currentRecipeGroup.assets
-        : [currentAd];
-
-      if (recipeAssets.length > 0 && currentAd.adGroupId) {
+      if (currentAd.assetId && currentAd.adGroupId) {
+        const assetRef = doc(
+          db,
+          'adGroups',
+          currentAd.adGroupId,
+          'assets',
+          currentAd.assetId
+        );
         const newStatus =
           responseType === 'approve'
             ? 'approved'
@@ -323,123 +325,70 @@ const Review = ({
           timestamp: Timestamp.now(),
         };
 
+        const updateData = {
+          status: newStatus,
+          comment: responseType === 'edit' ? comment : '',
+          lastUpdatedBy: user.uid,
+          lastUpdatedAt: serverTimestamp(),
+          history: arrayUnion(historyEntry),
+          ...(responseType === 'approve' ? { isResolved: true } : {}),
+          ...(responseType === 'edit' ? { isResolved: false } : {}),
+        };
+
+        await updateDoc(assetRef, updateData);
+
+        // update local state so history reflects the reviewer's name
+        setAds((prev) =>
+          prev.map((a) =>
+            a.assetId === currentAd.assetId
+              ? {
+                  ...a,
+                  status: newStatus,
+                  comment: responseType === 'edit' ? comment : '',
+                  ...(responseType === 'approve'
+                    ? { isResolved: true }
+                    : responseType === 'edit'
+                    ? { isResolved: false }
+                    : {}),
+                  history: [...(a.history || []), historyEntry],
+                }
+              : a
+          )
+        );
+        setReviewAds((prev) =>
+          prev.map((a) =>
+            a.assetId === currentAd.assetId
+              ? {
+                  ...a,
+                  status: newStatus,
+                  comment: responseType === 'edit' ? comment : '',
+                  ...(responseType === 'approve'
+                    ? { isResolved: true }
+                    : responseType === 'edit'
+                    ? { isResolved: false }
+                    : {}),
+                  history: [...(a.history || []), historyEntry],
+                }
+              : a
+          )
+        );
+
+        const prevStatus = currentAd.status;
+        const newState = newStatus;
         let incReviewed = 0;
         let incApproved = 0;
         let incRejected = 0;
         let incEdit = 0;
-
-        for (const asset of recipeAssets) {
-          const assetRef = doc(
-            db,
-            'adGroups',
-            asset.adGroupId,
-            'assets',
-            asset.assetId
-          );
-
-          const prevStatus = asset.status;
-
-          const updateData = {
-            status: newStatus,
-            comment: responseType === 'edit' ? comment : '',
-            lastUpdatedBy: user.uid,
-            lastUpdatedAt: serverTimestamp(),
-            history: arrayUnion(historyEntry),
-            ...(responseType === 'approve' ? { isResolved: true } : {}),
-            ...(responseType === 'edit' ? { isResolved: false } : {}),
-          };
-
-          await updateDoc(assetRef, updateData);
-
-          if (prevStatus === 'ready') {
-            incReviewed += 1;
-          }
-          if (prevStatus !== newStatus) {
-            if (prevStatus === 'approved') incApproved -= 1;
-            if (prevStatus === 'rejected') incRejected -= 1;
-            if (prevStatus === 'edit_requested') incEdit -= 1;
-            if (newStatus === 'approved') incApproved += 1;
-            if (newStatus === 'rejected') incRejected += 1;
-            if (newStatus === 'edit_requested') incEdit += 1;
-          }
-
-          setAds((prev) =>
-            prev.map((a) =>
-              a.assetId === asset.assetId
-                ? {
-                    ...a,
-                    status: newStatus,
-                    comment: responseType === 'edit' ? comment : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
-                    history: [...(a.history || []), historyEntry],
-                  }
-                : a
-            )
-          );
-
-          setReviewAds((prev) =>
-            prev.map((a) =>
-              a.assetId === asset.assetId
-                ? {
-                    ...a,
-                    status: newStatus,
-                    comment: responseType === 'edit' ? comment : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
-                    history: [...(a.history || []), historyEntry],
-                  }
-                : a
-            )
-          );
-
-          if (responseType === 'edit') {
-            await addDoc(collection(db, 'adGroups', asset.adGroupId, 'assets'), {
-              adGroupId: asset.adGroupId,
-              brandCode: asset.brandCode || '',
-              filename: asset.filename || '',
-              firebaseUrl: '',
-              uploadedAt: null,
-              status: 'pending',
-              comment: null,
-              lastUpdatedBy: null,
-              lastUpdatedAt: serverTimestamp(),
-              history: [],
-              version: (asset.version || 1) + 1,
-              parentAdId: asset.assetId,
-              isResolved: false,
-            });
-          } else if (responseType === 'approve' && asset.parentAdId) {
-            const relatedQuery = query(
-              collection(db, 'adGroups', asset.adGroupId, 'assets'),
-              where('parentAdId', '==', asset.parentAdId)
-            );
-            const relatedSnap = await getDocs(relatedQuery);
-            await Promise.all(
-              relatedSnap.docs.map((d) =>
-                updateDoc(
-                  doc(db, 'adGroups', asset.adGroupId, 'assets', d.id),
-                  { isResolved: true }
-                )
-              )
-            );
-            await updateDoc(
-              doc(
-                db,
-                'adGroups',
-                asset.adGroupId,
-                'assets',
-                asset.parentAdId
-              ),
-              { isResolved: true }
-            );
-          }
+        if (prevStatus === 'ready') {
+          incReviewed += 1;
+        }
+        if (prevStatus !== newState) {
+          if (prevStatus === 'approved') incApproved -= 1;
+          if (prevStatus === 'rejected') incRejected -= 1;
+          if (prevStatus === 'edit_requested') incEdit -= 1;
+          if (newState === 'approved') incApproved += 1;
+          if (newState === 'rejected') incRejected += 1;
+          if (newState === 'edit_requested') incEdit += 1;
         }
 
         const groupRef = doc(db, 'adGroups', currentAd.adGroupId);
@@ -455,6 +404,48 @@ const Review = ({
             : {}),
         };
         await updateDoc(groupRef, updateObj);
+
+        if (responseType === 'edit') {
+          await addDoc(collection(db, 'adGroups', currentAd.adGroupId, 'assets'), {
+            adGroupId: currentAd.adGroupId,
+            brandCode: currentAd.brandCode || '',
+            filename: currentAd.filename || '',
+            firebaseUrl: '',
+            uploadedAt: null,
+            status: 'pending',
+            comment: null,
+            lastUpdatedBy: null,
+            lastUpdatedAt: serverTimestamp(),
+            history: [],
+            version: (currentAd.version || 1) + 1,
+            parentAdId: currentAd.assetId,
+            isResolved: false,
+          });
+        } else if (responseType === 'approve' && currentAd.parentAdId) {
+          const relatedQuery = query(
+            collection(db, 'adGroups', currentAd.adGroupId, 'assets'),
+            where('parentAdId', '==', currentAd.parentAdId)
+          );
+          const relatedSnap = await getDocs(relatedQuery);
+          await Promise.all(
+            relatedSnap.docs.map((d) =>
+              updateDoc(
+                doc(db, 'adGroups', currentAd.adGroupId, 'assets', d.id),
+                { isResolved: true }
+              )
+            )
+          );
+          await updateDoc(
+            doc(
+              db,
+              'adGroups',
+              currentAd.adGroupId,
+              'assets',
+              currentAd.parentAdId
+            ),
+            { isResolved: true }
+          );
+        }
       }
       if (groupId) {
         localStorage.setItem(`lastViewed-${groupId}`, new Date().toISOString());
@@ -462,14 +453,7 @@ const Review = ({
           localStorage.setItem(`reviewComplete-${groupId}`, 'false');
         }
       }
-      setResponses((prev) => {
-        const map = { ...prev };
-        recipeAssets.forEach((a) => {
-          const url = a.adUrl || a.firebaseUrl;
-          map[url] = { ...respObj, adUrl: url };
-        });
-        return map;
-      });
+      setResponses((prev) => ({ ...prev, [adUrl]: respObj }));
       setComment('');
       setShowComment(false);
       setTimeout(() => {
@@ -667,7 +651,7 @@ const Review = ({
         )}
         <div className="flex justify-center">
           <div
-            className="relative size-container"
+            className="relative size-container transition-transform"
             style={{
               transform: showSizes
                 ? `translateX(-${otherSizes.length * 55}%)`
@@ -693,7 +677,6 @@ const Review = ({
                     ? `translateX(${(idx + 1) * 110}%)`
                     : 'translateX(0)',
                   opacity: showSizes ? 1 : 0,
-                  visibility: showSizes ? 'visible' : 'hidden',
                 }}
               />
             ))}
