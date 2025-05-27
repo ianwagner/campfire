@@ -44,9 +44,8 @@ const Review = ({
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
   const [editing, setEditing] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
-  const [showRecipeGallery, setShowRecipeGallery] = useState(false);
-  const [showGroupGallery, setShowGroupGallery] = useState(false);
   const [openRecipe, setOpenRecipe] = useState(null);
+  const [finalGallery, setFinalGallery] = useState(false);
   const reviewedKey = groupId ? `reviewComplete-${groupId}` : null;
   const [secondPass, setSecondPass] = useState(
     reviewedKey ? localStorage.getItem(reviewedKey) === 'true' : false
@@ -181,7 +180,31 @@ const Review = ({
           setResponses(initial);
         }
 
-        setReviewAds(filtered);
+        const prefOrder = ['3x5', '1x1', '9x16', '4x5', 'Pinterest', 'Snapchat'];
+        const getRecipe = (a) =>
+          a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
+        const getAspect = (a) =>
+          a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
+
+        const map = {};
+        filtered.forEach((a) => {
+          const r = getRecipe(a);
+          if (!map[r]) map[r] = [];
+          map[r].push(a);
+        });
+        const heroList = Object.values(map).map((list) => {
+          for (const asp of prefOrder) {
+            const found = list.find((x) => getAspect(x) === asp);
+            if (found) return found;
+          }
+          return list[0];
+        });
+        heroList.sort((a, b) => {
+          const rA = getRecipe(a);
+          const rB = getRecipe(b);
+          return rA.localeCompare(rB);
+        });
+        setReviewAds(heroList);
         setCurrentIndex(0);
       } catch (err) {
         console.error('Failed to load ads', err);
@@ -505,6 +528,25 @@ const Review = ({
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
         <h2 className="text-2xl">Thank you for your feedback!</h2>
         <p>You approved {approvedCount}/{ads.length} ads.</p>
+        <div className="w-full max-w-2xl grid grid-cols-2 md:grid-cols-3 gap-2">
+          {recipeGroups.map((g) => {
+            const hero =
+              g.assets.find((a) => a.aspectRatio === '3x5') || g.assets[0];
+            const showSet = finalGallery ? g.assets : [hero];
+            return (
+              <div key={g.recipeCode} className="text-center text-xs">
+                {showSet.map((a, idx) => (
+                  <img
+                    key={idx}
+                    src={a.firebaseUrl}
+                    alt={a.filename}
+                    className="w-full object-contain gallery-item"
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </div>
         {Object.keys(groupSummary).length > 0 && (
           <table className="min-w-full text-sm mt-2">
             <thead>
@@ -538,10 +580,10 @@ const Review = ({
           See All
         </button>
         <button
-          onClick={() => setShowGroupGallery(true)}
+          onClick={() => setFinalGallery((p) => !p)}
           className="btn-secondary"
         >
-          Show Gallery
+          {finalGallery ? 'Close Gallery' : 'Show Gallery'}
         </button>
       </div>
     );
@@ -572,66 +614,6 @@ const Review = ({
                 className="btn-secondary px-3 py-1 text-white"
               >
                 Keep reviewing
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showRecipeGallery && currentRecipeGroup && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-md">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {currentRecipeGroup.assets.map((a) => (
-                <div key={a.assetId || a.id} className="text-center text-xs">
-                  {a.firebaseUrl && (
-                    <img
-                      src={a.firebaseUrl}
-                      alt={a.filename}
-                      className="w-full object-contain"
-                    />
-                  )}
-                  <div>{a.aspectRatio}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-2 text-right">
-              <button
-                onClick={() => setShowRecipeGallery(false)}
-                className="btn-primary px-3 py-1"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showGroupGallery && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-2xl">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {ads.map((a) => {
-                const info = parseAdFilename(a.filename || '');
-                const aspect = a.aspectRatio || info.aspectRatio || '';
-                return (
-                  <div key={a.assetId || a.id} className="text-center text-xs">
-                    {a.firebaseUrl && (
-                      <img
-                        src={a.firebaseUrl}
-                        alt={a.filename}
-                        className="w-full object-contain"
-                      />
-                    )}
-                    <div>{aspect}</div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-2 text-right">
-              <button
-                onClick={() => setShowGroupGallery(false)}
-                className="btn-primary px-3 py-1"
-              >
-                Close
               </button>
             </div>
           </div>
@@ -717,7 +699,7 @@ const Review = ({
             />
           </div>
         )}
-        <div className="flex items-start">
+        <div className="flex justify-center">
           <div className="relative">
             <img
               src={adUrl}
@@ -731,12 +713,6 @@ const Review = ({
               <div className="approve-check">✓</div>
             )}
           </div>
-          <button
-            onClick={() => setShowRecipeGallery(true)}
-            className="btn-secondary ml-4 mt-2"
-          >
-            See all sizes
-          </button>
         </div>
         {secondPass && (
           <div className="absolute left-full ml-4 top-0">
