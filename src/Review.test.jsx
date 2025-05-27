@@ -51,7 +51,7 @@ test('loads ads from subcollections', async () => {
 
   getDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'recipes') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
   getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
@@ -97,7 +97,7 @@ test('submitResponse updates asset status', async () => {
   await waitFor(() => expect(updateDoc).toHaveBeenCalled());
 
   expect(updateDoc).toHaveBeenCalledWith(
-    'adGroups/group1/assets/asset1',
+    'adGroups/group1/recipes/recipe1',
     expect.objectContaining({
       status: 'approved',
       comment: '',
