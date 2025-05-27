@@ -70,3 +70,6 @@ every `assets` subcollection in a single request. Because each asset document
 stores its `brandCode`, the query can filter by brand without loading each group
 first.
 
+
+## See Also
+For the latest recipe-level workflow refer to [Recipe Level Review Flow](./recipe-review-flow.md).
