@@ -28,8 +28,11 @@
     --duration-fast: 0.4s;
     --duration-medium: 0.5s;
     --approve-color: #00AB47;
+    --approve-color-10: rgba(0, 171, 71, 0.1);
     --reject-color: #FF5C5C;
+    --reject-color-10: rgba(255, 183, 0, 0.1);
     --edit-color: #FFB700;
+    --edit-color-10: rgba(0, 171, 71, 0.1);
   }
   body {
     @apply bg-white text-gray-900 dark:bg-[var(--dark-bg)] dark:text-[var(--dark-text)];
@@ -78,18 +81,22 @@
     box-shadow: var(--box-shadow-base);
   }
   .btn-approve {
-    @apply text-lg rounded-full transition-transform duration-150 active:scale-95 hover:scale-105;
+    @apply text-lg transition-transform duration-150 active:scale-95 hover:scale-105;
     font-weight: var(--font-weight-bold);
-    box-shadow: var(--box-shadow-base);
     color: var(--approve-color);
     border: 1px solid var(--approve-color);
-    background-color: #ffffff;
+    background-color: var(--approve-color-10);
     padding: 8px 24px;
+    border-radius: 9999;
   }
   .btn-reject {
-    @apply text-gray-700 text-lg bg-gray-200 px-6 py-2 rounded-full border border-white hover:brightness-105;
+    @apply text-lg hover:brightness-105;
     font-weight: var(--font-weight-bold);
-    box-shadow: var(--box-shadow-base);
+    color: var(--approve-color);
+    border: 1px solid var(--reject-color);
+    background-color: var(--reject-color-10);
+    padding: 8px 24px;
+    border-radius: 9999;
   }
   .btn-edit {
     @apply bg-black text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-800;
