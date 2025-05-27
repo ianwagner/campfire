@@ -185,3 +185,11 @@
 .gallery-item {
   animation: gallery-in var(--duration-fast) forwards;
 }
+
+.size-container {
+  position: relative;
+}
+
+.size-thumb {
+  @apply absolute top-0 left-0 object-contain transition-transform duration-500;
+}
