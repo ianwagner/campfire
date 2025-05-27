@@ -222,13 +222,11 @@
 
 .size-container {
   position: relative;
-  overflow: hidden;
   @apply transition-transform duration-500 ease-in-out;
 }
 
 .size-thumb {
-  opacity: 0;
-  @apply absolute top-0 left-0 object-contain transition-transform transition-opacity duration-500 ease-in-out;
+  @apply absolute top-0 left-0 object-contain transition-transform duration-500 ease-in-out;
 }
 
 .progress-bar {
