@@ -10,6 +10,17 @@
     --dark-text: #f3f4f6; /* gray-100 */
     --dark-sidebar-bg: #1B282D; /* gray-800 */
     --dark-sidebar-hover: #37464F; /* gray-700 */
+    --font-primary: 'Rubik', sans-serif;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-weight-normal: 400;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --spacing-sm: 0.25rem;
+    --spacing-md: 0.5rem;
+    --spacing-lg: 1rem;
+    --border-radius-base: 0.25rem;
+    --box-shadow-base: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
     --approve-check-size: 4rem;
     --approve-check-radius: 9999px;
     --approve-check-bg: #d1fae5;
@@ -18,44 +29,60 @@
     --duration-medium: 0.5s;
   }
   body {
-    @apply bg-white text-gray-900 font-sans dark:bg-[var(--dark-bg)] dark:text-[var(--dark-text)];
-    font-family: 'Rubik', sans-serif;
+    @apply bg-white text-gray-900 dark:bg-[var(--dark-bg)] dark:text-[var(--dark-text)];
+    font-family: var(--font-primary);
+    font-size: var(--font-size-base);
   }
   h1 {
-    @apply text-2xl font-bold mb-2;
+    @apply text-2xl;
+    font-weight: var(--font-weight-bold);
+    margin-bottom: var(--spacing-md);
   }
   h2 {
-    @apply text-xl font-semibold mb-2;
+    @apply text-xl;
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--spacing-md);
   }
   h3 {
-    @apply text-lg font-semibold mb-2;
+    @apply text-lg;
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--spacing-md);
   }
   h4, h5, h6 {
-    @apply font-semibold mb-2;
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--spacing-md);
   }
   p {
-    @apply mb-4;
+    margin-bottom: var(--spacing-lg);
   }
   a {
     @apply text-blue-600;
   }
   .btn-primary {
-    @apply bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600;
+    @apply bg-blue-500 text-white px-4 py-2 hover:bg-blue-600;
+    border-radius: var(--border-radius-base);
   }
   .btn-secondary {
-    @apply bg-gray-300 px-4 py-2 rounded dark:bg-[var(--dark-sidebar-hover)] dark:text-white;
+    @apply bg-gray-300 px-4 py-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-white;
+    border-radius: var(--border-radius-base);
   }
   .btn-logout {
     @apply text-sm text-gray-500 hover:text-black underline;
   }
   .btn-arrow {
-    @apply text-2xl w-12 h-12 bg-gray-200 rounded-[20%] border border-white shadow-md flex items-center justify-center dark:bg-[var(--dark-sidebar-hover)];
+    @apply text-2xl w-12 h-12 bg-gray-200 border border-white flex items-center justify-center dark:bg-[var(--dark-sidebar-hover)];
+    border-radius: 20%;
+    box-shadow: var(--box-shadow-base);
   }
   .btn-approve {
-    @apply text-green-700 font-bold text-lg bg-gradient-to-b from-green-100 to-green-300 px-6 py-2 rounded-full border border-white shadow-md transition-transform duration-150 active:scale-95 hover:scale-105;
+    @apply text-green-700 text-lg bg-gradient-to-b from-green-100 to-green-300 px-6 py-2 rounded-full border border-white transition-transform duration-150 active:scale-95 hover:scale-105;
+    font-weight: var(--font-weight-bold);
+    box-shadow: var(--box-shadow-base);
   }
   .btn-reject {
-    @apply text-gray-700 font-bold text-lg bg-gray-200 px-6 py-2 rounded-full border border-white shadow-md hover:brightness-105;
+    @apply text-gray-700 text-lg bg-gray-200 px-6 py-2 rounded-full border border-white hover:brightness-105;
+    font-weight: var(--font-weight-bold);
+    box-shadow: var(--box-shadow-base);
   }
   .btn-edit {
     @apply bg-black text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-800;
@@ -75,7 +102,8 @@
   input,
   textarea,
   select {
-    @apply border rounded px-2 py-1;
+    @apply border px-2 py-1;
+    border-radius: var(--border-radius-base);
   }
   .text-accent {
     color: var(--accent-color);
