@@ -76,19 +76,19 @@ const AdminBrands = () => {
         ) : brands.length === 0 ? (
           <p>No brands found.</p>
         ) : (
-          <table className="min-w-full border text-sm">
+          <table className="data-table">
             <thead className="bg-gray-100">
               <tr>
-                <th className="border px-2 py-1">Code</th>
-                <th className="border px-2 py-1">Name</th>
-                <th className="border px-2 py-1">Agency ID</th>
-                <th className="border px-2 py-1">Actions</th>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Agency ID</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {brands.map((brand) => (
                 <tr key={brand.id}>
-                  <td className="border px-2 py-1">
+                  <td>
                     {editId === brand.id ? (
                       <input
                         type="text"
@@ -100,7 +100,7 @@ const AdminBrands = () => {
                       brand.code
                     )}
                   </td>
-                  <td className="border px-2 py-1">
+                  <td>
                     {editId === brand.id ? (
                       <input
                         type="text"
@@ -112,7 +112,7 @@ const AdminBrands = () => {
                       brand.name
                     )}
                   </td>
-                  <td className="border px-2 py-1">
+                  <td>
                     {editId === brand.id ? (
                       <input
                         type="text"
@@ -126,7 +126,7 @@ const AdminBrands = () => {
                       brand.agencyId || ''
                     )}
                   </td>
-                  <td className="border px-2 py-1 text-center">
+                  <td className="text-center">
                     {editId === brand.id ? (
                       <>
                         <button onClick={() => handleSave(brand.id)} className="underline text-blue-500 mr-2">

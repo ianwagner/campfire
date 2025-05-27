@@ -84,29 +84,31 @@ const AdminDashboard = () => {
         ) : groups.length === 0 ? (
           <p>No ad groups found.</p>
         ) : (
-          <table className="min-w-full border text-sm">
+          <table className="data-table">
             <thead className="bg-gray-100">
               <tr>
-                <th className="border px-2 py-1">Group Name</th>
-                <th className="border px-2 py-1">Brand</th>
-                <th className="border px-2 py-1">Status</th>
-                <th className="border px-2 py-1">Approved</th>
-                <th className="border px-2 py-1">Rejected</th>
-                <th className="border px-2 py-1">Edit</th>
-                <th className="border px-2 py-1">Note</th>
-                <th className="border px-2 py-1">Actions</th>
+                <th>Group Name</th>
+                <th>Brand</th>
+                <th>Status</th>
+                <th>Approved</th>
+                <th>Rejected</th>
+                <th>Edit</th>
+                <th>Note</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {groups.map((g) => (
                 <tr key={g.id}>
-                  <td className="border px-2 py-1">{g.name}</td>
-                  <td className="border px-2 py-1">{g.brandCode}</td>
-                  <td className="border px-2 py-1">{g.status}</td>
-                  <td className="border px-2 py-1 text-center">{g.counts.approved}</td>
-                  <td className="border px-2 py-1 text-center">{g.counts.rejected}</td>
-                  <td className="border px-2 py-1 text-center">{g.counts.edit}</td>
-                  <td className="border px-2 py-1 text-center">
+                  <td>{g.name}</td>
+                  <td>{g.brandCode}</td>
+                  <td>
+                    <span className={`status-badge status-${g.status}`}>{g.status}</span>
+                  </td>
+                  <td className="text-center">{g.counts.approved}</td>
+                  <td className="text-center">{g.counts.rejected}</td>
+                  <td className="text-center">{g.counts.edit}</td>
+                  <td className="text-center">
                     {g.clientNote ? (
                       <>
                         <span className="text-sm text-red-600 italic">Note left by client</span>
@@ -121,7 +123,7 @@ const AdminDashboard = () => {
                       '-'
                     )}
                   </td>
-                  <td className="border px-2 py-1 text-center">
+                  <td className="text-center">
                     <Link
                       to={`/ad-group/${g.id}`}
                       className="text-blue-500 underline"
