@@ -1,6 +1,6 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   doc,
@@ -20,6 +20,7 @@ import { deleteObject, ref } from 'firebase/storage';
 import { auth, db, storage } from './firebase/config';
 import useUserRole from './useUserRole';
 import { uploadFile } from './uploadFile';
+import parseAdFilename from './utils/parseAdFilename';
 
 const AdGroupDetail = () => {
   const { id } = useParams();
@@ -29,6 +30,7 @@ const AdGroupDetail = () => {
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
+  const [openRecipe, setOpenRecipe] = useState(null);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
@@ -120,10 +122,43 @@ const AdGroupDetail = () => {
     }
   }, [assets, group, id]);
 
+  const recipeGroups = useMemo(() => {
+    const map = {};
+    assets.forEach((a) => {
+      const info = parseAdFilename(a.filename || '');
+      const recipe = info.recipeCode || 'unknown';
+      const aspect = info.aspectRatio || '';
+      const item = { ...a, recipeCode: recipe, aspectRatio: aspect };
+      if (!map[recipe]) map[recipe] = [];
+      map[recipe].push(item);
+    });
+    const order = { '3x5': 0, '9x16': 1, '1x1': 2 };
+    return Object.entries(map).map(([recipeCode, list]) => {
+      list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
+      return { recipeCode, assets: list };
+    });
+  }, [assets]);
+
   const handleUpload = async (selectedFiles) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
+    const existing = new Set(assets.map((a) => a.filename));
+    const used = new Set();
+    const files = [];
+    const dupes = [];
+    for (const f of Array.from(selectedFiles)) {
+      if (existing.has(f.name) || used.has(f.name)) {
+        dupes.push(f.name);
+      } else {
+        used.add(f.name);
+        files.push(f);
+      }
+    }
+    if (dupes.length > 0) {
+      window.alert(`Duplicate files skipped: ${dupes.join(', ')}`);
+    }
+    if (files.length === 0) return;
     setUploading(true);
-    for (const file of Array.from(selectedFiles)) {
+    for (const file of files) {
       try {
         const url = await uploadFile(
           file,
@@ -131,9 +166,13 @@ const AdGroupDetail = () => {
           brandName || group?.brandCode,
           group?.name || id
         );
+        const info = parseAdFilename(file.name);
         await addDoc(collection(db, 'adGroups', id, 'assets'), {
           adGroupId: id,
-          brandCode: group?.brandCode || '',
+          brandCode: info.brandCode || group?.brandCode || '',
+          adGroupCode: info.adGroupCode || '',
+          recipeCode: info.recipeCode || '',
+          aspectRatio: info.aspectRatio || '',
           filename: file.name,
           firebaseUrl: url,
           uploadedAt: serverTimestamp(),
@@ -142,7 +181,7 @@ const AdGroupDetail = () => {
           lastUpdatedBy: null,
           lastUpdatedAt: serverTimestamp(),
           history: [],
-          version: 1,
+          version: info.version || 1,
           parentAdId: null,
           isResolved: false,
         });
@@ -268,6 +307,55 @@ const AdGroupDetail = () => {
           <span className="ml-2 text-sm text-gray-600">Uploading...</span>
         )}
       </div>
+
+      {recipeGroups.map((g) => {
+        const hero = g.assets.find((a) => a.aspectRatio === '3x5') || g.assets[0];
+        return (
+          <div key={g.recipeCode} className="mb-4 border rounded p-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Recipe {g.recipeCode}</h3>
+                <p className="text-xs text-gray-500">{g.assets.length} sizes</p>
+              </div>
+              <button
+                className="btn-primary px-2 py-1 text-sm"
+                onClick={() =>
+                  setOpenRecipe(openRecipe === g.recipeCode ? null : g.recipeCode)
+                }
+              >
+                {openRecipe === g.recipeCode ? 'Close sizes' : 'View all sizes'}
+              </button>
+            </div>
+            <div className="mt-2">
+              {openRecipe === g.recipeCode ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {g.assets.map((a) => (
+                    <div key={a.id} className="text-center text-xs">
+                      {a.firebaseUrl && (
+                        <img
+                          src={a.firebaseUrl}
+                          alt={a.filename}
+                          className="w-full object-contain"
+                        />
+                      )}
+                      <div>{a.aspectRatio}</div>
+                      <div className="break-all">{a.filename}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                hero && (
+                  <img
+                    src={hero.firebaseUrl}
+                    alt={hero.filename}
+                    className="w-full object-contain"
+                  />
+                )
+              )}
+            </div>
+          </div>
+        );
+      })}
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
