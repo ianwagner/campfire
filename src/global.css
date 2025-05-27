@@ -84,6 +84,7 @@
     color: var(--approve-color);
     border: 1px solid var(--approve-color);
     background-color: #ffffff;
+    padding: 8px 24px;
   }
   .btn-reject {
     @apply text-gray-700 text-lg bg-gray-200 px-6 py-2 rounded-full border border-white hover:brightness-105;
