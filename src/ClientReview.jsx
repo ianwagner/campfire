@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
-import Review from './Review';
+import RecipeReview from './RecipeReview';
 
 const ClientReview = (props) => {
   const { groupId } = useParams();
@@ -35,7 +35,7 @@ const ClientReview = (props) => {
   }, [groupId]);
 
   const reviewElem = (
-    <Review
+    <RecipeReview
       {...props}
       groupId={groupId}
       reviewerName={reviewerName}
