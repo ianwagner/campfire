@@ -37,7 +37,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
           (isActive
             ? 'text-accent font-medium border border-accent bg-accent-10 '
             : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent ') +
-          'rounded-lg w-full text-center px-3 py-2';
+          'rounded-xl w-full text-center px-3 py-2 my-[0.9rem]';
         return (
           <button key={tab.label} onClick={() => handleClick(tab)} className={classes}>
             {tab.label}
@@ -51,7 +51,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
     <>
       {/* Desktop sidebar */}
       <div className="hidden md:flex fixed top-0 left-0 w-[250px] border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] p-4 flex-col h-screen justify-between">
-        <div className="space-y-2">
+        <div>
           <img
             src={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
             alt={logoAlt || 'Logo'}
@@ -84,7 +84,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
 
         {open && (
           <div className="fixed inset-0 bg-white dark:bg-[var(--dark-sidebar-bg)] p-4 flex flex-col h-full justify-between z-50">
-            <div className="space-y-2">
+            <div>
               <button
                 type="button"
                 aria-label="Close menu"
