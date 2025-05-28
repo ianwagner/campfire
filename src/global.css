@@ -170,17 +170,23 @@
     background-color: var(--table-row-alt-bg);
   }
   .history-row {
-    background-color: var(--table-row-alt-bg);
+    background-color: #ffffff;
   }
   .recipe-row {
-    font-size: 14px;
+    font-size: 12px;
+    background-color: var(--table-row-alt-bg);
   }
   .asset-row {
     font-size: 12px;
+    background-color: #ffffff;
   }
   .recipe-row:hover,
   .asset-row:hover {
     background-color: var(--table-head-bg);
+  }
+  html.dark .asset-row,
+  html.dark .history-row {
+    background-color: var(--dark-sidebar-hover);
   }
   .status-badge {
     @apply px-2 py-0.5 rounded-full font-semibold;

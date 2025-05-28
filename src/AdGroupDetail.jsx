@@ -156,8 +156,8 @@ const AdGroupDetail = () => {
     setExpanded((prev) => ({ ...prev, [code]: !prev[code] }));
   };
 
-  const toggleHistory = (id) => {
-    setHistoryExpanded((p) => ({ ...p, [id]: !p[id] }));
+  const toggleHistory = (recipeCode) => {
+    setHistoryExpanded((p) => ({ ...p, [recipeCode]: !p[recipeCode] }));
   };
 
 
@@ -440,6 +440,15 @@ const AdGroupDetail = () => {
                 className="cursor-pointer recipe-row"
               >
                 <td colSpan="2" className="font-semibold">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleHistory(g.recipeCode);
+                    }}
+                    className="mr-1 text-xs"
+                  >
+                    {historyExpanded[g.recipeCode] ? '▼' : '▶'}
+                  </button>
                   Recipe {g.recipeCode}
                 </td>
                 <td>
@@ -482,15 +491,7 @@ const AdGroupDetail = () => {
                   g.assets.map((a) => (
                     <React.Fragment key={a.id}>
                       <tr className="asset-row">
-                        <td className="break-all">
-                          <button
-                            onClick={() => toggleHistory(a.id)}
-                            className="mr-1 text-xs"
-                          >
-                            {historyExpanded[a.id] ? '▼' : '▶'}
-                          </button>
-                          {a.filename}
-                        </td>
+                        <td className="break-all">{a.filename}</td>
                         <td className="text-center">{a.version || 1}</td>
                         <td></td>
                         <td className="text-center">
@@ -499,7 +500,7 @@ const AdGroupDetail = () => {
                           </button>
                         </td>
                       </tr>
-                      {historyExpanded[a.id] && Array.isArray(a.history) && a.history.length > 0 && (
+                      {historyExpanded[g.recipeCode] && Array.isArray(a.history) && a.history.length > 0 && (
                         <tr className="history-row text-xs">
                           <td colSpan="4">
                             {a.history.map((h, idx) => (
