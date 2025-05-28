@@ -134,7 +134,7 @@
   input,
   textarea,
   select {
-    @apply border px-2 py-1;
+    @apply border px-2 py-1 dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] dark:text-white;
     border-radius: var(--border-radius-base);
   }
   .text-accent {
