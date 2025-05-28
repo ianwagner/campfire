@@ -61,6 +61,17 @@ Create a `vercel.json` file with the following contents:
 Without this rule Vercel would serve 404 pages for client-side routes. The
 rewrite ensures navigation works correctly.
 
+## Deploying Cloud Functions
+
+The `functions` folder contains a Cloud Function triggered by `storage.object.finalize` that converts uploaded PNGs to WebP and creates a small thumbnail. Deploy the function with the Firebase CLI:
+
+```bash
+cd functions
+npm install
+firebase deploy --only functions
+```
+
+
 ## Admin Account Management
 
 Visit `/admin/accounts` to view all user accounts. Admins can edit the role or
