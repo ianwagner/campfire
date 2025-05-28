@@ -31,6 +31,7 @@ const AdGroupDetail = () => {
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
+  const [expanded, setExpanded] = useState({});
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
@@ -146,6 +147,10 @@ const AdGroupDetail = () => {
   const getRecipeStatus = (list) => {
     const unique = Array.from(new Set(list.map((a) => a.status)));
     return unique.length === 1 ? unique[0] : 'mixed';
+  };
+
+  const toggleRecipe = (code) => {
+    setExpanded((prev) => ({ ...prev, [code]: !prev[code] }));
   };
 
 
@@ -388,7 +393,10 @@ const AdGroupDetail = () => {
           </thead>
           {recipeGroups.map((g) => (
             <tbody key={g.recipeCode} className="table-row-group">
-              <tr>
+              <tr
+                onClick={() => toggleRecipe(g.recipeCode)}
+                className="cursor-pointer recipe-row"
+              >
                 <td colSpan="2" className="font-semibold">
                   Recipe {g.recipeCode}
                 </td>
@@ -424,10 +432,11 @@ const AdGroupDetail = () => {
                   </td>
                   <td colSpan="4" />
                 </tr>
-                {g.assets.map((a) => (
-                  <React.Fragment key={a.id}>
-                    <tr>
-                      <td className="break-all">{a.filename}</td>
+                {expanded[g.recipeCode] &&
+                  g.assets.map((a) => (
+                    <React.Fragment key={a.id}>
+                      <tr className="asset-row">
+                        <td className="break-all">{a.filename}</td>
                       <td className="text-center">{a.version || 1}</td>
                       <td>
                         {userRole === 'designer' ? (

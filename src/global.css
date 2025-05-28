@@ -172,6 +172,12 @@
   .history-row {
     background-color: var(--table-row-alt-bg);
   }
+  .recipe-row {
+    font-size: 14px;
+  }
+  .asset-row {
+    font-size: 12px;
+  }
   .status-badge {
     @apply px-2 py-0.5 rounded-full font-semibold;
     display: inline-block;
