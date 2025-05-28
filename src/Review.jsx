@@ -579,6 +579,7 @@ const Review = ({
             src={agency.logoUrl || DEFAULT_LOGO_URL}
             alt={`${agency.name || 'Agency'} logo`}
             className="mb-2 max-h-16 w-auto"
+            loading="lazy"
           />
         )}
         <h1 className="text-2xl font-bold">Thank you for your feedback!</h1>
@@ -591,12 +592,18 @@ const Review = ({
           {(finalGallery ? heroGroups : heroGroups.slice(0, 3)).map((g) => {
             const showSet = finalGallery ? g.assets : [g.hero];
             return showSet.map((a, idx) => (
-              <img
-                key={`${g.recipeCode}-${idx}`}
-                src={a.firebaseUrl}
-                alt={a.filename}
-                className="w-24 h-24 object-contain"
-              />
+              <picture key={`${g.recipeCode}-${idx}`}> 
+                <source
+                  srcSet={a.firebaseUrl.replace(/\.png$/, '.webp')}
+                  type="image/webp"
+                />
+                <img
+                  src={a.firebaseUrl}
+                  alt={a.filename}
+                  className="w-24 h-24 object-contain"
+                  loading="lazy"
+                />
+              </picture>
             ));
           })}
         </div>
@@ -653,6 +660,7 @@ const Review = ({
             src={agency.logoUrl || DEFAULT_LOGO_URL}
             alt={`${agency.name || 'Agency'} logo`}
             className="mb-2 max-h-16 w-auto"
+            loading="lazy"
           />
         )}
         {/* Gallery view removed */}
@@ -687,30 +695,41 @@ const Review = ({
                 : 'translateX(0)',
             }}
           >
-            <img
-              src={adUrl}
-              alt="Ad"
-              loading="lazy"
-              className={`relative z-10 max-w-[90%] max-h-[72vh] mx-auto rounded shadow ${
-                animating === 'reject' ? 'reject-fade' : ''
-              } ${animating === 'approve' ? 'approve-glow' : ''}`}
-            />
+            <picture>
+              <source srcSet={adUrl.replace(/\.png$/, '.webp')} type="image/webp" />
+              <img
+                src={adUrl}
+                alt="Ad"
+                loading="lazy"
+                className={`relative z-10 max-w-[90%] max-h-[72vh] mx-auto rounded shadow ${
+                  animating === 'reject' ? 'reject-fade' : ''
+                } ${animating === 'approve' ? 'approve-glow' : ''}`}
+              />
+            </picture>
             {currentAd && (currentAd.version || 1) > 1 && (
               <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
             )}
             {otherSizes.map((a, idx) => (
-              <img
+              <picture
                 key={idx}
-                src={a.firebaseUrl}
-                alt={a.filename}
-                className="size-thumb max-w-[90%] max-h-[72vh] mx-auto rounded shadow"
                 style={{
                   transform: showSizes
                     ? `translateX(${(idx + 1) * 110}%)`
                     : 'translateX(0)',
                   opacity: showSizes ? 1 : 0,
                 }}
-              />
+              >
+                <source
+                  srcSet={a.firebaseUrl.replace(/\.png$/, '.webp')}
+                  type="image/webp"
+                />
+                <img
+                  src={a.firebaseUrl}
+                  alt={a.filename}
+                  className="size-thumb max-w-[90%] max-h-[72vh] mx-auto rounded shadow"
+                  loading="lazy"
+                />
+              </picture>
             ))}
             {animating === 'approve' && (
               <div className="approve-check">✓</div>
@@ -852,11 +871,18 @@ const Review = ({
                 V{versionModal.previous.version || 1} (replaced)
               </button>
             </div>
-            <img
-              src={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
-              alt="Ad version"
-              className="max-w-full max-h-[70vh] mx-auto"
-            />
+            <picture>
+              <source
+                srcSet={(versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl).replace(/\.png$/, '.webp')}
+                type="image/webp"
+              />
+              <img
+                src={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
+                alt="Ad version"
+                className="max-w-full max-h-[70vh] mx-auto"
+                loading="lazy"
+              />
+            </picture>
             <button onClick={closeVersionModal} className="mt-2 btn-primary px-3 py-1">
               Close
             </button>
