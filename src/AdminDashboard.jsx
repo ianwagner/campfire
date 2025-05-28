@@ -1,177 +1,127 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-} from 'firebase/firestore';
+import React, { useEffect, useState, useMemo } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from './firebase/config';
-import deleteGroup from './utils/deleteGroup';
-import CreateAdGroup from './CreateAdGroup';
-import { auth } from './firebase/config';
-import useUserRole from './useUserRole';
 
 const AdminDashboard = () => {
-  const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewNote, setViewNote] = useState(null);
-  const user = auth.currentUser;
-  const { role } = useUserRole(user?.uid);
-
-  const copyLink = (id) => {
-    let url = `${window.location.origin}/review/${id}`;
-    const params = new URLSearchParams();
-    if (user?.displayName) params.set('name', user.displayName);
-    if (user?.email) params.set('email', user.email);
-    if (role) params.set('role', role);
-    const str = params.toString();
-    if (str) url += `?${str}`;
-    navigator.clipboard
-      .writeText(url)
-      .then(() => window.alert('Link copied to clipboard'))
-      .catch((err) => console.error('Failed to copy link', err));
-  };
+  const [stats, setStats] = useState({});
+  const [approvals, setApprovals] = useState([]);
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  });
+  const [endDate, setEndDate] = useState(() => {
+    return new Date().toISOString().slice(0, 10);
+  });
 
   useEffect(() => {
-    const fetchGroups = async () => {
+    async function fetchStats() {
       setLoading(true);
       try {
-        const q = query(collection(db, 'adGroups'));
-        const snap = await getDocs(q);
-        const list = snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            ...data,
-            counts: {
-              approved: data.approvedCount || 0,
-              rejected: data.rejectedCount || 0,
-              edit: data.editCount || 0,
-            },
-          };
-        });
-        setGroups(list);
+        const groupSnap = await getDocs(collection(db, 'adGroups'));
+        const countMap = {
+          approved: 0,
+          rejected: 0,
+          edit_requested: 0,
+          pending: 0,
+          ready: 0,
+          archived: 0,
+        };
+        const approvalsList = [];
+        for (const g of groupSnap.docs) {
+          const assetsSnap = await getDocs(collection(db, 'adGroups', g.id, 'assets'));
+          assetsSnap.docs.forEach((d) => {
+            const ad = d.data();
+            const status = ad.status || 'pending';
+            if (countMap[status] === undefined) countMap[status] = 0;
+            countMap[status] += 1;
+            if (status === 'approved' && ad.lastUpdatedAt?.toDate) {
+              approvalsList.push(ad.lastUpdatedAt.toDate());
+            }
+          });
+        }
+        setStats(countMap);
+        setApprovals(approvalsList);
       } catch (err) {
-        console.error('Failed to fetch groups', err);
-        setGroups([]);
+        console.error('Failed to fetch stats', err);
+        setStats({});
+        setApprovals([]);
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchGroups();
+    }
+    fetchStats();
   }, []);
 
-  const handleDeleteGroup = async (groupId, brandCode, groupName) => {
-    if (!window.confirm('Delete this group?')) return;
-    try {
-      await deleteGroup(groupId, brandCode, groupName);
-      setGroups((prev) => prev.filter((g) => g.id !== groupId));
-    } catch (err) {
-      console.error('Failed to delete group', err);
+  const chart = useMemo(() => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const days = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      days.push(d.toISOString().slice(0, 10));
     }
-  };
+    const counts = {};
+    approvals.forEach((date) => {
+      const ds = date.toISOString().slice(0, 10);
+      if (ds >= startDate && ds <= endDate) {
+        counts[ds] = (counts[ds] || 0) + 1;
+      }
+    });
+    const values = days.map((d) => counts[d] || 0);
+    const max = Math.max(...values, 1);
+    const width = 400;
+    const height = 120;
+    const step = days.length > 1 ? width / (days.length - 1) : width;
+    const path = values
+      .map((v, i) => {
+        const x = i * step;
+        const y = height - (v / max) * height;
+        return `${i === 0 ? 'M' : 'L'}${x},${y}`;
+      })
+      .join(' ');
+    return { width, height, path };
+  }, [approvals, startDate, endDate]);
 
   return (
     <div className="min-h-screen p-4">
-        <h1 className="text-2xl mb-4">Admin Dashboard</h1>
-
-      <div className="mb-8">
-        <h2 className="text-xl mb-2">All Ad Groups</h2>
-        {loading ? (
-          <p>Loading groups...</p>
-        ) : groups.length === 0 ? (
-          <p>No ad groups found.</p>
-        ) : (
-          <table className="ad-table">
-            <thead>
-              <tr>
-                <th>Group Name</th>
-                <th>Brand</th>
-                <th>Status</th>
-                <th>Approved</th>
-                <th>Rejected</th>
-                <th>Edit</th>
-                <th>Note</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((g) => (
-                <tr key={g.id}>
-                  <td>{g.name}</td>
-                  <td>{g.brandCode}</td>
-                  <td>
-                    <span className={`status-badge status-${g.status}`}>{g.status}</span>
-                  </td>
-                  <td className="text-center">{g.counts.approved}</td>
-                  <td className="text-center">{g.counts.rejected}</td>
-                  <td className="text-center">{g.counts.edit}</td>
-                  <td className="text-center">
-                    {g.clientNote ? (
-                      <>
-                        <span className="text-sm text-red-600 italic">Note left by client</span>
-                        <button
-                          onClick={() => setViewNote(g.clientNote)}
-                          className="ml-2 text-blue-500 underline"
-                        >
-                          View Note
-                        </button>
-                      </>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td className="text-center">
-                    <Link
-                      to={`/ad-group/${g.id}`}
-                      className="text-blue-500 underline"
-                    >
-                      View Details
-                    </Link>
-                    <Link
-                      to={`/review/${g.id}`}
-                      className="ml-2 text-blue-500 underline"
-                    >
-                      Review
-                    </Link>
-                    <button
-                      onClick={() => copyLink(g.id)}
-                      className="ml-2 text-blue-500 underline"
-                    >
-                      Share Link
-                    </button>
-                    <button
-                      onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                      className="ml-2 underline btn-delete"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
+      <h1 className="text-2xl mb-4">Admin Dashboard</h1>
+      {loading ? (
+        <p>Loading statistics...</p>
+      ) : (
+        <>
+          <div className="mb-6">
+            <h2 className="text-xl mb-2">Ad Status Totals</h2>
+            <ul className="space-y-1">
+              {Object.entries(stats).map(([k, v]) => (
+                <li key={k}>
+                  {k.replace('_', ' ')}: {v}
+                </li>
               ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <h2 className="text-xl mb-2">Administration Tools</h2>
-      <p className="mb-8 text-sm text-gray-600">Additional admin features will appear here.</p>
-
-      <CreateAdGroup showSidebar={false} />
-      {viewNote && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-sm">
-            <p className="mb-4 whitespace-pre-wrap">{viewNote}</p>
-            <button
-              onClick={() => setViewNote(null)}
-              className="btn-primary px-3 py-1"
-            >
-              Close
-            </button>
+            </ul>
           </div>
-        </div>
+          <div className="mb-6">
+            <h2 className="text-xl mb-2">Approvals Over Time</h2>
+            <div className="flex items-center space-x-2 mb-2">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="border px-2 py-1"
+              />
+              <span>-</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="border px-2 py-1"
+              />
+            </div>
+            <svg width={chart.width} height={chart.height} className="bg-gray-100">
+              <path d={chart.path} stroke="blue" fill="none" />
+            </svg>
+          </div>
+        </>
       )}
     </div>
   );
