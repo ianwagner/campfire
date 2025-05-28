@@ -41,6 +41,7 @@
     --table-border-color: #e5e7eb; /* gray-200 */
     --table-head-bg: #f3f4f6; /* gray-100 */
     --table-row-alt-bg: #f9fafb; /* gray-50 */
+    --table-text-color: #6b7280; /* gray-600 */
     --space-xs: 0.25rem;
     --space-sm: 0.5rem;
     --space-md: 1rem;
@@ -49,6 +50,7 @@
     --table-border-color: var(--dark-sidebar-hover);
     --table-head-bg: var(--dark-sidebar-hover);
     --table-row-alt-bg: var(--dark-sidebar-bg);
+    --table-text-color: #9ca3af; /* gray-400 */
   }
   body {
     @apply bg-white text-gray-900 dark:bg-[var(--dark-bg)] dark:text-[var(--dark-text)];
