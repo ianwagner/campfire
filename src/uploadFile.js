@@ -17,7 +17,9 @@ export async function uploadFile(file, adGroupId, brandName, groupName) {
   const groupSegment = sanitizeSegment(groupName);
   const filePath = `Campfire/Brands/${brandSegment}/Adgroups/${groupSegment}/${file.name}`;
   const fileRef = ref(storage, filePath);
-  await uploadBytes(fileRef, file);
+  await uploadBytes(fileRef, file, {
+    cacheControl: 'public,max-age=31536000,immutable',
+  });
   const downloadURL = await getDownloadURL(fileRef);
   return downloadURL;
 }
