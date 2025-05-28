@@ -285,7 +285,7 @@ test('shows group summary after reviewing ads', async () => {
 
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => screen.getByText('You approved 2 ads!'));
+  await waitFor(() => screen.getByText("You've approved 2 ads."));
 
   expect(screen.getByText('Group 1')).toBeInTheDocument();
   expect(screen.getByText('2')).toBeInTheDocument();
@@ -339,8 +339,8 @@ test('filters ads by last login and still shows summary', async () => {
 
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => screen.getByText('You approved 2 ads!'));
-  expect(screen.getByText('You approved 2 ads!')).toBeInTheDocument();
+  await waitFor(() => screen.getByText("You've approved 2 ads."));
+  expect(screen.getByText("You've approved 2 ads.")).toBeInTheDocument();
 });
 
 test('resolved ads are excluded from pending review', async () => {
@@ -385,7 +385,7 @@ test('resolved ads are excluded from pending review', async () => {
 
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => screen.getByText('You approved 1 ads!'));
+  await waitFor(() => screen.getByText("You've approved 1 ads."));
 });
 
 test('shows all ads for group review when none new', async () => {
@@ -451,7 +451,7 @@ test('pending ads are hidden from group review', async () => {
 
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => screen.getByText('You approved 1 ads!'));
+  await waitFor(() => screen.getByText("You've approved 1 ads."));
 });
 
 test('shows pending message when only pending ads', async () => {
@@ -511,7 +511,7 @@ test('submitResponse records last viewed time for group', async () => {
 
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => screen.getByText('You approved 1 ads!'));
+  await waitFor(() => screen.getByText("You've approved 1 ads."));
 
   const lastViewedCall = setItem.mock.calls.find(
     (c) => c[0] === 'lastViewed-group1'

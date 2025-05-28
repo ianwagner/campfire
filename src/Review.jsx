@@ -589,27 +589,31 @@ const Review = ({
     };
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
-        <h2 className="text-2xl">You approved {approvedCount} ads!</h2>
-        <div
-          className={`w-full max-w-6xl mx-auto ${
-            heroGroups.length <= 2 ? 'flex justify-center gap-1' : 'review-gallery'
-          }`}
-        >
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+        {agencyId && (
+          <img
+            src={agency.logoUrl || DEFAULT_LOGO_URL}
+            alt={`${agency.name || 'Agency'} logo`}
+            className="mb-2 max-h-16 w-auto"
+          />
+        )}
+        <h1 className="text-2xl font-bold">Thank you for your feedback!</h1>
+        <h2 className="text-xl">
+          You've approved{' '}
+          <span style={{ color: 'var(--approved-color)' }}>{approvedCount}</span>{' '}
+          ads.
+        </h2>
+        <div className="flex flex-wrap justify-center gap-2 w-full max-w-6xl mx-auto">
           {(finalGallery ? heroGroups : heroGroups.slice(0, 3)).map((g) => {
             const showSet = finalGallery ? g.assets : [g.hero];
-            return (
-              <div key={g.recipeCode} className="text-center text-xs review-gallery-item">
-                {showSet.map((a, idx) => (
-                  <img
-                    key={idx}
-                    src={a.firebaseUrl}
-                    alt={a.filename}
-                    className="w-full object-contain gallery-item"
-                  />
-                ))}
-              </div>
-            );
+            return showSet.map((a, idx) => (
+              <img
+                key={`${g.recipeCode}-${idx}`}
+                src={a.firebaseUrl}
+                alt={a.filename}
+                className="w-24 h-24 object-contain"
+              />
+            ));
           })}
         </div>
         {/* table and rejected button removed */}
