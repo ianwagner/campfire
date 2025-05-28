@@ -6,9 +6,9 @@
   :root {
     --accent-color: #ea580c;
     --accent-color-10: rgba(234, 88, 12, 0.1);
-    --dark-bg: #131F24; /* gray-900 */
+    --dark-bg: #0D1116; /* gray-900 */
     --dark-text: #f3f4f6; /* gray-100 */
-    --dark-sidebar-bg: #1B282D; /* gray-800 */
+    --dark-sidebar-bg: #0D1116; /* gray-800 */
     --dark-sidebar-hover: #37464F; /* gray-700 */
     --font-primary: 'Rubik', sans-serif;
     --font-size-base: 1rem;
