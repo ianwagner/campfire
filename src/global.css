@@ -178,6 +178,10 @@
   .asset-row {
     font-size: 12px;
   }
+  .recipe-row:hover,
+  .asset-row:hover {
+    background-color: var(--table-head-bg);
+  }
   .status-badge {
     @apply px-2 py-0.5 rounded-full font-semibold;
     display: inline-block;
