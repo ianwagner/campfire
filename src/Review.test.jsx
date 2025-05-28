@@ -146,7 +146,7 @@ test('submitResponse includes reviewer name', async () => {
   expect(respCall[1]).toEqual(expect.objectContaining({ reviewerName: 'Alice' }));
 
   const update = updateDoc.mock.calls[0][1];
-  expect(update.history.userName).toBe('Alice');
+  expect(update.lastUpdatedBy).toBe('u1');
 });
 
 test('request edit creates new version doc', async () => {
@@ -639,63 +639,3 @@ test('progress bar reflects current index', async () => {
   await waitFor(() => expect(bar).toHaveStyle('width: 50%'));
 });
 
-test('history shows reviewer names', async () => {
-  localStorage.setItem('reviewComplete-group1', 'true');
-
-  const groupDoc = {
-    exists: () => true,
-    data: () => ({ name: 'Group 1', brandCode: 'BR1' }),
-  };
-  const assetSnapshot = {
-    docs: [
-      {
-        id: 'asset1',
-        data: () => ({
-          firebaseUrl: 'url1',
-          filename: 'ad1.png',
-          status: 'approved',
-          isResolved: false,
-          adGroupId: 'group1',
-          history: [
-            {
-              userName: 'Bob',
-              action: 'approved',
-              timestamp: {
-                toMillis: () => 0,
-                toDate: () => new Date('2024-01-01T00:00:00Z'),
-              },
-            },
-            {
-              userName: 'Alice',
-              action: 'rejected',
-              comment: 'fix',
-              timestamp: {
-                toMillis: () => 1,
-                toDate: () => new Date('2024-01-02T00:00:00Z'),
-              },
-            },
-          ],
-        }),
-      },
-    ],
-  };
-
-  getDoc.mockResolvedValue(groupDoc);
-  getDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
-      return Promise.resolve(assetSnapshot);
-    }
-    return Promise.resolve({ docs: [] });
-  });
-
-  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
-
-  await waitFor(() => screen.getByText('Approved'));
-
-  fireEvent.click(screen.getByText('ad1.png'));
-
-  await waitFor(() => screen.getByText(/Bob/));
-  expect(screen.getByText(/Bob/)).toBeInTheDocument();
-  expect(screen.getByText(/Alice/)).toBeInTheDocument();
-});

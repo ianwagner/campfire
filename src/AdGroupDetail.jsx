@@ -32,7 +32,6 @@ const AdGroupDetail = () => {
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
   const [expanded, setExpanded] = useState({});
-  const [historyExpanded, setHistoryExpanded] = useState({});
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
@@ -156,10 +155,6 @@ const AdGroupDetail = () => {
     setExpanded((prev) => ({ ...prev, [code]: !prev[code] }));
   };
 
-  const toggleHistory = (recipeCode) => {
-    setHistoryExpanded((p) => ({ ...p, [recipeCode]: !p[recipeCode] }));
-  };
-
 
   const handleUpload = async (selectedFiles) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
@@ -219,7 +214,6 @@ const AdGroupDetail = () => {
           comment: null,
           lastUpdatedBy: null,
           lastUpdatedAt: serverTimestamp(),
-          history: [],
           version: info.version || 1,
           parentAdId: parentId,
           isResolved: false,
@@ -306,7 +300,6 @@ const AdGroupDetail = () => {
           status: 'ready',
           lastUpdatedBy: null,
           lastUpdatedAt: serverTimestamp(),
-          history: [],
         });
       }
       batch.update(doc(db, 'adGroups', id), { status: 'ready' });
@@ -440,15 +433,6 @@ const AdGroupDetail = () => {
                 className="cursor-pointer recipe-row"
               >
                 <td colSpan="2" className="font-semibold">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleHistory(g.recipeCode);
-                    }}
-                    className="mr-1 text-xs underline"
-                  >
-                    {historyExpanded[g.recipeCode] ? 'Hide History' : 'View History'}
-                  </button>
                   Recipe {g.recipeCode}
                 </td>
                 <td>
@@ -500,23 +484,6 @@ const AdGroupDetail = () => {
                       </td>
                     </tr>
                   ))}
-                {historyExpanded[g.recipeCode] && (
-                  <tr className="history-row text-xs">
-                    <td colSpan="4">
-                      {Array.isArray(g.assets[0]?.history) && g.assets[0].history.length > 0 ? (
-                        g.assets[0].history.map((h, idx) => (
-                          <div key={idx} className="mb-1">
-                            {h.timestamp?.toDate ? h.timestamp.toDate().toLocaleString() : ''}{' '}- {h.userName || h.userEmail || h.userId}
-                            {userRole === 'admin' && h.userRole ? ` (${h.userRole})` : ''}: <StatusBadge status={h.action} />
-                            {h.action === 'edit_requested' && h.comment ? ` -${h.comment}` : ''}
-                          </div>
-                        ))
-                      ) : (
-                        <div>No history</div>
-                      )}
-                    </td>
-                  </tr>
-                )}
             </tbody>
               ))}
         </table>
