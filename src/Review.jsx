@@ -585,13 +585,16 @@ const Review = ({
 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
-        <h2 className="text-2xl">Thank you for your feedback!</h2>
-        <p>You approved {approvedCount}/{ads.length} ads.</p>
-        <div className="w-full max-w-2xl grid grid-cols-2 md:grid-cols-3 gap-2">
+        <h2 className="text-2xl">You approved {approvedCount} ads!</h2>
+        <div
+          className={`w-full max-w-6xl mx-auto ${
+            heroGroups.length <= 2 ? 'flex justify-center gap-1' : 'review-gallery'
+          }`}
+        >
           {(finalGallery ? heroGroups : heroGroups.slice(0, 3)).map((g) => {
             const showSet = finalGallery ? g.assets : [g.hero];
             return (
-              <div key={g.recipeCode} className="text-center text-xs">
+              <div key={g.recipeCode} className="text-center text-xs review-gallery-item">
                 {showSet.map((a, idx) => (
                   <img
                     key={idx}
@@ -609,7 +612,7 @@ const Review = ({
           onClick={handleReviewAll}
           className="btn-secondary"
         >
-          Review Adjustments
+          Change Feedback
         </button>
         <button
           onClick={() => setFinalGallery((p) => !p)}

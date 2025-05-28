@@ -248,6 +248,16 @@
   animation: gallery-in var(--duration-fast) forwards;
 }
 
+.review-gallery {
+  column-count: 6;
+  column-gap: 0.25rem;
+}
+
+.review-gallery-item {
+  break-inside: avoid;
+  margin-bottom: 0.25rem;
+}
+
 .size-container {
   position: relative;
   @apply transition-transform duration-500 ease-in-out;
