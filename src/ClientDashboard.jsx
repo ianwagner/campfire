@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import OptimizedImage from './components/OptimizedImage.jsx';
 import { db } from './firebase/config';
 import {
   collection,
@@ -150,10 +151,9 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
               >
                 <div className="flex flex-col md:flex-row">
                   {g.thumbnail && (
-                    <img
-                      src={g.thumbnail}
+                    <OptimizedImage
+                      pngUrl={g.thumbnail}
                       alt={g.name}
-                      loading="lazy"
                       className="w-full md:w-32 h-48 md:h-auto object-cover"
                     />
                   )}

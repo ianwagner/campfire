@@ -17,6 +17,7 @@ import {
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
+import OptimizedImage from './components/OptimizedImage.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 
 const Review = ({
@@ -575,11 +576,10 @@ const Review = ({
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
         {agencyId && (
-          <img
-            src={agency.logoUrl || DEFAULT_LOGO_URL}
+          <OptimizedImage
+            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
             alt={`${agency.name || 'Agency'} logo`}
             className="mb-2 max-h-16 w-auto"
-            loading="lazy"
           />
         )}
         <h1 className="text-2xl font-bold">Thank you for your feedback!</h1>
@@ -592,18 +592,13 @@ const Review = ({
           {(finalGallery ? heroGroups : heroGroups.slice(0, 3)).map((g) => {
             const showSet = finalGallery ? g.assets : [g.hero];
             return showSet.map((a, idx) => (
-              <picture key={`${g.recipeCode}-${idx}`}> 
-                <source
-                  srcSet={a.firebaseUrl.replace(/\.png$/, '.webp')}
-                  type="image/webp"
-                />
-                <img
-                  src={a.firebaseUrl}
-                  alt={a.filename}
-                  className="w-24 h-24 object-contain"
-                  loading="lazy"
-                />
-              </picture>
+              <OptimizedImage
+                key={`${g.recipeCode}-${idx}`}
+                pngUrl={a.firebaseUrl}
+                webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
+                alt={a.filename}
+                className="w-24 h-24 object-contain"
+              />
             ));
           })}
         </div>
@@ -656,11 +651,10 @@ const Review = ({
       )}
       <div className="relative flex flex-col items-center w-fit mx-auto">
         {agencyId && (
-          <img
-            src={agency.logoUrl || DEFAULT_LOGO_URL}
+          <OptimizedImage
+            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
             alt={`${agency.name || 'Agency'} logo`}
             className="mb-2 max-h-16 w-auto"
-            loading="lazy"
           />
         )}
         {/* Gallery view removed */}
@@ -695,41 +689,31 @@ const Review = ({
                 : 'translateX(0)',
             }}
           >
-            <picture>
-              <source srcSet={adUrl.replace(/\.png$/, '.webp')} type="image/webp" />
-              <img
-                src={adUrl}
-                alt="Ad"
-                loading="lazy"
-                className={`relative z-10 max-w-[90%] max-h-[72vh] mx-auto rounded shadow ${
-                  animating === 'reject' ? 'reject-fade' : ''
-                } ${animating === 'approve' ? 'approve-glow' : ''}`}
-              />
-            </picture>
+            <OptimizedImage
+              pngUrl={adUrl}
+              webpUrl={adUrl.replace(/\.png$/, '.webp')}
+              alt="Ad"
+              className={`relative z-10 max-w-[90%] max-h-[72vh] mx-auto rounded shadow ${
+                animating === 'reject' ? 'reject-fade' : ''
+              } ${animating === 'approve' ? 'approve-glow' : ''}`}
+            />
             {currentAd && (currentAd.version || 1) > 1 && (
               <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
             )}
             {otherSizes.map((a, idx) => (
-              <picture
+              <OptimizedImage
                 key={idx}
+                pngUrl={a.firebaseUrl}
+                webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
+                alt={a.filename}
                 style={{
                   transform: showSizes
                     ? `translateX(${(idx + 1) * 110}%)`
                     : 'translateX(0)',
                   opacity: showSizes ? 1 : 0,
                 }}
-              >
-                <source
-                  srcSet={a.firebaseUrl.replace(/\.png$/, '.webp')}
-                  type="image/webp"
-                />
-                <img
-                  src={a.firebaseUrl}
-                  alt={a.filename}
-                  className="size-thumb max-w-[90%] max-h-[72vh] mx-auto rounded shadow"
-                  loading="lazy"
-                />
-              </picture>
+                className="size-thumb max-w-[90%] max-h-[72vh] mx-auto rounded shadow"
+              />
             ))}
             {animating === 'approve' && (
               <div className="approve-check">✓</div>
@@ -871,18 +855,12 @@ const Review = ({
                 V{versionModal.previous.version || 1} (replaced)
               </button>
             </div>
-            <picture>
-              <source
-                srcSet={(versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl).replace(/\.png$/, '.webp')}
-                type="image/webp"
-              />
-              <img
-                src={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
-                alt="Ad version"
-                className="max-w-full max-h-[70vh] mx-auto"
-                loading="lazy"
-              />
-            </picture>
+            <OptimizedImage
+              pngUrl={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
+              webpUrl={(versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl).replace(/\.png$/, '.webp')}
+              alt="Ad version"
+              className="max-w-full max-h-[70vh] mx-auto"
+            />
             <button onClick={closeVersionModal} className="mt-2 btn-primary px-3 py-1">
               Close
             </button>

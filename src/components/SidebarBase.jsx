@@ -4,6 +4,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../firebase/config';
 import useSiteSettings from '../useSiteSettings';
 import { DEFAULT_LOGO_URL } from '../constants';
+import OptimizedImage from './OptimizedImage.jsx';
 
 /**
  * Common sidebar layout.
@@ -52,11 +53,10 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
       {/* Desktop sidebar */}
       <div className="hidden md:flex fixed top-0 left-0 w-[250px] border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] p-4 flex-col h-screen justify-between">
         <div className="space-y-2">
-          <img
-            src={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
+          <OptimizedImage
+            pngUrl={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
             alt={logoAlt || 'Logo'}
             className="mx-auto mt-4 mb-4 max-h-16 w-auto"
-            loading="lazy"
           />
           {menuItems}
         </div>
@@ -94,11 +94,10 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
               >
                 &times;
               </button>
-              <img
-                src={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
+              <OptimizedImage
+                pngUrl={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
                 alt={logoAlt || 'Logo'}
                 className="mx-auto mt-4 mb-4 max-h-16 w-auto"
-                loading="lazy"
               />
               {menuItems}
             </div>
