@@ -72,12 +72,12 @@ const App = () => {
     return <div className="text-center mt-10">Loading...</div>;
   }
 
-  const defaultPath =
-    role === 'agency'
-      ? `/agency/dashboard?agencyId=${agencyId}`
-      : `/dashboard/${role}`;
-
   const signedIn = user && !user.isAnonymous;
+  const defaultPath = signedIn
+    ? role === 'agency'
+      ? `/agency/dashboard?agencyId=${agencyId}`
+      : `/dashboard/${role}`
+    : '/login';
   if (signedIn && !role) {
     return (
       <div className="flex items-center justify-center min-h-screen text-center">
