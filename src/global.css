@@ -195,6 +195,14 @@
     background-color: var(--table-row-alt-bg);
     color: var(--table-text-color);
   }
+  .status-draft {
+    background-color: var(--pending-color-10);
+    color: var(--pending-color);
+  }
+  .status-mixed {
+    background-color: var(--edit-color-10);
+    color: var(--edit-color);
+  }
 
 }
 @keyframes approve-bounce {
