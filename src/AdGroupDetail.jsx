@@ -32,6 +32,7 @@ const AdGroupDetail = () => {
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
   const [expanded, setExpanded] = useState({});
+  const [historyExpanded, setHistoryExpanded] = useState({});
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
@@ -134,7 +135,7 @@ const AdGroupDetail = () => {
       map[recipe].push(item);
     });
     const order = { '3x5': 0, '9x16': 1, '1x1': 2 };
-    return Object.entries(map).map(([recipeCode, list]) => {
+    const groups = Object.entries(map).map(([recipeCode, list]) => {
       list.sort((a, b) => {
         const diff = (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99);
         if (diff !== 0) return diff;
@@ -142,6 +143,8 @@ const AdGroupDetail = () => {
       });
       return { recipeCode, assets: list };
     });
+    groups.sort((a, b) => Number(a.recipeCode) - Number(b.recipeCode));
+    return groups;
   }, [assets]);
 
   const getRecipeStatus = (list) => {
@@ -151,6 +154,10 @@ const AdGroupDetail = () => {
 
   const toggleRecipe = (code) => {
     setExpanded((prev) => ({ ...prev, [code]: !prev[code] }));
+  };
+
+  const toggleHistory = (id) => {
+    setHistoryExpanded((p) => ({ ...p, [id]: !p[id] }));
   };
 
 
@@ -349,6 +356,44 @@ const AdGroupDetail = () => {
     }
   };
 
+  const deleteRecipe = async (recipeCode) => {
+    const confirmDelete = window.confirm('Delete this recipe and all assets?');
+    if (!confirmDelete) return;
+    const groupAssets = assets.filter((a) => {
+      const info = parseAdFilename(a.filename || '');
+      return (info.recipeCode || 'unknown') === recipeCode;
+    });
+    try {
+      await Promise.all(
+        groupAssets.map(async (a) => {
+          await deleteDoc(doc(db, 'adGroups', id, 'assets', a.id));
+          try {
+            await deleteDoc(doc(db, 'adAssets', a.id));
+          } catch (_) {}
+          if (a.filename || a.firebaseUrl) {
+            try {
+              const fileRef = ref(
+                storage,
+                a.firebaseUrl ||
+                  `Campfire/Brands/${brandName || group?.brandCode}/Adgroups/${
+                    group?.name || id
+                  }/${a.filename}`
+              );
+              await deleteObject(fileRef);
+            } catch (err) {
+              console.error('Failed to delete storage file', err);
+            }
+          }
+        })
+      );
+      setAssets((prev) =>
+        prev.filter((a) => !groupAssets.some((g) => g.id === a.id))
+      );
+    } catch (err) {
+      console.error('Failed to delete recipe assets', err);
+    }
+  };
+
   if (!group) {
     return <div className="text-center mt-10">Loading...</div>;
   }
@@ -385,9 +430,6 @@ const AdGroupDetail = () => {
               <th>Filename</th>
               <th>Version</th>
               <th>Status</th>
-              <th>Last Updated</th>
-              <th>Comment</th>
-              <th>Upload</th>
               <th>Delete</th>
             </tr>
           </thead>
@@ -430,101 +472,46 @@ const AdGroupDetail = () => {
                       </select>
                     )}
                   </td>
-                  <td colSpan="4" />
+                  <td className="text-center">
+                    <button onClick={() => deleteRecipe(g.recipeCode)} className="btn-delete">
+                      🗑️
+                    </button>
+                  </td>
                 </tr>
                 {expanded[g.recipeCode] &&
                   g.assets.map((a) => (
                     <React.Fragment key={a.id}>
                       <tr className="asset-row">
-                        <td className="break-all">{a.filename}</td>
-                      <td className="text-center">{a.version || 1}</td>
-                      <td>
-                        {userRole === 'designer' ? (
-                          a.status === 'pending' ? (
-                            <select
-                              className="p-1 border rounded"
-                              value="pending"
-                              onChange={(e) => updateAssetStatus(a.id, e.target.value)}
-                            >
-                              <option value="pending">pending</option>
-                              <option value="ready">ready</option>
-                            </select>
-                          ) : (
-                            <StatusBadge status={a.status} />
-                          )
-                        ) : (
-                          <select
-                            className="p-1 border rounded"
-                            value={a.status}
-                            onChange={(e) => updateAssetStatus(a.id, e.target.value)}
+                        <td className="break-all">
+                          <button
+                            onClick={() => toggleHistory(a.id)}
+                            className="mr-1 text-xs"
                           >
-                            <option value="pending">pending</option>
-                            <option value="ready">ready</option>
-                            <option value="approved">approved</option>
-                            <option value="rejected">rejected</option>
-                            <option value="edit_requested">edit_requested</option>
-                            <option value="archived">archived</option>
-                          </select>
-                        )}
-                      </td>
-                      <td>
-                        {a.lastUpdatedAt?.toDate
-                          ? a.lastUpdatedAt.toDate().toLocaleString()
-                          : '-'}
-                      </td>
-                      <td>{a.comment || '-'}</td>
-                      <td>
-                        {!a.firebaseUrl ? (
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="file"
-                              onChange={(e) => {
-                                const f = e.target.files[0];
-                                if (f) {
-                                  uploadVersion(a.id, f);
-                                }
-                              }}
-                            />
-                            {versionUploading === a.id ? (
-                              <span className="text-sm text-gray-600">Uploading...</span>
-                            ) : a.firebaseUrl ? (
-                              <span className="text-sm text-green-600">Uploaded</span>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <a
-                            href={a.firebaseUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            View
-                          </a>
-                        )}
-                      </td>
-                      <td className="text-center">
-                        <button onClick={() => deleteAsset(a)} className="btn-delete">
-                          🗑️
-                        </button>
-                      </td>
-                    </tr>
-                    {Array.isArray(a.history) && a.history.length > 0 && (
-                      <tr className="history-row text-xs">
-                        <td colSpan="7">
-                          {a.history.map((h, idx) => (
-                            <div key={idx} className="mb-1">
-                              {h.timestamp?.toDate
-                                ? h.timestamp.toDate().toLocaleString()
-                                : ''}{' '}
-                              - {h.userName || h.userEmail || h.userId}
-                              {userRole === 'admin' && h.userRole ? ` (${h.userRole})` : ''}
-                              : <StatusBadge status={h.action} />
-                              {h.action === 'edit_requested' && h.comment ? ` - ${h.comment}` : ''}
-                            </div>
-                          ))}
+                            {historyExpanded[a.id] ? '▼' : '▶'}
+                          </button>
+                          {a.filename}
+                        </td>
+                        <td className="text-center">{a.version || 1}</td>
+                        <td></td>
+                        <td className="text-center">
+                          <button onClick={() => deleteAsset(a)} className="btn-delete">
+                            🗑️
+                          </button>
                         </td>
                       </tr>
-                    )}
+                      {historyExpanded[a.id] && Array.isArray(a.history) && a.history.length > 0 && (
+                        <tr className="history-row text-xs">
+                          <td colSpan="4">
+                            {a.history.map((h, idx) => (
+                              <div key={idx} className="mb-1">
+                                {h.timestamp?.toDate ? h.timestamp.toDate().toLocaleString() : ''}{' '}- {h.userName || h.userEmail || h.userId}
+                                {userRole === 'admin' && h.userRole ? ` (${h.userRole})` : ''}: <StatusBadge status={h.action} />
+                                {h.action === 'edit_requested' && h.comment ? ` -${h.comment}` : ''}
+                              </div>
+                            ))}
+                          </td>
+                        </tr>
+                      )}
                     </React.Fragment>
                   ))}
             </tbody>
