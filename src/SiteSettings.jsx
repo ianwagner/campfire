@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import useSiteSettings from './useSiteSettings';
 import { uploadLogo } from './uploadLogo';
+import OptimizedImage from './components/OptimizedImage.jsx';
 
 const SiteSettings = () => {
   const { settings, saveSettings } = useSiteSettings();
@@ -60,11 +61,10 @@ const SiteSettings = () => {
               className="w-full p-2 border rounded"
             />
             {logoUrl && (
-              <img
-                src={logoUrl}
+              <OptimizedImage
+                pngUrl={logoUrl}
                 alt="Logo preview"
                 className="mt-2 max-h-16 w-auto"
-                loading="lazy"
               />
             )}
           </div>

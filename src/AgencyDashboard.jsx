@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
+import OptimizedImage from './components/OptimizedImage.jsx';
 
 function AgencyDashboard() {
   const [agency, setAgency] = useState(null);
@@ -20,11 +21,10 @@ function AgencyDashboard() {
   return (
     <div className="p-4" style={{ color: agency?.themeColor }}>
       {agency && (
-        <img
-          src={agency.logoUrl}
+        <OptimizedImage
+          pngUrl={agency.logoUrl}
           alt={`${agency.name} logo`}
           className="mb-4 max-h-16 w-auto"
-          loading="lazy"
         />
       )}
       {/* Dashboard content here */}
