@@ -1,7 +1,7 @@
 import SidebarBase from './components/SidebarBase';
 
 const tabs = [
-  { label: 'Dashboard', path: '/dashboard/client' },
+  { label: 'Campfire', path: '/dashboard/client' },
   { label: 'Request', path: '/request' },
   { label: 'Brand Setup', path: '/brand-setup' },
   { label: 'Account Settings', path: '/account-settings' },
