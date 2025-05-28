@@ -268,6 +268,12 @@ const Review = ({
   const progress =
     reviewAds.length > 0 ? (currentIndex / reviewAds.length) * 100 : 0;
 
+  const nextAd = reviewAds[currentIndex + 1];
+  const nextAdUrl =
+    nextAd && typeof nextAd === 'object'
+      ? nextAd.adUrl || nextAd.firebaseUrl
+      : nextAd;
+
   const openVersionModal = () => {
     if (!currentAd || !currentAd.parentAdId) return;
     const prev = allAds.find((a) => a.assetId === currentAd.parentAdId);
@@ -680,9 +686,19 @@ const Review = ({
             {currentRecipeGroup.assets.length} sizes
           </button>
         )}
-        <div className="flex justify-center">
+        <div className="flex justify-center relative">
+          {nextAdUrl && (
+            <OptimizedImage
+              pngUrl={nextAdUrl}
+              webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
+              alt="Next ad"
+              className="absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none"
+            />
+          )}
           <div
-            className="relative size-container transition-transform"
+            className={`relative z-10 size-container transition-transform ${
+              animating === 'approve' ? 'approve-slide' : ''
+            } ${animating === 'reject' ? 'reject-slide' : ''}`}
             style={{
               transform: showSizes
                 ? `translateX(-${otherSizes.length * 55}%)`
@@ -693,9 +709,7 @@ const Review = ({
               pngUrl={adUrl}
               webpUrl={adUrl.replace(/\.png$/, '.webp')}
               alt="Ad"
-              className={`relative z-10 max-w-[90%] max-h-[72vh] mx-auto rounded shadow ${
-                animating === 'reject' ? 'reject-fade' : ''
-              } ${animating === 'approve' ? 'approve-glow' : ''}`}
+              className="relative max-w-[90%] max-h-[72vh] mx-auto rounded shadow"
             />
             {currentAd && (currentAd.version || 1) > 1 && (
               <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
@@ -715,9 +729,6 @@ const Review = ({
                 className="size-thumb max-w-[90%] max-h-[72vh] mx-auto rounded shadow"
               />
             ))}
-            {animating === 'approve' && (
-              <div className="approve-check">✓</div>
-            )}
           </div>
         </div>
       </div>
