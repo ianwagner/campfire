@@ -12,8 +12,6 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
-  arrayUnion,
-  Timestamp,
   increment,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
@@ -48,7 +46,6 @@ const Review = ({
   const [versionView, setVersionView] = useState('current');
   const [finalGallery, setFinalGallery] = useState(false);
   const [secondPass, setSecondPass] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const { agency } = useAgencyTheme(agencyId);
@@ -347,22 +344,11 @@ const Review = ({
             ? 'rejected'
             : 'edit_requested';
 
-        const historyEntry = {
-          userId: user.uid,
-          userEmail: user.email,
-          userName: reviewerName,
-          ...(userRole ? { userRole } : {}),
-          action: newStatus,
-          comment: responseType === 'edit' ? comment : '',
-          timestamp: Timestamp.now(),
-        };
-
         const updateData = {
           status: newStatus,
           comment: responseType === 'edit' ? comment : '',
           lastUpdatedBy: user.uid,
           lastUpdatedAt: serverTimestamp(),
-          history: arrayUnion(historyEntry),
           ...(responseType === 'approve' ? { isResolved: true } : {}),
           ...(responseType === 'edit' ? { isResolved: false } : {}),
         };
@@ -381,7 +367,6 @@ const Review = ({
                     : responseType === 'edit'
                     ? { isResolved: false }
                     : {}),
-                  history: [...(a.history || []), historyEntry],
                 }
               : a
           )
@@ -398,7 +383,6 @@ const Review = ({
                     : responseType === 'edit'
                     ? { isResolved: false }
                     : {}),
-                  history: [...(a.history || []), historyEntry],
                 }
               : a
           )
@@ -733,54 +717,6 @@ const Review = ({
             )}
           </div>
         </div>
-        {secondPass && !showSizes && (
-          <div className="absolute left-full ml-4 top-0">
-            <button
-              onClick={() => setShowHistory((p) => !p)}
-              className="flex items-center space-x-1 bg-white p-2 rounded shadow"
-            >
-              <span>{currentAd?.filename}</span>
-              <span>{showHistory ? '▼' : '▶'}</span>
-            </button>
-            {showHistory && (
-              <div className="mt-2 p-2 text-xs w-48">
-                {Array.isArray(currentAd?.history) && currentAd.history.length > 0 ? (
-                  [...currentAd.history]
-                    .sort(
-                      (a, b) =>
-                        (a.timestamp?.toMillis?.() || 0) -
-                        (b.timestamp?.toMillis?.() || 0)
-                    )
-                    .map((h, idx) => {
-                      const colorMap = {
-                        approved: 'text-green-600',
-                        rejected: 'text-black',
-                        edit_requested: 'text-orange-500',
-                      };
-                      const textMap = {
-                        approved: 'Approved',
-                        rejected: 'Rejected',
-                        edit_requested: 'Edit Requested',
-                      };
-                      const cls = colorMap[h.action] || '';
-                      return (
-                          <div key={idx} className={`mb-1 ${cls}`}>
-                            {h.timestamp?.toDate
-                              ? h.timestamp.toDate().toLocaleString()
-                              : ''}{' '}
-                            - {textMap[h.action] || h.action} -{' '}
-                            {h.userName || h.userEmail || h.userId}
-                            {h.comment ? `: ${h.comment}` : ''}
-                          </div>
-                      );
-                    })
-                ) : (
-                  <div>No history</div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {showSecondView ? (

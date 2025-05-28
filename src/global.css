@@ -169,9 +169,6 @@
   .table-row-group {
     background-color: var(--table-row-alt-bg);
   }
-  .history-row {
-    background-color: #ffffff;
-  }
   .recipe-row {
     font-size: 12px;
     background-color: var(--table-row-alt-bg);
@@ -184,8 +181,7 @@
   .asset-row:hover {
     background-color: var(--table-head-bg);
   }
-  html.dark .asset-row,
-  html.dark .history-row {
+  html.dark .asset-row {
     background-color: var(--dark-sidebar-hover);
   }
   .status-badge {
