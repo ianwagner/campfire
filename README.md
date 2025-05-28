@@ -164,3 +164,15 @@ variables so you can tweak the palette:
 ```
 
 Update these values to change the site's dark theme without editing the markup.
+
+## File and Logo Uploads
+
+Assets uploaded through `uploadFile` and `uploadLogo` now include caching
+metadata so browsers can store them for one year. Both functions call
+`uploadBytes` with:
+
+```javascript
+{ cacheControl: 'public,max-age=31536000,immutable' }
+```
+
+which sets the appropriate `Cache-Control` header on the stored file.
