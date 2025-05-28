@@ -18,7 +18,6 @@ import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
-import LoadingOverlay from './components/LoadingOverlay.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 
 const Review = ({
@@ -53,7 +52,6 @@ const Review = ({
   const { agency } = useAgencyTheme(agencyId);
   const [hasPending, setHasPending] = useState(false);
   const [pendingOnly, setPendingOnly] = useState(false);
-  const [failedPreloads, setFailedPreloads] = useState([]);
 
   const recipeGroups = useMemo(() => {
     const map = {};
@@ -236,39 +234,9 @@ const Review = ({
         setCurrentIndex(0);
         setPendingOnly(heroList.length === 0 && hasPendingAds);
         setSecondPass(heroList.length === 0 && !hasPendingAds);
-
-        const preloadImage = (url) =>
-          new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => resolve(true);
-            img.onerror = () => resolve(false);
-            img.src = url;
-          });
-
-        const firstFive = heroList.slice(0, 5);
-        const preloadPromises = firstFive.map((a) =>
-          preloadImage(a.adUrl || a.firebaseUrl).then((ok) => ({
-            id: a.assetId || a.adUrl || a.firebaseUrl,
-            ok,
-          }))
-        );
-        const allPreload = Promise.all(preloadPromises).then((results) => {
-          const failed = results.filter((r) => !r.ok).map((r) => r.id);
-          if (failed.length) setFailedPreloads(failed);
-        });
-
-        Promise.race([allPreload, new Promise((r) => setTimeout(r, 3000))]).then(
-          () => setLoading(false)
-        );
-
-        setTimeout(() => {
-          heroList.slice(5).forEach((a) => {
-            const img = new Image();
-            img.src = a.adUrl || a.firebaseUrl;
-          });
-        }, 0);
       } catch (err) {
         console.error('Failed to load ads', err);
+      } finally {
         setLoading(false);
       }
     };
@@ -533,7 +501,7 @@ const Review = ({
   };
 
   if (loading) {
-    return <LoadingOverlay />;
+    return <div className="text-center mt-10">Loading...</div>;
   }
 
   if (!ads || ads.length === 0) {
@@ -655,9 +623,6 @@ const Review = ({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
-      {failedPreloads.length > 0 && (
-        <div className="text-xs text-red-500">Some images failed to preload.</div>
-      )}
       {showStreakModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-sm">

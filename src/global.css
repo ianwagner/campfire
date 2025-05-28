@@ -322,16 +322,3 @@
 .version-badge {
   @apply absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded;
 }
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.loading-overlay {
-  @apply fixed inset-0 flex items-center justify-center bg-white dark:bg-[var(--dark-bg)] z-50;
-}
-
-.loading-spinner {
-  @apply w-16 h-16 border-4 border-gray-200 border-t-[var(--accent-color)] rounded-full;
-  animation: spin 1s linear infinite;
-}
