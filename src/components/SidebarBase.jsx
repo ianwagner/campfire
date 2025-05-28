@@ -37,7 +37,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
           (isActive
             ? 'text-accent font-medium border border-accent bg-accent-10 '
             : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent ') +
-          'rounded-lg w-full text-center px-3 py-2';
+          'rounded-xl w-full text-center px-3 py-[0.9rem]';
         return (
           <button key={tab.label} onClick={() => handleClick(tab)} className={classes}>
             {tab.label}
@@ -62,7 +62,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
         <div className="flex flex-col items-center space-y-1">
           <button
             onClick={handleLogout}
-            className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-2"
+            className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl"
           >
             Log Out
           </button>
@@ -103,7 +103,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
             <div className="flex flex-col items-center space-y-1">
               <button
                 onClick={handleLogout}
-                className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-2"
+                className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl"
               >
                 Log Out
               </button>
