@@ -35,8 +35,8 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
         const isActive = tab.path && currentPath.startsWith(tab.path);
         const classes =
           (isActive
-            ? 'text-accent font-medium border border-accent bg-accent-10 dark:bg-[var(--dark-sidebar-hover)] '
-            : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 dark:hover:bg-[var(--dark-sidebar-hover)] border border-transparent ') +
+            ? 'text-accent font-medium border border-accent bg-accent-10 '
+            : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent ') +
           'rounded-lg w-full text-center px-3 py-2';
         return (
           <button key={tab.label} onClick={() => handleClick(tab)} className={classes}>
@@ -62,7 +62,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
         <div className="flex flex-col items-center space-y-1">
           <button
             onClick={handleLogout}
-            className="text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] w-full text-center font-bold px-3 py-2"
+            className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-2"
           >
             Log Out
           </button>
@@ -103,7 +103,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
             <div className="flex flex-col items-center space-y-1">
               <button
                 onClick={handleLogout}
-                className="text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] w-full text-center font-bold px-3 py-2"
+                className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-2"
               >
                 Log Out
               </button>
