@@ -18,6 +18,7 @@ import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
 import parseAdFilename from './utils/parseAdFilename';
+import OptimizedImage from './components/OptimizedImage';
 
 const Review = ({
   user,
@@ -575,8 +576,9 @@ const Review = ({
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
         {agencyId && (
-          <img
-            src={agency.logoUrl || DEFAULT_LOGO_URL}
+          <OptimizedImage
+            webpUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
             alt={`${agency.name || 'Agency'} logo`}
             className="mb-2 max-h-16 w-auto"
           />
@@ -591,9 +593,10 @@ const Review = ({
           {(finalGallery ? heroGroups : heroGroups.slice(0, 3)).map((g) => {
             const showSet = finalGallery ? g.assets : [g.hero];
             return showSet.map((a, idx) => (
-              <img
+              <OptimizedImage
                 key={`${g.recipeCode}-${idx}`}
-                src={a.firebaseUrl}
+                webpUrl={a.firebaseUrl}
+                pngUrl={a.firebaseUrl}
                 alt={a.filename}
                 className="w-24 h-24 object-contain"
               />
@@ -649,8 +652,9 @@ const Review = ({
       )}
       <div className="relative flex flex-col items-center w-fit mx-auto">
         {agencyId && (
-          <img
-            src={agency.logoUrl || DEFAULT_LOGO_URL}
+          <OptimizedImage
+            webpUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
             alt={`${agency.name || 'Agency'} logo`}
             className="mb-2 max-h-16 w-auto"
           />
@@ -687,10 +691,10 @@ const Review = ({
                 : 'translateX(0)',
             }}
           >
-            <img
-              src={adUrl}
+            <OptimizedImage
+              webpUrl={adUrl}
+              pngUrl={adUrl}
               alt="Ad"
-              loading="lazy"
               className={`relative z-10 max-w-[90%] max-h-[72vh] mx-auto rounded shadow ${
                 animating === 'reject' ? 'reject-fade' : ''
               } ${animating === 'approve' ? 'approve-glow' : ''}`}
@@ -699,9 +703,10 @@ const Review = ({
               <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
             )}
             {otherSizes.map((a, idx) => (
-              <img
+              <OptimizedImage
                 key={idx}
-                src={a.firebaseUrl}
+                webpUrl={a.firebaseUrl}
+                pngUrl={a.firebaseUrl}
                 alt={a.filename}
                 className="size-thumb max-w-[90%] max-h-[72vh] mx-auto rounded shadow"
                 style={{
@@ -852,8 +857,17 @@ const Review = ({
                 V{versionModal.previous.version || 1} (replaced)
               </button>
             </div>
-            <img
-              src={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
+            <OptimizedImage
+              webpUrl={
+                versionView === 'previous'
+                  ? versionModal.previous.firebaseUrl
+                  : versionModal.current.firebaseUrl
+              }
+              pngUrl={
+                versionView === 'previous'
+                  ? versionModal.previous.firebaseUrl
+                  : versionModal.current.firebaseUrl
+              }
               alt="Ad version"
               className="max-w-full max-h-[70vh] mx-auto"
             />

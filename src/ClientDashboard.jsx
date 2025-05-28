@@ -9,6 +9,7 @@ import {
   doc,
   updateDoc,
 } from 'firebase/firestore';
+import OptimizedImage from './components/OptimizedImage';
 
 const ClientDashboard = ({ user, brandCodes = [] }) => {
   const [groups, setGroups] = useState([]);
@@ -142,10 +143,10 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
               >
                 <div className="flex flex-col md:flex-row">
                   {g.thumbnail && (
-                    <img
-                      src={g.thumbnail}
+                    <OptimizedImage
+                      webpUrl={g.thumbnail}
+                      pngUrl={g.thumbnail}
                       alt={g.name}
-                      loading="lazy"
                       className="w-full md:w-32 h-48 md:h-auto object-cover"
                     />
                   )}

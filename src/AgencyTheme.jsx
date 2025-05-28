@@ -1,6 +1,7 @@
 import React from 'react';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
+import OptimizedImage from './components/OptimizedImage';
 
 const AgencyTheme = ({ agencyId, children }) => {
   const { agency } = useAgencyTheme(agencyId);
@@ -8,8 +9,9 @@ const AgencyTheme = ({ agencyId, children }) => {
   return (
     <div className="min-h-screen">
       <div className="text-center my-4">
-        <img
-          src={agency.logoUrl || DEFAULT_LOGO_URL}
+        <OptimizedImage
+          webpUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+          pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
           alt={`${agency.name || 'Agency'} logo`}
           className="mx-auto max-h-16 w-auto"
         />

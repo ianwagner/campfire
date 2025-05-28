@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import useAgencyTheme from './useAgencyTheme';
 import { uploadLogo } from './uploadLogo';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
+import OptimizedImage from './components/OptimizedImage';
 
 const AgencyThemeSettings = () => {
   const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
@@ -63,7 +64,12 @@ const AgencyThemeSettings = () => {
             className="w-full p-2 border rounded"
           />
           {logoUrl && (
-            <img src={logoUrl} alt="Logo preview" className="mt-2 max-h-16 w-auto" />
+            <OptimizedImage
+              webpUrl={logoUrl}
+              pngUrl={logoUrl}
+              alt="Logo preview"
+              className="mt-2 max-h-16 w-auto"
+            />
           )}
         </div>
         <div>
