@@ -176,6 +176,23 @@ const AdGroupDetail = () => {
           group?.name || id
         );
         const info = parseAdFilename(file.name);
+        let parentId = null;
+        if (info.version && info.version > 1) {
+          const base = file.name.replace(/_V\d+\.[^/.]+$/, '');
+          const prev = assets.find((a) =>
+            a.filename.replace(/_V\d+\.[^/.]+$/, '') === base
+          );
+          if (prev) {
+            parentId = prev.id;
+            try {
+              await updateDoc(doc(db, 'adGroups', id, 'assets', prev.id), {
+                status: 'archived',
+              });
+            } catch (err) {
+              console.error('Failed to archive previous version', err);
+            }
+          }
+        }
         await addDoc(collection(db, 'adGroups', id, 'assets'), {
           adGroupId: id,
           brandCode: info.brandCode || group?.brandCode || '',
@@ -191,7 +208,7 @@ const AdGroupDetail = () => {
           lastUpdatedAt: serverTimestamp(),
           history: [],
           version: info.version || 1,
-          parentAdId: null,
+          parentAdId: parentId,
           isResolved: false,
         });
       } catch (err) {

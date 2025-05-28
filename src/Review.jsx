@@ -47,10 +47,7 @@ const Review = ({
   const [versionModal, setVersionModal] = useState(null); // {current, previous}
   const [versionView, setVersionView] = useState('current');
   const [finalGallery, setFinalGallery] = useState(false);
-  const reviewedKey = groupId ? `reviewComplete-${groupId}` : null;
-  const [secondPass, setSecondPass] = useState(
-    reviewedKey ? localStorage.getItem(reviewedKey) === 'true' : false
-  );
+  const [secondPass, setSecondPass] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
@@ -229,6 +226,7 @@ const Review = ({
         });
         setReviewAds(heroList);
         setCurrentIndex(0);
+        setSecondPass(heroList.length === 0);
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
@@ -303,36 +301,33 @@ const Review = ({
     if (!currentAd) return;
     setAnimating(responseType);
     setSubmitting(true);
-    const respObj = {
-      adUrl,
-      response: responseType,
-      comment: responseType === 'edit' ? comment : '',
-      pass: responses[adUrl] ? 'revisit' : 'initial',
-      ...(brandCode ? { brandCode } : {}),
-      ...(groupName ? { groupName } : {}),
-      ...(reviewerName ? { reviewerName } : {}),
-      ...(user?.email ? { userEmail: user.email } : {}),
-      ...(user?.uid ? { userId: user.uid } : {}),
-      ...(userRole ? { userRole } : {}),
-    };
-    try {
-      if (currentAd.adGroupId) {
-        await addDoc(
-          collection(db, 'adGroups', currentAd.adGroupId, 'responses'),
-          {
+
+    const recipeAssets = currentRecipeGroup?.assets || [currentAd];
+    const updates = [];
+    for (const asset of recipeAssets) {
+      const url = asset.adUrl || asset.firebaseUrl;
+      const respObj = {
+        adUrl: url,
+        response: responseType,
+        comment: responseType === 'edit' ? comment : '',
+        pass: responses[url] ? 'revisit' : 'initial',
+        ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
+        ...(asset.groupName ? { groupName: asset.groupName } : {}),
+        ...(reviewerName ? { reviewerName } : {}),
+        ...(user?.email ? { userEmail: user.email } : {}),
+        ...(user?.uid ? { userId: user.uid } : {}),
+        ...(userRole ? { userRole } : {}),
+      };
+      if (asset.adGroupId) {
+        updates.push(
+          addDoc(collection(db, 'adGroups', asset.adGroupId, 'responses'), {
             ...respObj,
             timestamp: serverTimestamp(),
-          }
+          })
         );
       }
-      if (currentAd.assetId && currentAd.adGroupId) {
-        const assetRef = doc(
-          db,
-          'adGroups',
-          currentAd.adGroupId,
-          'assets',
-          currentAd.assetId
-        );
+      if (asset.assetId && asset.adGroupId) {
+        const assetRef = doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId);
         const newStatus =
           responseType === 'approve'
             ? 'approved'
@@ -360,12 +355,11 @@ const Review = ({
           ...(responseType === 'edit' ? { isResolved: false } : {}),
         };
 
-        await updateDoc(assetRef, updateData);
+        updates.push(updateDoc(assetRef, updateData));
 
-        // update local state so history reflects the reviewer's name
         setAds((prev) =>
           prev.map((a) =>
-            a.assetId === currentAd.assetId
+            a.assetId === asset.assetId
               ? {
                   ...a,
                   status: newStatus,
@@ -382,7 +376,7 @@ const Review = ({
         );
         setReviewAds((prev) =>
           prev.map((a) =>
-            a.assetId === currentAd.assetId
+            a.assetId === asset.assetId
               ? {
                   ...a,
                   status: newStatus,
@@ -398,7 +392,7 @@ const Review = ({
           )
         );
 
-        const prevStatus = currentAd.status;
+        const prevStatus = asset.status;
         const newState = newStatus;
         let incReviewed = 0;
         let incApproved = 0;
@@ -416,7 +410,7 @@ const Review = ({
           if (newState === 'edit_requested') incEdit += 1;
         }
 
-        const groupRef = doc(db, 'adGroups', currentAd.adGroupId);
+        const groupRef = doc(db, 'adGroups', asset.adGroupId);
         const gSnap = await getDoc(groupRef);
         const updateObj = {
           ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
@@ -425,60 +419,42 @@ const Review = ({
           ...(incEdit ? { editCount: increment(incEdit) } : {}),
           lastUpdated: serverTimestamp(),
           ...(gSnap.exists() && !gSnap.data().thumbnailUrl
-            ? { thumbnailUrl: currentAd.firebaseUrl }
+            ? { thumbnailUrl: asset.firebaseUrl }
             : {}),
         };
-        await updateDoc(groupRef, updateObj);
+        updates.push(updateDoc(groupRef, updateObj));
 
-        if (responseType === 'edit') {
-          await addDoc(collection(db, 'adGroups', currentAd.adGroupId, 'assets'), {
-            adGroupId: currentAd.adGroupId,
-            brandCode: currentAd.brandCode || '',
-            filename: currentAd.filename || '',
-            firebaseUrl: '',
-            uploadedAt: null,
-            status: 'pending',
-            comment: null,
-            lastUpdatedBy: null,
-            lastUpdatedAt: serverTimestamp(),
-            history: [],
-            version: (currentAd.version || 1) + 1,
-            parentAdId: currentAd.assetId,
-            isResolved: false,
-          });
-        } else if (responseType === 'approve' && currentAd.parentAdId) {
+        if (responseType === 'approve' && asset.parentAdId) {
           const relatedQuery = query(
-            collection(db, 'adGroups', currentAd.adGroupId, 'assets'),
-            where('parentAdId', '==', currentAd.parentAdId)
+            collection(db, 'adGroups', asset.adGroupId, 'assets'),
+            where('parentAdId', '==', asset.parentAdId)
           );
           const relatedSnap = await getDocs(relatedQuery);
-          await Promise.all(
-            relatedSnap.docs.map((d) =>
-              updateDoc(
-                doc(db, 'adGroups', currentAd.adGroupId, 'assets', d.id),
-                { isResolved: true }
+          updates.push(
+            Promise.all(
+              relatedSnap.docs.map((d) =>
+                updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', d.id), {
+                  isResolved: true,
+                })
               )
             )
           );
-          await updateDoc(
-            doc(
-              db,
-              'adGroups',
-              currentAd.adGroupId,
-              'assets',
-              currentAd.parentAdId
-            ),
-            { isResolved: true }
+          updates.push(
+            updateDoc(
+              doc(db, 'adGroups', asset.adGroupId, 'assets', asset.parentAdId),
+              { isResolved: true }
+            )
           );
         }
       }
+      setResponses((prev) => ({ ...prev, [url]: respObj }));
+    }
+
+    try {
+      await Promise.all(updates);
       if (groupId) {
         localStorage.setItem(`lastViewed-${groupId}`, new Date().toISOString());
-        if (!secondPass) {
-          localStorage.setItem(`reviewComplete-${groupId}`, 'false');
-        }
       }
-      setResponses((prev) => ({ ...prev, [adUrl]: respObj }));
       setComment('');
       setShowComment(false);
       setTimeout(() => {
@@ -538,7 +514,6 @@ const Review = ({
         `lastViewed-${groupId}`,
         new Date().toISOString()
       );
-      localStorage.setItem(`reviewComplete-${groupId}`, 'true');
     }
     const allResponses = Object.values(responses);
     const approvedCount = allResponses.filter((r) => r.response === 'approve').length;
@@ -569,7 +544,29 @@ const Review = ({
     });
 
     const handleReviewAll = () => {
-      setReviewAds(ads);
+      const heroMap = {};
+      ads.forEach((a) => {
+        const info = parseAdFilename(a.filename || '');
+        const recipe = a.recipeCode || info.recipeCode || 'unknown';
+        if (!heroMap[recipe]) heroMap[recipe] = [];
+        heroMap[recipe].push(a);
+      });
+      const prefOrder = ['9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
+      const heroList = Object.values(heroMap).map((list) => {
+        for (const asp of prefOrder) {
+          const f = list.find((x) =>
+            (x.aspectRatio || parseAdFilename(x.filename || '').aspectRatio || '') === asp
+          );
+          if (f) return f;
+        }
+        return list[0];
+      });
+      heroList.sort((a, b) => {
+        const rA = a.recipeCode || parseAdFilename(a.filename || '').recipeCode || '';
+        const rB = b.recipeCode || parseAdFilename(b.filename || '').recipeCode || '';
+        return rA.localeCompare(rB);
+      });
+      setReviewAds(heroList);
       setCurrentIndex(0);
       setSecondPass(true);
       setShowHistory(false);
@@ -601,7 +598,7 @@ const Review = ({
           onClick={handleReviewAll}
           className="btn-secondary"
         >
-          Adjust Approvals
+          Review Adjustments
         </button>
         <button
           onClick={() => setFinalGallery((p) => !p)}
