@@ -42,7 +42,9 @@ const AdGroupDetail = () => {
     let rejected = 0;
     let thumbnail = '';
     list.forEach((a) => {
-      if (!thumbnail && a.firebaseUrl) thumbnail = a.firebaseUrl;
+      if (!thumbnail && (a.thumbnailUrl || a.firebaseUrl)) {
+        thumbnail = a.thumbnailUrl || a.firebaseUrl;
+      }
       if (a.status !== 'ready') reviewed += 1;
       if (a.status === 'approved') approved += 1;
       if (a.status === 'edit_requested') edit += 1;

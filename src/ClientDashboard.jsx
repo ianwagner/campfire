@@ -58,10 +58,18 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
               const assetSnap = await getDocs(
                 collection(db, 'adGroups', d.id, 'assets')
               );
-              const summary = { reviewed: 0, approved: 0, edit: 0, rejected: 0, thumbnail: '' };
+              const summary = {
+                reviewed: 0,
+                approved: 0,
+                edit: 0,
+                rejected: 0,
+                thumbnail: '',
+              };
               assetSnap.docs.forEach((adDoc) => {
                 const ad = adDoc.data();
-                if (!summary.thumbnail && ad.firebaseUrl) summary.thumbnail = ad.firebaseUrl;
+                if (!summary.thumbnail && (ad.thumbnailUrl || ad.firebaseUrl)) {
+                  summary.thumbnail = ad.thumbnailUrl || ad.firebaseUrl;
+                }
                 if (ad.status !== 'ready') summary.reviewed += 1;
                 if (ad.status === 'approved') summary.approved += 1;
                 if (ad.status === 'edit_requested') summary.edit += 1;
