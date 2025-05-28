@@ -147,7 +147,7 @@ const Review = ({
           return (order[aAsp] ?? 99) - (order[bAsp] ?? 99);
         });
 
-        // keep highest version per ad
+        // keep highest version per ad for the review list
         const versionMap = {};
         list.forEach((a) => {
           const root = a.parentAdId || a.assetId;
@@ -159,7 +159,12 @@ const Review = ({
 
         const hasPendingAds = deduped.some((a) => a.status === 'pending');
         const nonPending = deduped.filter((a) => a.status !== 'pending');
-        setAllAds(nonPending);
+
+        // store all non-pending ads (including archived versions) so the
+        // version modal can show previous revisions
+        const fullNonPending = list.filter((a) => a.status !== 'pending');
+        setAllAds(fullNonPending);
+
         setAds(nonPending);
         setHasPending(hasPendingAds);
 
