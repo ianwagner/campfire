@@ -445,9 +445,9 @@ const AdGroupDetail = () => {
                       e.stopPropagation();
                       toggleHistory(g.recipeCode);
                     }}
-                    className="mr-1 text-xs"
+                    className="mr-1 text-xs underline"
                   >
-                    {historyExpanded[g.recipeCode] ? '▼' : '▶'}
+                    {historyExpanded[g.recipeCode] ? 'Hide History' : 'View History'}
                   </button>
                   Recipe {g.recipeCode}
                 </td>
@@ -489,32 +489,34 @@ const AdGroupDetail = () => {
                 </tr>
                 {expanded[g.recipeCode] &&
                   g.assets.map((a) => (
-                    <React.Fragment key={a.id}>
-                      <tr className="asset-row">
-                        <td className="break-all">{a.filename}</td>
-                        <td className="text-center">{a.version || 1}</td>
-                        <td></td>
-                        <td className="text-center">
-                          <button onClick={() => deleteAsset(a)} className="btn-delete">
-                            🗑️
-                          </button>
-                        </td>
-                      </tr>
-                      {historyExpanded[g.recipeCode] && Array.isArray(a.history) && a.history.length > 0 && (
-                        <tr className="history-row text-xs">
-                          <td colSpan="4">
-                            {a.history.map((h, idx) => (
-                              <div key={idx} className="mb-1">
-                                {h.timestamp?.toDate ? h.timestamp.toDate().toLocaleString() : ''}{' '}- {h.userName || h.userEmail || h.userId}
-                                {userRole === 'admin' && h.userRole ? ` (${h.userRole})` : ''}: <StatusBadge status={h.action} />
-                                {h.action === 'edit_requested' && h.comment ? ` -${h.comment}` : ''}
-                              </div>
-                            ))}
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
+                    <tr key={a.id} className="asset-row">
+                      <td className="break-all">{a.filename}</td>
+                      <td className="text-center">{a.version || 1}</td>
+                      <td></td>
+                      <td className="text-center">
+                        <button onClick={() => deleteAsset(a)} className="btn-delete">
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
                   ))}
+                {historyExpanded[g.recipeCode] && (
+                  <tr className="history-row text-xs">
+                    <td colSpan="4">
+                      {Array.isArray(g.assets[0]?.history) && g.assets[0].history.length > 0 ? (
+                        g.assets[0].history.map((h, idx) => (
+                          <div key={idx} className="mb-1">
+                            {h.timestamp?.toDate ? h.timestamp.toDate().toLocaleString() : ''}{' '}- {h.userName || h.userEmail || h.userId}
+                            {userRole === 'admin' && h.userRole ? ` (${h.userRole})` : ''}: <StatusBadge status={h.action} />
+                            {h.action === 'edit_requested' && h.comment ? ` -${h.comment}` : ''}
+                          </div>
+                        ))
+                      ) : (
+                        <div>No history</div>
+                      )}
+                    </td>
+                  </tr>
+                )}
             </tbody>
               ))}
         </table>
