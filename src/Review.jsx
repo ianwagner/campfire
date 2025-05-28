@@ -788,7 +788,17 @@ const Review = ({
             </button>
           )}
           <div className="text-center space-y-2">
-            <p className={`text-lg ${colorMap[selectedResponse]}`}>{statusMap[selectedResponse]}</p>
+            <span
+              className={`status-badge text-lg status-${
+                selectedResponse === 'edit'
+                  ? 'edit_requested'
+                  : selectedResponse === 'reject'
+                  ? 'rejected'
+                  : 'approved'
+              }`}
+            >
+              {statusMap[selectedResponse]}
+            </span>
             {selectedResponse === 'edit' && currentAd.comment && (
               <p className="text-sm">{currentAd.comment}</p>
             )}
