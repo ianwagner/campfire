@@ -78,9 +78,6 @@ const Review = ({
     setShowSizes(false);
   }, [currentIndex]);
 
-  useEffect(() => {
-    if (showSizes) setShowHistory(false);
-  }, [showSizes]);
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -576,7 +573,6 @@ const Review = ({
       setReviewAds(heroList);
       setCurrentIndex(0);
       setSecondPass(true);
-      setShowHistory(false);
     };
 
     return (
@@ -687,7 +683,7 @@ const Review = ({
           </button>
         )}
         <div className="flex justify-center relative">
-          {nextAdUrl && (
+          {nextAdUrl && !showSizes && (
             <OptimizedImage
               pngUrl={nextAdUrl}
               webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
@@ -733,7 +729,7 @@ const Review = ({
         </div>
       </div>
 
-      {showSecondView ? (
+      {!showSizes && (showSecondView ? (
         <div className="flex items-center space-x-4">
           {currentIndex > 0 && (
             <button
@@ -854,7 +850,7 @@ const Review = ({
             </div>
           )}
         </>
-      )}
+      ))}
       {versionModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-md text-center">
