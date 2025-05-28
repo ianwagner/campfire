@@ -2,19 +2,11 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
+import { applyAccentColor } from './utils/theme';
 
 const storedAccent = localStorage.getItem('accentColor');
 const defaultSettings = { logoUrl: '', accentColor: storedAccent || DEFAULT_ACCENT_COLOR };
 
-const hexToRgba = (hex, alpha = 1) => {
-  let h = hex.replace('#', '');
-  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
-  const int = parseInt(h, 16);
-  const r = (int >> 16) & 255;
-  const g = (int >> 8) & 255;
-  const b = int & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
 
 /**
  * Fetches global site settings such as logo and accent color.
@@ -36,27 +28,13 @@ const useSiteSettings = (applyAccent = true) => {
           setSettings({ ...defaultSettings, ...data });
           const color = data.accentColor || defaultSettings.accentColor;
           if (applyAccent) {
-            document.documentElement.style.setProperty(
-              '--accent-color',
-              color
-            );
-            document.documentElement.style.setProperty(
-              '--accent-color-10',
-              hexToRgba(color, 0.1)
-            );
+            applyAccentColor(color);
             localStorage.setItem('accentColor', color);
           }
         } else {
           await setDoc(doc(db, 'settings', 'site'), defaultSettings);
           if (applyAccent) {
-            document.documentElement.style.setProperty(
-              '--accent-color',
-              defaultSettings.accentColor
-            );
-            document.documentElement.style.setProperty(
-              '--accent-color-10',
-              hexToRgba(defaultSettings.accentColor, 0.1)
-            );
+            applyAccentColor(defaultSettings.accentColor);
             localStorage.setItem('accentColor', defaultSettings.accentColor);
           }
         }
@@ -72,14 +50,7 @@ const useSiteSettings = (applyAccent = true) => {
 
   useEffect(() => {
     if (settings.accentColor && applyAccent) {
-      document.documentElement.style.setProperty(
-        '--accent-color',
-        settings.accentColor
-      );
-      document.documentElement.style.setProperty(
-        '--accent-color-10',
-        hexToRgba(settings.accentColor, 0.1)
-      );
+      applyAccentColor(settings.accentColor);
       localStorage.setItem('accentColor', settings.accentColor);
     }
   }, [settings.accentColor]);
