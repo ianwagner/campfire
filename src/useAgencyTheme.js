@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
+import { applyAccentColor } from './utils/theme';
 
 const defaultAgency = { logoUrl: '', themeColor: DEFAULT_ACCENT_COLOR };
 
@@ -15,15 +16,6 @@ const getStoredAgency = (id) => {
   }
 };
 
-const hexToRgba = (hex, alpha = 1) => {
-  let h = hex.replace('#', '');
-  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
-  const int = parseInt(h, 16);
-  const r = (int >> 16) & 255;
-  const g = (int >> 8) & 255;
-  const b = int & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
 
 const useAgencyTheme = (agencyId) => {
   const [agency, setAgency] = useState(() => {
@@ -31,11 +23,7 @@ const useAgencyTheme = (agencyId) => {
     const stored = getStoredAgency(agencyId);
     const initial = stored ? { ...defaultAgency, ...stored } : defaultAgency;
     const color = initial.themeColor || defaultAgency.themeColor;
-    document.documentElement.style.setProperty('--accent-color', color);
-    document.documentElement.style.setProperty(
-      '--accent-color-10',
-      hexToRgba(color, 0.1)
-    );
+    applyAccentColor(color);
     return initial;
   });
   const [loading, setLoading] = useState(true);
@@ -54,11 +42,7 @@ const useAgencyTheme = (agencyId) => {
           const updated = { ...defaultAgency, ...data };
           setAgency(updated);
           const color = data.themeColor || defaultAgency.themeColor;
-          document.documentElement.style.setProperty('--accent-color', color);
-          document.documentElement.style.setProperty(
-            '--accent-color-10',
-            hexToRgba(color, 0.1)
-          );
+          applyAccentColor(color);
           localStorage.setItem(
             `agencyTheme-${agencyId}`,
             JSON.stringify({ logoUrl: updated.logoUrl, themeColor: color })
@@ -87,11 +71,7 @@ const useAgencyTheme = (agencyId) => {
     setAgency((prev) => {
       const updated = { ...prev, ...data };
       const color = updated.themeColor || defaultAgency.themeColor;
-      document.documentElement.style.setProperty('--accent-color', color);
-      document.documentElement.style.setProperty(
-        '--accent-color-10',
-        hexToRgba(color, 0.1)
-      );
+      applyAccentColor(color);
       localStorage.setItem(
         `agencyTheme-${agencyId}`,
         JSON.stringify({ logoUrl: updated.logoUrl, themeColor: color })
