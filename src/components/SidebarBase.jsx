@@ -56,6 +56,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
             src={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
             alt={logoAlt || 'Logo'}
             className="mx-auto mt-4 mb-4 max-h-16 w-auto"
+            loading="lazy"
           />
           {menuItems}
         </div>
@@ -97,6 +98,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
                 src={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
                 alt={logoAlt || 'Logo'}
                 className="mx-auto mt-4 mb-4 max-h-16 w-auto"
+                loading="lazy"
               />
               {menuItems}
             </div>

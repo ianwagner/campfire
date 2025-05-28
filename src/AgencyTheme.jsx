@@ -12,6 +12,7 @@ const AgencyTheme = ({ agencyId, children }) => {
           src={agency.logoUrl || DEFAULT_LOGO_URL}
           alt={`${agency.name || 'Agency'} logo`}
           className="mx-auto max-h-16 w-auto"
+          loading="lazy"
         />
       </div>
       {children}

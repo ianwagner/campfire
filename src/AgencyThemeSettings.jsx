@@ -63,7 +63,12 @@ const AgencyThemeSettings = () => {
             className="w-full p-2 border rounded"
           />
           {logoUrl && (
-            <img src={logoUrl} alt="Logo preview" className="mt-2 max-h-16 w-auto" />
+            <img
+              src={logoUrl}
+              alt="Logo preview"
+              className="mt-2 max-h-16 w-auto"
+              loading="lazy"
+            />
           )}
         </div>
         <div>
