@@ -52,6 +52,8 @@ const Review = ({
   const [showSizes, setShowSizes] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const { agency } = useAgencyTheme(agencyId);
+  const [hasPending, setHasPending] = useState(false);
+  const [pendingOnly, setPendingOnly] = useState(false);
 
   const recipeGroups = useMemo(() => {
     const map = {};
@@ -102,8 +104,7 @@ const Review = ({
                 ...(groupSnap.data().brandCode
                   ? { brandCode: groupSnap.data().brandCode }
                   : {}),
-              }))
-              .filter((a) => a.status !== 'pending');
+              }));
           }
         } else {
           const q = query(
@@ -156,9 +157,14 @@ const Review = ({
         });
         const deduped = Object.values(versionMap);
 
-        setAllAds(list);
-        list = deduped;
-        setAds(list);
+        const hasPendingAds = deduped.some((a) => a.status === 'pending');
+        const nonPending = deduped.filter((a) => a.status !== 'pending');
+        setAllAds(nonPending);
+        setAds(nonPending);
+        setHasPending(hasPendingAds);
+
+        const readyAds = nonPending.filter((a) => a.status === 'ready');
+        list = readyAds;
 
         const key = groupId ? `lastViewed-${groupId}` : null;
         const stored = key ? localStorage.getItem(key) : null;
@@ -186,7 +192,7 @@ const Review = ({
 
         if (newer.length === 0) {
           const initial = {};
-          list.forEach((ad) => {
+          nonPending.forEach((ad) => {
             let resp;
             if (ad.status === 'approved') resp = 'approve';
             else if (ad.status === 'rejected') resp = 'reject';
@@ -226,7 +232,8 @@ const Review = ({
         });
         setReviewAds(heroList);
         setCurrentIndex(0);
-        setSecondPass(heroList.length === 0);
+        setPendingOnly(heroList.length === 0 && hasPendingAds);
+        setSecondPass(heroList.length === 0 && !hasPendingAds);
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
@@ -505,7 +512,11 @@ const Review = ({
   }
 
   if (!ads || ads.length === 0) {
-    return <div>No ads assigned to your account.</div>;
+    return <div>{hasPending ? 'ads are pending' : 'No ads assigned to your account.'}</div>;
+  }
+
+  if (pendingOnly) {
+    return <div>ads are pending</div>;
   }
 
   if (currentIndex >= reviewAds.length) {
