@@ -19,6 +19,7 @@ import AdGroupDetail from "./AdGroupDetail";
 import DesignerDashboard from "./DesignerDashboard";
 import ClientDashboard from "./ClientDashboard";
 import AdminDashboard from "./AdminDashboard";
+import AdminAdGroups from "./AdminAdGroups";
 import AgencyDashboard from "./AgencyDashboard";
 import Request from "./Request";
 import BrandSetup from "./BrandSetup";
@@ -230,6 +231,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminDashboard />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/ad-groups"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="admin"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <AdminAdGroups />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
