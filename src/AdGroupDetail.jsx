@@ -21,6 +21,7 @@ import { auth, db, storage } from './firebase/config';
 import useUserRole from './useUserRole';
 import { uploadFile } from './uploadFile';
 import parseAdFilename from './utils/parseAdFilename';
+import StatusBadge from './components/StatusBadge.jsx';
 
 const AdGroupDetail = () => {
   const { id } = useParams();
@@ -353,7 +354,7 @@ const AdGroupDetail = () => {
       <p className="text-sm text-gray-500">Brand: {group.brandCode}</p>
       <p className="text-sm text-gray-500 mb-4">
         Status:{' '}
-        <span className={`status-badge status-${group.status}`}>{group.status}</span>
+        <StatusBadge status={group.status} />
       </p>
 
       <div className="mb-4">
@@ -403,7 +404,7 @@ const AdGroupDetail = () => {
                           <option value="ready">ready</option>
                         </select>
                       ) : (
-                        <span className={`status-badge status-${getRecipeStatus(g.assets)}`}>{getRecipeStatus(g.assets)}</span>
+                        <StatusBadge status={getRecipeStatus(g.assets)} />
                       )
                     ) : (
                       <select
@@ -440,7 +441,7 @@ const AdGroupDetail = () => {
                               <option value="ready">ready</option>
                             </select>
                           ) : (
-                            <span className={`status-badge status-${a.status}`}>{a.status}</span>
+                            <StatusBadge status={a.status} />
                           )
                         ) : (
                           <select
@@ -508,7 +509,7 @@ const AdGroupDetail = () => {
                                 : ''}{' '}
                               - {h.userName || h.userEmail || h.userId}
                               {userRole === 'admin' && h.userRole ? ` (${h.userRole})` : ''}
-                              : <span className={`status-badge status-${h.action}`}>{h.action}</span>
+                              : <StatusBadge status={h.action} />
                               {h.action === 'edit_requested' && h.comment ? ` - ${h.comment}` : ''}
                             </div>
                           ))}
