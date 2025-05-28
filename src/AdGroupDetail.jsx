@@ -31,6 +31,7 @@ const AdGroupDetail = () => {
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
   const countsRef = useRef(null);
+  const user = auth.currentUser;
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
   const summarize = (list) => {
@@ -289,7 +290,13 @@ const AdGroupDetail = () => {
   };
 
   const shareLink = () => {
-    const url = `${window.location.origin}/review/${id}`;
+    let url = `${window.location.origin}/review/${id}`;
+    const params = new URLSearchParams();
+    if (user?.displayName) params.set('name', user.displayName);
+    if (user?.email) params.set('email', user.email);
+    if (userRole) params.set('role', userRole);
+    const str = params.toString();
+    if (str) url += `?${str}`;
     navigator.clipboard
       .writeText(url)
       .then(() => window.alert('Link copied to clipboard'))
