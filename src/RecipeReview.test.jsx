@@ -37,3 +37,16 @@ test('loads ready recipes and submits decision', async () => {
 
   expect(recordRecipeDecision).toHaveBeenCalledWith('g1', 'r1', 'approve', expect.any(Object), '');
 });
+
+test('review link loads recipes by group id', async () => {
+  fetchReadyRecipes.mockResolvedValue([{ id: 'r2', groupId: 'g2' }]);
+  getDocs.mockResolvedValue({ docs: [{ id: 'b1', data: () => ({ firebaseUrl: 'u2', filename: 'BR_G_RC2_9x16_V1.png', aspectRatio: '9x16' }) }] });
+
+  render(<RecipeReview user={{ uid: 'u1' }} groupId="g2" />);
+
+  await waitFor(() => screen.getByRole('img'));
+
+  expect(fetchReadyRecipes).toHaveBeenCalledWith({ groupId: 'g2', brandCodes: [] });
+  expect(screen.getByRole('img')).toHaveAttribute('src', 'u2');
+});
+

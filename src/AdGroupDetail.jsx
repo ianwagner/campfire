@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   updateDoc,
+  setDoc,
   collection,
   addDoc,
   onSnapshot,
@@ -236,6 +237,23 @@ const AdGroupDetail = () => {
           });
         }
       }
+
+      const asset = assets.find((a) => a.id === assetId);
+      if (asset) {
+        const info = parseAdFilename(asset.filename || '');
+        const recipeCode = info.recipeCode || 'unknown';
+        await setDoc(
+          doc(db, 'adGroups', id, 'recipes', recipeCode),
+          {
+            status,
+            lastUpdatedAt: serverTimestamp(),
+            lastUpdatedBy: auth.currentUser?.uid || null,
+            brandCode: group?.brandCode || '',
+            version: 1,
+          },
+          { merge: true }
+        );
+      }
     } catch (err) {
       console.error('Failed to update asset status', err);
     }
@@ -256,6 +274,17 @@ const AdGroupDetail = () => {
       });
     });
     try {
+      await setDoc(
+        doc(db, 'adGroups', id, 'recipes', recipeCode),
+        {
+          status,
+          lastUpdatedAt: serverTimestamp(),
+          lastUpdatedBy: auth.currentUser?.uid || null,
+          brandCode: group?.brandCode || '',
+          version: 1,
+        },
+        { merge: true }
+      );
       await batch.commit();
       setAssets((prev) =>
         prev.map((a) =>
@@ -271,7 +300,12 @@ const AdGroupDetail = () => {
     setReadyLoading(true);
     try {
       const batch = writeBatch(db);
+      const groups = {};
       for (const asset of assets) {
+        const info = parseAdFilename(asset.filename || '');
+        const recipe = info.recipeCode || 'unknown';
+        if (!groups[recipe]) groups[recipe] = [];
+        groups[recipe].push({ asset, info });
         batch.update(doc(db, 'adGroups', id, 'assets', asset.id), {
           status: 'ready',
           lastUpdatedBy: null,
@@ -279,6 +313,38 @@ const AdGroupDetail = () => {
           history: [],
         });
       }
+      await Promise.all(
+        Object.entries(groups).map(async ([recipeCode, list]) => {
+          const ref = doc(db, 'adGroups', id, 'recipes', recipeCode);
+          const snap = await getDoc(ref);
+          const version = snap.exists() && snap.data().version ? snap.data().version : 1;
+          await setDoc(
+            ref,
+            {
+              status: 'ready',
+              lastUpdatedAt: serverTimestamp(),
+              lastUpdatedBy: null,
+              brandCode: group?.brandCode || '',
+              ...(snap.exists() && snap.data().version ? {} : { version }),
+            },
+            { merge: true }
+          );
+          await Promise.all(
+            list.map(({ asset, info }) =>
+              setDoc(
+                doc(db, 'adGroups', id, 'recipes', recipeCode, 'assets', asset.id),
+                {
+                  firebaseUrl: asset.firebaseUrl || null,
+                  aspectRatio: info.aspectRatio || '',
+                  version,
+                  parentAssetId: asset.parentAdId || null,
+                },
+                { merge: true }
+              )
+            )
+          );
+        })
+      );
       batch.update(doc(db, 'adGroups', id), { status: 'ready' });
       await batch.commit();
     } catch (err) {
