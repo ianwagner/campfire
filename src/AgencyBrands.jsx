@@ -120,7 +120,7 @@ const AgencyBrands = () => {
       ) : brands.length === 0 ? (
         <p>No brands found.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto table-container">
         <table className="ad-table min-w-max">
           <thead>
             <tr>

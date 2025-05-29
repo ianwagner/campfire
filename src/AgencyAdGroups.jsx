@@ -71,7 +71,7 @@ const AgencyAdGroups = () => {
       ) : groups.length === 0 ? (
         <p>No ad groups found.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto table-container">
         <table className="ad-table min-w-max">
           <thead>
             <tr>

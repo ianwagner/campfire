@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiEye, FiCheckCircle, FiTrash, FiClock, FiLink } from 'react-icons/fi';
+import {
+  FiEye,
+  FiCheckCircle,
+  FiTrash,
+  FiClock,
+  FiLink,
+  FiThumbsUp,
+  FiThumbsDown,
+  FiEdit,
+} from 'react-icons/fi';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from './firebase/config';
 import deleteGroup from './utils/deleteGroup';
@@ -80,16 +89,16 @@ const AdminAdGroups = () => {
         ) : groups.length === 0 ? (
           <p>No ad groups found.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto table-container">
           <table className="ad-table min-w-max">
             <thead>
               <tr>
                 <th>Group Name</th>
                 <th>Brand</th>
                 <th>Status</th>
-                <th>Approved</th>
-                <th>Rejected</th>
-                <th>Edit</th>
+                <th className="text-center"><FiThumbsUp aria-label="Approved" /></th>
+                <th className="text-center"><FiThumbsDown aria-label="Rejected" /></th>
+                <th className="text-center"><FiEdit aria-label="Edit Requested" /></th>
                 <th>Note</th>
                 <th>Actions</th>
               </tr>

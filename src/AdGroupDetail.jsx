@@ -461,7 +461,7 @@ const AdGroupDetail = () => {
       </div>
 
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto table-container">
         <table className="ad-table min-w-max">
           <thead>
             <tr>
@@ -484,7 +484,7 @@ const AdGroupDetail = () => {
                       expanded[g.recipeCode] ? 'open' : ''
                     }`}
                   >
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto table-container">
                     <table className="ad-table min-w-max w-full">
                       <tbody>
                         {g.assets.map((a) => (
@@ -614,7 +614,7 @@ const AdGroupDetail = () => {
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-md">
             <h3 className="mb-2 font-semibold">Recipe {historyRecipe.recipeCode} History</h3>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto table-container">
             <table className="ad-table min-w-max text-sm mb-2">
               <thead>
                 <tr>
