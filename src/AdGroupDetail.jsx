@@ -24,6 +24,7 @@ import { uploadFile } from './uploadFile';
 import parseAdFilename from './utils/parseAdFilename';
 import StatusBadge from './components/StatusBadge.jsx';
 import OptimizedImage from './components/OptimizedImage.jsx';
+import computeGroupStatus from './utils/computeGroupStatus';
 
 const AdGroupDetail = () => {
   const { id } = useParams();
@@ -121,6 +122,10 @@ const AdGroupDetail = () => {
         lastUpdated: serverTimestamp(),
         ...(group.thumbnailUrl ? {} : summary.thumbnail ? { thumbnailUrl: summary.thumbnail } : {}),
       };
+      const newStatus = computeGroupStatus(assets, group.status);
+      if (newStatus !== group.status) {
+        update.status = newStatus;
+      }
       updateDoc(doc(db, 'adGroups', id), update).catch((err) =>
         console.error('Failed to update summary', err)
       );
@@ -200,9 +205,31 @@ const AdGroupDetail = () => {
     setViewRecipe(null);
   };
 
+  const toggleLock = async () => {
+    if (!group) return;
+    const newStatus =
+      group.status === 'locked'
+        ? computeGroupStatus(assets, 'pending')
+        : 'locked';
+    try {
+      await updateDoc(doc(db, 'adGroups', id), { status: newStatus });
+      setGroup((p) => ({ ...p, status: newStatus }));
+    } catch (err) {
+      console.error('Failed to toggle lock', err);
+    }
+  };
+
 
   const handleUpload = async (selectedFiles) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
+    if (group?.status !== 'locked' && group?.status !== 'pending') {
+      try {
+        await updateDoc(doc(db, 'adGroups', id), { status: 'pending' });
+        setGroup((p) => ({ ...p, status: 'pending' }));
+      } catch (err) {
+        console.error('Failed to update group status', err);
+      }
+    }
     const existing = new Set(assets.map((a) => a.filename));
     const used = new Set();
     const files = [];
@@ -440,9 +467,13 @@ const AdGroupDetail = () => {
     <div className="min-h-screen p-4 ">
         <h1 className="text-2xl mb-2">{group.name}</h1>
       <p className="text-sm text-gray-500">Brand: {group.brandCode}</p>
-      <p className="text-sm text-gray-500 mb-4">
-        Status:{' '}
-        <StatusBadge status={group.status} />
+      <p className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+        Status: <StatusBadge status={group.status} />
+        {(userRole === 'admin' || userRole === 'agency') && (
+          <button onClick={toggleLock} className="btn-secondary px-2 py-0.5">
+            {group.status === 'locked' ? 'Unlock' : 'Lock'}
+          </button>
+        )}
       </p>
 
       <div className="mb-4">
@@ -648,7 +679,12 @@ const AdGroupDetail = () => {
       <div className="mt-6">
         <button
           onClick={markReady}
-          disabled={readyLoading || assets.length === 0 || group.status === 'ready'}
+          disabled={
+            readyLoading ||
+            assets.length === 0 ||
+            group.status === 'ready' ||
+            group.status === 'locked'
+          }
           className="btn-approve"
         >
           {readyLoading ? 'Processing...' : 'Mark as Ready for Review'}

@@ -243,6 +243,14 @@
     background-color: var(--pending-color-10);
     color: white;
   }
+  .status-reviewed {
+    background-color: var(--approve-color-10);
+    color: white;
+  }
+  .status-locked {
+    background-color: var(--table-row-alt-bg);
+    color: white;
+  }
   .status-mixed {
     background-color: var(--edit-color-10);
     color: white;
