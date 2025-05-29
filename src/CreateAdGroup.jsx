@@ -46,7 +46,7 @@ const CreateAdGroup = ({ showSidebar = true }) => {
         notes: notes.trim(),
         uploadedBy: auth.currentUser?.uid || null,
         createdAt: serverTimestamp(),
-        status: 'draft',
+        status: 'pending',
         reviewedCount: 0,
         approvedCount: 0,
         editCount: 0,
