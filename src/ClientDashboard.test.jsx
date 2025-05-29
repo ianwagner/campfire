@@ -23,7 +23,7 @@ jest.mock('firebase/firestore', () => ({
 test('computes summary for groups missing data', async () => {
   const groupSnap = {
     docs: [
-      { id: 'g1', data: () => ({ brandCode: 'B1', status: 'ready' }) },
+      { id: 'g1', data: () => ({ brandCode: 'B1', status: 'ready', name: 'Group 1' }) },
     ],
   };
   const assetSnap = {
@@ -44,8 +44,7 @@ test('computes summary for groups missing data', async () => {
     </MemoryRouter>
   );
 
-  await waitFor(() => screen.getByText('APPROVED 1'));
-  expect(screen.getByText('REJECTED 1')).toBeInTheDocument();
+  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
   expect(updateDoc).toHaveBeenCalledWith(
     'adGroups/g1',
     expect.objectContaining({ approvedCount: 1, rejectedCount: 1 })

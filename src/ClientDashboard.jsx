@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import OptimizedImage from './components/OptimizedImage.jsx';
+import StatusBadge from './components/StatusBadge.jsx';
 import { db } from './firebase/config';
 import {
   collection,
@@ -9,7 +10,49 @@ import {
   where,
   doc,
   updateDoc,
+  limit,
 } from 'firebase/firestore';
+
+const GroupCard = ({ group }) => {
+  const rotations = useMemo(
+    () => group.previewAds.map(() => Math.random() * 10 - 5),
+    [group.id, group.previewAds.length]
+  );
+  return (
+    <Link
+      to={`/review/${group.id}`}
+      className="border rounded shadow bg-white overflow-hidden block p-3 text-center"
+    >
+      <div className="relative h-36 mb-2">
+        {group.previewAds.map((ad, i) => (
+          <OptimizedImage
+            key={ad.id}
+            pngUrl={ad.thumbnailUrl || ad.firebaseUrl}
+            alt={group.name}
+            className="absolute inset-0 w-full h-full object-cover rounded"
+            style={{
+              transform: `rotate(${rotations[i]}deg)`,
+              zIndex: i + 1,
+              top: `${-i * 4}px`,
+              left: `${i * 4}px`,
+            }}
+          />
+        ))}
+      </div>
+      <div className="flex justify-center items-center gap-2 mb-1 text-sm">
+        <StatusBadge status={group.status} />
+        {group.hasReady ? (
+          <span className="tag tag-new">New!</span>
+        ) : group.counts.approved > 0 ? (
+          <span className="tag bg-green-500 text-white">
+            {group.counts.approved} Approved
+          </span>
+        ) : null}
+      </div>
+      <h3 className="font-medium">{group.name}</h3>
+    </Link>
+  );
+};
 
 const ClientDashboard = ({ user, brandCodes = [] }) => {
   const [groups, setGroups] = useState([]);
@@ -47,6 +90,35 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                 rejected: data.rejectedCount || 0,
               },
             };
+
+            let previewSnap;
+            try {
+              previewSnap = await getDocs(
+                query(collection(db, 'adGroups', d.id, 'assets'), limit(3))
+              );
+            } catch (err) {
+              console.error('Failed to load preview ads', err);
+              previewSnap = { docs: [] };
+            }
+            group.previewAds = previewSnap.docs.map((adDoc) => ({
+              id: adDoc.id,
+              ...adDoc.data(),
+            }));
+
+            let hasReady = false;
+            try {
+              const readySnap = await getDocs(
+                query(
+                  collection(db, 'adGroups', d.id, 'assets'),
+                  where('status', '==', 'ready'),
+                  limit(1)
+                )
+              );
+              hasReady = !readySnap.empty;
+            } catch (err) {
+              console.error('Failed to check ready status', err);
+            }
+            group.hasReady = hasReady;
 
             const needsSummary =
               !data.thumbnailUrl ||
@@ -114,10 +186,6 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
     fetchGroups();
   }, [brandCodes, user]);
 
-  const lastLogin = user?.metadata?.lastSignInTime
-    ? new Date(user.metadata.lastSignInTime)
-    : null;
-
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Client Dashboard</h1>
@@ -127,55 +195,9 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
         <p>No ad groups found.</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {groups.map((g) => {
-            const viewedStr = localStorage.getItem(`lastViewed-${g.id}`);
-            const lastViewed = viewedStr ? new Date(viewedStr) : lastLogin;
-            const isNew = g.lastUpdated && (!lastViewed || g.lastUpdated > lastViewed);
-            const date = g.lastUpdated
-              ? g.lastUpdated
-              : g.createdAt?.toDate
-              ? g.createdAt.toDate()
-              : null;
-            const dateStr = date
-              ? date.toLocaleDateString(undefined, {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })
-              : '';
-            return (
-              <Link
-                to={`/review/${g.id}`}
-                key={g.id}
-                className="border rounded shadow bg-white overflow-hidden block"
-              >
-                <div className="flex flex-col md:flex-row">
-                  {g.thumbnail && (
-                    <OptimizedImage
-                      pngUrl={g.thumbnail}
-                      alt={g.name}
-                      className="w-full md:w-32 h-48 md:h-auto object-cover"
-                    />
-                  )}
-                  <div className="p-3 flex flex-col flex-grow">
-                    <div className="flex items-center mb-1">
-                      <h3 className="font-medium flex-grow">{g.name}</h3>
-                      {isNew && (
-                        <span className="ml-2 tag tag-new">NEW</span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500 mb-2">{dateStr}</p>
-                    <div className="mt-auto flex flex-wrap gap-1 text-xs">
-                      <span className="tag tag-pill">REVIEWED {g.counts.reviewed}</span>
-                      <span className="tag tag-pill">APPROVED {g.counts.approved}</span>
-                      <span className="tag tag-pill">EDIT REQUEST {g.counts.edit}</span>
-                      <span className="tag tag-pill">REJECTED {g.counts.rejected}</span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+          {groups.map((g) => (
+            <GroupCard key={g.id} group={g} />
+          ))}
         </div>
       )}
     </div>
