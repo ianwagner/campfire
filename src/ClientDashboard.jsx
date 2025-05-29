@@ -194,7 +194,6 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
 
   return (
     <div className="min-h-screen p-4">
-      <h1 className="text-2xl mb-4">Client Dashboard</h1>
       {loading ? (
         <p>Loading groups...</p>
       ) : groups.length === 0 ? (

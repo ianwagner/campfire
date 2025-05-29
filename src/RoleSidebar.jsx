@@ -7,7 +7,7 @@ const RoleSidebar = ({ role, agencyId }) => {
   if (role === 'admin') return <AdminSidebar />;
   if (role === 'designer') return <DesignerSidebar />;
   if (role === 'agency') return <AgencySidebar agencyId={agencyId} />;
-  return <Sidebar />;
+  return <Sidebar agencyId={agencyId} />;
 };
 
 export default RoleSidebar;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { db } from './firebase/config';
 
 const useUserRole = (uid) => {
@@ -46,6 +46,30 @@ const useUserRole = (uid) => {
 
     return () => unsub();
   }, [uid]);
+
+  useEffect(() => {
+    if (agencyId || brandCodes.length === 0) return;
+    let cancelled = false;
+    const fetchAgency = async () => {
+      try {
+        const q = query(
+          collection(db, 'brands'),
+          where('code', 'in', brandCodes),
+          limit(1)
+        );
+        const snap = await getDocs(q);
+        if (!cancelled && !snap.empty) {
+          setAgencyId(snap.docs[0].data().agencyId || null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch brand agency', err);
+      }
+    };
+    fetchAgency();
+    return () => {
+      cancelled = true;
+    };
+  }, [brandCodes, agencyId]);
 
   return { role, brandCodes, agencyId, loading };
 };
