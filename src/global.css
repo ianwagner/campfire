@@ -130,6 +130,8 @@
   }
   .tag-pill {
     background-color: var(--accent-color-10);
+    color: white;
+    font-weight: var(--font-weight-bold);
   }
   input,
   textarea,

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
+import parseAdFilename from './utils/parseAdFilename.js';
 import { db } from './firebase/config';
 import {
   collection,
@@ -18,18 +19,23 @@ const GroupCard = ({ group }) => {
     () => group.previewAds.map(() => Math.random() * 10 - 5),
     [group.id, group.previewAds.length]
   );
+
+  const first = group.previewAds[0] || {};
+  const info = parseAdFilename(first.filename || "");
+  const aspect = (first.aspectRatio || info.aspectRatio || "9x16").replace(
+    "x",
+    "/"
+  );
+
   return (
-    <Link
-      to={`/review/${group.id}`}
-      className="border rounded shadow bg-white overflow-hidden block p-3 text-center"
-    >
-      <div className="relative h-36 mb-2">
+    <Link to={`/review/${group.id}`} className="block text-center p-3">
+      <div className="relative mb-2" style={{ aspectRatio: aspect }}>
         {group.previewAds.map((ad, i) => (
           <OptimizedImage
             key={ad.id}
             pngUrl={ad.thumbnailUrl || ad.firebaseUrl}
             alt={group.name}
-            className="absolute inset-0 w-full h-full object-cover rounded"
+            className="absolute inset-0 w-full h-full object-cover rounded shadow"
             style={{
               transform: `rotate(${rotations[i]}deg)`,
               zIndex: i + 1,
@@ -40,7 +46,7 @@ const GroupCard = ({ group }) => {
         ))}
       </div>
       <div className="flex justify-center items-center gap-2 mb-1 text-sm">
-        <StatusBadge status={group.status} />
+        {group.status !== "ready" && <StatusBadge status={group.status} />}
         {group.hasReady ? (
           <span className="tag tag-new">New!</span>
         ) : group.counts.approved > 0 ? (
@@ -49,7 +55,7 @@ const GroupCard = ({ group }) => {
           </span>
         ) : null}
       </div>
-      <h3 className="font-medium">{group.name}</h3>
+      <h3 className="font-medium text-black dark:text-white">{group.name}</h3>
     </Link>
   );
 };
