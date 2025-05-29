@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { FiEye, FiCheckCircle, FiShare2, FiTrash, FiClock } from 'react-icons/fi';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from './firebase/config';
 import deleteGroup from './utils/deleteGroup';
@@ -122,26 +123,30 @@ const AdminAdGroups = () => {
                     <Link
                       to={`/ad-group/${g.id}`}
                       className="text-blue-500 underline"
+                      aria-label="View Details"
                     >
-                      View Details
+                      <FiEye />
                     </Link>
                     <Link
                       to={`/review/${g.id}`}
                       className="ml-2 text-blue-500 underline"
+                      aria-label="Review"
                     >
-                      Review
+                      <FiCheckCircle />
                     </Link>
                     <button
                       onClick={() => copyLink(g.id)}
                       className="ml-2 text-blue-500 underline"
+                      aria-label="Share Link"
                     >
-                      Share Link
+                      <FiShare2 />
                     </button>
                     <button
                       onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
                       className="ml-2 underline btn-delete"
+                      aria-label="Delete"
                     >
-                      Delete
+                      <FiTrash />
                     </button>
                   </td>
                 </tr>

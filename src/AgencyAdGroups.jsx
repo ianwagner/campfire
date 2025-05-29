@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
+import { FiEye, FiCheckCircle, FiShare2, FiClock } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -77,20 +78,26 @@ const AgencyAdGroups = () => {
                   <span className={`status-badge status-${g.status}`}>{g.status}</span>
                 </td>
                 <td className="text-center">
-                  <Link to={`/ad-group/${g.id}`} className="text-blue-500 underline">
-                    View Details
+                  <Link
+                    to={`/ad-group/${g.id}`}
+                    className="text-blue-500 underline"
+                    aria-label="View Details"
+                  >
+                    <FiEye />
                   </Link>
                   <Link
                     to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
                     className="ml-2 text-blue-500 underline"
+                    aria-label="Review"
                   >
-                    Review
+                    <FiCheckCircle />
                   </Link>
                   <button
                     onClick={() => copyLink(g.id, agencyId)}
                     className="ml-2 text-blue-500 underline"
+                    aria-label="Share Link"
                   >
-                    Share Link
+                    <FiShare2 />
                   </button>
                 </td>
               </tr>
