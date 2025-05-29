@@ -3,7 +3,6 @@ import { updateProfile, updateEmail, updatePassword, multiFactor } from 'firebas
 import { useNavigate } from 'react-router-dom';
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
-import ThemeToggle from './ThemeToggle';
 import useTheme from './useTheme';
 
 const AccountSettingsForm = () => {
@@ -113,8 +112,6 @@ const AccountSettingsForm = () => {
         {message && <p className="text-green-600 text-sm">{message}</p>}
         <button type="submit" className="btn-primary">Save Changes</button>
       </form>
-      <p className="text-sm">Use the button to preview:</p>
-      <ThemeToggle />
     </div>
   );
 };
