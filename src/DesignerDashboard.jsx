@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiEye, FiLink, FiTrash, FiClock } from 'react-icons/fi';
+import { FiEye, FiShare2, FiTrash, FiClock } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -127,32 +127,27 @@ const DesignerDashboard = () => {
                     )}
                   </td>
                   <td className="text-center">
-                    <div className="action-buttons">
-                      <Link
-                        to={`/ad-group/${g.id}`}
-                        className="text-blue-500 underline"
-                        aria-label="View Details"
-                        title="View Details"
-                      >
-                        <FiEye />
-                      </Link>
-                      <button
-                        onClick={() => copyLink(g.id)}
-                        className="text-blue-500 underline"
-                        aria-label="Copy Link"
-                        title="Copy Link"
-                      >
-                        <FiLink />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                        className="underline btn-delete"
-                        aria-label="Delete"
-                        title="Delete"
-                      >
-                        <FiTrash />
-                      </button>
-                    </div>
+                    <Link
+                      to={`/ad-group/${g.id}`}
+                      className="text-blue-500 underline"
+                      aria-label="View Details"
+                    >
+                      <FiEye />
+                    </Link>
+                    <button
+                      onClick={() => copyLink(g.id)}
+                      className="ml-2 text-blue-500 underline"
+                      aria-label="Share Link"
+                    >
+                      <FiShare2 />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
+                      className="ml-2 underline btn-delete"
+                      aria-label="Delete"
+                    >
+                      <FiTrash />
+                    </button>
                   </td>
                 </tr>
               ))}

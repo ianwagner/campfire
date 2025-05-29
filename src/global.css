@@ -122,9 +122,6 @@
   .btn-delete {
     @apply text-red-600 hover:text-red-800;
   }
-  .action-buttons {
-    @apply flex items-center justify-center gap-2;
-  }
   .tag {
     @apply text-xs px-2 py-0.5 rounded-full;
   }
