@@ -1,7 +1,8 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
 import React, { useState, useEffect, useMemo } from 'react';
-import { FiEdit } from 'react-icons/fi';
+import { FiEdit, FiX } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 import {
   collection,
   collectionGroup,
@@ -51,6 +52,7 @@ const Review = ({
   const [showSizes, setShowSizes] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const { agency } = useAgencyTheme(agencyId);
+  const navigate = useNavigate();
   const [hasPending, setHasPending] = useState(false);
   const [pendingOnly, setPendingOnly] = useState(false);
 
@@ -662,17 +664,27 @@ const Review = ({
         )}
         {/* Gallery view removed */}
         {!secondPass && (
-          <div
-            className="progress-bar"
-            role="progressbar"
-            aria-valuenow={progress}
-            aria-valuemin="0"
-            aria-valuemax="100"
-          >
+          <div className="flex items-center w-full max-w-md mb-2.5">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              aria-label="Exit Review"
+              className="mr-2 text-gray-500 hover:text-black dark:hover:text-white"
+            >
+              <FiX />
+            </button>
             <div
-              className="progress-bar-inner"
-              style={{ width: `${progress}%` }}
-            />
+              className="progress-bar flex-grow"
+              role="progressbar"
+              aria-valuenow={progress}
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              <div
+                className="progress-bar-inner"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
           </div>
         )}
         {currentRecipeGroup && currentRecipeGroup.assets.length > 1 && (
