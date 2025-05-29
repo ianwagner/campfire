@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { FiEye, FiCheckCircle, FiShare2, FiClock } from 'react-icons/fi';
+import { FiEye, FiCheckCircle, FiLink, FiTrash, FiClock } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -8,6 +8,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
+import deleteGroup from './utils/deleteGroup';
 import useUserRole from './useUserRole';
 
 const AgencyAdGroups = () => {
@@ -52,6 +53,16 @@ const AgencyAdGroups = () => {
     fetchGroups();
   }, [agencyId]);
 
+  const handleDeleteGroup = async (groupId, brandCode, groupName) => {
+    if (!window.confirm('Delete this group?')) return;
+    try {
+      await deleteGroup(groupId, brandCode, groupName);
+      setGroups((prev) => prev.filter((g) => g.id !== groupId));
+    } catch (err) {
+      console.error('Failed to delete group', err);
+    }
+  };
+
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Ad Groups</h1>
@@ -78,27 +89,40 @@ const AgencyAdGroups = () => {
                   <span className={`status-badge status-${g.status}`}>{g.status}</span>
                 </td>
                 <td className="text-center">
-                  <Link
-                    to={`/ad-group/${g.id}`}
-                    className="text-blue-500 underline"
-                    aria-label="View Details"
-                  >
-                    <FiEye />
-                  </Link>
-                  <Link
-                    to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
-                    className="ml-2 text-blue-500 underline"
-                    aria-label="Review"
-                  >
-                    <FiCheckCircle />
-                  </Link>
-                  <button
-                    onClick={() => copyLink(g.id, agencyId)}
-                    className="ml-2 text-blue-500 underline"
-                    aria-label="Share Link"
-                  >
-                    <FiShare2 />
-                  </button>
+                  <div className="action-buttons">
+                    <Link
+                      to={`/ad-group/${g.id}`}
+                      className="text-blue-500 underline"
+                      aria-label="View Details"
+                      title="View Details"
+                    >
+                      <FiEye />
+                    </Link>
+                    <Link
+                      to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
+                      className="text-blue-500 underline"
+                      aria-label="Review"
+                      title="Review"
+                    >
+                      <FiCheckCircle />
+                    </Link>
+                    <button
+                      onClick={() => copyLink(g.id, agencyId)}
+                      className="text-blue-500 underline"
+                      aria-label="Copy Link"
+                      title="Copy Link"
+                    >
+                      <FiLink />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
+                      className="underline btn-delete"
+                      aria-label="Delete"
+                      title="Delete"
+                    >
+                      <FiTrash />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
