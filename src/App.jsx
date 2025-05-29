@@ -34,7 +34,7 @@ import RoleGuard from "./RoleGuard";
 import useUserRole from "./useUserRole";
 import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
-import EnrollMfa from "./EnrollMfa";
+import ManageMfa from "./ManageMfa";
 import RequireMfa from "./RequireMfa";
 import SiteSettings from "./SiteSettings";
 import RoleSidebar from "./RoleSidebar";
@@ -390,7 +390,7 @@ const App = () => {
               }
             />
             <Route
-              path="/enroll-mfa"
+              path="/mfa-settings"
               element={
                 user ? (
                   <RoleGuard
@@ -398,7 +398,7 @@ const App = () => {
                     userRole={role}
                     loading={roleLoading}
                   >
-                    <EnrollMfa user={user} role={role} />
+                    <ManageMfa user={user} role={role} />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

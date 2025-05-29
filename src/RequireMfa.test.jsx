@@ -25,7 +25,7 @@ test('redirects to enroll page when no factors', () => {
     </RequireMfa>
   );
 
-  expect(navigate).toHaveBeenCalledWith('/enroll-mfa', { replace: true });
+  expect(navigate).toHaveBeenCalledWith('/mfa-settings', { replace: true });
 });
 
 test('shows children when factors exist', () => {
@@ -54,5 +54,5 @@ test('redirects agency to enroll page when no factors', () => {
     </RequireMfa>
   );
 
-  expect(navigate).toHaveBeenCalledWith('/enroll-mfa', { replace: true });
+  expect(navigate).toHaveBeenCalledWith('/mfa-settings', { replace: true });
 });

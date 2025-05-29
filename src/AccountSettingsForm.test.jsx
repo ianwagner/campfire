@@ -18,6 +18,7 @@ jest.mock('firebase/auth', () => ({
   updateProfile: (...args) => updateProfile(...args),
   updateEmail: (...args) => updateEmail(...args),
   updatePassword: (...args) => updatePassword(...args),
+  multiFactor: () => ({ enrolledFactors: [] }),
 }));
 
 jest.mock('firebase/firestore', () => ({
@@ -40,4 +41,10 @@ test('updates profile information', async () => {
   expect(updateEmail).toHaveBeenCalledWith(expect.any(Object), 'new@e.com');
   expect(updatePassword).toHaveBeenCalledWith(expect.any(Object), 'pass');
   expect(updateDoc).toHaveBeenCalledWith('users/u1', { fullName: 'New', email: 'new@e.com' });
+});
+
+test('shows security section', () => {
+  render(<AccountSettingsForm />);
+  expect(screen.getByText('Login & Security')).toBeInTheDocument();
+  expect(screen.getByText('Set Up MFA')).toBeInTheDocument();
 });

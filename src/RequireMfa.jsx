@@ -11,9 +11,9 @@ const RequireMfa = ({ user, role, children }) => {
       user &&
       ['admin', 'client', 'agency'].includes(role) &&
       multiFactor(user).enrolledFactors.length === 0 &&
-      location.pathname !== '/enroll-mfa'
+      location.pathname !== '/mfa-settings'
     ) {
-      navigate('/enroll-mfa', { replace: true });
+      navigate('/mfa-settings', { replace: true });
     }
   }, [user, role, location.pathname, navigate]);
 

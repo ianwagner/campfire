@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import EnrollMfa from './EnrollMfa';
+import ManageMfa from './ManageMfa';
 
 jest.mock('./firebase/config', () => ({ auth: {} }));
 
@@ -27,19 +27,19 @@ afterEach(() => {
 });
 
 test('blocks enrollment when email is unverified', () => {
-  render(<EnrollMfa user={{ emailVerified: false } as any} role="admin" />);
+  render(<ManageMfa user={{ emailVerified: false } as any} role="admin" />);
   expect(screen.getByText(/Please verify your email/i)).toBeInTheDocument();
   expect(screen.queryByLabelText(/Phone Number/i)).not.toBeInTheDocument();
 });
 
 test('resends verification email when button clicked', () => {
-  render(<EnrollMfa user={{ emailVerified: false } as any} role="admin" />);
+  render(<ManageMfa user={{ emailVerified: false } as any} role="admin" />);
   fireEvent.click(screen.getByText(/Resend Verification Email/i));
   expect(sendEmailVerification).toHaveBeenCalled();
 });
 
 test('formats phone number input to E.164', () => {
-  render(<EnrollMfa user={{ emailVerified: true } as any} role="admin" />);
+  render(<ManageMfa user={{ emailVerified: true } as any} role="admin" />);
   const input = screen.getByLabelText(/Phone Number/i) as HTMLInputElement;
   fireEvent.change(input, { target: { value: '15551234567' } });
   expect(input.value).toBe('+15551234567');
@@ -55,7 +55,7 @@ test('shows message when recent login required', async () => {
   });
 
   render(
-    <EnrollMfa user={{ emailVerified: true } as any} role="admin" />
+    <ManageMfa user={{ emailVerified: true } as any} role="admin" />
   );
 
   fireEvent.change(screen.getByLabelText(/Phone Number/i), {
@@ -69,6 +69,6 @@ test('shows message when recent login required', async () => {
 });
 
 test('allows enrollment for agency role', () => {
-  render(<EnrollMfa user={{ emailVerified: true } as any} role="agency" />);
+  render(<ManageMfa user={{ emailVerified: true } as any} role="agency" />);
   expect(screen.getByLabelText(/Phone Number/i)).toBeInTheDocument();
 });
