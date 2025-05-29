@@ -1,6 +1,7 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
 import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { FiEye, FiClock, FiTrash } from 'react-icons/fi';
 import { useParams } from 'react-router-dom';
 import {
   doc,
@@ -22,6 +23,7 @@ import useUserRole from './useUserRole';
 import { uploadFile } from './uploadFile';
 import parseAdFilename from './utils/parseAdFilename';
 import StatusBadge from './components/StatusBadge.jsx';
+import OptimizedImage from './components/OptimizedImage.jsx';
 
 const AdGroupDetail = () => {
   const { id } = useParams();
@@ -32,6 +34,8 @@ const AdGroupDetail = () => {
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
   const [expanded, setExpanded] = useState({});
+  const [historyRecipe, setHistoryRecipe] = useState(null);
+  const [viewRecipe, setViewRecipe] = useState(null);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
@@ -155,6 +159,45 @@ const AdGroupDetail = () => {
 
   const toggleRecipe = (code) => {
     setExpanded((prev) => ({ ...prev, [code]: !prev[code] }));
+  };
+
+  const openHistory = async (recipeCode) => {
+    const list = assets.filter((a) => {
+      const info = parseAdFilename(a.filename || '');
+      return (info.recipeCode || 'unknown') === recipeCode;
+    });
+    const uids = Array.from(
+      new Set(list.map((a) => a.lastUpdatedBy).filter(Boolean))
+    );
+    const emails = {};
+    await Promise.all(
+      uids.map(async (uid) => {
+        try {
+          const snap = await getDoc(doc(db, 'users', uid));
+          emails[uid] = snap.exists() ? snap.data().email || uid : uid;
+        } catch (_) {
+          emails[uid] = uid;
+        }
+      })
+    );
+    const hist = list.map((a) => ({
+      ...a,
+      email: a.lastUpdatedBy ? emails[a.lastUpdatedBy] : 'N/A',
+    }));
+    setHistoryRecipe({ recipeCode, assets: hist });
+  };
+
+  const openView = (recipeCode) => {
+    const list = assets.filter((a) => {
+      const info = parseAdFilename(a.filename || '');
+      return (info.recipeCode || 'unknown') === recipeCode;
+    });
+    setViewRecipe({ recipeCode, assets: list });
+  };
+
+  const closeModals = () => {
+    setHistoryRecipe(null);
+    setViewRecipe(null);
   };
 
 
@@ -425,7 +468,7 @@ const AdGroupDetail = () => {
               <th>Filename</th>
               <th>Version</th>
               <th>Status</th>
-              <th>Delete</th>
+              <th>Actions</th>
             </tr>
           </thead>
           {recipeGroups.map((g) => (
@@ -438,7 +481,7 @@ const AdGroupDetail = () => {
                   Recipe {g.recipeCode}
                 </td>
                 <td>
-                    {userRole === 'designer' ? (
+                    {userRole === 'designer' || userRole === 'client' ? (
                       getRecipeStatus(g.assets) === 'pending' ? (
                         <select
                           className="p-1 border rounded"
@@ -468,8 +511,26 @@ const AdGroupDetail = () => {
                     )}
                   </td>
                   <td className="text-center">
-                    <button onClick={() => deleteRecipe(g.recipeCode)} className="btn-delete">
-                      🗑️
+                    <button
+                      onClick={() => openView(g.recipeCode)}
+                      className="btn-secondary px-2 py-1 mr-1"
+                      aria-label="View"
+                    >
+                      <FiEye />
+                    </button>
+                    <button
+                      onClick={() => openHistory(g.recipeCode)}
+                      className="btn-secondary px-2 py-1 mr-1"
+                      aria-label="History"
+                    >
+                      <FiClock />
+                    </button>
+                    <button
+                      onClick={() => deleteRecipe(g.recipeCode)}
+                      className="btn-delete"
+                      aria-label="Delete"
+                    >
+                      <FiTrash />
                     </button>
                   </td>
                 </tr>
@@ -480,8 +541,12 @@ const AdGroupDetail = () => {
                       <td className="text-center">{a.version || 1}</td>
                       <td></td>
                       <td className="text-center">
-                        <button onClick={() => deleteAsset(a)} className="btn-delete">
-                          🗑️
+                        <button
+                          onClick={() => deleteAsset(a)}
+                          className="btn-delete"
+                          aria-label="Delete"
+                        >
+                          <FiTrash />
                         </button>
                       </td>
                     </tr>
@@ -490,6 +555,60 @@ const AdGroupDetail = () => {
               ))}
         </table>
       </div>
+
+      {viewRecipe && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-md">
+            <h3 className="mb-2 font-semibold">Recipe {viewRecipe.recipeCode}</h3>
+            <div className="grid grid-cols-2 gap-2 max-h-[60vh] overflow-auto">
+              {viewRecipe.assets.map((a) => (
+                <OptimizedImage
+                  key={a.id}
+                  pngUrl={a.thumbnailUrl || a.firebaseUrl}
+                  alt={a.filename}
+                  className="w-full object-contain max-h-40"
+                />
+              ))}
+            </div>
+            <button onClick={closeModals} className="mt-2 btn-primary px-3 py-1">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {historyRecipe && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-md">
+            <h3 className="mb-2 font-semibold">Recipe {historyRecipe.recipeCode} History</h3>
+            <table className="ad-table text-sm mb-2">
+              <thead>
+                <tr>
+                  <th>Version</th>
+                  <th>Decision</th>
+                  <th>Reviewer</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyRecipe.assets.map((a) => (
+                  <tr key={a.id}>
+                    <td className="text-center">{a.version || 1}</td>
+                    <td>{a.status}</td>
+                    <td>{a.email}</td>
+                    <td>
+                      {a.lastUpdatedAt?.toDate
+                        ? a.lastUpdatedAt.toDate().toLocaleDateString()
+                        : ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <button onClick={closeModals} className="btn-primary px-3 py-1">Close</button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6">
         <button
