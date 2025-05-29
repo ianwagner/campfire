@@ -333,7 +333,6 @@ const Review = ({
 
   const handleTouchEnd = () => {
     if (!dragging) return;
-    setDragging(false);
     const dx = touchEndX.current - touchStartX.current;
     const dy = Math.abs(touchEndY.current - touchStartY.current);
     if (Math.abs(dx) > 100 && dy < 100) {
@@ -346,6 +345,7 @@ const Review = ({
     } else {
       setSwipeX(0);
     }
+    setDragging(false);
   };
   const statusMap = {
     approve: 'Approved',
