@@ -51,6 +51,9 @@ const Review = ({
   const [secondPass, setSecondPass] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
+  const [swipeX, setSwipeX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [disableTransition, setDisableTransition] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
@@ -309,23 +312,37 @@ const Review = ({
     touchStartY.current = touch.clientY;
     touchEndX.current = touch.clientX;
     touchEndY.current = touch.clientY;
+    setDragging(true);
+    setSwipeX(0);
   };
 
   const handleTouchMove = (e) => {
+    if (!dragging) return;
     const touch = e.touches[0];
+    const dx = touch.clientX - touchStartX.current;
+    const dy = touch.clientY - touchStartY.current;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      e.preventDefault();
+    }
     touchEndX.current = touch.clientX;
     touchEndY.current = touch.clientY;
+    setSwipeX(dx);
   };
 
   const handleTouchEnd = () => {
+    if (!dragging) return;
+    setDragging(false);
     const dx = touchEndX.current - touchStartX.current;
     const dy = Math.abs(touchEndY.current - touchStartY.current);
-    if (Math.abs(dx) > 50 && dy < 100) {
+    if (Math.abs(dx) > 100 && dy < 100) {
       if (dx > 0) {
         submitResponse('approve');
       } else {
         submitResponse('reject');
       }
+      setSwipeX(0);
+    } else {
+      setSwipeX(0);
     }
   };
   const statusMap = {
@@ -508,7 +525,9 @@ const Review = ({
       setComment('');
       setShowComment(false);
       setTimeout(() => {
+        setDisableTransition(true);
         setCurrentIndex((i) => i + 1);
+        setSwipeX(0);
         if (responseType === 'reject') {
           const newStreak = rejectionStreak + 1;
           setRejectionStreak(newStreak);
@@ -519,6 +538,7 @@ const Review = ({
           setRejectionStreak(0);
         }
         setAnimating(null);
+        requestAnimationFrame(() => setDisableTransition(false));
       }, 400);
     } catch (err) {
       console.error('Failed to submit response', err);
@@ -758,17 +778,20 @@ const Review = ({
             className={`relative z-10 ${
               isMobile && showSizes
                 ? 'flex flex-col items-center overflow-y-auto h-[72vh]'
-                : 'size-container transition-transform'
+                : 'size-container'
             } ${animating === 'approve' ? 'approve-slide' : ''} ${
               animating === 'reject' ? 'reject-slide' : ''
             }`}
             style={
               isMobile && showSizes
                 ? {}
+                : animating
+                ? {}
                 : {
                     transform: showSizes
                       ? `translateX(-${otherSizes.length * 55}%)`
-                      : 'translateX(0)',
+                      : `translateX(${swipeX}px)`,
+                    transition: dragging || disableTransition ? 'none' : undefined,
                   }
             }
           >
