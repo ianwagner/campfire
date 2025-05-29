@@ -172,16 +172,34 @@
   .recipe-row {
     font-size: 12px;
     background-color: var(--table-row-alt-bg);
+    position: relative;
   }
   .asset-row {
     font-size: 12px;
     background-color: #ffffff;
+  }
+  .asset-panel {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    width: 100%;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height var(--duration-fast) ease;
+    z-index: 5;
+    background-color: #ffffff;
+  }
+  .asset-panel.open {
+    max-height: 1000px;
   }
   .recipe-row:hover,
   .asset-row:hover {
     background-color: var(--table-head-bg);
   }
   html.dark .asset-row {
+    background-color: var(--dark-sidebar-hover);
+  }
+  html.dark .asset-panel {
     background-color: var(--dark-sidebar-hover);
   }
   .status-badge {
