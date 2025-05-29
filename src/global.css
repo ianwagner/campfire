@@ -117,7 +117,9 @@
     border-radius: 9999px;
   }
   .btn-edit {
-    @apply bg-black text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-800;
+    color: var(--edit-color);
+    background-color: var(--edit-color-10);
+    border: 1px solid var(--edit-color);
   }
   .btn-delete {
     @apply text-red-600 hover:text-red-800;
@@ -126,7 +128,8 @@
     @apply text-xs px-2 py-0.5 rounded-full;
   }
   .tag-new {
-    background-color: var(--accent-color);
+    background-color: var(--accent-color-10);
+    color: var(--accent-color);
   }
   .tag-pill {
     background-color: var(--accent-color-10);
@@ -332,7 +335,7 @@
 }
 
 .progress-bar {
-  @apply w-full max-w-md h-4 bg-gray-200 rounded-full shadow-inner mb-2.5;
+  @apply w-full max-w-md h-4 bg-gray-200 dark:bg-[var(--dark-sidebar-hover)] rounded-full shadow-inner mb-2.5;
 }
 
 .progress-bar-inner {
