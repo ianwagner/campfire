@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import useSiteSettings from './useSiteSettings';
 import { uploadLogo } from './uploadLogo';
+import { uploadIcon } from './uploadIcon';
 import OptimizedImage from './components/OptimizedImage.jsx';
 
 const SiteSettings = () => {
   const { settings, saveSettings } = useSiteSettings();
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState(null);
+  const [iconUrl, setIconUrl] = useState('');
+  const [iconFile, setIconFile] = useState(null);
   const [accentColor, setAccentColor] = useState('#ea580c');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -14,6 +17,8 @@ const SiteSettings = () => {
   useEffect(() => {
     setLogoUrl(settings.logoUrl || '');
     setLogoFile(null);
+    setIconUrl(settings.iconUrl || '');
+    setIconFile(null);
     setAccentColor(settings.accentColor || '#ea580c');
   }, [settings]);
 
@@ -27,18 +32,36 @@ const SiteSettings = () => {
     }
   };
 
+  const handleIconChange = (e) => {
+    const file = e.target.files[0];
+    setIconFile(file || null);
+    if (file) {
+      setIconUrl(URL.createObjectURL(file));
+    } else {
+      setIconUrl(settings.iconUrl || '');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
     try {
-      let url = logoUrl;
+      let logo = logoUrl;
       if (logoFile) {
-        url = await uploadLogo(logoFile);
+        logo = await uploadLogo(logoFile);
       }
-      await saveSettings({ logoUrl: url, accentColor });
-      setLogoUrl(url);
+
+      let icon = iconUrl;
+      if (iconFile) {
+        icon = await uploadIcon(iconFile);
+      }
+
+      await saveSettings({ logoUrl: logo, iconUrl: icon, accentColor });
+      setLogoUrl(logo);
       setLogoFile(null);
+      setIconUrl(icon);
+      setIconFile(null);
       setMessage('Settings saved');
     } catch (err) {
       console.error('Failed to save settings', err);
@@ -68,15 +91,31 @@ const SiteSettings = () => {
               />
             )}
           </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium">Accent Color</label>
-            <input
-              type="color"
-              value={accentColor}
-              onChange={(e) => setAccentColor(e.target.value)}
-              className="w-full p-2 border rounded h-10"
+        <div>
+          <label className="block mb-1 text-sm font-medium">Site Icon</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleIconChange}
+            className="w-full p-2 border rounded"
+          />
+          {iconUrl && (
+            <OptimizedImage
+              pngUrl={iconUrl}
+              alt="Icon preview"
+              className="mt-2 max-h-16 w-auto"
             />
-          </div>
+          )}
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Accent Color</label>
+          <input
+            type="color"
+            value={accentColor}
+            onChange={(e) => setAccentColor(e.target.value)}
+            className="w-full p-2 border rounded h-10"
+          />
+        </div>
           {message && <p className="text-sm">{message}</p>}
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? 'Saving...' : 'Save Settings'}

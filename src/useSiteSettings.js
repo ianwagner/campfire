@@ -5,7 +5,11 @@ import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
 
 const storedAccent = localStorage.getItem('accentColor');
-const defaultSettings = { logoUrl: '', accentColor: storedAccent || DEFAULT_ACCENT_COLOR };
+const defaultSettings = {
+  logoUrl: '',
+  iconUrl: '',
+  accentColor: storedAccent || DEFAULT_ACCENT_COLOR,
+};
 
 
 /**
