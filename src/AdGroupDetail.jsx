@@ -546,38 +546,40 @@ const AdGroupDetail = () => {
                     )}
                   </td>
                   <td className="text-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openView(g.recipeCode);
-                      }}
-                      className="flex items-center text-blue-500 underline mr-2"
-                      aria-label="View"
-                    >
-                      <FiEye />
-                      <span className="ml-1 text-[12px]">View</span>
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openHistory(g.recipeCode);
-                      }}
-                      className="flex items-center text-blue-500 underline mr-2"
-                      aria-label="History"
-                    >
-                      <FiClock />
-                      <span className="ml-1 text-[12px]">History</span>
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteRecipe(g.recipeCode);
-                      }}
-                      className="btn-delete"
-                      aria-label="Delete"
-                    >
-                      <FiTrash />
-                    </button>
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openView(g.recipeCode);
+                        }}
+                        className="flex items-center text-blue-500 underline mr-2"
+                        aria-label="View"
+                      >
+                        <FiEye />
+                        <span className="ml-1 text-[12px]">View</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openHistory(g.recipeCode);
+                        }}
+                        className="flex items-center text-blue-500 underline mr-2"
+                        aria-label="History"
+                      >
+                        <FiClock />
+                        <span className="ml-1 text-[12px]">History</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteRecipe(g.recipeCode);
+                        }}
+                        className="btn-delete"
+                        aria-label="Delete"
+                      >
+                        <FiTrash />
+                      </button>
+                    </div>
                   </td>
                 </tr>
             </tbody>
