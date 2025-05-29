@@ -371,13 +371,14 @@ const Review = ({
 
   // Preload up to 5 upcoming ads to keep swipes smooth
   useEffect(() => {
+    if (!isMobile) return;
     for (let i = 1; i <= 5; i += 1) {
       const next = reviewAds[currentIndex + i];
       if (!next) break;
       const img = new Image();
       img.src = next.adUrl || next.firebaseUrl;
     }
-  }, [currentIndex, reviewAds]);
+  }, [currentIndex, reviewAds, isMobile]);
 
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
