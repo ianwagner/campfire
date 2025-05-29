@@ -477,8 +477,34 @@ const AdGroupDetail = () => {
                 onClick={() => toggleRecipe(g.recipeCode)}
                 className="cursor-pointer recipe-row"
               >
-                <td colSpan="2" className="font-semibold">
+                <td colSpan="2" className="font-semibold relative">
                   Recipe {g.recipeCode}
+                  <div
+                    className={`asset-panel absolute left-0 w-full ${
+                      expanded[g.recipeCode] ? 'open' : ''
+                    }`}
+                  >
+                    <table className="ad-table w-full">
+                      <tbody>
+                        {g.assets.map((a) => (
+                          <tr key={a.id} className="asset-row">
+                            <td className="break-all">{a.filename}</td>
+                            <td className="text-center">{a.version || 1}</td>
+                            <td></td>
+                            <td className="text-center">
+                              <button
+                                onClick={() => deleteAsset(a)}
+                                className="btn-delete"
+                                aria-label="Delete"
+                              >
+                                <FiTrash />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </td>
                 <td>
                     {userRole === 'designer' || userRole === 'client' ? (
@@ -534,23 +560,6 @@ const AdGroupDetail = () => {
                     </button>
                   </td>
                 </tr>
-                {expanded[g.recipeCode] &&
-                  g.assets.map((a) => (
-                    <tr key={a.id} className="asset-row">
-                      <td className="break-all">{a.filename}</td>
-                      <td className="text-center">{a.version || 1}</td>
-                      <td></td>
-                      <td className="text-center">
-                        <button
-                          onClick={() => deleteAsset(a)}
-                          className="btn-delete"
-                          aria-label="Delete"
-                        >
-                          <FiTrash />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
             </tbody>
               ))}
         </table>
