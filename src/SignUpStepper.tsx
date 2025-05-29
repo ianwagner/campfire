@@ -55,7 +55,7 @@ const SignUpStepper: React.FC = () => {
         ...(agencyId ? { agencyId } : {}),
       });
       await sendEmailVerification(cred.user);
-      navigate('/enroll-mfa');
+      navigate('/mfa-settings');
     } catch (err: any) {
       setError(err.message);
     } finally {

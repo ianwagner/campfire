@@ -11,22 +11,43 @@ import type { User } from 'firebase/auth';
 import { auth } from './firebase/config';
 import { useNavigate } from 'react-router-dom';
 
-interface EnrollMfaProps {
+interface ManageMfaProps {
   user: User | null;
   role: string;
 }
 
-
-const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
+/** MFA management and enrollment screen. Currently supports SMS-based MFA. */
+const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
   const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [code, setCode] = useState<string>('');
   const [verificationId, setVerificationId] = useState<string>('');
   const [sending, setSending] = useState<boolean>(false);
   const [verifying, setVerifying] = useState<boolean>(false);
-  const [step, setStep] = useState<'start' | 'verify' | 'done'>('start');
+  const [step, setStep] = useState<'choose' | 'sms' | 'verify' | 'done'>(
+    'choose'
+  );
   const [error, setError] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const navigate = useNavigate();
+  const enrolled =
+    user && multiFactor(user).enrolledFactors.length > 0;
+
+  const disableMfa = async () => {
+    if (!user || !enrolled) return;
+    if (
+      !window.confirm(
+        'Turning off MFA makes your account more vulnerable. Are you sure you want to continue?'
+      )
+    )
+      return;
+    try {
+      const factor = multiFactor(user).enrolledFactors[0];
+      await multiFactor(user).unenroll(factor);
+      setMessage('MFA disabled');
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
 
   const formatPhoneNumber = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -111,8 +132,38 @@ const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
 
   return (
     <div className="flex justify-center p-4">
-      <div className="w-80">
-        {step === 'start' && (
+      <div className="w-80 space-y-4">
+        <h1 className="text-2xl mb-2">Two-Factor Authentication</h1>
+        <p className="text-sm text-gray-600">
+          Add an extra layer of security to your account by requiring a code when you sign in.
+        </p>
+        {enrolled && user?.metadata.lastLoginAt && (
+          <p className="text-xs text-gray-500">
+            Last MFA login: {new Date(Number(user.metadata.lastLoginAt)).toLocaleString()}
+          </p>
+        )}
+        {step === 'choose' && (
+          <div className="space-y-2">
+            <button type="button" className="w-full btn-primary" onClick={() => setStep('sms')}>
+              SMS-based MFA
+            </button>
+            <button
+              type="button"
+              className="w-full btn-primary"
+              onClick={() => setMessage('Authenticator app setup not implemented.')}
+            >
+              Authentication App
+            </button>
+            <button
+              type="button"
+              className="w-full btn-primary"
+              onClick={() => setMessage('Backup codes not implemented.')}
+            >
+              Backup Codes
+            </button>
+          </div>
+        )}
+        {step === 'sms' && (
           <form onSubmit={sendCode} className="space-y-4">
             <div>
               <label className="block mb-1 text-sm font-medium">Phone Number</label>
@@ -150,9 +201,14 @@ const EnrollMfa: React.FC<EnrollMfaProps> = ({ user, role }) => {
         )}
         {message && <p className="text-green-600 mt-2 text-sm">{message}</p>}
         <div id="recaptcha-container" />
+        {enrolled && (
+          <button type="button" onClick={disableMfa} className="w-full btn-secondary">
+            Disable MFA
+          </button>
+        )}
       </div>
     </div>
   );
 };
 
-export default EnrollMfa;
+export default ManageMfa;

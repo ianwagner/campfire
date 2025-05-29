@@ -70,5 +70,5 @@ test('navigates to MFA enrollment after account creation', async () => {
   });
   fireEvent.click(screen.getByText('Create Account'));
 
-  await waitFor(() => expect(navigate).toHaveBeenCalledWith('/enroll-mfa'));
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith('/mfa-settings'));
 });
