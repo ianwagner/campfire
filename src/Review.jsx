@@ -308,7 +308,7 @@ const Review = ({
   const closeVersionModal = () => setVersionModal(null);
 
   const handleTouchStart = (e) => {
-    if (showSizes || submitting || editing || showComment || showClientNote) return;
+    if (showSizes || editing || showComment || showClientNote) return;
     const touch = e.touches[0];
     touchStartX.current = touch.clientX;
     touchStartY.current = touch.clientY;
@@ -530,32 +530,38 @@ const Review = ({
       setResponses((prev) => ({ ...prev, [url]: respObj }));
     }
 
-    try {
-      await Promise.all(updates);
-      if (groupId) {
-        localStorage.setItem(`lastViewed-${groupId}`, new Date().toISOString());
-      }
-      setComment('');
-      setShowComment(false);
-      setTimeout(() => {
-        setCurrentIndex((i) => i + 1);
-        if (responseType === 'reject') {
-          const newStreak = rejectionStreak + 1;
-          setRejectionStreak(newStreak);
-          if (newStreak >= 5) {
-            setShowStreakModal(true);
-          }
-        } else {
-          setRejectionStreak(0);
+    const updatePromise = Promise.all(updates)
+      .then(() => {
+        if (groupId) {
+          localStorage.setItem(
+            `lastViewed-${groupId}`,
+            new Date().toISOString()
+          );
         }
-        setAnimating(null);
-      }, 400);
-    } catch (err) {
-      console.error('Failed to submit response', err);
-    } finally {
-      setSubmitting(false);
-      setEditing(false);
-    }
+      })
+      .catch((err) => {
+        console.error('Failed to submit response', err);
+      });
+
+    setComment('');
+    setShowComment(false);
+    setTimeout(() => {
+      setCurrentIndex((i) => i + 1);
+      if (responseType === 'reject') {
+        const newStreak = rejectionStreak + 1;
+        setRejectionStreak(newStreak);
+        if (newStreak >= 5) {
+          setShowStreakModal(true);
+        }
+      } else {
+        setRejectionStreak(0);
+      }
+      setAnimating(null);
+    }, 400);
+    setSubmitting(false);
+    setEditing(false);
+
+    await updatePromise;
   };
 
   const submitNote = async () => {
