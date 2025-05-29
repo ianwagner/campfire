@@ -78,7 +78,8 @@ const AdminAccounts = () => {
         ) : accounts.length === 0 ? (
           <p>No accounts found.</p>
         ) : (
-          <table className="ad-table">
+          <div className="overflow-x-auto">
+          <table className="ad-table min-w-max">
             <thead>
               <tr>
                 <th>ID</th>
@@ -158,6 +159,7 @@ const AdminAccounts = () => {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     );

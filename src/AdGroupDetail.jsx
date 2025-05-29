@@ -461,8 +461,8 @@ const AdGroupDetail = () => {
       </div>
 
 
-      <div>
-        <table className="ad-table">
+      <div className="overflow-x-auto">
+        <table className="ad-table min-w-max">
           <thead>
             <tr>
               <th>Filename</th>
@@ -484,7 +484,8 @@ const AdGroupDetail = () => {
                       expanded[g.recipeCode] ? 'open' : ''
                     }`}
                   >
-                    <table className="ad-table w-full">
+                    <div className="overflow-x-auto">
+                    <table className="ad-table min-w-max w-full">
                       <tbody>
                         {g.assets.map((a) => (
                           <tr key={a.id} className="asset-row">
@@ -507,6 +508,7 @@ const AdGroupDetail = () => {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 </td>
                 <td>
@@ -612,7 +614,8 @@ const AdGroupDetail = () => {
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-md">
             <h3 className="mb-2 font-semibold">Recipe {historyRecipe.recipeCode} History</h3>
-            <table className="ad-table text-sm mb-2">
+            <div className="overflow-x-auto">
+            <table className="ad-table min-w-max text-sm mb-2">
               <thead>
                 <tr>
                   <th>Version</th>
@@ -636,6 +639,7 @@ const AdGroupDetail = () => {
                 ))}
               </tbody>
             </table>
+            </div>
             <button onClick={closeModals} className="btn-primary px-3 py-1">Close</button>
           </div>
         </div>

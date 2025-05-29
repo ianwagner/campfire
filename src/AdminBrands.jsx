@@ -76,7 +76,8 @@ const AdminBrands = () => {
         ) : brands.length === 0 ? (
           <p>No brands found.</p>
         ) : (
-          <table className="ad-table">
+          <div className="overflow-x-auto">
+          <table className="ad-table min-w-max">
             <thead>
               <tr>
                 <th>Code</th>
@@ -149,6 +150,7 @@ const AdminBrands = () => {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     );
