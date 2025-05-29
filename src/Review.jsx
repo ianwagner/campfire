@@ -265,8 +265,11 @@ const Review = ({
     currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
   const selectedResponse = responses[adUrl]?.response;
   const showSecondView = secondPass && selectedResponse && !editing;
+  // show next step as soon as a decision is made
   const progress =
-    reviewAds.length > 0 ? (currentIndex / reviewAds.length) * 100 : 0;
+    reviewAds.length > 0
+      ? ((currentIndex + (animating ? 1 : 0)) / reviewAds.length) * 100
+      : 0;
 
   const nextAd = reviewAds[currentIndex + 1];
   const nextAdUrl =
@@ -305,9 +308,11 @@ const Review = ({
       )
     : [];
 
+  // Preload up to 5 upcoming ads to keep swipes smooth
   useEffect(() => {
-    const next = reviewAds[currentIndex + 1];
-    if (next) {
+    for (let i = 1; i <= 5; i += 1) {
+      const next = reviewAds[currentIndex + i];
+      if (!next) break;
       const img = new Image();
       img.src = next.adUrl || next.firebaseUrl;
     }
@@ -664,17 +669,17 @@ const Review = ({
         )}
         {/* Gallery view removed */}
         {!secondPass && (
-          <div className="flex items-center w-full max-w-md mb-2.5">
+          <div className="relative w-full max-w-md mb-2.5 flex justify-center">
             <button
               type="button"
               onClick={() => navigate(-1)}
               aria-label="Exit Review"
-              className="mr-2 text-gray-500 hover:text-black dark:hover:text-white"
+              className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
             >
               <FiX />
             </button>
             <div
-              className="progress-bar flex-grow"
+              className="progress-bar mx-auto"
               role="progressbar"
               aria-valuenow={progress}
               aria-valuemin="0"
