@@ -205,37 +205,37 @@
     background-color: var(--dark-sidebar-hover);
   }
   .status-badge {
-    @apply px-2 py-0.5 rounded-full font-semibold;
+    @apply px-2 py-0.5 rounded-full font-bold text-white;
     display: inline-block;
   }
   .status-pending,
   .status-ready {
     background-color: var(--pending-color-10);
-    color: var(--pending-color);
+    color: white;
   }
   .status-approved {
     background-color: var(--approve-color-10);
-    color: var(--approve-color);
+    color: white;
   }
   .status-rejected {
     background-color: var(--reject-color-10);
-    color: var(--reject-color);
+    color: white;
   }
   .status-edit_requested {
     background-color: var(--edit-color-10);
-    color: var(--edit-color);
+    color: white;
   }
   .status-archived {
     background-color: var(--table-row-alt-bg);
-    color: var(--table-text-color);
+    color: white;
   }
   .status-draft {
     background-color: var(--pending-color-10);
-    color: var(--pending-color);
+    color: white;
   }
   .status-mixed {
     background-color: var(--edit-color-10);
-    color: var(--edit-color);
+    color: white;
   }
 
 }

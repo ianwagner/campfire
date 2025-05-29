@@ -1,4 +1,5 @@
 import SidebarBase from './components/SidebarBase';
+import useAgencyTheme from './useAgencyTheme';
 
 const tabs = [
   { label: 'Campfire', path: '/dashboard/client' },
@@ -7,6 +8,16 @@ const tabs = [
   { label: 'Account Settings', path: '/account-settings' },
 ];
 
-const Sidebar = () => <SidebarBase tabs={tabs} />;
+const Sidebar = ({ agencyId }) => {
+  const { agency } = useAgencyTheme(agencyId);
+  return (
+    <SidebarBase
+      tabs={tabs}
+      logoUrl={agencyId ? agency.logoUrl : undefined}
+      logoAlt={agencyId ? `${agency.name} logo` : undefined}
+      applySiteAccent={!agencyId}
+    />
+  );
+};
 
 export default Sidebar;
