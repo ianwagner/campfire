@@ -1,6 +1,7 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
 import React, { useState, useEffect, useMemo } from 'react';
+import { FiEdit } from 'react-icons/fi';
 import {
   collection,
   collectionGroup,
@@ -792,7 +793,7 @@ const Review = ({
               disabled={submitting}
               aria-label="Request Edit"
             >
-              ✏️
+              <FiEdit />
             </button>
             <button
               onClick={() => submitResponse('approve')}

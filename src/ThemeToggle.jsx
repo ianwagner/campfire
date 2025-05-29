@@ -1,4 +1,5 @@
 import React from 'react';
+import { FiSun, FiMoon } from 'react-icons/fi';
 import useTheme from './useTheme';
 
 const ThemeToggle = ({ className = '' }) => {
@@ -10,7 +11,7 @@ const ThemeToggle = ({ className = '' }) => {
       onClick={toggleTheme}
       className={`p-2 rounded ${className}`}
     >
-      {resolvedTheme === 'dark' ? '☀️' : '🌙'}
+      {resolvedTheme === 'dark' ? <FiSun /> : <FiMoon />}
     </button>
   );
 };
