@@ -308,6 +308,7 @@ const Review = ({
   const closeVersionModal = () => setVersionModal(null);
 
   const handleTouchStart = (e) => {
+    // allow swiping even while submitting a previous response
     if (showSizes || editing || showComment || showClientNote) return;
     const touch = e.touches[0];
     touchStartX.current = touch.clientX;
@@ -558,6 +559,7 @@ const Review = ({
       }
       setAnimating(null);
     }, 400);
+    // free UI interactions while waiting for Firestore updates
     setSubmitting(false);
     setEditing(false);
 
