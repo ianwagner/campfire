@@ -55,6 +55,17 @@ const Review = ({
   const navigate = useNavigate();
   const [hasPending, setHasPending] = useState(false);
   const [pendingOnly, setPendingOnly] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= 640 : false
+  );
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 640);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const recipeGroups = useMemo(() => {
     const map = {};
@@ -705,20 +716,35 @@ const Review = ({
             />
           )}
           <div
-            className={`relative z-10 size-container transition-transform ${
-              animating === 'approve' ? 'approve-slide' : ''
-            } ${animating === 'reject' ? 'reject-slide' : ''}`}
-            style={{
-              transform: showSizes
-                ? `translateX(-${otherSizes.length * 55}%)`
-                : 'translateX(0)',
-            }}
+            className={`relative z-10 ${
+              isMobile && showSizes
+                ? 'flex flex-col items-center overflow-y-auto h-[72vh]'
+                : 'size-container transition-transform'
+            } ${animating === 'approve' ? 'approve-slide' : ''} ${
+              animating === 'reject' ? 'reject-slide' : ''
+            }`}
+            style={
+              isMobile && showSizes
+                ? {}
+                : {
+                    transform: showSizes
+                      ? `translateX(-${otherSizes.length * 55}%)`
+                      : 'translateX(0)',
+                  }
+            }
           >
             <OptimizedImage
               pngUrl={adUrl}
               webpUrl={adUrl.replace(/\.png$/, '.webp')}
               alt="Ad"
-              className="relative max-w-[90%] max-h-[72vh] mx-auto rounded shadow"
+              style={
+                isMobile && showSizes
+                  ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+                  : {}
+              }
+              className={`relative max-w-[90%] mx-auto rounded shadow ${
+                isMobile && showSizes ? 'mb-2' : 'max-h-[72vh]'
+              }`}
             />
             {currentAd && (currentAd.version || 1) > 1 && (
               <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
@@ -729,13 +755,19 @@ const Review = ({
                 pngUrl={a.firebaseUrl}
                 webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
                 alt={a.filename}
-                style={{
-                  transform: showSizes
-                    ? `translateX(${(idx + 1) * 110}%)`
-                    : 'translateX(0)',
-                  opacity: showSizes ? 1 : 0,
-                }}
-                className="size-thumb max-w-[90%] max-h-[72vh] mx-auto rounded shadow"
+                style={
+                  isMobile && showSizes
+                    ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+                    : {
+                        transform: showSizes
+                          ? `translateX(${(idx + 1) * 110}%)`
+                          : 'translateX(0)',
+                        opacity: showSizes ? 1 : 0,
+                      }
+                }
+                className={`max-w-[90%] mx-auto rounded shadow ${
+                  isMobile && showSizes ? 'mb-2 relative' : 'size-thumb max-h-[72vh]'
+                }`}
               />
             ))}
           </div>
