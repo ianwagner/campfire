@@ -1,6 +1,6 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { FiEdit, FiX } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -51,6 +51,10 @@ const Review = ({
   const [secondPass, setSecondPass] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const touchEndX = useRef(0);
+  const touchEndY = useRef(0);
   const { agency } = useAgencyTheme(agencyId);
   const navigate = useNavigate();
   const [hasPending, setHasPending] = useState(false);
@@ -297,6 +301,33 @@ const Review = ({
   };
 
   const closeVersionModal = () => setVersionModal(null);
+
+  const handleTouchStart = (e) => {
+    if (showSizes || submitting || editing || showComment || showClientNote) return;
+    const touch = e.touches[0];
+    touchStartX.current = touch.clientX;
+    touchStartY.current = touch.clientY;
+    touchEndX.current = touch.clientX;
+    touchEndY.current = touch.clientY;
+  };
+
+  const handleTouchMove = (e) => {
+    const touch = e.touches[0];
+    touchEndX.current = touch.clientX;
+    touchEndY.current = touch.clientY;
+  };
+
+  const handleTouchEnd = () => {
+    const dx = touchEndX.current - touchStartX.current;
+    const dy = Math.abs(touchEndY.current - touchStartY.current);
+    if (Math.abs(dx) > 50 && dy < 100) {
+      if (dx > 0) {
+        submitResponse('approve');
+      } else {
+        submitResponse('reject');
+      }
+    }
+  };
   const statusMap = {
     approve: 'Approved',
     reject: 'Rejected',
@@ -721,6 +752,9 @@ const Review = ({
             />
           )}
           <div
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             className={`relative z-10 ${
               isMobile && showSizes
                 ? 'flex flex-col items-center overflow-y-auto h-[72vh]'
