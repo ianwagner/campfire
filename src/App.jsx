@@ -26,6 +26,8 @@ import BrandSetup from "./BrandSetup";
 import AccountSettings from "./AccountSettings";
 import DesignerNotifications from "./DesignerNotifications";
 import DesignerAccountSettings from "./DesignerAccountSettings";
+import AdminAccountSettings from "./AdminAccountSettings";
+import AgencyAccountSettings from "./AgencyAccountSettings";
 import AdminAccountForm from "./AdminAccountForm";
 import AdminAccounts from "./AdminAccounts";
 import RoleGuard from "./RoleGuard";
@@ -302,6 +304,22 @@ const App = () => {
               }
             />
             <Route
+              path="/agency/account-settings"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="agency"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <AgencyAccountSettings />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
               path="/agency/ad-groups"
               element={
                 user ? (
@@ -445,6 +463,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <SiteSettings />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/account-settings"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="admin"
+                    userRole={role}
+                    loading={roleLoading}
+                  >
+                    <AdminAccountSettings />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
