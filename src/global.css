@@ -56,6 +56,7 @@
     @apply bg-white text-gray-900 dark:bg-[var(--dark-bg)] dark:text-[var(--dark-text)];
     font-family: var(--font-primary);
     font-size: var(--font-size-base);
+    overflow-x: hidden;
   }
   h1 {
     @apply text-2xl;
@@ -334,6 +335,7 @@
 .size-container {
   position: relative;
   @apply transition-transform duration-500 ease-in-out;
+  touch-action: pan-y;
 }
 
 .size-thumb {
