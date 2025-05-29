@@ -768,6 +768,7 @@ const Review = ({
             />
           )}
           <div
+            key={currentIndex}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
