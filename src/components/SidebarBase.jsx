@@ -23,6 +23,8 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
     if (tab.path) {
       navigate(tab.path);
     }
+    // Close the mobile menu when a tab is selected
+    setOpen(false);
   };
 
   const handleLogout = () => {
@@ -77,7 +79,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
       <button
         type="button"
         aria-label="Menu"
-        className="md:hidden fixed top-2 left-2 m-2 text-2xl z-40"
+        className="md:hidden fixed top-4 left-2 m-2 text-2xl z-40"
         onClick={() => setOpen(true)}
       >
         &#9776;
