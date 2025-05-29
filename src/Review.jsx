@@ -21,6 +21,7 @@ import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import parseAdFilename from './utils/parseAdFilename';
+import computeGroupStatus from './utils/computeGroupStatus';
 
 const Review = ({
   user,
@@ -57,6 +58,7 @@ const Review = ({
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
+  const [groupStatus, setGroupStatus] = useState(null);
   const { agency } = useAgencyTheme(agencyId);
   const navigate = useNavigate();
   const [hasPending, setHasPending] = useState(false);
@@ -106,6 +108,7 @@ const Review = ({
         if (groupId) {
           const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
           if (groupSnap.exists()) {
+            setGroupStatus(groupSnap.data().status || 'pending');
             const assetsSnap = await getDocs(
               collection(db, 'adGroups', groupId, 'assets')
             );
@@ -488,6 +491,16 @@ const Review = ({
             ? { thumbnailUrl: asset.firebaseUrl }
             : {}),
         };
+        const newGroupStatus = computeGroupStatus(
+          ads.map((a) =>
+            a.assetId === asset.assetId ? { ...a, status: newStatus } : a
+          ),
+          gSnap.exists() ? gSnap.data().status : 'pending'
+        );
+        if (newGroupStatus !== gSnap.data().status) {
+          updateObj.status = newGroupStatus;
+          setGroupStatus(newGroupStatus);
+        }
         updates.push(updateDoc(groupRef, updateObj));
 
         if (responseType === 'approve' && asset.parentAdId) {
@@ -568,6 +581,10 @@ const Review = ({
 
   if (loading) {
     return <div className="text-center mt-10">Loading...</div>;
+  }
+
+  if (groupStatus === 'locked') {
+    return <div className="text-center mt-10">This ad group is locked.</div>;
   }
 
   if (!ads || ads.length === 0) {
