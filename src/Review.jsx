@@ -776,7 +776,9 @@ const Review = ({
           </button>
         )}
         <div className="flex justify-center relative">
-          {(dragging || animating) && nextAdUrl && !showSizes && (
+          {(animating || (dragging && Math.abs(swipeX) > 10)) &&
+            nextAdUrl &&
+            !showSizes && (
             <OptimizedImage
               pngUrl={nextAdUrl}
               webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
