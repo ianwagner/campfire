@@ -159,11 +159,12 @@
   .loading {
     visibility: hidden;
   }
-  .ad-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--font-size-base);
-  }
+.ad-table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
+  font-size: var(--font-size-base);
+}
   .ad-table th,
   .ad-table td {
     border: 1px solid var(--table-border-color);
