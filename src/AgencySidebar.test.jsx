@@ -54,3 +54,12 @@ test('accent color uses agency theme on render', () => {
   ).toBe('#123456');
 });
 
+test('renders Account Settings tab', () => {
+  const { getByText } = render(
+    <MemoryRouter>
+      <AgencySidebar agencyId="123" />
+    </MemoryRouter>
+  );
+  expect(getByText('Account Settings')).toBeInTheDocument();
+});
+

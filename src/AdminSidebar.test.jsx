@@ -42,3 +42,12 @@ test('renders Site Settings tab', () => {
   );
   expect(screen.getByText('Site Settings')).toBeInTheDocument();
 });
+
+test('renders Account Settings tab', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  expect(screen.getByText('Account Settings')).toBeInTheDocument();
+});

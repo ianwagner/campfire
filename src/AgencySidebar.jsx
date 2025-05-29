@@ -9,6 +9,7 @@ const AgencySidebar = ({ agencyId }) => {
     { label: 'Ad Groups', path: `/agency/ad-groups${q}` },
     { label: 'Brands', path: `/agency/brands${q}` },
     { label: 'Theme', path: `/agency/theme${q}` },
+    { label: 'Account Settings', path: `/agency/account-settings${q}` },
   ];
   return (
     <SidebarBase

@@ -6,6 +6,7 @@ const tabs = [
   { label: 'Users', path: '/admin/accounts' },
   { label: 'Brands', path: '/admin/brands' },
   { label: 'Site Settings', path: '/admin/site-settings' },
+  { label: 'Account Settings', path: '/admin/account-settings' },
   { label: 'MFA Setup', path: '/enroll-mfa' },
 ];
 
