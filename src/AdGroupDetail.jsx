@@ -493,7 +493,10 @@ const AdGroupDetail = () => {
                             <td></td>
                             <td className="text-center">
                               <button
-                                onClick={() => deleteAsset(a)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteAsset(a);
+                                }}
                                 className="btn-delete"
                                 aria-label="Delete"
                               >
@@ -512,7 +515,10 @@ const AdGroupDetail = () => {
                         <select
                           className="p-1 border rounded"
                           value="pending"
-                          onChange={(e) => updateRecipeStatus(g.recipeCode, e.target.value)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            updateRecipeStatus(g.recipeCode, e.target.value);
+                          }}
                         >
                           <option value="pending">pending</option>
                           <option value="ready">ready</option>
@@ -524,7 +530,10 @@ const AdGroupDetail = () => {
                       <select
                         className="p-1 border rounded"
                         value={getRecipeStatus(g.assets)}
-                        onChange={(e) => updateRecipeStatus(g.recipeCode, e.target.value)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          updateRecipeStatus(g.recipeCode, e.target.value);
+                        }}
                       >
                         <option value="pending">pending</option>
                         <option value="ready">ready</option>
@@ -538,21 +547,30 @@ const AdGroupDetail = () => {
                   </td>
                   <td className="text-center">
                     <button
-                      onClick={() => openView(g.recipeCode)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openView(g.recipeCode);
+                      }}
                       className="btn-secondary px-2 py-1 mr-1"
                       aria-label="View"
                     >
                       <FiEye />
                     </button>
                     <button
-                      onClick={() => openHistory(g.recipeCode)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openHistory(g.recipeCode);
+                      }}
                       className="btn-secondary px-2 py-1 mr-1"
                       aria-label="History"
                     >
                       <FiClock />
                     </button>
                     <button
-                      onClick={() => deleteRecipe(g.recipeCode)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteRecipe(g.recipeCode);
+                      }}
                       className="btn-delete"
                       aria-label="Delete"
                     >
