@@ -863,6 +863,7 @@ const Review = ({
               pngUrl={nextAdUrl}
               webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
               alt="Next ad"
+              loading="eager"
               className="absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none"
             />
           )}
@@ -895,6 +896,7 @@ const Review = ({
               pngUrl={adUrl}
               webpUrl={adUrl.replace(/\.png$/, '.webp')}
               alt="Ad"
+              loading="eager"
               style={
                 isMobile && showSizes
                   ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
