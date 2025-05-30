@@ -643,7 +643,7 @@ const Review = ({
           <OptimizedImage
             pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
             alt={`${agency.name || 'Agency'} logo`}
-            className="mb-2 max-h-16 w-auto"
+            className="mb-2 max-h-12 w-auto"
           />
         )}
         <h1 className="text-2xl font-bold">Ads Pending Review</h1>
@@ -721,7 +721,7 @@ const Review = ({
           <OptimizedImage
             pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
             alt={`${agency.name || 'Agency'} logo`}
-            className="mb-2 max-h-16 w-auto"
+            className="mb-2 max-h-12 w-auto"
           />
         )}
         <h1 className="text-2xl font-bold">Thank you for your feedback!</h1>
@@ -845,7 +845,7 @@ const Review = ({
           <OptimizedImage
             pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
             alt={`${agency.name || 'Agency'} logo`}
-            className="mb-2 max-h-16 w-auto"
+            className="mb-2 max-h-12 w-auto"
           />
         )}
         {/* Gallery view removed */}
@@ -890,7 +890,7 @@ const Review = ({
               webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
               alt="Next ad"
               loading="eager"
-              className="absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none"
+              className="absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-full sm:max-w-[90%] max-h-[60vh] mx-auto rounded shadow pointer-events-none"
             />
           )}
           <div
@@ -900,7 +900,7 @@ const Review = ({
             onTouchEnd={handleTouchEnd}
             className={`relative z-10 ${
               isMobile && showSizes
-                ? 'flex flex-col items-center overflow-y-auto h-[72vh]'
+                ? 'flex flex-col items-center overflow-y-auto h-[60vh]'
                 : 'size-container'
             } ${animating === 'approve' ? 'approve-slide' : ''} ${
               animating === 'reject' ? 'reject-slide' : ''
@@ -925,11 +925,11 @@ const Review = ({
               loading="eager"
               style={
                 isMobile && showSizes
-                  ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+                  ? { maxHeight: `${60 / (otherSizes.length + 1)}vh` }
                   : {}
               }
-              className={`relative max-w-[90%] mx-auto rounded shadow ${
-                isMobile && showSizes ? 'mb-2' : 'max-h-[72vh]'
+              className={`relative max-w-full sm:max-w-[90%] mx-auto rounded shadow ${
+                isMobile && showSizes ? 'mb-2' : 'max-h-[60vh]'
               }`}
             />
             {currentAd && (currentAd.version || 1) > 1 && (
@@ -943,7 +943,7 @@ const Review = ({
                 alt={a.filename}
                 style={
                   isMobile && showSizes
-                    ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+                    ? { maxHeight: `${60 / (otherSizes.length + 1)}vh` }
                     : {
                         transform: showSizes
                           ? `translateX(${(idx + 1) * 110}%)`
@@ -951,8 +951,8 @@ const Review = ({
                         opacity: showSizes ? 1 : 0,
                       }
                 }
-                className={`max-w-[90%] mx-auto rounded shadow ${
-                  isMobile && showSizes ? 'mb-2 relative' : 'size-thumb max-h-[72vh]'
+                className={`max-w-full sm:max-w-[90%] mx-auto rounded shadow ${
+                  isMobile && showSizes ? 'mb-2 relative' : 'size-thumb max-h-[60vh]'
                 }`}
               />
             ))}
