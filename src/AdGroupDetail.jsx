@@ -25,7 +25,6 @@ import parseAdFilename from './utils/parseAdFilename';
 import StatusBadge from './components/StatusBadge.jsx';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import computeGroupStatus from './utils/computeGroupStatus';
-import getFilenameFromUrl from './utils/getFilenameFromUrl';
 import recordRecipeStatus from './utils/recordRecipeStatus';
 
 const AdGroupDetail = () => {
@@ -169,79 +168,25 @@ const AdGroupDetail = () => {
   };
 
   const openHistory = async (recipeCode) => {
-    const [respSnap, assetSnap, recipeSnap] = await Promise.all([
-      getDocs(collection(db, 'adGroups', id, 'responses')),
-      getDocs(collection(db, 'adGroups', id, 'assets')),
-      getDoc(doc(db, 'adGroups', id, 'recipes', recipeCode)),
-    ]);
+    const histSnap = await getDocs(
+      collection(db, 'adGroups', id, 'recipes', recipeCode, 'history'),
+    );
     const records = [];
     const uids = new Set();
 
-    assetSnap.docs.forEach((d) => {
-      const a = d.data();
-      const info = parseAdFilename(a.filename || '');
-      if ((info.recipeCode || 'unknown') !== recipeCode) return;
-      const version = a.version || info.version || 1;
-      if (a.uploadedAt) {
-        records.push({
-          id: `${d.id}-upload`,
-          version,
-          status: 'pending',
-          comment: '',
-          lastUpdatedAt: a.uploadedAt,
-          userId: a.uploadedBy || null,
-          userEmail: null,
-          reviewerName: null,
-        });
-        if (a.uploadedBy) uids.add(a.uploadedBy);
-      }
-      if (a.lastUpdatedAt) {
-        records.push({
-          id: `${d.id}-status`,
-          version,
-          status: a.status,
-          comment: a.comment || '',
-          lastUpdatedAt: a.lastUpdatedAt,
-          userId: a.lastUpdatedBy || null,
-          userEmail: null,
-          reviewerName: null,
-        });
-        if (a.lastUpdatedBy) uids.add(a.lastUpdatedBy);
-      }
-    });
-
-    if (recipeSnap.exists() && Array.isArray(recipeSnap.data().history)) {
-      recipeSnap.data().history.forEach((h, idx) => {
-        records.push({
-          id: `history-${idx}`,
-          version: null,
-          status: h.status,
-          comment: '',
-          lastUpdatedAt: h.timestamp,
-          userId: h.userId || null,
-          userEmail: null,
-          reviewerName: null,
-        });
-        if (h.userId) uids.add(h.userId);
-      });
-    }
-
-    respSnap.docs.forEach((d) => {
-      const r = d.data();
-      const filename = getFilenameFromUrl(r.adUrl || '');
-      const info = parseAdFilename(filename);
-      if ((info.recipeCode || 'unknown') !== recipeCode) return;
+    histSnap.docs.forEach((d) => {
+      const h = d.data();
       records.push({
         id: d.id,
-        version: info.version || 1,
-        status: r.response,
-        comment: r.comment || '',
-        lastUpdatedAt: r.timestamp,
-        userId: r.userId || null,
-        userEmail: r.userEmail || null,
-        reviewerName: r.reviewerName || null,
+        version: null,
+        status: h.status,
+        comment: h.comment || '',
+        lastUpdatedAt: h.timestamp,
+        userId: h.userId || null,
+        userEmail: null,
+        reviewerName: null,
       });
-      if (r.userId) uids.add(r.userId);
+      if (h.userId) uids.add(h.userId);
     });
 
     const emails = {};
