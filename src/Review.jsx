@@ -763,7 +763,7 @@ const Review = ({
               <FiX />
             </button>
             <div
-              className="progress-bar mx-auto"
+              className="progress-bar"
               role="progressbar"
               aria-valuenow={progress}
               aria-valuemin="0"
