@@ -64,6 +64,8 @@ const Review = ({
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
+  const timeoutRef = useRef(null);
+  const mountedRef = useRef(true);
   const [groupStatus, setGroupStatus] = useState(null);
   const { agency } = useAgencyTheme(agencyId);
   const navigate = useNavigate();
@@ -83,6 +85,15 @@ const Review = ({
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, []);
 
   const recipeGroups = useMemo(() => {
@@ -617,7 +628,9 @@ useEffect(() => {
 
     setComment('');
     setShowComment(false);
-    setTimeout(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      if (!mountedRef.current) return;
       setCurrentIndex((i) => i + 1);
       if (responseType === 'reject') {
         const newCount = rejectionCount + 1;
@@ -626,6 +639,7 @@ useEffect(() => {
           setShowStreakModal(true);
         }
       }
+      timeoutRef.current = null;
     }, 400);
     // free UI interactions while waiting for Firestore updates
     setSubmitting(false);
