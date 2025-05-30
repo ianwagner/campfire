@@ -87,15 +87,15 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
 
         {open && (
           <div className="fixed inset-0 bg-white dark:bg-[var(--dark-sidebar-bg)] p-4 flex flex-col h-full justify-between z-50">
-            <div className="space-y-2">
-              <button
-                type="button"
-                aria-label="Close menu"
-                className="self-end mb-4 text-2xl"
-                onClick={() => setOpen(false)}
-              >
-                &times;
-              </button>
+            <button
+              type="button"
+              aria-label="Close menu"
+              className="absolute top-4 right-4 text-2xl"
+              onClick={() => setOpen(false)}
+            >
+              &times;
+            </button>
+            <div className="space-y-2 mt-8">
               <OptimizedImage
                 pngUrl={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
                 alt={logoAlt || 'Logo'}
