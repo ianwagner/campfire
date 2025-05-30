@@ -14,6 +14,7 @@ const docMock = jest.fn((...args) => args.slice(1).join('/'));
 const collectionMock = jest.fn((...args) => args);
 const queryMock = jest.fn((...args) => args);
 const whereMock = jest.fn((...args) => args);
+const setDoc = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   doc: (...args) => docMock(...args),
@@ -28,10 +29,12 @@ jest.mock('firebase/firestore', () => ({
   getDocs: (...args) => getDocs(...args),
   query: (...args) => queryMock(...args),
   where: (...args) => whereMock(...args),
+  setDoc: (...args) => setDoc(...args),
 }));
 
 jest.mock('firebase/storage', () => ({ ref: jest.fn(), deleteObject: jest.fn() }));
 jest.mock('./uploadFile', () => ({ uploadFile: jest.fn() }));
+jest.mock('./utils/recordRecipeStatus', () => jest.fn(() => Promise.resolve()));
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),

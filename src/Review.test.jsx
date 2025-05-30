@@ -13,6 +13,7 @@ const addDoc = jest.fn();
 const docMock = jest.fn((...args) => args.slice(1).join('/'));
 const arrayUnion = jest.fn((val) => val);
 const increment = jest.fn((val) => val);
+const setDoc = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
@@ -27,7 +28,10 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: (...args) => updateDoc(...args),
   arrayUnion: (...args) => arrayUnion(...args),
   increment: (...args) => increment(...args),
+  setDoc: (...args) => setDoc(...args),
 }));
+
+jest.mock('./utils/recordRecipeStatus', () => jest.fn(() => Promise.resolve()));
 
 afterEach(() => {
   jest.clearAllMocks();

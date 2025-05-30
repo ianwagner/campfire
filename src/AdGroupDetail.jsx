@@ -26,6 +26,7 @@ import StatusBadge from './components/StatusBadge.jsx';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import computeGroupStatus from './utils/computeGroupStatus';
 import getFilenameFromUrl from './utils/getFilenameFromUrl';
+import recordRecipeStatus from './utils/recordRecipeStatus';
 
 const AdGroupDetail = () => {
   const { id } = useParams();
@@ -168,9 +169,10 @@ const AdGroupDetail = () => {
   };
 
   const openHistory = async (recipeCode) => {
-    const [respSnap, assetSnap] = await Promise.all([
+    const [respSnap, assetSnap, recipeSnap] = await Promise.all([
       getDocs(collection(db, 'adGroups', id, 'responses')),
       getDocs(collection(db, 'adGroups', id, 'assets')),
+      getDoc(doc(db, 'adGroups', id, 'recipes', recipeCode)),
     ]);
     const records = [];
     const uids = new Set();
@@ -207,6 +209,22 @@ const AdGroupDetail = () => {
         if (a.lastUpdatedBy) uids.add(a.lastUpdatedBy);
       }
     });
+
+    if (recipeSnap.exists() && Array.isArray(recipeSnap.data().history)) {
+      recipeSnap.data().history.forEach((h, idx) => {
+        records.push({
+          id: `history-${idx}`,
+          version: null,
+          status: h.status,
+          comment: '',
+          lastUpdatedAt: h.timestamp,
+          userId: h.userId || null,
+          userEmail: null,
+          reviewerName: null,
+        });
+        if (h.userId) uids.add(h.userId);
+      });
+    }
 
     respSnap.docs.forEach((d) => {
       const r = d.data();
@@ -349,6 +367,7 @@ const AdGroupDetail = () => {
           parentAdId: parentId,
           isResolved: false,
         });
+        await recordRecipeStatus(id, info.recipeCode || 'unknown', 'pending', auth.currentUser?.uid);
       } catch (err) {
         console.error('Upload failed', err);
       }
@@ -371,6 +390,8 @@ const AdGroupDetail = () => {
         firebaseUrl: url,
         uploadedAt: serverTimestamp(),
       });
+      const info = parseAdFilename(file.name);
+      await recordRecipeStatus(id, info.recipeCode || 'unknown', 'pending', auth.currentUser?.uid);
     } catch (err) {
       console.error('Failed to upload version', err);
     } finally {
@@ -383,8 +404,13 @@ const AdGroupDetail = () => {
       await updateDoc(doc(db, 'adGroups', id, 'assets', assetId), {
         status,
       });
+      const asset = assets.find((a) => a.id === assetId);
+      if (asset) {
+        const info = parseAdFilename(asset.filename || '');
+        const rCode = asset.recipeCode || info.recipeCode || 'unknown';
+        await recordRecipeStatus(id, rCode, status, auth.currentUser?.uid);
+      }
       if (status === 'ready') {
-        const asset = assets.find((a) => a.id === assetId);
         if (asset?.parentAdId) {
           await updateDoc(doc(db, 'adGroups', id, 'assets', asset.parentAdId), {
             status: 'archived',
@@ -412,6 +438,7 @@ const AdGroupDetail = () => {
     });
     try {
       await batch.commit();
+      await recordRecipeStatus(id, recipeCode, status, auth.currentUser?.uid);
       setAssets((prev) =>
         prev.map((a) =>
           groupAssets.some((g) => g.id === a.id) ? { ...a, status } : a
@@ -436,6 +463,12 @@ const AdGroupDetail = () => {
       }
       batch.update(doc(db, 'adGroups', id), { status: 'ready' });
       await batch.commit();
+      const recipesSet = new Set(pendingAssets.map((a) => a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown'));
+      await Promise.all(
+        Array.from(recipesSet).map((code) =>
+          recordRecipeStatus(id, code, 'ready', auth.currentUser?.uid)
+        )
+      );
       if (pendingAssets.length > 0) {
         setAssets((prev) =>
           prev.map((a) =>
