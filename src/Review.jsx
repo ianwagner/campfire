@@ -20,6 +20,7 @@ import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
+import ReviewAd from './components/ReviewAd.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import computeGroupStatus from './utils/computeGroupStatus';
 import recordRecipeStatus from './utils/recordRecipeStatus';
@@ -902,7 +903,7 @@ const Review = ({
         )}
         <div className="flex justify-center relative">
           {nextAdUrl && !showSizes && (
-            <OptimizedImage
+            <ReviewAd
               pngUrl={nextAdUrl}
               webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
               alt="Next ad"
@@ -939,7 +940,7 @@ const Review = ({
                   }
             }
           >
-            <OptimizedImage
+            <ReviewAd
               pngUrl={adUrl}
               webpUrl={adUrl.replace(/\.png$/, '.webp')}
               alt="Ad"
