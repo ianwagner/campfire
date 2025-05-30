@@ -7,6 +7,8 @@ import {
   PhoneMultiFactorGenerator,
 } from 'firebase/auth';
 import { auth } from './firebase/config';
+import OptimizedImage from './components/OptimizedImage.jsx';
+import { DEFAULT_LOGO_URL } from './constants';
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -63,7 +65,14 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100 dark:bg-[var(--dark-bg)]">
+    <div className="flex flex-col justify-center items-center min-h-screen bg-gray-100 dark:bg-[var(--dark-bg)]">
+      <OptimizedImage
+        pngUrl={DEFAULT_LOGO_URL}
+        alt="Studio Tak logo"
+        loading="eager"
+        cacheKey={DEFAULT_LOGO_URL}
+        className="mb-4 max-h-24 w-auto"
+      />
       {!mfaResolver ? (
         <form onSubmit={handleSubmit} className="bg-white dark:bg-[var(--dark-sidebar-bg)] p-6 rounded shadow-md w-80">
           <h1 className="text-2xl mb-4 text-center">Login</h1>
