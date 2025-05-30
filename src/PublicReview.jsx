@@ -22,17 +22,23 @@ const PublicReview = () => {
   const [tempName, setTempName] = useState(initialName);
   const [anonError, setAnonError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [authStatus, setAuthStatus] = useState('');
   const didSignIn = useRef(false);
 
   useEffect(() => {
     if (!auth.currentUser && !didSignIn.current) {
+      console.log('Starting anonymous sign-in');
+      setAuthStatus('Signing in...');
       didSignIn.current = true;
       signInAnonymously(auth)
         .then(() => {
+          console.log('Anonymous sign-in success');
+          setAuthStatus('');
           setLoading(false);
         })
         .catch((err) => {
           console.error('Anonymous sign-in failed', err);
+          setAuthStatus('Sign-in failed');
           setAnonError(err.message);
           didSignIn.current = false;
           setLoading(false);
@@ -66,7 +72,11 @@ const PublicReview = () => {
   }
 
   if (loading) {
-    return <div className="text-center mt-10">Loading...</div>;
+    return (
+      <div className="text-center mt-10">
+        {authStatus || 'Loading...'}
+      </div>
+    );
   }
 
   if (!reviewerName) {

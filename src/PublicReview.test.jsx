@@ -40,5 +40,5 @@ test('shows loading indicator while signing in', () => {
       <PublicReview />
     </MemoryRouter>
   );
-  expect(screen.getByText('Loading...')).toBeInTheDocument();
+  expect(screen.getByText('Signing in...')).toBeInTheDocument();
 });
