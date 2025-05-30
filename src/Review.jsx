@@ -36,6 +36,8 @@ const Review = ({
   const [ads, setAds] = useState([]); // full list of ads
   const [reviewAds, setReviewAds] = useState([]); // ads being reviewed in the current pass
   const [currentIndex, setCurrentIndex] = useState(0);
+  // track last data fetch to avoid duplicate loads
+  const lastFetchKeyRef = useRef(null);
   const [comment, setComment] = useState('');
   const [showComment, setShowComment] = useState(false);
   const [clientNote, setClientNote] = useState('');
@@ -271,10 +273,14 @@ useEffect(() => {
           return rA.localeCompare(rB);
         });
         setReviewAds(heroList);
-        if (heroList[0]?.firebaseUrl) {
-          console.log('Preloading hero image', heroList[0].firebaseUrl);
-          new Image().src = heroList[0].firebaseUrl;
-        }
+        heroList.slice(0, 3).forEach((ad) => {
+          const url = ad.adUrl || ad.firebaseUrl;
+          if (url) new Image().src = url;
+        });
+        console.log(
+          'Preloading first ads',
+          heroList.slice(0, 3).map((a) => a.adUrl || a.firebaseUrl)
+        );
         setCurrentIndex(0);
         setPendingOnly(
           heroList.length === 0 && nonPending.length === 0 && hasPendingAds
@@ -292,9 +298,14 @@ useEffect(() => {
       setAds([]);
       setReviewAds([]);
       setLoading(false);
+      lastFetchKeyRef.current = null;
       return;
     }
 
+    const key = groupId || brandCodes.join(',');
+    if (lastFetchKeyRef.current === key) return;
+    lastFetchKeyRef.current = key;
+    setLoading(true);
     fetchAds();
   }, [user, brandCodes, groupId]);
 
@@ -768,7 +779,7 @@ useEffect(() => {
             const showSet = finalGallery ? g.assets : [g.hero];
             return showSet.map((a, idx) => (
               <OptimizedImage
-                key={`${g.recipeCode}-${idx}`}
+                key={a.assetId || `${g.recipeCode}-${idx}`}
                 pngUrl={a.firebaseUrl}
                 webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
                 alt={a.filename}
@@ -931,7 +942,7 @@ useEffect(() => {
             />
           )}
           <div
-            key={currentIndex}
+            key={currentAd ? currentAd.assetId || adUrl : currentIndex}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -955,11 +966,12 @@ useEffect(() => {
                   }
             }
           >
-            <ReviewAd
-              pngUrl={adUrl}
-              webpUrl={adUrl.replace(/\.png$/, '.webp')}
-              alt="Ad"
-              loading="eager"
+            {adUrl && (
+              <ReviewAd
+                pngUrl={adUrl}
+                webpUrl={adUrl.replace(/\.png$/, '.webp')}
+                alt="Ad"
+                loading="eager"
               style={
                 isMobile && showSizes
                   ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
@@ -968,13 +980,14 @@ useEffect(() => {
               className={`relative max-w-[90%] mx-auto rounded shadow ${
                 isMobile && showSizes ? 'mb-2' : 'max-h-[72vh]'
               }`}
-            />
+              />
+            )}
             {currentAd && (currentAd.version || 1) > 1 && (
               <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
             )}
             {otherSizes.map((a, idx) => (
               <OptimizedImage
-                key={idx}
+                key={a.assetId || a.firebaseUrl || idx}
                 pngUrl={a.firebaseUrl}
                 webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
                 alt={a.filename}
