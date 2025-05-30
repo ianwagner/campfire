@@ -63,9 +63,9 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+    <div className="flex justify-center items-center min-h-screen bg-gray-100 dark:bg-[var(--dark-bg)]">
       {!mfaResolver ? (
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow-md w-80">
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-[var(--dark-sidebar-bg)] p-6 rounded shadow-md w-80">
           <h1 className="text-2xl mb-4 text-center">Login</h1>
           <label className="block mb-2 text-sm font-medium">Email</label>
           <input
@@ -90,7 +90,7 @@ const Login = ({ onLogin }) => {
           <div id="recaptcha-container"></div>
         </form>
       ) : (
-        <form onSubmit={handleVerify} className="bg-white p-6 rounded shadow-md w-80">
+        <form onSubmit={handleVerify} className="bg-white dark:bg-[var(--dark-sidebar-bg)] p-6 rounded shadow-md w-80">
           <h1 className="text-2xl mb-4 text-center">Verify Code</h1>
           <label className="block mb-2 text-sm font-medium">SMS Code</label>
           <input
