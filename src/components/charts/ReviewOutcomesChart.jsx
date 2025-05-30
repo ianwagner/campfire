@@ -39,11 +39,16 @@ const ReviewOutcomesChart = ({ data }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: { legend: { position: 'bottom' } },
     scales: { x: { type: 'time', time: { unit: 'day' } } },
   };
 
-  return <Line data={chartData} options={options} />;
+  return (
+    <div className="h-64 max-w-md mx-auto">
+      <Line data={chartData} options={options} />
+    </div>
+  );
 };
 
 export default ReviewOutcomesChart;

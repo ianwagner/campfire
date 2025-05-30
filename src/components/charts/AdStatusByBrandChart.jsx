@@ -37,13 +37,18 @@ const AdStatusByBrandChart = ({ data }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       datalabels: { color: '#fff' },
     },
     scales: { x: { stacked: true }, y: { stacked: true } },
   };
 
-  return <Bar data={chartData} options={options} />;
+  return (
+    <div className="h-64 max-w-md mx-auto">
+      <Bar data={chartData} options={options} />
+    </div>
+  );
 };
 
 export default AdStatusByBrandChart;

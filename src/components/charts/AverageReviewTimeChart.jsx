@@ -37,12 +37,17 @@ const AverageReviewTimeChart = ({ data }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     indexAxis: 'y',
     plugins: { datalabels: { anchor: 'end', align: 'right' } },
     scales: { x: { stacked: true }, y: { stacked: true } },
   };
 
-  return <Bar data={chartData} options={options} />;
+  return (
+    <div className="h-64 max-w-md mx-auto">
+      <Bar data={chartData} options={options} />
+    </div>
+  );
 };
 
 export default AverageReviewTimeChart;
