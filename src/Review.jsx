@@ -395,7 +395,6 @@ const Review = ({
 
   // Preload up to 5 upcoming ads to keep swipes smooth
   useEffect(() => {
-    if (!isMobile) return;
     for (let i = 1; i <= 5; i += 1) {
       const next = reviewAds[currentIndex + i];
       if (!next) break;
