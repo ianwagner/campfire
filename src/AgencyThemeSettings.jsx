@@ -63,13 +63,14 @@ const AgencyThemeSettings = () => {
             onChange={handleFileChange}
             className="w-full p-2 border rounded"
           />
-          {logoUrl && (
-            <OptimizedImage
-              pngUrl={logoUrl}
-              alt="Logo preview"
-              className="mt-2 max-h-16 w-auto"
-            />
-          )}
+            {logoUrl && (
+              <OptimizedImage
+                pngUrl={logoUrl}
+                alt="Logo preview"
+                loading="eager"
+                className="mt-2 max-h-16 w-auto"
+              />
+            )}
         </div>
         <div>
           <label className="block mb-1 text-sm font-medium">Theme Color</label>
