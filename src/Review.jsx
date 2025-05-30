@@ -353,15 +353,24 @@ const Review = ({
 
   const handleStopReview = async () => {
     const remaining = reviewAds.slice(currentIndex);
-    try {
-      await Promise.all(
-        remaining.map((a) =>
-          updateDoc(doc(db, 'adGroups', a.adGroupId, 'assets', a.assetId), {
+    // gather all assets from the remaining recipe groups
+    const toUpdate = [];
+    remaining.forEach((hero) => {
+      const info = parseAdFilename(hero.filename || '');
+      const recipe = hero.recipeCode || info.recipeCode || 'unknown';
+      const group = recipeGroups.find((g) => g.recipeCode === recipe);
+      const assets = group ? group.assets : [hero];
+      assets.forEach((asset) =>
+        toUpdate.push(
+          updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId), {
             status: 'pending',
             isResolved: false,
           })
         )
       );
+    });
+    try {
+      await Promise.all(toUpdate);
     } catch (err) {
       console.error('Failed to mark remaining ads pending', err);
     } finally {
