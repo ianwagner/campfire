@@ -25,6 +25,7 @@ import parseAdFilename from './utils/parseAdFilename';
 import StatusBadge from './components/StatusBadge.jsx';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import computeGroupStatus from './utils/computeGroupStatus';
+import getFilenameFromUrl from './utils/getFilenameFromUrl';
 
 const AdGroupDetail = () => {
   const { id } = useParams();
@@ -167,16 +168,30 @@ const AdGroupDetail = () => {
   };
 
   const openHistory = async (recipeCode) => {
-    const list = assets.filter((a) => {
-      const info = parseAdFilename(a.filename || '');
-      return (info.recipeCode || 'unknown') === recipeCode;
+    const respSnap = await getDocs(collection(db, 'adGroups', id, 'responses'));
+    const records = [];
+    const uids = new Set();
+    respSnap.docs.forEach((d) => {
+      const r = d.data();
+      const filename = getFilenameFromUrl(r.adUrl || '');
+      const info = parseAdFilename(filename);
+      if ((info.recipeCode || 'unknown') !== recipeCode) return;
+      records.push({
+        id: d.id,
+        version: info.version || 1,
+        status: r.response,
+        comment: r.comment || '',
+        lastUpdatedAt: r.timestamp,
+        userId: r.userId || null,
+        userEmail: r.userEmail || null,
+        reviewerName: r.reviewerName || null,
+      });
+      if (r.userId) uids.add(r.userId);
     });
-    const uids = Array.from(
-      new Set(list.map((a) => a.lastUpdatedBy).filter(Boolean))
-    );
+
     const emails = {};
     await Promise.all(
-      uids.map(async (uid) => {
+      Array.from(uids).map(async (uid) => {
         try {
           const snap = await getDoc(doc(db, 'users', uid));
           emails[uid] = snap.exists() ? snap.data().email || uid : uid;
@@ -185,10 +200,17 @@ const AdGroupDetail = () => {
         }
       })
     );
-    const hist = list.map((a) => ({
-      ...a,
-      email: a.lastUpdatedBy ? emails[a.lastUpdatedBy] : 'N/A',
-    }));
+
+    const hist = records
+      .map((r) => ({
+        ...r,
+        email: r.userEmail || r.reviewerName || (r.userId ? emails[r.userId] : 'N/A'),
+      }))
+      .sort((a, b) => {
+        const ta = a.lastUpdatedAt?.toDate ? a.lastUpdatedAt.toDate() : new Date(0);
+        const tb = b.lastUpdatedAt?.toDate ? b.lastUpdatedAt.toDate() : new Date(0);
+        return ta - tb;
+      });
     setHistoryRecipe({ recipeCode, assets: hist });
   };
 

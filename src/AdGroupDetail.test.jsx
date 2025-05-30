@@ -90,3 +90,52 @@ test('toggles asset status back to pending', async () => {
   await waitFor(() => expect(updateDoc).toHaveBeenCalled());
   expect(updateDoc).toHaveBeenCalledWith('adGroups/group1/assets/asset1', { status: 'pending' });
 });
+
+test('opens history modal with previous decisions', async () => {
+  onSnapshot.mockImplementation((col, cb) => {
+    cb({
+      docs: [
+        {
+          id: 'asset1',
+          data: () => ({ filename: 'BR1_G1_R1_3x5_V1.png', status: 'ready' }),
+        },
+      ],
+    });
+    return jest.fn();
+  });
+
+  const respSnapshot = {
+    docs: [
+      {
+        id: 'resp1',
+        data: () => ({
+          adUrl: 'https://x/BR1/G1/BR1_G1_R1_3x5_V1.png',
+          response: 'approve',
+          comment: 'ok',
+          userEmail: 'rev@test.com',
+          timestamp: { toDate: () => new Date('2023-01-01') },
+        }),
+      },
+    ],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'responses') return Promise.resolve(respSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>
+  );
+
+  await screen.findByText('BR1_G1_R1_3x5_V1.png');
+  fireEvent.click(screen.getByLabelText('History'));
+
+  await screen.findByText('approve');
+  expect(screen.getByText('rev@test.com')).toBeInTheDocument();
+  expect(getDocs).toHaveBeenCalledWith(['adGroups', 'group1', 'responses']);
+});
+
