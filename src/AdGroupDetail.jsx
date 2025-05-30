@@ -34,6 +34,7 @@ const AdGroupDetail = () => {
   const [assets, setAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
   const [expanded, setExpanded] = useState({});
   const [historyRecipe, setHistoryRecipe] = useState(null);
@@ -238,6 +239,43 @@ const AdGroupDetail = () => {
       setGroup((p) => ({ ...p, status: newStatus }));
     } catch (err) {
       console.error('Failed to toggle lock', err);
+    }
+  };
+
+  const resetGroup = async () => {
+    if (!group) return;
+    const confirmReset = window.confirm('Reset entire ad group to pending?');
+    if (!confirmReset) return;
+    setResetLoading(true);
+    try {
+      const batch = writeBatch(db);
+      assets.forEach((a) => {
+        batch.update(doc(db, 'adGroups', id, 'assets', a.id), {
+          status: 'pending',
+          lastUpdatedBy: null,
+          lastUpdatedAt: serverTimestamp(),
+        });
+      });
+      batch.update(doc(db, 'adGroups', id), { status: 'pending' });
+      await batch.commit();
+      const recipesSet = new Set(
+        assets.map((a) =>
+          a.recipeCode ||
+          parseAdFilename(a.filename || '').recipeCode ||
+          'unknown'
+        )
+      );
+      await Promise.all(
+        Array.from(recipesSet).map((code) =>
+          recordRecipeStatus(id, code, 'pending', auth.currentUser?.uid)
+        )
+      );
+      setAssets((prev) => prev.map((a) => ({ ...a, status: 'pending' })));
+      setGroup((p) => ({ ...p, status: 'pending' }));
+    } catch (err) {
+      console.error('Failed to reset group', err);
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -515,9 +553,18 @@ const AdGroupDetail = () => {
       <p className="text-sm text-gray-500 mb-4 flex items-center gap-2">
         Status: <StatusBadge status={group.status} />
         {(userRole === 'admin' || userRole === 'agency') && (
-          <button onClick={toggleLock} className="btn-secondary px-2 py-0.5">
-            {group.status === 'locked' ? 'Unlock' : 'Lock'}
-          </button>
+          <>
+            <button onClick={toggleLock} className="btn-secondary px-2 py-0.5">
+              {group.status === 'locked' ? 'Unlock' : 'Lock'}
+            </button>
+            <button
+              onClick={resetGroup}
+              className="btn-secondary px-2 py-0.5"
+              disabled={resetLoading}
+            >
+              {resetLoading ? 'Resetting...' : 'Reset'}
+            </button>
+          </>
         )}
       </p>
 
