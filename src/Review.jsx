@@ -127,6 +127,7 @@ useEffect(() => {
 
 
   useEffect(() => {
+    let cancelled = false;
     const fetchAds = async () => {
       console.log('Fetching ads...');
       try {
@@ -134,6 +135,7 @@ useEffect(() => {
         if (groupId) {
           const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
           if (groupSnap.exists()) {
+            if (cancelled) return;
             setGroupStatus(groupSnap.data().status || 'pending');
             const assetsSnap = await getDocs(
               collection(db, 'adGroups', groupId, 'assets')
@@ -207,9 +209,12 @@ useEffect(() => {
         // store all non-pending ads (including archived versions) so the
         // version modal can show previous revisions
         const fullNonPending = list.filter((a) => a.status !== 'pending');
+        if (cancelled) return;
         setAllAds(fullNonPending);
 
+        if (cancelled) return;
         setAds(nonPending);
+        if (cancelled) return;
         setHasPending(hasPendingAds);
 
         const readyAds = nonPending.filter((a) => a.status === 'ready');
@@ -251,6 +256,7 @@ useEffect(() => {
               initial[url] = { adUrl: url, response: resp };
             }
           });
+          if (cancelled) return;
           setResponses(initial);
         }
 
@@ -279,19 +285,23 @@ useEffect(() => {
           const rB = getRecipe(b);
           return rA.localeCompare(rB);
         });
+        if (cancelled) return;
         setReviewAds(heroList);
         heroList.slice(0, 3).forEach((ad) => {
           const url = ad.adUrl || ad.firebaseUrl;
           if (url) new Image().src = url;
         });
+        if (cancelled) return;
         setPendingOnly(
           heroList.length === 0 && nonPending.length === 0 && hasPendingAds
         );
+        if (cancelled) return;
         setSecondPass(heroList.length === 0 && nonPending.length > 0);
         console.log('Finished fetching', heroList.length, 'ads');
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
+        if (cancelled) return;
         setLoading(false);
       }
     };
@@ -309,6 +319,9 @@ useEffect(() => {
     lastFetchKeyRef.current = key;
     setLoading(true);
     fetchAds();
+    return () => {
+      cancelled = true;
+    };
   }, [user?.uid, groupId, brandKey]);
 
   const currentAd = currentIndex >= 0 ? reviewAds[currentIndex] : null;
