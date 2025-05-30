@@ -79,7 +79,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
       <button
         type="button"
         aria-label="Menu"
-        className="md:hidden fixed top-4 left-2 m-2 text-2xl z-40"
+        className="md:hidden fixed top-4 right-2 m-2 text-2xl z-40"
         onClick={() => setOpen(true)}
       >
         &#9776;
