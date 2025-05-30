@@ -35,7 +35,8 @@ const Review = ({
 }) => {
   const [ads, setAds] = useState([]); // full list of ads
   const [reviewAds, setReviewAds] = useState([]); // ads being reviewed in the current pass
-  const [currentIndex, setCurrentIndex] = useState(0);
+  // start offscreen until ads load
+  const [currentIndex, setCurrentIndex] = useState(-1);
   // track last data fetch to avoid duplicate loads
   const lastFetchKeyRef = useRef(null);
   const [comment, setComment] = useState('');
@@ -71,6 +72,10 @@ const Review = ({
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= 640 : false
   );
+  const brandKey = useMemo(
+    () => brandCodes.slice().sort().join(','),
+    [brandCodes]
+  );
 
   useEffect(() => {
     const handleResize = () => {
@@ -101,6 +106,16 @@ const Review = ({
     setEditing(false);
   }, [currentIndex]);
 
+  // initialize once ads are ready
+  useEffect(() => {
+    if (currentIndex === -1 && reviewAds.length > 0) {
+      const first = reviewAds[0];
+      if (first && (first.adUrl || first.firebaseUrl)) {
+        setCurrentIndex(0);
+      }
+    }
+  }, [reviewAds, currentIndex]);
+
   useEffect(() => {
     setShowSizes(false);
   }, [currentIndex]);
@@ -109,14 +124,6 @@ useEffect(() => {
   if (animating) setAnimating(null);
 }, [currentIndex]);
 
-useEffect(() => {
-  const current = reviewAds[currentIndex];
-  const url =
-    current && typeof current === 'object'
-      ? current.adUrl || current.firebaseUrl
-      : current;
-  console.log('Current index changed:', currentIndex, 'Ad URL:', url);
-}, [currentIndex]);
 
 
   useEffect(() => {
@@ -277,9 +284,6 @@ useEffect(() => {
           const url = ad.adUrl || ad.firebaseUrl;
           if (url) new Image().src = url;
         });
-        if (heroList.length > 0 && (heroList[0].adUrl || heroList[0].firebaseUrl)) {
-          setCurrentIndex(0);
-        }
         setPendingOnly(
           heroList.length === 0 && nonPending.length === 0 && hasPendingAds
         );
@@ -300,14 +304,14 @@ useEffect(() => {
       return;
     }
 
-    const key = groupId || brandCodes.join(',');
+    const key = groupId || brandKey;
     if (lastFetchKeyRef.current === key) return;
     lastFetchKeyRef.current = key;
     setLoading(true);
     fetchAds();
-  }, [user?.uid, groupId, brandCodes.join(',')]);
+  }, [user?.uid, groupId, brandKey]);
 
-  const currentAd = reviewAds[currentIndex];
+  const currentAd = currentIndex >= 0 ? reviewAds[currentIndex] : null;
   const adUrl =
     currentAd && typeof currentAd === 'object'
       ? currentAd.adUrl || currentAd.firebaseUrl
@@ -320,15 +324,10 @@ useEffect(() => {
   const showSecondView = secondPass && selectedResponse && !editing;
   // show next step as soon as a decision is made
   const progress =
-    reviewAds.length > 0
+    reviewAds.length > 0 && currentIndex >= 0
       ? ((currentIndex + (animating ? 1 : 0)) / reviewAds.length) * 100
       : 0;
 
-  const nextAd = reviewAds[currentIndex + 1];
-  const nextAdUrl =
-    nextAd && typeof nextAd === 'object'
-      ? nextAd.adUrl || nextAd.firebaseUrl
-      : nextAd;
 
   const openVersionModal = () => {
     if (!currentAd || !currentAd.parentAdId) return;
@@ -658,13 +657,8 @@ useEffect(() => {
     }
   };
 
-  if (
-    loading ||
-    reviewAds.length === 0 ||
-    !reviewAds[0] ||
-    !(reviewAds[0]?.adUrl || reviewAds[0]?.firebaseUrl)
-  ) {
-    return <div className="text-center mt-10">Loading...</div>;
+  if (!ads.length || !ads[0]) {
+    return loading ? <div className="text-center mt-10">Loading...</div> : null;
   }
 
   if (groupStatus === 'locked') {
@@ -931,20 +925,6 @@ useEffect(() => {
           </button>
         )}
         <div className="flex justify-center relative">
-          {nextAdUrl && !showSizes && (
-            <ReviewAd
-              key={nextAdUrl}
-              pngUrl={nextAdUrl}
-              webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
-              alt="Next ad"
-              loading="eager"
-              className={`absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none transition-opacity ${
-                animating || (dragging && Math.abs(swipeX) > 10)
-                  ? 'opacity-100'
-                  : 'opacity-0'
-              }`}
-            />
-          )}
           {currentAd && (
           <div
             key={currentAd.assetId || adUrl}
