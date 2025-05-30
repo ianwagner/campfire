@@ -12,15 +12,26 @@ import { Bar } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
 
+const getVar = (name, fallback) =>
+  getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim() || fallback;
+
 const AverageReviewTimeChart = ({ data }) => {
   const groups = Object.keys(data);
   const designers = [...new Set(Object.values(data).map((d) => d.designer))];
+  const colors = [
+    getVar('--accent-color', '#60a5fa'),
+    getVar('--approve-color', '#34d399'),
+    getVar('--edit-color', '#fbbf24'),
+    getVar('--reject-color', '#f87171'),
+  ];
   const chartData = {
     labels: groups,
     datasets: designers.map((des, idx) => ({
       label: des,
       data: groups.map((g) => data[g].times[des] || 0),
-      backgroundColor: [`#60a5fa`, `#34d399`, `#fbbf24`, `#f87171`][idx % 4],
+      backgroundColor: colors[idx % colors.length],
     })),
   };
 

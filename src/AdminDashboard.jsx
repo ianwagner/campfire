@@ -6,6 +6,7 @@ import AssetUploadsChart from './components/charts/AssetUploadsChart';
 import ReviewOutcomesChart from './components/charts/ReviewOutcomesChart';
 import CommentFrequencyHeatmap from './components/charts/CommentFrequencyHeatmap';
 import UnresolvedEditRequestsCount from './components/charts/UnresolvedEditRequestsCount';
+import useAdminDashboardData from './hooks/useAdminDashboardData';
 
 const AdminDashboard = () => {
   const [range, setRange] = useState(() => {
@@ -16,47 +17,21 @@ const AdminDashboard = () => {
   });
   const [tab, setTab] = useState('overview');
 
-  // TODO: Replace with real Firestore queries
-  const sampleData = {
-    statusByBrand: {
-      ACME: { ready: 5, pending: 3, approved: 10, 'edit requested': 2 },
-      GLOBEX: { ready: 2, pending: 1, approved: 4, 'edit requested': 1 },
-    },
-    reviewTimes: {
-      GroupA: { designer: 'Alice', times: { Alice: 24 } },
-      GroupB: { designer: 'Bob', times: { Bob: 12 } },
-    },
-    uploads: {
-      Alice: { '2025-01-01': 2, '2025-01-02': 3 },
-      Bob: { '2025-01-01': 1, '2025-01-03': 2 },
-    },
-    reviewOutcomes: {
-      '2025-01-01': { Approved: 2, Rejected: 1, 'Edit Requested': 0 },
-      '2025-01-02': { Approved: 1, Rejected: 0, 'Edit Requested': 1 },
-    },
-    comments: {
-      Alice: { ACME: 3, GLOBEX: 1 },
-      Bob: { ACME: 2, GLOBEX: 2 },
-    },
-    unresolved: {
-      '2025-01-01': 2,
-      '2025-01-02': 3,
-    },
-  };
+  const data = useAdminDashboardData(range);
 
   const renderOverview = () => (
-    <div className="space-y-6">
-      <AdStatusByBrandChart data={sampleData.statusByBrand} />
-      <AssetUploadsChart data={sampleData.uploads} />
-      <ReviewOutcomesChart data={sampleData.reviewOutcomes} />
-      <UnresolvedEditRequestsCount data={sampleData.unresolved} />
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <AdStatusByBrandChart data={data.statusByBrand} />
+      <AssetUploadsChart data={data.uploads} />
+      <ReviewOutcomesChart data={data.reviewOutcomes} />
+      <UnresolvedEditRequestsCount data={data.unresolved} />
     </div>
   );
 
   const renderBrand = () => (
-    <div className="space-y-6">
-      <AverageReviewTimeChart data={sampleData.reviewTimes} />
-      <CommentFrequencyHeatmap data={sampleData.comments} />
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <AverageReviewTimeChart data={data.reviewTimes} />
+      <CommentFrequencyHeatmap data={data.comments} />
     </div>
   );
 
