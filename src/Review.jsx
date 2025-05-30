@@ -22,6 +22,7 @@ import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import computeGroupStatus from './utils/computeGroupStatus';
+import recordRecipeStatus from './utils/recordRecipeStatus';
 
 const Review = ({
   user,
@@ -362,14 +363,17 @@ const Review = ({
       const recipe = hero.recipeCode || info.recipeCode || 'unknown';
       const group = recipeGroups.find((g) => g.recipeCode === recipe);
       const assets = group ? group.assets : [hero];
-      assets.forEach((asset) =>
+      assets.forEach((asset) => {
         toUpdate.push(
           updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId), {
             status: 'pending',
             isResolved: false,
           })
-        )
-      );
+        );
+        const infoA = parseAdFilename(asset.filename || '');
+        const rCode = asset.recipeCode || infoA.recipeCode || 'unknown';
+        toUpdate.push(recordRecipeStatus(asset.adGroupId, rCode, 'pending', user.uid));
+      });
     });
     try {
       await Promise.all(toUpdate);
@@ -460,6 +464,12 @@ const Review = ({
           ...(responseType === 'approve' ? { isResolved: true } : {}),
           ...(responseType === 'edit' ? { isResolved: false } : {}),
         };
+
+        const info = parseAdFilename(asset.filename || '');
+        const recipeCode = asset.recipeCode || info.recipeCode || 'unknown';
+        updates.push(
+          recordRecipeStatus(asset.adGroupId, recipeCode, newStatus, user.uid)
+        );
 
         updates.push(updateDoc(assetRef, updateData));
 
