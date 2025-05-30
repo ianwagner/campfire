@@ -168,9 +168,46 @@ const AdGroupDetail = () => {
   };
 
   const openHistory = async (recipeCode) => {
-    const respSnap = await getDocs(collection(db, 'adGroups', id, 'responses'));
+    const [respSnap, assetSnap] = await Promise.all([
+      getDocs(collection(db, 'adGroups', id, 'responses')),
+      getDocs(collection(db, 'adGroups', id, 'assets')),
+    ]);
     const records = [];
     const uids = new Set();
+
+    assetSnap.docs.forEach((d) => {
+      const a = d.data();
+      const info = parseAdFilename(a.filename || '');
+      if ((info.recipeCode || 'unknown') !== recipeCode) return;
+      const version = a.version || info.version || 1;
+      if (a.uploadedAt) {
+        records.push({
+          id: `${d.id}-upload`,
+          version,
+          status: 'pending',
+          comment: '',
+          lastUpdatedAt: a.uploadedAt,
+          userId: a.uploadedBy || null,
+          userEmail: null,
+          reviewerName: null,
+        });
+        if (a.uploadedBy) uids.add(a.uploadedBy);
+      }
+      if (a.lastUpdatedAt) {
+        records.push({
+          id: `${d.id}-status`,
+          version,
+          status: a.status,
+          comment: a.comment || '',
+          lastUpdatedAt: a.lastUpdatedAt,
+          userId: a.lastUpdatedBy || null,
+          userEmail: null,
+          reviewerName: null,
+        });
+        if (a.lastUpdatedBy) uids.add(a.lastUpdatedBy);
+      }
+    });
+
     respSnap.docs.forEach((d) => {
       const r = d.data();
       const filename = getFilenameFromUrl(r.adUrl || '');
@@ -680,9 +717,9 @@ const AdGroupDetail = () => {
               <thead>
                 <tr>
                   <th>Version</th>
-                  <th>Decision</th>
+                  <th>Status</th>
                   <th>Note</th>
-                  <th>Reviewer</th>
+                  <th>User</th>
                   <th>Date</th>
                 </tr>
               </thead>

@@ -97,12 +97,35 @@ test('opens history modal with previous decisions', async () => {
       docs: [
         {
           id: 'asset1',
-          data: () => ({ filename: 'BR1_G1_R1_3x5_V1.png', status: 'ready' }),
+          data: () => ({
+            filename: 'BR1_G1_R1_3x5_V1.png',
+            status: 'approved',
+            uploadedAt: { toDate: () => new Date('2023-01-01') },
+            lastUpdatedAt: { toDate: () => new Date('2023-01-02') },
+            lastUpdatedBy: 'u1',
+            version: 1,
+          }),
         },
       ],
     });
     return jest.fn();
   });
+
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          filename: 'BR1_G1_R1_3x5_V1.png',
+          status: 'approved',
+          uploadedAt: { toDate: () => new Date('2023-01-01') },
+          lastUpdatedAt: { toDate: () => new Date('2023-01-02') },
+          lastUpdatedBy: 'u1',
+          version: 1,
+        }),
+      },
+    ],
+  };
 
   const respSnapshot = {
     docs: [
@@ -113,7 +136,8 @@ test('opens history modal with previous decisions', async () => {
           response: 'approve',
           comment: 'ok',
           userEmail: 'rev@test.com',
-          timestamp: { toDate: () => new Date('2023-01-01') },
+          userId: 'u2',
+          timestamp: { toDate: () => new Date('2023-01-03') },
         }),
       },
     ],
@@ -122,6 +146,7 @@ test('opens history modal with previous decisions', async () => {
   getDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'responses') return Promise.resolve(respSnapshot);
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
 
@@ -137,5 +162,7 @@ test('opens history modal with previous decisions', async () => {
   await screen.findByText('approve');
   expect(screen.getByText('rev@test.com')).toBeInTheDocument();
   expect(getDocs).toHaveBeenCalledWith(['adGroups', 'group1', 'responses']);
+  expect(getDocs).toHaveBeenCalledWith(['adGroups', 'group1', 'assets']);
+  expect(screen.getByText('pending')).toBeInTheDocument();
 });
 
