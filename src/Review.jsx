@@ -37,10 +37,11 @@ const Review = ({
   const [comment, setComment] = useState('');
   const [showComment, setShowComment] = useState(false);
   const [clientNote, setClientNote] = useState('');
-  const [showClientNote, setShowClientNote] = useState(false);
   const [noteSubmitting, setNoteSubmitting] = useState(false);
-  const [rejectionStreak, setRejectionStreak] = useState(0);
+  const [rejectionCount, setRejectionCount] = useState(0);
   const [showStreakModal, setShowStreakModal] = useState(false);
+  const [showNoteInput, setShowNoteInput] = useState(false);
+  const [askContinue, setAskContinue] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
@@ -309,7 +310,8 @@ const Review = ({
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
-    if (showSizes || editing || showComment || showClientNote) return;
+    if (showSizes || editing || showComment || showNoteInput || showStreakModal)
+      return;
     const touch = e.touches[0];
     touchStartX.current = touch.clientX;
     touchStartY.current = touch.clientY;
@@ -347,6 +349,25 @@ const Review = ({
       setSwipeX(0);
     }
     setDragging(false);
+  };
+
+  const handleStopReview = async () => {
+    const remaining = reviewAds.slice(currentIndex);
+    try {
+      await Promise.all(
+        remaining.map((a) =>
+          updateDoc(doc(db, 'adGroups', a.adGroupId, 'assets', a.assetId), {
+            status: 'pending',
+            isResolved: false,
+          })
+        )
+      );
+    } catch (err) {
+      console.error('Failed to mark remaining ads pending', err);
+    } finally {
+      setShowStreakModal(false);
+      navigate(-1);
+    }
   };
   const statusMap = {
     approve: 'Approved',
@@ -549,13 +570,11 @@ const Review = ({
     setTimeout(() => {
       setCurrentIndex((i) => i + 1);
       if (responseType === 'reject') {
-        const newStreak = rejectionStreak + 1;
-        setRejectionStreak(newStreak);
-        if (newStreak >= 5) {
+        const newCount = rejectionCount + 1;
+        setRejectionCount(newCount);
+        if (newCount === 5) {
           setShowStreakModal(true);
         }
-      } else {
-        setRejectionStreak(0);
       }
       setAnimating(null);
     }, 400);
@@ -568,7 +587,7 @@ const Review = ({
 
   const submitNote = async () => {
     if (!currentAd?.adGroupId) {
-      setShowClientNote(false);
+      setShowNoteInput(false);
       setClientNote('');
       return;
     }
@@ -584,7 +603,8 @@ const Review = ({
     } finally {
       setNoteSubmitting(false);
       setClientNote('');
-      setShowClientNote(false);
+      setShowNoteInput(false);
+      setAskContinue(true);
     }
   };
 
@@ -717,29 +737,78 @@ const Review = ({
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
       {showStreakModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-sm">
-            <p className="mb-4">Oops, 5 in a row! Drop a note and we’ll regroup?</p>
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => {
-                  setShowStreakModal(false);
-                  setShowClientNote(true);
-                  setRejectionStreak(0);
-                }}
-                className="btn-primary px-3 py-1"
-              >
-                Drop a note and pause
-              </button>
-              <button
-                onClick={() => {
-                  setShowStreakModal(false);
-                  setRejectionStreak(0);
-                }}
-                className="btn-secondary px-3 py-1 text-white"
-              >
-                Keep reviewing
-              </button>
-            </div>
+          <div className="bg-white p-4 rounded shadow max-w-sm space-y-4">
+            {!showNoteInput && !askContinue && (
+              <>
+                <p className="mb-4">You’ve rejected 5 ads so far. Leave a note so we can regroup?</p>
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => setShowNoteInput(true)}
+                    className="btn-primary px-3 py-1"
+                  >
+                    Leave Note
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowStreakModal(false);
+                      setShowNoteInput(false);
+                      setAskContinue(false);
+                    }}
+                    className="btn-secondary px-3 py-1 text-white"
+                  >
+                    Keep reviewing
+                  </button>
+                </div>
+              </>
+            )}
+            {showNoteInput && !askContinue && (
+              <div className="flex flex-col space-y-2">
+                <textarea
+                  value={clientNote}
+                  onChange={(e) => setClientNote(e.target.value)}
+                  className="w-full p-2 border rounded"
+                  rows={3}
+                  placeholder="Leave a note for the designer..."
+                />
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={submitNote}
+                    disabled={noteSubmitting}
+                    className="btn-primary px-3 py-1"
+                  >
+                    Submit Note
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowNoteInput(false);
+                      setClientNote('');
+                    }}
+                    className="btn-secondary px-3 py-1 text-white"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+            {askContinue && (
+              <>
+                <p className="mb-4">Continue Review?</p>
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => {
+                      setShowStreakModal(false);
+                      setAskContinue(false);
+                    }}
+                    className="btn-primary px-3 py-1"
+                  >
+                    Yes
+                  </button>
+                  <button onClick={handleStopReview} className="btn-secondary px-3 py-1 text-white">
+                    No
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -950,35 +1019,6 @@ const Review = ({
               >
                 Submit
               </button>
-            </div>
-          )}
-          {showClientNote && (
-            <div className="flex flex-col items-center space-y-2 w-full max-w-sm">
-              <textarea
-                value={clientNote}
-                onChange={(e) => setClientNote(e.target.value)}
-                className="w-full p-2 border rounded"
-                rows={3}
-                placeholder="Leave a note for the designer..."
-              />
-              <div className="flex space-x-2">
-                <button
-                  onClick={submitNote}
-                  disabled={noteSubmitting}
-                  className="btn-primary"
-                >
-                  Submit Note
-                </button>
-                <button
-                  onClick={() => {
-                    setShowClientNote(false);
-                    setClientNote('');
-                  }}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-              </div>
             </div>
           )}
         </>
