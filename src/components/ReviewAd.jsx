@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import OptimizedImage from './OptimizedImage.jsx';
 
 /**
@@ -7,12 +7,6 @@ import OptimizedImage from './OptimizedImage.jsx';
  */
 const ReviewAd = ({ pngUrl, webpUrl, ...props }) => {
   const url = pngUrl || webpUrl;
-
-  useEffect(() => {
-    console.log('mount', url);
-    return () => console.log('unmount', url);
-  }, [url]);
-
   if (!url) return null;
   return <OptimizedImage pngUrl={pngUrl} webpUrl={webpUrl} {...props} />;
 };
