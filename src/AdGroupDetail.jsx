@@ -659,6 +659,7 @@ const AdGroupDetail = () => {
                 <tr>
                   <th>Version</th>
                   <th>Decision</th>
+                  <th>Note</th>
                   <th>Reviewer</th>
                   <th>Date</th>
                 </tr>
@@ -668,6 +669,7 @@ const AdGroupDetail = () => {
                   <tr key={a.id}>
                     <td className="text-center">{a.version || 1}</td>
                     <td>{a.status}</td>
+                    <td className="whitespace-pre-wrap max-w-[8rem]">{a.comment || ''}</td>
                     <td>{a.email}</td>
                     <td>
                       {a.lastUpdatedAt?.toDate
