@@ -217,7 +217,7 @@
     background-color: var(--dark-sidebar-hover);
   }
   .status-badge {
-    @apply px-2 py-0.5 rounded-full font-bold text-white;
+    @apply px-2 py-0.5 rounded-full font-bold;
     display: inline-block;
   }
   .status-pending,
