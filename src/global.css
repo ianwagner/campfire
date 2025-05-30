@@ -85,10 +85,9 @@
   }
   .btn-primary {
     @apply text-white px-4 py-2;
-    background-color: var(--accent-color-10);
-    color: var(--accent-color);
+    background-color: var(--accent-color);
+    color: #ffffff;
     border-radius: 999px;
-    border: 1px solid var(--accent-color);
     
   }
   .btn-secondary {
@@ -101,7 +100,6 @@
   .btn-arrow {
     @apply text-2xl w-12 h-12 bg-gray-200 border border-white flex items-center justify-center dark:bg-[var(--dark-sidebar-hover)];
     border-radius: 20%;
-    box-shadow: var(--box-shadow-base);
   }
   .btn-approve {
     @apply text-lg transition-transform duration-150 active:scale-95 hover:scale-105;
