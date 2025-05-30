@@ -12,15 +12,26 @@ import { Bar } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend, ChartDataLabels);
 
+const getVar = (name, fallback) =>
+  getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim() || fallback;
+
 const AdStatusByBrandChart = ({ data }) => {
   const brandCodes = Object.keys(data);
   const statuses = ['ready', 'pending', 'approved', 'edit requested'];
+  const colors = [
+    getVar('--accent-color', '#60a5fa'),
+    getVar('--pending-color', '#fbbf24'),
+    getVar('--approve-color', '#34d399'),
+    getVar('--edit-color', '#f87171'),
+  ];
   const chartData = {
     labels: brandCodes,
     datasets: statuses.map((status, idx) => ({
       label: status,
       data: brandCodes.map((b) => data[b][status] || 0),
-      backgroundColor: [`#60a5fa`, `#fbbf24`, `#34d399`, `#f87171`][idx],
+      backgroundColor: colors[idx],
     })),
   };
 

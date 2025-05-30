@@ -13,6 +13,11 @@ import { Line } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, TimeScale, PointElement, LineElement, Tooltip);
 
+const getVar = (name, fallback) =>
+  getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim() || fallback;
+
 const UnresolvedEditRequestsCount = ({ data }) => {
   const dates = Object.keys(data).sort();
   const chartData = {
@@ -21,7 +26,7 @@ const UnresolvedEditRequestsCount = ({ data }) => {
       {
         label: 'Unresolved Edit Requests',
         data: dates.map((d) => data[d]),
-        borderColor: '#fbbf24',
+        borderColor: getVar('--edit-color', '#fbbf24'),
         fill: false,
       },
     ],

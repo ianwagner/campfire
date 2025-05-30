@@ -15,16 +15,27 @@ import { Line } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, TimeScale, PointElement, LineElement, Tooltip, Legend, ChartDataLabels);
 
+const getVar = (name, fallback) =>
+  getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim() || fallback;
+
 const AssetUploadsChart = ({ data }) => {
   const designers = Object.keys(data);
   const dates = [...new Set(designers.flatMap((d) => Object.keys(data[d])))].sort();
+  const colors = [
+    getVar('--accent-color', '#60a5fa'),
+    getVar('--approve-color', '#34d399'),
+    getVar('--edit-color', '#fbbf24'),
+    getVar('--reject-color', '#f87171'),
+  ];
   const chartData = {
     labels: dates,
     datasets: designers.map((des, idx) => ({
       label: des,
       data: dates.map((dt) => data[des][dt] || 0),
       fill: false,
-      borderColor: [`#60a5fa`, `#34d399`, `#fbbf24`, `#f87171`][idx % 4],
+      borderColor: colors[idx % colors.length],
     })),
   };
 

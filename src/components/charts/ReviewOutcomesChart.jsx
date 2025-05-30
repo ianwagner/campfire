@@ -14,15 +14,25 @@ import { Line } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, TimeScale, PointElement, LineElement, Tooltip, Legend);
 
+const getVar = (name, fallback) =>
+  getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim() || fallback;
+
 const ReviewOutcomesChart = ({ data }) => {
   const statuses = ['Approved', 'Rejected', 'Edit Requested'];
   const dates = [...new Set(Object.keys(data))].sort();
+  const colors = [
+    getVar('--approve-color', '#34d399'),
+    getVar('--reject-color', '#f87171'),
+    getVar('--edit-color', '#fbbf24'),
+  ];
   const chartData = {
     labels: dates,
     datasets: statuses.map((status, idx) => ({
       label: status,
       data: dates.map((d) => (data[d] && data[d][status]) || 0),
-      borderColor: [`#34d399`, `#f87171`, `#fbbf24`][idx],
+      borderColor: colors[idx],
       fill: false,
     })),
   };
