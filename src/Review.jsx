@@ -103,13 +103,23 @@ const Review = ({
     setShowSizes(false);
   }, [currentIndex]);
 
-  useEffect(() => {
-    if (animating) setAnimating(null);
-  }, [currentIndex]);
+useEffect(() => {
+  if (animating) setAnimating(null);
+}, [currentIndex]);
+
+useEffect(() => {
+  const current = reviewAds[currentIndex];
+  const url =
+    current && typeof current === 'object'
+      ? current.adUrl || current.firebaseUrl
+      : current;
+  console.log('Current index changed:', currentIndex, 'Ad URL:', url);
+}, [currentIndex]);
 
 
   useEffect(() => {
     const fetchAds = async () => {
+      console.log('Fetching ads...');
       try {
         let list = [];
         if (groupId) {
@@ -266,6 +276,7 @@ const Review = ({
           heroList.length === 0 && nonPending.length === 0 && hasPendingAds
         );
         setSecondPass(heroList.length === 0 && nonPending.length > 0);
+        console.log('Finished fetching', heroList.length, 'ads');
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
