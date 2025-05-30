@@ -41,6 +41,7 @@ const AssetUploadsChart = ({ data }) => {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     parsing: false,
     plugins: {
       legend: { position: 'bottom' },
@@ -51,7 +52,11 @@ const AssetUploadsChart = ({ data }) => {
     },
   };
 
-  return <Line data={chartData} options={options} />;
+  return (
+    <div className="h-64 max-w-md mx-auto">
+      <Line data={chartData} options={options} />
+    </div>
+  );
 };
 
 export default AssetUploadsChart;
