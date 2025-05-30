@@ -277,11 +277,9 @@ useEffect(() => {
           const url = ad.adUrl || ad.firebaseUrl;
           if (url) new Image().src = url;
         });
-        console.log(
-          'Preloading first ads',
-          heroList.slice(0, 3).map((a) => a.adUrl || a.firebaseUrl)
-        );
-        setCurrentIndex(0);
+        if (heroList.length > 0 && (heroList[0].adUrl || heroList[0].firebaseUrl)) {
+          setCurrentIndex(0);
+        }
         setPendingOnly(
           heroList.length === 0 && nonPending.length === 0 && hasPendingAds
         );
@@ -307,7 +305,7 @@ useEffect(() => {
     lastFetchKeyRef.current = key;
     setLoading(true);
     fetchAds();
-  }, [user, brandCodes, groupId]);
+  }, [user?.uid, groupId, brandCodes.join(',')]);
 
   const currentAd = reviewAds[currentIndex];
   const adUrl =
@@ -663,6 +661,7 @@ useEffect(() => {
   if (
     loading ||
     reviewAds.length === 0 ||
+    !reviewAds[0] ||
     !(reviewAds[0]?.adUrl || reviewAds[0]?.firebaseUrl)
   ) {
     return <div className="text-center mt-10">Loading...</div>;
@@ -781,9 +780,9 @@ useEffect(() => {
         <div className="flex flex-wrap justify-center gap-2 w-full max-w-6xl mx-auto">
           {(finalGallery ? heroGroups : heroGroups.slice(0, 3)).map((g) => {
             const showSet = finalGallery ? g.assets : [g.hero];
-            return showSet.map((a, idx) => (
+            return showSet.map((a) => (
               <OptimizedImage
-                key={a.assetId || `${g.recipeCode}-${idx}`}
+                key={a.assetId || a.firebaseUrl}
                 pngUrl={a.firebaseUrl}
                 webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
                 alt={a.filename}
@@ -992,9 +991,9 @@ useEffect(() => {
             {currentAd && (currentAd.version || 1) > 1 && (
               <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
             )}
-            {otherSizes.map((a, idx) => (
+            {otherSizes.map((a) => (
               <OptimizedImage
-                key={a.assetId || a.firebaseUrl || idx}
+                key={a.assetId || a.firebaseUrl}
                 pngUrl={a.firebaseUrl}
                 webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
                 alt={a.filename}
