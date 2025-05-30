@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiEye, FiTrash, FiClock, FiLink, FiThumbsUp, FiThumbsDown, FiEdit } from 'react-icons/fi';
+import { FiEye, FiTrash, FiClock, FiLink, FiThumbsUp, FiThumbsDown, FiEdit, FiFileText } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -114,15 +114,14 @@ const DesignerDashboard = () => {
                   <td className="text-center">{g.counts.edit}</td>
                   <td className="text-center">
                     {g.clientNote ? (
-                      <>
-                        <span className="text-sm text-red-600 italic">Note left by client</span>
-                        <button
-                          onClick={() => setViewNote(g.clientNote)}
-                          className="ml-2 text-blue-500 underline"
-                        >
-                          View Note
-                        </button>
-                      </>
+                      <button
+                        onClick={() => setViewNote(g.clientNote)}
+                        className="flex items-center text-blue-500 underline"
+                        aria-label="View Client Note"
+                      >
+                        <FiFileText className="mr-1" />
+                        View Note
+                      </button>
                     ) : (
                       '-'
                     )}

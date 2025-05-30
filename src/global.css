@@ -171,6 +171,11 @@
   border-collapse: collapse;
   font-size: var(--font-size-base);
 }
+@media (max-width: 640px) {
+  .ad-table {
+    max-width: 97rem;
+  }
+}
   .ad-table th,
   .ad-table td {
     border: 1px solid var(--table-border-color);
