@@ -15,7 +15,18 @@ const OptimizedImage = ({
   return (
     <picture>
       {webpSrc && <source srcSet={webpSrc} type="image/webp" />}
-      <img src={pngSrc} alt={alt} loading={loading} decoding="async" {...props} />
+      <img
+        src={pngSrc}
+        alt={alt}
+        loading={loading}
+        decoding="async"
+        onLoad={() => {
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('Image loaded:', alt || pngUrl);
+          }
+        }}
+        {...props}
+      />
     </picture>
   );
 };

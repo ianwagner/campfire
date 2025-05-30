@@ -135,6 +135,12 @@ useEffect(() => {
   if (animating) setAnimating(null);
 }, [currentIndex]);
 
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('currentIndex changed to', currentIndex);
+    }
+  }, [currentIndex]);
+
 
 
   useEffect(() => {
