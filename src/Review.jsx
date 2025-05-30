@@ -102,6 +102,10 @@ const Review = ({
     setShowSizes(false);
   }, [currentIndex]);
 
+  useEffect(() => {
+    if (animating) setAnimating(null);
+  }, [currentIndex]);
+
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -598,7 +602,6 @@ const Review = ({
           setShowStreakModal(true);
         }
       }
-      setAnimating(null);
     }, 400);
     // free UI interactions while waiting for Firestore updates
     setSubmitting(false);
