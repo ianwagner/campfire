@@ -16,7 +16,12 @@ const useCachedImageUrl = (key, url) => {
     if (key) {
       try {
         const stored = localStorage.getItem(key);
-        if (stored) return stored;
+        if (stored) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('useCachedImageUrl cache hit', key);
+          }
+          return stored;
+        }
       } catch {}
     }
     return url;
@@ -29,20 +34,32 @@ const useCachedImageUrl = (key, url) => {
     }
     const stored = localStorage.getItem(key);
     if (stored) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('useCachedImageUrl cache hit', key);
+      }
       setSrc(stored);
       return;
     }
     let active = true;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('useCachedImageUrl fetching', key);
+    }
     toDataUrl(url)
       .then((dataUrl) => {
         if (!active) return;
         try {
           localStorage.setItem(key, dataUrl);
         } catch {}
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('useCachedImageUrl stored', key);
+        }
         // Apply the cached data URL immediately to minimize flashing
         setSrc(dataUrl);
       })
-      .catch(() => {
+      .catch((err) => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('useCachedImageUrl failed to fetch', key, err);
+        }
         if (active) setSrc(url);
       });
     return () => {
