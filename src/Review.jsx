@@ -366,7 +366,9 @@ const Review = ({
       console.error('Failed to mark remaining ads pending', err);
     } finally {
       setShowStreakModal(false);
-      navigate(-1);
+      setShowNoteInput(false);
+      setAskContinue(false);
+      setCurrentIndex(reviewAds.length);
     }
   };
   const statusMap = {
