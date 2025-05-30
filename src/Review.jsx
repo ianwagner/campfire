@@ -898,15 +898,17 @@ const Review = ({
           </button>
         )}
         <div className="flex justify-center relative">
-          {(animating || (dragging && Math.abs(swipeX) > 10)) &&
-            nextAdUrl &&
-            !showSizes && (
+          {nextAdUrl && !showSizes && (
             <OptimizedImage
               pngUrl={nextAdUrl}
               webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
               alt="Next ad"
               loading="eager"
-              className="absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none"
+              className={`absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none transition-opacity ${
+                animating || (dragging && Math.abs(swipeX) > 10)
+                  ? 'opacity-100'
+                  : 'opacity-0'
+              }`}
             />
           )}
           <div
