@@ -903,6 +903,7 @@ const Review = ({
         <div className="flex justify-center relative">
           {nextAdUrl && !showSizes && (
             <OptimizedImage
+              key={nextAdUrl}
               pngUrl={nextAdUrl}
               webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
               alt="Next ad"
@@ -958,7 +959,7 @@ const Review = ({
             )}
             {otherSizes.map((a, idx) => (
               <OptimizedImage
-                key={idx}
+                key={a.assetId || a.firebaseUrl}
                 pngUrl={a.firebaseUrl}
                 webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
                 alt={a.filename}
