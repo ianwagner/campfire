@@ -271,6 +271,10 @@ useEffect(() => {
           return rA.localeCompare(rB);
         });
         setReviewAds(heroList);
+        if (heroList[0]?.firebaseUrl) {
+          console.log('Preloading hero image', heroList[0].firebaseUrl);
+          new Image().src = heroList[0].firebaseUrl;
+        }
         setCurrentIndex(0);
         setPendingOnly(
           heroList.length === 0 && nonPending.length === 0 && hasPendingAds
