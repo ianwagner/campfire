@@ -351,7 +351,9 @@
 }
 
 .progress-bar {
-  @apply w-full max-w-md h-4 bg-gray-200 dark:bg-[var(--dark-sidebar-hover)] rounded-full shadow-inner mb-2.5 mx-auto;
+  @apply w-full max-w-md bg-gray-200 dark:bg-[var(--dark-sidebar-hover)] rounded-full shadow-inner;
+  max-width: 16rem;
+  height: .6rem;
 }
 
 .progress-bar-inner {
