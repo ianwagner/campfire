@@ -638,7 +638,7 @@ const Review = ({
 
   if (pendingOnly) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] space-y-4 text-center">
           {agencyId && (
             <OptimizedImage
               pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
@@ -718,7 +718,7 @@ const Review = ({
     };
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] space-y-4 text-center">
           {agencyId && (
             <OptimizedImage
               pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
@@ -766,7 +766,7 @@ const Review = ({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+    <div className="flex flex-col items-center justify-center min-h-[100dvh] space-y-4 overflow-hidden">
       {showStreakModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-sm space-y-4 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">

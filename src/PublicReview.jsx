@@ -71,7 +71,7 @@ const PublicReview = () => {
 
   if (!reviewerName) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-2">
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] p-4 space-y-2">
         <label className="text-lg" htmlFor="reviewerName">Your Name</label>
         <input
           id="reviewerName"
@@ -94,7 +94,7 @@ const PublicReview = () => {
   const userObj = { uid: 'public', email: queryEmail || 'public@campfire' };
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-[100dvh] relative overflow-hidden">
       <ThemeToggle className="absolute top-2 right-2" />
       <Review
         user={userObj}

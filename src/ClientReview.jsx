@@ -44,7 +44,9 @@ const ClientReview = (props) => {
     />
   );
 
-  return <div className="min-h-screen">{reviewElem}</div>;
+  return (
+    <div className="min-h-[100dvh] overflow-hidden">{reviewElem}</div>
+  );
 };
 
 export default ClientReview;
