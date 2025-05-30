@@ -100,47 +100,31 @@ test('opens history modal with previous decisions', async () => {
       docs: [
         {
           id: 'asset1',
-          data: () => ({
-            filename: 'BR1_G1_R1_3x5_V1.png',
-            status: 'approved',
-            uploadedAt: { toDate: () => new Date('2023-01-01') },
-            lastUpdatedAt: { toDate: () => new Date('2023-01-02') },
-            lastUpdatedBy: 'u1',
-            version: 1,
-          }),
+          data: () => ({ filename: 'BR1_G1_R1_3x5_V1.png', status: 'approved' }),
         },
       ],
     });
     return jest.fn();
   });
 
-  const assetSnapshot = {
+  const historySnapshot = {
     docs: [
       {
-        id: 'asset1',
+        id: 'h1',
         data: () => ({
-          filename: 'BR1_G1_R1_3x5_V1.png',
-          status: 'approved',
-          uploadedAt: { toDate: () => new Date('2023-01-01') },
-          lastUpdatedAt: { toDate: () => new Date('2023-01-02') },
-          lastUpdatedBy: 'u1',
-          version: 1,
+          status: 'pending',
+          timestamp: { toDate: () => new Date('2023-01-01') },
+          userId: 'u1',
         }),
       },
-    ],
-  };
-
-  const respSnapshot = {
-    docs: [
       {
-        id: 'resp1',
+        id: 'h2',
         data: () => ({
-          adUrl: 'https://x/BR1/G1/BR1_G1_R1_3x5_V1.png',
-          response: 'approve',
+          status: 'approve',
           comment: 'ok',
-          userEmail: 'rev@test.com',
-          userId: 'u2',
           timestamp: { toDate: () => new Date('2023-01-03') },
+          userId: 'u2',
+          userEmail: 'rev@test.com',
         }),
       },
     ],
@@ -148,8 +132,7 @@ test('opens history modal with previous decisions', async () => {
 
   getDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'responses') return Promise.resolve(respSnapshot);
-    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'recipes') return Promise.resolve(historySnapshot);
     return Promise.resolve({ docs: [] });
   });
 
@@ -164,8 +147,13 @@ test('opens history modal with previous decisions', async () => {
 
   await screen.findByText('approve');
   expect(screen.getByText('rev@test.com')).toBeInTheDocument();
-  expect(getDocs).toHaveBeenCalledWith(['adGroups', 'group1', 'responses']);
-  expect(getDocs).toHaveBeenCalledWith(['adGroups', 'group1', 'assets']);
+  expect(getDocs).toHaveBeenCalledWith([
+    'adGroups',
+    'group1',
+    'recipes',
+    'R1',
+    'history',
+  ]);
   expect(screen.getByText('pending')).toBeInTheDocument();
 });
 

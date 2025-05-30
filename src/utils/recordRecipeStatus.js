@@ -1,4 +1,10 @@
-import { doc, setDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import {
+  doc,
+  setDoc,
+  serverTimestamp,
+  collection,
+  addDoc,
+} from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 export default async function recordRecipeStatus(adGroupId, recipeCode, status, userId) {
@@ -15,8 +21,8 @@ export default async function recordRecipeStatus(adGroupId, recipeCode, status, 
       status,
       lastUpdatedBy: userId || null,
       lastUpdatedAt: serverTimestamp(),
-      history: arrayUnion(entry),
     },
     { merge: true },
   );
+  await addDoc(collection(db, 'adGroups', adGroupId, 'recipes', recipeCode, 'history'), entry);
 }
