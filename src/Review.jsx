@@ -140,7 +140,9 @@ useEffect(() => {
   useEffect(() => {
     let cancelled = false;
     const fetchAds = async () => {
-      console.log('Fetching ads...');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Fetching ads...');
+      }
       try {
         let list = [];
         if (groupId) {
@@ -308,7 +310,9 @@ useEffect(() => {
         );
         if (cancelled) return;
         setSecondPass(heroList.length === 0 && nonPending.length > 0);
-        console.log('Finished fetching', heroList.length, 'ads');
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Finished fetching', heroList.length, 'ads');
+        }
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {

@@ -27,12 +27,16 @@ const PublicReview = () => {
 
   useEffect(() => {
     if (!auth.currentUser && !didSignIn.current) {
-      console.log('Starting anonymous sign-in');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Starting anonymous sign-in');
+      }
       setAuthStatus('Signing in...');
       didSignIn.current = true;
       signInAnonymously(auth)
         .then(() => {
-          console.log('Anonymous sign-in success');
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('Anonymous sign-in success');
+          }
           setAuthStatus('');
           setLoading(false);
         })
