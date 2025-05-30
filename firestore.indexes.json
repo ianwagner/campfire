@@ -1,0 +1,10 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "assets",
+      "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "uploadedAt", "order": "ASCENDING" }]
+    }
+  ],
+  "fieldOverrides": []
+}
