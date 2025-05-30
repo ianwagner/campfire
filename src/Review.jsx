@@ -645,7 +645,7 @@ const Review = ({
               alt={`${agency.name || 'Agency'} logo`}
               loading="eager"
               cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
-              className="mb-2 max-h-16 w-auto"
+              className="mb-2 max-h-12 sm:max-h-16 w-auto"
             />
           )}
         <h1 className="text-2xl font-bold">Ads Pending Review</h1>
@@ -725,7 +725,7 @@ const Review = ({
               alt={`${agency.name || 'Agency'} logo`}
               loading="eager"
               cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
-              className="mb-2 max-h-16 w-auto"
+              className="mb-2 max-h-12 sm:max-h-16 w-auto"
             />
           )}
         <h1 className="text-2xl font-bold">Thank you for your feedback!</h1>
@@ -851,7 +851,7 @@ const Review = ({
               alt={`${agency.name || 'Agency'} logo`}
               loading="eager"
               cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
-              className="mb-2 max-h-16 w-auto"
+              className="mb-2 max-h-12 sm:max-h-16 w-auto"
             />
           )}
         {/* Gallery view removed */}
@@ -896,7 +896,7 @@ const Review = ({
               webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
               alt="Next ad"
               loading="eager"
-              className="absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none"
+              className="absolute top-0 left-1/2 -translate-x-1/2 z-0 w-auto max-h-[50vh] mx-auto rounded shadow pointer-events-none"
             />
           )}
           <div
@@ -931,11 +931,11 @@ const Review = ({
               loading="eager"
               style={
                 isMobile && showSizes
-                  ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+                  ? { maxHeight: `${50 / (otherSizes.length + 1)}vh` }
                   : {}
               }
-              className={`relative max-w-[90%] mx-auto rounded shadow ${
-                isMobile && showSizes ? 'mb-2' : 'max-h-[72vh]'
+              className={`relative w-auto mx-auto rounded shadow ${
+                isMobile && showSizes ? 'mb-2' : 'max-h-[50vh]'
               }`}
             />
             {currentAd && (currentAd.version || 1) > 1 && (
@@ -949,7 +949,7 @@ const Review = ({
                 alt={a.filename}
                 style={
                   isMobile && showSizes
-                    ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+                    ? { maxHeight: `${50 / (otherSizes.length + 1)}vh` }
                     : {
                         transform: showSizes
                           ? `translateX(${(idx + 1) * 110}%)`
@@ -957,8 +957,8 @@ const Review = ({
                         opacity: showSizes ? 1 : 0,
                       }
                 }
-                className={`max-w-[90%] mx-auto rounded shadow ${
-                  isMobile && showSizes ? 'mb-2 relative' : 'size-thumb max-h-[72vh]'
+                className={`w-auto mx-auto rounded shadow ${
+                  isMobile && showSizes ? 'mb-2 relative' : 'size-thumb max-h-[50vh]'
                 }`}
               />
             ))}
@@ -1074,7 +1074,7 @@ const Review = ({
               pngUrl={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
               webpUrl={(versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl).replace(/\.png$/, '.webp')}
               alt="Ad version"
-              className="max-w-full max-h-[70vh] mx-auto"
+              className="w-auto max-h-[50vh] mx-auto"
             />
             <button onClick={closeVersionModal} className="mt-2 btn-primary px-3 py-1">
               Close
