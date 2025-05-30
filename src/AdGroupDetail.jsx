@@ -630,7 +630,7 @@ const AdGroupDetail = () => {
 
       {viewRecipe && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-md">
+          <div className="bg-white p-4 rounded shadow max-w-md dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
             <h3 className="mb-2 font-semibold">Recipe {viewRecipe.recipeCode}</h3>
             <div className="grid grid-cols-2 gap-2 max-h-[60vh] overflow-auto">
               {viewRecipe.assets.map((a) => (
@@ -651,7 +651,7 @@ const AdGroupDetail = () => {
 
       {historyRecipe && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-md">
+          <div className="bg-white p-4 rounded shadow max-w-md dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
             <h3 className="mb-2 font-semibold">Recipe {historyRecipe.recipeCode} History</h3>
             <div className="overflow-x-auto table-container">
             <table className="ad-table min-w-max text-sm mb-2">
