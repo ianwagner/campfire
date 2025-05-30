@@ -84,8 +84,12 @@
     @apply text-blue-600;
   }
   .btn-primary {
-    @apply bg-blue-500 text-white px-4 py-2 hover:bg-blue-600;
-    border-radius: var(--border-radius-base);
+    @apply text-white px-4 py-2;
+    background-color: var(--accent-color-10);
+    color: var(--accent-color);
+    border-radius: 999px;
+    border: 1px solid var(--accent-color);
+    
   }
   .btn-secondary {
     @apply bg-gray-300 px-4 py-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-white;
@@ -221,19 +225,19 @@
   .status-pending,
   .status-ready {
     background-color: var(--pending-color-10);
-    color: white;
+    color: var(--pending-color);
   }
   .status-approved {
     background-color: var(--approve-color-10);
-    color: white;
+    color: var(--approve-color);
   }
   .status-rejected {
     background-color: var(--reject-color-10);
-    color: white;
+    color: var(--reject-color);
   }
   .status-edit_requested {
     background-color: var(--edit-color-10);
-    color: white;
+    color: var(--edit-color);
   }
   .status-archived {
     background-color: var(--table-row-alt-bg);
@@ -241,11 +245,11 @@
   }
   .status-draft {
     background-color: var(--pending-color-10);
-    color: white;
+    color: var(--pending-color);
   }
   .status-reviewed {
     background-color: var(--approve-color-10);
-    color: white;
+    color: var(--approve-color)
   }
   .status-locked {
     background-color: var(--table-row-alt-bg);
@@ -253,7 +257,7 @@
   }
   .status-mixed {
     background-color: var(--edit-color-10);
-    color: white;
+    color: var(--edit-color);
   }
 
 }
