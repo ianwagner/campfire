@@ -660,7 +660,11 @@ useEffect(() => {
     }
   };
 
-  if (loading) {
+  if (
+    loading ||
+    reviewAds.length === 0 ||
+    !(reviewAds[0]?.adUrl || reviewAds[0]?.firebaseUrl)
+  ) {
     return <div className="text-center mt-10">Loading...</div>;
   }
 
@@ -930,6 +934,7 @@ useEffect(() => {
         <div className="flex justify-center relative">
           {nextAdUrl && !showSizes && (
             <ReviewAd
+              key={nextAdUrl}
               pngUrl={nextAdUrl}
               webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
               alt="Next ad"
@@ -941,8 +946,9 @@ useEffect(() => {
               }`}
             />
           )}
+          {currentAd && (
           <div
-            key={currentAd ? currentAd.assetId || adUrl : currentIndex}
+            key={currentAd.assetId || adUrl}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -968,6 +974,7 @@ useEffect(() => {
           >
             {adUrl && (
               <ReviewAd
+                key={adUrl}
                 pngUrl={adUrl}
                 webpUrl={adUrl.replace(/\.png$/, '.webp')}
                 alt="Ad"
@@ -1007,6 +1014,7 @@ useEffect(() => {
               />
             ))}
           </div>
+          )}
         </div>
       </div>
 
