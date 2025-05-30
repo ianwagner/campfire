@@ -39,8 +39,8 @@ const useCachedImageUrl = (key, url) => {
         try {
           localStorage.setItem(key, dataUrl);
         } catch {}
-        // Avoid flashing by keeping the current URL until the
-        // cached version is used on the next load
+        // Apply the cached data URL immediately to minimize flashing
+        setSrc(dataUrl);
       })
       .catch(() => {
         if (active) setSrc(url);
