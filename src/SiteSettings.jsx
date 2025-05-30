@@ -87,6 +87,7 @@ const SiteSettings = () => {
               <OptimizedImage
                 pngUrl={logoUrl}
                 alt="Logo preview"
+                loading="eager"
                 className="mt-2 max-h-16 w-auto"
               />
             )}
@@ -103,6 +104,7 @@ const SiteSettings = () => {
             <OptimizedImage
               pngUrl={iconUrl}
               alt="Icon preview"
+              loading="eager"
               className="mt-2 max-h-16 w-auto"
             />
           )}

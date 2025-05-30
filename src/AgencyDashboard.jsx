@@ -24,6 +24,8 @@ function AgencyDashboard() {
         <OptimizedImage
           pngUrl={agency.logoUrl}
           alt={`${agency.name} logo`}
+          loading="eager"
+          cacheKey={agency.logoUrl}
           className="mb-4 max-h-16 w-auto"
         />
       )}

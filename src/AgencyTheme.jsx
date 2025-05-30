@@ -12,6 +12,8 @@ const AgencyTheme = ({ agencyId, children }) => {
         <OptimizedImage
           pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
           alt={`${agency.name || 'Agency'} logo`}
+          loading="eager"
+          cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
           className="mx-auto max-h-16 w-auto"
         />
       </div>

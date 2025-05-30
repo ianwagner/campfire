@@ -639,13 +639,15 @@ const Review = ({
   if (pendingOnly) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
-        {agencyId && (
-          <OptimizedImage
-            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-            alt={`${agency.name || 'Agency'} logo`}
-            className="mb-2 max-h-16 w-auto"
-          />
-        )}
+          {agencyId && (
+            <OptimizedImage
+              pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+              alt={`${agency.name || 'Agency'} logo`}
+              loading="eager"
+              cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+              className="mb-2 max-h-16 w-auto"
+            />
+          )}
         <h1 className="text-2xl font-bold">Ads Pending Review</h1>
         <p className="text-lg">We'll notify you when your ads are ready.</p>
       </div>
@@ -717,13 +719,15 @@ const Review = ({
 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
-        {agencyId && (
-          <OptimizedImage
-            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-            alt={`${agency.name || 'Agency'} logo`}
-            className="mb-2 max-h-16 w-auto"
-          />
-        )}
+          {agencyId && (
+            <OptimizedImage
+              pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+              alt={`${agency.name || 'Agency'} logo`}
+              loading="eager"
+              cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+              className="mb-2 max-h-16 w-auto"
+            />
+          )}
         <h1 className="text-2xl font-bold">Thank you for your feedback!</h1>
         <h2 className="text-xl">
           You've approved{' '}
@@ -840,14 +844,16 @@ const Review = ({
           </div>
         </div>
       )}
-      <div className="relative flex flex-col items-center w-fit mx-auto">
-        {agencyId && (
-          <OptimizedImage
-            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-            alt={`${agency.name || 'Agency'} logo`}
-            className="mb-2 max-h-16 w-auto"
-          />
-        )}
+        <div className="relative flex flex-col items-center w-fit mx-auto">
+          {agencyId && (
+            <OptimizedImage
+              pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+              alt={`${agency.name || 'Agency'} logo`}
+              loading="eager"
+              cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+              className="mb-2 max-h-16 w-auto"
+            />
+          )}
         {/* Gallery view removed */}
         {!secondPass && (
           <div className="relative w-full max-w-md mb-2.5 flex justify-center">

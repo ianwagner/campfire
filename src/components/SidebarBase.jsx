@@ -58,6 +58,8 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
           <OptimizedImage
             pngUrl={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
             alt={logoAlt || 'Logo'}
+            loading="eager"
+            cacheKey={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
             className="mx-auto mt-4 mb-4 max-h-16 w-auto"
           />
           {menuItems}
@@ -99,6 +101,8 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
               <OptimizedImage
                 pngUrl={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
                 alt={logoAlt || 'Logo'}
+                loading="eager"
+                cacheKey={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
                 className="mx-auto mt-4 mb-4 max-h-16 w-auto"
               />
               {menuItems}
