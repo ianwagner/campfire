@@ -5,7 +5,11 @@ import './global.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  <React.StrictMode>
+  import.meta.env.PROD ? (
     <App />
-  </React.StrictMode>
+  ) : (
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  )
 );
