@@ -256,8 +256,10 @@ const Review = ({
         });
         setReviewAds(heroList);
         setCurrentIndex(0);
-        setPendingOnly(heroList.length === 0 && hasPendingAds);
-        setSecondPass(heroList.length === 0 && !hasPendingAds);
+        setPendingOnly(
+          heroList.length === 0 && nonPending.length === 0 && hasPendingAds
+        );
+        setSecondPass(heroList.length === 0 && nonPending.length > 0);
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
@@ -627,11 +629,27 @@ const Review = ({
   }
 
   if (!ads || ads.length === 0) {
-    return <div>{hasPending ? 'ads are pending' : 'No ads assigned to your account.'}</div>;
+    return (
+      <div className="text-center mt-10">
+        {hasPending ? 'ads are pending' : 'No ads assigned to your account.'}
+      </div>
+    );
   }
 
   if (pendingOnly) {
-    return <div>ads are pending</div>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+        {agencyId && (
+          <OptimizedImage
+            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+            alt={`${agency.name || 'Agency'} logo`}
+            className="mb-2 max-h-16 w-auto"
+          />
+        )}
+        <h1 className="text-2xl font-bold">Ads Pending Review</h1>
+        <p className="text-lg">We'll notify you when your ads are ready.</p>
+      </div>
+    );
   }
 
   if (currentIndex >= reviewAds.length) {

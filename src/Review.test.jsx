@@ -476,7 +476,7 @@ test('shows pending message when only pending ads', async () => {
 
   render(<Review user={{ uid: 'u1' }} groupId="group1" />);
 
-  expect(await screen.findByText('ads are pending')).toBeInTheDocument();
+  expect(await screen.findByText('Ads Pending Review')).toBeInTheDocument();
 });
 
 test('submitResponse records last viewed time for group', async () => {

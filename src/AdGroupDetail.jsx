@@ -367,7 +367,8 @@ const AdGroupDetail = () => {
     setReadyLoading(true);
     try {
       const batch = writeBatch(db);
-      for (const asset of assets) {
+      const pendingAssets = assets.filter((a) => a.status === 'pending');
+      for (const asset of pendingAssets) {
         batch.update(doc(db, 'adGroups', id, 'assets', asset.id), {
           status: 'ready',
           lastUpdatedBy: null,
@@ -376,6 +377,13 @@ const AdGroupDetail = () => {
       }
       batch.update(doc(db, 'adGroups', id), { status: 'ready' });
       await batch.commit();
+      if (pendingAssets.length > 0) {
+        setAssets((prev) =>
+          prev.map((a) =>
+            pendingAssets.some((p) => p.id === a.id) ? { ...a, status: 'ready' } : a
+          )
+        );
+      }
     } catch (err) {
       console.error('Failed to mark ready', err);
     } finally {
