@@ -94,7 +94,11 @@ const App = () => {
       <RequireMfa user={user} role={role}>
         <div className="min-h-screen flex">
           {signedIn && <RoleSidebar role={role} agencyId={agencyId} />}
-          <div className={`flex flex-col flex-grow ${signedIn ? 'md:ml-[250px]' : ''}`}>
+          <div
+            className={`flex flex-col flex-grow box-border min-w-0 max-w-full ${
+              signedIn ? 'md:pl-[250px]' : ''
+            }`}
+          >
             <div className="flex-grow">
               <Routes>
             <Route

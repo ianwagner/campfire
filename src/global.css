@@ -58,6 +58,14 @@
     font-size: var(--font-size-base);
     overflow-x: hidden;
   }
+
+  /* Ensure flex layouts don't overflow their containers */
+  .flex > *,
+  .inline-flex > * {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
   h1 {
     @apply text-2xl;
     font-weight: var(--font-weight-bold);
