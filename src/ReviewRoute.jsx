@@ -1,4 +1,5 @@
 import React from 'react';
+import LoadingOverlay from "./LoadingOverlay";
 import { useLocation } from 'react-router-dom';
 import { auth } from './firebase/config';
 import useUserRole from './useUserRole';
@@ -10,7 +11,7 @@ const ReviewRoute = () => {
   const { role, brandCodes, loading } = useUserRole(user?.uid);
   const query = new URLSearchParams(useLocation().search);
 
-  if (loading) return <div className="text-center mt-10">Loading...</div>;
+  if (loading) return <LoadingOverlay />;
 
   if (user) {
     return (

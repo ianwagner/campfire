@@ -474,3 +474,30 @@
   background-color: var(--edit-color-10);
   color: var(--edit-color);
 }
+
+/* global loading overlay */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  z-index: 1000;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+html.dark .loading-overlay {
+  background-color: rgba(13, 17, 22, 0.9);
+}
+.loading-ring {
+  width: 3rem;
+  height: 3rem;
+  border: 4px solid var(--accent-color);
+  border-top-color: transparent;
+  border-radius: 9999px;
+  animation: loading-spin 1s linear infinite;
+}
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
+}

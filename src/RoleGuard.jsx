@@ -1,9 +1,10 @@
 import React from 'react';
+import LoadingOverlay from "./LoadingOverlay";
 import { Navigate } from 'react-router-dom';
 
 const RoleGuard = ({ loading, userRole, requiredRole, children }) => {
   if (loading) {
-    return <div className="text-center mt-10">Loading...</div>;
+    return <LoadingOverlay />;
   }
 
   const allowedRoles = Array.isArray(requiredRole)

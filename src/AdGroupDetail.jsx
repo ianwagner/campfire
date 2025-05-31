@@ -38,6 +38,7 @@ import useUserRole from './useUserRole';
 import { uploadFile } from './uploadFile';
 import parseAdFilename from './utils/parseAdFilename';
 import StatusBadge from './components/StatusBadge.jsx';
+import LoadingOverlay from "./LoadingOverlay";
 import OptimizedImage from './components/OptimizedImage.jsx';
 import pickHeroAsset from './utils/pickHeroAsset';
 import computeGroupStatus from './utils/computeGroupStatus';
@@ -868,7 +869,7 @@ const AdGroupDetail = () => {
   );
 
   if (!group) {
-    return <div className="text-center mt-10">Loading...</div>;
+    return <LoadingOverlay />;
   }
 
   return (
