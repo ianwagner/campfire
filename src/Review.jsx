@@ -962,23 +962,6 @@ const Review = ({
     className="w-full h-full object-contain"
   />
 </div>
-                isMobile && showSizes ? 'mb-2' : 'max-h-[72vh]'
-              }`}
-              style={{ aspectRatio: currentAspect }}
-            >
-              <OptimizedImage
-                pngUrl={adUrl}
-                webpUrl={adUrl.replace(/\.png$/, '.webp')}
-                alt="Ad"
-                loading="eager"
-                style={
-                  isMobile && showSizes
-                    ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
-                    : {}
-                }
-                className="w-full h-full object-contain"
-              />
-            </div>
             {currentAd && (currentAd.version || 1) > 1 && (
               <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
             )}
