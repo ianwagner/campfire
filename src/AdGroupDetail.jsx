@@ -53,6 +53,12 @@ const AdGroupDetail = () => {
   const [showTable, setShowTable] = useState(false);
   const [historyRecipe, setHistoryRecipe] = useState(null);
   const [viewRecipe, setViewRecipe] = useState(null);
+  const [metadataAd, setMetadataAd] = useState(null);
+  const [metadataForm, setMetadataForm] = useState({
+    offer: '',
+    angle: '',
+    audience: '',
+  });
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
@@ -273,9 +279,20 @@ const AdGroupDetail = () => {
     setViewRecipe({ recipeCode, assets: list });
   };
 
+  useEffect(() => {
+    if (metadataAd) {
+      setMetadataForm({
+        offer: metadataAd.metadata?.offer || '',
+        angle: metadataAd.metadata?.angle || '',
+        audience: metadataAd.metadata?.audience || '',
+      });
+    }
+  }, [metadataAd]);
+
   const closeModals = () => {
     setHistoryRecipe(null);
     setViewRecipe(null);
+    setMetadataAd(null);
   };
 
   const toggleLock = async () => {
@@ -421,6 +438,54 @@ const AdGroupDetail = () => {
     setUploading(false);
   };
 
+  const handleMetadataCsvUpload = async (file) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const lines = text.trim().split(/\r?\n/);
+      if (lines.length === 0) return;
+      const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+      let start = 0;
+      if (headers[0] === 'filename') {
+        start = 1;
+      }
+      const updates = [];
+      for (let i = start; i < lines.length; i += 1) {
+        const parts = lines[i].split(',').map((p) => p.trim());
+        if (parts.length < 4) continue;
+        const [filename, offer, angle, audience] = parts;
+        const asset = assets.find(
+          (a) => (a.filename || '').toLowerCase() === filename.toLowerCase()
+        );
+        if (asset) {
+          updates.push({
+            id: asset.id,
+            data: { metadata: { offer, angle, audience } },
+          });
+        }
+      }
+      if (updates.length === 0) {
+        window.alert('No matching ads found in CSV');
+        return;
+      }
+      const batch = writeBatch(db);
+      updates.forEach((u) => {
+        batch.update(doc(db, 'adGroups', id, 'assets', u.id), u.data);
+      });
+      await batch.commit();
+      setAssets((prev) =>
+        prev.map((a) => {
+          const u = updates.find((x) => x.id === a.id);
+          return u ? { ...a, ...u.data } : a;
+        })
+      );
+      window.alert('Metadata uploaded');
+    } catch (err) {
+      console.error('Failed to upload metadata', err);
+      window.alert('Failed to upload metadata');
+    }
+  };
+
   const uploadVersion = async (assetId, file) => {
     if (!file) return;
     setVersionUploading(assetId);
@@ -440,6 +505,23 @@ const AdGroupDetail = () => {
       console.error('Failed to upload version', err);
     } finally {
       setVersionUploading(null);
+    }
+  };
+
+  const saveMetadata = async () => {
+    if (!metadataAd) return;
+    try {
+      await updateDoc(doc(db, 'adGroups', id, 'assets', metadataAd.id), {
+        metadata: metadataForm,
+      });
+      setAssets((prev) =>
+        prev.map((a) =>
+          a.id === metadataAd.id ? { ...a, metadata: metadataForm } : a
+        )
+      );
+      setMetadataAd(null);
+    } catch (err) {
+      console.error('Failed to save metadata', err);
     }
   };
 
@@ -631,6 +713,17 @@ const AdGroupDetail = () => {
                         </div>
                       </td>
                       <td className="text-center">
+                        {userRole === 'admin' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMetadataAd(a);
+                            }}
+                            className="btn-secondary mr-2 px-1.5 py-0.5 text-xs"
+                          >
+                            Metadata
+                          </button>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -782,6 +875,28 @@ const AdGroupDetail = () => {
               <FiUpload />
               Upload
             </button>
+            {userRole === 'admin' && (
+              <>
+                <input
+                  id="meta-input"
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    handleMetadataCsvUpload(f);
+                    e.target.value = null;
+                  }}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => document.getElementById('meta-input').click()}
+                  className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                >
+                  <FiUpload />
+                  Upload Metadata CSV
+                </button>
+              </>
+            )}
             <button onClick={toggleLock} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
               {group.status === 'locked' ? <FiUnlock /> : <FiLock />}
               {group.status === 'locked' ? 'Unlock' : 'Lock'}
@@ -938,6 +1053,47 @@ const AdGroupDetail = () => {
               ))}
             </ul>
             <button onClick={closeModals} className="btn-primary px-3 py-1">Close</button>
+          </div>
+        </div>
+      )}
+
+      {metadataAd && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-sm dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <h3 className="mb-2 font-semibold">Metadata for {metadataAd.filename}</h3>
+            <div className="space-y-2">
+              <label className="block text-sm">
+                Offer
+                <input
+                  type="text"
+                  className="mt-1 w-full border rounded p-1 text-black dark:text-black"
+                  value={metadataForm.offer}
+                  onChange={(e) => setMetadataForm({ ...metadataForm, offer: e.target.value })}
+                />
+              </label>
+              <label className="block text-sm">
+                Angle
+                <input
+                  type="text"
+                  className="mt-1 w-full border rounded p-1 text-black dark:text-black"
+                  value={metadataForm.angle}
+                  onChange={(e) => setMetadataForm({ ...metadataForm, angle: e.target.value })}
+                />
+              </label>
+              <label className="block text-sm">
+                Audience
+                <input
+                  type="text"
+                  className="mt-1 w-full border rounded p-1 text-black dark:text-black"
+                  value={metadataForm.audience}
+                  onChange={(e) => setMetadataForm({ ...metadataForm, audience: e.target.value })}
+                />
+              </label>
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <button onClick={closeModals} className="btn-secondary px-3 py-1">Cancel</button>
+              <button onClick={saveMetadata} className="btn-primary px-3 py-1">Save</button>
+            </div>
           </div>
         </div>
       )}
