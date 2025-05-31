@@ -980,8 +980,8 @@ const Review = ({
                   }
                   className={
                     isMobile && showSizes
-                      ? 'mb-2 relative'
-                      : 'relative max-h-[72vh]'
+                      ? 'mb-2 relative max-w-full w-auto h-auto block'
+                      : 'relative max-h-[72vh] max-w-full w-auto h-auto block'
                   }
                 />
               )}
@@ -1012,8 +1012,8 @@ const Review = ({
                   }
                   className={
                     isMobile && showSizes
-                      ? 'mb-2 relative'
-                      : 'relative max-h-[72vh]'
+                      ? 'mb-2 relative max-w-full w-auto h-auto block'
+                      : 'relative max-h-[72vh] max-w-full w-auto h-auto block'
                   }
                 />
               )}
