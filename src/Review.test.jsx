@@ -37,7 +37,6 @@ test('loads ads from subcollections', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -67,7 +66,6 @@ test('submitResponse updates asset status', async () => {
         data: () => ({
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -104,7 +102,6 @@ test('submitResponse includes reviewer name', async () => {
         data: () => ({
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -144,7 +141,6 @@ test('request edit creates new version doc', async () => {
           filename: 'f1.png',
           version: 1,
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -182,7 +178,6 @@ test('request edit advances to next ad', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -192,7 +187,6 @@ test('request edit advances to next ad', async () => {
         data: () => ({
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -273,7 +267,6 @@ test('shows group summary after reviewing ads', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -283,7 +276,6 @@ test('shows group summary after reviewing ads', async () => {
         data: () => ({
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -329,7 +321,6 @@ test('filters ads by last login and still shows summary', async () => {
           firebaseUrl: 'old',
           lastUpdatedAt: { toDate: () => new Date('2024-01-01T00:00:00Z') },
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -340,7 +331,6 @@ test('filters ads by last login and still shows summary', async () => {
           firebaseUrl: 'new',
           lastUpdatedAt: { toDate: () => new Date('2024-03-01T00:00:00Z') },
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -373,51 +363,6 @@ test('filters ads by last login and still shows summary', async () => {
   expect(screen.getByText("You've approved 2 ads.")).toBeInTheDocument();
 });
 
-test('resolved ads are excluded from pending review', async () => {
-  const assetSnapshot = {
-    docs: [
-      {
-        id: 'asset1',
-        data: () => ({
-          firebaseUrl: 'url1',
-          status: 'ready',
-          isResolved: false,
-          adGroupId: 'group1',
-          brandCode: 'BR1',
-        }),
-      },
-      {
-        id: 'asset2',
-        data: () => ({
-          firebaseUrl: 'url2',
-          status: 'ready',
-          isResolved: true,
-          adGroupId: 'group1',
-          brandCode: 'BR1',
-        }),
-      },
-    ],
-  };
-
-  getDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'assets')
-      return Promise.resolve({ docs: assetSnapshot.docs.filter((d) => !d.data().isResolved) });
-    return Promise.resolve({ docs: [] });
-  });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
-
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
-
-  await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
-  );
-
-  fireEvent.click(screen.getByText('Approve'));
-  fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
-
-  await waitFor(() => screen.getByText("You've approved 1 ads."));
-});
 
 test('shows all ads for group review when none new', async () => {
   const groupDoc = {
@@ -522,7 +467,10 @@ test('submitResponse records last viewed time for group', async () => {
   };
   const assetSnapshot = {
     docs: [
-      { id: 'asset1', data: () => ({ firebaseUrl: 'url1', status: 'ready', isResolved: false }) },
+      {
+        id: 'asset1',
+        data: () => ({ firebaseUrl: 'url1', status: 'ready' }),
+      },
     ],
   };
 
@@ -648,8 +596,24 @@ test('does not reset review flag when in second pass', async () => {
 test('progress bar reflects current index', async () => {
   const assetSnapshot = {
     docs: [
-      { id: 'asset1', data: () => ({ firebaseUrl: 'url1', status: 'ready', isResolved: false, adGroupId: 'group1', brandCode: 'BR1' }) },
-      { id: 'asset2', data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: false, adGroupId: 'group1', brandCode: 'BR1' }) },
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'ready',
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'asset2',
+        data: () => ({
+          firebaseUrl: 'url2',
+          status: 'ready',
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
     ],
   };
 
@@ -681,7 +645,6 @@ test('ad container is not remounted when currentIndex changes', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -691,7 +654,6 @@ test('ad container is not remounted when currentIndex changes', async () => {
         data: () => ({
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),

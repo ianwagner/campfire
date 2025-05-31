@@ -155,8 +155,7 @@ const Review = ({
           const q = query(
             collectionGroup(db, 'assets'),
             where('brandCode', 'in', brandCodes),
-            where('status', '==', 'ready'),
-            where('isResolved', '==', false)
+            where('status', '==', 'ready')
           );
           const snap = await getDocs(q);
           const groupCache = {};
@@ -393,7 +392,6 @@ const Review = ({
         toUpdate.push(
           updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId), {
             status: 'pending',
-            isResolved: false,
           })
         )
       );

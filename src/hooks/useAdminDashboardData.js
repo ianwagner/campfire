@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  collection,
   collectionGroup,
   query,
   where,
@@ -63,10 +64,6 @@ export default function useAdminDashboardData(range) {
           const ds = a.uploadedAt.toDate().toISOString().slice(0, 10);
           uploads[uploader][ds] = (uploads[uploader][ds] || 0) + 1;
         }
-        if (a.status === 'edit_requested' && !a.isResolved) {
-          const ds = a.lastUpdatedAt?.toDate ? a.lastUpdatedAt.toDate().toISOString().slice(0, 10) : null;
-          if (ds) unresolved[ds] = (unresolved[ds] || 0) + 1;
-        }
         if (a.uploadedAt && a.lastUpdatedAt) {
           const hours = (a.lastUpdatedAt.toDate() - a.uploadedAt.toDate()) / 3600000;
           const groupName = group.name || gId;
@@ -76,6 +73,21 @@ export default function useAdminDashboardData(range) {
           reviewTimes[groupName].count[uploader] = (reviewTimes[groupName].count[uploader] || 0) + 1;
         }
       }
+
+      const recipeSnap = await getDocs(
+        query(collection(db, 'recipes'), where('status', '==', 'edit_requested'))
+      );
+      recipeSnap.docs.forEach((d) => {
+        const data = d.data();
+        const hist = Array.isArray(data.history) ? data.history : [];
+        const last = hist[hist.length - 1];
+        const ts = last?.timestamp?.toDate ? last.timestamp.toDate() : null;
+        if (ts && ts >= start && ts < end) {
+          const ds = ts.toISOString().slice(0, 10);
+          unresolved[ds] = (unresolved[ds] || 0) + 1;
+        }
+      });
+
 
       const respSnap = await getDocs(
         query(collectionGroup(db, 'responses'), where('timestamp', '>=', s), where('timestamp', '<', e))
