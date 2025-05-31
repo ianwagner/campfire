@@ -137,9 +137,11 @@ useEffect(() => {
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') {
-      console.log('currentIndex changed to', currentIndex);
+      const ad = reviewAds[currentIndex];
+      const url = ad && (ad.adUrl || ad.firebaseUrl);
+      console.log('currentIndex changed to', currentIndex, url);
     }
-  }, [currentIndex]);
+  }, [currentIndex, reviewAds]);
 
 
 

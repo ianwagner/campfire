@@ -49,7 +49,11 @@ const useCachedImageUrl = (key, url) => {
         if (!active) return;
         try {
           localStorage.setItem(key, dataUrl);
-        } catch {}
+        } catch (err) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('useCachedImageUrl failed to store', key, err);
+          }
+        }
         if (process.env.NODE_ENV !== 'production') {
           console.log('useCachedImageUrl stored', key);
         }
@@ -66,6 +70,12 @@ const useCachedImageUrl = (key, url) => {
       active = false;
     };
   }, [key, url]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('useCachedImageUrl src updated', key, src);
+    }
+  }, [src, key]);
 
   return src;
 };
