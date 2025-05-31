@@ -13,25 +13,19 @@ const toDataUrl = async (url) => {
 };
 
 const useCachedImageUrl = (key, url) => {
-  const [src, setSrc] = useState(() => {
-    if (key) {
-      try {
-        const stored = localStorage.getItem(key);
-        if (stored) return stored;
-      } catch {}
-    }
-    return url;
-  });
+  const [src, setSrc] = useState(url);
+
+  useEffect(() => {
+    setSrc(url);
+  }, [url]);
 
   useEffect(() => {
     if (!key || !url) {
-      setSrc(url);
       return;
     }
     const stored = localStorage.getItem(key);
     if (stored) {
-      debugLog('Loaded cached image', key);
-      setSrc(stored);
+      debugLog('Cached image present', key);
       return;
     }
     let active = true;
@@ -42,11 +36,9 @@ const useCachedImageUrl = (key, url) => {
           localStorage.setItem(key, dataUrl);
         } catch {}
         debugLog('Fetched image', url);
-        setSrc(dataUrl);
       })
       .catch(() => {
         console.error('Image fetch failed', url);
-        if (active) setSrc(url);
       });
     return () => {
       active = false;
