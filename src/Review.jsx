@@ -10,11 +10,9 @@ import {
   where,
   getDocs,
   getDoc,
-  addDoc,
   serverTimestamp,
   doc,
   updateDoc,
-  increment,
   setDoc,
   arrayUnion,
   Timestamp,
@@ -24,7 +22,6 @@ import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import parseAdFilename from './utils/parseAdFilename';
-import computeGroupStatus from './utils/computeGroupStatus';
 import LoadingOverlay from "./LoadingOverlay";
 import debugLog from './utils/debugLog';
 import { cacheImageUrl } from './utils/useCachedImageUrl';
@@ -58,7 +55,7 @@ const Review = ({
   const [askContinue, setAskContinue] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [responses, setResponses] = useState({}); // map of adUrl -> response object
+  const [responses, setResponses] = useState({}); // map of recipeCode -> response object
   const [editing, setEditing] = useState(false);
   const [allAds, setAllAds] = useState([]); // includes all non-pending versions
   const [versionModal, setVersionModal] = useState(null); // {current, previous}
@@ -328,7 +325,7 @@ const Review = ({
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
     currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
-  const selectedResponse = responses[adUrl]?.response;
+  const selectedResponse = responses[currentRecipe]?.response;
   const showSecondView = secondPass && selectedResponse && !editing;
   // show next step as soon as a decision is made
   const progress =
@@ -511,7 +508,6 @@ const Review = ({
     setSubmitting(true);
     try {
       const recipeAssets = currentRecipeGroup?.assets || [currentAd];
-      const updates = [];
       const newStatus =
         responseType === 'approve'
           ? 'approved'
@@ -519,190 +515,55 @@ const Review = ({
           ? 'rejected'
           : 'edit_requested';
 
-      for (const asset of recipeAssets) {
-        const url = asset.adUrl || asset.firebaseUrl;
-        const respObj = {
-          adUrl: url,
+      setAds((prev) =>
+        prev.map((a) =>
+          recipeAssets.some((ra) => ra.assetId === a.assetId)
+            ? { ...a, status: newStatus, comment: responseType === 'edit' ? comment : '' }
+            : a
+        )
+      );
+      setReviewAds((prev) =>
+        prev.map((a) =>
+          recipeAssets.some((ra) => ra.assetId === a.assetId)
+            ? { ...a, status: newStatus, comment: responseType === 'edit' ? comment : '' }
+            : a
+        )
+      );
+
+      const recipeRef = doc(db, 'recipes', currentRecipe);
+      await setDoc(
+        recipeRef,
+        {
+          status: newStatus,
+          comment: responseType === 'edit' ? comment : '',
+          history: arrayUnion({
+            timestamp: Timestamp.now(),
+            status: newStatus,
+            user:
+              reviewerName ||
+              user?.displayName ||
+              user?.uid ||
+              'unknown',
+            ...(responseType === 'edit' && comment ? { editComment: comment } : {}),
+          }),
+        },
+        { merge: true }
+      );
+
+      setResponses((prev) => ({
+        ...prev,
+        [currentRecipe]: {
           response: responseType,
           comment: responseType === 'edit' ? comment : '',
-          pass: responses[url] ? 'revisit' : 'initial',
-          ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
-          ...(asset.groupName ? { groupName: asset.groupName } : {}),
+          pass: prev[currentRecipe] ? 'revisit' : 'initial',
+          ...(brandCode ? { brandCode } : {}),
+          ...(groupName ? { groupName } : {}),
           ...(reviewerName ? { reviewerName } : {}),
           ...(user?.email ? { userEmail: user.email } : {}),
           ...(user?.uid ? { userId: user.uid } : {}),
           ...(userRole ? { userRole } : {}),
-        };
-        if (asset.adGroupId) {
-          updates.push(
-            addDoc(collection(db, 'adGroups', asset.adGroupId, 'responses'), {
-              ...respObj,
-              timestamp: serverTimestamp(),
-            })
-          );
-        }
-        if (asset.assetId && asset.adGroupId) {
-          const assetRef = doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId);
-          const updateData = {
-            status: newStatus,
-            comment: responseType === 'edit' ? comment : '',
-            lastUpdatedBy: user.uid,
-            lastUpdatedAt: serverTimestamp(),
-            ...(responseType === 'approve' ? { isResolved: true } : {}),
-            ...(responseType === 'edit' ? { isResolved: false } : {}),
-          };
-
-          updates.push(updateDoc(assetRef, updateData));
-
-          setAds((prev) =>
-            prev.map((a) =>
-              a.assetId === asset.assetId
-                ? {
-                    ...a,
-                    status: newStatus,
-                    comment: responseType === 'edit' ? comment : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
-                  }
-                : a
-            )
-          );
-          setReviewAds((prev) =>
-            prev.map((a) =>
-              a.assetId === asset.assetId
-                ? {
-                    ...a,
-                    status: newStatus,
-                    comment: responseType === 'edit' ? comment : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
-                  }
-                : a
-            )
-          );
-
-    if (recipeAssets.length > 0) {
-      const recipeRef = doc(db, 'recipes', currentRecipe);
-      updates.push(
-        setDoc(
-          recipeRef,
-          {
-            history: arrayUnion({
-              timestamp: Timestamp.now(),
-              status: newStatus,
-              user:
-                reviewerName ||
-                user?.displayName ||
-                user?.uid ||
-                'unknown',
-              ...(responseType === 'edit' && comment
-                ? { editComment: comment }
-                : {}),
-            }),
-          },
-          { merge: true }
-        )
-      );
-    }
-          const prevStatus = asset.status;
-          const newState = newStatus;
-          let incReviewed = 0;
-          let incApproved = 0;
-          let incRejected = 0;
-          let incEdit = 0;
-          if (prevStatus === 'ready') {
-            incReviewed += 1;
-          }
-          if (prevStatus !== newState) {
-            if (prevStatus === 'approved') incApproved -= 1;
-            if (prevStatus === 'rejected') incRejected -= 1;
-            if (prevStatus === 'edit_requested') incEdit -= 1;
-            if (newState === 'approved') incApproved += 1;
-            if (newState === 'rejected') incRejected += 1;
-            if (newState === 'edit_requested') incEdit += 1;
-          }
-
-          const groupRef = doc(db, 'adGroups', asset.adGroupId);
-          const gSnap = await getDoc(groupRef);
-          const updateObj = {
-            ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
-            ...(incApproved ? { approvedCount: increment(incApproved) } : {}),
-            ...(incRejected ? { rejectedCount: increment(incRejected) } : {}),
-            ...(incEdit ? { editCount: increment(incEdit) } : {}),
-            lastUpdated: serverTimestamp(),
-            ...(gSnap.exists() && !gSnap.data().thumbnailUrl
-              ? { thumbnailUrl: asset.firebaseUrl }
-              : {}),
-          };
-          const newGroupStatus = computeGroupStatus(
-            ads.map((a) =>
-              a.assetId === asset.assetId ? { ...a, status: newStatus } : a
-            ),
-            gSnap.exists() ? gSnap.data().status : 'pending'
-          );
-          if (newGroupStatus !== gSnap.data().status) {
-            updateObj.status = newGroupStatus;
-            setGroupStatus(newGroupStatus);
-          }
-          updates.push(updateDoc(groupRef, updateObj));
-
-          if (responseType === 'approve' && asset.parentAdId) {
-            const relatedQuery = query(
-              collection(db, 'adGroups', asset.adGroupId, 'assets'),
-              where('parentAdId', '==', asset.parentAdId)
-            );
-            const relatedSnap = await getDocs(relatedQuery);
-            updates.push(
-              Promise.all(
-                relatedSnap.docs.map((d) =>
-                  updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', d.id), {
-                    isResolved: true,
-                  })
-                )
-              )
-            );
-            updates.push(
-              updateDoc(
-                doc(db, 'adGroups', asset.adGroupId, 'assets', asset.parentAdId),
-                { isResolved: true }
-              )
-            );
-          }
-        }
-        setResponses((prev) => ({ ...prev, [url]: respObj }));
-      }
-
-      if (recipeAssets.length > 0) {
-        const recipeRef = doc(db, 'recipes', currentRecipe);
-        updates.push(
-          setDoc(
-            recipeRef,
-            {
-              history: arrayUnion({
-                timestamp: Timestamp.now(),
-                status: newStatus,
-                user:
-                  reviewerName ||
-                  user?.displayName ||
-                  user?.uid ||
-                  'unknown',
-                ...(responseType === 'edit' && comment
-                  ? { editComment: comment }
-                  : {}),
-              }),
-            },
-            { merge: true }
-          )
-        );
-      }
-
-      await Promise.all(updates);
+        },
+      }));
 
       if (groupId) {
         localStorage.setItem(`lastViewed-${groupId}`, new Date().toISOString());
@@ -795,8 +656,9 @@ const Review = ({
     const allResponses = Object.values(responses);
     const approvedCount = allResponses.filter((r) => r.response === 'approve').length;
     const approvedAds = ads.filter((a) => {
-      const url = a.adUrl || a.firebaseUrl;
-      return responses[url]?.response === 'approve';
+      const recipe =
+        a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
+      return responses[recipe]?.response === 'approve';
     });
     const approvedMap = {};
     const order = { '9x16': 0, '3x5': 1, '1x1': 2 };

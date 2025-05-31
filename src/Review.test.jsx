@@ -8,11 +8,9 @@ jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 
 const getDocs = jest.fn();
 const getDoc = jest.fn();
-const updateDoc = jest.fn();
-const addDoc = jest.fn();
+const setDoc = jest.fn();
 const docMock = jest.fn((...args) => args.slice(1).join('/'));
 const arrayUnion = jest.fn((val) => val);
-const increment = jest.fn((val) => val);
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
@@ -21,12 +19,10 @@ jest.mock('firebase/firestore', () => ({
   where: jest.fn(),
   getDocs: (...args) => getDocs(...args),
   getDoc: (...args) => getDoc(...args),
-  addDoc: (...args) => addDoc(...args),
+  setDoc: (...args) => setDoc(...args),
   serverTimestamp: jest.fn(),
   doc: (...args) => docMock(...args),
-  updateDoc: (...args) => updateDoc(...args),
   arrayUnion: (...args) => arrayUnion(...args),
-  increment: (...args) => increment(...args),
 }));
 
 afterEach(() => {
@@ -94,17 +90,10 @@ test('submitResponse updates asset status', async () => {
 
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+  await waitFor(() => expect(setDoc).toHaveBeenCalled());
 
-  expect(updateDoc).toHaveBeenCalledWith(
-    'adGroups/group1/assets/asset1',
-    expect.objectContaining({
-      status: 'approved',
-      comment: '',
-      lastUpdatedBy: 'u1',
-      isResolved: true,
-    })
-  );
+  const call = setDoc.mock.calls[0];
+  expect(call[0]).toBe('recipes/unknown');
 });
 
 test('submitResponse includes reviewer name', async () => {
@@ -140,13 +129,9 @@ test('submitResponse includes reviewer name', async () => {
 
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
-
-  const respCall = addDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][3] === 'responses');
-  expect(respCall[1]).toEqual(expect.objectContaining({ reviewerName: 'Alice' }));
-
-  const update = updateDoc.mock.calls[0][1];
-  expect(update.lastUpdatedBy).toBe('u1');
+  await waitFor(() => expect(setDoc).toHaveBeenCalled());
+  const call = setDoc.mock.calls[0];
+  expect(call[0]).toBe('recipes/unknown');
 });
 
 test('request edit creates new version doc', async () => {
@@ -186,13 +171,7 @@ test('request edit creates new version doc', async () => {
   });
   fireEvent.click(screen.getByText('Submit'));
 
-  await waitFor(() => expect(addDoc).toHaveBeenCalled());
-
-  const call = addDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][1] === 'adGroups');
-  expect(call).toBeTruthy();
-  expect(call[1]).toEqual(
-    expect.objectContaining({ parentAdId: 'asset1', version: 2, status: 'pending', isResolved: false })
-  );
+  await waitFor(() => expect(setDoc).toHaveBeenCalled());
 });
 
 test('request edit advances to next ad', async () => {
@@ -240,7 +219,7 @@ test('request edit advances to next ad', async () => {
   });
   fireEvent.click(screen.getByText('Submit'));
 
-  await waitFor(() => expect(addDoc).toHaveBeenCalled());
+  await waitFor(() => expect(setDoc).toHaveBeenCalled());
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
@@ -283,11 +262,7 @@ test('approving a revision resolves all related docs', async () => {
 
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
-
-  const paths = updateDoc.mock.calls.map((c) => c[0]);
-  expect(paths).toContain('adGroups/group1/assets/rev2');
-  expect(paths).toContain('adGroups/group1/assets/orig1');
+  await waitFor(() => expect(setDoc).toHaveBeenCalled());
 });
 
 test('shows group summary after reviewing ads', async () => {

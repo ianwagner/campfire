@@ -9,8 +9,6 @@ import {
   getDocs,
   query,
   where,
-  doc,
-  updateDoc,
   limit,
 } from 'firebase/firestore';
 
@@ -162,19 +160,6 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                 edit: summary.edit,
                 rejected: summary.rejected,
               };
-
-              try {
-                const update = {
-                  reviewedCount: summary.reviewed,
-                  approvedCount: summary.approved,
-                  editCount: summary.edit,
-                  rejectedCount: summary.rejected,
-                  ...(data.thumbnailUrl ? {} : summary.thumbnail ? { thumbnailUrl: summary.thumbnail } : {}),
-                };
-                await updateDoc(doc(db, 'adGroups', d.id), update);
-              } catch (err) {
-                console.error('Failed to update group summary', err);
-              }
             }
 
             return group;

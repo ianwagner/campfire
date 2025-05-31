@@ -1,6 +1,6 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   FiEye,
   FiClock,
@@ -64,26 +64,7 @@ const AdGroupDetail = () => {
     angle: '',
     audience: '',
   });
-  const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
-
-  const summarize = (list) => {
-    let reviewed = 0;
-    let approved = 0;
-    let edit = 0;
-    let rejected = 0;
-    let thumbnail = '';
-    list.forEach((a) => {
-      if (!thumbnail && (a.thumbnailUrl || a.firebaseUrl)) {
-        thumbnail = a.thumbnailUrl || a.firebaseUrl;
-      }
-      if (a.status !== 'ready') reviewed += 1;
-      if (a.status === 'approved') approved += 1;
-      if (a.status === 'edit_requested') edit += 1;
-      if (a.status === 'rejected') rejected += 1;
-    });
-    return { reviewed, approved, edit, rejected, thumbnail };
-  };
 
   useEffect(() => {
     const load = async () => {
@@ -131,47 +112,6 @@ const AdGroupDetail = () => {
     loadBrand();
   }, [group?.brandCode]);
 
-  useEffect(() => {
-    if (group) {
-      countsRef.current = {
-        reviewed: group.reviewedCount || 0,
-        approved: group.approvedCount || 0,
-        edit: group.editCount || 0,
-        rejected: group.rejectedCount || 0,
-      };
-    }
-  }, [group]);
-
-  useEffect(() => {
-    if (!group) return;
-    const summary = summarize(assets);
-    const prev = countsRef.current || {};
-    const changed =
-      summary.reviewed !== prev.reviewed ||
-      summary.approved !== prev.approved ||
-      summary.edit !== prev.edit ||
-      summary.rejected !== prev.rejected ||
-      (!group.thumbnailUrl && summary.thumbnail);
-    if (changed) {
-      const update = {
-        reviewedCount: summary.reviewed,
-        approvedCount: summary.approved,
-        editCount: summary.edit,
-        rejectedCount: summary.rejected,
-        lastUpdated: serverTimestamp(),
-        ...(group.thumbnailUrl ? {} : summary.thumbnail ? { thumbnailUrl: summary.thumbnail } : {}),
-      };
-      const newStatus = computeGroupStatus(assets, group.status);
-      if (newStatus !== group.status) {
-        update.status = newStatus;
-      }
-      updateDoc(doc(db, 'adGroups', id), update).catch((err) =>
-        console.error('Failed to update summary', err)
-      );
-      countsRef.current = summary;
-      setGroup((p) => ({ ...p, ...update }));
-    }
-  }, [assets, group, id]);
 
   const recipeGroups = useMemo(() => {
     const map = {};
