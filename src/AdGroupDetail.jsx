@@ -35,6 +35,7 @@ const AdGroupDetail = () => {
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
   const [expanded, setExpanded] = useState({});
+  const [showTable, setShowTable] = useState(false);
   const [historyRecipe, setHistoryRecipe] = useState(null);
   const [viewRecipe, setViewRecipe] = useState(null);
   const countsRef = useRef(null);
@@ -156,6 +157,45 @@ const AdGroupDetail = () => {
     groups.sort((a, b) => Number(a.recipeCode) - Number(b.recipeCode));
     return groups;
   }, [assets]);
+
+  const recipeCount = useMemo(() => {
+    const set = new Set();
+    assets.forEach((a) => {
+      const info = parseAdFilename(a.filename || '');
+      set.add(info.recipeCode || 'unknown');
+    });
+    return set.size;
+  }, [assets]);
+
+  const statusCounts = useMemo(() => {
+    const counts = {
+      pending: 0,
+      ready: 0,
+      approved: 0,
+      rejected: 0,
+      edit_requested: 0,
+    };
+    assets.forEach((a) => {
+      if (counts[a.status] !== undefined) counts[a.status] += 1;
+    });
+    return counts;
+  }, [assets]);
+
+  const specialGroups = useMemo(
+    () =>
+      recipeGroups.filter((g) =>
+        ['rejected', 'edit_requested'].includes(getRecipeStatus(g.assets))
+      ),
+    [recipeGroups]
+  );
+
+  const normalGroups = useMemo(
+    () =>
+      recipeGroups.filter(
+        (g) => !['rejected', 'edit_requested'].includes(getRecipeStatus(g.assets))
+      ),
+    [recipeGroups]
+  );
 
   const getRecipeStatus = (list) => {
     const unique = Array.from(new Set(list.map((a) => a.status)));
@@ -467,6 +507,124 @@ const AdGroupDetail = () => {
     }
   };
 
+  const renderRecipeRow = (g) => (
+    <tbody key={g.recipeCode} className="table-row-group">
+      <tr
+        onClick={() => toggleRecipe(g.recipeCode)}
+        className="cursor-pointer recipe-row"
+      >
+        <td colSpan="2" className="font-semibold relative">
+          Recipe {g.recipeCode}
+          <div
+            className={`asset-panel absolute left-0 w-full ${
+              expanded[g.recipeCode] ? 'open' : ''
+            }`}
+          >
+            <div className="overflow-x-auto table-container">
+              <table className="ad-table min-w-max w-full">
+                <tbody>
+                  {g.assets.map((a) => (
+                    <tr key={a.id} className="asset-row">
+                      <td className="break-all">{a.filename}</td>
+                      <td className="text-center">{a.version || 1}</td>
+                      <td></td>
+                      <td className="text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteAsset(a);
+                          }}
+                          className="btn-delete"
+                          aria-label="Delete"
+                        >
+                          <FiTrash />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </td>
+        <td>
+          {userRole === 'designer' || userRole === 'client' ? (
+            getRecipeStatus(g.assets) === 'pending' ? (
+              <select
+                className="p-1 border rounded"
+                value="pending"
+                onChange={(e) => {
+                  e.stopPropagation();
+                  updateRecipeStatus(g.recipeCode, e.target.value);
+                }}
+              >
+                <option value="pending">pending</option>
+                <option value="ready">ready</option>
+              </select>
+            ) : (
+              <StatusBadge status={getRecipeStatus(g.assets)} />
+            )
+          ) : (
+            <select
+              className="p-1 border rounded"
+              value={getRecipeStatus(g.assets)}
+              onChange={(e) => {
+                e.stopPropagation();
+                updateRecipeStatus(g.recipeCode, e.target.value);
+              }}
+            >
+              <option value="pending">pending</option>
+              <option value="ready">ready</option>
+              <option value="approved">approved</option>
+              <option value="rejected">rejected</option>
+              <option value="edit_requested">edit_requested</option>
+              <option value="archived">archived</option>
+              <option value="mixed" disabled>
+                mixed
+              </option>
+            </select>
+          )}
+        </td>
+        <td className="text-center">
+          <div className="flex items-center justify-center">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openView(g.recipeCode);
+              }}
+              className="flex items-center text-blue-500 underline mr-2"
+              aria-label="View"
+            >
+              <FiEye />
+              <span className="ml-1 text-[12px]">View</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openHistory(g.recipeCode);
+              }}
+              className="flex items-center text-blue-500 underline mr-2"
+              aria-label="History"
+            >
+              <FiClock />
+              <span className="ml-1 text-[12px]">History</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteRecipe(g.recipeCode);
+              }}
+              className="btn-delete"
+              aria-label="Delete"
+            >
+              <FiTrash />
+            </button>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  );
+
   if (!group) {
     return <div className="text-center mt-10">Loading...</div>;
   }
@@ -500,133 +658,64 @@ const AdGroupDetail = () => {
       </div>
 
 
-      <div className="overflow-x-auto table-container">
-        <table className="ad-table min-w-max">
-          <thead>
-            <tr>
-              <th>Filename</th>
-              <th>Version</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          {recipeGroups.map((g) => (
-            <tbody key={g.recipeCode} className="table-row-group">
-              <tr
-                onClick={() => toggleRecipe(g.recipeCode)}
-                className="cursor-pointer recipe-row"
-              >
-                <td colSpan="2" className="font-semibold relative">
-                  Recipe {g.recipeCode}
-                  <div
-                    className={`asset-panel absolute left-0 w-full ${
-                      expanded[g.recipeCode] ? 'open' : ''
-                    }`}
-                  >
-                    <div className="overflow-x-auto table-container">
-                    <table className="ad-table min-w-max w-full">
-                      <tbody>
-                        {g.assets.map((a) => (
-                          <tr key={a.id} className="asset-row">
-                            <td className="break-all">{a.filename}</td>
-                            <td className="text-center">{a.version || 1}</td>
-                            <td></td>
-                            <td className="text-center">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteAsset(a);
-                                }}
-                                className="btn-delete"
-                                aria-label="Delete"
-                              >
-                                <FiTrash />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                    {userRole === 'designer' || userRole === 'client' ? (
-                      getRecipeStatus(g.assets) === 'pending' ? (
-                        <select
-                          className="p-1 border rounded"
-                          value="pending"
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            updateRecipeStatus(g.recipeCode, e.target.value);
-                          }}
-                        >
-                          <option value="pending">pending</option>
-                          <option value="ready">ready</option>
-                        </select>
-                      ) : (
-                        <StatusBadge status={getRecipeStatus(g.assets)} />
-                      )
-                    ) : (
-                      <select
-                        className="p-1 border rounded"
-                        value={getRecipeStatus(g.assets)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          updateRecipeStatus(g.recipeCode, e.target.value);
-                        }}
-                      >
-                        <option value="pending">pending</option>
-                        <option value="ready">ready</option>
-                        <option value="approved">approved</option>
-                        <option value="rejected">rejected</option>
-                        <option value="edit_requested">edit_requested</option>
-                        <option value="archived">archived</option>
-                        <option value="mixed" disabled>mixed</option>
-                      </select>
-                    )}
-                  </td>
-                  <td className="text-center">
-                    <div className="flex items-center justify-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openView(g.recipeCode);
-                        }}
-                        className="flex items-center text-blue-500 underline mr-2"
-                        aria-label="View"
-                      >
-                        <FiEye />
-                        <span className="ml-1 text-[12px]">View</span>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openHistory(g.recipeCode);
-                        }}
-                        className="flex items-center text-blue-500 underline mr-2"
-                        aria-label="History"
-                      >
-                        <FiClock />
-                        <span className="ml-1 text-[12px]">History</span>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteRecipe(g.recipeCode);
-                        }}
-                        className="btn-delete"
-                        aria-label="Delete"
-                      >
-                        <FiTrash />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-            </tbody>
-              ))}
-        </table>
-      </div>
+      {!showTable && (
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 mb-4">
+          <div className="stat-card">
+            <p className="stat-card-title">Recipes</p>
+            <p className="stat-card-value">{recipeCount}</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-card-title">Total Ads</p>
+            <p className="stat-card-value">{assets.length}</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-card-title">Pending</p>
+            <p className="stat-card-value">{statusCounts.pending}</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-card-title">Ready</p>
+            <p className="stat-card-value">{statusCounts.ready}</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-card-title">Approved</p>
+            <p className="stat-card-value">{statusCounts.approved}</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-card-title">Rejected</p>
+            <p className="stat-card-value">{statusCounts.rejected}</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-card-title">Edit Requested</p>
+            <p className="stat-card-value">{statusCounts.edit_requested}</p>
+          </div>
+        </div>
+      )}
+
+      {(showTable || specialGroups.length > 0) && (
+        <div className="overflow-x-auto table-container">
+          <table className="ad-table min-w-max">
+            <thead>
+              <tr>
+                <th>Filename</th>
+                <th>Version</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            {[
+              ...specialGroups,
+              ...(showTable ? normalGroups : []),
+            ].map((g) => renderRecipeRow(g))}
+          </table>
+        </div>
+      )}
+
+      <button
+        onClick={() => setShowTable((p) => !p)}
+        className="btn-secondary px-3 py-1 my-4"
+      >
+        {showTable ? 'Hide Table' : 'Show All Ads'}
+      </button>
 
       {viewRecipe && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
