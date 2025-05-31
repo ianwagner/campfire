@@ -1,8 +1,19 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { FiEye, FiClock, FiTrash, FiLock, FiUnlock, FiRefreshCw, FiCheckCircle, FiShare2, FiUpload } from 'react-icons/fi';
-import { useParams } from 'react-router-dom';
+import {
+  FiEye,
+  FiClock,
+  FiTrash,
+  FiLock,
+  FiUnlock,
+  FiRefreshCw,
+  FiCheckCircle,
+  FiShare2,
+  FiUpload,
+  FiBookOpen,
+} from 'react-icons/fi';
+import { Link, useParams } from 'react-router-dom';
 import {
   doc,
   getDoc,
@@ -607,11 +618,11 @@ const AdGroupDetail = () => {
             </div>
           </div>
         </td>
-        <td>
+        <td className="flex flex-col">
           {userRole === 'designer' || userRole === 'client' ? (
             getRecipeStatus(g.assets) === 'pending' ? (
               <select
-                className="p-1 border rounded"
+                className={`status-select status-pending`}
                 value="pending"
                 onChange={(e) => {
                   e.stopPropagation();
@@ -626,7 +637,7 @@ const AdGroupDetail = () => {
             )
           ) : (
             <select
-              className="p-1 border rounded"
+              className={`status-select status-${getRecipeStatus(g.assets)}`}
               value={getRecipeStatus(g.assets)}
               onChange={(e) => {
                 e.stopPropagation();
@@ -644,6 +655,14 @@ const AdGroupDetail = () => {
               </option>
             </select>
           )}
+          {g.assets.find((a) => a.status === 'edit_requested' && a.comment) && (
+            <span className="italic text-xs mt-1">
+              {
+                g.assets.find((a) => a.status === 'edit_requested' && a.comment)
+                  ?.comment
+              }
+            </span>
+          )}
         </td>
         <td className="text-center">
           <div className="flex items-center justify-center">
@@ -652,29 +671,29 @@ const AdGroupDetail = () => {
                 e.stopPropagation();
                 openView(g.recipeCode);
               }}
-              className="flex items-center text-blue-500 underline mr-2"
+              className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
               aria-label="View"
             >
               <FiEye />
-              <span className="ml-1 text-[12px]">View</span>
+              <span className="ml-1">View</span>
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 openHistory(g.recipeCode);
               }}
-              className="flex items-center text-blue-500 underline mr-2"
+              className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
               aria-label="History"
             >
               <FiClock />
-              <span className="ml-1 text-[12px]">History</span>
+              <span className="ml-1">History</span>
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 deleteRecipe(g.recipeCode);
               }}
-              className="btn-delete"
+              className="btn-delete text-xs"
               aria-label="Delete"
             >
               <FiTrash />
@@ -692,9 +711,12 @@ const AdGroupDetail = () => {
   return (
     <div className="min-h-screen p-4 ">
         <h1 className="text-2xl mb-2">{group.name}</h1>
-      <p className="text-sm text-gray-500">Brand: {group.brandCode}</p>
-      <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center gap-2">
+      <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
+        Brand: {group.brandCode}
+        <span className="hidden sm:inline">|</span>
         Status: <StatusBadge status={group.status} />
+      </p>
+      <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center gap-2">
         {(userRole === 'admin' || userRole === 'agency') && (
           <>
             <input
@@ -736,6 +758,13 @@ const AdGroupDetail = () => {
               <FiCheckCircle />
               {readyLoading ? 'Processing...' : 'Ready'}
             </button>
+            <Link
+              to={`/review/${id}`}
+              className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+            >
+              <FiBookOpen />
+              Review
+            </Link>
             <button onClick={shareLink} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
               <FiShare2 />
               Share
@@ -807,7 +836,7 @@ const AdGroupDetail = () => {
 
       <button
         onClick={() => setShowTable((p) => !p)}
-        className="btn-secondary px-3 py-1 my-4"
+        className="btn-secondary px-2 py-0.5 flex items-center gap-1 my-4"
       >
         {showTable ? 'Hide Table' : 'Show All Ads'}
       </button>
