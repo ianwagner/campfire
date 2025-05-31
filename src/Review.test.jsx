@@ -59,7 +59,7 @@ test('loads ads from subcollections', async () => {
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'url1')
   );
 });
 
@@ -89,7 +89,7 @@ test('submitResponse updates asset status', async () => {
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'url2')
   );
 
   fireEvent.click(screen.getByText('Approve'));
@@ -135,7 +135,7 @@ test('submitResponse includes reviewer name', async () => {
   );
 
   await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'url2')
   );
 
   fireEvent.click(screen.getByText('Approve'));
@@ -177,7 +177,7 @@ test('request edit creates new version doc', async () => {
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'url2')
   );
 
   fireEvent.click(screen.getByLabelText('Request Edit'));
@@ -227,7 +227,7 @@ test('approving a revision resolves all related docs', async () => {
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
-  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'rev.png'));
+  await waitFor(() => expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'rev.png'));
 
   fireEvent.click(screen.getByText('Approve'));
 
@@ -274,13 +274,13 @@ test('shows group summary after reviewing ads', async () => {
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'url1')
   );
 
   fireEvent.click(screen.getByText('Approve'));
 
   await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'url2')
   );
 
   fireEvent.click(screen.getByText('Approve'));
@@ -334,7 +334,7 @@ test('filters ads by last login and still shows summary', async () => {
   );
 
   await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'new')
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'new')
   );
 
   fireEvent.click(screen.getByText('Approve'));
@@ -380,7 +380,7 @@ test('resolved ads are excluded from pending review', async () => {
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'url1')
   );
 
   fireEvent.click(screen.getByText('Approve'));
@@ -416,7 +416,7 @@ test('shows all ads for group review when none new', async () => {
   );
 
   await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'url1')
   );
 
   expect(screen.getByText('Reject')).toHaveClass('opacity-50');
@@ -446,7 +446,7 @@ test('pending ads are hidden from group review', async () => {
   render(<Review user={{ uid: 'u1' }} groupId="group1" />);
 
   await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'url1')
   );
 
   fireEvent.click(screen.getByText('Approve'));
@@ -506,7 +506,7 @@ test('submitResponse records last viewed time for group', async () => {
   render(<Review user={{ uid: 'u1' }} groupId="group1" />);
 
   await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'url1')
   );
 
   fireEvent.click(screen.getByText('Approve'));
@@ -629,7 +629,7 @@ test('progress bar reflects current index', async () => {
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
-  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'url1'));
+  await waitFor(() => expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', 'url1'));
 
   const bar = screen.getByRole('progressbar').firstChild;
   expect(bar).toHaveStyle('width: 0%');

@@ -68,6 +68,20 @@ const Review = ({
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= 640 : false
   );
+  const [layerASrc, setLayerASrc] = useState(null);
+  const [layerBSrc, setLayerBSrc] = useState(null);
+  const [visibleLayer, setVisibleLayer] = useState('A');
+  const loadedUrls = useRef(new Set());
+  const [layerALoaded, setLayerALoaded] = useState(false);
+  const [layerBLoaded, setLayerBLoaded] = useState(false);
+
+  useEffect(() => {
+    setLayerALoaded(layerASrc && loadedUrls.current.has(layerASrc));
+  }, [layerASrc]);
+
+  useEffect(() => {
+    setLayerBLoaded(layerBSrc && loadedUrls.current.has(layerBSrc));
+  }, [layerBSrc]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -279,6 +293,16 @@ const Review = ({
     fetchAds();
   }, [user, brandCodes, groupId]);
 
+  useEffect(() => {
+    if (reviewAds.length > 0) {
+      const urlA = reviewAds[0].adUrl || reviewAds[0].firebaseUrl;
+      const urlB = reviewAds[1] ? reviewAds[1].adUrl || reviewAds[1].firebaseUrl : null;
+      setLayerASrc(urlA);
+      setLayerBSrc(urlB);
+      setVisibleLayer('A');
+    }
+  }, [reviewAds]);
+
   const currentAd = reviewAds[currentIndex];
   const adUrl =
     currentAd && typeof currentAd === 'object'
@@ -296,11 +320,6 @@ const Review = ({
       ? ((currentIndex + (animating ? 1 : 0)) / reviewAds.length) * 100
       : 0;
 
-  const nextAd = reviewAds[currentIndex + 1];
-  const nextAdUrl =
-    nextAd && typeof nextAd === 'object'
-      ? nextAd.adUrl || nextAd.firebaseUrl
-      : nextAd;
 
   const openVersionModal = () => {
     if (!currentAd || !currentAd.parentAdId) return;
@@ -357,6 +376,22 @@ const Review = ({
     setDragging(false);
   };
 
+  const showAdAt = (idx) => {
+    if (idx < 0 || idx >= reviewAds.length) return;
+    const currentUrl = getAdUrl(reviewAds[idx]);
+    const preloadUrl = getAdUrl(reviewAds[idx + 1]);
+    if (visibleLayer === 'A') {
+      if (layerBSrc !== currentUrl) setLayerBSrc(currentUrl);
+      if (layerASrc !== preloadUrl) setLayerASrc(preloadUrl);
+      setVisibleLayer('B');
+    } else {
+      if (layerASrc !== currentUrl) setLayerASrc(currentUrl);
+      if (layerBSrc !== preloadUrl) setLayerBSrc(preloadUrl);
+      setVisibleLayer('A');
+    }
+    setCurrentIndex(idx);
+  };
+
   const handleStopReview = async () => {
     const remaining = reviewAds.slice(currentIndex);
     // gather all assets from the remaining recipe groups
@@ -396,6 +431,9 @@ const Review = ({
     reject: 'text-gray-700',
     edit: 'text-black',
   };
+
+  const getAdUrl = (a) =>
+    a ? (typeof a === 'object' ? a.adUrl || a.firebaseUrl : a) : null;
 
   const currentInfo = currentAd ? parseAdFilename(currentAd.filename || '') : {};
   const currentRecipe = currentAd?.recipeCode || currentInfo.recipeCode;
@@ -584,7 +622,7 @@ const Review = ({
     setComment('');
     setShowComment(false);
     setTimeout(() => {
-      setCurrentIndex((i) => i + 1);
+      showAdAt(currentIndex + 1);
       if (responseType === 'reject') {
         const newCount = rejectionCount + 1;
         setRejectionCount(newCount);
@@ -892,19 +930,7 @@ const Review = ({
           </button>
         )}
         <div className="flex justify-center relative">
-          {(animating || (dragging && Math.abs(swipeX) > 10)) &&
-            nextAdUrl &&
-            !showSizes && (
-            <OptimizedImage
-              pngUrl={nextAdUrl}
-              webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
-              alt="Next ad"
-              loading="eager"
-              className="absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none"
-            />
-          )}
           <div
-            key={currentIndex}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -928,20 +954,70 @@ const Review = ({
                   }
             }
           >
-            <OptimizedImage
-              pngUrl={adUrl}
-              webpUrl={adUrl.replace(/\.png$/, '.webp')}
-              alt="Ad"
-              loading="eager"
-              style={
-                isMobile && showSizes
-                  ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
-                  : {}
-              }
-              className={`relative max-w-[90%] mx-auto rounded shadow ${
-                isMobile && showSizes ? 'mb-2' : 'max-h-[72vh]'
-              }`}
-            />
+            <div
+              className={`ad-layer ${visibleLayer === 'A' ? 'visible' : 'hidden'}`}
+              style={{
+                opacity:
+                  visibleLayer === 'A'
+                    ? layerALoaded ? 1 : 0
+                    : 0,
+              }}
+            >
+              {layerASrc && (
+                <OptimizedImage
+                  pngUrl={layerASrc}
+                  webpUrl={layerASrc.replace(/\.png$/, '.webp')}
+                  alt="Ad"
+                  loading="eager"
+                  onLoad={() => {
+                    loadedUrls.current.add(layerASrc);
+                    setLayerALoaded(true);
+                  }}
+                  style={
+                    isMobile && showSizes
+                      ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+                      : {}
+                  }
+                  className={
+                    isMobile && showSizes
+                      ? 'mb-2 relative'
+                      : 'relative max-h-[72vh]'
+                  }
+                />
+              )}
+            </div>
+            <div
+              className={`ad-layer ${visibleLayer === 'B' ? 'visible' : 'hidden'}`}
+              style={{
+                opacity:
+                  visibleLayer === 'B'
+                    ? layerBLoaded ? 1 : 0
+                    : 0,
+              }}
+            >
+              {layerBSrc && (
+                <OptimizedImage
+                  pngUrl={layerBSrc}
+                  webpUrl={layerBSrc.replace(/\.png$/, '.webp')}
+                  alt="Ad"
+                  loading="eager"
+                  onLoad={() => {
+                    loadedUrls.current.add(layerBSrc);
+                    setLayerBLoaded(true);
+                  }}
+                  style={
+                    isMobile && showSizes
+                      ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+                      : {}
+                  }
+                  className={
+                    isMobile && showSizes
+                      ? 'mb-2 relative'
+                      : 'relative max-h-[72vh]'
+                  }
+                />
+              )}
+            </div>
             {currentAd && (currentAd.version || 1) > 1 && (
               <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
             )}
@@ -975,9 +1051,7 @@ const Review = ({
           {currentIndex > 0 && (
             <button
               aria-label="Previous"
-              onClick={() =>
-                setCurrentIndex((i) => Math.max(0, i - 1))
-              }
+              onClick={() => showAdAt(Math.max(0, currentIndex - 1))}
               className="btn-arrow"
             >
               &lt;
@@ -1008,9 +1082,7 @@ const Review = ({
           {currentIndex < reviewAds.length - 1 && (
             <button
               aria-label="Next"
-              onClick={() =>
-                setCurrentIndex((i) => Math.min(reviewAds.length - 1, i + 1))
-              }
+              onClick={() => showAdAt(Math.min(reviewAds.length - 1, currentIndex + 1))}
               className="btn-arrow"
             >
               &gt;
