@@ -197,7 +197,8 @@ const AdGroupDetail = () => {
     [recipeGroups]
   );
 
-  function getRecipeStatus(list) {
+  const getRecipeStatus = (list) => {
+main
     const unique = Array.from(new Set(list.map((a) => a.status)));
     return unique.length === 1 ? unique[0] : 'mixed';
   }
@@ -256,6 +257,28 @@ const AdGroupDetail = () => {
       setGroup((p) => ({ ...p, status: newStatus }));
     } catch (err) {
       console.error('Failed to toggle lock', err);
+    }
+  };
+
+  const resetGroup = async () => {
+    if (!group) return;
+    const confirmReset = window.confirm('Reset this group to pending?');
+    if (!confirmReset) return;
+    try {
+      const batch = writeBatch(db);
+      assets.forEach((a) => {
+        batch.update(doc(db, 'adGroups', id, 'assets', a.id), {
+          status: 'pending',
+          lastUpdatedBy: null,
+          lastUpdatedAt: serverTimestamp(),
+        });
+      });
+      batch.update(doc(db, 'adGroups', id), { status: 'pending' });
+      await batch.commit();
+      setAssets((prev) => prev.map((a) => ({ ...a, status: 'pending' })));
+      setGroup((p) => ({ ...p, status: 'pending' }));
+    } catch (err) {
+      console.error('Failed to reset group', err);
     }
   };
 
@@ -636,9 +659,14 @@ const AdGroupDetail = () => {
       <p className="text-sm text-gray-500 mb-4 flex items-center gap-2">
         Status: <StatusBadge status={group.status} />
         {(userRole === 'admin' || userRole === 'agency') && (
-          <button onClick={toggleLock} className="btn-secondary px-2 py-0.5">
-            {group.status === 'locked' ? 'Unlock' : 'Lock'}
-          </button>
+          <>
+            <button onClick={toggleLock} className="btn-secondary px-2 py-0.5">
+              {group.status === 'locked' ? 'Unlock' : 'Lock'}
+            </button>
+            <button onClick={resetGroup} className="btn-secondary px-2 py-0.5">
+              Reset
+            </button>
+          </>
         )}
       </p>
 
@@ -742,32 +770,24 @@ const AdGroupDetail = () => {
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-md dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
             <h3 className="mb-2 font-semibold">Recipe {historyRecipe.recipeCode} History</h3>
-            <div className="overflow-x-auto table-container">
-            <table className="ad-table min-w-max text-sm mb-2">
-              <thead>
-                <tr>
-                  <th>Version</th>
-                  <th>Decision</th>
-                  <th>Reviewer</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historyRecipe.assets.map((a) => (
-                  <tr key={a.id}>
-                    <td className="text-center">{a.version || 1}</td>
-                    <td>{a.status}</td>
-                    <td>{a.email}</td>
-                    <td>
-                      {a.lastUpdatedAt?.toDate
-                        ? a.lastUpdatedAt.toDate().toLocaleDateString()
-                        : ''}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
+            <ul className="mb-2 space-y-2 max-h-[60vh] overflow-auto">
+              {historyRecipe.assets.map((a) => (
+                <li key={a.id} className="border-b pb-2 last:border-none">
+                  <div className="text-sm font-medium">
+                    {a.lastUpdatedAt?.toDate
+                      ? a.lastUpdatedAt
+                          .toDate()
+                          .toLocaleString()
+                      : ''}{' '}
+                    - {a.email}
+                  </div>
+                  <div className="text-sm">Status: {a.status}</div>
+                  {a.comment && (
+                    <div className="text-sm italic">Note: {a.comment}</div>
+                  )}
+                </li>
+              ))}
+            </ul>
             <button onClick={closeModals} className="btn-primary px-3 py-1">Close</button>
           </div>
         </div>
