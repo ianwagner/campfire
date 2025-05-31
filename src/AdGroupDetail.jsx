@@ -101,7 +101,8 @@ const AdGroupDetail = () => {
     const unsub = onSnapshot(collection(db, 'adGroups', id, 'recipes'), (snap) => {
       const data = {};
       snap.docs.forEach((d) => {
-        data[d.id] = { id: d.id, ...d.data() };
+        const meta = d.data().metadata || {};
+        data[d.id] = { id: d.id, ...meta };
       });
       setRecipesMeta(data);
     });
@@ -471,18 +472,23 @@ const AdGroupDetail = () => {
         window.alert('Recipe column not found');
         return;
       }
+      const normalize = (val) =>
+        val.toString().toLowerCase().replace(/\s+/g, '').replace('recipe', '');
       const updates = [];
       for (let i = 1; i < lines.length; i += 1) {
         const parts = lines[i].split(',').map((p) => p.trim());
-        const recipeCode = parts[recipeCol];
+        const rawCode = parts[recipeCol];
+        const recipeCode = rawCode ? normalize(rawCode) : '';
         if (!recipeCode) continue;
+        const data = {
+          offer: offerCol >= 0 ? parts[offerCol] || '' : '',
+          angle: angleCol >= 0 ? parts[angleCol] || '' : '',
+          audience: audienceCol >= 0 ? parts[audienceCol] || '' : '',
+        };
+        console.log('Matched:', recipeCode, data);
         updates.push({
           id: recipeCode,
-          data: {
-            offer: offerCol >= 0 ? parts[offerCol] || '' : '',
-            angle: angleCol >= 0 ? parts[angleCol] || '' : '',
-            audience: audienceCol >= 0 ? parts[audienceCol] || '' : '',
-          },
+          data,
         });
       }
       if (updates.length === 0) {
@@ -493,7 +499,7 @@ const AdGroupDetail = () => {
       updates.forEach((u) => {
         batch.set(
           doc(db, 'adGroups', id, 'recipes', u.id),
-          u.data,
+          { metadata: u.data },
           { merge: true }
         );
       });
@@ -539,7 +545,7 @@ const AdGroupDetail = () => {
     try {
       await setDoc(
         doc(db, 'adGroups', id, 'recipes', metadataRecipe.id),
-        metadataForm,
+        { metadata: metadataForm },
         { merge: true }
       );
       setRecipesMeta((prev) => ({

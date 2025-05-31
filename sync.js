@@ -29,6 +29,9 @@ admin.initializeApp({
 const db = admin.firestore();
 const bucketName = admin.app().options.storageBucket;
 
+const normalize = (val) =>
+  val.toString().toLowerCase().replace(/\s+/g, '').replace('recipe', '');
+
 async function fetchRecipes(sheetId) {
   const auth = new google.auth.GoogleAuth({
     scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
@@ -56,6 +59,7 @@ async function fetchRecipes(sheetId) {
       recipeCol >= 0 ? (row[recipeCol] || '').toString().trim() : undefined;
     if (!recipeNumber) continue;
     recipes.push({
+      id: normalize(recipeNumber),
       recipeNumber: recipeNumber.toString(),
       offer: offerCol >= 0 ? row[offerCol] || '' : '',
       audience: audienceCol >= 0 ? row[audienceCol] || '' : '',
@@ -77,14 +81,24 @@ async function syncGroup(doc) {
       .collection('adGroups')
       .doc(doc.id)
       .collection('recipes')
-      .doc(r.recipeNumber)
-      .set({
-        clientId,
-        recipeNumber: r.recipeNumber,
-        offer: r.offer,
-        audience: r.audience,
-        angle: r.angle,
-      });
+      .doc(r.id)
+      .set(
+        {
+          clientId,
+          recipeNumber: r.recipeNumber,
+          metadata: {
+            offer: r.offer,
+            audience: r.audience,
+            angle: r.angle,
+          },
+        },
+        { merge: true }
+      );
+    console.log('Matched:', r.id, {
+      offer: r.offer,
+      audience: r.audience,
+      angle: r.angle,
+    });
   }
   console.log(`Synced ${recipes.length} recipes for group ${doc.id}`);
 }

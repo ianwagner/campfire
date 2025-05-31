@@ -21,10 +21,10 @@ Google Sheet into Firestore.
 
 The script reads the `sheetId` field from each document in the `adGroups`
 collection, loads rows from the `Recipes` tab, and writes metadata documents
-under `adGroups/{groupId}/recipes`. Metadata is matched using the **Recipe
-Number** column and stored on the recipe itself (fields `offer`, `audience`, and
-`angle`). Column positions are detected dynamically so the sheet may reorder
-them without breaking the sync.
+under `adGroups/{groupId}/recipes/{recipeId}`. Metadata is matched using the
+**Recipe Number** column and stored in a `metadata` subfield containing
+`offer`, `audience`, and `angle`. Column positions are detected dynamically so
+the sheet may reorder them without breaking the sync.
 
 The values in the Recipe Number column should match the recipe identifiers
 (e.g., `Recipe 1`, `Recipe 2`) used in Firestore.
