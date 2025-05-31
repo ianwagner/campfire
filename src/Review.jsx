@@ -285,7 +285,9 @@ const Review = ({
     currentAd && typeof currentAd === 'object'
       ? currentAd.adUrl || currentAd.firebaseUrl
       : currentAd;
+
   const displayAdUrl = usePreloadedImage(adUrl) || '';
+
   const brandCode =
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
