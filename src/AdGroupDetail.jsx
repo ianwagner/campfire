@@ -294,13 +294,14 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     if (metadataRecipe) {
+      const meta = recipesMeta[metadataRecipe.id] || metadataRecipe;
       setMetadataForm({
-        offer: metadataRecipe.offer || '',
-        angle: metadataRecipe.angle || '',
-        audience: metadataRecipe.audience || '',
+        offer: meta.offer || '',
+        angle: meta.angle || '',
+        audience: meta.audience || '',
       });
     }
-  }, [metadataRecipe]);
+  }, [metadataRecipe, recipesMeta]);
 
   const closeModals = () => {
     setHistoryRecipe(null);
