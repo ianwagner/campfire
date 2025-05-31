@@ -1,7 +1,7 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { FiEye, FiClock, FiTrash } from 'react-icons/fi';
+import { FiEye, FiClock, FiTrash, FiLock, FiUnlock, FiRefreshCw, FiCheckCircle, FiShare2 } from 'react-icons/fi';
 import { useParams } from 'react-router-dom';
 import {
   doc,
@@ -686,19 +686,38 @@ const AdGroupDetail = () => {
     <div className="min-h-screen p-4 ">
         <h1 className="text-2xl mb-2">{group.name}</h1>
       <p className="text-sm text-gray-500">Brand: {group.brandCode}</p>
-      <p className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+      <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center gap-2">
         Status: <StatusBadge status={group.status} />
         {(userRole === 'admin' || userRole === 'agency') && (
           <>
-            <button onClick={toggleLock} className="btn-secondary px-2 py-0.5">
+            <button onClick={toggleLock} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
+              {group.status === 'locked' ? <FiUnlock /> : <FiLock />}
               {group.status === 'locked' ? 'Unlock' : 'Lock'}
             </button>
-            <button onClick={resetGroup} className="btn-secondary px-2 py-0.5">
+            <button onClick={resetGroup} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
+              <FiRefreshCw />
               Reset
+            </button>
+            <button
+              onClick={markReady}
+              disabled={
+                readyLoading ||
+                assets.length === 0 ||
+                group.status === 'ready' ||
+                group.status === 'locked'
+              }
+              className="btn-primary px-2 py-0.5 flex items-center gap-1"
+            >
+              <FiCheckCircle />
+              {readyLoading ? 'Processing...' : 'Ready'}
+            </button>
+            <button onClick={shareLink} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
+              <FiShare2 />
+              Share
             </button>
           </>
         )}
-      </p>
+      </div>
 
       <div className="mb-4">
         <input
@@ -717,36 +736,40 @@ const AdGroupDetail = () => {
 
 
       {!showTable && (
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 mb-4">
-          <div className="stat-card">
-            <p className="stat-card-title">Recipes</p>
-            <p className="stat-card-value">{recipeCount}</p>
+        <>
+          <div className="flex flex-wrap justify-center gap-4 mb-4">
+            <div className="stat-card">
+              <p className="stat-card-title">Recipes</p>
+              <p className="stat-card-value">{recipeCount}</p>
+            </div>
+            <div className="stat-card">
+              <p className="stat-card-title">Total Ads</p>
+              <p className="stat-card-value">{assets.length}</p>
+            </div>
           </div>
-          <div className="stat-card">
-            <p className="stat-card-title">Total Ads</p>
-            <p className="stat-card-value">{assets.length}</p>
+          <div className="flex flex-wrap justify-center gap-4 mb-4">
+            <div className="stat-card status-pending">
+              <p className="stat-card-title">Pending</p>
+              <p className="stat-card-value">{statusCounts.pending}</p>
+            </div>
+            <div className="stat-card status-ready">
+              <p className="stat-card-title">Ready</p>
+              <p className="stat-card-value">{statusCounts.ready}</p>
+            </div>
+            <div className="stat-card status-approved">
+              <p className="stat-card-title">Approved</p>
+              <p className="stat-card-value">{statusCounts.approved}</p>
+            </div>
+            <div className="stat-card status-rejected">
+              <p className="stat-card-title">Rejected</p>
+              <p className="stat-card-value">{statusCounts.rejected}</p>
+            </div>
+            <div className="stat-card status-edit_requested">
+              <p className="stat-card-title">Edit Requested</p>
+              <p className="stat-card-value">{statusCounts.edit_requested}</p>
+            </div>
           </div>
-          <div className="stat-card">
-            <p className="stat-card-title">Pending</p>
-            <p className="stat-card-value">{statusCounts.pending}</p>
-          </div>
-          <div className="stat-card">
-            <p className="stat-card-title">Ready</p>
-            <p className="stat-card-value">{statusCounts.ready}</p>
-          </div>
-          <div className="stat-card">
-            <p className="stat-card-title">Approved</p>
-            <p className="stat-card-value">{statusCounts.approved}</p>
-          </div>
-          <div className="stat-card">
-            <p className="stat-card-title">Rejected</p>
-            <p className="stat-card-value">{statusCounts.rejected}</p>
-          </div>
-          <div className="stat-card">
-            <p className="stat-card-title">Edit Requested</p>
-            <p className="stat-card-value">{statusCounts.edit_requested}</p>
-          </div>
-        </div>
+        </>
       )}
 
       {(showTable || specialGroups.length > 0) && (
@@ -823,23 +846,6 @@ const AdGroupDetail = () => {
         </div>
       )}
 
-      <div className="mt-6">
-        <button
-          onClick={markReady}
-          disabled={
-            readyLoading ||
-            assets.length === 0 ||
-            group.status === 'ready' ||
-            group.status === 'locked'
-          }
-          className="btn-approve"
-        >
-          {readyLoading ? 'Processing...' : 'Mark as Ready for Review'}
-        </button>
-        <button onClick={shareLink} className="ml-2 btn-primary px-3 py-1">
-          Share Link
-        </button>
-      </div>
     </div>
   );
 };
