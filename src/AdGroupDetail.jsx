@@ -16,6 +16,7 @@ import {
   query,
   where,
   getDocs,
+  orderBy,
 } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
 import { auth, db, storage } from './firebase/config';
@@ -24,6 +25,7 @@ import { uploadFile } from './uploadFile';
 import parseAdFilename from './utils/parseAdFilename';
 import StatusBadge from './components/StatusBadge.jsx';
 import OptimizedImage from './components/OptimizedImage.jsx';
+import pickHeroAsset from './utils/pickHeroAsset';
 import computeGroupStatus from './utils/computeGroupStatus';
 
 const AdGroupDetail = () => {
@@ -171,9 +173,16 @@ const AdGroupDetail = () => {
       const info = parseAdFilename(a.filename || '');
       return (info.recipeCode || 'unknown') === recipeCode;
     });
-    const uids = Array.from(
-      new Set(list.map((a) => a.lastUpdatedBy).filter(Boolean))
+    const hero = pickHeroAsset(list);
+    if (!hero) return;
+    const histSnap = await getDocs(
+      query(
+        collection(db, 'adGroups', id, 'assets', hero.id, 'history'),
+        orderBy('updatedAt', 'asc')
+      )
     );
+    const histData = histSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const uids = Array.from(new Set(histData.map((h) => h.updatedBy).filter(Boolean)));
     const emails = {};
     await Promise.all(
       uids.map(async (uid) => {
@@ -185,9 +194,10 @@ const AdGroupDetail = () => {
         }
       })
     );
-    const hist = list.map((a) => ({
-      ...a,
-      email: a.lastUpdatedBy ? emails[a.lastUpdatedBy] : 'N/A',
+    const hist = histData.map((h) => ({
+      ...h,
+      lastUpdatedAt: h.updatedAt,
+      email: h.updatedBy ? emails[h.updatedBy] : 'N/A',
     }));
     setHistoryRecipe({ recipeCode, assets: hist });
   };
@@ -365,6 +375,7 @@ const AdGroupDetail = () => {
       return (info.recipeCode || 'unknown') === recipeCode;
     });
     if (groupAssets.length === 0) return;
+    const hero = pickHeroAsset(groupAssets);
     const batch = writeBatch(db);
     groupAssets.forEach((a) => {
       batch.update(doc(db, 'adGroups', id, 'assets', a.id), {
@@ -375,6 +386,16 @@ const AdGroupDetail = () => {
     });
     try {
       await batch.commit();
+      if (hero) {
+        await addDoc(
+          collection(db, 'adGroups', id, 'assets', hero.id, 'history'),
+          {
+            status,
+            updatedBy: auth.currentUser?.uid || null,
+            updatedAt: serverTimestamp(),
+          }
+        );
+      }
       setAssets((prev) =>
         prev.map((a) =>
           groupAssets.some((g) => g.id === a.id) ? { ...a, status } : a
