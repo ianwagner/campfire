@@ -646,3 +646,51 @@ test('progress bar reflects current index', async () => {
   await waitFor(() => expect(bar).toHaveStyle('width: 50%'));
 });
 
+test('ad container is not remounted when currentIndex changes', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'asset2',
+        data: () => ({
+          firebaseUrl: 'url2',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'url1'));
+
+  const initialContainer = screen.getByAltText('Ad').parentElement;
+
+  fireEvent.click(screen.getByText('Approve'));
+  fireEvent.animationEnd(initialContainer);
+
+  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'url2'));
+
+  const newContainer = screen.getByAltText('Ad').parentElement;
+  expect(newContainer).toBe(initialContainer);
+});
+
