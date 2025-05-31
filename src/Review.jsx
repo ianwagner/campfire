@@ -23,6 +23,7 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import computeGroupStatus from './utils/computeGroupStatus';
 import debugLog from './utils/debugLog';
+import usePreloadedImage from "./hooks/usePreloadedImage";
 
 const Review = ({
   user,
@@ -284,6 +285,7 @@ const Review = ({
     currentAd && typeof currentAd === 'object'
       ? currentAd.adUrl || currentAd.firebaseUrl
       : currentAd;
+  const displayAdUrl = usePreloadedImage(adUrl) || '';
   const brandCode =
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
@@ -904,7 +906,6 @@ const Review = ({
             />
           )}
           <div
-            key={currentIndex}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -929,8 +930,8 @@ const Review = ({
             }
           >
             <OptimizedImage
-              pngUrl={adUrl}
-              webpUrl={adUrl.replace(/\.png$/, '.webp')}
+              pngUrl={displayAdUrl}
+              webpUrl={displayAdUrl ? displayAdUrl.replace(/\.png$/, '.webp') : undefined}
               alt="Ad"
               loading="eager"
               style={
