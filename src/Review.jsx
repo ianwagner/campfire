@@ -74,6 +74,7 @@ const Review = ({
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
+  const advancedRef = useRef(false);
   const [groupStatus, setGroupStatus] = useState(null);
   const { agency } = useAgencyTheme(agencyId);
   useEffect(() => {
@@ -398,7 +399,14 @@ const Review = ({
   const handleAnimationEnd = (e) => {
     if (!animating) return;
     if (e.target !== e.currentTarget) return;
-    setCurrentIndex((i) => i + 1);
+    if (!advancedRef.current) {
+      setCurrentIndex((i) => {
+        const next = i + 1;
+        console.log('Index updated:', next);
+        return next;
+      });
+      advancedRef.current = true;
+    }
     if (animating === 'reject') {
       const newCount = rejectionCount + 1;
       setRejectionCount(newCount);
@@ -497,6 +505,7 @@ const Review = ({
 
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
+    advancedRef.current = false;
     setAnimating(responseType);
     setSubmitting(true);
 
@@ -646,13 +655,7 @@ const Review = ({
     }
 
     if (recipeAssets.length > 0) {
-      const recipeRef = doc(
-        db,
-        'adGroups',
-        recipeAssets[0].adGroupId,
-        'recipes',
-        currentRecipe
-      );
+      const recipeRef = doc(db, 'recipes', currentRecipe);
       updates.push(
         setDoc(
           recipeRef,
@@ -697,10 +700,16 @@ const Review = ({
 
     await updatePromise;
 
-    if (responseType === 'edit' || isSafari) {
-      setCurrentIndex((i) => i + 1);
-      setAnimating(null);
+    console.log('Next ad triggered');
+    if (!advancedRef.current) {
+      setCurrentIndex((i) => {
+        const next = i + 1;
+        console.log('Index updated:', next);
+        return next;
+      });
+      advancedRef.current = true;
     }
+    setAnimating(null);
   };
 
   const submitNote = async () => {

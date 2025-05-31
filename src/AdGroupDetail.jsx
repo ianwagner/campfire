@@ -245,7 +245,7 @@ const AdGroupDetail = () => {
 
   const openHistory = async (recipeCode) => {
     try {
-      const snap = await getDoc(doc(db, 'adGroups', id, 'recipes', recipeCode));
+      const snap = await getDoc(doc(db, 'recipes', recipeCode));
       if (!snap.exists()) {
         setHistoryRecipe({ recipeCode, assets: [] });
         return;
@@ -588,7 +588,7 @@ const AdGroupDetail = () => {
       }
 
       await setDoc(
-        doc(db, 'adGroups', id, 'recipes', recipeCode),
+        doc(db, 'recipes', recipeCode),
         {
           history: arrayUnion({
             timestamp: serverTimestamp(),
