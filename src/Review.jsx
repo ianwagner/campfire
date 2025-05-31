@@ -135,6 +135,16 @@ useEffect(() => {
   if (animating) setAnimating(null);
 }, [currentIndex]);
 
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      const curr =
+        currentIndex >= 0 && reviewAds[currentIndex]
+          ? reviewAds[currentIndex].adUrl || reviewAds[currentIndex].firebaseUrl
+          : null;
+      console.log('currentIndex changed to', currentIndex, curr);
+    }
+  }, [currentIndex, reviewAds]);
+
 
 
   useEffect(() => {

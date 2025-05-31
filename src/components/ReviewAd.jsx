@@ -8,6 +8,16 @@ import OptimizedImage from './OptimizedImage.jsx';
 const ReviewAd = ({ pngUrl, webpUrl, ...props }) => {
   const url = pngUrl || webpUrl;
   if (!url) return null;
+  React.useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('ReviewAd mount', url);
+    }
+    return () => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('ReviewAd unmount', url);
+      }
+    };
+  }, [url]);
   return <OptimizedImage pngUrl={pngUrl} webpUrl={webpUrl} {...props} />;
 };
 
