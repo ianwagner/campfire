@@ -904,7 +904,7 @@ const Review = ({
             />
           )}
           <div
-            key={currentIndex}
+            key={currentAd?.assetId || currentIndex}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
