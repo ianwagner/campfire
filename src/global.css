@@ -99,7 +99,7 @@
     
   }
   .btn-secondary {
-    @apply bg-gray-300 px-4 py-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-white;
+    @apply bg-gray-300 px-4 py-2 text-gray-700 no-underline dark:bg-[var(--dark-sidebar-hover)] dark:text-white;
     border-radius: var(--border-radius-base);
   }
   .btn-logout {
