@@ -391,3 +391,20 @@
 .stat-card-value {
   @apply text-xl font-semibold;
 }
+.stat-card.status-pending,
+.stat-card.status-ready {
+  background-color: var(--pending-color-10);
+  color: var(--pending-color);
+}
+.stat-card.status-approved {
+  background-color: var(--approve-color-10);
+  color: var(--approve-color);
+}
+.stat-card.status-rejected {
+  background-color: var(--reject-color-10);
+  color: var(--reject-color);
+}
+.stat-card.status-edit_requested {
+  background-color: var(--edit-color-10);
+  color: var(--edit-color);
+}
