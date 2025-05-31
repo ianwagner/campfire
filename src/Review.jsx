@@ -423,6 +423,12 @@ const Review = ({
       )
     : [];
 
+  const currentAspect = (
+    currentAd?.aspectRatio ||
+    currentInfo.aspectRatio ||
+    '9x16'
+  ).replace('x', '/');
+
   // Preload up to 5 upcoming ads to keep swipes smooth
   useEffect(() => {
     for (let i = 1; i <= 5; i += 1) {
@@ -912,7 +918,6 @@ const Review = ({
             />
           )}
           <div
-            key={currentAd?.assetId || currentIndex}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -925,33 +930,55 @@ const Review = ({
               animating === 'reject' ? 'reject-slide' : ''
             }`}
             style={
-              isMobile && showSizes
-                ? {}
-                : animating
-                ? {}
-                : {
-                    transform: showSizes
-                      ? `translateX(-${otherSizes.length * 55}%)`
-                      : `translateX(${swipeX}px)`,
-                    transition: dragging ? 'none' : undefined,
-                  }
-            }
-          >
-            <OptimizedImage
-              pngUrl={adUrl}
-              webpUrl={adUrl.replace(/\.png$/, '.webp')}
-              alt="Ad"
-              loading="eager"
-              cacheKey={adUrl}
-              style={
-                isMobile && showSizes
-                  ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
-                  : {}
-              }
-              className={`relative max-w-[90%] mx-auto rounded shadow ${
+  isMobile && showSizes
+    ? {}
+    : animating
+    ? {}
+    : {
+        transform: showSizes
+          ? `translateX(-${otherSizes.length * 55}%)`
+          : `translateX(${swipeX}px)`,
+        transition: dragging ? 'none' : undefined,
+      }
+}
+>
+<div
+  className={`relative ad-aspect max-w-[90%] mx-auto rounded shadow ${
+    isMobile && showSizes ? 'mb-2' : 'max-h-[72vh]'
+  }`}
+  style={{ aspectRatio: currentAspect }}
+>
+  <OptimizedImage
+    pngUrl={adUrl}
+    webpUrl={adUrl.replace(/\.png$/, '.webp')}
+    alt="Ad"
+    loading="eager"
+    cacheKey={adUrl}
+    style={
+      isMobile && showSizes
+        ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+        : {}
+    }
+    className="w-full h-full object-contain"
+  />
+</div>
                 isMobile && showSizes ? 'mb-2' : 'max-h-[72vh]'
               }`}
-            />
+              style={{ aspectRatio: currentAspect }}
+            >
+              <OptimizedImage
+                pngUrl={adUrl}
+                webpUrl={adUrl.replace(/\.png$/, '.webp')}
+                alt="Ad"
+                loading="eager"
+                style={
+                  isMobile && showSizes
+                    ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+                    : {}
+                }
+                className="w-full h-full object-contain"
+              />
+            </div>
             {currentAd && (currentAd.version || 1) > 1 && (
               <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
             )}
