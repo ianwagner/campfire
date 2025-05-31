@@ -65,7 +65,7 @@ async function fetchRecipes(sheetId) {
   return recipes;
 }
 
-async function syncBatch(doc) {
+async function syncGroup(doc) {
   const batchData = doc.data();
   const sheetId = batchData.sheetId;
   if (!sheetId) return;
@@ -74,7 +74,7 @@ async function syncBatch(doc) {
   const recipes = await fetchRecipes(sheetId);
   for (const r of recipes) {
     await db
-      .collection('adBatches')
+      .collection('adGroups')
       .doc(doc.id)
       .collection('recipes')
       .doc(r.recipeNumber)
@@ -86,13 +86,13 @@ async function syncBatch(doc) {
         angle: r.angle,
       });
   }
-  console.log(`Synced ${recipes.length} recipes for batch ${doc.id}`);
+  console.log(`Synced ${recipes.length} recipes for group ${doc.id}`);
 }
 
 async function main() {
-  const snapshot = await db.collection('adBatches').get();
+  const snapshot = await db.collection('adGroups').get();
   for (const doc of snapshot.docs) {
-    await syncBatch(doc);
+    await syncGroup(doc);
   }
 }
 
