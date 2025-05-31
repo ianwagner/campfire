@@ -685,7 +685,7 @@ const Review = ({
             recipeRef,
             {
               history: arrayUnion({
-                timestamp: serverTimestamp(),
+                timestamp: Timestamp.now(),
                 status: newStatus,
                 user:
                   reviewerName ||
