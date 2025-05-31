@@ -27,6 +27,10 @@ import { cacheImageUrl } from './utils/useCachedImageUrl';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
 
+const isSafari =
+  typeof navigator !== 'undefined' &&
+  /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
 const Review = ({
   user,
   userRole = null,
@@ -59,6 +63,7 @@ const Review = ({
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [fadeIn, setFadeIn] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
@@ -89,6 +94,14 @@ const Review = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    if (isSafari) {
+      setFadeIn(true);
+      const t = setTimeout(() => setFadeIn(false), 200);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
   const recipeGroups = useMemo(() => {
     const map = {};
     ads.forEach((a) => {
@@ -108,6 +121,13 @@ const Review = ({
 
   useEffect(() => {
     setEditing(false);
+  }, [currentIndex]);
+
+  useEffect(() => {
+    if (!isSafari) return;
+    setFadeIn(true);
+    const t = setTimeout(() => setFadeIn(false), 200);
+    return () => clearTimeout(t);
   }, [currentIndex]);
 
   useEffect(() => {
@@ -440,8 +460,9 @@ const Review = ({
     '9x16'
   ).replace('x', '/');
 
-  // Preload up to 5 upcoming ads to keep swipes smooth
+  // Preload upcoming ads to keep transitions smooth (skip on Safari)
   useEffect(() => {
+    if (isSafari) return;
     for (let i = 1; i <= 5; i += 1) {
       const next = reviewAds[currentIndex + i];
       if (!next) break;
@@ -623,7 +644,7 @@ const Review = ({
 
     await updatePromise;
 
-    if (responseType === 'edit') {
+    if (responseType === 'edit' || isSafari) {
       setCurrentIndex((i) => i + 1);
       setAnimating(null);
     }
@@ -921,7 +942,8 @@ const Review = ({
           </button>
         )}
         <div className="flex justify-center relative">
-          {(animating || (dragging && Math.abs(swipeX) > 10)) &&
+          {!isSafari &&
+            (animating || (dragging && Math.abs(swipeX) > 10)) &&
             nextAdUrl &&
             !showSizes && (
             <OptimizedImage
@@ -934,26 +956,39 @@ const Review = ({
             />
           )}
           <div
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            onTouchStart={!isSafari ? handleTouchStart : undefined}
+            onTouchMove={!isSafari ? handleTouchMove : undefined}
+            onTouchEnd={!isSafari ? handleTouchEnd : undefined}
             onAnimationEnd={handleAnimationEnd}
             className={`relative z-10 ${
               isMobile && showSizes
                 ? 'flex flex-col items-center overflow-y-auto h-[72vh]'
                 : 'size-container'
-            } ${animating === 'approve' ? 'approve-slide' : ''} ${
-              animating === 'reject' ? 'reject-slide' : ''
+            } ${
+              isSafari
+                ? animating
+                  ? 'simple-fade-out'
+                  : fadeIn
+                  ? 'simple-fade-in'
+                  : ''
+                : animating === 'approve'
+                ? 'approve-slide'
+                : animating === 'reject'
+                ? 'reject-slide'
+                : ''
             }`}
             style={
   isMobile && showSizes
     ? {}
-    : animating
+    : animating && !isSafari
     ? {}
     : {
-        transform: showSizes
-          ? `translateX(-${otherSizes.length * 55}%)`
-          : `translateX(${swipeX}px)`,
+        transform:
+          isSafari || animating
+            ? undefined
+            : showSizes
+            ? `translateX(-${otherSizes.length * 55}%)`
+            : `translateX(${swipeX}px)`,
         transition: dragging ? 'none' : undefined,
       }
 }

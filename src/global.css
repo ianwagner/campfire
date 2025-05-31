@@ -352,6 +352,20 @@
   animation: reject-fade var(--duration-fast) forwards;
 }
 
+@keyframes simple-fade-out {
+  to { opacity: 0; }
+}
+.simple-fade-out {
+  animation: simple-fade-out var(--duration-fast) forwards;
+}
+@keyframes simple-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.simple-fade-in {
+  animation: simple-fade-in var(--duration-fast);
+}
+
 @keyframes approve-slide-out {
   to {
     transform: translateX(100%);
