@@ -31,6 +31,7 @@ import {
   where,
   getDocs,
   orderBy,
+  arrayUnion,
 } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
 import { auth, db, storage } from './firebase/config';
@@ -242,47 +243,28 @@ const AdGroupDetail = () => {
   };
 
   const openHistory = async (recipeCode) => {
-    const list = assets.filter((a) => {
-      const info = parseAdFilename(a.filename || '');
-      return (info.recipeCode || 'unknown') === recipeCode;
-    });
-    if (list.length === 0) return;
-
-    const historyDocs = [];
-    await Promise.all(
-      list.map(async (asset) => {
-        const snap = await getDocs(
-          query(
-            collection(db, 'adGroups', id, 'assets', asset.id, 'history'),
-            orderBy('updatedAt', 'asc')
-          )
-        );
-        historyDocs.push(...snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      })
-    );
-    historyDocs.sort((a, b) =>
-      (a.updatedAt?.toMillis?.() || 0) - (b.updatedAt?.toMillis?.() || 0)
-    );
-    const uids = Array.from(
-      new Set(historyDocs.map((h) => h.updatedBy).filter(Boolean))
-    );
-    const emails = {};
-    await Promise.all(
-      uids.map(async (uid) => {
-        try {
-          const snap = await getDoc(doc(db, 'users', uid));
-          emails[uid] = snap.exists() ? snap.data().email || uid : uid;
-        } catch (_) {
-          emails[uid] = uid;
-        }
-      })
-    );
-    const hist = historyDocs.map((h) => ({
-      ...h,
-      lastUpdatedAt: h.updatedAt,
-      email: h.updatedBy ? emails[h.updatedBy] : 'N/A',
-    }));
-    setHistoryRecipe({ recipeCode, assets: hist });
+    try {
+      const snap = await getDoc(doc(db, 'adGroups', id, 'recipes', recipeCode));
+      if (!snap.exists()) {
+        setHistoryRecipe({ recipeCode, assets: [] });
+        return;
+      }
+      const hist = (snap.data().history || [])
+        .slice()
+        .sort(
+          (a, b) =>
+            (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0)
+        )
+        .map((h) => ({
+          lastUpdatedAt: h.timestamp,
+          email: h.user || 'N/A',
+          status: h.status,
+          comment: h.editComment || '',
+        }));
+      setHistoryRecipe({ recipeCode, assets: hist });
+    } catch (err) {
+      console.error('Failed to load recipe history', err);
+    }
   };
 
   const openView = (recipeCode) => {
@@ -576,7 +558,7 @@ const AdGroupDetail = () => {
     }
   };
 
-  const updateRecipeStatus = async (recipeCode, status) => {
+  const updateRecipeStatus = async (recipeCode, status, comment = '') => {
     const groupAssets = assets.filter((a) => {
       const info = parseAdFilename(a.filename || '');
       return (info.recipeCode || 'unknown') === recipeCode;
@@ -603,6 +585,27 @@ const AdGroupDetail = () => {
           }
         );
       }
+
+      await setDoc(
+        doc(db, 'adGroups', id, 'recipes', recipeCode),
+        {
+          history: arrayUnion({
+            timestamp: serverTimestamp(),
+            status,
+            user:
+              auth.currentUser?.displayName ||
+              auth.currentUser?.uid ||
+              'unknown',
+            ...(comment
+              ? {
+                  editComment: comment,
+                }
+              : {}),
+          }),
+        },
+        { merge: true }
+      );
+
       setAssets((prev) =>
         prev.map((a) =>
           groupAssets.some((g) => g.id === a.id) ? { ...a, status } : a
