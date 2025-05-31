@@ -17,6 +17,7 @@ import {
   increment,
   setDoc,
   arrayUnion,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
@@ -661,7 +662,7 @@ const Review = ({
           recipeRef,
           {
             history: arrayUnion({
-              timestamp: serverTimestamp(),
+              timestamp: Timestamp.now(),
               status: newStatus,
               user:
                 reviewerName ||
