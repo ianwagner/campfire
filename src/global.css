@@ -366,27 +366,6 @@
   animation: simple-fade-in var(--duration-fast);
 }
 
-@keyframes approve-slide-out {
-  to {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-}
-
-.approve-slide {
-  animation: approve-slide-out var(--duration-fast) forwards;
-}
-
-@keyframes reject-slide-out {
-  to {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-}
-
-.reject-slide {
-  animation: reject-slide-out var(--duration-fast) forwards;
-}
 
 @keyframes gallery-in {
   from {
@@ -416,7 +395,6 @@
 .size-container {
   position: relative;
   @apply transition-transform duration-500 ease-in-out;
-  touch-action: pan-y;
   will-change: transform;
   backface-visibility: hidden;
 }

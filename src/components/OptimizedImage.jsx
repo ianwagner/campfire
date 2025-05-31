@@ -1,8 +1,5 @@
 import React from 'react';
-import useCachedImageUrl from '../utils/useCachedImageUrl';
 import sanitizeSrc from '../utils/sanitizeSrc';
-
-const isHosted = (url) => /^https?:\/\//i.test(url || '');
 
 const OptimizedImage = ({
   pngUrl,
@@ -12,12 +9,10 @@ const OptimizedImage = ({
   cacheKey,
   ...props
 }) => {
-  const pngRaw = useCachedImageUrl(cacheKey, pngUrl);
-  const webp = webpUrl || (pngUrl ? pngUrl.replace(/\.png$/, '.webp') : undefined);
-  const webpRaw = webp ? useCachedImageUrl(`${cacheKey || webp}-webp`, webp) : null;
-
-  const imgSrc = sanitizeSrc(isHosted(pngRaw) ? pngRaw : pngUrl);
-  const webpSrc = sanitizeSrc(isHosted(webpRaw) ? webpRaw : null);
+  const imgSrc = sanitizeSrc(pngUrl);
+  const webpSrc = sanitizeSrc(
+    webpUrl || (pngUrl ? pngUrl.replace(/\.png$/, '.webp') : undefined)
+  );
 
   const renderWebp = Boolean(webpSrc);
 
