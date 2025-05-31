@@ -1,6 +1,9 @@
 import React from 'react';
 import useCachedImageUrl from '../utils/useCachedImageUrl';
 
+const isHosted = (url) => /^https?:\/\//i.test(url || '');
+const isDataUri = (url) => /^data:/i.test(url || '');
+
 const OptimizedImage = ({
   pngUrl,
   webpUrl,
@@ -12,10 +15,18 @@ const OptimizedImage = ({
   const pngSrc = useCachedImageUrl(cacheKey, pngUrl);
   const webp = webpUrl || (pngUrl ? pngUrl.replace(/\.png$/, '.webp') : undefined);
   const webpSrc = webp ? useCachedImageUrl(`${cacheKey || webp}-webp`, webp) : null;
+
+  const renderWebp = webpSrc && isHosted(webpSrc) && !isDataUri(webpSrc);
+  if (webpSrc && isDataUri(webpSrc)) {
+    console.warn('Blocked data URI in <source> srcset', webpSrc);
+  }
+
+  const imgSrc = isHosted(pngSrc) ? pngSrc : pngUrl;
+
   return (
     <picture>
-      {webpSrc && <source srcSet={webpSrc} type="image/webp" />}
-      <img src={pngSrc} alt={alt} loading={loading} decoding="async" {...props} />
+      {renderWebp && <source srcSet={webpSrc} type="image/webp" />}
+      <img src={imgSrc} alt={alt} loading={loading} decoding="async" {...props} />
     </picture>
   );
 };
