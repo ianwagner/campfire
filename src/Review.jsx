@@ -23,6 +23,7 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import computeGroupStatus from './utils/computeGroupStatus';
 import debugLog from './utils/debugLog';
+import { cacheImageUrl } from './utils/useCachedImageUrl';
 
 const Review = ({
   user,
@@ -427,8 +428,9 @@ const Review = ({
     for (let i = 1; i <= 5; i += 1) {
       const next = reviewAds[currentIndex + i];
       if (!next) break;
-      const img = new Image();
-      img.src = next.adUrl || next.firebaseUrl;
+      const url = next.adUrl || next.firebaseUrl;
+      cacheImageUrl(url, url);
+      cacheImageUrl(`${url}-webp`, url.replace(/\.png$/, '.webp'));
     }
   }, [currentIndex, reviewAds, isMobile]);
 
@@ -751,6 +753,7 @@ const Review = ({
                 pngUrl={a.firebaseUrl}
                 webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
                 alt={a.filename}
+                cacheKey={a.firebaseUrl}
                 className="w-24 h-24 object-contain"
               />
             ));
@@ -904,6 +907,7 @@ const Review = ({
               webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
               alt="Next ad"
               loading="eager"
+              cacheKey={nextAdUrl}
               className="absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none"
             />
           )}
@@ -938,6 +942,7 @@ const Review = ({
               webpUrl={adUrl.replace(/\.png$/, '.webp')}
               alt="Ad"
               loading="eager"
+              cacheKey={adUrl}
               style={
                 isMobile && showSizes
                   ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
@@ -956,6 +961,7 @@ const Review = ({
                 pngUrl={a.firebaseUrl}
                 webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
                 alt={a.filename}
+                cacheKey={a.firebaseUrl}
                 style={
                   isMobile && showSizes
                     ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
@@ -1083,6 +1089,7 @@ const Review = ({
               pngUrl={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
               webpUrl={(versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl).replace(/\.png$/, '.webp')}
               alt="Ad version"
+              cacheKey={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
               className="max-w-full max-h-[70vh] mx-auto"
             />
             <button onClick={closeVersionModal} className="mt-2 btn-primary px-3 py-1">
