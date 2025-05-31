@@ -36,20 +36,29 @@ async function fetchRecipes(sheetId) {
   const sheets = google.sheets({ version: 'v4', auth });
   const { data } = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: 'Recipes!A:J',
+    range: 'Recipes!A:Z',
   });
 
   const rows = data.values || [];
+  if (rows.length === 0) return [];
+
+  const header = rows[0].map((h) => h.toLowerCase());
+  const findCol = (keyword) => header.findIndex((h) => h.includes(keyword));
+  const recipeCol = findCol('recipe');
+  const offerCol = findCol('offer');
+  const audienceCol = findCol('audience');
+  const angleCol = findCol('angle');
+
   const recipes = [];
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    const filename = row[2];
-    if (!filename) continue;
+    const recipeNumber = recipeCol >= 0 ? row[recipeCol] : undefined;
+    if (!recipeNumber) continue;
     recipes.push({
-      filename,
-      copy: row[7] || '',
-      audience: row[8] || '',
-      angle: row[9] || '',
+      recipeNumber: recipeNumber.toString(),
+      offer: offerCol >= 0 ? row[offerCol] || '' : '',
+      audience: audienceCol >= 0 ? row[audienceCol] || '' : '',
+      angle: angleCol >= 0 ? row[angleCol] || '' : '',
     });
   }
   return recipes;
@@ -63,22 +72,20 @@ async function syncBatch(doc) {
 
   const recipes = await fetchRecipes(sheetId);
   for (const r of recipes) {
-    const adUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(r.filename)}?alt=media`;
     await db
       .collection('adBatches')
       .doc(doc.id)
-      .collection('ads')
-      .doc(r.filename)
+      .collection('recipes')
+      .doc(r.recipeNumber)
       .set({
         clientId,
-        filename: r.filename,
-        adUrl,
-        copy: r.copy,
+        recipeNumber: r.recipeNumber,
+        offer: r.offer,
         audience: r.audience,
         angle: r.angle,
       });
   }
-  console.log(`Synced ${recipes.length} ads for batch ${doc.id}`);
+  console.log(`Synced ${recipes.length} recipes for batch ${doc.id}`);
 }
 
 async function main() {
