@@ -31,6 +31,8 @@ const isSafari =
   typeof navigator !== 'undefined' &&
   /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
+const SAFARI_BUFFER_COUNT = 5;
+
 const Review = ({
   user,
   userRole = null,
@@ -64,6 +66,7 @@ const Review = ({
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
+  const safariPreloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
@@ -460,15 +463,32 @@ const Review = ({
     '9x16'
   ).replace('x', '/');
 
-  // Preload upcoming ads to keep transitions smooth (skip on Safari)
+  // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
-    if (isSafari) return;
-    for (let i = 1; i <= 5; i += 1) {
-      const next = reviewAds[currentIndex + i];
-      if (!next) break;
-      const url = next.adUrl || next.firebaseUrl;
-      cacheImageUrl(url, url);
-      cacheImageUrl(`${url}-webp`, url.replace(/\.png$/, '.webp'));
+    if (isSafari) {
+      // Drop preloaded images that are behind the current index
+      safariPreloads.current = safariPreloads.current.filter(
+        (p) => p.index > currentIndex
+      );
+      for (let i = 1; i <= SAFARI_BUFFER_COUNT; i += 1) {
+        const idx = currentIndex + i;
+        const next = reviewAds[idx];
+        if (!next) break;
+        if (safariPreloads.current.find((p) => p.index === idx)) continue;
+        const url = next.adUrl || next.firebaseUrl;
+        const img = new Image();
+        img.src = url;
+        safariPreloads.current.push({ index: idx, img });
+      }
+      safariPreloads.current = safariPreloads.current.slice(-SAFARI_BUFFER_COUNT);
+    } else {
+      for (let i = 1; i <= 5; i += 1) {
+        const next = reviewAds[currentIndex + i];
+        if (!next) break;
+        const url = next.adUrl || next.firebaseUrl;
+        cacheImageUrl(url, url);
+        cacheImageUrl(`${url}-webp`, url.replace(/\.png$/, '.webp'));
+      }
     }
   }, [currentIndex, reviewAds, isMobile]);
 
