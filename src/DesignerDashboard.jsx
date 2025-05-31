@@ -39,7 +39,8 @@ const DesignerDashboard = () => {
       try {
         const q = query(
           collection(db, 'adGroups'),
-          where('uploadedBy', '==', auth.currentUser?.uid || '')
+          where('uploadedBy', '==', auth.currentUser?.uid || ''),
+          where('status', 'not-in', ['archived'])
         );
         const snap = await getDocs(q);
         const list = snap.docs.map((d) => {
