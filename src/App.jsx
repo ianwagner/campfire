@@ -44,6 +44,7 @@ import AgencyAdGroups from "./AgencyAdGroups";
 import useTheme from "./useTheme";
 import debugLog from "./utils/debugLog";
 
+import LoadingOverlay from "./LoadingOverlay";
 const ThemeWatcher = () => {
   useTheme();
   return null;
@@ -77,7 +78,7 @@ const App = () => {
   };
 
   if (loading || roleLoading) {
-    return <div className="text-center mt-10">Loading...</div>;
+    return <LoadingOverlay />;
   }
 
   const signedIn = user && !user.isAnonymous;

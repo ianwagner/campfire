@@ -4,6 +4,7 @@ import { signInAnonymously, signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
 import Review from './Review';
 
+import LoadingOverlay from "./LoadingOverlay";
 import ThemeToggle from './ThemeToggle';
 const PublicReview = () => {
   const { groupId } = useParams();
@@ -66,7 +67,7 @@ const PublicReview = () => {
   }
 
   if (loading) {
-    return <div className="text-center mt-10">Loading...</div>;
+    return <LoadingOverlay />;
   }
 
   if (!reviewerName) {

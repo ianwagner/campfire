@@ -24,6 +24,7 @@ import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import computeGroupStatus from './utils/computeGroupStatus';
+import LoadingOverlay from "./LoadingOverlay";
 import debugLog from './utils/debugLog';
 import { cacheImageUrl } from './utils/useCachedImageUrl';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
@@ -726,7 +727,7 @@ const Review = ({
   };
 
   if (loading) {
-    return <div className="text-center mt-10">Loading...</div>;
+    return <LoadingOverlay />;
   }
 
   if (groupStatus === 'locked') {
