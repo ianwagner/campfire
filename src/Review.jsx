@@ -24,6 +24,8 @@ import parseAdFilename from './utils/parseAdFilename';
 import computeGroupStatus from './utils/computeGroupStatus';
 import debugLog from './utils/debugLog';
 import { cacheImageUrl } from './utils/useCachedImageUrl';
+import { DEFAULT_ACCENT_COLOR } from './themeColors';
+import { applyAccentColor } from './utils/theme';
 
 const Review = ({
   user,
@@ -63,6 +65,15 @@ const Review = ({
   const touchEndY = useRef(0);
   const [groupStatus, setGroupStatus] = useState(null);
   const { agency } = useAgencyTheme(agencyId);
+  useEffect(() => {
+    return () => {
+      if (agencyId && ['admin', 'designer'].includes(userRole)) {
+        const siteAccent =
+          localStorage.getItem('accentColor') || DEFAULT_ACCENT_COLOR;
+        applyAccentColor(siteAccent);
+      }
+    };
+  }, [agencyId, userRole]);
   const navigate = useNavigate();
   const [hasPending, setHasPending] = useState(false);
   const [pendingOnly, setPendingOnly] = useState(false);
