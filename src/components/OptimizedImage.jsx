@@ -1,8 +1,8 @@
 import React from 'react';
 import useCachedImageUrl from '../utils/useCachedImageUrl';
+import sanitizeSrc from '../utils/sanitizeSrc';
 
 const isHosted = (url) => /^https?:\/\//i.test(url || '');
-const isDataUri = (url) => /^data:/i.test(url || '');
 
 const OptimizedImage = ({
   pngUrl,
@@ -12,16 +12,14 @@ const OptimizedImage = ({
   cacheKey,
   ...props
 }) => {
-  const pngSrc = useCachedImageUrl(cacheKey, pngUrl);
+  const pngRaw = useCachedImageUrl(cacheKey, pngUrl);
   const webp = webpUrl || (pngUrl ? pngUrl.replace(/\.png$/, '.webp') : undefined);
-  const webpSrc = webp ? useCachedImageUrl(`${cacheKey || webp}-webp`, webp) : null;
+  const webpRaw = webp ? useCachedImageUrl(`${cacheKey || webp}-webp`, webp) : null;
 
-  const renderWebp = webpSrc && isHosted(webpSrc) && !isDataUri(webpSrc);
-  if (webpSrc && isDataUri(webpSrc)) {
-    console.warn('Blocked data URI in <source> srcset', webpSrc);
-  }
+  const imgSrc = sanitizeSrc(isHosted(pngRaw) ? pngRaw : pngUrl);
+  const webpSrc = sanitizeSrc(isHosted(webpRaw) ? webpRaw : null);
 
-  const imgSrc = isHosted(pngSrc) ? pngSrc : pngUrl;
+  const renderWebp = Boolean(webpSrc);
 
   if (renderWebp) {
     return (
