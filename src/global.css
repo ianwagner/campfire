@@ -370,6 +370,11 @@
   @apply absolute top-0 left-0 object-contain transition-transform duration-500 ease-in-out;
 }
 
+.ad-aspect {
+  aspect-ratio: 9/16;
+  height: auto;
+}
+
 .progress-bar {
   @apply w-full max-w-md bg-gray-200 dark:bg-[var(--dark-sidebar-hover)] rounded-full shadow-inner;
   max-width: 16rem;
