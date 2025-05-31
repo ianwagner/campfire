@@ -23,12 +23,16 @@ const OptimizedImage = ({
 
   const imgSrc = isHosted(pngSrc) ? pngSrc : pngUrl;
 
-  return (
-    <picture>
-      {renderWebp && <source srcSet={webpSrc} type="image/webp" />}
-      <img src={imgSrc} alt={alt} loading={loading} decoding="async" {...props} />
-    </picture>
-  );
+  if (renderWebp) {
+    return (
+      <picture>
+        <source srcSet={webpSrc} type="image/webp" />
+        <img src={imgSrc} alt={alt} loading={loading} decoding="async" {...props} />
+      </picture>
+    );
+  }
+
+  return <img src={imgSrc} alt={alt} loading={loading} decoding="async" {...props} />;
 };
 
 export default OptimizedImage;
