@@ -294,7 +294,10 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     if (metadataRecipe) {
-      const meta = recipesMeta[metadataRecipe.id] || metadataRecipe;
+      const meta =
+        recipesMeta[metadataRecipe.id] ||
+        recipesMeta[metadataRecipe.id.toLowerCase()] ||
+        metadataRecipe;
       setMetadataForm({
         offer: meta.offer || '',
         angle: meta.angle || '',
@@ -474,7 +477,7 @@ const AdGroupDetail = () => {
         const recipeCode = parts[recipeCol];
         if (!recipeCode) continue;
         updates.push({
-          id: recipeCode.toLowerCase(),
+          id: recipeCode,
           data: {
             offer: offerCol >= 0 ? parts[offerCol] || '' : '',
             angle: angleCol >= 0 ? parts[angleCol] || '' : '',
@@ -829,7 +832,11 @@ const AdGroupDetail = () => {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setMetadataRecipe(recipesMeta[g.recipeCode] || { id: g.recipeCode });
+                  setMetadataRecipe(
+                    recipesMeta[g.recipeCode] ||
+                      recipesMeta[g.recipeCode.toLowerCase()] ||
+                      { id: g.recipeCode }
+                  );
                 }}
                 className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
                 aria-label="Metadata"
