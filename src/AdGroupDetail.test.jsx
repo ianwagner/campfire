@@ -91,7 +91,7 @@ test('toggles asset status back to pending', async () => {
   expect(updateDoc).toHaveBeenCalledWith('adGroups/group1/assets/asset1', { status: 'pending' });
 });
 
-test('fetches history for all recipe assets', async () => {
+test('fetches recipe history', async () => {
   onSnapshot.mockImplementation((col, cb) => {
     cb({
       docs: [
@@ -112,7 +112,6 @@ test('fetches history for all recipe assets', async () => {
   const historyBtn = screen.getByLabelText('History');
   fireEvent.click(historyBtn);
 
-  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(3));
-  expect(collectionMock).toHaveBeenCalledWith({}, 'adGroups', 'group1', 'assets', 'asset1', 'history');
-  expect(collectionMock).toHaveBeenCalledWith({}, 'adGroups', 'group1', 'assets', 'asset2', 'history');
+  await waitFor(() => expect(getDoc).toHaveBeenCalled());
+  expect(docMock).toHaveBeenCalledWith({}, 'recipes', '1');
 });
