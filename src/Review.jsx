@@ -27,15 +27,10 @@ import parseAdFilename from './utils/parseAdFilename';
 import computeGroupStatus from './utils/computeGroupStatus';
 import LoadingOverlay from "./LoadingOverlay";
 import debugLog from './utils/debugLog';
-import { cacheImageUrl } from './utils/useCachedImageUrl';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
 
-const isSafari =
-  typeof navigator !== 'undefined' &&
-  /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
-const SAFARI_BUFFER_COUNT = 5;
+const PRELOAD_BUFFER_COUNT = 5;
 
 const Review = ({
   user,
@@ -67,14 +62,8 @@ const Review = ({
   const [secondPass, setSecondPass] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
-  const [swipeX, setSwipeX] = useState(0);
-  const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
-  const safariPreloads = useRef([]);
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-  const touchEndX = useRef(0);
-  const touchEndY = useRef(0);
+  const preloads = useRef([]);
   const advancedRef = useRef(false);
   const [groupStatus, setGroupStatus] = useState(null);
   const { agency } = useAgencyTheme(agencyId);
@@ -103,11 +92,9 @@ const Review = ({
   }, []);
 
   useEffect(() => {
-    if (isSafari) {
-      setFadeIn(true);
-      const t = setTimeout(() => setFadeIn(false), 200);
-      return () => clearTimeout(t);
-    }
+    setFadeIn(true);
+    const t = setTimeout(() => setFadeIn(false), 200);
+    return () => clearTimeout(t);
   }, []);
 
   const recipeGroups = useMemo(() => {
@@ -132,7 +119,6 @@ const Review = ({
   }, [currentIndex]);
 
   useEffect(() => {
-    if (!isSafari) return;
     setFadeIn(true);
     const t = setTimeout(() => setFadeIn(false), 200);
     return () => clearTimeout(t);
@@ -336,11 +322,6 @@ const Review = ({
       ? ((currentIndex + (animating ? 1 : 0)) / reviewAds.length) * 100
       : 0;
 
-  const nextAd = reviewAds[currentIndex + 1];
-  const nextAdUrl =
-    nextAd && typeof nextAd === 'object'
-      ? nextAd.adUrl || nextAd.firebaseUrl
-      : nextAd;
 
   const openVersionModal = () => {
     if (!currentAd || !currentAd.parentAdId) return;
@@ -352,50 +333,6 @@ const Review = ({
 
   const closeVersionModal = () => setVersionModal(null);
 
-  const handleTouchStart = (e) => {
-    // allow swiping even while submitting a previous response
-    if (showSizes || editing || showComment || showNoteInput || showStreakModal)
-      return;
-    const touch = e.touches[0];
-    debugLog('Touch start', touch);
-    touchStartX.current = touch.clientX;
-    touchStartY.current = touch.clientY;
-    touchEndX.current = touch.clientX;
-    touchEndY.current = touch.clientY;
-    setDragging(true);
-    setSwipeX(0);
-  };
-
-  const handleTouchMove = (e) => {
-    if (!dragging) return;
-    const touch = e.touches[0];
-    const dx = touch.clientX - touchStartX.current;
-    const dy = touch.clientY - touchStartY.current;
-    if (Math.abs(dx) > Math.abs(dy)) {
-      e.preventDefault();
-    }
-    touchEndX.current = touch.clientX;
-    touchEndY.current = touch.clientY;
-    setSwipeX(dx);
-  };
-
-  const handleTouchEnd = () => {
-    if (!dragging) return;
-    debugLog('Touch end');
-    const dx = touchEndX.current - touchStartX.current;
-    const dy = Math.abs(touchEndY.current - touchStartY.current);
-    if (Math.abs(dx) > 100 && dy < 100) {
-      if (dx > 0) {
-        submitResponse('approve');
-      } else {
-        submitResponse('reject');
-      }
-      setSwipeX(0);
-    } else {
-      setSwipeX(0);
-    }
-    setDragging(false);
-  };
 
   const handleAnimationEnd = (e) => {
     if (!animating) return;
@@ -477,32 +414,20 @@ const Review = ({
 
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
-    if (isSafari) {
-      // Drop preloaded images that are behind the current index
-      safariPreloads.current = safariPreloads.current.filter(
-        (p) => p.index > currentIndex
-      );
-      for (let i = 1; i <= SAFARI_BUFFER_COUNT; i += 1) {
-        const idx = currentIndex + i;
-        const next = reviewAds[idx];
-        if (!next) break;
-        if (safariPreloads.current.find((p) => p.index === idx)) continue;
-        const url = next.adUrl || next.firebaseUrl;
-        const img = new Image();
-        img.src = url;
-        safariPreloads.current.push({ index: idx, img });
-      }
-      safariPreloads.current = safariPreloads.current.slice(-SAFARI_BUFFER_COUNT);
-    } else {
-      for (let i = 1; i <= 5; i += 1) {
-        const next = reviewAds[currentIndex + i];
-        if (!next) break;
-        const url = next.adUrl || next.firebaseUrl;
-        cacheImageUrl(url, url);
-        cacheImageUrl(`${url}-webp`, url.replace(/\.png$/, '.webp'));
-      }
+    // Drop preloaded images that are behind the current index
+    preloads.current = preloads.current.filter((p) => p.index > currentIndex);
+    for (let i = 1; i <= PRELOAD_BUFFER_COUNT; i += 1) {
+      const idx = currentIndex + i;
+      const next = reviewAds[idx];
+      if (!next) break;
+      if (preloads.current.find((p) => p.index === idx)) continue;
+      const url = next.adUrl || next.firebaseUrl;
+      const img = new Image();
+      img.src = url;
+      preloads.current.push({ index: idx, img });
     }
-  }, [currentIndex, reviewAds, isMobile]);
+    preloads.current = preloads.current.slice(-PRELOAD_BUFFER_COUNT);
+  }, [currentIndex, reviewAds]);
 
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
@@ -1020,54 +945,26 @@ const Review = ({
           </button>
         )}
         <div className="flex justify-center relative">
-          {!isSafari &&
-            (animating || (dragging && Math.abs(swipeX) > 10)) &&
-            nextAdUrl &&
-            !showSizes && (
-            <OptimizedImage
-              pngUrl={nextAdUrl}
-              webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
-              alt="Next ad"
-              loading="eager"
-              cacheKey={nextAdUrl}
-              className="absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none"
-            />
-          )}
           <div
-            onTouchStart={!isSafari ? handleTouchStart : undefined}
-            onTouchMove={!isSafari ? handleTouchMove : undefined}
-            onTouchEnd={!isSafari ? handleTouchEnd : undefined}
             onAnimationEnd={handleAnimationEnd}
             className={`relative z-10 ${
               isMobile && showSizes
                 ? 'flex flex-col items-center overflow-y-auto h-[72vh]'
                 : 'size-container'
             } ${
-              isSafari
-                ? animating
-                  ? 'simple-fade-out'
-                  : fadeIn
-                  ? 'simple-fade-in'
-                  : ''
-                : animating === 'approve'
-                ? 'approve-slide'
-                : animating === 'reject'
-                ? 'reject-slide'
+              animating
+                ? 'simple-fade-out'
+                : fadeIn
+                ? 'simple-fade-in'
                 : ''
             }`}
             style={
   isMobile && showSizes
     ? {}
-    : animating && !isSafari
-    ? {}
     : {
-        transform:
-          isSafari || animating
-            ? undefined
-            : showSizes
-            ? `translateX(-${otherSizes.length * 55}%)`
-            : `translateX(${swipeX}px)`,
-        transition: dragging ? 'none' : undefined,
+        transform: showSizes
+          ? `translateX(-${otherSizes.length * 55}%)`
+          : undefined,
       }
 }
 >
