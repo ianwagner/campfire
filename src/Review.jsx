@@ -357,6 +357,20 @@ const Review = ({
     setDragging(false);
   };
 
+  const handleAnimationEnd = (e) => {
+    if (!animating) return;
+    if (e.target !== e.currentTarget) return;
+    setCurrentIndex((i) => i + 1);
+    if (animating === 'reject') {
+      const newCount = rejectionCount + 1;
+      setRejectionCount(newCount);
+      if (newCount === 5) {
+        setShowStreakModal(true);
+      }
+    }
+    setAnimating(null);
+  };
+
   const handleStopReview = async () => {
     const remaining = reviewAds.slice(currentIndex);
     // gather all assets from the remaining recipe groups
@@ -583,17 +597,7 @@ const Review = ({
 
     setComment('');
     setShowComment(false);
-    setTimeout(() => {
-      setCurrentIndex((i) => i + 1);
-      if (responseType === 'reject') {
-        const newCount = rejectionCount + 1;
-        setRejectionCount(newCount);
-        if (newCount === 5) {
-          setShowStreakModal(true);
-        }
-      }
-      setAnimating(null);
-    }, 400);
+    // index will be updated on animation end
     // free UI interactions while waiting for Firestore updates
     setSubmitting(false);
     setEditing(false);
@@ -908,6 +912,7 @@ const Review = ({
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            onAnimationEnd={handleAnimationEnd}
             className={`relative z-10 ${
               isMobile && showSizes
                 ? 'flex flex-col items-center overflow-y-auto h-[72vh]'

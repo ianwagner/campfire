@@ -278,12 +278,14 @@ test('shows group summary after reviewing ads', async () => {
   );
 
   fireEvent.click(screen.getByText('Approve'));
+  fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
   );
 
   fireEvent.click(screen.getByText('Approve'));
+  fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await waitFor(() => screen.getByText("You've approved 2 ads."));
 
@@ -338,6 +340,7 @@ test('filters ads by last login and still shows summary', async () => {
   );
 
   fireEvent.click(screen.getByText('Approve'));
+  fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await waitFor(() => screen.getByText("You've approved 2 ads."));
   expect(screen.getByText("You've approved 2 ads.")).toBeInTheDocument();
@@ -384,6 +387,7 @@ test('resolved ads are excluded from pending review', async () => {
   );
 
   fireEvent.click(screen.getByText('Approve'));
+  fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await waitFor(() => screen.getByText("You've approved 1 ads."));
 });
@@ -450,6 +454,7 @@ test('pending ads are hidden from group review', async () => {
   );
 
   fireEvent.click(screen.getByText('Approve'));
+  fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await waitFor(() => screen.getByText("You've approved 1 ads."));
 });
@@ -510,6 +515,7 @@ test('submitResponse records last viewed time for group', async () => {
   );
 
   fireEvent.click(screen.getByText('Approve'));
+  fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await waitFor(() => screen.getByText("You've approved 1 ads."));
 
@@ -635,6 +641,7 @@ test('progress bar reflects current index', async () => {
   expect(bar).toHaveStyle('width: 0%');
 
   fireEvent.click(screen.getByText('Approve'));
+  fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await waitFor(() => expect(bar).toHaveStyle('width: 50%'));
 });
