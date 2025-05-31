@@ -64,6 +64,7 @@ const AdGroupDetail = () => {
     angle: '',
     audience: '',
   });
+  const [recipeInfo, setRecipeInfo] = useState({});
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
   useEffect(() => {
@@ -92,6 +93,26 @@ const AdGroupDetail = () => {
     });
     return () => unsub();
   }, [id]);
+
+  useEffect(() => {
+    const codes = new Set();
+    assets.forEach((a) => {
+      const info = parseAdFilename(a.filename || '');
+      if (info.recipeCode) codes.add(info.recipeCode);
+    });
+    const listeners = [];
+    codes.forEach((code) => {
+      const unsub = onSnapshot(doc(db, 'recipes', code), (snap) => {
+        const data = snap.exists() ? snap.data() : {};
+        setRecipeInfo((prev) => ({
+          ...prev,
+          [code]: { status: data.status || 'pending', comment: data.comment || '' },
+        }));
+      });
+      listeners.push(unsub);
+    });
+    return () => listeners.forEach((u) => u());
+  }, [assets]);
 
   useEffect(() => {
     const loadBrand = async () => {
@@ -159,7 +180,8 @@ const AdGroupDetail = () => {
     return counts;
   }, [assets]);
 
-  function getRecipeStatus(list) {
+  function getRecipeStatus(list, code) {
+    if (recipeInfo[code]?.status) return recipeInfo[code].status;
     const unique = Array.from(new Set(list.map((a) => a.status)));
     return unique.length === 1 ? unique[0] : 'mixed';
   }
@@ -167,17 +189,17 @@ const AdGroupDetail = () => {
   const specialGroups = useMemo(
     () =>
       recipeGroups.filter((g) =>
-        ['rejected', 'edit_requested'].includes(getRecipeStatus(g.assets))
+        ['rejected', 'edit_requested'].includes(getRecipeStatus(g.assets, g.recipeCode))
       ),
-    [recipeGroups]
+    [recipeGroups, recipeInfo]
   );
 
   const normalGroups = useMemo(
     () =>
       recipeGroups.filter(
-        (g) => !['rejected', 'edit_requested'].includes(getRecipeStatus(g.assets))
+        (g) => !['rejected', 'edit_requested'].includes(getRecipeStatus(g.assets, g.recipeCode))
       ),
-    [recipeGroups]
+    [recipeGroups, recipeInfo]
   );
 
   const toggleRecipe = (code) => {
@@ -531,6 +553,8 @@ const AdGroupDetail = () => {
       await setDoc(
         doc(db, 'recipes', recipeCode),
         {
+          status,
+          comment: comment || '',
           history: arrayUnion({
             timestamp: Timestamp.now(),
             status,
@@ -547,6 +571,11 @@ const AdGroupDetail = () => {
         },
         { merge: true }
       );
+
+      setRecipeInfo((prev) => ({
+        ...prev,
+        [recipeCode]: { status, comment: comment || '' },
+      }));
 
       setAssets((prev) =>
         prev.map((a) =>
@@ -711,7 +740,7 @@ const AdGroupDetail = () => {
         </td>
         <td className="flex flex-col">
           {userRole === 'designer' || userRole === 'client' ? (
-            getRecipeStatus(g.assets) === 'pending' ? (
+            getRecipeStatus(g.assets, g.recipeCode) === 'pending' ? (
               <select
                 className={`status-select status-pending`}
                 value="pending"
@@ -724,12 +753,12 @@ const AdGroupDetail = () => {
                 <option value="ready">ready</option>
               </select>
             ) : (
-              <StatusBadge status={getRecipeStatus(g.assets)} />
+              <StatusBadge status={getRecipeStatus(g.assets, g.recipeCode)} />
             )
           ) : (
             <select
-              className={`status-select status-${getRecipeStatus(g.assets)}`}
-              value={getRecipeStatus(g.assets)}
+              className={`status-select status-${getRecipeStatus(g.assets, g.recipeCode)}`}
+              value={getRecipeStatus(g.assets, g.recipeCode)}
               onChange={(e) => {
                 e.stopPropagation();
                 updateRecipeStatus(g.recipeCode, e.target.value);
@@ -746,14 +775,16 @@ const AdGroupDetail = () => {
               </option>
             </select>
           )}
-          {g.assets.find((a) => a.status === 'edit_requested' && a.comment) && (
-            <span className="italic text-xs mt-1">
-              {
-                g.assets.find((a) => a.status === 'edit_requested' && a.comment)
-                  ?.comment
-              }
-            </span>
-          )}
+          {getRecipeStatus(g.assets, g.recipeCode) === 'edit_requested' &&
+            (recipeInfo[g.recipeCode]?.comment ||
+              g.assets.find((a) => a.status === 'edit_requested' && a.comment)?.comment) && (
+              <span className="italic text-xs mt-1">
+                {
+                  recipeInfo[g.recipeCode]?.comment ||
+                    g.assets.find((a) => a.status === 'edit_requested' && a.comment)?.comment
+                }
+              </span>
+            )}
         </td>
         <td className="text-center">
           <div className="flex items-center justify-center">

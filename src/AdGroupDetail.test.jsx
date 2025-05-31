@@ -45,6 +45,14 @@ beforeEach(() => {
     data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'draft' }),
   });
   getDocs.mockResolvedValue({ empty: true, docs: [] });
+  onSnapshot.mockImplementation((ref, cb) => {
+    if (Array.isArray(ref)) {
+      cb({ docs: [{ id: 'asset1', data: () => ({ filename: 'f1.png', status: 'pending' }) }] });
+    } else {
+      cb({ exists: () => true, data: () => ({ status: 'pending', comment: '' }) });
+    }
+    return jest.fn();
+  });
 });
 
 afterEach(() => {
@@ -52,10 +60,6 @@ afterEach(() => {
 });
 
 test('toggles asset status to ready', async () => {
-  onSnapshot.mockImplementation((col, cb) => {
-    cb({ docs: [{ id: 'asset1', data: () => ({ filename: 'f1.png', status: 'pending' }) }] });
-    return jest.fn();
-  });
 
   render(
     <MemoryRouter>
@@ -72,10 +76,6 @@ test('toggles asset status to ready', async () => {
 });
 
 test('toggles asset status back to pending', async () => {
-  onSnapshot.mockImplementation((col, cb) => {
-    cb({ docs: [{ id: 'asset1', data: () => ({ filename: 'f1.png', status: 'ready' }) }] });
-    return jest.fn();
-  });
 
   render(
     <MemoryRouter>
@@ -92,15 +92,6 @@ test('toggles asset status back to pending', async () => {
 });
 
 test('fetches recipe history', async () => {
-  onSnapshot.mockImplementation((col, cb) => {
-    cb({
-      docs: [
-        { id: 'asset1', data: () => ({ filename: '1_9x16.png', status: 'ready' }) },
-        { id: 'asset2', data: () => ({ filename: '1_3x5.png', status: 'ready' }) },
-      ],
-    });
-    return jest.fn();
-  });
 
   render(
     <MemoryRouter>
