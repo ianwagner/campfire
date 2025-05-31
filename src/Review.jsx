@@ -15,6 +15,8 @@ import {
   doc,
   updateDoc,
   increment,
+  setDoc,
+  arrayUnion,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
@@ -479,6 +481,13 @@ const Review = ({
 
     const recipeAssets = currentRecipeGroup?.assets || [currentAd];
     const updates = [];
+    const newStatus =
+      responseType === 'approve'
+        ? 'approved'
+        : responseType === 'reject'
+        ? 'rejected'
+        : 'edit_requested';
+
     for (const asset of recipeAssets) {
       const url = asset.adUrl || asset.firebaseUrl;
       const respObj = {
@@ -503,13 +512,6 @@ const Review = ({
       }
       if (asset.assetId && asset.adGroupId) {
         const assetRef = doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId);
-        const newStatus =
-          responseType === 'approve'
-            ? 'approved'
-            : responseType === 'reject'
-            ? 'rejected'
-            : 'edit_requested';
-
         const updateData = {
           status: newStatus,
           comment: responseType === 'edit' ? comment : '',
@@ -620,6 +622,36 @@ const Review = ({
         }
       }
       setResponses((prev) => ({ ...prev, [url]: respObj }));
+    }
+
+    if (recipeAssets.length > 0) {
+      const recipeRef = doc(
+        db,
+        'adGroups',
+        recipeAssets[0].adGroupId,
+        'recipes',
+        currentRecipe
+      );
+      updates.push(
+        setDoc(
+          recipeRef,
+          {
+            history: arrayUnion({
+              timestamp: serverTimestamp(),
+              status: newStatus,
+              user:
+                reviewerName ||
+                user?.displayName ||
+                user?.uid ||
+                'unknown',
+              ...(responseType === 'edit' && comment
+                ? { editComment: comment }
+                : {}),
+            }),
+          },
+          { merge: true }
+        )
+      );
     }
 
     const updatePromise = Promise.all(updates)
