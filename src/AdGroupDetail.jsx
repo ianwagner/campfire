@@ -42,7 +42,6 @@ import parseAdFilename from './utils/parseAdFilename';
 import StatusBadge from './components/StatusBadge.jsx';
 import LoadingOverlay from "./LoadingOverlay";
 import OptimizedImage from './components/OptimizedImage.jsx';
-import pickHeroAsset from './utils/pickHeroAsset';
 import computeGroupStatus from './utils/computeGroupStatus';
 
 const AdGroupDetail = () => {
@@ -501,36 +500,12 @@ const AdGroupDetail = () => {
   };
 
   const updateRecipeStatus = async (recipeCode, status, comment = '') => {
-    const groupAssets = assets.filter((a) => {
-      const info = parseAdFilename(a.filename || '');
-      return (info.recipeCode || 'unknown') === recipeCode;
-    });
-    if (groupAssets.length === 0) return;
-    const hero = pickHeroAsset(groupAssets);
-    const batch = writeBatch(db);
-    groupAssets.forEach((a) => {
-      batch.update(doc(db, 'adGroups', id, 'assets', a.id), {
-        status,
-        lastUpdatedBy: auth.currentUser?.uid || null,
-        lastUpdatedAt: serverTimestamp(),
-      });
-    });
     try {
-      await batch.commit();
-      if (hero) {
-        await addDoc(
-          collection(db, 'adGroups', id, 'assets', hero.id, 'history'),
-          {
-            status,
-            updatedBy: auth.currentUser?.uid || null,
-            updatedAt: serverTimestamp(),
-          }
-        );
-      }
-
       await setDoc(
         doc(db, 'recipes', recipeCode),
         {
+          status,
+          comment,
           history: arrayUnion({
             timestamp: Timestamp.now(),
             status,
@@ -546,12 +521,6 @@ const AdGroupDetail = () => {
           }),
         },
         { merge: true }
-      );
-
-      setAssets((prev) =>
-        prev.map((a) =>
-          groupAssets.some((g) => g.id === a.id) ? { ...a, status } : a
-        )
       );
     } catch (err) {
       console.error('Failed to update recipe status', err);
