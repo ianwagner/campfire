@@ -22,6 +22,7 @@ import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import computeGroupStatus from './utils/computeGroupStatus';
+import debugLog from './utils/debugLog';
 
 const Review = ({
   user,
@@ -104,6 +105,7 @@ const Review = ({
 
   useEffect(() => {
     const fetchAds = async () => {
+      debugLog('Loading ads', { groupId, brandCodes });
       try {
         let list = [];
         if (groupId) {
@@ -315,6 +317,7 @@ const Review = ({
     if (showSizes || editing || showComment || showNoteInput || showStreakModal)
       return;
     const touch = e.touches[0];
+    debugLog('Touch start', touch);
     touchStartX.current = touch.clientX;
     touchStartY.current = touch.clientY;
     touchEndX.current = touch.clientX;
@@ -338,6 +341,7 @@ const Review = ({
 
   const handleTouchEnd = () => {
     if (!dragging) return;
+    debugLog('Touch end');
     const dx = touchEndX.current - touchStartX.current;
     const dy = Math.abs(touchEndY.current - touchStartY.current);
     if (Math.abs(dx) > 100 && dy < 100) {

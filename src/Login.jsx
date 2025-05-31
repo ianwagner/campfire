@@ -9,6 +9,7 @@ import {
 import { auth } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import { DEFAULT_LOGO_URL } from './constants';
+import debugLog from './utils/debugLog';
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -20,9 +21,11 @@ const Login = ({ onLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    debugLog('Signing in', email);
     setError('');
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      debugLog('Sign-in successful');
       if (onLogin) onLogin();
     } catch (err) {
       if (err.code === 'auth/multi-factor-auth-required') {
@@ -53,11 +56,13 @@ const Login = ({ onLogin }) => {
   const handleVerify = async (e) => {
     e.preventDefault();
     if (!mfaResolver) return;
+    debugLog('Verifying MFA code');
     setError('');
     try {
       const cred = PhoneAuthProvider.credential(verificationId, mfaCode);
       const assertion = PhoneMultiFactorGenerator.assertion(cred);
       await mfaResolver.resolveSignIn(assertion);
+      debugLog('MFA sign-in successful');
       if (onLogin) onLogin();
     } catch (err) {
       setError(err.message);

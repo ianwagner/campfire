@@ -42,6 +42,7 @@ import AgencyThemeSettings from "./AgencyThemeSettings";
 import AgencyBrands from "./AgencyBrands";
 import AgencyAdGroups from "./AgencyAdGroups";
 import useTheme from "./useTheme";
+import debugLog from "./utils/debugLog";
 
 const ThemeWatcher = () => {
   useTheme();
@@ -53,11 +54,16 @@ const App = () => {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
+    debugLog('Auth listener mounted');
     const unsub = onAuthStateChanged(auth, (u) => {
+      debugLog('Auth state changed', u);
       setUser(u);
       setLoading(false);
     });
-    return () => unsub();
+    return () => {
+      debugLog('Auth listener removed');
+      unsub();
+    };
   }, []);
 
   const { role, brandCodes, agencyId, loading: roleLoading } = useUserRole(user?.uid);
