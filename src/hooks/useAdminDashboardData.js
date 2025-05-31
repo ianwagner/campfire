@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   collectionGroup,
+  collection,
   query,
   where,
   getDocs,
@@ -8,6 +9,7 @@ import {
   getDoc,
   doc,
 } from 'firebase/firestore';
+import parseAdFilename from '../utils/parseAdFilename';
 import { db } from '../firebase/config';
 
 const initial = {
@@ -37,6 +39,7 @@ export default function useAdminDashboardData(range) {
       const comments = {};
       const unresolved = {};
       const reviewTimes = {};
+      const recipeBrands = {};
       const groupCache = {};
       const userCache = {};
 
@@ -63,6 +66,9 @@ export default function useAdminDashboardData(range) {
           const ds = a.uploadedAt.toDate().toISOString().slice(0, 10);
           uploads[uploader][ds] = (uploads[uploader][ds] || 0) + 1;
         }
+        const info = parseAdFilename(a.filename || '');
+        const recipe = a.recipeCode || info.recipeCode || '';
+        if (recipe && !recipeBrands[recipe]) recipeBrands[recipe] = brand;
         if (a.status === 'edit_requested' && !a.isResolved) {
           const ds = a.lastUpdatedAt?.toDate ? a.lastUpdatedAt.toDate().toISOString().slice(0, 10) : null;
           if (ds) unresolved[ds] = (unresolved[ds] || 0) + 1;
@@ -77,28 +83,32 @@ export default function useAdminDashboardData(range) {
         }
       }
 
-      const respSnap = await getDocs(
-        query(collectionGroup(db, 'responses'), where('timestamp', '>=', s), where('timestamp', '<', e))
-      );
-      respSnap.docs.forEach((d) => {
-        const r = d.data();
-        const ds = r.timestamp?.toDate ? r.timestamp.toDate().toISOString().slice(0, 10) : null;
-        if (ds) {
-          if (!reviewOutcomes[ds]) reviewOutcomes[ds] = { Approved: 0, Rejected: 0, 'Edit Requested': 0 };
-          const status =
-            r.response === 'approve'
-              ? 'Approved'
-              : r.response === 'reject'
-              ? 'Rejected'
-              : 'Edit Requested';
-          reviewOutcomes[ds][status] += 1;
-        }
-        if (r.comment) {
-          const reviewer = r.reviewerName || r.userEmail || r.userId || 'Unknown';
-          const brand = r.brandCode || 'Unknown';
-          if (!comments[reviewer]) comments[reviewer] = {};
-          comments[reviewer][brand] = (comments[reviewer][brand] || 0) + 1;
-        }
+      const recipeSnap = await getDocs(collection(db, 'recipes'));
+      recipeSnap.docs.forEach((d) => {
+        const recipeCode = d.id;
+        const brand = recipeBrands[recipeCode] || 'Unknown';
+        const hist = Array.isArray(d.data().history) ? d.data().history : [];
+        hist.forEach((h) => {
+          const t = h.timestamp?.toDate ? h.timestamp.toDate() : null;
+          if (!t) return;
+          if (t >= start && t < end) {
+            const ds = t.toISOString().slice(0, 10);
+            if (!reviewOutcomes[ds])
+              reviewOutcomes[ds] = { Approved: 0, Rejected: 0, 'Edit Requested': 0 };
+            const status =
+              h.status === 'approved'
+                ? 'Approved'
+                : h.status === 'rejected'
+                ? 'Rejected'
+                : 'Edit Requested';
+            reviewOutcomes[ds][status] += 1;
+            if (h.editComment) {
+              const reviewer = h.user || 'Unknown';
+              if (!comments[reviewer]) comments[reviewer] = {};
+              comments[reviewer][brand] = (comments[reviewer][brand] || 0) + 1;
+            }
+          }
+        });
       });
 
       const uids = Object.keys(uploads);

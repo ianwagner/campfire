@@ -99,6 +99,16 @@ node setAdminClaim.js <uid>
 
 The script loads your service account credentials from the `GOOGLE_APPLICATION_CREDENTIALS` environment variable (it also reads variables from `.env` if present). Once executed, the specified user will have `{ admin: true }` in their custom claims. You can verify this in the Firebase console or by fetching the user record with the Admin SDK.
 
+## Cleaning Obsolete Responses
+
+Older versions of the application stored review actions in `responses` subcollections. These documents are no longer used. Run `cleanupResponses.js` to delete them:
+
+```bash
+node cleanupResponses.js
+```
+
+The script requires the `GOOGLE_APPLICATION_CREDENTIALS` environment variable, just like the other admin utilities.
+
 ## Admin Brand Management
 
 Similarly, `/admin/brands` lists all brands with inline edit and delete
