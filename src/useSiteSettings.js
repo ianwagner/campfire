@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
+import debugLog from './utils/debugLog';
 
 const storedAccent = localStorage.getItem('accentColor');
 const defaultSettings = {
@@ -25,6 +26,7 @@ const useSiteSettings = (applyAccent = true) => {
 
   useEffect(() => {
     const fetchSettings = async () => {
+      debugLog('Fetching site settings');
       try {
         const snap = await getDoc(doc(db, 'settings', 'site'));
         if (snap.exists()) {
@@ -45,6 +47,7 @@ const useSiteSettings = (applyAccent = true) => {
       } catch (err) {
         console.error('Failed to fetch site settings', err);
       } finally {
+        debugLog('Settings fetch finished');
         setLoading(false);
       }
     };
@@ -60,7 +63,9 @@ const useSiteSettings = (applyAccent = true) => {
   }, [settings.accentColor]);
 
   const saveSettings = async (newSettings) => {
+    debugLog('Saving site settings');
     await setDoc(doc(db, 'settings', 'site'), newSettings, { merge: true });
+    debugLog('Site settings saved');
     setSettings((prev) => ({ ...prev, ...newSettings }));
     if (newSettings.accentColor) {
       localStorage.setItem('accentColor', newSettings.accentColor);

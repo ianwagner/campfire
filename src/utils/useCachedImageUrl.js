@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import debugLog from './debugLog';
 
 const toDataUrl = async (url) => {
   const res = await fetch(url);
@@ -29,6 +30,7 @@ const useCachedImageUrl = (key, url) => {
     }
     const stored = localStorage.getItem(key);
     if (stored) {
+      debugLog('Loaded cached image', key);
       setSrc(stored);
       return;
     }
@@ -39,9 +41,11 @@ const useCachedImageUrl = (key, url) => {
         try {
           localStorage.setItem(key, dataUrl);
         } catch {}
+        debugLog('Fetched image', url);
         setSrc(dataUrl);
       })
       .catch(() => {
+        console.error('Image fetch failed', url);
         if (active) setSrc(url);
       });
     return () => {

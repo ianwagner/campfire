@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot, collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { db } from './firebase/config';
+import debugLog from './utils/debugLog';
 
 const useUserRole = (uid) => {
   const [role, setRole] = useState(null);
@@ -18,10 +19,12 @@ const useUserRole = (uid) => {
     }
 
     setLoading(true);
+    debugLog('Subscribing to user role for', uid);
     const ref = doc(db, 'users', uid);
     const unsub = onSnapshot(
       ref,
       (snap) => {
+        debugLog('Role snapshot:', snap.data());
         if (snap.exists()) {
           const data = snap.data();
           setRole(data.role || null);
@@ -44,7 +47,10 @@ const useUserRole = (uid) => {
       }
     );
 
-    return () => unsub();
+    return () => {
+      debugLog('Unsubscribe user role');
+      unsub();
+    };
   }, [uid]);
 
   useEffect(() => {

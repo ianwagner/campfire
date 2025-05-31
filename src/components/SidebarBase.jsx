@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase/config';
 import useSiteSettings from '../useSiteSettings';
+import debugLog from '../utils/debugLog';
 import { DEFAULT_LOGO_URL } from '../constants';
 import OptimizedImage from './OptimizedImage.jsx';
 
@@ -20,6 +21,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
   const { settings } = useSiteSettings(applySiteAccent);
 
   const handleClick = (tab) => {
+    debugLog('Navigate to', tab.path);
     if (tab.path) {
       navigate(tab.path);
     }

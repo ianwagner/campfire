@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from './firebase/config';
+import debugLog from './utils/debugLog';
 
 const AdminAccounts = () => {
   const [accounts, setAccounts] = useState([]);
@@ -39,6 +40,7 @@ const AdminAccounts = () => {
   const cancelEdit = () => setEditId(null);
 
   const handleSave = async (id) => {
+    debugLog('Saving account', id);
     const codes = form.brandCodes
       .split(',')
       .map((c) => c.trim())
@@ -61,6 +63,7 @@ const AdminAccounts = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this account?')) return;
+    debugLog('Deleting account', id);
     try {
       await deleteDoc(doc(db, 'users', id));
       setAccounts((prev) => prev.filter((a) => a.id !== id));
