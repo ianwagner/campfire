@@ -382,26 +382,21 @@ const Review = ({
 
   const handleStopReview = async () => {
     const remaining = reviewAds.slice(currentIndex);
-    // gather all assets from the remaining recipe groups
-    const toUpdate = [];
+    const recipeCodes = new Set();
     remaining.forEach((hero) => {
       const info = parseAdFilename(hero.filename || '');
       const recipe = hero.recipeCode || info.recipeCode || 'unknown';
-      const group = recipeGroups.find((g) => g.recipeCode === recipe);
-      const assets = group ? group.assets : [hero];
-      assets.forEach((asset) =>
-        toUpdate.push(
-          updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId), {
-            status: 'pending',
-            isResolved: false,
-          })
-        )
-      );
+      recipeCodes.add(recipe);
     });
+
+    const updates = Array.from(recipeCodes).map((code) =>
+      updateDoc(doc(db, 'recipes', code), { status: 'pending' })
+    );
+
     try {
-      await Promise.all(toUpdate);
+      await Promise.all(updates);
     } catch (err) {
-      console.error('Failed to mark remaining ads pending', err);
+      console.error('Failed to mark remaining recipes pending', err);
     } finally {
       setShowStreakModal(false);
       setShowNoteInput(false);
