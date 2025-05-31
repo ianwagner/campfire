@@ -63,7 +63,8 @@ const Review = ({
   const preloads = useRef([]);
   const advancedRef = useRef(false);
   const [groupStatus, setGroupStatus] = useState(null);
-  const { agency } = useAgencyTheme(agencyId);
+  const { agency, loading: agencyLoading } = useAgencyTheme(agencyId);
+  const [dataLoaded, setDataLoaded] = useState(false);
   useEffect(() => {
     return () => {
       if (agencyId && ['admin', 'designer'].includes(userRole)) {
@@ -288,19 +289,46 @@ const Review = ({
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
-        setLoading(false);
+        setDataLoaded(true);
       }
     };
 
     if (!user?.uid || (!groupId && brandCodes.length === 0)) {
       setAds([]);
       setReviewAds([]);
-      setLoading(false);
+      setDataLoaded(true);
       return;
     }
 
     fetchAds();
   }, [user, brandCodes, groupId]);
+
+  useEffect(() => {
+    if (!dataLoaded || agencyLoading) return;
+    let cancelled = false;
+
+    const loadImage = (src) =>
+      new Promise((resolve) => {
+        if (!src) return resolve();
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = src;
+      });
+
+    const heroUrls = reviewAds.map((a) =>
+      typeof a === 'object' ? a.adUrl || a.firebaseUrl : a
+    );
+    const logo = agency.logoUrl || DEFAULT_LOGO_URL;
+
+    Promise.all([...heroUrls.map(loadImage), loadImage(logo)]).then(() => {
+      if (!cancelled) setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dataLoaded, agencyLoading, reviewAds, agency.logoUrl]);
 
   const currentAd = reviewAds[currentIndex];
   const adUrl =

@@ -460,13 +460,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(255, 255, 255, 0.9);
+  background-color: #ffffff;
   z-index: 1000;
   opacity: 1;
   transition: opacity 0.3s ease;
 }
 html.dark .loading-overlay {
-  background-color: rgba(13, 17, 22, 0.9);
+  background-color: var(--dark-bg);
 }
 .loading-ring {
   width: 3rem;
