@@ -12,10 +12,17 @@ const OptimizedImage = ({
   ...props
 }) => {
   const pngSrc = useCachedImageUrl(cacheKey, pngUrl);
-  const webp = webpUrl || (pngUrl ? pngUrl.replace(/\.png$/, '.webp') : undefined);
+  const webp =
+    webpUrl ||
+    (pngUrl && /\.png($|\?)/.test(pngUrl) ? pngUrl.replace(/\.png($|\?)/, '.webp$1') : undefined);
   const webpSrc = webp ? useCachedImageUrl(`${cacheKey || webp}-webp`, webp) : null;
 
-  const hasWebp = webpSrc && isRealUrl(webpSrc);
+  const isWebp = (url) => /\.webp($|\?)/i.test(url);
+  const hasWebp =
+    webpSrc &&
+    isRealUrl(webpSrc) &&
+    isWebp(webpSrc) &&
+    webpSrc !== pngSrc;
 
   if (hasWebp) {
     return (
