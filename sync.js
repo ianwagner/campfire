@@ -42,7 +42,7 @@ async function fetchRecipes(sheetId) {
   const rows = data.values || [];
   if (rows.length === 0) return [];
 
-  const header = rows[0].map((h) => h.toLowerCase());
+  const header = rows[0].map((h) => h.toLowerCase().trim());
   const findCol = (keyword) => header.findIndex((h) => h.includes(keyword));
   const recipeCol = findCol('recipe');
   const offerCol = findCol('offer');
@@ -52,7 +52,8 @@ async function fetchRecipes(sheetId) {
   const recipes = [];
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    const recipeNumber = recipeCol >= 0 ? row[recipeCol] : undefined;
+    const recipeNumber =
+      recipeCol >= 0 ? (row[recipeCol] || '').toString().trim() : undefined;
     if (!recipeNumber) continue;
     recipes.push({
       recipeNumber: recipeNumber.toString(),
