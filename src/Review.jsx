@@ -17,6 +17,7 @@ import {
   increment,
   setDoc,
   arrayUnion,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
@@ -586,6 +587,29 @@ const Review = ({
             )
           );
 
+    if (recipeAssets.length > 0) {
+      const recipeRef = doc(db, 'recipes', currentRecipe);
+      updates.push(
+        setDoc(
+          recipeRef,
+          {
+            history: arrayUnion({
+              timestamp: Timestamp.now(),
+              status: newStatus,
+              user:
+                reviewerName ||
+                user?.displayName ||
+                user?.uid ||
+                'unknown',
+              ...(responseType === 'edit' && comment
+                ? { editComment: comment }
+                : {}),
+            }),
+          },
+          { merge: true }
+        )
+      );
+    }
           const prevStatus = asset.status;
           const newState = newStatus;
           let incReviewed = 0;

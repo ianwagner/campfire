@@ -32,6 +32,7 @@ import {
   getDocs,
   orderBy,
   arrayUnion,
+  Timestamp,
 } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
 import { auth, db, storage } from './firebase/config';
@@ -591,7 +592,7 @@ const AdGroupDetail = () => {
         doc(db, 'recipes', recipeCode),
         {
           history: arrayUnion({
-            timestamp: serverTimestamp(),
+            timestamp: Timestamp.now(),
             status,
             user:
               auth.currentUser?.displayName ||
