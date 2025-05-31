@@ -680,32 +680,24 @@ const AdGroupDetail = () => {
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-md dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
             <h3 className="mb-2 font-semibold">Recipe {historyRecipe.recipeCode} History</h3>
-            <div className="overflow-x-auto table-container">
-            <table className="ad-table min-w-max text-sm mb-2">
-              <thead>
-                <tr>
-                  <th>Version</th>
-                  <th>Decision</th>
-                  <th>Reviewer</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historyRecipe.assets.map((a) => (
-                  <tr key={a.id}>
-                    <td className="text-center">{a.version || 1}</td>
-                    <td>{a.status}</td>
-                    <td>{a.email}</td>
-                    <td>
-                      {a.lastUpdatedAt?.toDate
-                        ? a.lastUpdatedAt.toDate().toLocaleDateString()
-                        : ''}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
+            <ul className="mb-2 space-y-2 max-h-[60vh] overflow-auto">
+              {historyRecipe.assets.map((a) => (
+                <li key={a.id} className="border-b pb-2 last:border-none">
+                  <div className="text-sm font-medium">
+                    {a.lastUpdatedAt?.toDate
+                      ? a.lastUpdatedAt
+                          .toDate()
+                          .toLocaleString()
+                      : ''}{' '}
+                    - {a.email}
+                  </div>
+                  <div className="text-sm">Status: {a.status}</div>
+                  {a.comment && (
+                    <div className="text-sm italic">Note: {a.comment}</div>
+                  )}
+                </li>
+              ))}
+            </ul>
             <button onClick={closeModals} className="btn-primary px-3 py-1">Close</button>
           </div>
         </div>
