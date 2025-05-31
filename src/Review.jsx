@@ -622,6 +622,11 @@ const Review = ({
     setEditing(false);
 
     await updatePromise;
+
+    if (responseType === 'edit') {
+      setCurrentIndex((i) => i + 1);
+      setAnimating(null);
+    }
   };
 
   const submitNote = async () => {
