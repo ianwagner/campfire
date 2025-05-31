@@ -75,7 +75,7 @@ const AdminAccounts = () => {
   return (
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Accounts</h1>
-        <a href="/admin/accounts/new" className="underline text-blue-500 block mb-2">Add Account</a>
+        <a href="/admin/accounts/new" className="underline text-gray-700 block mb-2">Add Account</a>
         {loading ? (
           <p>Loading accounts...</p>
         ) : accounts.length === 0 ? (
@@ -133,7 +133,7 @@ const AdminAccounts = () => {
                       <>
                         <button
                           onClick={() => handleSave(acct.id)}
-                          className="underline text-blue-500 mr-2"
+                          className="underline text-gray-700 mr-2"
                         >
                           Save
                         </button>
@@ -145,7 +145,7 @@ const AdminAccounts = () => {
                       <>
                         <button
                           onClick={() => startEdit(acct)}
-                          className="underline text-blue-500 mr-2"
+                          className="underline text-gray-700 mr-2"
                         >
                           Edit
                         </button>

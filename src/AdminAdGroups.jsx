@@ -143,7 +143,7 @@ const AdminAdGroups = () => {
                     {g.clientNote ? (
                       <button
                         onClick={() => setViewNote(g.clientNote)}
-                        className="flex items-center text-blue-500 underline"
+                        className="flex items-center text-gray-700 underline"
                         aria-label="View Client Note"
                       >
                         <FiFileText className="mr-1" />

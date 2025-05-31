@@ -70,7 +70,7 @@ const AdminBrands = () => {
   return (
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Brands</h1>
-        <a href="/admin/brands/new" className="underline text-blue-500 block mb-2">Add Brand</a>
+        <a href="/admin/brands/new" className="underline text-gray-700 block mb-2">Add Brand</a>
         {loading ? (
           <p>Loading brands...</p>
         ) : brands.length === 0 ? (
@@ -130,14 +130,14 @@ const AdminBrands = () => {
                   <td className="text-center">
                     {editId === brand.id ? (
                       <>
-                        <button onClick={() => handleSave(brand.id)} className="underline text-blue-500 mr-2">
+                        <button onClick={() => handleSave(brand.id)} className="underline text-gray-700 mr-2">
                           Save
                         </button>
                         <button onClick={cancelEdit} className="underline">Cancel</button>
                       </>
                     ) : (
                       <>
-                        <button onClick={() => startEdit(brand)} className="underline text-blue-500 mr-2">
+                        <button onClick={() => startEdit(brand)} className="underline text-gray-700 mr-2">
                           Edit
                         </button>
                         <button onClick={() => handleDelete(brand.id)} className="underline btn-delete">

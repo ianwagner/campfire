@@ -93,7 +93,7 @@ const AgencyAdGroups = () => {
                   <div className="flex items-center justify-center">
                     <Link
                       to={`/ad-group/${g.id}`}
-                      className="flex items-center text-blue-500 underline"
+                      className="flex items-center text-gray-700 underline"
                       aria-label="View Details"
                     >
                       <FiEye />
@@ -101,7 +101,7 @@ const AgencyAdGroups = () => {
                     </Link>
                     <Link
                       to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
-                      className="flex items-center ml-2 text-blue-500 underline"
+                      className="flex items-center ml-2 text-gray-700 underline"
                       aria-label="Review"
                     >
                       <FiCheckCircle />
@@ -109,7 +109,7 @@ const AgencyAdGroups = () => {
                     </Link>
                     <button
                       onClick={() => copyLink(g.id, agencyId)}
-                      className="flex items-center ml-2 text-blue-500 underline"
+                      className="flex items-center ml-2 text-gray-700 underline"
                       aria-label="Share Link"
                     >
                       <FiLink />

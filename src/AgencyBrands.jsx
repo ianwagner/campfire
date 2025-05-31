@@ -159,14 +159,14 @@ const AgencyBrands = () => {
                 <td className="text-center">
                   {editId === brand.id ? (
                     <>
-                      <button onClick={() => handleSave(brand.id)} className="underline text-blue-500 mr-2">
+                      <button onClick={() => handleSave(brand.id)} className="underline text-gray-700 mr-2">
                         Save
                       </button>
                       <button onClick={cancelEdit} className="underline">Cancel</button>
                     </>
                   ) : (
                     <>
-                      <button onClick={() => startEdit(brand)} className="underline text-blue-500 mr-2">
+                      <button onClick={() => startEdit(brand)} className="underline text-gray-700 mr-2">
                         Edit
                       </button>
                       <button onClick={() => handleDelete(brand.id)} className="underline btn-delete">
