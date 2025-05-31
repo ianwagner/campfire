@@ -20,6 +20,7 @@ import {
   doc,
   getDoc,
   updateDoc,
+  setDoc,
   collection,
   addDoc,
   onSnapshot,
@@ -53,7 +54,8 @@ const AdGroupDetail = () => {
   const [showTable, setShowTable] = useState(false);
   const [historyRecipe, setHistoryRecipe] = useState(null);
   const [viewRecipe, setViewRecipe] = useState(null);
-  const [metadataAd, setMetadataAd] = useState(null);
+  const [recipesMeta, setRecipesMeta] = useState({});
+  const [metadataRecipe, setMetadataRecipe] = useState(null);
   const [metadataForm, setMetadataForm] = useState({
     offer: '',
     angle: '',
@@ -91,6 +93,17 @@ const AdGroupDetail = () => {
     const unsub = onSnapshot(collection(db, 'adGroups', id, 'assets'), (snap) => {
       const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setAssets(list);
+    });
+    return () => unsub();
+  }, [id]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'adGroups', id, 'recipes'), (snap) => {
+      const data = {};
+      snap.docs.forEach((d) => {
+        data[d.id] = { id: d.id, ...d.data() };
+      });
+      setRecipesMeta(data);
     });
     return () => unsub();
   }, [id]);
@@ -280,19 +293,19 @@ const AdGroupDetail = () => {
   };
 
   useEffect(() => {
-    if (metadataAd) {
+    if (metadataRecipe) {
       setMetadataForm({
-        offer: metadataAd.metadata?.offer || '',
-        angle: metadataAd.metadata?.angle || '',
-        audience: metadataAd.metadata?.audience || '',
+        offer: metadataRecipe.offer || '',
+        angle: metadataRecipe.angle || '',
+        audience: metadataRecipe.audience || '',
       });
     }
-  }, [metadataAd]);
+  }, [metadataRecipe]);
 
   const closeModals = () => {
     setHistoryRecipe(null);
     setViewRecipe(null);
-    setMetadataAd(null);
+    setMetadataRecipe(null);
   };
 
   const toggleLock = async () => {
@@ -445,40 +458,49 @@ const AdGroupDetail = () => {
       const lines = text.trim().split(/\r?\n/);
       if (lines.length === 0) return;
       const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
-      let start = 0;
-      if (headers[0] === 'filename') {
-        start = 1;
+      const findCol = (k) => headers.findIndex((h) => h.includes(k));
+      const recipeCol = findCol('recipe');
+      const offerCol = findCol('offer');
+      const angleCol = findCol('angle');
+      const audienceCol = findCol('audience');
+      if (recipeCol === -1) {
+        window.alert('Recipe column not found');
+        return;
       }
       const updates = [];
-      for (let i = start; i < lines.length; i += 1) {
+      for (let i = 1; i < lines.length; i += 1) {
         const parts = lines[i].split(',').map((p) => p.trim());
-        if (parts.length < 4) continue;
-        const [filename, offer, angle, audience] = parts;
-        const asset = assets.find(
-          (a) => (a.filename || '').toLowerCase() === filename.toLowerCase()
-        );
-        if (asset) {
-          updates.push({
-            id: asset.id,
-            data: { metadata: { offer, angle, audience } },
-          });
-        }
+        const recipeCode = parts[recipeCol];
+        if (!recipeCode) continue;
+        updates.push({
+          id: recipeCode.toLowerCase(),
+          data: {
+            offer: offerCol >= 0 ? parts[offerCol] || '' : '',
+            angle: angleCol >= 0 ? parts[angleCol] || '' : '',
+            audience: audienceCol >= 0 ? parts[audienceCol] || '' : '',
+          },
+        });
       }
       if (updates.length === 0) {
-        window.alert('No matching ads found in CSV');
+        window.alert('No metadata rows found in CSV');
         return;
       }
       const batch = writeBatch(db);
       updates.forEach((u) => {
-        batch.update(doc(db, 'adGroups', id, 'assets', u.id), u.data);
+        batch.set(
+          doc(db, 'adGroups', id, 'recipes', u.id),
+          u.data,
+          { merge: true }
+        );
       });
       await batch.commit();
-      setAssets((prev) =>
-        prev.map((a) => {
-          const u = updates.find((x) => x.id === a.id);
-          return u ? { ...a, ...u.data } : a;
-        })
-      );
+      setRecipesMeta((prev) => {
+        const copy = { ...prev };
+        updates.forEach((u) => {
+          copy[u.id] = { id: u.id, ...u.data };
+        });
+        return copy;
+      });
       window.alert('Metadata uploaded');
     } catch (err) {
       console.error('Failed to upload metadata', err);
@@ -509,17 +531,18 @@ const AdGroupDetail = () => {
   };
 
   const saveMetadata = async () => {
-    if (!metadataAd) return;
+    if (!metadataRecipe) return;
     try {
-      await updateDoc(doc(db, 'adGroups', id, 'assets', metadataAd.id), {
-        metadata: metadataForm,
-      });
-      setAssets((prev) =>
-        prev.map((a) =>
-          a.id === metadataAd.id ? { ...a, metadata: metadataForm } : a
-        )
+      await setDoc(
+        doc(db, 'adGroups', id, 'recipes', metadataRecipe.id),
+        metadataForm,
+        { merge: true }
       );
-      setMetadataAd(null);
+      setRecipesMeta((prev) => ({
+        ...prev,
+        [metadataRecipe.id]: { id: metadataRecipe.id, ...metadataForm },
+      }));
+      setMetadataRecipe(null);
     } catch (err) {
       console.error('Failed to save metadata', err);
     }
@@ -713,17 +736,6 @@ const AdGroupDetail = () => {
                         </div>
                       </td>
                       <td className="text-center">
-                        {userRole === 'admin' && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMetadataAd(a);
-                            }}
-                            className="btn-secondary mr-2 px-1.5 py-0.5 text-xs"
-                          >
-                            Metadata
-                          </button>
-                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -812,6 +824,19 @@ const AdGroupDetail = () => {
               <FiClock />
               <span className="ml-1">History</span>
             </button>
+            {userRole === 'admin' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMetadataRecipe(recipesMeta[g.recipeCode] || { id: g.recipeCode });
+                }}
+                className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
+                aria-label="Metadata"
+              >
+                <FiBookOpen />
+                <span className="ml-1">Metadata</span>
+              </button>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1057,10 +1082,10 @@ const AdGroupDetail = () => {
         </div>
       )}
 
-      {metadataAd && (
+      {metadataRecipe && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-sm dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <h3 className="mb-2 font-semibold">Metadata for {metadataAd.filename}</h3>
+            <h3 className="mb-2 font-semibold">Metadata for Recipe {metadataRecipe.id}</h3>
             <div className="space-y-2">
               <label className="block text-sm">
                 Offer
