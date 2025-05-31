@@ -1,7 +1,7 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { FiEye, FiClock, FiTrash, FiLock, FiUnlock, FiRefreshCw, FiCheckCircle, FiShare2 } from 'react-icons/fi';
+import { FiEye, FiClock, FiTrash, FiLock, FiUnlock, FiRefreshCw, FiCheckCircle, FiShare2, FiUpload } from 'react-icons/fi';
 import { useParams } from 'react-router-dom';
 import {
   doc,
@@ -580,7 +580,14 @@ const AdGroupDetail = () => {
                     <tr key={a.id} className="asset-row">
                       <td className="break-all">{a.filename}</td>
                       <td className="text-center">{a.version || 1}</td>
-                      <td></td>
+                      <td className="text-center">
+                        <div className="flex flex-col items-center">
+                          <StatusBadge status={a.status} />
+                          {a.status === 'edit_requested' && a.comment && (
+                            <span className="italic text-xs">{a.comment}</span>
+                          )}
+                        </div>
+                      </td>
                       <td className="text-center">
                         <button
                           onClick={(e) => {
@@ -690,6 +697,24 @@ const AdGroupDetail = () => {
         Status: <StatusBadge status={group.status} />
         {(userRole === 'admin' || userRole === 'agency') && (
           <>
+            <input
+              id="upload-input"
+              type="file"
+              multiple
+              onChange={(e) => {
+                const sel = e.target.files;
+                handleUpload(sel);
+                e.target.value = null;
+              }}
+              className="hidden"
+            />
+            <button
+              onClick={() => document.getElementById('upload-input').click()}
+              className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+            >
+              <FiUpload />
+              Upload
+            </button>
             <button onClick={toggleLock} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
               {group.status === 'locked' ? <FiUnlock /> : <FiLock />}
               {group.status === 'locked' ? 'Unlock' : 'Lock'}
@@ -719,20 +744,9 @@ const AdGroupDetail = () => {
         )}
       </div>
 
-      <div className="mb-4">
-        <input
-          type="file"
-          multiple
-          onChange={(e) => {
-            const sel = e.target.files;
-            handleUpload(sel);
-            e.target.value = null;
-          }}
-        />
-        {uploading && (
-          <span className="ml-2 text-sm text-gray-600">Uploading...</span>
-        )}
-      </div>
+      {uploading && (
+        <span className="ml-2 text-sm text-gray-600">Uploading...</span>
+      )}
 
 
       {!showTable && (
@@ -765,7 +779,7 @@ const AdGroupDetail = () => {
               <p className="stat-card-value">{statusCounts.rejected}</p>
             </div>
             <div className="stat-card status-edit_requested">
-              <p className="stat-card-title">Edit Requested</p>
+              <p className="stat-card-title">Edit</p>
               <p className="stat-card-value">{statusCounts.edit_requested}</p>
             </div>
           </div>

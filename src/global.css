@@ -233,10 +233,13 @@
     @apply px-2 py-0.5 rounded-full font-bold;
     display: inline-block;
   }
-  .status-pending,
-  .status-ready {
+  .status-pending {
     background-color: var(--pending-color-10);
     color: var(--pending-color);
+  }
+  .status-ready {
+    background-color: var(--accent-color-10);
+    color: var(--accent-color);
   }
   .status-approved {
     background-color: var(--approve-color-10);
@@ -383,7 +386,7 @@
 
 /* simple card for displaying summary stats */
 .stat-card {
-  @apply p-4 text-center bg-white rounded shadow dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)];
+  @apply p-4 text-center bg-white rounded shadow w-32 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)];
 }
 .stat-card-title {
   @apply text-sm text-gray-500;
@@ -391,10 +394,13 @@
 .stat-card-value {
   @apply text-xl font-semibold;
 }
-.stat-card.status-pending,
-.stat-card.status-ready {
+.stat-card.status-pending {
   background-color: var(--pending-color-10);
   color: var(--pending-color);
+}
+.stat-card.status-ready {
+  background-color: var(--accent-color-10);
+  color: var(--accent-color);
 }
 .stat-card.status-approved {
   background-color: var(--approve-color-10);
