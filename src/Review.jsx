@@ -54,6 +54,7 @@ const Review = ({
   const [secondPass, setSecondPass] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
+  const [fading, setFading] = useState(false);
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const touchStartX = useRef(0);
@@ -68,6 +69,16 @@ const Review = ({
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= 640 : false
   );
+
+  const FADE_MS = 400;
+  const fadeToIndex = (idx, cb) => {
+    setFading(true);
+    setTimeout(() => {
+      setCurrentIndex(idx);
+      setFading(false);
+      if (cb) cb();
+    }, FADE_MS);
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -583,8 +594,7 @@ const Review = ({
 
     setComment('');
     setShowComment(false);
-    setTimeout(() => {
-      setCurrentIndex((i) => i + 1);
+    fadeToIndex(currentIndex + 1, () => {
       if (responseType === 'reject') {
         const newCount = rejectionCount + 1;
         setRejectionCount(newCount);
@@ -593,7 +603,7 @@ const Review = ({
         }
       }
       setAnimating(null);
-    }, 400);
+    });
     // free UI interactions while waiting for Firestore updates
     setSubmitting(false);
     setEditing(false);
@@ -904,7 +914,6 @@ const Review = ({
             />
           )}
           <div
-            key={currentIndex}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -912,8 +921,6 @@ const Review = ({
               isMobile && showSizes
                 ? 'flex flex-col items-center overflow-y-auto h-[72vh]'
                 : 'size-container'
-            } ${animating === 'approve' ? 'approve-slide' : ''} ${
-              animating === 'reject' ? 'reject-slide' : ''
             }`}
             style={
               isMobile && showSizes
@@ -938,9 +945,9 @@ const Review = ({
                   ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
                   : {}
               }
-              className={`relative max-w-[90%] mx-auto rounded shadow ${
-                isMobile && showSizes ? 'mb-2' : 'max-h-[72vh]'
-              }`}
+              className={`relative max-w-[90%] mx-auto rounded shadow fade-transition ${
+                fading ? 'opacity-0' : 'opacity-100'
+              } ${isMobile && showSizes ? 'mb-2' : 'max-h-[72vh]'}`}
             />
             {currentAd && (currentAd.version || 1) > 1 && (
               <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
@@ -976,7 +983,7 @@ const Review = ({
             <button
               aria-label="Previous"
               onClick={() =>
-                setCurrentIndex((i) => Math.max(0, i - 1))
+                fadeToIndex(Math.max(0, currentIndex - 1))
               }
               className="btn-arrow"
             >
@@ -1009,7 +1016,7 @@ const Review = ({
             <button
               aria-label="Next"
               onClick={() =>
-                setCurrentIndex((i) => Math.min(reviewAds.length - 1, i + 1))
+                fadeToIndex(Math.min(reviewAds.length - 1, currentIndex + 1))
               }
               className="btn-arrow"
             >
