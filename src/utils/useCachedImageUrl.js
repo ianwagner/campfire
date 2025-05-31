@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import debugLog from './debugLog';
 
 const toDataUrl = async (url) => {
@@ -13,27 +13,27 @@ const toDataUrl = async (url) => {
 };
 
 const useCachedImageUrl = (key, url) => {
-  const [src, setSrc] = useState(() => {
+  const src = useMemo(() => {
     if (key) {
       try {
         const stored = localStorage.getItem(key);
-        if (stored) return stored;
+        if (stored) {
+          debugLog('Loaded cached image', key);
+          return stored;
+        }
       } catch {}
     }
     return url;
-  });
+  }, [key, url]);
 
   useEffect(() => {
-    if (!key || !url) {
-      setSrc(url);
-      return;
-    }
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      debugLog('Loaded cached image', key);
-      setSrc(stored);
-      return;
-    }
+    if (!key || !url) return;
+
+    try {
+      const stored = localStorage.getItem(key);
+      if (stored) return;
+    } catch {}
+
     let active = true;
     toDataUrl(url)
       .then((dataUrl) => {
@@ -42,12 +42,11 @@ const useCachedImageUrl = (key, url) => {
           localStorage.setItem(key, dataUrl);
         } catch {}
         debugLog('Fetched image', url);
-        setSrc(dataUrl);
       })
       .catch(() => {
         console.error('Image fetch failed', url);
-        if (active) setSrc(url);
       });
+
     return () => {
       active = false;
     };
