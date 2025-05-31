@@ -386,6 +386,7 @@
 
 .reject-slide {
   animation: reject-slide-out var(--duration-fast) forwards;
+  
 }
 
 @keyframes gallery-in {
