@@ -198,9 +198,10 @@ const AdGroupDetail = () => {
   );
 
   const getRecipeStatus = (list) => {
+main
     const unique = Array.from(new Set(list.map((a) => a.status)));
     return unique.length === 1 ? unique[0] : 'mixed';
-  };
+  }
 
   const toggleRecipe = (code) => {
     setExpanded((prev) => ({ ...prev, [code]: !prev[code] }));
