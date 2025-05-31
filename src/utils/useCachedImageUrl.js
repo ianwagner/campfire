@@ -12,6 +12,25 @@ const toDataUrl = async (url) => {
   });
 };
 
+export const cacheImageUrl = async (key, url) => {
+  if (!key || !url) return null;
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) return stored;
+  } catch {}
+  try {
+    const dataUrl = await toDataUrl(url);
+    try {
+      localStorage.setItem(key, dataUrl);
+    } catch {}
+    debugLog('Fetched image', url);
+    return dataUrl;
+  } catch (err) {
+    console.error('Image fetch failed', url);
+    return null;
+  }
+};
+
 const useCachedImageUrl = (key, url) => {
   const [src, setSrc] = useState(() => {
     if (key) {
@@ -35,17 +54,12 @@ const useCachedImageUrl = (key, url) => {
       return;
     }
     let active = true;
-    toDataUrl(url)
+    cacheImageUrl(key, url)
       .then((dataUrl) => {
-        if (!active) return;
-        try {
-          localStorage.setItem(key, dataUrl);
-        } catch {}
-        debugLog('Fetched image', url);
-        setSrc(dataUrl);
+        if (active && dataUrl) setSrc(dataUrl);
+        else if (active) setSrc(url);
       })
       .catch(() => {
-        console.error('Image fetch failed', url);
         if (active) setSrc(url);
       });
     return () => {
