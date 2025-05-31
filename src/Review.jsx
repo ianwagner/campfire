@@ -380,15 +380,15 @@ const Review = ({
     if (idx < 0 || idx >= reviewAds.length) return;
     const currentUrl = getAdUrl(reviewAds[idx]);
     const preloadUrl = getAdUrl(reviewAds[idx + 1]);
-    if (visibleLayer === 'A') {
-      if (layerBSrc !== currentUrl) setLayerBSrc(currentUrl);
-      if (layerASrc !== preloadUrl) setLayerASrc(preloadUrl);
-      setVisibleLayer('B');
-    } else {
+    const nextLayer = visibleLayer === 'A' ? 'B' : 'A';
+    if (nextLayer === 'A') {
       if (layerASrc !== currentUrl) setLayerASrc(currentUrl);
       if (layerBSrc !== preloadUrl) setLayerBSrc(preloadUrl);
-      setVisibleLayer('A');
+    } else {
+      if (layerBSrc !== currentUrl) setLayerBSrc(currentUrl);
+      if (layerASrc !== preloadUrl) setLayerASrc(preloadUrl);
     }
+    setVisibleLayer(nextLayer);
     setCurrentIndex(idx);
   };
 
