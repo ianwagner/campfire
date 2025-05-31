@@ -19,9 +19,9 @@ Google Sheet into Firestore.
    npm run sync
    ```
 
-The script reads the `sheetId` field from each document in the `adBatches`
+The script reads the `sheetId` field from each document in the `adGroups`
 collection, loads rows from the `Recipes` tab, and writes metadata documents
-under `adBatches/{batchId}/recipes`. Metadata is matched using the **Recipe
+under `adGroups/{groupId}/recipes`. Metadata is matched using the **Recipe
 Number** column and stored on the recipe itself (fields `offer`, `audience`, and
 `angle`). Column positions are detected dynamically so the sheet may reorder
 them without breaking the sync.
