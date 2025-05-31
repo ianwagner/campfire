@@ -158,6 +158,15 @@
   .text-accent {
     color: var(--accent-color);
   }
+  .text-approve {
+    color: var(--approve-color);
+  }
+  .text-reject {
+    color: var(--reject-color);
+  }
+  .text-edit {
+    color: var(--edit-color);
+  }
   .bg-accent {
     background-color: var(--accent-color);
   }

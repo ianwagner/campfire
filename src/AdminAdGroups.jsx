@@ -10,6 +10,7 @@ import {
   FiThumbsDown,
   FiEdit,
   FiFileText,
+  FiGrid,
 } from 'react-icons/fi';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from './firebase/config';
@@ -17,6 +18,7 @@ import deleteGroup from './utils/deleteGroup';
 import CreateAdGroup from './CreateAdGroup';
 import { auth } from './firebase/config';
 import useUserRole from './useUserRole';
+import parseAdFilename from './utils/parseAdFilename';
 
 const AdminAdGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -45,18 +47,38 @@ const AdminAdGroups = () => {
       try {
         const q = query(collection(db, 'adGroups'));
         const snap = await getDocs(q);
-        const list = snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            ...data,
-            counts: {
-              approved: data.approvedCount || 0,
-              rejected: data.rejectedCount || 0,
-              edit: data.editCount || 0,
-            },
-          };
-        });
+        const list = await Promise.all(
+          snap.docs.map(async (d) => {
+            const data = d.data();
+            let recipeCount = data.recipeCount;
+            if (recipeCount === undefined) {
+              try {
+                const assetSnap = await getDocs(
+                  collection(db, 'adGroups', d.id, 'assets')
+                );
+                const set = new Set();
+                assetSnap.docs.forEach((adDoc) => {
+                  const info = parseAdFilename(adDoc.data().filename || '');
+                  if (info.recipeCode) set.add(info.recipeCode);
+                });
+                recipeCount = set.size;
+              } catch (err) {
+                console.error('Failed to load recipes', err);
+                recipeCount = 0;
+              }
+            }
+            return {
+              id: d.id,
+              ...data,
+              recipeCount,
+              counts: {
+                approved: data.approvedCount || 0,
+                rejected: data.rejectedCount || 0,
+                edit: data.editCount || 0,
+              },
+            };
+          })
+        );
         setGroups(list);
       } catch (err) {
         console.error('Failed to fetch groups', err);
@@ -91,11 +113,12 @@ const AdminAdGroups = () => {
           <p>No ad groups found.</p>
         ) : (
           <div className="overflow-x-auto table-container">
-          <table className="ad-table min-w-max">
+          <table className="ad-table min-w-max text-[12px]">
             <thead>
               <tr>
                 <th>Group Name</th>
                 <th>Brand</th>
+                <th className="text-center"><FiGrid aria-label="Recipes" /></th>
                 <th>Status</th>
                 <th className="text-center"><FiThumbsUp aria-label="Approved" /></th>
                 <th className="text-center"><FiThumbsDown aria-label="Rejected" /></th>
@@ -109,12 +132,13 @@ const AdminAdGroups = () => {
                 <tr key={g.id}>
                   <td>{g.name}</td>
                   <td>{g.brandCode}</td>
-                  <td>
+                  <td className="text-center">{g.recipeCount}</td>
+                  <td className="text-center">
                     <span className={`status-badge status-${g.status}`}>{g.status}</span>
                   </td>
-                  <td className="text-center">{g.counts.approved}</td>
-                  <td className="text-center">{g.counts.rejected}</td>
-                  <td className="text-center">{g.counts.edit}</td>
+                  <td className="text-center text-approve">{g.counts.approved}</td>
+                  <td className="text-center text-reject">{g.counts.rejected}</td>
+                  <td className="text-center text-edit">{g.counts.edit}</td>
                   <td className="text-center">
                     {g.clientNote ? (
                       <button
@@ -133,31 +157,31 @@ const AdminAdGroups = () => {
                     <div className="flex items-center justify-center">
                       <Link
                         to={`/ad-group/${g.id}`}
-                        className="flex items-center text-blue-500 underline"
+                        className="btn-secondary px-2 py-0.5 flex items-center gap-1"
                         aria-label="View Details"
                       >
                         <FiEye />
-                        <span className="ml-1 text-[12px]">Details</span>
+                        <span className="text-[12px]">Details</span>
                       </Link>
                       <Link
                         to={`/review/${g.id}`}
-                        className="flex items-center ml-2 text-blue-500 underline"
+                        className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
                         aria-label="Review"
                       >
                         <FiCheckCircle />
-                        <span className="ml-1 text-[12px]">Review</span>
+                        <span className="text-[12px]">Review</span>
                       </Link>
                       <button
                         onClick={() => copyLink(g.id)}
-                        className="flex items-center ml-2 text-blue-500 underline"
+                        className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
                         aria-label="Share Link"
                       >
                         <FiLink />
-                        <span className="ml-1 text-[12px]">Share</span>
+                        <span className="text-[12px]">Share</span>
                       </button>
                       <button
                         onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                        className="flex items-center ml-2 underline btn-delete"
+                        className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2 btn-delete"
                         aria-label="Delete"
                       >
                         <FiTrash />
