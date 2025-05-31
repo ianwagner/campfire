@@ -63,7 +63,6 @@ const Review = ({
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
-  const animationTimeout = useRef(null);
   const [groupStatus, setGroupStatus] = useState(null);
   const { agency } = useAgencyTheme(agencyId);
   useEffect(() => {
@@ -75,7 +74,6 @@ const Review = ({
       }
     };
   }, [agencyId, userRole]);
-  useEffect(() => () => clearTimeout(animationTimeout.current), []);
   const navigate = useNavigate();
   const [hasPending, setHasPending] = useState(false);
   const [pendingOnly, setPendingOnly] = useState(false);
@@ -294,16 +292,10 @@ const Review = ({
   }, [user, brandCodes, groupId]);
 
   const currentAd = reviewAds[currentIndex];
-  const baseAdUrl =
+  const adUrl =
     currentAd && typeof currentAd === 'object'
       ? currentAd.adUrl || currentAd.firebaseUrl
       : currentAd;
-  const addCacheBuster = (url) => {
-    if (!url) return url;
-    const sep = url.includes('?') ? '&' : '?';
-    return `${url}${sep}cb=${Date.now()}`;
-  };
-  const adUrl = addCacheBuster(baseAdUrl);
   const brandCode =
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
@@ -317,15 +309,10 @@ const Review = ({
       : 0;
 
   const nextAd = reviewAds[currentIndex + 1];
-  const nextAdBaseUrl =
+  const nextAdUrl =
     nextAd && typeof nextAd === 'object'
       ? nextAd.adUrl || nextAd.firebaseUrl
       : nextAd;
-  const nextAdUrl = addCacheBuster(nextAdBaseUrl);
-
-  useEffect(() => {
-    console.log(currentIndex, baseAdUrl);
-  }, [currentIndex, baseAdUrl]);
 
   const openVersionModal = () => {
     if (!currentAd || !currentAd.parentAdId) return;
@@ -385,7 +372,6 @@ const Review = ({
   const handleAnimationEnd = (e) => {
     if (!animating) return;
     if (e.target !== e.currentTarget) return;
-    clearTimeout(animationTimeout.current);
     setCurrentIndex((i) => i + 1);
     if (animating === 'reject') {
       const newCount = rejectionCount + 1;
@@ -640,11 +626,6 @@ const Review = ({
     if (responseType === 'edit') {
       setCurrentIndex((i) => i + 1);
       setAnimating(null);
-    } else {
-      animationTimeout.current = setTimeout(() => {
-        setCurrentIndex((i) => i + 1);
-        setAnimating(null);
-      }, 500);
     }
   };
 
@@ -944,12 +925,11 @@ const Review = ({
             nextAdUrl &&
             !showSizes && (
             <OptimizedImage
-              key={`next-${currentIndex}`}
               pngUrl={nextAdUrl}
               webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
               alt="Next ad"
               loading="eager"
-              cacheKey={nextAdBaseUrl}
+              cacheKey={nextAdUrl}
               className="absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none"
             />
           )}
@@ -985,12 +965,11 @@ const Review = ({
   style={{ aspectRatio: currentAspect }}
 >
   <OptimizedImage
-    key={currentIndex}
     pngUrl={adUrl}
     webpUrl={adUrl.replace(/\.png$/, '.webp')}
     alt="Ad"
     loading="eager"
-    cacheKey={baseAdUrl}
+    cacheKey={adUrl}
     style={
       isMobile && showSizes
         ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
