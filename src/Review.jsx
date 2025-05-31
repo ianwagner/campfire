@@ -1,6 +1,7 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { FiEdit, FiX } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -23,6 +24,20 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import computeGroupStatus from './utils/computeGroupStatus';
 import debugLog from './utils/debugLog';
+
+const slideVariants = {
+  initial: { x: 0, opacity: 1 },
+  approve: {
+    x: '100%',
+    opacity: 0,
+    transition: { duration: 0.4, ease: 'easeInOut' },
+  },
+  reject: {
+    x: '-100%',
+    opacity: 0,
+    transition: { duration: 0.4, ease: 'easeInOut' },
+  },
+};
 
 const Review = ({
   user,
@@ -357,7 +372,7 @@ const Review = ({
     setDragging(false);
   };
 
-  const handleAnimationEnd = (e) => {
+  const handleAnimationComplete = (e) => {
     if (!animating) return;
     if (e.target !== e.currentTarget) return;
     setCurrentIndex((i) => i + 1);
@@ -597,7 +612,7 @@ const Review = ({
 
     setComment('');
     setShowComment(false);
-    // index will be updated on animation end
+    // index will be updated on animation complete
     // free UI interactions while waiting for Firestore updates
     setSubmitting(false);
     setEditing(false);
@@ -907,18 +922,18 @@ const Review = ({
               className="absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none"
             />
           )}
-          <div
+          <motion.div
             key={currentAd?.assetId || currentIndex}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            onAnimationEnd={handleAnimationEnd}
+            onAnimationComplete={handleAnimationComplete}
+            variants={slideVariants}
+            animate={animating || 'initial'}
             className={`relative z-10 ${
               isMobile && showSizes
                 ? 'flex flex-col items-center overflow-y-auto h-[72vh]'
                 : 'size-container'
-            } ${animating === 'approve' ? 'approve-slide' : ''} ${
-              animating === 'reject' ? 'reject-slide' : ''
             }`}
             style={
               isMobile && showSizes
@@ -970,9 +985,9 @@ const Review = ({
                   isMobile && showSizes ? 'mb-2 relative' : 'size-thumb max-h-[72vh]'
                 }`}
               />
-            ))}
+              ))}
+            </motion.div>
           </div>
-        </div>
       </div>
 
       {!showSizes && (showSecondView ? (
