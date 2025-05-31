@@ -380,3 +380,14 @@
 .version-badge {
   @apply absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded;
 }
+
+/* simple card for displaying summary stats */
+.stat-card {
+  @apply p-4 text-center bg-white rounded shadow dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)];
+}
+.stat-card-title {
+  @apply text-sm text-gray-500;
+}
+.stat-card-value {
+  @apply text-xl font-semibold;
+}
