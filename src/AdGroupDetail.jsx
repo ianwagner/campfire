@@ -12,6 +12,8 @@ import {
   FiShare2,
   FiUpload,
   FiBookOpen,
+  FiArchive,
+  FiRotateCcw,
 } from 'react-icons/fi';
 import { Link, useParams } from 'react-router-dom';
 import {
@@ -309,6 +311,35 @@ const AdGroupDetail = () => {
       setGroup((p) => ({ ...p, status: 'pending' }));
     } catch (err) {
       console.error('Failed to reset group', err);
+    }
+  };
+
+  const archiveGroup = async () => {
+    if (!group) return;
+    if (!window.confirm('Archive this group?')) return;
+    try {
+      await updateDoc(doc(db, 'adGroups', id), {
+        status: 'archived',
+        archivedAt: serverTimestamp(),
+        archivedBy: auth.currentUser?.uid || null,
+      });
+      setGroup((p) => ({ ...p, status: 'archived' }));
+    } catch (err) {
+      console.error('Failed to archive group', err);
+    }
+  };
+
+  const restoreGroup = async () => {
+    if (!group) return;
+    try {
+      await updateDoc(doc(db, 'adGroups', id), {
+        status: 'pending',
+        archivedAt: null,
+        archivedBy: null,
+      });
+      setGroup((p) => ({ ...p, status: 'pending' }));
+    } catch (err) {
+      console.error('Failed to restore group', err);
     }
   };
 
@@ -716,9 +747,23 @@ const AdGroupDetail = () => {
         <span className="hidden sm:inline">|</span>
         Status: <StatusBadge status={group.status} />
       </p>
+      {group.status === 'archived' && (
+        <p className="text-red-500 text-sm mb-2">This ad group is archived and read-only.</p>
+      )}
       <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center gap-2">
         {(userRole === 'admin' || userRole === 'agency') && (
           <>
+            {group.status === 'archived' ? (
+              <>
+                {userRole === 'admin' && (
+                  <button onClick={restoreGroup} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
+                    <FiRotateCcw />
+                    Restore
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
             <input
               id="upload-input"
               type="file"
@@ -769,6 +814,14 @@ const AdGroupDetail = () => {
               <FiShare2 />
               Share
             </button>
+            {userRole === 'admin' && (
+              <button onClick={archiveGroup} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
+                <FiArchive />
+                Archive
+              </button>
+            )}
+              </>
+            )}
           </>
         )}
       </div>

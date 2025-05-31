@@ -5,6 +5,11 @@ test('returns locked when currentStatus is locked', () => {
   expect(status).toBe('locked');
 });
 
+test('returns archived when currentStatus is archived', () => {
+  const status = computeGroupStatus([{ status: 'ready' }], 'archived');
+  expect(status).toBe('archived');
+});
+
 test('returns ready when any ad is ready', () => {
   const status = computeGroupStatus([{ status: 'ready' }, { status: 'approved' }], 'pending');
   expect(status).toBe('ready');

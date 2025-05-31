@@ -11,8 +11,10 @@ import {
   FiEdit,
   FiFileText,
   FiGrid,
+  FiArchive,
+  FiRotateCcw,
 } from 'react-icons/fi';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
 import deleteGroup from './utils/deleteGroup';
 import CreateAdGroup from './CreateAdGroup';
@@ -24,6 +26,7 @@ const AdminAdGroups = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewNote, setViewNote] = useState(null);
+  const [showArchived, setShowArchived] = useState(false);
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
 
@@ -45,7 +48,8 @@ const AdminAdGroups = () => {
     const fetchGroups = async () => {
       setLoading(true);
       try {
-        const q = query(collection(db, 'adGroups'));
+        const base = collection(db, 'adGroups');
+        const q = showArchived ? base : query(base, where('status', 'not-in', ['archived']));
         const snap = await getDocs(q);
         const list = await Promise.all(
           snap.docs.map(async (d) => {
@@ -89,7 +93,7 @@ const AdminAdGroups = () => {
     };
 
     fetchGroups();
-  }, []);
+  }, [showArchived]);
 
   const handleDeleteGroup = async (groupId, brandCode, groupName) => {
     if (!window.confirm('Delete this group?')) return;
@@ -101,12 +105,52 @@ const AdminAdGroups = () => {
     }
   };
 
+  const handleArchiveGroup = async (groupId) => {
+    if (!window.confirm('Archive this group?')) return;
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), {
+        status: 'archived',
+        archivedAt: serverTimestamp(),
+        archivedBy: auth.currentUser?.uid || null,
+      });
+      setGroups((prev) =>
+        prev.map((g) => (g.id === groupId ? { ...g, status: 'archived' } : g))
+      );
+    } catch (err) {
+      console.error('Failed to archive group', err);
+    }
+  };
+
+  const handleRestoreGroup = async (groupId) => {
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), {
+        status: 'pending',
+        archivedAt: null,
+        archivedBy: null,
+      });
+      setGroups((prev) =>
+        prev.map((g) => (g.id === groupId ? { ...g, status: 'pending' } : g))
+      );
+    } catch (err) {
+      console.error('Failed to restore group', err);
+    }
+  };
+
   return (
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Admin Ad Groups</h1>
 
       <div className="mb-8">
         <h2 className="text-xl mb-2">All Ad Groups</h2>
+        <label className="block mb-2 text-sm">
+          <input
+            type="checkbox"
+            className="mr-1"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+          />
+          Show archived
+        </label>
         {loading ? (
           <p>Loading groups...</p>
         ) : groups.length === 0 ? (
@@ -179,6 +223,25 @@ const AdminAdGroups = () => {
                         <FiLink />
                         <span className="text-[12px]">Share</span>
                       </button>
+                      {g.status === 'archived' ? (
+                        <button
+                          onClick={() => handleRestoreGroup(g.id)}
+                          className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+                          aria-label="Restore"
+                        >
+                          <FiRotateCcw />
+                          <span className="text-[12px]">Restore</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleArchiveGroup(g.id)}
+                          className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+                          aria-label="Archive"
+                        >
+                          <FiArchive />
+                          <span className="text-[12px]">Archive</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
                         className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2 btn-delete"
