@@ -213,16 +213,26 @@ const AdGroupDetail = () => {
       const info = parseAdFilename(a.filename || '');
       return (info.recipeCode || 'unknown') === recipeCode;
     });
-    const hero = pickHeroAsset(list);
-    if (!hero) return;
-    const histSnap = await getDocs(
-      query(
-        collection(db, 'adGroups', id, 'assets', hero.id, 'history'),
-        orderBy('updatedAt', 'asc')
-      )
+    if (list.length === 0) return;
+
+    const historyDocs = [];
+    await Promise.all(
+      list.map(async (asset) => {
+        const snap = await getDocs(
+          query(
+            collection(db, 'adGroups', id, 'assets', asset.id, 'history'),
+            orderBy('updatedAt', 'asc')
+          )
+        );
+        historyDocs.push(...snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      })
     );
-    const histData = histSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    const uids = Array.from(new Set(histData.map((h) => h.updatedBy).filter(Boolean)));
+    historyDocs.sort((a, b) =>
+      (a.updatedAt?.toMillis?.() || 0) - (b.updatedAt?.toMillis?.() || 0)
+    );
+    const uids = Array.from(
+      new Set(historyDocs.map((h) => h.updatedBy).filter(Boolean))
+    );
     const emails = {};
     await Promise.all(
       uids.map(async (uid) => {
@@ -234,7 +244,7 @@ const AdGroupDetail = () => {
         }
       })
     );
-    const hist = histData.map((h) => ({
+    const hist = historyDocs.map((h) => ({
       ...h,
       lastUpdatedAt: h.updatedAt,
       email: h.updatedBy ? emails[h.updatedBy] : 'N/A',

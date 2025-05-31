@@ -90,3 +90,29 @@ test('toggles asset status back to pending', async () => {
   await waitFor(() => expect(updateDoc).toHaveBeenCalled());
   expect(updateDoc).toHaveBeenCalledWith('adGroups/group1/assets/asset1', { status: 'pending' });
 });
+
+test('fetches history for all recipe assets', async () => {
+  onSnapshot.mockImplementation((col, cb) => {
+    cb({
+      docs: [
+        { id: 'asset1', data: () => ({ filename: '1_9x16.png', status: 'ready' }) },
+        { id: 'asset2', data: () => ({ filename: '1_3x5.png', status: 'ready' }) },
+      ],
+    });
+    return jest.fn();
+  });
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>
+  );
+
+  await screen.findByText('1_9x16.png');
+  const historyBtn = screen.getByLabelText('History');
+  fireEvent.click(historyBtn);
+
+  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(3));
+  expect(collectionMock).toHaveBeenCalledWith({}, 'adGroups', 'group1', 'assets', 'asset1', 'history');
+  expect(collectionMock).toHaveBeenCalledWith({}, 'adGroups', 'group1', 'assets', 'asset2', 'history');
+});
