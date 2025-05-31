@@ -195,6 +195,58 @@ test('request edit creates new version doc', async () => {
   );
 });
 
+test('request edit advances to next ad', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'asset2',
+        data: () => ({
+          firebaseUrl: 'url2',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+  );
+
+  fireEvent.click(screen.getByLabelText('Request Edit'));
+  fireEvent.change(screen.getByPlaceholderText('Add comments...'), {
+    target: { value: 'fix' },
+  });
+  fireEvent.click(screen.getByText('Submit'));
+
+  await waitFor(() => expect(addDoc).toHaveBeenCalled());
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
+  );
+});
+
 test('approving a revision resolves all related docs', async () => {
   const assetSnapshot = {
     docs: [
