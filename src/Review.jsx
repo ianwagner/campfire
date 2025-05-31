@@ -408,15 +408,14 @@ const Review = ({
       )
     : [];
 
-  // Preload up to 5 upcoming ads to keep swipes smooth
+  // Preload only the next ad to reduce unnecessary loading
   useEffect(() => {
-    for (let i = 1; i <= 5; i += 1) {
-      const next = reviewAds[currentIndex + i];
-      if (!next) break;
+    const next = reviewAds[currentIndex + 1];
+    if (next) {
       const img = new Image();
       img.src = next.adUrl || next.firebaseUrl;
     }
-  }, [currentIndex, reviewAds, isMobile]);
+  }, [currentIndex, reviewAds]);
 
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
@@ -904,7 +903,6 @@ const Review = ({
             />
           )}
           <div
-            key={currentIndex}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
