@@ -11,7 +11,7 @@ const ThemeToggle = ({ className = '' }) => {
       onClick={toggleTheme}
       className={`p-2 rounded ${className}`}
     >
-      {resolvedTheme === 'dark' ? <FiSun /> : <FiMoon />}
+      {resolvedTheme === 'dark' ? <FiMoon /> : <FiSun />}
     </button>
   );
 };

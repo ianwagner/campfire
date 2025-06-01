@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { signInAnonymously, signOut } from 'firebase/auth';
+import { signInAnonymously } from 'firebase/auth';
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+} from 'firebase/firestore';
+import { db } from './firebase/config';
 import { auth } from './firebase/config';
 import Review from './Review';
 import useDebugTrace from './utils/useDebugTrace';
@@ -10,7 +19,8 @@ import ThemeToggle from './ThemeToggle';
 const PublicReview = () => {
   const { groupId } = useParams();
   const query = new URLSearchParams(useLocation().search);
-  const agencyId = query.get('agency');
+  const agencyIdParam = query.get('agency');
+  const [agencyId, setAgencyId] = useState(agencyIdParam);
   const queryName = query.get('name');
   const queryEmail = query.get('email');
   const queryRole = query.get('role');
@@ -26,6 +36,27 @@ const PublicReview = () => {
   const [loading, setLoading] = useState(true);
   const didSignIn = useRef(false);
   useDebugTrace('PublicReview', { groupId, agencyId, reviewerName, reviewerRole });
+
+  useEffect(() => {
+    const loadAgency = async () => {
+      if (agencyId || !groupId) return;
+      try {
+        const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
+        if (!groupSnap.exists()) return;
+        const code = groupSnap.data().brandCode;
+        if (!code) return;
+        const q = query(collection(db, 'brands'), where('code', '==', code));
+        const bSnap = await getDocs(q);
+        if (!bSnap.empty) {
+          const data = bSnap.docs[0].data();
+          setAgencyId(data.agencyId || null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch agency', err);
+      }
+    };
+    loadAgency();
+  }, [agencyId, groupId]);
 
   useEffect(() => {
     if (!auth.currentUser && !didSignIn.current) {
