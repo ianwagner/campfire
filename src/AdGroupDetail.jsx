@@ -591,7 +591,7 @@ const AdGroupDetail = () => {
         doc(db, 'recipes', recipeCode),
         {
           history: arrayUnion({
-            timestamp: serverTimestamp(),
+            timestamp: Date.now(),
             status,
             user:
               auth.currentUser?.displayName ||
