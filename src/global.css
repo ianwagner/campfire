@@ -6,6 +6,8 @@
   :root {
     --accent-color: #ea580c;
     --accent-color-10: rgba(234, 88, 12, 0.1);
+    /* loading spinner should stay the default color */
+    --spinner-color: #ea580c;
     --dark-bg: #0D1116; /* gray-900 */
     --dark-text: #f3f4f6; /* gray-100 */
     --dark-sidebar-bg: #0D1116; /* gray-800 */
@@ -494,7 +496,7 @@ html.dark .loading-overlay {
 .loading-ring {
   width: 3rem;
   height: 3rem;
-  border: 4px solid var(--accent-color);
+  border: 4px solid var(--spinner-color);
   border-top-color: transparent;
   border-radius: 9999px;
   animation: loading-spin 1s linear infinite;
