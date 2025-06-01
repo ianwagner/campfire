@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { signInAnonymously } from 'firebase/auth';
+import React, { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { signInAnonymously } from "firebase/auth";
 import {
   doc,
   getDoc,
@@ -8,24 +8,26 @@ import {
   getDocs,
   query,
   where,
-} from 'firebase/firestore';
-import { auth, db } from './firebase/config';
-import Review from './Review';
-import LoadingOverlay from './LoadingOverlay';
-import ThemeToggle from './ThemeToggle';
+} from "firebase/firestore";
+import { auth, db } from "./firebase/config";
+import Review from "./Review";
+import LoadingOverlay from "./LoadingOverlay";
+import ThemeToggle from "./ThemeToggle";
 
 const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const { groupId } = useParams();
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
-  const [reviewerName, setReviewerName] = useState('');
-  const [tempName, setTempName] = useState('');
+  const [reviewerName, setReviewerName] = useState("");
+  const [tempName, setTempName] = useState("");
   const [agencyId, setAgencyId] = useState(null);
   const [groupPassword, setGroupPassword] = useState(null);
   const [visibility, setVisibility] = useState(null);
+  const [requireAuth, setRequireAuth] = useState(false);
+  const [requirePassword, setRequirePassword] = useState(false);
   const [accessBlocked, setAccessBlocked] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState("");
   const [passwordOk, setPasswordOk] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(!auth.currentUser);
 
   useEffect(() => {
@@ -36,7 +38,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
           setLoading(false);
         })
         .catch((err) => {
-          console.error('Anonymous sign-in failed', err);
+          console.error("Anonymous sign-in failed", err);
           setError(err.message);
           setLoading(false);
         });
@@ -44,14 +46,23 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }, [currentUser]);
 
   useEffect(() => {
-    if (!groupId) { setAgencyId(null); return; }
+    if (!groupId) {
+      setAgencyId(null);
+      return;
+    }
     const loadAgency = async () => {
       try {
-        const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
-        if (!groupSnap.exists()) { setAgencyId(null); return; }
+        const groupSnap = await getDoc(doc(db, "adGroups", groupId));
+        if (!groupSnap.exists()) {
+          setAgencyId(null);
+          return;
+        }
         const code = groupSnap.data().brandCode;
-        if (!code) { setAgencyId(null); return; }
-        const q = query(collection(db, 'brands'), where('code', '==', code));
+        if (!code) {
+          setAgencyId(null);
+          return;
+        }
+        const q = query(collection(db, "brands"), where("code", "==", code));
         const bSnap = await getDocs(q);
         if (!bSnap.empty) {
           setAgencyId(bSnap.docs[0].data().agencyId || null);
@@ -59,7 +70,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
           setAgencyId(null);
         }
       } catch (err) {
-        console.error('Failed to fetch agency', err);
+        console.error("Failed to fetch agency", err);
         setAgencyId(null);
       }
     };
@@ -75,17 +86,31 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     }
     const loadGroup = async () => {
       try {
-        const snap = await getDoc(doc(db, 'adGroups', groupId));
-        if (!snap.exists() || snap.data().visibility !== 'public') {
+        const snap = await getDoc(doc(db, "adGroups", groupId));
+        if (!snap.exists()) {
           setAccessBlocked(true);
+          setGroupPassword(null);
+          setVisibility(null);
+          setRequireAuth(false);
+          setRequirePassword(false);
+          return;
         }
-        setGroupPassword(snap.exists() ? snap.data().password || null : null);
-        setVisibility(snap.exists() ? snap.data().visibility || 'private' : null);
+        const data = snap.data();
+        setGroupPassword(data.password || null);
+        setVisibility(data.visibility || "private");
+        setRequireAuth(!!data.requireAuth);
+        setRequirePassword(!!data.requirePassword);
+        const blocked =
+          data.visibility !== "public" ||
+          (data.requireAuth && auth.currentUser?.isAnonymous);
+        setAccessBlocked(blocked);
       } catch (err) {
-        console.error('Failed to fetch group info', err);
+        console.error("Failed to fetch group info", err);
         setAccessBlocked(true);
         setGroupPassword(null);
         setVisibility(null);
+        setRequireAuth(false);
+        setRequirePassword(false);
       }
     };
     loadGroup();
@@ -94,30 +119,33 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   useEffect(() => {
     if (groupPassword === null || accessBlocked) return;
     const stored =
-      typeof localStorage !== 'undefined'
+      typeof localStorage !== "undefined"
         ? localStorage.getItem(`reviewPassword-${groupId}`)
         : null;
-    if (!groupPassword || stored === groupPassword) {
+    if (!requirePassword || stored === groupPassword) {
       setPasswordOk(true);
     }
-  }, [groupPassword, groupId, accessBlocked]);
+  }, [groupPassword, requirePassword, groupId, accessBlocked]);
 
   useEffect(() => {
     if (!currentUser) return;
     if (currentUser.isAnonymous) {
-      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('reviewerName') : '';
+      const stored =
+        typeof localStorage !== "undefined"
+          ? localStorage.getItem("reviewerName")
+          : "";
       if (stored) {
         setReviewerName(stored);
         setTempName(stored);
       }
     } else {
-      setReviewerName(currentUser.displayName || '');
+      setReviewerName(currentUser.displayName || "");
     }
   }, [currentUser]);
 
   useEffect(() => {
     if (currentUser?.isAnonymous && reviewerName) {
-      localStorage.setItem('reviewerName', reviewerName);
+      localStorage.setItem("reviewerName", reviewerName);
     }
   }, [reviewerName, currentUser]);
 
@@ -129,16 +157,18 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     return <LoadingOverlay />;
   }
 
-  if (currentUser?.isAnonymous && accessBlocked) {
+  if (accessBlocked) {
     return (
       <div className="p-4 text-center">This link is currently private.</div>
     );
   }
 
-  if (currentUser?.isAnonymous && groupPassword && !passwordOk) {
+  if (requirePassword && !passwordOk) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-2">
-        <label className="text-lg" htmlFor="reviewPassword">Group Password</label>
+        <label className="text-lg" htmlFor="reviewPassword">
+          Group Password
+        </label>
         <input
           id="reviewPassword"
           type="password"
@@ -152,7 +182,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
               localStorage.setItem(`reviewPassword-${groupId}`, groupPassword);
               setPasswordOk(true);
             } else {
-              window.alert('Incorrect password');
+              window.alert("Incorrect password");
             }
           }}
           className="btn-primary"
@@ -167,7 +197,9 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   if (currentUser?.isAnonymous && !reviewerName) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-2">
-        <label className="text-lg" htmlFor="reviewerName">Your Name</label>
+        <label className="text-lg" htmlFor="reviewerName">
+          Your Name
+        </label>
         <input
           id="reviewerName"
           type="text"
@@ -187,12 +219,14 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }
 
   const userObj = currentUser?.isAnonymous
-    ? { uid: currentUser.uid || 'public', email: 'public@campfire' }
+    ? { uid: currentUser.uid || "public", email: "public@campfire" }
     : currentUser;
 
   return (
     <div className="min-h-screen relative">
-      {currentUser?.isAnonymous && <ThemeToggle className="absolute top-2 right-2" />}
+      {currentUser?.isAnonymous && (
+        <ThemeToggle className="absolute top-2 right-2" />
+      )}
       <Review
         user={userObj}
         groupId={groupId}

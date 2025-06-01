@@ -1,15 +1,21 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from './firebase/config';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  doc,
+  getDoc,
+  collection,
+  addDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db, auth } from "./firebase/config";
 
 const CreateAdGroup = ({ showSidebar = true }) => {
-  const [name, setName] = useState('');
-  const [brand, setBrand] = useState('');
+  const [name, setName] = useState("");
+  const [brand, setBrand] = useState("");
   const [brandCodes, setBrandCodes] = useState([]);
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -20,7 +26,7 @@ const CreateAdGroup = ({ showSidebar = true }) => {
         return;
       }
       try {
-        const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
         const codes = snap.exists() ? snap.data().brandCodes : [];
         if (Array.isArray(codes)) {
           setBrandCodes(codes);
@@ -28,7 +34,7 @@ const CreateAdGroup = ({ showSidebar = true }) => {
           setBrandCodes([]);
         }
       } catch (err) {
-        console.error('Failed to fetch brand codes', err);
+        console.error("Failed to fetch brand codes", err);
         setBrandCodes([]);
       }
     };
@@ -40,24 +46,27 @@ const CreateAdGroup = ({ showSidebar = true }) => {
     setLoading(true);
     const groupName = name.trim() || `Group ${Date.now()}`;
     try {
-      const docRef = await addDoc(collection(db, 'adGroups'), {
+      const docRef = await addDoc(collection(db, "adGroups"), {
         name: groupName,
         brandCode: brand.trim(),
         notes: notes.trim(),
         uploadedBy: auth.currentUser?.uid || null,
         createdAt: serverTimestamp(),
-        status: 'pending',
+        status: "pending",
         reviewedCount: 0,
         approvedCount: 0,
         editCount: 0,
         rejectedCount: 0,
-        thumbnailUrl: '',
+        thumbnailUrl: "",
         lastUpdated: serverTimestamp(),
-        visibility: 'private',
+        visibility: "private",
+        requireAuth: false,
+        requirePassword: false,
+        password: "",
       });
       navigate(`/ad-group/${docRef.id}`);
     } catch (err) {
-      console.error('Failed to create ad group', err);
+      console.error("Failed to create ad group", err);
     } finally {
       setLoading(false);
     }
@@ -65,7 +74,7 @@ const CreateAdGroup = ({ showSidebar = true }) => {
 
   return (
     <div className="min-h-screen p-4 max-w-md mx-auto mt-10">
-        <h1 className="text-2xl mb-4">Create Ad Group</h1>
+      <h1 className="text-2xl mb-4">Create Ad Group</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block mb-1 text-sm font-medium">Group Name</label>
@@ -107,12 +116,8 @@ const CreateAdGroup = ({ showSidebar = true }) => {
             placeholder="Optional"
           />
         </div>
-        <button
-          type="submit"
-          className="w-full btn-primary"
-          disabled={loading}
-        >
-          {loading ? 'Creating...' : 'Create Group'}
+        <button type="submit" className="w-full btn-primary" disabled={loading}>
+          {loading ? "Creating..." : "Create Group"}
         </button>
       </form>
     </div>
