@@ -193,3 +193,15 @@ metadata so browsers can store them for one year. Both functions call
 ```
 
 which sets the appropriate `Cache-Control` header on the stored file.
+
+## Simple Ad Review Flow
+
+The `SimpleReview` component (`src/SimpleReview.jsx`) renders ads with minimal overhead. It preloads the next few images in memory (by default five) and only keeps a single image element in the DOM. Transitions are plain fade animations and no cache-busting query parameters are added to ad URLs.
+
+```jsx
+import SimpleReview from './src/SimpleReview.jsx';
+
+const ads = ['https://example.com/ad1.png', 'https://example.com/ad2.png'];
+
+<SimpleReview ads={ads} />;
+```
