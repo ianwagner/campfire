@@ -2,7 +2,7 @@ import React from 'react';
 import LoadingOverlay from "./LoadingOverlay";
 import { Navigate } from 'react-router-dom';
 
-const RoleGuard = ({ loading, userRole, requiredRole, children }) => {
+const RoleGuard = ({ loading, userRole, requiredRole, isAdmin = false, children }) => {
   if (loading) {
     return <LoadingOverlay />;
   }
@@ -11,12 +11,13 @@ const RoleGuard = ({ loading, userRole, requiredRole, children }) => {
     ? requiredRole
     : [requiredRole];
 
-  if (
-    requiredRole &&
-    userRole &&
-    !allowedRoles.includes(userRole)
-  ) {
-    return <Navigate to={`/dashboard/${userRole}`} replace />;
+  const roleAllowed =
+    (userRole && allowedRoles.includes(userRole)) ||
+    (allowedRoles.includes('admin') && isAdmin);
+
+  if (requiredRole && !roleAllowed) {
+    const redirectRole = userRole || (isAdmin ? 'admin' : '');
+    return <Navigate to={`/dashboard/${redirectRole}`} replace />;
   }
 
   return <>{children}</>;

@@ -30,6 +30,7 @@ import AdminAccountForm from "./AdminAccountForm";
 import AdminAccounts from "./AdminAccounts";
 import RoleGuard from "./RoleGuard";
 import useUserRole from "./useUserRole";
+import useAdminClaim from "./useAdminClaim";
 import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
 import ManageMfa from "./ManageMfa";
@@ -68,7 +69,13 @@ const App = () => {
     };
   }, []);
 
-  const { role, brandCodes, agencyId, loading: roleLoading } = useUserRole(user?.uid);
+  const {
+    role: dbRole,
+    brandCodes,
+    agencyId,
+    loading: roleLoading,
+  } = useUserRole(user?.uid);
+  const { isAdmin, loading: adminLoading } = useAdminClaim();
   const { settings, loading: settingsLoading } = useSiteSettings(!agencyId);
   const { agency, loading: agencyLoading } = useAgencyTheme(agencyId);
   const [logoLoaded, setLogoLoaded] = React.useState(false);
@@ -86,7 +93,13 @@ const App = () => {
     img.src = url;
   }, [agency.logoUrl, settings.logoUrl, agencyId]);
 
-  const ready = !loading && !roleLoading && !settingsLoading && !agencyLoading && logoLoaded;
+  const ready =
+    !loading &&
+    !roleLoading &&
+    !adminLoading &&
+    !settingsLoading &&
+    !agencyLoading &&
+    logoLoaded;
 
   React.useEffect(() => {
     if (ready) {
@@ -100,6 +113,7 @@ const App = () => {
   }
 
   const signedIn = user && !user.isAnonymous;
+  const role = isAdmin ? 'admin' : dbRole;
   const defaultPath = signedIn
     ? role === 'agency'
       ? `/agency/dashboard?agencyId=${agencyId}`
@@ -118,7 +132,9 @@ const App = () => {
       <ThemeWatcher />
       <RequireMfa user={user} role={role}>
         <div className="min-h-screen flex">
-          {signedIn && <RoleSidebar role={role} agencyId={agencyId} />}
+          {signedIn && (
+            <RoleSidebar role={role} isAdmin={isAdmin} agencyId={agencyId} />
+          )}
           <div
             className={`flex flex-col flex-grow box-border min-w-0 max-w-full ${
               signedIn ? 'md:pl-[250px]' : ''
@@ -162,7 +178,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="designer"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <DesignerDashboard />
@@ -178,7 +194,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="designer"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <DesignerNotifications />
@@ -194,7 +210,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="designer"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <DesignerAccountSettings />
@@ -210,7 +226,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="admin"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AdminAccounts />
@@ -226,7 +242,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="admin"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AdminAccountForm />
@@ -242,7 +258,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="client"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <ClientDashboard user={user} brandCodes={brandCodes} />
@@ -258,7 +274,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="admin"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AdminDashboard />
@@ -274,7 +290,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="admin"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AdminAdGroups />
@@ -290,7 +306,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="agency"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AgencyDashboard />
@@ -306,7 +322,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="agency"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AgencyThemeSettings />
@@ -322,7 +338,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="agency"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AgencyBrands />
@@ -338,7 +354,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="agency"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AgencyAccountSettings />
@@ -354,7 +370,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="agency"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AgencyAdGroups />
@@ -376,7 +392,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="client"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <Request />
@@ -392,7 +408,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="client"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <BrandSetup />
@@ -408,7 +424,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="client"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AccountSettings />
@@ -424,7 +440,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole={["admin", "client", "agency"]}
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <ManageMfa user={user} role={role} />
@@ -440,7 +456,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="designer"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <CreateAdGroup />
@@ -456,7 +472,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole={["designer", "admin", "agency", "client"]}
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AdGroupDetail />
@@ -472,7 +488,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="admin"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AdminBrands />
@@ -488,7 +504,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="admin"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <SiteSettings />
@@ -504,7 +520,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="admin"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AdminAccountSettings />
@@ -520,7 +536,7 @@ const App = () => {
                 user ? (
                   <RoleGuard
                     requiredRole="admin"
-                    userRole={role}
+                    userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AdminBrandForm />
