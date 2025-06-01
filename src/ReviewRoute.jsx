@@ -8,12 +8,13 @@ import PublicReview from './PublicReview';
 
 const ReviewRoute = () => {
   const user = auth.currentUser;
-  const { role, brandCodes, loading } = useUserRole(user?.uid);
+  const isAnonymous = user?.isAnonymous;
+  const { role, brandCodes, loading } = useUserRole(isAnonymous ? null : user?.uid);
   const query = new URLSearchParams(useLocation().search);
 
   if (loading) return <LoadingOverlay />;
 
-  if (user) {
+  if (user && !isAnonymous) {
     return (
       <ClientReview user={user} brandCodes={brandCodes} userRole={role} />
     );
