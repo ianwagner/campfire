@@ -17,6 +17,7 @@ const initial = {
   comments: {},
   unresolved: {},
   reviewTimes: {},
+  statusTotals: { pending: 0, ready: 0, approved: 0, rejected: 0, edit_requested: 0 },
 };
 
 export default function useAdminDashboardData(range) {
@@ -37,6 +38,7 @@ export default function useAdminDashboardData(range) {
       const comments = {};
       const unresolved = {};
       const reviewTimes = {};
+      const statusTotals = { pending: 0, ready: 0, approved: 0, rejected: 0, edit_requested: 0 };
       const groupCache = {};
       const userCache = {};
 
@@ -45,6 +47,7 @@ export default function useAdminDashboardData(range) {
       );
       for (const d of assetSnap.docs) {
         const a = d.data();
+        if (statusTotals[a.status] !== undefined) statusTotals[a.status] += 1;
         const brand = a.brandCode || 'Unknown';
         const statusKey = a.status === 'edit_requested' ? 'edit requested' : a.status;
         if (!statusByBrand[brand])
@@ -133,6 +136,7 @@ export default function useAdminDashboardData(range) {
         comments,
         unresolved,
         reviewTimes,
+        statusTotals,
       });
     };
     fetchData();
