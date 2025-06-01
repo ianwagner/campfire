@@ -56,6 +56,8 @@ const Review = ({
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [askContinue, setAskContinue] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [firstAdLoaded, setFirstAdLoaded] = useState(false);
+  const [logoReady, setLogoReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
   const [editing, setEditing] = useState(false);
@@ -317,6 +319,43 @@ const Review = ({
 
     fetchAds();
   }, [user, brandCodes, groupId]);
+
+  // ensure first ad and agency logo are loaded before removing overlay
+  useEffect(() => {
+    if (reviewAds.length === 0) {
+      setFirstAdLoaded(true);
+      return;
+    }
+    const first = reviewAds[0];
+    const url =
+      typeof first === 'object' ? first.adUrl || first.firebaseUrl : first;
+    if (!url) {
+      setFirstAdLoaded(true);
+      return;
+    }
+    setFirstAdLoaded(false);
+    const img = new Image();
+    img.onload = () => setFirstAdLoaded(true);
+    img.onerror = () => setFirstAdLoaded(true);
+    img.src = url;
+  }, [reviewAds]);
+
+  useEffect(() => {
+    if (!agencyId) {
+      setLogoReady(true);
+      return;
+    }
+    const url = agency.logoUrl || DEFAULT_LOGO_URL;
+    if (!url) {
+      setLogoReady(true);
+      return;
+    }
+    setLogoReady(false);
+    const img = new Image();
+    img.onload = () => setLogoReady(true);
+    img.onerror = () => setLogoReady(true);
+    img.src = url;
+  }, [agencyId, agency.logoUrl]);
 
   const currentAd = reviewAds[currentIndex];
   const adUrl =
@@ -718,7 +757,7 @@ const Review = ({
     }
   };
 
-  if (loading) {
+  if (loading || !firstAdLoaded || !logoReady) {
     return <LoadingOverlay />;
   }
 
@@ -743,6 +782,7 @@ const Review = ({
               alt={`${agency.name || 'Agency'} logo`}
               loading="eager"
               cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+              onLoad={() => setLogoReady(true)}
               className="mb-2 max-h-16 w-auto"
             />
           )}
@@ -823,6 +863,7 @@ const Review = ({
               alt={`${agency.name || 'Agency'} logo`}
               loading="eager"
               cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+              onLoad={() => setLogoReady(true)}
               className="mb-2 max-h-16 w-auto"
             />
           )}
@@ -950,6 +991,7 @@ const Review = ({
               alt={`${agency.name || 'Agency'} logo`}
               loading="eager"
               cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+              onLoad={() => setLogoReady(true)}
               className="mb-2 max-h-16 w-auto"
             />
           )}
@@ -1050,6 +1092,7 @@ const Review = ({
     alt="Ad"
     loading="eager"
     cacheKey={adUrl}
+    onLoad={() => setFirstAdLoaded(true)}
     style={
       isMobile && showSizes
         ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
