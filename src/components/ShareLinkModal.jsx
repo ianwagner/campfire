@@ -6,8 +6,8 @@ import generatePassword from "../utils/generatePassword";
 const ShareLinkModal = ({
   groupId,
   url: propUrl,
-  visibility = "private",
-  requireAuth = false,
+  visibility = "public",
+  requireAuth = true,
   requirePassword = false,
   password = "",
   onClose,
