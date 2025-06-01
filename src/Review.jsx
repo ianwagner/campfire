@@ -77,6 +77,8 @@ const Review = ({
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
   const advancedRef = useRef(false);
+  const firstAdUrlRef = useRef(null);
+  const logoUrlRef = useRef(null);
   const [groupStatus, setGroupStatus] = useState(null);
   const { agency } = useAgencyTheme(agencyId);
   useDebugTrace('Review', {
@@ -330,6 +332,7 @@ const Review = ({
   useEffect(() => {
     if (reviewAds.length === 0) {
       setFirstAdLoaded(true);
+      firstAdUrlRef.current = null;
       return;
     }
     const first = reviewAds[0];
@@ -337,8 +340,13 @@ const Review = ({
       typeof first === 'object' ? first.adUrl || first.firebaseUrl : first;
     if (!url) {
       setFirstAdLoaded(true);
+      firstAdUrlRef.current = null;
       return;
     }
+    if (firstAdUrlRef.current === url) {
+      return;
+    }
+    firstAdUrlRef.current = url;
     setFirstAdLoaded(false);
     const img = new Image();
     img.onload = () => setFirstAdLoaded(true);
@@ -349,13 +357,19 @@ const Review = ({
   useEffect(() => {
     if (!agencyId) {
       setLogoReady(true);
+      logoUrlRef.current = null;
       return;
     }
     const url = agency.logoUrl || DEFAULT_LOGO_URL;
     if (!url) {
       setLogoReady(true);
+      logoUrlRef.current = null;
       return;
     }
+    if (logoUrlRef.current === url) {
+      return;
+    }
+    logoUrlRef.current = url;
     setLogoReady(false);
     const img = new Image();
     img.onload = () => setLogoReady(true);
