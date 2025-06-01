@@ -206,6 +206,12 @@ const ads = ['https://example.com/ad1.png', 'https://example.com/ad2.png'];
 <SimpleReview ads={ads} />;
 ```
 
+## Review Link Access
+
+New ad groups automatically expose a review link that only authenticated users
+can access. In the share dialog you can change the access level to "Anyone with
+the link" which then lets you require a password for extra security.
+
 ## Password Protected Review Links
 
 Ad group review links can be secured with a password. When sharing a link from
