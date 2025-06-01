@@ -380,11 +380,6 @@ const Review = ({
       ? ((currentIndex + (animating ? 1 : 0)) / reviewAds.length) * 100
       : 0;
 
-  const nextAd = reviewAds[currentIndex + 1];
-  const nextAdUrl =
-    nextAd && typeof nextAd === 'object'
-      ? nextAd.adUrl || nextAd.firebaseUrl
-      : nextAd;
 
   const openVersionModal = () => {
     if (!currentAd || !currentAd.parentAdId) return;
@@ -1023,15 +1018,6 @@ const Review = ({
           </button>
         )}
         <div className="flex justify-center relative">
-          {animating && nextAdUrl && !showSizes && (
-            <OptimizedImage
-              pngUrl={nextAdUrl}
-              webpUrl={nextAdUrl.replace(/\.png$/, '.webp')}
-              alt="Next ad"
-              loading="eager"
-              className="absolute top-0 left-1/2 -translate-x-1/2 z-0 max-w-[90%] max-h-[72vh] mx-auto rounded shadow pointer-events-none"
-            />
-          )}
           <div
             onTouchStart={!isSafari ? handleTouchStart : undefined}
             onTouchMove={!isSafari ? handleTouchMove : undefined}
