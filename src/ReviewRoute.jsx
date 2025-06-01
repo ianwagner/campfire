@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import ClientReview from './ClientReview';
-import PublicReview from './PublicReview';
+import GuestReview from './GuestReview';
 
 const ReviewRoute = () => {
   const user = auth.currentUser;
@@ -21,7 +21,7 @@ const ReviewRoute = () => {
   }
 
   const agencyId = query.get('agency');
-  return <PublicReview key={agencyId} />;
+  return <GuestReview key={agencyId} />;
 };
 
 export default ReviewRoute;

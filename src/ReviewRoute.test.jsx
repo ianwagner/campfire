@@ -12,10 +12,10 @@ const useUserRole = jest.fn();
 jest.mock('./useUserRole', () => (...args) => useUserRole(...args));
 
 const ClientReview = jest.fn(() => <div>ClientReview</div>);
-const PublicReview = jest.fn(() => <div>PublicReview</div>);
+const GuestReview = jest.fn(() => <div>GuestReview</div>);
 
 jest.mock('./ClientReview', () => (props) => ClientReview(props));
-jest.mock('./PublicReview', () => (props) => PublicReview(props));
+jest.mock('./GuestReview', () => (props) => GuestReview(props));
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -36,11 +36,11 @@ test('renders ClientReview for signed-in user', () => {
     </MemoryRouter>
   );
   expect(ClientReview).toHaveBeenCalled();
-  expect(PublicReview).not.toHaveBeenCalled();
+  expect(GuestReview).not.toHaveBeenCalled();
   expect(useUserRole).toHaveBeenCalledWith('u1');
 });
 
-test('renders PublicReview for anonymous user', () => {
+test('renders GuestReview for anonymous user', () => {
   auth.currentUser = { uid: 'anon', isAnonymous: true };
   useUserRole.mockReturnValue({ role: null, brandCodes: [], loading: false });
   render(
@@ -48,12 +48,12 @@ test('renders PublicReview for anonymous user', () => {
       <ReviewRoute />
     </MemoryRouter>
   );
-  expect(PublicReview).toHaveBeenCalled();
+  expect(GuestReview).toHaveBeenCalled();
   expect(ClientReview).not.toHaveBeenCalled();
   expect(useUserRole).toHaveBeenCalledWith(null);
 });
 
-test('renders PublicReview when not signed in', () => {
+test('renders GuestReview when not signed in', () => {
   auth.currentUser = null;
   useUserRole.mockReturnValue({ role: null, brandCodes: [], loading: false });
   render(
@@ -61,7 +61,7 @@ test('renders PublicReview when not signed in', () => {
       <ReviewRoute />
     </MemoryRouter>
   );
-  expect(PublicReview).toHaveBeenCalled();
+  expect(GuestReview).toHaveBeenCalled();
   expect(ClientReview).not.toHaveBeenCalled();
   expect(useUserRole).toHaveBeenCalledWith(undefined);
 });
