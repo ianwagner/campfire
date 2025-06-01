@@ -5,7 +5,7 @@
 @layer base {
   :root {
     --accent-color: #ea580c;
-    --accent-color-10: rgba(234, 88, 12, 0.1);
+    --accent-color-10: rgba(234, 88, 12, 0.2);
     /* loading spinner should stay the default color */
     --spinner-color: #ea580c;
     --dark-bg: #0D1116; /* gray-900 */
@@ -30,14 +30,14 @@
     --duration-fast: 0.4s;
     --duration-medium: 0.5s;
     --approve-color: #00AB47;
-    --approve-color-10: rgba(0, 171, 71, 0.1);
+    --approve-color-10: rgba(0, 171, 71, 0.2);
     --reject-color: #FF5C5C;
-    --reject-color-10: rgba(255, 92, 92, 0.1);
+    --reject-color-10: rgba(255, 92, 92, 0.2);
     --edit-color: #FFB700;
-    --edit-color-10: rgba(255, 183, 0, 0.1);
+    --edit-color-10: rgba(255, 183, 0, 0.2);
     --approved-color: var(--approve-color);
     --pending-color: #666666;
-    --pending-color-10: rgba(102, 102, 102, 0.1);
+    --pending-color-10: rgba(102, 102, 102, 0.2);
     --rejected-color: var(--reject-color);
     /* table layout variables */
     --table-border-color: #e5e7eb; /* gray-200 */
