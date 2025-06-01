@@ -5,7 +5,7 @@ import { auth } from '../firebase/config';
 import useSiteSettings from '../useSiteSettings';
 import debugLog from '../utils/debugLog';
 import { DEFAULT_LOGO_URL } from '../constants';
-import OptimizedImage from './OptimizedImage.jsx';
+import { OptimizedImage } from '@studio-tak/shared-ui';
 
 /**
  * Common sidebar layout.

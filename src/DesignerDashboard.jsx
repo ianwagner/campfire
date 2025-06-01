@@ -14,7 +14,7 @@ import deleteGroup from './utils/deleteGroup';
 import CreateAdGroup from './CreateAdGroup';
 import useUserRole from './useUserRole';
 import generatePassword from './utils/generatePassword';
-import ShareLinkModal from './components/ShareLinkModal.jsx';
+import { ShareLinkModal } from '@studio-tak/shared-ui';
 
 const DesignerDashboard = () => {
   const [groups, setGroups] = useState([]);

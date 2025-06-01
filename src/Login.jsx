@@ -7,7 +7,7 @@ import {
   PhoneMultiFactorGenerator,
 } from 'firebase/auth';
 import { auth } from './firebase/config';
-import OptimizedImage from './components/OptimizedImage.jsx';
+import { OptimizedImage } from '@studio-tak/shared-ui';
 import debugLog from './utils/debugLog';
 
 const Login = ({ onLogin }) => {

@@ -1,6 +1,6 @@
 module.exports = {
   darkMode: 'class',
-  content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}', './packages/shared-ui/**/*.{js,jsx,ts,tsx}'],
   theme: {
     fontFamily: {
       sans: ['var(--font-primary)'],

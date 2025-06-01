@@ -13,7 +13,7 @@ import { auth, db } from './firebase/config';
 import useUserRole from './useUserRole';
 import deleteGroup from './utils/deleteGroup';
 import generatePassword from './utils/generatePassword';
-import ShareLinkModal from './components/ShareLinkModal.jsx';
+import { ShareLinkModal } from '@studio-tak/shared-ui';
 
 const AgencyAdGroups = () => {
   const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
