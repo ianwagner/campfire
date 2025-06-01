@@ -19,17 +19,40 @@ const AdminDashboard = () => {
 
   const data = useAdminDashboardData(range);
 
-  const renderOverview = () => (
+  const renderOverview = () => {
+    const totals = data.statusTotals || {};
+    return (
+      <div className="flex flex-wrap justify-center gap-4">
+        <div className="stat-card status-pending">
+          <p className="stat-card-title">Pending</p>
+          <p className="stat-card-value">{totals.pending || 0}</p>
+        </div>
+        <div className="stat-card status-ready">
+          <p className="stat-card-title">Ready</p>
+          <p className="stat-card-value">{totals.ready || 0}</p>
+        </div>
+        <div className="stat-card status-approved">
+          <p className="stat-card-title">Approved</p>
+          <p className="stat-card-value">{totals.approved || 0}</p>
+        </div>
+        <div className="stat-card status-rejected">
+          <p className="stat-card-title">Rejected</p>
+          <p className="stat-card-value">{totals.rejected || 0}</p>
+        </div>
+        <div className="stat-card status-edit_requested">
+          <p className="stat-card-title">Edit</p>
+          <p className="stat-card-value">{totals.edit_requested || 0}</p>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBrand = () => (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       <AdStatusByBrandChart data={data.statusByBrand} />
       <AssetUploadsChart data={data.uploads} />
       <ReviewOutcomesChart data={data.reviewOutcomes} />
       <UnresolvedEditRequestsCount data={data.unresolved} />
-    </div>
-  );
-
-  const renderBrand = () => (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       <AverageReviewTimeChart data={data.reviewTimes} />
       <CommentFrequencyHeatmap data={data.comments} />
     </div>
