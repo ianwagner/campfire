@@ -8,7 +8,6 @@ import {
 } from 'firebase/auth';
 import { auth } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
-import { DEFAULT_LOGO_URL } from './constants';
 import debugLog from './utils/debugLog';
 
 const Login = ({ onLogin }) => {
@@ -72,12 +71,13 @@ const Login = ({ onLogin }) => {
   return (
     <div className="flex flex-col justify-center items-center min-h-screen bg-gray-100 dark:bg-[var(--dark-bg)]">
       <OptimizedImage
-        pngUrl={DEFAULT_LOGO_URL}
-        alt="Studio Tak logo"
+        pngUrl="https://firebasestorage.googleapis.com/v0/b/tak-campfire-main/o/Campfire%2Fsite-logo%2Flogo_new.webp?alt=media&token=5d7b6b20-9979-4d66-a098-97732573a7a2"
+        alt="Campfire logo"
         loading="eager"
-        cacheKey={DEFAULT_LOGO_URL}
-        className="mb-4 max-h-24 w-auto"
+        cacheKey="campfire-login-logo"
+        className="mb-2 max-h-16 w-auto"
       />
+      <div className="mb-4 text-xl font-semibold">CAMPFIRE</div>
       {!mfaResolver ? (
         <form onSubmit={handleSubmit} className="bg-white dark:bg-[var(--dark-sidebar-bg)] p-6 rounded shadow-md w-80">
           <h1 className="text-2xl mb-4 text-center">Login</h1>
