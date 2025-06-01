@@ -144,7 +144,7 @@ const DesignerDashboard = () => {
                         aria-label="View Details"
                       >
                         <FiEye />
-                        <span className="ml-1 text-[12px]">Details</span>
+                        <span className="ml-1 text-[14px]">Details</span>
                       </Link>
                       <button
                         onClick={() => handleShare(g.id)}
@@ -152,7 +152,7 @@ const DesignerDashboard = () => {
                         aria-label="Share Link"
                       >
                         <FiLink />
-                        <span className="ml-1 text-[12px]">Share</span>
+                        <span className="ml-1 text-[14px]">Share</span>
                       </button>
                       <button
                         onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}

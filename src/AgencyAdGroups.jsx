@@ -112,7 +112,7 @@ const AgencyAdGroups = () => {
                       aria-label="View Details"
                     >
                       <FiEye />
-                      <span className="ml-1 text-[12px]">Details</span>
+                      <span className="ml-1 text-[14px]">Details</span>
                     </Link>
                     <Link
                       to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
@@ -120,7 +120,7 @@ const AgencyAdGroups = () => {
                       aria-label="Review"
                     >
                       <FiCheckCircle />
-                      <span className="ml-1 text-[12px]">Review</span>
+                      <span className="ml-1 text-[14px]">Review</span>
                     </Link>
                     <button
                       onClick={() => handleShare(g.id, agencyId)}
@@ -128,7 +128,7 @@ const AgencyAdGroups = () => {
                       aria-label="Share Link"
                     >
                       <FiLink />
-                      <span className="ml-1 text-[12px]">Share</span>
+                      <span className="ml-1 text-[14px]">Share</span>
                     </button>
                     <button
                       onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}

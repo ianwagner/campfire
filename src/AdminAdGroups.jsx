@@ -164,7 +164,7 @@ const AdminAdGroups = () => {
           <p>No ad groups found.</p>
         ) : (
           <div className="overflow-x-auto table-container">
-          <table className="ad-table min-w-max text-[12px]">
+          <table className="ad-table min-w-max text-[14px]">
             <thead>
               <tr>
                 <th>Group Name</th>
@@ -212,7 +212,7 @@ const AdminAdGroups = () => {
                         aria-label="View Details"
                       >
                         <FiEye />
-                        <span className="text-[12px]">Details</span>
+                        <span className="text-[14px]">Details</span>
                       </Link>
                       <Link
                         to={`/review/${g.id}`}
@@ -220,7 +220,7 @@ const AdminAdGroups = () => {
                         aria-label="Review"
                       >
                         <FiCheckCircle />
-                        <span className="text-[12px]">Review</span>
+                        <span className="text-[14px]">Review</span>
                       </Link>
                       <button
                         onClick={() => handleShare(g.id)}
@@ -228,7 +228,7 @@ const AdminAdGroups = () => {
                         aria-label="Share Link"
                       >
                         <FiLink />
-                        <span className="text-[12px]">Share</span>
+                        <span className="text-[14px]">Share</span>
                       </button>
                       {g.status === 'archived' ? (
                         <button
@@ -237,7 +237,7 @@ const AdminAdGroups = () => {
                           aria-label="Restore"
                         >
                           <FiRotateCcw />
-                          <span className="text-[12px]">Restore</span>
+                          <span className="text-[14px]">Restore</span>
                         </button>
                       ) : (
                         <button
@@ -246,7 +246,7 @@ const AdminAdGroups = () => {
                           aria-label="Archive"
                         >
                           <FiArchive />
-                          <span className="text-[12px]">Archive</span>
+                          <span className="text-[14px]">Archive</span>
                         </button>
                       )}
                       <button
