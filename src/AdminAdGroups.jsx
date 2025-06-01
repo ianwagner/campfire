@@ -21,6 +21,8 @@ import CreateAdGroup from './CreateAdGroup';
 import { auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import parseAdFilename from './utils/parseAdFilename';
+import generatePassword from './utils/generatePassword';
+import ShareLinkModal from './components/ShareLinkModal.jsx';
 
 const AdminAdGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -30,17 +32,23 @@ const AdminAdGroups = () => {
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
 
-  const copyLink = (id) => {
+  const [shareInfo, setShareInfo] = useState(null);
+
+  const handleShare = async (id) => {
     let url = `${window.location.origin}/review/${id}`;
     const params = new URLSearchParams();
     if (user?.email) params.set('email', user.email);
     if (role) params.set('role', role);
     const str = params.toString();
     if (str) url += `?${str}`;
-    navigator.clipboard
-      .writeText(url)
-      .then(() => window.alert('Link copied to clipboard'))
-      .catch((err) => console.error('Failed to copy link', err));
+
+    const password = generatePassword();
+    try {
+      await updateDoc(doc(db, 'adGroups', id), { password });
+    } catch (err) {
+      console.error('Failed to set password', err);
+    }
+    setShareInfo({ url, password });
   };
 
   useEffect(() => {
@@ -215,7 +223,7 @@ const AdminAdGroups = () => {
                         <span className="text-[12px]">Review</span>
                       </Link>
                       <button
-                        onClick={() => copyLink(g.id)}
+                        onClick={() => handleShare(g.id)}
                         className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
                         aria-label="Share Link"
                       >
@@ -274,6 +282,13 @@ const AdminAdGroups = () => {
             </button>
           </div>
         </div>
+      )}
+      {shareInfo && (
+        <ShareLinkModal
+          url={shareInfo.url}
+          password={shareInfo.password}
+          onClose={() => setShareInfo(null)}
+        />
       )}
     </div>
   );

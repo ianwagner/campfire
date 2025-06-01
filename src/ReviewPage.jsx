@@ -20,6 +20,9 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const [reviewerName, setReviewerName] = useState('');
   const [tempName, setTempName] = useState('');
   const [agencyId, setAgencyId] = useState(null);
+  const [groupPassword, setGroupPassword] = useState(null);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordOk, setPasswordOk] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(!auth.currentUser);
 
@@ -62,6 +65,28 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }, [groupId]);
 
   useEffect(() => {
+    if (!groupId) { setGroupPassword(null); return; }
+    const loadPassword = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'adGroups', groupId));
+        setGroupPassword(snap.exists() ? snap.data().password || null : null);
+      } catch (err) {
+        console.error('Failed to fetch password', err);
+        setGroupPassword(null);
+      }
+    };
+    loadPassword();
+  }, [groupId]);
+
+  useEffect(() => {
+    if (groupPassword === null) return;
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(`reviewPassword-${groupId}`) : null;
+    if (!groupPassword || stored === groupPassword) {
+      setPasswordOk(true);
+    }
+  }, [groupPassword, groupId]);
+
+  useEffect(() => {
     if (!currentUser) return;
     if (currentUser.isAnonymous) {
       const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('reviewerName') : '';
@@ -86,6 +111,35 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
 
   if (loading) {
     return <LoadingOverlay />;
+  }
+
+  if (currentUser?.isAnonymous && groupPassword && !passwordOk) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-2">
+        <label className="text-lg" htmlFor="reviewPassword">Group Password</label>
+        <input
+          id="reviewPassword"
+          type="password"
+          value={passwordInput}
+          onChange={(e) => setPasswordInput(e.target.value)}
+          className="w-full max-w-xs p-2 border rounded"
+        />
+        <button
+          onClick={() => {
+            if (passwordInput === groupPassword) {
+              localStorage.setItem(`reviewPassword-${groupId}`, groupPassword);
+              setPasswordOk(true);
+            } else {
+              window.alert('Incorrect password');
+            }
+          }}
+          className="btn-primary"
+          disabled={!passwordInput.trim()}
+        >
+          Enter
+        </button>
+      </div>
+    );
   }
 
   if (currentUser?.isAnonymous && !reviewerName) {

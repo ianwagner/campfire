@@ -6,11 +6,15 @@ import {
   getDocs,
   query,
   where,
+  updateDoc,
+  doc,
 } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 import deleteGroup from './utils/deleteGroup';
 import CreateAdGroup from './CreateAdGroup';
 import useUserRole from './useUserRole';
+import generatePassword from './utils/generatePassword';
+import ShareLinkModal from './components/ShareLinkModal.jsx';
 
 const DesignerDashboard = () => {
   const [groups, setGroups] = useState([]);
@@ -19,17 +23,23 @@ const DesignerDashboard = () => {
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
 
-  const copyLink = (id) => {
+  const [shareInfo, setShareInfo] = useState(null);
+
+  const handleShare = async (id) => {
     let url = `${window.location.origin}/review/${id}`;
     const params = new URLSearchParams();
     if (user?.email) params.set('email', user.email);
     if (role) params.set('role', role);
     const str = params.toString();
     if (str) url += `?${str}`;
-    navigator.clipboard
-      .writeText(url)
-      .then(() => window.alert('Link copied to clipboard'))
-      .catch((err) => console.error('Failed to copy link', err));
+
+    const password = generatePassword();
+    try {
+      await updateDoc(doc(db, 'adGroups', id), { password });
+    } catch (err) {
+      console.error('Failed to set password', err);
+    }
+    setShareInfo({ url, password });
   };
 
   useEffect(() => {
@@ -137,7 +147,7 @@ const DesignerDashboard = () => {
                         <span className="ml-1 text-[12px]">Details</span>
                       </Link>
                       <button
-                        onClick={() => copyLink(g.id)}
+                        onClick={() => handleShare(g.id)}
                         className="flex items-center ml-2 text-gray-700 underline"
                         aria-label="Share Link"
                       >
@@ -174,6 +184,13 @@ const DesignerDashboard = () => {
             </button>
           </div>
         </div>
+      )}
+      {shareInfo && (
+        <ShareLinkModal
+          url={shareInfo.url}
+          password={shareInfo.password}
+          onClose={() => setShareInfo(null)}
+        />
       )}
     </div>
   );

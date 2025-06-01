@@ -38,6 +38,8 @@ import { deleteObject, ref } from 'firebase/storage';
 import { auth, db, storage } from './firebase/config';
 import useUserRole from './useUserRole';
 import { uploadFile } from './uploadFile';
+import generatePassword from './utils/generatePassword';
+import ShareLinkModal from './components/ShareLinkModal.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import StatusBadge from './components/StatusBadge.jsx';
 import LoadingOverlay from "./LoadingOverlay";
@@ -651,12 +653,17 @@ const AdGroupDetail = () => {
     }
   };
 
-  const shareLink = () => {
+  const [shareInfo, setShareInfo] = useState(null);
+
+  const handleShare = async () => {
     const url = `${window.location.origin}/review/${id}`;
-    navigator.clipboard
-      .writeText(url)
-      .then(() => window.alert('Link copied to clipboard'))
-      .catch((err) => console.error('Failed to copy link', err));
+    const password = generatePassword();
+    try {
+      await updateDoc(doc(db, 'adGroups', id), { password });
+    } catch (err) {
+      console.error('Failed to set password', err);
+    }
+    setShareInfo({ url, password });
   };
 
   const sanitize = (str) =>
@@ -1130,7 +1137,7 @@ const AdGroupDetail = () => {
               <FiBookOpen />
               Review
             </Link>
-            <button onClick={shareLink} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
+            <button onClick={handleShare} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
               <FiShare2 />
               Share
             </button>
@@ -1396,6 +1403,14 @@ const AdGroupDetail = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {shareInfo && (
+        <ShareLinkModal
+          url={shareInfo.url}
+          password={shareInfo.password}
+          onClose={() => setShareInfo(null)}
+        />
       )}
 
     </div>
