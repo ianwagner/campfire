@@ -42,3 +42,13 @@ test('shows loading indicator while signing in', () => {
   );
   expect(screen.getByText('Loading...')).toBeInTheDocument();
 });
+
+test('shows name modal when no reviewer name', async () => {
+  signInAnonymously.mockResolvedValue({});
+  render(
+    <MemoryRouter>
+      <PublicReview />
+    </MemoryRouter>
+  );
+  expect(await screen.findByLabelText('Your Name')).toBeInTheDocument();
+});
