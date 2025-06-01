@@ -59,8 +59,8 @@ const CreateAdGroup = ({ showSidebar = true }) => {
         rejectedCount: 0,
         thumbnailUrl: "",
         lastUpdated: serverTimestamp(),
-        visibility: "public",
-        requireAuth: true,
+        visibility: "private",
+        requireAuth: false,
         requirePassword: false,
         password: "",
       });
