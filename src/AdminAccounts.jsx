@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import { FiEye, FiEdit2, FiTrash } from 'react-icons/fi';
 import { collection, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import debugLog from './utils/debugLog';
+import TagInput from './components/TagInput.jsx';
 
 const AdminAccounts = () => {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ role: 'client', brandCodes: '' });
+  const [form, setForm] = useState({ role: 'client', brandCodes: [] });
+  const [brands, setBrands] = useState([]);
+  const [viewAcct, setViewAcct] = useState(null);
 
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -24,16 +28,25 @@ const AdminAccounts = () => {
       }
     };
 
+    const fetchBrands = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'brands'));
+        setBrands(snap.docs.map((d) => d.data().code));
+      } catch (err) {
+        console.error('Failed to fetch brands', err);
+        setBrands([]);
+      }
+    };
+
     fetchAccounts();
+    fetchBrands();
   }, []);
 
   const startEdit = (acct) => {
     setEditId(acct.id);
     setForm({
       role: acct.role || 'client',
-      brandCodes: Array.isArray(acct.brandCodes)
-        ? acct.brandCodes.join(',')
-        : '',
+      brandCodes: Array.isArray(acct.brandCodes) ? acct.brandCodes : [],
     });
   };
 
@@ -41,10 +54,7 @@ const AdminAccounts = () => {
 
   const handleSave = async (id) => {
     debugLog('Saving account', id);
-    const codes = form.brandCodes
-      .split(',')
-      .map((c) => c.trim())
-      .filter(Boolean);
+    const codes = form.brandCodes.filter(Boolean);
     try {
       await updateDoc(doc(db, 'users', id), {
         role: form.role,
@@ -85,7 +95,7 @@ const AdminAccounts = () => {
           <table className="ad-table min-w-max">
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Name</th>
                 <th>Role</th>
                 <th>Brand Codes</th>
                 <th>Actions</th>
@@ -94,7 +104,7 @@ const AdminAccounts = () => {
             <tbody>
               {accounts.map((acct) => (
                 <tr key={acct.id}>
-                  <td>{acct.id}</td>
+                  <td>{acct.fullName || acct.email || acct.id}</td>
                   <td>
                     {editId === acct.id ? (
                       <select
@@ -114,13 +124,11 @@ const AdminAccounts = () => {
                   </td>
                   <td>
                     {editId === acct.id ? (
-                      <input
-                        type="text"
+                      <TagInput
                         value={form.brandCodes}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, brandCodes: e.target.value }))
-                        }
-                        className="w-full p-1 border rounded"
+                        onChange={(codes) => setForm((f) => ({ ...f, brandCodes: codes }))}
+                        suggestions={brands}
+                        id={`brand-${acct.id}`}
                       />
                     ) : Array.isArray(acct.brandCodes) ? (
                       acct.brandCodes.join(', ')
@@ -130,32 +138,46 @@ const AdminAccounts = () => {
                   </td>
                   <td className="text-center">
                     {editId === acct.id ? (
-                      <>
+                      <div className="flex items-center justify-center">
                         <button
                           onClick={() => handleSave(acct.id)}
-                          className="underline text-gray-700 mr-2"
+                          className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
                         >
                           Save
                         </button>
-                        <button onClick={cancelEdit} className="underline">
+                        <button
+                          onClick={cancelEdit}
+                          className="btn-secondary px-1.5 py-0.5 text-xs"
+                        >
                           Cancel
                         </button>
-                      </>
+                      </div>
                     ) : (
-                      <>
+                      <div className="flex items-center justify-center">
+                        <button
+                          onClick={() => setViewAcct(acct)}
+                          className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
+                          aria-label="View"
+                        >
+                          <FiEye />
+                          <span className="ml-1">View</span>
+                        </button>
                         <button
                           onClick={() => startEdit(acct)}
-                          className="underline text-gray-700 mr-2"
+                          className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
+                          aria-label="Edit"
                         >
-                          Edit
+                          <FiEdit2 />
+                          <span className="ml-1">Edit</span>
                         </button>
                         <button
                           onClick={() => handleDelete(acct.id)}
-                          className="underline btn-delete"
+                          className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 btn-delete"
+                          aria-label="Delete"
                         >
-                          Delete
+                          <FiTrash />
                         </button>
-                      </>
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -164,8 +186,21 @@ const AdminAccounts = () => {
           </table>
           </div>
         )}
-      </div>
-    );
+      {viewAcct && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-sm dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <h3 className="mb-2 font-semibold">{viewAcct.fullName || viewAcct.email || viewAcct.id}</h3>
+            <p className="text-sm mb-1">Email: {viewAcct.email || 'N/A'}</p>
+            <p className="text-sm mb-1">Role: {viewAcct.role}</p>
+            {Array.isArray(viewAcct.brandCodes) && viewAcct.brandCodes.length > 0 && (
+              <p className="text-sm mb-1">Brands: {viewAcct.brandCodes.join(', ')}</p>
+            )}
+            <button onClick={() => setViewAcct(null)} className="btn-primary px-3 py-1 mt-2">Close</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default AdminAccounts;

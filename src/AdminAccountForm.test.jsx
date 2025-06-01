@@ -18,9 +18,14 @@ jest.mock('firebase/auth', () => ({
 const setDoc = jest.fn();
 const docMock = jest.fn(() => 'userDoc');
 
+const getDocs = jest.fn();
+const collectionMock = jest.fn();
+
 jest.mock('firebase/firestore', () => ({
   doc: (...args) => docMock(...args),
   setDoc: (...args) => setDoc(...args),
+  getDocs: (...args) => getDocs(...args),
+  collection: (...args) => collectionMock(...args),
 }));
 
 afterEach(() => {
@@ -29,6 +34,7 @@ afterEach(() => {
 
 test('sends verification email when account is created', async () => {
   createUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+  getDocs.mockResolvedValue({ docs: [] });
   render(<AdminAccountForm />);
 
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } });
