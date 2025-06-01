@@ -22,7 +22,6 @@ const DesignerDashboard = () => {
   const copyLink = (id) => {
     let url = `${window.location.origin}/review/${id}`;
     const params = new URLSearchParams();
-    if (user?.displayName) params.set('name', user.displayName);
     if (user?.email) params.set('email', user.email);
     if (role) params.set('role', role);
     const str = params.toString();
