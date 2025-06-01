@@ -13,6 +13,7 @@ import {
   FiUpload,
   FiBookOpen,
   FiArchive,
+  FiDownload,
   FiRotateCcw,
 } from 'react-icons/fi';
 import { Link, useParams } from 'react-router-dom';
@@ -63,6 +64,11 @@ const AdGroupDetail = () => {
     angle: '',
     audience: '',
   });
+  const [exportModal, setExportModal] = useState(false);
+  const [groupBy, setGroupBy] = useState([]);
+  const [maxAds, setMaxAds] = useState(1);
+  const [previewGroups, setPreviewGroups] = useState(0);
+  const [exporting, setExporting] = useState(false);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
@@ -653,6 +659,162 @@ const AdGroupDetail = () => {
       .catch((err) => console.error('Failed to copy link', err));
   };
 
+  const sanitize = (str) =>
+    (str || '').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim() || 'unknown';
+
+  const computeExportGroups = () => {
+    const approved = assets.filter((a) => a.status === 'approved');
+    const map = {};
+    approved.forEach((a) => {
+      const info = parseAdFilename(a.filename || '');
+      const meta = recipesMeta[info.recipeCode] || {};
+      const keyParts = groupBy.map((k) => sanitize(meta[k]));
+      const key = keyParts.join('|');
+      if (!map[key]) map[key] = [];
+      map[key].push({ asset: a, meta });
+    });
+    return Object.values(map);
+  };
+
+  useEffect(() => {
+    if (!exportModal) return;
+    const groups = computeExportGroups();
+    setPreviewGroups(groups.length);
+  }, [exportModal, groupBy, maxAds, assets, recipesMeta]);
+
+  const crcTable = useMemo(() => {
+    const table = new Uint32Array(256);
+    for (let i = 0; i < 256; i += 1) {
+      let c = i;
+      for (let k = 0; k < 8; k += 1) {
+        c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      }
+      table[i] = c >>> 0;
+    }
+    return table;
+  }, []);
+
+  const crc32 = (buf) => {
+    let c = 0xffffffff;
+    for (let i = 0; i < buf.length; i += 1) {
+      c = crcTable[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+    }
+    return (c ^ 0xffffffff) >>> 0;
+  };
+
+  const makeZip = async (files) => {
+    const encoder = new TextEncoder();
+    const localParts = [];
+    const centralParts = [];
+    let offset = 0;
+    for (const f of files) {
+      const nameBuf = encoder.encode(f.path);
+      const data = new Uint8Array(f.data);
+      const crc = crc32(data);
+      const local = new Uint8Array(30 + nameBuf.length);
+      const lv = new DataView(local.buffer);
+      lv.setUint32(0, 0x04034b50, true);
+      lv.setUint16(4, 20, true);
+      lv.setUint16(6, 0, true);
+      lv.setUint16(8, 0, true);
+      lv.setUint16(10, 0, true);
+      lv.setUint16(12, 0, true);
+      lv.setUint32(14, crc, true);
+      lv.setUint32(18, data.length, true);
+      lv.setUint32(22, data.length, true);
+      lv.setUint16(26, nameBuf.length, true);
+      lv.setUint16(28, 0, true);
+      local.set(nameBuf, 30);
+      localParts.push(local, data);
+
+      const central = new Uint8Array(46 + nameBuf.length);
+      const cv = new DataView(central.buffer);
+      cv.setUint32(0, 0x02014b50, true);
+      cv.setUint16(4, 20, true);
+      cv.setUint16(6, 20, true);
+      cv.setUint16(8, 0, true);
+      cv.setUint16(10, 0, true);
+      cv.setUint16(12, 0, true);
+      cv.setUint16(14, 0, true);
+      cv.setUint32(16, crc, true);
+      cv.setUint32(20, data.length, true);
+      cv.setUint32(24, data.length, true);
+      cv.setUint16(28, nameBuf.length, true);
+      cv.setUint16(30, 0, true);
+      cv.setUint16(32, 0, true);
+      cv.setUint16(34, 0, true);
+      cv.setUint16(36, 0, true);
+      cv.setUint32(38, 0, true);
+      cv.setUint32(42, offset, true);
+      central.set(nameBuf, 46);
+      centralParts.push(central);
+      offset += local.length + data.length;
+    }
+    const centralOffset = offset;
+    const centralSize = centralParts.reduce((s, p) => s + p.length, 0);
+    const end = new Uint8Array(22);
+    const ev = new DataView(end.buffer);
+    ev.setUint32(0, 0x06054b50, true);
+    ev.setUint16(8, files.length, true);
+    ev.setUint16(10, files.length, true);
+    ev.setUint32(12, centralSize, true);
+    ev.setUint32(16, centralOffset, true);
+    ev.setUint16(20, 0, true);
+    const size =
+      localParts.reduce((s, p) => s + p.length, 0) + centralSize + end.length;
+    const zip = new Uint8Array(size);
+    let ptr = 0;
+    for (const part of localParts) {
+      zip.set(part, ptr);
+      ptr += part.length;
+    }
+    for (const part of centralParts) {
+      zip.set(part, ptr);
+      ptr += part.length;
+    }
+    zip.set(end, ptr);
+    return new Blob([zip], { type: 'application/zip' });
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const groups = computeExportGroups();
+      const files = [];
+      for (const list of groups) {
+        if (list.length === 0) continue;
+        const firstMeta = list[0].meta;
+        const folder =
+          groupBy.map((k) => sanitize(firstMeta[k])).join('-') || 'group';
+        const selected = list.slice(0, maxAds);
+        for (const { asset } of selected) {
+          const resp = await fetch(asset.firebaseUrl);
+          const buf = await resp.arrayBuffer();
+          files.push({ path: `${folder}/${asset.filename}`, data: buf });
+        }
+      }
+      if (files.length === 0) {
+        window.alert('No approved ads found');
+        return;
+      }
+      const blob = await makeZip(files);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${group?.name || 'export'}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setExportModal(false);
+    } catch (err) {
+      console.error('Export failed', err);
+      window.alert('Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const deleteAsset = async (asset) => {
     const confirmDelete = window.confirm('Delete this asset?');
     if (!confirmDelete) return;
@@ -973,6 +1135,15 @@ const AdGroupDetail = () => {
               Share
             </button>
             {userRole === 'admin' && (
+              <button
+                onClick={() => setExportModal(true)}
+                className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+              >
+                <FiDownload />
+                Export Approved
+              </button>
+            )}
+            {userRole === 'admin' && (
               <button onClick={archiveGroup} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
                 <FiArchive />
                 Archive
@@ -1136,6 +1307,92 @@ const AdGroupDetail = () => {
             <div className="mt-3 flex justify-end gap-2">
               <button onClick={closeModals} className="btn-secondary px-3 py-1">Cancel</button>
               <button onClick={saveMetadata} className="btn-primary px-3 py-1">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {exportModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <h3 className="mb-2 font-semibold">Export Approved Ads</h3>
+            <div className="space-y-2">
+              <div>
+                <p className="text-sm font-medium mb-1">Group By</p>
+                <label className="mr-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mr-1"
+                    checked={groupBy.includes('offer')}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setGroupBy((p) => [...p, 'offer']);
+                      } else {
+                        setGroupBy((p) => p.filter((g) => g !== 'offer'));
+                      }
+                    }}
+                  />
+                  Offer
+                </label>
+                <label className="mr-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mr-1"
+                    checked={groupBy.includes('angle')}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setGroupBy((p) => [...p, 'angle']);
+                      } else {
+                        setGroupBy((p) => p.filter((g) => g !== 'angle'));
+                      }
+                    }}
+                  />
+                  Angle
+                </label>
+                <label className="text-sm">
+                  <input
+                    type="checkbox"
+                    className="mr-1"
+                    checked={groupBy.includes('audience')}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setGroupBy((p) => [...p, 'audience']);
+                      } else {
+                        setGroupBy((p) => p.filter((g) => g !== 'audience'));
+                      }
+                    }}
+                  />
+                  Audience
+                </label>
+              </div>
+              <label className="block text-sm">
+                Max Ads per Group
+                <select
+                  className="mt-1 w-full border rounded p-1 text-black dark:text-black"
+                  value={maxAds}
+                  onChange={(e) => setMaxAds(Number(e.target.value))}
+                >
+                  <option value={1}>1</option>
+                  <option value={2}>2</option>
+                  <option value={3}>3</option>
+                </select>
+              </label>
+              <p className="text-sm">Preview Groups: {previewGroups}</p>
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                onClick={() => setExportModal(false)}
+                className="btn-secondary px-3 py-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                className="btn-primary px-3 py-1"
+              >
+                {exporting ? 'Exporting...' : 'Export'}
+              </button>
             </div>
           </div>
         </div>
