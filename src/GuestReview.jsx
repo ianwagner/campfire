@@ -103,6 +103,27 @@ const PublicReview = () => {
     return <LoadingOverlay />;
   }
 
+  if (!reviewerName) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-2">
+        <label className="text-lg" htmlFor="reviewerName">Your Name</label>
+        <input
+          id="reviewerName"
+          type="text"
+          value={tempName}
+          onChange={(e) => setTempName(e.target.value)}
+          className="w-full max-w-xs p-2 border rounded"
+        />
+        <button
+          onClick={() => setReviewerName(tempName.trim())}
+          className="btn-primary"
+          disabled={!tempName.trim()}
+        >
+          Continue as Guest
+        </button>
+      </div>
+    );
+  }
 
   const userObj = { uid: 'public', email: queryEmail || 'public@campfire' };
 
@@ -116,27 +137,6 @@ const PublicReview = () => {
         userRole={reviewerRole}
         agencyId={agencyId}
       />
-      {!reviewerName && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow space-y-2 max-w-xs w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <label className="text-lg" htmlFor="reviewerName">Your Name</label>
-            <input
-              id="reviewerName"
-              type="text"
-              value={tempName}
-              onChange={(e) => setTempName(e.target.value)}
-              className="w-full p-2 border rounded"
-            />
-            <button
-              onClick={() => setReviewerName(tempName.trim())}
-              className="btn-primary w-full"
-              disabled={!tempName.trim()}
-            >
-              Continue as Guest
-            </button>
-          </div>
-        </div>
-      )
     </div>
   );
 
