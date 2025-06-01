@@ -1,16 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
+import TagInput from './components/TagInput.jsx';
 
 const AdminAccountForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('client');
-  const [brandCodes, setBrandCodes] = useState('');
+  const [brandCodes, setBrandCodes] = useState([]);
+  const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    const fetchBrands = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'brands'));
+        setBrands(snap.docs.map((d) => d.data().code));
+      } catch (err) {
+        console.error('Failed to fetch brands', err);
+        setBrands([]);
+      }
+    };
+    fetchBrands();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,10 +34,7 @@ const AdminAccountForm = () => {
     setLoading(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      const codes = brandCodes
-        .split(',')
-        .map((c) => c.trim())
-        .filter(Boolean);
+      const codes = brandCodes.filter(Boolean);
       await setDoc(doc(db, 'users', cred.user.uid), {
         role,
         brandCodes: codes,
@@ -32,7 +44,7 @@ const AdminAccountForm = () => {
       setEmail('');
       setPassword('');
       setRole('client');
-      setBrandCodes('');
+      setBrandCodes([]);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -77,12 +89,11 @@ const AdminAccountForm = () => {
           </div>
           <div>
             <label className="block mb-1 text-sm font-medium">Brand Codes</label>
-            <input
-              type="text"
+            <TagInput
               value={brandCodes}
-              onChange={(e) => setBrandCodes(e.target.value)}
-              className="w-full p-2 border rounded"
-              placeholder="comma,separated,codes"
+              onChange={setBrandCodes}
+              suggestions={brands}
+              id="brand-code-input"
             />
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
