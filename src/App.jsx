@@ -7,7 +7,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase/config";
 import Login from "./Login";
 import SignUpStepper from "./SignUpStepper.tsx";
@@ -43,8 +43,11 @@ import AgencyBrands from "./AgencyBrands";
 import AgencyAdGroups from "./AgencyAdGroups";
 import useTheme from "./useTheme";
 import debugLog from "./utils/debugLog";
+import useSiteSettings from "./useSiteSettings";
+import useAgencyTheme from "./useAgencyTheme";
+import FullScreenSpinner from "./FullScreenSpinner";
+import { DEFAULT_LOGO_URL } from "./constants";
 
-import LoadingOverlay from "./LoadingOverlay";
 const ThemeWatcher = () => {
   useTheme();
   return null;
@@ -68,17 +71,34 @@ const App = () => {
   }, []);
 
   const { role, brandCodes, agencyId, loading: roleLoading } = useUserRole(user?.uid);
+  const { settings, loading: settingsLoading } = useSiteSettings(!agencyId);
+  const { agency, loading: agencyLoading } = useAgencyTheme(agencyId);
+  const [logoLoaded, setLogoLoaded] = React.useState(false);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error("Failed to sign out", err);
+  React.useEffect(() => {
+    const url = agencyId ? agency.logoUrl || DEFAULT_LOGO_URL : settings.logoUrl || DEFAULT_LOGO_URL;
+    if (!url) {
+      setLogoLoaded(true);
+      return;
     }
-  };
+    setLogoLoaded(false);
+    const img = new Image();
+    img.onload = () => setLogoLoaded(true);
+    img.onerror = () => setLogoLoaded(true);
+    img.src = url;
+  }, [agency.logoUrl, settings.logoUrl, agencyId]);
 
-  if (loading || roleLoading) {
-    return <LoadingOverlay />;
+  const ready = !loading && !roleLoading && !settingsLoading && !agencyLoading && logoLoaded;
+
+  React.useEffect(() => {
+    if (ready) {
+      document.body.classList.remove('pre-theme');
+    }
+  }, [ready]);
+
+
+  if (!ready) {
+    return <FullScreenSpinner />;
   }
 
   const signedIn = user && !user.isAnonymous;

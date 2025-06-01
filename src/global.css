@@ -502,3 +502,23 @@ html.dark .loading-overlay {
 @keyframes loading-spin {
   to { transform: rotate(360deg); }
 }
+
+/* hide app before theme is ready */
+body.pre-theme {
+  visibility: hidden;
+}
+body.pre-theme .full-screen-spinner {
+  visibility: visible;
+}
+.full-screen-spinner {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  z-index: 1000;
+}
+html.dark .full-screen-spinner {
+  background-color: rgba(13, 17, 22, 0.9);
+}
