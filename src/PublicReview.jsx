@@ -3,6 +3,7 @@ import { useParams, useLocation } from 'react-router-dom';
 import { signInAnonymously, signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
 import Review from './Review';
+import useDebugTrace from './utils/useDebugTrace';
 
 import LoadingOverlay from "./LoadingOverlay";
 import ThemeToggle from './ThemeToggle';
@@ -24,6 +25,7 @@ const PublicReview = () => {
   const [anonError, setAnonError] = useState('');
   const [loading, setLoading] = useState(true);
   const didSignIn = useRef(false);
+  useDebugTrace('PublicReview', { groupId, agencyId, reviewerName, reviewerRole });
 
   useEffect(() => {
     if (!auth.currentUser && !didSignIn.current) {

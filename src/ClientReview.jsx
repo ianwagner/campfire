@@ -3,12 +3,14 @@ import { useParams } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import Review from './Review';
+import useDebugTrace from './utils/useDebugTrace';
 
 const ClientReview = (props) => {
   const { groupId } = useParams();
   const reviewerName = props.user?.displayName || '';
   const { userRole } = props;
   const [agencyId, setAgencyId] = useState(null);
+  useDebugTrace('ClientReview', { groupId, agencyId, reviewerName, userRole });
 
   useEffect(() => {
     const loadAgency = async () => {

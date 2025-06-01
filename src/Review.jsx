@@ -26,6 +26,7 @@ import parseAdFilename from './utils/parseAdFilename';
 import computeGroupStatus from './utils/computeGroupStatus';
 import LoadingOverlay from "./LoadingOverlay";
 import debugLog from './utils/debugLog';
+import useDebugTrace from './utils/useDebugTrace';
 import { cacheImageUrl } from './utils/useCachedImageUrl';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
@@ -79,6 +80,15 @@ const Review = ({
   const advancedRef = useRef(false);
   const [groupStatus, setGroupStatus] = useState(null);
   const { agency } = useAgencyTheme(agencyId);
+  useDebugTrace('Review', {
+    groupId,
+    agencyId,
+    brandCodesLength: brandCodes.length,
+    currentIndex,
+    reviewAdsLength: reviewAds.length,
+    animating,
+    loading,
+  });
   useEffect(() => {
     return () => {
       if (agencyId && ['admin', 'designer'].includes(userRole)) {
