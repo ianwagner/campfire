@@ -38,7 +38,6 @@ import { deleteObject, ref } from 'firebase/storage';
 import { auth, db, storage } from './firebase/config';
 import useUserRole from './useUserRole';
 import { uploadFile } from './uploadFile';
-import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import StatusBadge from './components/StatusBadge.jsx';
@@ -653,17 +652,10 @@ const AdGroupDetail = () => {
     }
   };
 
-  const [shareInfo, setShareInfo] = useState(null);
+  const [shareModal, setShareModal] = useState(false);
 
-  const handleShare = async () => {
-    const url = `${window.location.origin}/review/${id}`;
-    const password = generatePassword();
-    try {
-      await updateDoc(doc(db, 'adGroups', id), { password });
-    } catch (err) {
-      console.error('Failed to set password', err);
-    }
-    setShareInfo({ url, password });
+  const handleShare = () => {
+    setShareModal(true);
   };
 
   const sanitize = (str) =>
@@ -1405,11 +1397,13 @@ const AdGroupDetail = () => {
         </div>
       )}
 
-      {shareInfo && (
+      {shareModal && (
         <ShareLinkModal
-          url={shareInfo.url}
-          password={shareInfo.password}
-          onClose={() => setShareInfo(null)}
+          groupId={id}
+          visibility={group?.visibility}
+          password={group?.password}
+          onClose={() => setShareModal(false)}
+          onUpdate={(u) => setGroup((p) => ({ ...p, ...u }))}
         />
       )}
 
