@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import useSiteSettings from './useSiteSettings';
 import { uploadLogo } from './uploadLogo';
 import { uploadIcon } from './uploadIcon';
-import OptimizedImage from './components/OptimizedImage.jsx';
+import { OptimizedImage } from '@studio-tak/shared-ui';
 
 const SiteSettings = () => {
   const { settings, saveSettings } = useSiteSettings();

@@ -21,7 +21,7 @@ import {
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
-import OptimizedImage from './components/OptimizedImage.jsx';
+import { OptimizedImage } from '@studio-tak/shared-ui';
 import parseAdFilename from './utils/parseAdFilename';
 import computeGroupStatus from './utils/computeGroupStatus';
 import LoadingOverlay from "./LoadingOverlay";

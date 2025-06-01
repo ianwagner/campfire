@@ -1,7 +1,7 @@
 import React from 'react';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
-import OptimizedImage from './components/OptimizedImage.jsx';
+import { OptimizedImage } from '@studio-tak/shared-ui';
 
 const AgencyTheme = ({ agencyId, children }) => {
   const { agency } = useAgencyTheme(agencyId);

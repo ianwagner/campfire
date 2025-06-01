@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@studio-tak/shared-ui": ["packages/shared-ui/index.ts"]
+    }
+  },
+  "include": ["src", "packages/shared-ui"]
+}

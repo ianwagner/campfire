@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import OptimizedImage from './components/OptimizedImage.jsx';
+import { OptimizedImage } from '@studio-tak/shared-ui';
 import StatusBadge from './components/StatusBadge.jsx';
 import parseAdFilename from './utils/parseAdFilename.js';
 import { db } from './firebase/config';

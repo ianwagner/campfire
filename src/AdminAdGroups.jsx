@@ -22,7 +22,7 @@ import { auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import parseAdFilename from './utils/parseAdFilename';
 import generatePassword from './utils/generatePassword';
-import ShareLinkModal from './components/ShareLinkModal.jsx';
+import { ShareLinkModal } from '@studio-tak/shared-ui';
 
 const AdminAdGroups = () => {
   const [groups, setGroups] = useState([]);
