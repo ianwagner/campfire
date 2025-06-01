@@ -21,6 +21,8 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const [tempName, setTempName] = useState('');
   const [agencyId, setAgencyId] = useState(null);
   const [groupPassword, setGroupPassword] = useState(null);
+  const [visibility, setVisibility] = useState(null);
+  const [accessBlocked, setAccessBlocked] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordOk, setPasswordOk] = useState(false);
   const [error, setError] = useState('');
@@ -65,26 +67,40 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }, [groupId]);
 
   useEffect(() => {
-    if (!groupId) { setGroupPassword(null); return; }
-    const loadPassword = async () => {
+    if (!groupId) {
+      setGroupPassword(null);
+      setVisibility(null);
+      setAccessBlocked(false);
+      return;
+    }
+    const loadGroup = async () => {
       try {
         const snap = await getDoc(doc(db, 'adGroups', groupId));
+        if (!snap.exists() || snap.data().visibility !== 'public') {
+          setAccessBlocked(true);
+        }
         setGroupPassword(snap.exists() ? snap.data().password || null : null);
+        setVisibility(snap.exists() ? snap.data().visibility || 'private' : null);
       } catch (err) {
-        console.error('Failed to fetch password', err);
+        console.error('Failed to fetch group info', err);
+        setAccessBlocked(true);
         setGroupPassword(null);
+        setVisibility(null);
       }
     };
-    loadPassword();
+    loadGroup();
   }, [groupId]);
 
   useEffect(() => {
-    if (groupPassword === null) return;
-    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(`reviewPassword-${groupId}`) : null;
+    if (groupPassword === null || accessBlocked) return;
+    const stored =
+      typeof localStorage !== 'undefined'
+        ? localStorage.getItem(`reviewPassword-${groupId}`)
+        : null;
     if (!groupPassword || stored === groupPassword) {
       setPasswordOk(true);
     }
-  }, [groupPassword, groupId]);
+  }, [groupPassword, groupId, accessBlocked]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -111,6 +127,12 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
 
   if (loading) {
     return <LoadingOverlay />;
+  }
+
+  if (currentUser?.isAnonymous && accessBlocked) {
+    return (
+      <div className="p-4 text-center">This link is currently private.</div>
+    );
   }
 
   if (currentUser?.isAnonymous && groupPassword && !passwordOk) {

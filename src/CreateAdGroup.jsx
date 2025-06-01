@@ -53,6 +53,7 @@ const CreateAdGroup = ({ showSidebar = true }) => {
         rejectedCount: 0,
         thumbnailUrl: '',
         lastUpdated: serverTimestamp(),
+        visibility: 'private',
       });
       navigate(`/ad-group/${docRef.id}`);
     } catch (err) {
