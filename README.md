@@ -205,3 +205,12 @@ const ads = ['https://example.com/ad1.png', 'https://example.com/ad2.png'];
 
 <SimpleReview ads={ads} />;
 ```
+
+## Password Protected Review Links
+
+Ad group review links can be secured with a password. When sharing a link from
+the dashboard a random 12 character password is generated and stored on the ad
+group document. Reviewers must enter this password the first time they open the
+link. After a successful entry the password is saved in `localStorage` so future
+visits skip the prompt.
+
