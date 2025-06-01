@@ -35,25 +35,6 @@ const isSafari =
   /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 const SAFARI_BUFFER_COUNT = 5;
-const INITIAL_PRELOAD_COUNT = 5;
-
-const preloadImages = async (list) => {
-  const urls = list
-    .slice(0, INITIAL_PRELOAD_COUNT)
-    .map((a) => (a.adUrl || a.firebaseUrl))
-    .filter(Boolean);
-  await Promise.all(
-    urls.map(
-      (url) =>
-        new Promise((resolve) => {
-          const img = new Image();
-          img.onload = resolve;
-          img.onerror = resolve;
-          img.src = url;
-        })
-    )
-  );
-};
 
 const Review = ({
   user,
@@ -320,7 +301,6 @@ const Review = ({
           heroList.length === 0 && nonPending.length === 0 && hasPendingAds
         );
         setSecondPass(heroList.length === 0 && nonPending.length > 0);
-        await preloadImages(heroList);
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
