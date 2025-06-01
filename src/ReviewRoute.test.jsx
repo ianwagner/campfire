@@ -11,11 +11,9 @@ const useUserRole = jest.fn();
 
 jest.mock('./useUserRole', () => (...args) => useUserRole(...args));
 
-const ClientReview = jest.fn(() => <div>ClientReview</div>);
-const GuestReview = jest.fn(() => <div>GuestReview</div>);
+const ReviewPage = jest.fn(() => <div>ReviewPage</div>);
 
-jest.mock('./ClientReview', () => (props) => ClientReview(props));
-jest.mock('./GuestReview', () => (props) => GuestReview(props));
+jest.mock('./ReviewPage', () => (props) => ReviewPage(props));
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -27,7 +25,7 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-test('renders ClientReview for signed-in user', () => {
+test('renders ReviewPage for signed-in user', () => {
   auth.currentUser = { uid: 'u1', isAnonymous: false };
   useUserRole.mockReturnValue({ role: 'client', brandCodes: [], loading: false });
   render(
@@ -35,12 +33,11 @@ test('renders ClientReview for signed-in user', () => {
       <ReviewRoute />
     </MemoryRouter>
   );
-  expect(ClientReview).toHaveBeenCalled();
-  expect(GuestReview).not.toHaveBeenCalled();
+  expect(ReviewPage).toHaveBeenCalled();
   expect(useUserRole).toHaveBeenCalledWith('u1');
 });
 
-test('renders GuestReview for anonymous user', () => {
+test('renders ReviewPage for anonymous user', () => {
   auth.currentUser = { uid: 'anon', isAnonymous: true };
   useUserRole.mockReturnValue({ role: null, brandCodes: [], loading: false });
   render(
@@ -48,12 +45,11 @@ test('renders GuestReview for anonymous user', () => {
       <ReviewRoute />
     </MemoryRouter>
   );
-  expect(GuestReview).toHaveBeenCalled();
-  expect(ClientReview).not.toHaveBeenCalled();
+  expect(ReviewPage).toHaveBeenCalled();
   expect(useUserRole).toHaveBeenCalledWith(null);
 });
 
-test('renders GuestReview when not signed in', () => {
+test('renders ReviewPage when not signed in', () => {
   auth.currentUser = null;
   useUserRole.mockReturnValue({ role: null, brandCodes: [], loading: false });
   render(
@@ -61,7 +57,6 @@ test('renders GuestReview when not signed in', () => {
       <ReviewRoute />
     </MemoryRouter>
   );
-  expect(GuestReview).toHaveBeenCalled();
-  expect(ClientReview).not.toHaveBeenCalled();
+  expect(ReviewPage).toHaveBeenCalled();
   expect(useUserRole).toHaveBeenCalledWith(undefined);
 });
