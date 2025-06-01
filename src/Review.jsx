@@ -518,198 +518,181 @@ const Review = ({
         ? 'rejected'
         : 'edit_requested';
 
-    for (const asset of recipeAssets) {
-      const url = asset.adUrl || asset.firebaseUrl;
-      const respObj = {
-        adUrl: url,
-        response: responseType,
-        comment: responseType === 'edit' ? comment : '',
-        pass: responses[url] ? 'revisit' : 'initial',
-        ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
-        ...(asset.groupName ? { groupName: asset.groupName } : {}),
-        ...(reviewerName ? { reviewerName } : {}),
-        ...(user?.email ? { userEmail: user.email } : {}),
-        ...(user?.uid ? { userId: user.uid } : {}),
-        ...(userRole ? { userRole } : {}),
-      };
-      if (asset.adGroupId) {
-        updates.push(
-          addDoc(collection(db, 'adGroups', asset.adGroupId, 'responses'), {
-            ...respObj,
-            timestamp: serverTimestamp(),
-          })
-        );
-      }
-      if (asset.assetId && asset.adGroupId) {
-        const assetRef = doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId);
-        const updateData = {
-          status: newStatus,
+    try {
+      for (const asset of recipeAssets) {
+        const url = asset.adUrl || asset.firebaseUrl;
+        const respObj = {
+          adUrl: url,
+          response: responseType,
           comment: responseType === 'edit' ? comment : '',
-          lastUpdatedBy: user.uid,
-          lastUpdatedAt: serverTimestamp(),
-          ...(responseType === 'approve' ? { isResolved: true } : {}),
-          ...(responseType === 'edit' ? { isResolved: false } : {}),
+          pass: responses[url] ? 'revisit' : 'initial',
+          ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
+          ...(asset.groupName ? { groupName: asset.groupName } : {}),
+          ...(reviewerName ? { reviewerName } : {}),
+          ...(user?.email ? { userEmail: user.email } : {}),
+          ...(user?.uid ? { userId: user.uid } : {}),
+          ...(userRole ? { userRole } : {}),
         };
-
-        updates.push(updateDoc(assetRef, updateData));
-
-        setAds((prev) =>
-          prev.map((a) =>
-            a.assetId === asset.assetId
-              ? {
-                  ...a,
-                  status: newStatus,
-                  comment: responseType === 'edit' ? comment : '',
-                  ...(responseType === 'approve'
-                    ? { isResolved: true }
-                    : responseType === 'edit'
-                    ? { isResolved: false }
-                    : {}),
-                }
-              : a
-          )
-        );
-        setReviewAds((prev) =>
-          prev.map((a) =>
-            a.assetId === asset.assetId
-              ? {
-                  ...a,
-                  status: newStatus,
-                  comment: responseType === 'edit' ? comment : '',
-                  ...(responseType === 'approve'
-                    ? { isResolved: true }
-                    : responseType === 'edit'
-                    ? { isResolved: false }
-                    : {}),
-                }
-              : a
-          )
-        );
-
-        const prevStatus = asset.status;
-        const newState = newStatus;
-        let incReviewed = 0;
-        let incApproved = 0;
-        let incRejected = 0;
-        let incEdit = 0;
-        if (prevStatus === 'ready') {
-          incReviewed += 1;
-        }
-        if (prevStatus !== newState) {
-          if (prevStatus === 'approved') incApproved -= 1;
-          if (prevStatus === 'rejected') incRejected -= 1;
-          if (prevStatus === 'edit_requested') incEdit -= 1;
-          if (newState === 'approved') incApproved += 1;
-          if (newState === 'rejected') incRejected += 1;
-          if (newState === 'edit_requested') incEdit += 1;
-        }
-
-        const groupRef = doc(db, 'adGroups', asset.adGroupId);
-        const gSnap = await getDoc(groupRef);
-        const updateObj = {
-          ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
-          ...(incApproved ? { approvedCount: increment(incApproved) } : {}),
-          ...(incRejected ? { rejectedCount: increment(incRejected) } : {}),
-          ...(incEdit ? { editCount: increment(incEdit) } : {}),
-          lastUpdated: serverTimestamp(),
-          ...(gSnap.exists() && !gSnap.data().thumbnailUrl
-            ? { thumbnailUrl: asset.firebaseUrl }
-            : {}),
-        };
-        const newGroupStatus = computeGroupStatus(
-          ads.map((a) =>
-            a.assetId === asset.assetId ? { ...a, status: newStatus } : a
-          ),
-          gSnap.exists() ? gSnap.data().status : 'pending'
-        );
-        if (newGroupStatus !== gSnap.data().status) {
-          updateObj.status = newGroupStatus;
-          setGroupStatus(newGroupStatus);
-        }
-        updates.push(updateDoc(groupRef, updateObj));
-
-        if (responseType === 'approve' && asset.parentAdId) {
-          const relatedQuery = query(
-            collection(db, 'adGroups', asset.adGroupId, 'assets'),
-            where('parentAdId', '==', asset.parentAdId)
-          );
-          const relatedSnap = await getDocs(relatedQuery);
+        if (asset.adGroupId) {
           updates.push(
-            Promise.all(
-              relatedSnap.docs.map((d) =>
-                updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', d.id), {
-                  isResolved: true,
-                })
-              )
-            )
-          );
-          updates.push(
-            updateDoc(
-              doc(db, 'adGroups', asset.adGroupId, 'assets', asset.parentAdId),
-              { isResolved: true }
-            )
-          );
-        }
-      }
-      setResponses((prev) => ({ ...prev, [url]: respObj }));
-    }
-
-    if (recipeAssets.length > 0) {
-      const recipeRef = doc(db, 'recipes', currentRecipe);
-      updates.push(
-        setDoc(
-          recipeRef,
-          {
-            history: arrayUnion({
+            addDoc(collection(db, 'adGroups', asset.adGroupId, 'responses'), {
+              ...respObj,
               timestamp: serverTimestamp(),
-              status: newStatus,
-              user:
-                reviewerName ||
-                user?.displayName ||
-                user?.uid ||
-                'unknown',
-              ...(responseType === 'edit' && comment
-                ? { editComment: comment }
-                : {}),
-            }),
-          },
-          { merge: true }
-        )
-      );
-    }
-
-    const updatePromise = Promise.all(updates)
-      .then(() => {
-        if (groupId) {
-          localStorage.setItem(
-            `lastViewed-${groupId}`,
-            new Date().toISOString()
+            })
           );
         }
-      })
-      .catch((err) => {
-        console.error('Failed to submit response', err);
-      });
+        if (asset.assetId && asset.adGroupId) {
+          const assetRef = doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId);
+          const updateData = {
+            status: newStatus,
+            comment: responseType === 'edit' ? comment : '',
+            lastUpdatedBy: user.uid,
+            lastUpdatedAt: serverTimestamp(),
+            ...(responseType === 'approve' ? { isResolved: true } : {}),
+            ...(responseType === 'edit' ? { isResolved: false } : {}),
+          };
+          updates.push(updateDoc(assetRef, updateData));
 
-    setComment('');
-    setShowComment(false);
-    // index will be updated on animation end
-    // free UI interactions while waiting for Firestore updates
-    setSubmitting(false);
-    setEditing(false);
+          setAds((prev) =>
+            prev.map((a) =>
+              a.assetId === asset.assetId
+                ? {
+                    ...a,
+                    status: newStatus,
+                    comment: responseType === 'edit' ? comment : '',
+                    ...(responseType === 'approve'
+                      ? { isResolved: true }
+                      : responseType === 'edit'
+                      ? { isResolved: false }
+                      : {}),
+                  }
+                : a
+            )
+          );
+          setReviewAds((prev) =>
+            prev.map((a) =>
+              a.assetId === asset.assetId
+                ? {
+                    ...a,
+                    status: newStatus,
+                    comment: responseType === 'edit' ? comment : '',
+                    ...(responseType === 'approve'
+                      ? { isResolved: true }
+                      : responseType === 'edit'
+                      ? { isResolved: false }
+                      : {}),
+                  }
+                : a
+            )
+          );
 
-    await updatePromise;
+          const prevStatus = asset.status;
+          const newState = newStatus;
+          let incReviewed = 0;
+          let incApproved = 0;
+          let incRejected = 0;
+          let incEdit = 0;
+          if (prevStatus === 'ready') {
+            incReviewed += 1;
+          }
+          if (prevStatus !== newState) {
+            if (prevStatus === 'approved') incApproved -= 1;
+            if (prevStatus === 'rejected') incRejected -= 1;
+            if (prevStatus === 'edit_requested') incEdit -= 1;
+            if (newState === 'approved') incApproved += 1;
+            if (newState === 'rejected') incRejected += 1;
+            if (newState === 'edit_requested') incEdit += 1;
+          }
 
-    console.log('Next ad triggered');
-    if (!advancedRef.current) {
-      setCurrentIndex((i) => {
-        const next = i + 1;
-        console.log('Index updated:', next);
-        return next;
-      });
-      advancedRef.current = true;
+          const groupRef = doc(db, 'adGroups', asset.adGroupId);
+          const gSnap = await getDoc(groupRef);
+          const updateObj = {
+            ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
+            ...(incApproved ? { approvedCount: increment(incApproved) } : {}),
+            ...(incRejected ? { rejectedCount: increment(incRejected) } : {}),
+            ...(incEdit ? { editCount: increment(incEdit) } : {}),
+            lastUpdated: serverTimestamp(),
+            ...(gSnap.exists() && !gSnap.data().thumbnailUrl ? { thumbnailUrl: asset.firebaseUrl } : {}),
+          };
+          const newGroupStatus = computeGroupStatus(
+            ads.map((a) => (a.assetId === asset.assetId ? { ...a, status: newStatus } : a)),
+            gSnap.exists() ? gSnap.data().status : 'pending'
+          );
+          if (newGroupStatus !== gSnap.data().status) {
+            updateObj.status = newGroupStatus;
+            setGroupStatus(newGroupStatus);
+          }
+          updates.push(updateDoc(groupRef, updateObj));
+
+          if (responseType === 'approve' && asset.parentAdId) {
+            const relatedQuery = query(
+              collection(db, 'adGroups', asset.adGroupId, 'assets'),
+              where('parentAdId', '==', asset.parentAdId)
+            );
+            const relatedSnap = await getDocs(relatedQuery);
+            updates.push(
+              Promise.all(
+                relatedSnap.docs.map((d) =>
+                  updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', d.id), {
+                    isResolved: true,
+                  })
+                )
+              )
+            );
+            updates.push(
+              updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', asset.parentAdId), {
+                isResolved: true,
+              })
+            );
+          }
+        }
+        setResponses((prev) => ({ ...prev, [url]: respObj }));
+      }
+
+      if (recipeAssets.length > 0) {
+        const recipeRef = doc(db, 'recipes', currentRecipe);
+        updates.push(
+          setDoc(
+            recipeRef,
+            {
+              history: arrayUnion({
+                timestamp: serverTimestamp(),
+                status: newStatus,
+                user:
+                  reviewerName ||
+                  user?.displayName ||
+                  user?.uid ||
+                  'unknown',
+                ...(responseType === 'edit' && comment ? { editComment: comment } : {}),
+              }),
+            },
+            { merge: true }
+          )
+        );
+      }
+
+      await Promise.all(updates);
+      if (groupId) {
+        localStorage.setItem(`lastViewed-${groupId}`, new Date().toISOString());
+      }
+    } catch (err) {
+      console.error('Failed to submit response', err);
+    } finally {
+      setComment('');
+      setShowComment(false);
+      setSubmitting(false);
+      setEditing(false);
+
+      if (!advancedRef.current) {
+        setCurrentIndex((i) => {
+          const next = i + 1;
+          console.log('Index updated:', next);
+          return next;
+        });
+        advancedRef.current = true;
+      }
+      setAnimating(null);
     }
-    setAnimating(null);
   };
 
   const submitNote = async () => {
