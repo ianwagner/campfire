@@ -7,6 +7,12 @@ import { auth } from './firebase/config';
 
 jest.mock('./firebase/config', () => ({ auth: {} }));
 
+const signInAnonymously = jest.fn();
+
+jest.mock('firebase/auth', () => ({
+  signInAnonymously: (...args) => signInAnonymously(...args),
+}));
+
 const useUserRole = jest.fn();
 
 jest.mock('./useUserRole', () => (...args) => useUserRole(...args));
@@ -49,14 +55,21 @@ test('renders ReviewPage for anonymous user', () => {
   expect(useUserRole).toHaveBeenCalledWith(null);
 });
 
-test('renders ReviewPage when not signed in', () => {
+import { waitFor } from '@testing-library/react';
+
+test('signs in anonymously when not signed in', async () => {
   auth.currentUser = null;
+  signInAnonymously.mockImplementation(() => {
+    auth.currentUser = { uid: 'anon', isAnonymous: true };
+    return Promise.resolve({});
+  });
   useUserRole.mockReturnValue({ role: null, brandCodes: [], loading: false });
   render(
     <MemoryRouter>
       <ReviewRoute />
     </MemoryRouter>
   );
-  expect(ReviewPage).toHaveBeenCalled();
-  expect(useUserRole).toHaveBeenCalledWith(undefined);
+  expect(signInAnonymously).toHaveBeenCalled();
+  await waitFor(() => expect(ReviewPage).toHaveBeenCalled());
+  expect(useUserRole).toHaveBeenCalledWith(null);
 });
