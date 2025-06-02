@@ -44,7 +44,7 @@ import useTheme from "./useTheme";
 import debugLog from "./utils/debugLog";
 import useSiteSettings from "./useSiteSettings";
 import useAgencyTheme from "./useAgencyTheme";
-import FullScreenSpinner from "./FullScreenSpinner";
+import LoadingOverlay from "./LoadingOverlay";
 import { DEFAULT_LOGO_URL } from "./constants";
 
 const ThemeWatcher = () => {
@@ -108,10 +108,6 @@ const App = () => {
   }, [ready]);
 
 
-  if (!ready) {
-    return <FullScreenSpinner />;
-  }
-
   const signedIn = user && !user.isAnonymous;
   const role = isAdmin ? 'admin' : dbRole;
   const defaultPath = signedIn
@@ -119,7 +115,7 @@ const App = () => {
       ? `/agency/dashboard?agencyId=${agencyId}`
       : `/dashboard/${role}`
     : '/login';
-  if (signedIn && !role) {
+  if (ready && signedIn && !role) {
     return (
       <div className="flex items-center justify-center min-h-screen text-center">
         No role assigned to this account. Please contact support.
@@ -128,7 +124,8 @@ const App = () => {
   }
 
   return (
-    <Router>
+    <LoadingOverlay visible={!ready}>
+      <Router>
       <ThemeWatcher />
       <RequireMfa user={user} role={role}>
         <div className="min-h-screen flex">
@@ -553,6 +550,7 @@ const App = () => {
         </div>
       </RequireMfa>
       </Router>
+    </LoadingOverlay>
   );
 };
 
