@@ -8,7 +8,7 @@
     --accent-color-10: rgba(234, 88, 12, 0.2);
     /* loading spinner should stay the default color */
     --spinner-color: #ea580c;
-    --dark-bg: #0D1116; /* gray-900 */
+    --dark-bg: #0D1116; 
     --dark-text: #f3f4f6; /* gray-100 */
     --dark-sidebar-bg: #0D1116; /* gray-800 */
     --dark-sidebar-hover: #37464F; /* gray-700 */
