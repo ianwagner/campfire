@@ -60,13 +60,11 @@ const AgencyAdGroups = () => {
         const codes = bSnap.docs.map((d) => d.data().code).filter(Boolean);
         if (codes.length === 0) { setGroups([]); setLoading(false); return; }
         const gSnap = await getDocs(
-          query(
-            collection(db, 'adGroups'),
-            where('brandCode', 'in', codes),
-            where('status', 'not-in', ['archived'])
-          )
+          query(collection(db, 'adGroups'), where('brandCode', 'in', codes))
         );
-        const list = gSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const list = gSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((g) => g.status !== 'archived');
         setGroups(list);
       } catch (err) {
         console.error('Failed to fetch groups', err);
