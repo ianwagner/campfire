@@ -272,12 +272,11 @@ const AdGroupDetail = () => {
         setHistoryRecipe({ recipeCode, assets: [] });
         return;
       }
+      const tsMillis = (t) =>
+        t?.toMillis?.() ?? (typeof t === "number" ? t : 0);
       const hist = (snap.data().history || [])
         .slice()
-        .sort(
-          (a, b) =>
-            (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0),
-        )
+        .sort((a, b) => tsMillis(b.timestamp) - tsMillis(a.timestamp))
         .map((h) => ({
           lastUpdatedAt: h.timestamp,
           email: h.user || "N/A",
@@ -1294,11 +1293,13 @@ const AdGroupDetail = () => {
               Recipe {historyRecipe.recipeCode} History
             </h3>
             <ul className="mb-2 space-y-2 max-h-[60vh] overflow-auto">
-              {historyRecipe.assets.map((a) => (
-                <li key={a.id} className="border-b pb-2 last:border-none">
+              {historyRecipe.assets.map((a, idx) => (
+                <li key={idx} className="border-b pb-2 last:border-none">
                   <div className="text-sm font-medium">
-                    {a.lastUpdatedAt?.toDate
-                      ? a.lastUpdatedAt.toDate().toLocaleString()
+                    {a.lastUpdatedAt
+                      ? a.lastUpdatedAt.toDate
+                        ? a.lastUpdatedAt.toDate().toLocaleString()
+                        : new Date(a.lastUpdatedAt).toLocaleString()
                       : ""}{" "}
                     - {a.email}
                   </div>
