@@ -212,7 +212,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
           className="btn-primary"
           disabled={!tempName.trim()}
         >
-          Continue as Guest
+          Continue
         </button>
       </div>
     );
