@@ -122,21 +122,27 @@ const Review = ({
     return () => clearTimeout(t);
   }, []);
 
-  useEffect(() => {
-    if (!groupId || !reviewerName || reviewAds.length === 0 || forceSplash) return;
-    if (groupStatus !== 'locked') {
-      updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'locked',
-        lockedBy: reviewerName,
-        reviewProgress: currentIndex,
+useEffect(() => {
+  if (!groupId || !reviewerName || reviewAds.length === 0 || forceSplash) return;
+
+  if (groupStatus === 'locked') {
+    // If the group is locked and not by the current reviewer, do nothing
+    if (lockedBy && lockedBy !== reviewerName) return;
+  } else {
+    // Lock the group if not already locked
+    updateDoc(doc(db, 'adGroups', groupId), {
+      status: 'locked',
+      lockedBy: reviewerName,
+      reviewProgress: currentIndex,
+    })
+      .then(() => {
+        setGroupStatus('locked');
+        setLockedBy(reviewerName);
       })
-        .then(() => {
-          setGroupStatus('locked');
-          setLockedBy(reviewerName);
-        })
-        .catch((err) => console.error('Failed to lock group', err));
-    }
-  }, [groupId, reviewerName, reviewAds.length]);
+      .catch((err) => console.error('Failed to lock group', err));
+  }
+}, [groupId, reviewerName, reviewAds.length, currentIndex, groupStatus, lockedBy, forceSplash]);
+
 
   useEffect(() => {
     if (!groupId || lockedBy !== reviewerName || forceSplash) return;
@@ -831,15 +837,25 @@ const Review = ({
   if (loading || !firstAdLoaded || !logoReady) {
     return <LoadingOverlay />;
   }
-
-  if (groupStatus === 'locked' && lockedBy && lockedBy !== reviewerName) {
-    return (
-      <div className="text-center mt-10">
-        This review was started by {lockedBy}. Please wait until they've
-        finished before hopping in.
-      </div>
-    );
-  }
+  
+if (groupStatus === 'locked' && lockedBy && lockedBy !== reviewerName) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+      <h1 className="text-2xl font-bold">This review was started by {lockedBy}.</h1>
+      <p className="text-lg">Please wait until they've finished before hopping in.</p>
+      {agencyId && (
+        <OptimizedImage
+          pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+          alt={`${agency.name || 'Agency'} logo`}
+          loading="eager"
+          cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+          onLoad={() => setLogoReady(true)}
+          className="mb-2 max-h-16 w-auto"
+        />
+      )}
+    </div>
+  );
+}
 
   if (!ads || ads.length === 0) {
     return (
