@@ -398,7 +398,11 @@ useEffect(() => {
         setPendingOnly(
           heroList.length === 0 && nonPending.length === 0 && hasPendingAds
         );
-        setSecondPass(heroList.length === 0 && nonPending.length > 0);
+        const completeKey = groupId ? `reviewComplete-${groupId}` : null;
+        const completeFlag = completeKey ? localStorage.getItem(completeKey) : null;
+        setSecondPass(
+          heroList.length === 0 && nonPending.length > 0 || completeFlag === 'true'
+        );
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
@@ -904,6 +908,9 @@ if (groupStatus === 'locked' && lockedBy && lockedBy !== reviewerName) {
         `lastViewed-${groupId}`,
         new Date().toISOString()
       );
+      if (localStorage.getItem(`reviewComplete-${groupId}`) !== 'true') {
+        localStorage.setItem(`reviewComplete-${groupId}`, 'false');
+      }
     }
     const allResponses = Object.values(responses);
     const approvedCount = allResponses.filter((r) => r.response === 'approve').length;
