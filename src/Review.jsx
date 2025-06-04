@@ -124,19 +124,18 @@ const Review = ({
 
   useEffect(() => {
     if (!groupId || !reviewerName || reviewAds.length === 0 || forceSplash) return;
-    if (groupStatus !== 'locked') {
-      updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'locked',
-        lockedBy: reviewerName,
-        reviewProgress: currentIndex,
+    if (groupStatus === 'locked' && lockedBy && lockedBy !== reviewerName) return;
+    updateDoc(doc(db, 'adGroups', groupId), {
+      status: 'locked',
+      lockedBy: reviewerName,
+      reviewProgress: currentIndex,
+    })
+      .then(() => {
+        setGroupStatus('locked');
+        setLockedBy(reviewerName);
       })
-        .then(() => {
-          setGroupStatus('locked');
-          setLockedBy(reviewerName);
-        })
-        .catch((err) => console.error('Failed to lock group', err));
-    }
-  }, [groupId, reviewerName, reviewAds.length]);
+      .catch((err) => console.error('Failed to lock group', err));
+  }, [groupId, reviewerName, reviewAds.length, currentIndex, groupStatus, lockedBy, forceSplash]);
 
   useEffect(() => {
     if (!groupId || lockedBy !== reviewerName || forceSplash) return;
@@ -834,9 +833,19 @@ const Review = ({
 
   if (groupStatus === 'locked' && lockedBy && lockedBy !== reviewerName) {
     return (
-      <div className="text-center mt-10">
-        This review was started by {lockedBy}. Please wait until they've
-        finished before hopping in.
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+        {agencyId && (
+          <OptimizedImage
+            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+            alt={`${agency.name || 'Agency'} logo`}
+            loading="eager"
+            cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+            onLoad={() => setLogoReady(true)}
+            className="mb-2 max-h-16 w-auto"
+          />
+        )}
+        <h1 className="text-2xl font-bold">This review was started by {lockedBy}.</h1>
+        <p className="text-lg">Please wait until they've finished before hopping in.</p>
       </div>
     );
   }
