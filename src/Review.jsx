@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
+  runTransaction,
   increment,
   setDoc,
   arrayUnion,
@@ -125,21 +126,34 @@ const Review = ({
 useEffect(() => {
   if (!groupId || !reviewerName || reviewAds.length === 0 || forceSplash) return;
 
-  if (groupStatus === 'locked') {
-    // If the group is locked and not by the current reviewer, do nothing
-    if (lockedBy && lockedBy !== reviewerName) return;
-  } else {
-    // Lock the group if not already locked
-    updateDoc(doc(db, 'adGroups', groupId), {
-      status: 'locked',
-      lockedBy: reviewerName,
-      reviewProgress: currentIndex,
-    })
-      .then(() => {
-        setGroupStatus('locked');
-        setLockedBy(reviewerName);
-      })
-      .catch((err) => console.error('Failed to lock group', err));
+  const lockGroup = async () => {
+    try {
+      await runTransaction(db, async (tx) => {
+        const ref = doc(db, 'adGroups', groupId);
+        const snap = await tx.get(ref);
+        const data = snap.data() || {};
+        if (data.status === 'locked' && data.lockedBy && data.lockedBy !== reviewerName) {
+          setGroupStatus(data.status);
+          setLockedBy(data.lockedBy);
+          throw new Error('locked');
+        }
+        tx.update(ref, {
+          status: 'locked',
+          lockedBy: reviewerName,
+          reviewProgress: currentIndex,
+        });
+      });
+      setGroupStatus('locked');
+      setLockedBy(reviewerName);
+    } catch (err) {
+      if (err.message !== 'locked') {
+        console.error('Failed to lock group', err);
+      }
+    }
+  };
+
+  if (groupStatus !== 'locked' || lockedBy !== reviewerName) {
+    lockGroup();
   }
 }, [groupId, reviewerName, reviewAds.length, currentIndex, groupStatus, lockedBy, forceSplash]);
 
