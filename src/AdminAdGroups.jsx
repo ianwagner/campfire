@@ -215,7 +215,11 @@ const AdminAdGroups = () => {
                         <span className="text-[14px]">Details</span>
                       </Link>
                       <Link
-                        to={`/review/${g.id}`}
+                        to={
+                          g.status === 'reviewed'
+                            ? `/review/${g.id}?done=1`
+                            : `/review/${g.id}`
+                        }
                         className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
                         aria-label="Review"
                       >

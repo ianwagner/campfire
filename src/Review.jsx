@@ -43,6 +43,7 @@ const Review = ({
   groupId = null,
   reviewerName = '',
   agencyId = null,
+  forceSplash = false,
 }) => {
   const [ads, setAds] = useState([]); // full list of ads
   const [reviewAds, setReviewAds] = useState([]); // ads being reviewed in the current pass
@@ -80,6 +81,7 @@ const Review = ({
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
   const [groupStatus, setGroupStatus] = useState(null);
+  const [lockedBy, setLockedBy] = useState(null);
   const { agency } = useAgencyTheme(agencyId);
   useDebugTrace('Review', {
     groupId,
@@ -120,6 +122,59 @@ const Review = ({
     return () => clearTimeout(t);
   }, []);
 
+  useEffect(() => {
+    if (!groupId || !reviewerName || reviewAds.length === 0 || forceSplash) return;
+    if (groupStatus === 'locked' && lockedBy && lockedBy !== reviewerName) return;
+    updateDoc(doc(db, 'adGroups', groupId), {
+      status: 'locked',
+      lockedBy: reviewerName,
+      reviewProgress: currentIndex,
+    })
+      .then(() => {
+        setGroupStatus('locked');
+        setLockedBy(reviewerName);
+      })
+      .catch((err) => console.error('Failed to lock group', err));
+  }, [groupId, reviewerName, reviewAds.length, currentIndex, groupStatus, lockedBy, forceSplash]);
+
+  useEffect(() => {
+    if (!groupId || lockedBy !== reviewerName || forceSplash) return;
+    if (groupStatus !== 'locked') return;
+    updateDoc(doc(db, 'adGroups', groupId), {
+      reviewProgress: currentIndex,
+    }).catch((err) => console.error('Failed to save progress', err));
+  }, [currentIndex]);
+
+  useEffect(() => {
+    if (!groupId || forceSplash) return;
+    if (currentIndex >= reviewAds.length && reviewAds.length > 0) {
+      updateDoc(doc(db, 'adGroups', groupId), {
+        status: 'reviewed',
+        lockedBy: null,
+        reviewProgress: null,
+      }).catch((err) => console.error('Failed to update status', err));
+    }
+  }, [currentIndex, reviewAds.length, groupId, forceSplash]);
+
+  useEffect(() => {
+    return () => {
+      if (!groupId || forceSplash) return;
+      if (currentIndex >= reviewAds.length) {
+        updateDoc(doc(db, 'adGroups', groupId), {
+          status: 'reviewed',
+          lockedBy: null,
+          reviewProgress: null,
+        }).catch(() => {});
+      } else if (lockedBy === reviewerName) {
+        updateDoc(doc(db, 'adGroups', groupId), {
+          status: 'locked',
+          lockedBy: reviewerName,
+          reviewProgress: currentIndex,
+        }).catch(() => {});
+      }
+    };
+  }, [groupId, currentIndex, reviewAds.length, lockedBy, reviewerName, forceSplash]);
+
   const recipeGroups = useMemo(() => {
     const map = {};
     ads.forEach((a) => {
@@ -157,10 +212,16 @@ const Review = ({
       debugLog('Loading ads', { groupId, brandCodes });
       try {
         let list = [];
+        let startIndex = 0;
         if (groupId) {
           const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
           if (groupSnap.exists()) {
-            setGroupStatus(groupSnap.data().status || 'pending');
+            const data = groupSnap.data();
+            setGroupStatus(data.status || 'pending');
+            setLockedBy(data.lockedBy || null);
+            if (typeof data.reviewProgress === 'number') {
+              startIndex = data.reviewProgress;
+            }
             const assetsSnap = await getDocs(
               collection(db, 'adGroups', groupId, 'assets')
             );
@@ -306,7 +367,13 @@ const Review = ({
           return rA.localeCompare(rB);
         });
         setReviewAds(heroList);
-        setCurrentIndex(0);
+        setCurrentIndex(
+          forceSplash
+            ? heroList.length
+            : startIndex < heroList.length
+            ? startIndex
+            : 0
+        );
         setPendingOnly(
           heroList.length === 0 && nonPending.length === 0 && hasPendingAds
         );
@@ -764,8 +831,23 @@ const Review = ({
     return <LoadingOverlay />;
   }
 
-  if (groupStatus === 'locked') {
-    return <div className="text-center mt-10">This ad group is locked.</div>;
+  if (groupStatus === 'locked' && lockedBy && lockedBy !== reviewerName) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+        {agencyId && (
+          <OptimizedImage
+            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+            alt={`${agency.name || 'Agency'} logo`}
+            loading="eager"
+            cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+            onLoad={() => setLogoReady(true)}
+            className="mb-2 max-h-16 w-auto"
+          />
+        )}
+        <h1 className="text-2xl font-bold">This review was started by {lockedBy}.</h1>
+        <p className="text-lg">Please wait until they've finished before hopping in.</p>
+      </div>
+    );
   }
 
   if (!ads || ads.length === 0) {
