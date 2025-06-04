@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { signInAnonymously } from "firebase/auth";
 import {
   doc,
@@ -16,6 +16,8 @@ import ThemeToggle from "./ThemeToggle";
 
 const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const { groupId } = useParams();
+  const { search } = useLocation();
+  const forceSplash = new URLSearchParams(search).get('done') === '1';
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const [reviewerName, setReviewerName] = useState("");
   const [tempName, setTempName] = useState("");
@@ -234,6 +236,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         userRole={currentUser?.isAnonymous ? null : userRole}
         brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
+        forceSplash={forceSplash}
       />
     </div>
   );
