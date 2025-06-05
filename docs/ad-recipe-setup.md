@@ -19,6 +19,19 @@ When creating a type, list the component keys in the desired order separated by
 commas (e.g. `headline,cta,image`). These keys correspond to components defined
 in the **Components** tab.
 
+### GPT Prompt
+
+Each recipe type stores a GPT prompt that is sent to the language model when a
+recipe is generated. Use double curly braces to reference component values
+inside the prompt. For example:
+
+```
+Write a headline for {{product}} that highlights {{feature}}.
+```
+
+During generation the placeholders will be replaced with the user's input for
+the matching components.
+
 ## Firestore Rules
 
 Admins must be able to read and write recipe configuration data. Ensure your
