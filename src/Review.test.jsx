@@ -10,6 +10,7 @@ const getDocs = jest.fn();
 const getDoc = jest.fn();
 const updateDoc = jest.fn();
 const addDoc = jest.fn();
+const runTransaction = jest.fn();
 const docMock = jest.fn((...args) => args.slice(1).join('/'));
 const arrayUnion = jest.fn((val) => val);
 const increment = jest.fn((val) => val);
@@ -27,6 +28,7 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: (...args) => updateDoc(...args),
   arrayUnion: (...args) => arrayUnion(...args),
   increment: (...args) => increment(...args),
+  runTransaction: (...args) => runTransaction(...args),
 }));
 
 afterEach(() => {
@@ -744,5 +746,50 @@ test('ad container is not remounted when currentIndex changes', async () => {
 
   const newContainer = screen.getByAltText('Ad').parentElement;
   expect(newContainer).toBe(initialContainer);
+});
+
+test('shows alert when locking fails due to permissions', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1', status: 'pending' }) });
+
+  const err = new Error('nope');
+  err.code = 'permission-denied';
+  runTransaction.mockRejectedValue(err);
+
+  window.alert = jest.fn();
+
+  render(
+    <Review
+      user={{ uid: 'u1' }}
+      reviewerName="Alice"
+      groupId="group1"
+      brandCodes={['BR1']}
+    />
+  );
+
+  await waitFor(() => expect(window.alert).toHaveBeenCalled());
+  expect(window.alert.mock.calls[0][0]).toMatch(/unable to acquire lock/i);
+  await waitFor(() =>
+    expect(screen.getByText(/Unable to acquire lock for this group/i)).toBeInTheDocument()
+  );
 });
 
