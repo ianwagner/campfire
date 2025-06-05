@@ -439,8 +439,6 @@ const InstancesView = () => {
         setComponents(compSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         const instSnap = await getDocs(collection(db, 'componentInstances'));
         setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        const instSnap = await getDocs(collection(db, 'componentInstances'));
-        setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error('Failed to load component instances', err);
       }
