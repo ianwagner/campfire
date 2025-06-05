@@ -4,7 +4,9 @@
 The Ad Recipe Setup tab controls the configuration for ad instructions and briefings. Recipes appear as rows in a table, with each row representing a single recipe.
 
 ## User Input
-Recipes are assembled from values that users provide through a form. Inputs can be free text or predefined components, and users may select multiple options for each input.
+Recipes are assembled from values that users provide through a form. Inputs can be free text or predefined **components**.
+
+Each component is comprised of one or more **attributes** which define the fields in the form (text, number, textarea or image). Components can also have named **instances**. An instance stores values for all of the component's attributes—for example the `audience` component could have an instance called "young adults" that provides the age range and interests. When a recipe is generated the selected instances are substituted into the GPT prompt.
 
 ## Output
 The system intelligently matches the chosen options to generate an ad recipe. The resulting recipe is displayed in the table.
@@ -40,7 +42,7 @@ the language model.
 
 Admins must be able to read and write recipe configuration data. Ensure your
 `firestore.rules` file includes collections for `recipeTypes` and
-`componentTypes` with write access restricted to administrators:
+`componentTypes` and `componentInstances` with write access restricted to administrators:
 
 ```
 match /recipeTypes/{docId} {
@@ -49,6 +51,11 @@ match /recipeTypes/{docId} {
 }
 
 match /componentTypes/{docId} {
+  allow read: if true;
+  allow write: if isAdmin();
+}
+
+match /componentInstances/{docId} {
   allow read: if true;
   allow write: if isAdmin();
 }
