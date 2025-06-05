@@ -59,6 +59,7 @@ const RecipeTypes = () => {
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
   const [componentOrder, setComponentOrder] = useState('');
+  const [fields, setFields] = useState([{ label: '', key: '', inputType: 'text' }]);
   const [editId, setEditId] = useState(null);
 
   useEffect(() => {
@@ -79,6 +80,7 @@ const RecipeTypes = () => {
     setName('');
     setPrompt('');
     setComponentOrder('');
+    setFields([{ label: '', key: '', inputType: 'text' }]);
   };
 
   const handleSave = async (e) => {
@@ -87,17 +89,31 @@ const RecipeTypes = () => {
       .split(',')
       .map((c) => c.trim())
       .filter(Boolean);
+    const writeFields = fields
+      .map((f) => ({
+        label: f.label.trim(),
+        key: f.key.trim(),
+        inputType: f.inputType || 'text',
+      }))
+      .filter((f) => f.label && f.key);
     try {
       if (editId) {
         await updateDoc(doc(db, 'recipeTypes', editId), {
           name: name.trim(),
           gptPrompt: prompt,
           components: order,
+          writeInFields: writeFields,
         });
         setTypes((t) =>
           t.map((r) =>
             r.id === editId
-              ? { ...r, name: name.trim(), gptPrompt: prompt, components: order }
+              ? {
+                  ...r,
+                  name: name.trim(),
+                  gptPrompt: prompt,
+                  components: order,
+                  writeInFields: writeFields,
+                }
               : r
           )
         );
@@ -106,10 +122,17 @@ const RecipeTypes = () => {
           name: name.trim(),
           gptPrompt: prompt,
           components: order,
+          writeInFields: writeFields,
         });
         setTypes((t) => [
           ...t,
-          { id: docRef.id, name: name.trim(), gptPrompt: prompt, components: order },
+          {
+            id: docRef.id,
+            name: name.trim(),
+            gptPrompt: prompt,
+            components: order,
+            writeInFields: writeFields,
+          },
         ]);
       }
       resetForm();
@@ -123,6 +146,11 @@ const RecipeTypes = () => {
     setName(t.name);
     setPrompt(t.gptPrompt || '');
     setComponentOrder((t.components || []).join(', '));
+    setFields(
+      t.writeInFields && t.writeInFields.length > 0
+        ? t.writeInFields
+        : [{ label: '', key: '', inputType: 'text' }]
+    );
   };
 
   const handleDelete = async (id) => {
@@ -146,6 +174,7 @@ const RecipeTypes = () => {
               <tr>
                 <th>Name</th>
                 <th>Components</th>
+                <th>Write-In Fields</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -156,6 +185,11 @@ const RecipeTypes = () => {
                   <td>
                     {t.components && t.components.length > 0
                       ? t.components.join(', ')
+                      : '-'}
+                  </td>
+                  <td>
+                    {t.writeInFields && t.writeInFields.length > 0
+                      ? t.writeInFields.map((f) => f.key).join(', ')
                       : '-'}
                   </td>
                   <td className="text-center">
@@ -199,6 +233,61 @@ const RecipeTypes = () => {
             value={componentOrder}
             onChange={(e) => setComponentOrder(e.target.value)}
           />
+        </div>
+        <div className="space-y-2">
+          <label className="block text-sm">Write-In Fields</label>
+          {fields.map((f, idx) => (
+            <div key={idx} className="flex gap-2 items-center">
+              <input
+                className="p-2 border rounded flex-1"
+                placeholder="Label"
+                value={f.label}
+                onChange={(e) => {
+                  const arr = [...fields];
+                  arr[idx].label = e.target.value;
+                  setFields(arr);
+                }}
+              />
+              <input
+                className="p-2 border rounded flex-1"
+                placeholder="Key"
+                value={f.key}
+                onChange={(e) => {
+                  const arr = [...fields];
+                  arr[idx].key = e.target.value;
+                  setFields(arr);
+                }}
+              />
+              <select
+                className="p-2 border rounded"
+                value={f.inputType}
+                onChange={(e) => {
+                  const arr = [...fields];
+                  arr[idx].inputType = e.target.value;
+                  setFields(arr);
+                }}
+              >
+                <option value="text">Text</option>
+                <option value="number">Number</option>
+                <option value="textarea">Textarea</option>
+                <option value="image">Image</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => setFields(fields.filter((_, i) => i !== idx))}
+                className="btn-secondary px-2 py-0.5"
+              >
+                <FiTrash />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setFields([...fields, { label: '', key: '', inputType: 'text' }])}
+            className="btn-secondary px-2 py-0.5"
+          >
+            Add Field
+          </button>
         </div>
         <div className="flex gap-2">
           <button type="submit" className="btn-primary">
@@ -630,9 +719,16 @@ const Preview = () => {
       c.attributes?.forEach((a) => {
         const val = inst ? inst.values?.[a.key] : formData[`${c.key}.${a.key}`] || '';
         componentsData[`${c.key}.${a.key}`] = val;
-        const regex = new RegExp(`{{${c.key}\.${a.key}}}`, 'g');
+        const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
         prompt = prompt.replace(regex, val);
       });
+    });
+    const writeFields = currentType.writeInFields || [];
+    writeFields.forEach((f) => {
+      const val = formData[f.key] || '';
+      componentsData[f.key] = val;
+      const regex = new RegExp(`{{${f.key}}}`, 'g');
+      prompt = prompt.replace(regex, val);
     });
 
     try {
@@ -668,6 +764,7 @@ const Preview = () => {
   const orderedComponents = currentType?.components?.length
     ? currentType.components.map((k) => compMap[k]).filter(Boolean)
     : components;
+  const writeFields = currentType?.writeInFields || [];
 
   return (
     <div>
@@ -721,6 +818,29 @@ const Preview = () => {
                 </div>
               );
             })}
+            {writeFields.map((f) => (
+              <div key={f.key}>
+                <label className="block text-sm mb-1">{f.label}</label>
+                {f.inputType === 'textarea' ? (
+                  <textarea
+                    className="w-full p-2 border rounded"
+                    value={formData[f.key] || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, [f.key]: e.target.value })
+                    }
+                  />
+                ) : (
+                  <input
+                    className="w-full p-2 border rounded"
+                    type={f.inputType}
+                    value={formData[f.key] || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, [f.key]: e.target.value })
+                    }
+                  />
+                )}
+              </div>
+            ))}
             <button type="submit" className="btn-primary">Generate</button>
           </div>
         )}
@@ -736,6 +856,9 @@ const Preview = () => {
                     <th key={`${c.key}.${a.key}`}>{`${c.label} - ${a.label}`}</th>
                   ))
                 )}
+                {writeFields.map((f) => (
+                  <th key={f.key}>{f.label}</th>
+                ))}
                 <th>Generated Copy</th>
               </tr>
             </thead>
@@ -748,6 +871,9 @@ const Preview = () => {
                       <td key={`${c.key}.${a.key}`}>{r.components[`${c.key}.${a.key}`]}</td>
                     ))
                   )}
+                  {writeFields.map((f) => (
+                    <td key={f.key}>{r.components[f.key]}</td>
+                  ))}
                   <td>{r.copy}</td>
                 </tr>
               ))}
