@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, addDoc } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+} from 'firebase/firestore';
+import { FiList, FiLayers, FiEye, FiEdit2, FiTrash } from 'react-icons/fi';
 import { db } from './firebase/config';
 
 const VIEWS = {
@@ -9,15 +17,30 @@ const VIEWS = {
 };
 
 const Tabs = ({ view, setView }) => (
-  <div className="space-x-2 mb-4">
-    <button className={`btn-tab${view === VIEWS.TYPES ? ' active' : ''}`} onClick={() => setView(VIEWS.TYPES)}>
-      Recipe Types
+  <div className="flex space-x-4 mb-4">
+    <button
+      className={`px-3 py-1 rounded flex items-center gap-1 ${
+        view === VIEWS.TYPES ? 'bg-accent-10 text-accent' : 'border'
+      }`}
+      onClick={() => setView(VIEWS.TYPES)}
+    >
+      <FiList /> <span>Recipe Types</span>
     </button>
-    <button className={`btn-tab${view === VIEWS.COMPONENTS ? ' active' : ''}`} onClick={() => setView(VIEWS.COMPONENTS)}>
-      Components
+    <button
+      className={`px-3 py-1 rounded flex items-center gap-1 ${
+        view === VIEWS.COMPONENTS ? 'bg-accent-10 text-accent' : 'border'
+      }`}
+      onClick={() => setView(VIEWS.COMPONENTS)}
+    >
+      <FiLayers /> <span>Components</span>
     </button>
-    <button className={`btn-tab${view === VIEWS.PREVIEW ? ' active' : ''}`} onClick={() => setView(VIEWS.PREVIEW)}>
-      Preview
+    <button
+      className={`px-3 py-1 rounded flex items-center gap-1 ${
+        view === VIEWS.PREVIEW ? 'bg-accent-10 text-accent' : 'border'
+      }`}
+      onClick={() => setView(VIEWS.PREVIEW)}
+    >
+      <FiEye /> <span>Preview</span>
     </button>
   </div>
 );
@@ -27,6 +50,7 @@ const RecipeTypes = () => {
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
   const [componentOrder, setComponentOrder] = useState('');
+  const [editId, setEditId] = useState(null);
 
   useEffect(() => {
     const fetchTypes = async () => {
@@ -41,27 +65,63 @@ const RecipeTypes = () => {
     fetchTypes();
   }, []);
 
-  const handleAdd = async (e) => {
+  const resetForm = () => {
+    setEditId(null);
+    setName('');
+    setPrompt('');
+    setComponentOrder('');
+  };
+
+  const handleSave = async (e) => {
     e.preventDefault();
+    const order = componentOrder
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
     try {
-      const order = componentOrder
-        .split(',')
-        .map((c) => c.trim())
-        .filter(Boolean);
-      const docRef = await addDoc(collection(db, 'recipeTypes'), {
-        name: name.trim(),
-        gptPrompt: prompt,
-        components: order,
-      });
-      setTypes((t) => [
-        ...t,
-        { id: docRef.id, name: name.trim(), gptPrompt: prompt, components: order },
-      ]);
-      setName('');
-      setPrompt('');
-      setComponentOrder('');
+      if (editId) {
+        await updateDoc(doc(db, 'recipeTypes', editId), {
+          name: name.trim(),
+          gptPrompt: prompt,
+          components: order,
+        });
+        setTypes((t) =>
+          t.map((r) =>
+            r.id === editId
+              ? { ...r, name: name.trim(), gptPrompt: prompt, components: order }
+              : r
+          )
+        );
+      } else {
+        const docRef = await addDoc(collection(db, 'recipeTypes'), {
+          name: name.trim(),
+          gptPrompt: prompt,
+          components: order,
+        });
+        setTypes((t) => [
+          ...t,
+          { id: docRef.id, name: name.trim(), gptPrompt: prompt, components: order },
+        ]);
+      }
+      resetForm();
     } catch (err) {
-      console.error('Failed to add recipe type', err);
+      console.error('Failed to save recipe type', err);
+    }
+  };
+
+  const startEdit = (t) => {
+    setEditId(t.id);
+    setName(t.name);
+    setPrompt(t.gptPrompt || '');
+    setComponentOrder((t.components || []).join(', '));
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'recipeTypes', id));
+      setTypes((t) => t.filter((r) => r.id !== id));
+    } catch (err) {
+      console.error('Failed to delete recipe type', err);
     }
   };
 
@@ -71,20 +131,50 @@ const RecipeTypes = () => {
       {types.length === 0 ? (
         <p>No recipe types found.</p>
       ) : (
-        <ul className="list-disc list-inside mb-4">
-          {types.map((t) => (
-            <li key={t.id}>
-              {t.name}
-              {t.components && t.components.length > 0 && (
-                <span className="ml-1 text-gray-500 text-sm">
-                  - {t.components.join(', ')}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-x-auto table-container mb-4">
+          <table className="ad-table min-w-max text-sm">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Components</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {types.map((t) => (
+                <tr key={t.id}>
+                  <td>{t.name}</td>
+                  <td>
+                    {t.components && t.components.length > 0
+                      ? t.components.join(', ')
+                      : '-'}
+                  </td>
+                  <td className="text-center">
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() => startEdit(t)}
+                        className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
+                        aria-label="Edit"
+                      >
+                        <FiEdit2 />
+                        <span className="ml-1">Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(t.id)}
+                        className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 btn-delete"
+                        aria-label="Delete"
+                      >
+                        <FiTrash />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-      <form onSubmit={handleAdd} className="space-y-2 max-w-sm">
+      <form onSubmit={handleSave} className="space-y-2 max-w-sm">
         <div>
           <label className="block text-sm mb-1">Name</label>
           <input className="w-full p-2 border rounded" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -101,7 +191,16 @@ const RecipeTypes = () => {
             onChange={(e) => setComponentOrder(e.target.value)}
           />
         </div>
-        <button type="submit" className="btn-primary">Add Type</button>
+        <div className="flex gap-2">
+          <button type="submit" className="btn-primary">
+            {editId ? 'Save Type' : 'Add Type'}
+          </button>
+          {editId && (
+            <button type="button" onClick={resetForm} className="btn-secondary px-2 py-0.5">
+              Cancel
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );
@@ -112,6 +211,7 @@ const ComponentsView = () => {
   const [label, setLabel] = useState('');
   const [keyVal, setKeyVal] = useState('');
   const [inputType, setInputType] = useState('text');
+  const [editId, setEditId] = useState(null);
 
   useEffect(() => {
     const fetchComponents = async () => {
@@ -126,20 +226,59 @@ const ComponentsView = () => {
     fetchComponents();
   }, []);
 
-  const handleAdd = async (e) => {
+  const resetForm = () => {
+    setEditId(null);
+    setLabel('');
+    setKeyVal('');
+    setInputType('text');
+  };
+
+  const handleSave = async (e) => {
     e.preventDefault();
     try {
-      const docRef = await addDoc(collection(db, 'componentTypes'), {
-        label: label.trim(),
-        key: keyVal.trim(),
-        inputType,
-      });
-      setComponents((c) => [...c, { id: docRef.id, label: label.trim(), key: keyVal.trim(), inputType }]);
-      setLabel('');
-      setKeyVal('');
-      setInputType('text');
+      if (editId) {
+        await updateDoc(doc(db, 'componentTypes', editId), {
+          label: label.trim(),
+          key: keyVal.trim(),
+          inputType,
+        });
+        setComponents((c) =>
+          c.map((comp) =>
+            comp.id === editId
+              ? { ...comp, label: label.trim(), key: keyVal.trim(), inputType }
+              : comp
+          )
+        );
+      } else {
+        const docRef = await addDoc(collection(db, 'componentTypes'), {
+          label: label.trim(),
+          key: keyVal.trim(),
+          inputType,
+        });
+        setComponents((c) => [
+          ...c,
+          { id: docRef.id, label: label.trim(), key: keyVal.trim(), inputType },
+        ]);
+      }
+      resetForm();
     } catch (err) {
-      console.error('Failed to add component type', err);
+      console.error('Failed to save component type', err);
+    }
+  };
+
+  const startEdit = (c) => {
+    setEditId(c.id);
+    setLabel(c.label);
+    setKeyVal(c.key);
+    setInputType(c.inputType);
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'componentTypes', id));
+      setComponents((c) => c.filter((comp) => comp.id !== id));
+    } catch (err) {
+      console.error('Failed to delete component type', err);
     }
   };
 
@@ -149,13 +288,48 @@ const ComponentsView = () => {
       {components.length === 0 ? (
         <p>No components found.</p>
       ) : (
-        <ul className="list-disc list-inside mb-4">
-          {components.map((c) => (
-            <li key={c.id}>{c.label} ({c.key}) - {c.inputType}</li>
-          ))}
-        </ul>
+        <div className="overflow-x-auto table-container mb-4">
+          <table className="ad-table min-w-max text-sm">
+            <thead>
+              <tr>
+                <th>Label</th>
+                <th>Key</th>
+                <th>Type</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {components.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.label}</td>
+                  <td>{c.key}</td>
+                  <td>{c.inputType}</td>
+                  <td className="text-center">
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() => startEdit(c)}
+                        className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
+                        aria-label="Edit"
+                      >
+                        <FiEdit2 />
+                        <span className="ml-1">Edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(c.id)}
+                        className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 btn-delete"
+                        aria-label="Delete"
+                      >
+                        <FiTrash />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-      <form onSubmit={handleAdd} className="space-y-2 max-w-sm">
+      <form onSubmit={handleSave} className="space-y-2 max-w-sm">
         <div>
           <label className="block text-sm mb-1">Label</label>
           <input className="w-full p-2 border rounded" value={label} onChange={(e) => setLabel(e.target.value)} required />
@@ -173,7 +347,16 @@ const ComponentsView = () => {
             <option value="image">Image</option>
           </select>
         </div>
-        <button type="submit" className="btn-primary">Add Component</button>
+        <div className="flex gap-2">
+          <button type="submit" className="btn-primary">
+            {editId ? 'Save Component' : 'Add Component'}
+          </button>
+          {editId && (
+            <button type="button" onClick={resetForm} className="btn-secondary px-2 py-0.5">
+              Cancel
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );
