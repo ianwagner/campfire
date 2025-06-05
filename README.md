@@ -214,3 +214,7 @@ group document. Reviewers must enter this password the first time they open the
 link. After a successful entry the password is saved in `localStorage` so future
 visits skip the prompt.
 
+
+## Ad Recipe Setup
+
+The [Ad Recipe Setup](docs/ad-recipe-setup.md) tab lets administrators define the form shown to users when creating a recipe. Inputs can include free-text fields and predefined components. Submitted options are matched together to produce the final ad recipe, which appears as a row in the table.

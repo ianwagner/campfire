@@ -26,6 +26,7 @@ const RecipeTypes = () => {
   const [types, setTypes] = useState([]);
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
+  const [componentOrder, setComponentOrder] = useState('');
 
   useEffect(() => {
     const fetchTypes = async () => {
@@ -43,10 +44,22 @@ const RecipeTypes = () => {
   const handleAdd = async (e) => {
     e.preventDefault();
     try {
-      const docRef = await addDoc(collection(db, 'recipeTypes'), { name: name.trim(), gptPrompt: prompt });
-      setTypes((t) => [...t, { id: docRef.id, name: name.trim(), gptPrompt: prompt }]);
+      const order = componentOrder
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean);
+      const docRef = await addDoc(collection(db, 'recipeTypes'), {
+        name: name.trim(),
+        gptPrompt: prompt,
+        components: order,
+      });
+      setTypes((t) => [
+        ...t,
+        { id: docRef.id, name: name.trim(), gptPrompt: prompt, components: order },
+      ]);
       setName('');
       setPrompt('');
+      setComponentOrder('');
     } catch (err) {
       console.error('Failed to add recipe type', err);
     }
@@ -60,7 +73,14 @@ const RecipeTypes = () => {
       ) : (
         <ul className="list-disc list-inside mb-4">
           {types.map((t) => (
-            <li key={t.id}>{t.name}</li>
+            <li key={t.id}>
+              {t.name}
+              {t.components && t.components.length > 0 && (
+                <span className="ml-1 text-gray-500 text-sm">
+                  - {t.components.join(', ')}
+                </span>
+              )}
+            </li>
           ))}
         </ul>
       )}
@@ -72,6 +92,14 @@ const RecipeTypes = () => {
         <div>
           <label className="block text-sm mb-1">GPT Prompt</label>
           <textarea className="w-full p-2 border rounded" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Components (comma separated keys in order)</label>
+          <input
+            className="w-full p-2 border rounded"
+            value={componentOrder}
+            onChange={(e) => setComponentOrder(e.target.value)}
+          />
         </div>
         <button type="submit" className="btn-primary">Add Type</button>
       </form>
@@ -178,6 +206,10 @@ const Preview = () => {
   };
 
   const currentType = types.find((t) => t.id === selectedType);
+  const compMap = Object.fromEntries(components.map((c) => [c.key, c]));
+  const orderedComponents = currentType?.components?.length
+    ? currentType.components.map((k) => compMap[k]).filter(Boolean)
+    : components;
 
   return (
     <div>
@@ -194,7 +226,7 @@ const Preview = () => {
         </div>
         {currentType && (
           <div className="space-y-2">
-            {components.map((c) => (
+            {orderedComponents.map((c) => (
               <div key={c.id}>
                 <label className="block text-sm mb-1">{c.label}</label>
                 <input
