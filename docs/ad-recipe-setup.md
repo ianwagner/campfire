@@ -4,9 +4,11 @@
 The Ad Recipe Setup tab controls the configuration for ad instructions and briefings. Recipes appear as rows in a table, with each row representing a single recipe.
 
 ## User Input
-Recipes are assembled from values that users provide through a form. Inputs can be free text or predefined **components**.
+Recipes are assembled from values that users provide through a form. Inputs can be free text or predefined **components**. Recipe types may also declare **write-in fields** for information like "angle" or "audience" that should not be restricted to predefined options.
 
 Each component is comprised of one or more **attributes** which define the fields in the form (text, number, textarea or image). Components can also have named **instances**. An instance stores values for all of the component's attributes—for example the `audience` component could have an instance called "young adults" that provides the age range and interests. When a recipe is generated the selected instances are substituted into the GPT prompt.
+
+Write-in fields are simpler than components—they only capture a single value. Each field specifies a `label`, `key`, and `inputType` (text, number, textarea or image). Values entered for these keys are inserted into the GPT prompt using `{{key}}` placeholders.
 
 ## Output
 The system intelligently matches the chosen options to generate an ad recipe. The resulting recipe is displayed in the table.
