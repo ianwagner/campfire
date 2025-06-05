@@ -34,6 +34,16 @@ test('navigates to brands page when Brands clicked', () => {
   expect(navigate).toHaveBeenCalledWith('/admin/brands');
 });
 
+test('navigates to ad recipes page when Ad Recipes clicked', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  fireEvent.click(screen.getByText('Ad Recipes'));
+  expect(navigate).toHaveBeenCalledWith('/admin/ad-recipes');
+});
+
 test('renders Site Settings tab', () => {
   render(
     <MemoryRouter>
@@ -50,4 +60,13 @@ test('renders Account Settings tab', () => {
     </MemoryRouter>
   );
   expect(screen.getByText('Account Settings')).toBeInTheDocument();
+});
+
+test('renders Ad Recipes tab', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  expect(screen.getByText('Ad Recipes')).toBeInTheDocument();
 });
