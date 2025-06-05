@@ -18,6 +18,7 @@ import {
   increment,
   setDoc,
   arrayUnion,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
@@ -123,6 +124,18 @@ const Review = ({
     const t = setTimeout(() => setFadeIn(false), 200);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    if (!groupId) return;
+    const unsub = onSnapshot(doc(db, 'adGroups', groupId), (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      setGroupStatus(data.status || 'pending');
+      setLockedBy(data.lockedBy || null);
+      setLockedByUid(data.lockedByUid || null);
+    });
+    return () => unsub();
+  }, [groupId]);
 
 useEffect(() => {
   if (!groupId || !reviewerName || reviewAds.length === 0 || forceSplash) return;
@@ -255,9 +268,6 @@ useEffect(() => {
           const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
           if (groupSnap.exists()) {
             const data = groupSnap.data();
-            setGroupStatus(data.status || 'pending');
-            setLockedBy(data.lockedBy || null);
-            setLockedByUid(data.lockedByUid || null);
             if (typeof data.reviewProgress === 'number') {
               startIndex = data.reviewProgress;
             }
