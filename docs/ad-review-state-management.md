@@ -3,7 +3,7 @@
 ## Overview
 The ad review interface allows multiple reviewers to provide feedback on ad assets. To keep the state simple and flexible, each ad document stores a single status field that is updated by any reviewer.
 
-The system does **not** implement roles or locking. Any reviewer can change the status at any time. The most recent action represents the current state.
+The interface now uses a lightweight locking mechanism on ad groups so only one reviewer edits at a time. Each group document stores `lockedBy` (display name) and `lockedByUid` (the reviewer's uid). Older documents may omit `lockedByUid`, so the UI falls back to comparing names when determining who holds the lock.
 
 ## Data Model
 Each ad asset (stored under `adGroups/{groupId}/assets/{assetId}`) includes the following fields:
@@ -45,8 +45,8 @@ When the revised ad is approved, set `isResolved` to true on all documents with 
 ## Designer Dashboard Requirements
 - The dashboard displays the latest status (`status`, `lastUpdatedBy`, `lastUpdatedAt`).
 
-## No Roles or Locking
-The system intentionally avoids role-based permissions or locking mechanics. All reviewers have equal ability to set the status, and updates happen immediately. Teams that want to coordinate who reviews can do so externally or with lightweight UI cues.
+## Locking Behavior
+Role-based permissions are still avoided, but ad groups can be locked by a reviewer to reduce conflicts. The `lockedBy` and `lockedByUid` fields identify who currently holds the lock.
 
 ## Error Handling
 If a status update fails (e.g. network error), the UI should surface the failure to the reviewer and allow them to retry. Firestore writes should be wrapped in try/catch blocks with appropriate user feedback.
