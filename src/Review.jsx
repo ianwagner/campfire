@@ -84,6 +84,7 @@ const Review = ({
   const [groupStatus, setGroupStatus] = useState(null);
   const [lockedBy, setLockedBy] = useState(null);
   const [lockedByUid, setLockedByUid] = useState(null);
+  const [lockFailed, setLockFailed] = useState(false);
   const { agency } = useAgencyTheme(agencyId);
   useDebugTrace('Review', {
     groupId,
@@ -154,19 +155,23 @@ useEffect(() => {
       setLockedBy(reviewerName);
       setLockedByUid(user.uid);
     } catch (err) {
-      if (err.message !== 'locked') {
+      if (err.code === 'permission-denied') {
+        window.alert('Unable to acquire lock for this group. You may not have permission.');
+        setLockFailed(true);
+      } else if (err.message !== 'locked') {
         console.error('Failed to lock group', err);
       }
     }
   };
 
   const needsLock =
-    groupStatus !== 'locked' ||
-    (lockedByUid ? lockedByUid !== user.uid : lockedBy !== reviewerName);
+    !lockFailed &&
+    (groupStatus !== 'locked' ||
+      (lockedByUid ? lockedByUid !== user.uid : lockedBy !== reviewerName));
   if (needsLock) {
     lockGroup();
   }
-}, [groupId, reviewerName, reviewAds.length, currentIndex, groupStatus, lockedByUid, lockedBy, forceSplash, user]);
+}, [groupId, reviewerName, reviewAds.length, currentIndex, groupStatus, lockedByUid, lockedBy, forceSplash, user, lockFailed]);
 
 
   useEffect(() => {
@@ -873,7 +878,15 @@ useEffect(() => {
   if (loading || !firstAdLoaded || !logoReady) {
     return <LoadingOverlay />;
   }
-  
+
+  if (lockFailed) {
+    return (
+      <div className="p-4 text-center">
+        Unable to acquire lock for this group. Please check your permissions.
+      </div>
+    );
+  }
+
 if (groupStatus === 'locked' && lockedBy && (lockedByUid ? lockedByUid !== user?.uid : lockedBy !== reviewerName)) {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
