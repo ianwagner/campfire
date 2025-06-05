@@ -367,6 +367,7 @@ const Preview = () => {
   const [components, setComponents] = useState([]);
   const [selectedType, setSelectedType] = useState('');
   const [formData, setFormData] = useState({});
+  const [results, setResults] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -408,13 +409,15 @@ const Preview = () => {
       const data = await response.json();
       if (!response.ok) {
         console.error('OpenAI API error', data);
-        alert('Failed to generate copy');
         return;
       }
-      alert(data.choices?.[0]?.message?.content?.trim() || 'No result');
+      const text = data.choices?.[0]?.message?.content?.trim() || 'No result';
+      setResults((prev) => [
+        ...prev,
+        { recipeNo: prev.length + 1, components: { ...formData }, copy: text },
+      ]);
     } catch (err) {
       console.error('Failed to call OpenAI', err);
-      alert('Failed to generate copy');
     }
   };
 
@@ -453,6 +456,32 @@ const Preview = () => {
           </div>
         )}
       </form>
+      {results.length > 0 && (
+        <div className="overflow-x-auto table-container mt-6">
+          <table className="ad-table min-w-max text-sm">
+            <thead>
+              <tr>
+                <th>Recipe #</th>
+                {orderedComponents.map((c) => (
+                  <th key={c.id}>{c.label}</th>
+                ))}
+                <th>Generated Copy</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((r, idx) => (
+                <tr key={idx}>
+                  <td className="text-center">{r.recipeNo}</td>
+                  {orderedComponents.map((c) => (
+                    <td key={c.id}>{r.components[c.key]}</td>
+                  ))}
+                  <td>{r.copy}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };
