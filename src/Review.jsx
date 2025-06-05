@@ -83,6 +83,7 @@ const Review = ({
   const logoUrlRef = useRef(null);
   const [groupStatus, setGroupStatus] = useState(null);
   const [lockedBy, setLockedBy] = useState(null);
+  const [lockedByUid, setLockedByUid] = useState(null);
   const { agency } = useAgencyTheme(agencyId);
   useDebugTrace('Review', {
     groupId,
@@ -132,19 +133,26 @@ useEffect(() => {
         const ref = doc(db, 'adGroups', groupId);
         const snap = await tx.get(ref);
         const data = snap.data() || {};
-        if (data.status === 'locked' && data.lockedBy && data.lockedBy !== reviewerName) {
+        const lockedBySomeoneElse =
+          data.status === 'locked' &&
+          ((data.lockedByUid && data.lockedByUid !== user.uid) ||
+            (!data.lockedByUid && data.lockedBy && data.lockedBy !== reviewerName));
+        if (lockedBySomeoneElse) {
           setGroupStatus(data.status);
           setLockedBy(data.lockedBy);
+          setLockedByUid(data.lockedByUid || null);
           throw new Error('locked');
         }
         tx.update(ref, {
           status: 'locked',
           lockedBy: reviewerName,
+          lockedByUid: user.uid,
           reviewProgress: currentIndex,
         });
       });
       setGroupStatus('locked');
       setLockedBy(reviewerName);
+      setLockedByUid(user.uid);
     } catch (err) {
       if (err.message !== 'locked') {
         console.error('Failed to lock group', err);
@@ -152,15 +160,20 @@ useEffect(() => {
     }
   };
 
-  if (groupStatus !== 'locked' || lockedBy !== reviewerName) {
+  const needsLock =
+    groupStatus !== 'locked' ||
+    (lockedByUid ? lockedByUid !== user.uid : lockedBy !== reviewerName);
+  if (needsLock) {
     lockGroup();
   }
-}, [groupId, reviewerName, reviewAds.length, currentIndex, groupStatus, lockedBy, forceSplash]);
+}, [groupId, reviewerName, reviewAds.length, currentIndex, groupStatus, lockedByUid, lockedBy, forceSplash, user]);
 
 
   useEffect(() => {
-    if (!groupId || lockedBy !== reviewerName || forceSplash) return;
+    if (!groupId || forceSplash) return;
     if (groupStatus !== 'locked') return;
+    const isOwner = lockedByUid ? lockedByUid === user?.uid : lockedBy === reviewerName;
+    if (!isOwner) return;
     updateDoc(doc(db, 'adGroups', groupId), {
       reviewProgress: currentIndex,
     }).catch((err) => console.error('Failed to save progress', err));
@@ -172,6 +185,7 @@ useEffect(() => {
       updateDoc(doc(db, 'adGroups', groupId), {
         status: 'reviewed',
         lockedBy: null,
+        lockedByUid: null,
         reviewProgress: null,
       }).catch((err) => console.error('Failed to update status', err));
     }
@@ -180,21 +194,24 @@ useEffect(() => {
   useEffect(() => {
     return () => {
       if (!groupId || forceSplash) return;
+      const isOwner = lockedByUid ? lockedByUid === user?.uid : lockedBy === reviewerName;
       if (currentIndex >= reviewAds.length) {
         updateDoc(doc(db, 'adGroups', groupId), {
           status: 'reviewed',
           lockedBy: null,
+          lockedByUid: null,
           reviewProgress: null,
         }).catch(() => {});
-      } else if (lockedBy === reviewerName) {
+      } else if (isOwner) {
         updateDoc(doc(db, 'adGroups', groupId), {
           status: 'locked',
           lockedBy: reviewerName,
+          lockedByUid: user?.uid,
           reviewProgress: currentIndex,
         }).catch(() => {});
       }
     };
-  }, [groupId, currentIndex, reviewAds.length, lockedBy, reviewerName, forceSplash]);
+  }, [groupId, currentIndex, reviewAds.length, lockedByUid, lockedBy, reviewerName, forceSplash, user]);
 
   const recipeGroups = useMemo(() => {
     const map = {};
@@ -240,6 +257,7 @@ useEffect(() => {
             const data = groupSnap.data();
             setGroupStatus(data.status || 'pending');
             setLockedBy(data.lockedBy || null);
+            setLockedByUid(data.lockedByUid || null);
             if (typeof data.reviewProgress === 'number') {
               startIndex = data.reviewProgress;
             }
@@ -856,10 +874,10 @@ useEffect(() => {
     return <LoadingOverlay />;
   }
   
-if (groupStatus === 'locked' && lockedBy && lockedBy !== reviewerName) {
+if (groupStatus === 'locked' && lockedBy && (lockedByUid ? lockedByUid !== user?.uid : lockedBy !== reviewerName)) {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
-      <h1 className="text-2xl font-bold">This review was started by {lockedBy}.</h1>
+      <h1 className="text-2xl font-bold">{lockedBy} is currently reviewing this group.</h1>
       <p className="text-lg">Please wait until they've finished before hopping in.</p>
       {agencyId && (
         <OptimizedImage
