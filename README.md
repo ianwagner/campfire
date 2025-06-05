@@ -42,6 +42,7 @@ VITE_FIREBASE_PROJECT_ID=your-project-id
 VITE_FIREBASE_STORAGE_BUCKET=your-storage-bucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 VITE_FIREBASE_APP_ID=your-app-id
+VITE_OPENAI_API_KEY=your-openai-key
 ```
 
 These values correspond to your Firebase project's configuration. Vite will load

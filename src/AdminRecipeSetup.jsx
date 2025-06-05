@@ -382,10 +382,40 @@ const Preview = () => {
     fetchData();
   }, []);
 
-  const handleGenerate = (e) => {
+  const handleGenerate = async (e) => {
     e.preventDefault();
-    // placeholder generation logic
-    alert('Generate copy with GPT using prompt from recipe type');
+    if (!currentType) return;
+
+    let prompt = currentType.gptPrompt || '';
+    for (const [key, value] of Object.entries(formData)) {
+      const regex = new RegExp(`{{${key}}}`, 'g');
+      prompt = prompt.replace(regex, value);
+    }
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        console.error('OpenAI API error', data);
+        alert('Failed to generate copy');
+        return;
+      }
+      alert(data.choices?.[0]?.message?.content?.trim() || 'No result');
+    } catch (err) {
+      console.error('Failed to call OpenAI', err);
+      alert('Failed to generate copy');
+    }
   };
 
   const currentType = types.find((t) => t.id === selectedType);
