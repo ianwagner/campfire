@@ -28,6 +28,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /recipeTypes/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /componentTypes/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /adGroups/{groupId} {
       allow read: if true;
       allow create: if request.auth != null;

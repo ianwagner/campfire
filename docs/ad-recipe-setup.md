@@ -18,3 +18,21 @@ The Recipe Type tab lets an admin define:
 When creating a type, list the component keys in the desired order separated by
 commas (e.g. `headline,cta,image`). These keys correspond to components defined
 in the **Components** tab.
+
+## Firestore Rules
+
+Admins must be able to read and write recipe configuration data. Ensure your
+`firestore.rules` file includes collections for `recipeTypes` and
+`componentTypes` with write access restricted to administrators:
+
+```
+match /recipeTypes/{docId} {
+  allow read: if true;
+  allow write: if isAdmin();
+}
+
+match /componentTypes/{docId} {
+  allow read: if true;
+  allow write: if isAdmin();
+}
+```
