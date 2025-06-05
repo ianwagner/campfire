@@ -218,4 +218,4 @@ visits skip the prompt.
 
 ## Ad Recipe Setup
 
-The [Ad Recipe Setup](docs/ad-recipe-setup.md) tab lets administrators define the form shown to users when creating a recipe. Inputs can include free-text fields and predefined components. Submitted options are matched together to produce the final ad recipe, which appears as a row in the table.
+The [Ad Recipe Setup](docs/ad-recipe-setup.md) tab lets administrators define the form shown to users when creating a recipe. Inputs can include free-text fields and predefined components. Submitted options are matched together to produce the final ad recipe. The result is added to a table with columns for component values, copy, and the recipe number (table columns: component values, copy, recipe number).
