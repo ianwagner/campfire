@@ -729,6 +729,8 @@ const Preview = () => {
             return { id: d.id, ...data, selectionMode: data.selectionMode || 'dropdown' };
           })
         );
+        const instSnap = await getDocs(collection(db, 'componentInstances'));
+        setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error('Failed to load data', err);
       }
