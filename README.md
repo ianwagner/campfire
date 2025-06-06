@@ -47,8 +47,8 @@ npm run import-assets -- <sheetId>
 ## Environment Variables
 
 The React application reads Firebase configuration values from Vite's
-environment. Create a `.env` file in the project root with the following
-variables:
+environment. Copy the provided `.env.example` to `.env` and fill in the
+values for your project:
 
 ```bash
 VITE_FIREBASE_API_KEY=your-api-key
