@@ -1095,6 +1095,7 @@ const Preview = () => {
                           setResults(arr);
                         }}
                         onBlur={() => setEditIdx(null)}
+                        spellCheck
                       />
                     ) : (
                       <div className="min-h-[1.5rem]">
