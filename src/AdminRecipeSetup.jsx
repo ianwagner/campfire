@@ -8,6 +8,7 @@ import {
   doc,
 } from 'firebase/firestore';
 import { FiList, FiLayers, FiEye, FiEdit2, FiTrash } from 'react-icons/fi';
+import TagChecklist from './components/TagChecklist.jsx';
 import { db } from './firebase/config';
 
 const VIEWS = {
@@ -752,7 +753,10 @@ const Preview = () => {
           selectedInst = instOptions[Math.floor(Math.random() * instOptions.length)];
         }
       } else if (c.selectionMode === 'checklist') {
-        const ids = selectedInstances[c.key] || [];
+        const ids =
+          selectedInstances[c.key] !== undefined
+            ? selectedInstances[c.key]
+            : instOptions.map((i) => i.id);
         const opts = ids
           .map((id) => instOptions.find((i) => i.id === id))
           .filter(Boolean);
@@ -845,7 +849,12 @@ const Preview = () => {
           <div className="space-y-4">
             {orderedComponents.map((c) => {
               const instOptions = instances.filter((i) => i.componentKey === c.key);
-              const current = selectedInstances[c.key] || (c.selectionMode === 'checklist' ? [] : '');
+              const defaultList = instOptions.map((i) => i.id);
+              const current = selectedInstances[c.key] !== undefined
+                ? selectedInstances[c.key]
+                : c.selectionMode === 'checklist'
+                ? defaultList
+                : '';
               const inst = c.selectionMode === 'dropdown' ? instances.find((i) => i.id === current) : null;
               return (
                 <div key={c.id} className="space-y-2">
@@ -865,23 +874,12 @@ const Preview = () => {
                     </select>
                   )}
                   {c.selectionMode === 'checklist' && instOptions.length > 0 && (
-                    <div className="space-y-1">
-                      {instOptions.map((i) => (
-                        <label key={i.id} className="flex items-center gap-1">
-                          <input
-                            type="checkbox"
-                            checked={current.includes(i.id)}
-                            onChange={() => {
-                              const arr = current.includes(i.id)
-                                ? current.filter((id) => id !== i.id)
-                                : [...current, i.id];
-                              setSelectedInstances({ ...selectedInstances, [c.key]: arr });
-                            }}
-                          />
-                          <span>{i.name}</span>
-                        </label>
-                      ))}
-                    </div>
+                    <TagChecklist
+                      options={instOptions.map((i) => ({ id: i.id, name: i.name }))}
+                      value={current}
+                      onChange={(arr) => setSelectedInstances({ ...selectedInstances, [c.key]: arr })}
+                      id={`check-${c.id}`}
+                    />
                   )}
                   {c.selectionMode === 'random' && instOptions.length > 0 && (
                     <p className="text-sm italic">Random instance</p>
