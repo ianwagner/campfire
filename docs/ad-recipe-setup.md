@@ -8,6 +8,14 @@ Recipes are assembled from values that users provide through a form. Inputs can 
 
 Each component is comprised of one or more **attributes** which define the fields in the form (text, number, textarea or image). Components can also have named **instances**. An instance stores values for all of the component's attributes—for example the `audience` component could have an instance called "young adults" that provides the age range and interests. When a recipe is generated the selected instances are substituted into the GPT prompt.
 
+Components also define a `selectionMode` that controls how an instance is chosen when generating a recipe:
+
+- **`random`** – one instance is randomly selected for each recipe.
+- **`dropdown`** – the user chooses a single instance from a dropdown.
+- **`checklist`** – the user may pick multiple instances which are either used as-is or randomly sampled.
+
+The chosen mode determines how components contribute their values to the final recipe.
+
 Write-in fields are simpler than components—they only capture a single value. Each field specifies a `label`, `key`, and `inputType` (text, number, textarea or image). Values entered for these keys are inserted into the GPT prompt using `{{key}}` placeholders.
 
 ## Output
