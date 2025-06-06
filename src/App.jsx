@@ -34,6 +34,7 @@ import useAdminClaim from "./useAdminClaim";
 import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
 import AdminRecipeSetup from "./AdminRecipeSetup";
+import AdminImportAssets from "./AdminImportAssets";
 import ManageMfa from "./ManageMfa";
 import RequireMfa from "./RequireMfa";
 import SiteSettings from "./SiteSettings";
@@ -509,6 +510,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminRecipeSetup />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/import-assets"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="admin"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <AdminImportAssets />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
