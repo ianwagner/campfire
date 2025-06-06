@@ -1070,7 +1070,7 @@ const Preview = () => {
                       <th key={col.key}>{col.label}</th>
                     )
                 )}
-                <th>Generated Copy</th>
+                <th className="w-64">Generated Copy</th>
                 <th></th>
               </tr>
             </thead>
@@ -1084,7 +1084,7 @@ const Preview = () => {
                         <td key={col.key}>{r.components[col.key]}</td>
                       )
                   )}
-                  <td className="whitespace-pre-wrap break-words text-[10px] relative">
+                  <td className="whitespace-pre-wrap break-words text-[10px] relative w-64">
                     {editIdx === idx ? (
                       <textarea
                         className="w-full p-1 border rounded text-[10px]"
@@ -1098,7 +1098,7 @@ const Preview = () => {
                         spellCheck
                       />
                     ) : (
-                      <div className="min-h-[1.5rem] text-[10px]">
+                      <div className="min-h-[1.5rem] text-[10px] w-full">
                         <button
                           type="button"
                           className="absolute top-0 right-0 p-1 text-xs"
