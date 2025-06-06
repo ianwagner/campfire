@@ -48,6 +48,14 @@ The generation feature uses OpenAI's ChatGPT API. Provide your API key via the
 `VITE_OPENAI_API_KEY` environment variable so the preview can send requests to
 the language model.
 
+### Asset Prompt
+
+Optionally provide an **Asset Prompt** string to control how values feed the
+asset search UI. The prompt may reference component keys using `{{key}}`
+placeholders (e.g. `{{audience}} {{offer}}`). This mapping lets the system know
+which component values should be combined into search terms when looking for
+existing assets.
+
 ## Firestore Rules
 
 Admins must be able to read and write recipe configuration data. Ensure your
