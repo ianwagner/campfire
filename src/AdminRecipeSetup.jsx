@@ -716,6 +716,7 @@ const Preview = () => {
   const [formData, setFormData] = useState({});
   const [selectedInstances, setSelectedInstances] = useState({});
   const [results, setResults] = useState([]);
+  const [generateCount, setGenerateCount] = useState(1);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -738,34 +739,35 @@ const Preview = () => {
     fetchData();
   }, []);
 
-  const handleGenerate = async (e) => {
-    e.preventDefault();
+  const generateOnce = async () => {
     if (!currentType) return;
 
     let prompt = currentType.gptPrompt || '';
     const componentsData = {};
     orderedComponents.forEach((c) => {
       const instOptions = instances.filter((i) => i.componentKey === c.key);
-      let selectedInsts = [];
+      let selectedInst = null;
       if (c.selectionMode === 'random') {
         if (instOptions.length > 0) {
-          selectedInsts = [instOptions[Math.floor(Math.random() * instOptions.length)]];
+          selectedInst = instOptions[Math.floor(Math.random() * instOptions.length)];
         }
       } else if (c.selectionMode === 'checklist') {
         const ids = selectedInstances[c.key] || [];
-        selectedInsts = ids.map((id) => instOptions.find((i) => i.id === id)).filter(Boolean);
+        const opts = ids
+          .map((id) => instOptions.find((i) => i.id === id))
+          .filter(Boolean);
+        if (opts.length > 0) {
+          selectedInst = opts[Math.floor(Math.random() * opts.length)];
+        }
       } else {
         const id = selectedInstances[c.key];
         const inst = instOptions.find((i) => i.id === id);
-        if (inst) selectedInsts = [inst];
+        if (inst) selectedInst = inst;
       }
       c.attributes?.forEach((a) => {
         let val = '';
-        if (selectedInsts.length > 0) {
-          val = selectedInsts
-            .map((ins) => ins.values?.[a.key] || '')
-            .filter(Boolean)
-            .join(', ');
+        if (selectedInst) {
+          val = selectedInst.values?.[a.key] || '';
         } else {
           val = formData[`${c.key}.${a.key}`] || '';
         }
@@ -807,6 +809,15 @@ const Preview = () => {
       ]);
     } catch (err) {
       console.error('Failed to call OpenAI', err);
+    }
+  };
+
+  const handleGenerate = async (e) => {
+    e.preventDefault();
+    const times = Number(generateCount) || 1;
+    for (let i = 0; i < times; i++) {
+      // eslint-disable-next-line no-await-in-loop
+      await generateOnce();
     }
   };
 
@@ -914,7 +925,18 @@ const Preview = () => {
                 )}
               </div>
             ))}
-            <button type="submit" className="btn-primary">Generate</button>
+            <div className="flex items-center gap-2">
+              <button type="submit" className="btn-primary">Generate</button>
+              <input
+                type="number"
+                min="1"
+                className="p-2 border rounded w-20"
+                value={generateCount}
+                onChange={(e) =>
+                  setGenerateCount(Math.max(1, parseInt(e.target.value, 10) || 1))
+                }
+              />
+            </div>
           </div>
         )}
       </form>
