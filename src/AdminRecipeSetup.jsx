@@ -7,7 +7,7 @@ import {
   deleteDoc,
   doc,
 } from 'firebase/firestore';
-import { FiList, FiLayers, FiEye, FiEdit2, FiTrash, FiSave, FiCopy } from 'react-icons/fi';
+import { FiList, FiLayers, FiEye, FiEdit2, FiTrash, FiSave, FiCopy, FiFile } from 'react-icons/fi';
 import TagChecklist from './components/TagChecklist.jsx';
 import TagInput from './components/TagInput.jsx';
 import PromptTextarea from './components/PromptTextarea.jsx';
@@ -20,6 +20,7 @@ const VIEWS = {
   COMPONENTS: 'components',
   INSTANCES: 'instances',
   PREVIEW: 'preview',
+  CSV_IMPORTS: 'csvImports',
 };
 
 const Tabs = ({ view, setView }) => (
@@ -50,6 +51,14 @@ const Tabs = ({ view, setView }) => (
     </button>
     <button
       className={`px-3 py-1 rounded flex items-center gap-1 ${
+        view === VIEWS.CSV_IMPORTS ? 'bg-accent-10 text-accent' : 'border'
+      }`}
+      onClick={() => setView(VIEWS.CSV_IMPORTS)}
+    >
+      <FiFile /> <span>CSV Imports</span>
+    </button>
+    <button
+      className={`px-3 py-1 rounded flex items-center gap-1 ${
         view === VIEWS.PREVIEW ? 'bg-accent-10 text-accent' : 'border'
       }`}
       onClick={() => setView(VIEWS.PREVIEW)}
@@ -67,6 +76,9 @@ const RecipeTypes = () => {
   const [assetPrompt, setAssetPrompt] = useState('');
   const [componentOrder, setComponentOrder] = useState('');
   const [fields, setFields] = useState([{ label: '', key: '', inputType: 'text' }]);
+  const [csvImportTypes, setCsvImportTypes] = useState([]);
+  const [csvEnabled, setCsvEnabled] = useState(false);
+  const [csvType, setCsvType] = useState('');
   const [editId, setEditId] = useState(null);
 
   useEffect(() => {
@@ -74,6 +86,8 @@ const RecipeTypes = () => {
       try {
         const snap = await getDocs(collection(db, 'recipeTypes'));
         setTypes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const csvSnap = await getDocs(collection(db, 'csvImportTypes'));
+        setCsvImportTypes(csvSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error('Failed to fetch recipe types', err);
         setTypes([]);
@@ -82,6 +96,29 @@ const RecipeTypes = () => {
     fetchTypes();
   }, []);
 
+  const parseCsvFile = async (file, importType) => {
+    if (!file || !importType) return [];
+    const text = await file.text();
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length <= 1) return [];
+    const rows = [];
+    for (let i = 1; i < lines.length; i += 1) {
+      const parts = lines[i].split(',');
+      const row = {};
+      importType.columns.forEach((col) => {
+        const val = parts[col.index] ? parts[col.index].trim() : '';
+        if (col.role === 'tag') {
+          if (!row.tags) row.tags = [];
+          if (val) row.tags.push(val);
+        } else if (col.role !== 'ignore') {
+          row[col.role] = val;
+        }
+      });
+      rows.push(row);
+    }
+    return rows;
+  };
+
   const resetForm = () => {
     setEditId(null);
     setName('');
@@ -89,6 +126,8 @@ const RecipeTypes = () => {
     setAssetPrompt('');
     setComponentOrder('');
     setFields([{ label: '', key: '', inputType: 'text' }]);
+    setCsvEnabled(false);
+    setCsvType('');
   };
 
   const handleSave = async (e) => {
@@ -112,6 +151,8 @@ const RecipeTypes = () => {
           assetPrompt: assetPrompt,
           components: order,
           writeInFields: writeFields,
+          csvEnabled,
+          csvType,
         });
         setTypes((t) =>
           t.map((r) =>
@@ -123,6 +164,8 @@ const RecipeTypes = () => {
                   assetPrompt: assetPrompt,
                   components: order,
                   writeInFields: writeFields,
+                  csvEnabled,
+                  csvType,
                 }
               : r
           )
@@ -134,6 +177,8 @@ const RecipeTypes = () => {
           assetPrompt: assetPrompt,
           components: order,
           writeInFields: writeFields,
+          csvEnabled,
+          csvType,
         });
         setTypes((t) => [
           ...t,
@@ -144,6 +189,8 @@ const RecipeTypes = () => {
             assetPrompt: assetPrompt,
             components: order,
             writeInFields: writeFields,
+            csvEnabled,
+            csvType,
           },
         ]);
       }
@@ -159,6 +206,8 @@ const RecipeTypes = () => {
     setPrompt(t.gptPrompt || '');
     setAssetPrompt(t.assetPrompt || '');
     setComponentOrder((t.components || []).join(', '));
+    setCsvEnabled(!!t.csvEnabled);
+    setCsvType(t.csvType || '');
     setFields(
       t.writeInFields && t.writeInFields.length > 0
         ? t.writeInFields
@@ -263,6 +312,21 @@ const RecipeTypes = () => {
             placeholders={placeholders}
           />
         </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm">CSV Import</label>
+          <input type="checkbox" checked={csvEnabled} onChange={(e) => setCsvEnabled(e.target.checked)} />
+        </div>
+        {csvEnabled && (
+          <div>
+            <label className="block text-sm mb-1">CSV Import Type</label>
+            <select className="w-full p-2 border rounded" value={csvType} onChange={(e) => setCsvType(e.target.value)}>
+              <option value="">Select...</option>
+              {csvImportTypes.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-sm mb-1">Components (comma separated keys in order)</label>
           <input
@@ -597,6 +661,12 @@ const InstancesView = () => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    setCsvRows([]);
+    setCsvFile(null);
+    setCsvIndex(0);
+  }, [selectedType]);
+
   const resetForm = () => {
     setEditId(null);
     setComponent('');
@@ -746,6 +816,153 @@ const InstancesView = () => {
   );
 };
 
+const CsvImportTypesView = () => {
+  const [types, setTypes] = useState([]);
+  const [name, setName] = useState('');
+  const [columns, setColumns] = useState([]);
+  const [editId, setEditId] = useState(null);
+  const [file, setFile] = useState(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'csvImportTypes'));
+        setTypes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.error('Failed to load csv import types', err);
+      }
+    };
+    load();
+  }, []);
+
+  const resetForm = () => {
+    setEditId(null);
+    setName('');
+    setColumns([]);
+    setFile(null);
+  };
+
+  const parseSample = async (f) => {
+    if (!f) return;
+    const text = await f.text();
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length === 0) return;
+    const headers = lines[0].split(',').map((h) => h.trim());
+    setColumns(headers.map((h, i) => ({ index: i, name: h, role: 'ignore', required: false })));
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    const cols = columns.map((c) => ({ name: c.name, index: c.index, role: c.role, required: !!c.required }));
+    try {
+      if (editId) {
+        await updateDoc(doc(db, 'csvImportTypes', editId), { name: name.trim(), columns: cols });
+        setTypes((t) => t.map((r) => (r.id === editId ? { ...r, name: name.trim(), columns: cols } : r)));
+      } else {
+        const ref = await addDoc(collection(db, 'csvImportTypes'), { name: name.trim(), columns: cols });
+        setTypes((t) => [...t, { id: ref.id, name: name.trim(), columns: cols }]);
+      }
+      resetForm();
+    } catch (err) {
+      console.error('Failed to save csv import type', err);
+    }
+  };
+
+  const startEdit = (t) => {
+    setEditId(t.id);
+    setName(t.name);
+    setColumns(t.columns || []);
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'csvImportTypes', id));
+      setTypes((t) => t.filter((r) => r.id !== id));
+    } catch (err) {
+      console.error('Failed to delete csv import type', err);
+    }
+  };
+
+  return (
+    <div>
+      <h2 className="text-xl mb-2">CSV Import Types</h2>
+      {types.length === 0 ? (
+        <p>No CSV import types found.</p>
+      ) : (
+        <div className="overflow-x-auto table-container mb-4">
+          <table className="ad-table min-w-max text-sm">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Columns</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {types.map((t) => (
+                <tr key={t.id}>
+                  <td>{t.name}</td>
+                  <td>{t.columns ? t.columns.length : 0}</td>
+                  <td className="text-center">
+                    <div className="flex items-center justify-center">
+                      <button onClick={() => startEdit(t)} className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2" aria-label="Edit">
+                        <FiEdit2 />
+                        <span className="ml-1">Edit</span>
+                      </button>
+                      <button onClick={() => handleDelete(t.id)} className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 btn-delete" aria-label="Delete">
+                        <FiTrash />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <form onSubmit={handleSave} className="space-y-2 max-w-sm">
+        <div>
+          <label className="block text-sm mb-1">Name</label>
+          <input className="w-full p-2 border rounded" value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Sample CSV</label>
+          <input type="file" accept=".csv" onChange={(e) => { const f = e.target.files?.[0]; setFile(f || null); parseSample(f); }} />
+        </div>
+        {columns.length > 0 && (
+          <div className="space-y-2">
+            {columns.map((c, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <span className="flex-1">{c.name}</span>
+                <select className="p-2 border rounded" value={c.role} onChange={(e) => { const arr = [...columns]; arr[idx].role = e.target.value; setColumns(arr); }}>
+                  <option value="ignore">Ignore</option>
+                  <option value="fileName">File Name</option>
+                  <option value="imageUrl">Image URL</option>
+                  <option value="audience">Audience</option>
+                  <option value="angle">Angle</option>
+                  <option value="tag">Tag</option>
+                </select>
+                <label className="text-sm">
+                  <input type="checkbox" className="mr-1" checked={c.required || false} onChange={(e) => { const arr = [...columns]; arr[idx].required = e.target.checked; setColumns(arr); }} />
+                  Required
+                </label>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <button type="submit" className="btn-primary">{editId ? 'Save Type' : 'Add Type'}</button>
+          {editId && (
+            <button type="button" onClick={resetForm} className="btn-secondary px-2 py-0.5">
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+};
+
 const Preview = () => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
@@ -758,6 +975,10 @@ const Preview = () => {
   const [visibleColumns, setVisibleColumns] = useState({});
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const [editIdx, setEditIdx] = useState(null);
+  const [csvImportTypes, setCsvImportTypes] = useState([]);
+  const [csvRows, setCsvRows] = useState([]);
+  const [csvIndex, setCsvIndex] = useState(0);
+  const [csvFile, setCsvFile] = useState(null);
   const assets = useAssets();
 
   useEffect(() => {
@@ -765,6 +986,8 @@ const Preview = () => {
       try {
         const typeSnap = await getDocs(collection(db, 'recipeTypes'));
         setTypes(typeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const csvSnap = await getDocs(collection(db, 'csvImportTypes'));
+        setCsvImportTypes(csvSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         const compSnap = await getDocs(collection(db, 'componentTypes'));
         setComponents(
           compSnap.docs.map((d) => {
@@ -785,6 +1008,10 @@ const Preview = () => {
     if (!currentType) return;
 
     let prompt = currentType.gptPrompt || '';
+    const row = csvRows.length > 0 ? csvRows[csvIndex % csvRows.length] : {};
+    setCsvIndex((i) => (csvRows.length > 0 ? (i + 1) % csvRows.length : 0));
+
+    const mergedForm = { ...formData, ...row };
     const componentsData = {};
     orderedComponents.forEach((c) => {
       const instOptions = instances.filter((i) => i.componentKey === c.key);
@@ -814,7 +1041,7 @@ const Preview = () => {
         if (selectedInst) {
           val = selectedInst.values?.[a.key] || '';
         } else {
-          val = formData[`${c.key}.${a.key}`] || '';
+          val = mergedForm[`${c.key}.${a.key}`] || '';
         }
         componentsData[`${c.key}.${a.key}`] = val;
         const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
@@ -823,7 +1050,7 @@ const Preview = () => {
     });
     const writeFields = currentType.writeInFields || [];
     writeFields.forEach((f) => {
-      let val = formData[f.key] || '';
+      let val = mergedForm[f.key] || '';
       if (Array.isArray(val)) {
         val = val.length > 0 ? val[Math.floor(Math.random() * val.length)] : '';
       }
@@ -838,6 +1065,11 @@ const Preview = () => {
       const val = componentsData[t];
       if (val) matchedAssets = matchedAssets.filter((a) => a[t] === val);
     });
+    if (row.tags && row.tags.length > 0) {
+      matchedAssets = matchedAssets.filter((a) =>
+        row.tags.every((tag) => (a.tags || []).includes(tag))
+      );
+    }
     if (assetCount > 0 && matchedAssets.length < assetCount) {
       console.warn('Not enough assets for recipe', matchedAssets.length, 'need', assetCount);
       return;
@@ -930,6 +1162,30 @@ const Preview = () => {
         </div>
         {currentType && (
           <div className="space-y-4">
+            {currentType.csvEnabled && (
+              <div>
+                <label className="block text-sm mb-1">CSV File</label>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    setCsvFile(f || null);
+                    const type = csvImportTypes.find((t) => t.id === currentType.csvType);
+                    if (f && type) {
+                      const rows = await parseCsvFile(f, type);
+                      setCsvRows(rows);
+                      setCsvIndex(0);
+                    } else {
+                      setCsvRows([]);
+                    }
+                  }}
+                />
+                {csvRows.length > 0 && (
+                  <p className="text-sm italic mt-1">{csvRows.length} rows loaded</p>
+                )}
+              </div>
+            )}
             {orderedComponents.map((c) => {
               const instOptions = instances.filter((i) => i.componentKey === c.key);
               const defaultList = instOptions.map((i) => i.id);
@@ -1163,6 +1419,7 @@ const AdminRecipeSetup = () => {
       {view === VIEWS.TYPES && <RecipeTypes />}
       {view === VIEWS.COMPONENTS && <ComponentsView />}
       {view === VIEWS.INSTANCES && <InstancesView />}
+      {view === VIEWS.CSV_IMPORTS && <CsvImportTypesView />}
       {view === VIEWS.PREVIEW && <Preview />}
     </div>
   );
