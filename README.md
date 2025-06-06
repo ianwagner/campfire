@@ -29,6 +29,21 @@ the sheet may reorder them without breaking the sync.
 The values in the Recipe Number column should match the recipe identifiers
 (e.g., `Recipe 1`, `Recipe 2`) used in Firestore.
 
+## Importing Ad Assets
+
+The `importAssets.js` script reads asset rows from a Google Sheet and stores
+them in the `adAssets` collection. Column names are matched case-insensitively
+and may include **Name**, **Link**, **Audience Tags**, **Angle Tags**, and
+**Offer Tags**. Tags can be comma or semicolon separated. Each row is written to
+`adAssets/{assetId}` where `assetId` is derived from the **ID** column if
+present, otherwise the asset name.
+
+Run the script with a spreadsheet ID:
+
+```bash
+npm run import-assets -- <sheetId>
+```
+
 ## Environment Variables
 
 The React application reads Firebase configuration values from Vite's
