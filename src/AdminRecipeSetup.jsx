@@ -9,6 +9,8 @@ import {
 } from 'firebase/firestore';
 import { FiList, FiLayers, FiEye, FiEdit2, FiTrash } from 'react-icons/fi';
 import TagChecklist from './components/TagChecklist.jsx';
+import PromptTextarea from './components/PromptTextarea.jsx';
+import useComponentTypes from './useComponentTypes';
 import { db } from './firebase/config';
 import useAssets from './useAssets';
 
@@ -57,6 +59,7 @@ const Tabs = ({ view, setView }) => (
 );
 
 const RecipeTypes = () => {
+  const componentsData = useComponentTypes();
   const [types, setTypes] = useState([]);
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -171,6 +174,16 @@ const RecipeTypes = () => {
     }
   };
 
+  const placeholders = [];
+  componentsData.forEach((c) => {
+    c.attributes?.forEach((a) => {
+      placeholders.push(`${c.key}.${a.key}`);
+    });
+  });
+  fields.forEach((f) => {
+    if (f.key) placeholders.push(f.key);
+  });
+
   return (
     <div>
       <h2 className="text-xl mb-2">Recipe Types</h2>
@@ -235,14 +248,18 @@ const RecipeTypes = () => {
         </div>
         <div>
           <label className="block text-sm mb-1">GPT Prompt</label>
-          <textarea className="w-full p-2 border rounded" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+          <PromptTextarea
+            value={prompt}
+            onChange={setPrompt}
+            placeholders={placeholders}
+          />
         </div>
         <div>
           <label className="block text-sm mb-1">Asset Prompt</label>
-          <input
-            className="w-full p-2 border rounded"
+          <PromptTextarea
             value={assetPrompt}
-            onChange={(e) => setAssetPrompt(e.target.value)}
+            onChange={setAssetPrompt}
+            placeholders={placeholders}
           />
         </div>
         <div>
