@@ -308,6 +308,7 @@ const ComponentsView = () => {
   const [components, setComponents] = useState([]);
   const [label, setLabel] = useState('');
   const [keyVal, setKeyVal] = useState('');
+  const [selectionMode, setSelectionMode] = useState('dropdown');
   const [attributes, setAttributes] = useState([{ label: '', key: '', inputType: 'text' }]);
   const [editId, setEditId] = useState(null);
 
@@ -328,6 +329,7 @@ const ComponentsView = () => {
     setEditId(null);
     setLabel('');
     setKeyVal('');
+    setSelectionMode('dropdown');
     setAttributes([{ label: '', key: '', inputType: 'text' }]);
   };
 
@@ -345,12 +347,13 @@ const ComponentsView = () => {
         await updateDoc(doc(db, 'componentTypes', editId), {
           label: label.trim(),
           key: keyVal.trim(),
+          selectionMode,
           attributes: attrs,
         });
         setComponents((c) =>
           c.map((comp) =>
             comp.id === editId
-              ? { ...comp, label: label.trim(), key: keyVal.trim(), attributes: attrs }
+              ? { ...comp, label: label.trim(), key: keyVal.trim(), selectionMode, attributes: attrs }
               : comp
           )
         );
@@ -358,11 +361,12 @@ const ComponentsView = () => {
         const docRef = await addDoc(collection(db, 'componentTypes'), {
           label: label.trim(),
           key: keyVal.trim(),
+          selectionMode,
           attributes: attrs,
         });
         setComponents((c) => [
           ...c,
-          { id: docRef.id, label: label.trim(), key: keyVal.trim(), attributes: attrs },
+          { id: docRef.id, label: label.trim(), key: keyVal.trim(), selectionMode, attributes: attrs },
         ]);
       }
       resetForm();
@@ -375,6 +379,7 @@ const ComponentsView = () => {
     setEditId(c.id);
     setLabel(c.label);
     setKeyVal(c.key);
+    setSelectionMode(c.selectionMode || 'dropdown');
     setAttributes(c.attributes && c.attributes.length > 0 ? c.attributes : [{ label: '', key: '', inputType: 'text' }]);
   };
 
@@ -399,6 +404,7 @@ const ComponentsView = () => {
               <tr>
                 <th>Label</th>
                 <th>Key</th>
+                <th>Mode</th>
                 <th>Attributes</th>
                 <th>Actions</th>
               </tr>
@@ -408,6 +414,7 @@ const ComponentsView = () => {
                 <tr key={c.id}>
                   <td>{c.label}</td>
                   <td>{c.key}</td>
+                  <td>{c.selectionMode || 'dropdown'}</td>
                   <td>{c.attributes ? c.attributes.length : 0}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center">
@@ -442,6 +449,18 @@ const ComponentsView = () => {
         <div>
           <label className="block text-sm mb-1">Key</label>
           <input className="w-full p-2 border rounded" value={keyVal} onChange={(e) => setKeyVal(e.target.value)} required />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Selection Mode</label>
+          <select
+            className="w-full p-2 border rounded"
+            value={selectionMode}
+            onChange={(e) => setSelectionMode(e.target.value)}
+          >
+            <option value="random">random</option>
+            <option value="dropdown">dropdown</option>
+            <option value="checklist">checklist</option>
+          </select>
         </div>
         <div className="space-y-2">
           <label className="block text-sm">Attributes</label>
@@ -525,7 +544,12 @@ const InstancesView = () => {
     const fetchData = async () => {
       try {
         const compSnap = await getDocs(collection(db, 'componentTypes'));
-        setComponents(compSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setComponents(
+          compSnap.docs.map((d) => {
+            const data = d.data();
+            return { id: d.id, ...data, selectionMode: data.selectionMode || 'dropdown' };
+          })
+        );
         const instSnap = await getDocs(collection(db, 'componentInstances'));
         setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
@@ -699,7 +723,12 @@ const Preview = () => {
         const typeSnap = await getDocs(collection(db, 'recipeTypes'));
         setTypes(typeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         const compSnap = await getDocs(collection(db, 'componentTypes'));
-        setComponents(compSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setComponents(
+          compSnap.docs.map((d) => {
+            const data = d.data();
+            return { id: d.id, ...data, selectionMode: data.selectionMode || 'dropdown' };
+          })
+        );
       } catch (err) {
         console.error('Failed to load data', err);
       }
@@ -714,10 +743,30 @@ const Preview = () => {
     let prompt = currentType.gptPrompt || '';
     const componentsData = {};
     orderedComponents.forEach((c) => {
-      const instId = selectedInstances[c.key];
-      const inst = instances.find((i) => i.id === instId);
+      const instOptions = instances.filter((i) => i.componentKey === c.key);
+      let selectedInsts = [];
+      if (c.selectionMode === 'random') {
+        if (instOptions.length > 0) {
+          selectedInsts = [instOptions[Math.floor(Math.random() * instOptions.length)]];
+        }
+      } else if (c.selectionMode === 'checklist') {
+        const ids = selectedInstances[c.key] || [];
+        selectedInsts = ids.map((id) => instOptions.find((i) => i.id === id)).filter(Boolean);
+      } else {
+        const id = selectedInstances[c.key];
+        const inst = instOptions.find((i) => i.id === id);
+        if (inst) selectedInsts = [inst];
+      }
       c.attributes?.forEach((a) => {
-        const val = inst ? inst.values?.[a.key] : formData[`${c.key}.${a.key}`] || '';
+        let val = '';
+        if (selectedInsts.length > 0) {
+          val = selectedInsts
+            .map((ins) => ins.values?.[a.key] || '')
+            .filter(Boolean)
+            .join(', ');
+        } else {
+          val = formData[`${c.key}.${a.key}`] || '';
+        }
         componentsData[`${c.key}.${a.key}`] = val;
         const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
         prompt = prompt.replace(regex, val);
@@ -783,15 +832,15 @@ const Preview = () => {
           <div className="space-y-4">
             {orderedComponents.map((c) => {
               const instOptions = instances.filter((i) => i.componentKey === c.key);
-              const instId = selectedInstances[c.key] || '';
-              const inst = instances.find((i) => i.id === instId);
+              const current = selectedInstances[c.key] || (c.selectionMode === 'checklist' ? [] : '');
+              const inst = c.selectionMode === 'dropdown' ? instances.find((i) => i.id === current) : null;
               return (
                 <div key={c.id} className="space-y-2">
                   <label className="block text-sm mb-1">{c.label}</label>
-                  {instOptions.length > 0 && (
+                  {c.selectionMode === 'dropdown' && instOptions.length > 0 && (
                     <select
                       className="w-full p-2 border rounded"
-                      value={instId}
+                      value={current}
                       onChange={(e) =>
                         setSelectedInstances({ ...selectedInstances, [c.key]: e.target.value })
                       }
@@ -802,19 +851,41 @@ const Preview = () => {
                       ))}
                     </select>
                   )}
-                  {c.attributes?.map((a) => (
-                    <div key={a.key}>
-                      <label className="block text-xs mb-1">{a.label}</label>
-                      <input
-                        className="w-full p-2 border rounded"
-                        disabled={!!inst}
-                        value={inst ? inst.values?.[a.key] || '' : formData[`${c.key}.${a.key}`] || ''}
-                        onChange={(e) =>
-                          setFormData({ ...formData, [`${c.key}.${a.key}`]: e.target.value })
-                        }
-                      />
+                  {c.selectionMode === 'checklist' && instOptions.length > 0 && (
+                    <div className="space-y-1">
+                      {instOptions.map((i) => (
+                        <label key={i.id} className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={current.includes(i.id)}
+                            onChange={() => {
+                              const arr = current.includes(i.id)
+                                ? current.filter((id) => id !== i.id)
+                                : [...current, i.id];
+                              setSelectedInstances({ ...selectedInstances, [c.key]: arr });
+                            }}
+                          />
+                          <span>{i.name}</span>
+                        </label>
+                      ))}
                     </div>
-                  ))}
+                  )}
+                  {c.selectionMode === 'random' && instOptions.length > 0 && (
+                    <p className="text-sm italic">Random instance</p>
+                  )}
+                  {((c.selectionMode === 'dropdown' && !inst) || instOptions.length === 0) &&
+                    c.attributes?.map((a) => (
+                      <div key={a.key}>
+                        <label className="block text-xs mb-1">{a.label}</label>
+                        <input
+                          className="w-full p-2 border rounded"
+                          value={formData[`${c.key}.${a.key}`] || ''}
+                          onChange={(e) =>
+                            setFormData({ ...formData, [`${c.key}.${a.key}`]: e.target.value })
+                          }
+                        />
+                      </div>
+                    ))}
                 </div>
               );
             })}
