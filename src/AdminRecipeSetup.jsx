@@ -1060,7 +1060,7 @@ const Preview = () => {
               </div>
             )}
           </div>
-          <table className="ad-table min-w-full table-fixed text-sm">
+          <table className="ad-table min-w-full table-auto text-sm">
             <thead>
               <tr>
                 <th>Recipe #</th>
@@ -1087,7 +1087,7 @@ const Preview = () => {
                   <td className="whitespace-pre-wrap break-words text-[10px] relative">
                     {editIdx === idx ? (
                       <textarea
-                        className="w-full p-1 border rounded"
+                        className="w-full p-1 border rounded text-[10px]"
                         value={r.copy}
                         onChange={(e) => {
                           const arr = [...results];
@@ -1097,7 +1097,7 @@ const Preview = () => {
                         onBlur={() => setEditIdx(null)}
                       />
                     ) : (
-                      <div className="min-h-[1.5rem]">
+                      <div className="min-h-[1.5rem] text-[10px]">
                         <button
                           type="button"
                           className="absolute top-0 right-0 p-1 text-xs"
