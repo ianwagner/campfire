@@ -941,8 +941,8 @@ const Preview = () => {
         )}
       </form>
       {results.length > 0 && (
-        <div className="overflow-x-auto table-container mt-6">
-          <table className="ad-table min-w-max text-sm">
+        <div className="table-container mt-6">
+          <table className="ad-table min-w-full table-fixed text-sm">
             <thead>
               <tr>
                 <th>Recipe #</th>
@@ -969,7 +969,7 @@ const Preview = () => {
                   {writeFields.map((f) => (
                     <td key={f.key}>{r.components[f.key]}</td>
                   ))}
-                  <td>{r.copy}</td>
+                  <td className="whitespace-pre-wrap break-words text-[10px]">{r.copy}</td>
                 </tr>
               ))}
             </tbody>
