@@ -7,7 +7,7 @@ import {
   deleteDoc,
   doc,
 } from 'firebase/firestore';
-import { FiList, FiLayers, FiEye, FiEdit2, FiTrash } from 'react-icons/fi';
+import { FiList, FiLayers, FiEye, FiEdit2, FiTrash, FiSave, FiCopy } from 'react-icons/fi';
 import TagChecklist from './components/TagChecklist.jsx';
 import TagInput from './components/TagInput.jsx';
 import PromptTextarea from './components/PromptTextarea.jsx';
@@ -1084,21 +1084,38 @@ const Preview = () => {
                         <td key={col.key}>{r.components[col.key]}</td>
                       )
                   )}
-                  <td className="whitespace-pre-wrap break-words text-[10px] relative w-64">
+                  <td className="whitespace-pre-wrap break-words text-[12px] relative w-64">
                     {editIdx === idx ? (
+                      <>
                       <textarea
-                        className="w-full p-1 border rounded text-[10px]"
+                        className="w-full p-1 border rounded text-[12px]"
                         value={r.copy}
                         onChange={(e) => {
                           const arr = [...results];
                           arr[idx].copy = e.target.value;
                           setResults(arr);
                         }}
-                        onBlur={() => setEditIdx(null)}
                         spellCheck
                       />
+                      <button
+                        type="button"
+                        className="absolute top-0 right-0 p-1 text-xs"
+                        onClick={() => setEditIdx(null)}
+                        aria-label="Save"
+                      >
+                        <FiSave />
+                      </button>
+                      </>
                     ) : (
-                      <div className="min-h-[1.5rem] text-[10px] w-full">
+                      <div className="min-h-[1.5rem] text-[12px] w-full">
+                        <button
+                          type="button"
+                          className="absolute top-0 right-6 p-1 text-xs"
+                          onClick={() => navigator.clipboard.writeText(r.copy)}
+                          aria-label="Copy"
+                        >
+                          <FiCopy />
+                        </button>
                         <button
                           type="button"
                           className="absolute top-0 right-0 p-1 text-xs"
