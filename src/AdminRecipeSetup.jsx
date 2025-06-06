@@ -10,6 +10,7 @@ import {
 import { FiList, FiLayers, FiEye, FiEdit2, FiTrash } from 'react-icons/fi';
 import TagChecklist from './components/TagChecklist.jsx';
 import { db } from './firebase/config';
+import useAssets from './useAssets';
 
 const VIEWS = {
   TYPES: 'types',
@@ -735,6 +736,7 @@ const Preview = () => {
   const [selectedInstances, setSelectedInstances] = useState({});
   const [results, setResults] = useState([]);
   const [generateCount, setGenerateCount] = useState(1);
+  const assets = useAssets();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -805,6 +807,17 @@ const Preview = () => {
       prompt = prompt.replace(regex, val);
     });
 
+    const assetCount = parseInt(componentsData['layout.assetCount'], 10) || 0;
+    let matchedAssets = assets;
+    ['audience', 'angle', 'offer'].forEach((t) => {
+      const val = componentsData[t];
+      if (val) matchedAssets = matchedAssets.filter((a) => a[t] === val);
+    });
+    if (assetCount > 0 && matchedAssets.length < assetCount) {
+      console.warn('Not enough assets for recipe', matchedAssets.length, 'need', assetCount);
+      return;
+    }
+
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -824,10 +837,17 @@ const Preview = () => {
         return;
       }
       const text = data.choices?.[0]?.message?.content?.trim() || 'No result';
-      setResults((prev) => [
-        ...prev,
-        { recipeNo: prev.length + 1, components: componentsData, copy: text },
-      ]);
+      setResults((prev) => {
+        const result = {
+          recipeNo: prev.length + 1,
+          components: componentsData,
+          copy: text,
+        };
+        if (assetCount > 0) {
+          result.assets = matchedAssets.slice(0, assetCount);
+        }
+        return [...prev, result];
+      });
     } catch (err) {
       console.error('Failed to call OpenAI', err);
     }
