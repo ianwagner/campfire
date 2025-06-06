@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   collection,
   getDocs,
@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { FiList, FiLayers, FiEye, FiEdit2, FiTrash } from 'react-icons/fi';
 import TagChecklist from './components/TagChecklist.jsx';
+import TagInput from './components/TagInput.jsx';
 import PromptTextarea from './components/PromptTextarea.jsx';
 import useComponentTypes from './useComponentTypes';
 import { db } from './firebase/config';
@@ -307,6 +308,7 @@ const RecipeTypes = () => {
                 <option value="number">Number</option>
                 <option value="textarea">Textarea</option>
                 <option value="image">Image</option>
+                <option value="list">List</option>
               </select>
               <button
                 type="button"
@@ -753,6 +755,9 @@ const Preview = () => {
   const [selectedInstances, setSelectedInstances] = useState({});
   const [results, setResults] = useState([]);
   const [generateCount, setGenerateCount] = useState(1);
+  const [visibleColumns, setVisibleColumns] = useState({});
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+  const [editIdx, setEditIdx] = useState(null);
   const assets = useAssets();
 
   useEffect(() => {
@@ -818,7 +823,10 @@ const Preview = () => {
     });
     const writeFields = currentType.writeInFields || [];
     writeFields.forEach((f) => {
-      const val = formData[f.key] || '';
+      let val = formData[f.key] || '';
+      if (Array.isArray(val)) {
+        val = val.length > 0 ? val[Math.floor(Math.random() * val.length)] : '';
+      }
       componentsData[f.key] = val;
       const regex = new RegExp(`{{${f.key}}}`, 'g');
       prompt = prompt.replace(regex, val);
@@ -859,6 +867,7 @@ const Preview = () => {
           recipeNo: prev.length + 1,
           components: componentsData,
           copy: text,
+          editing: false,
         };
         if (assetCount > 0) {
           result.assets = matchedAssets.slice(0, assetCount);
@@ -885,6 +894,26 @@ const Preview = () => {
     ? currentType.components.map((k) => compMap[k]).filter(Boolean)
     : components;
   const writeFields = currentType?.writeInFields || [];
+  const columnMeta = useMemo(() => {
+    const cols = [];
+    orderedComponents.forEach((c) => {
+      c.attributes?.forEach((a) => {
+        cols.push({ key: `${c.key}.${a.key}`, label: `${c.label} - ${a.label}` });
+      });
+    });
+    writeFields.forEach((f) => {
+      cols.push({ key: f.key, label: f.label });
+    });
+    return cols;
+  }, [orderedComponents, writeFields]);
+
+  useEffect(() => {
+    const defaults = {};
+    columnMeta.forEach((c) => {
+      defaults[c.key] = c.label.toLowerCase().includes('name');
+    });
+    setVisibleColumns(defaults);
+  }, [columnMeta]);
 
   return (
     <div>
@@ -965,6 +994,14 @@ const Preview = () => {
                       setFormData({ ...formData, [f.key]: e.target.value })
                     }
                   />
+                ) : f.inputType === 'list' ? (
+                  <TagInput
+                    id={`list-${f.key}`}
+                    value={formData[f.key] || []}
+                    onChange={(arr) =>
+                      setFormData({ ...formData, [f.key]: arr })
+                    }
+                  />
                 ) : (
                   <input
                     className="w-full p-2 border rounded"
@@ -994,34 +1031,101 @@ const Preview = () => {
       </form>
       {results.length > 0 && (
         <div className="table-container mt-6">
+          <div className="relative inline-block mb-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setShowColumnMenu((s) => !s)}
+            >
+              Columns
+            </button>
+            {showColumnMenu && (
+              <div className="absolute z-10 bg-white border rounded shadow p-2 right-0">
+                {columnMeta.map((c) => (
+                  <label key={c.key} className="block whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      className="mr-1"
+                      checked={visibleColumns[c.key] || false}
+                      onChange={() =>
+                        setVisibleColumns({
+                          ...visibleColumns,
+                          [c.key]: !visibleColumns[c.key],
+                        })
+                      }
+                    />
+                    {c.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           <table className="ad-table min-w-full table-fixed text-sm">
             <thead>
               <tr>
                 <th>Recipe #</th>
-                {orderedComponents.map((c) =>
-                  c.attributes?.map((a) => (
-                    <th key={`${c.key}.${a.key}`}>{`${c.label} - ${a.label}`}</th>
-                  ))
+                {columnMeta.map(
+                  (col) =>
+                    visibleColumns[col.key] && (
+                      <th key={col.key}>{col.label}</th>
+                    )
                 )}
-                {writeFields.map((f) => (
-                  <th key={f.key}>{f.label}</th>
-                ))}
                 <th>Generated Copy</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {results.map((r, idx) => (
                 <tr key={idx}>
                   <td className="text-center">{r.recipeNo}</td>
-                  {orderedComponents.map((c) =>
-                    c.attributes?.map((a) => (
-                      <td key={`${c.key}.${a.key}`}>{r.components[`${c.key}.${a.key}`]}</td>
-                    ))
+                  {columnMeta.map(
+                    (col) =>
+                      visibleColumns[col.key] && (
+                        <td key={col.key}>{r.components[col.key]}</td>
+                      )
                   )}
-                  {writeFields.map((f) => (
-                    <td key={f.key}>{r.components[f.key]}</td>
-                  ))}
-                  <td className="whitespace-pre-wrap break-words text-[10px]">{r.copy}</td>
+                  <td className="whitespace-pre-wrap break-words text-[10px] relative">
+                    {editIdx === idx ? (
+                      <textarea
+                        className="w-full p-1 border rounded"
+                        value={r.copy}
+                        onChange={(e) => {
+                          const arr = [...results];
+                          arr[idx].copy = e.target.value;
+                          setResults(arr);
+                        }}
+                        onBlur={() => setEditIdx(null)}
+                      />
+                    ) : (
+                      <div className="min-h-[1.5rem]">
+                        <button
+                          type="button"
+                          className="absolute top-0 right-0 p-1 text-xs"
+                          onClick={() => setEditIdx(idx)}
+                          aria-label="Edit"
+                        >
+                          <FiEdit2 />
+                        </button>
+                        {r.copy}
+                      </div>
+                    )}
+                  </td>
+                  <td className="text-center">
+                    <button
+                      type="button"
+                      className="text-red-600"
+                      onClick={() => {
+                        setResults((prev) =>
+                          prev
+                            .filter((_, i) => i !== idx)
+                            .map((res, i2) => ({ ...res, recipeNo: i2 + 1 }))
+                        );
+                      }}
+                      aria-label="Delete"
+                    >
+                      <FiTrash />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -26,7 +26,7 @@ const PromptTextarea = ({ value, onChange, placeholders = [], className = '' }) 
   const insert = (p) => {
     const el = ref.current;
     if (!el) return;
-    const start = el.selectionStart - match.length;
+    const start = el.selectionStart - match.length - 2; // remove opening {{
     const before = value.slice(0, start);
     const after = value.slice(el.selectionEnd);
     const placeholder = `{{${p}}}`;
@@ -35,7 +35,7 @@ const PromptTextarea = ({ value, onChange, placeholders = [], className = '' }) 
     setShowList(false);
     setTimeout(() => {
       el.focus();
-      const pos = before.length + p.length + 2; // account for closing }}
+      const pos = before.length + placeholder.length; // place cursor after placeholder
       el.selectionStart = el.selectionEnd = pos;
     }, 0);
   };
