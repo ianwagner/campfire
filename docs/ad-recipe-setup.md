@@ -16,7 +16,7 @@ Components also define a `selectionMode` that controls how an instance is chosen
 
 The chosen mode determines how components contribute their values to the final recipe.
 
-Write-in fields are simpler than components—they only capture a single value. Each field specifies a `label`, `key`, and `inputType` (text, number, textarea or image). Values entered for these keys are inserted into the GPT prompt using `{{key}}` placeholders.
+Write-in fields are simpler than components. Each field specifies a `label`, `key`, and `inputType` (text, number, textarea, image or **list**). When `list` is chosen the user may enter multiple values and one will be selected at random during generation. Values are inserted into the GPT prompt using `{{key}}` placeholders.
 
 ## Output
 The system intelligently matches the chosen options to generate an ad recipe. The resulting recipe is displayed in the table.
