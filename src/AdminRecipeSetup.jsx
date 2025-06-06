@@ -59,6 +59,7 @@ const RecipeTypes = () => {
   const [types, setTypes] = useState([]);
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
+  const [assetPrompt, setAssetPrompt] = useState('');
   const [componentOrder, setComponentOrder] = useState('');
   const [fields, setFields] = useState([{ label: '', key: '', inputType: 'text' }]);
   const [editId, setEditId] = useState(null);
@@ -80,6 +81,7 @@ const RecipeTypes = () => {
     setEditId(null);
     setName('');
     setPrompt('');
+    setAssetPrompt('');
     setComponentOrder('');
     setFields([{ label: '', key: '', inputType: 'text' }]);
   };
@@ -102,6 +104,7 @@ const RecipeTypes = () => {
         await updateDoc(doc(db, 'recipeTypes', editId), {
           name: name.trim(),
           gptPrompt: prompt,
+          assetPrompt: assetPrompt,
           components: order,
           writeInFields: writeFields,
         });
@@ -112,6 +115,7 @@ const RecipeTypes = () => {
                   ...r,
                   name: name.trim(),
                   gptPrompt: prompt,
+                  assetPrompt: assetPrompt,
                   components: order,
                   writeInFields: writeFields,
                 }
@@ -122,6 +126,7 @@ const RecipeTypes = () => {
         const docRef = await addDoc(collection(db, 'recipeTypes'), {
           name: name.trim(),
           gptPrompt: prompt,
+          assetPrompt: assetPrompt,
           components: order,
           writeInFields: writeFields,
         });
@@ -131,6 +136,7 @@ const RecipeTypes = () => {
             id: docRef.id,
             name: name.trim(),
             gptPrompt: prompt,
+            assetPrompt: assetPrompt,
             components: order,
             writeInFields: writeFields,
           },
@@ -146,6 +152,7 @@ const RecipeTypes = () => {
     setEditId(t.id);
     setName(t.name);
     setPrompt(t.gptPrompt || '');
+    setAssetPrompt(t.assetPrompt || '');
     setComponentOrder((t.components || []).join(', '));
     setFields(
       t.writeInFields && t.writeInFields.length > 0
@@ -176,6 +183,7 @@ const RecipeTypes = () => {
                 <th>Name</th>
                 <th>Components</th>
                 <th>Write-In Fields</th>
+                <th>Asset Prompt</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -193,6 +201,7 @@ const RecipeTypes = () => {
                       ? t.writeInFields.map((f) => f.key).join(', ')
                       : '-'}
                   </td>
+                  <td>{t.assetPrompt || '-'}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center">
                       <button
@@ -226,6 +235,14 @@ const RecipeTypes = () => {
         <div>
           <label className="block text-sm mb-1">GPT Prompt</label>
           <textarea className="w-full p-2 border rounded" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Asset Prompt</label>
+          <input
+            className="w-full p-2 border rounded"
+            value={assetPrompt}
+            onChange={(e) => setAssetPrompt(e.target.value)}
+          />
         </div>
         <div>
           <label className="block text-sm mb-1">Components (comma separated keys in order)</label>
