@@ -1057,20 +1057,41 @@ const Preview = () => {
 
     const assetCount = parseInt(componentsData['layout.assetCount'], 10) || 0;
     let matchedAssets = assets;
-    ['audience', 'angle', 'offer'].forEach((t) => {
-      const val = componentsData[t];
-      if (val) {
-        matchedAssets = matchedAssets.filter((a) => {
-          if (a[t] && a[t] === val) return true;
-          const tagField = `${t}Tags`;
-          return Array.isArray(a[tagField]) && a[tagField].includes(val);
-        });
+    if (currentType.assetPrompt) {
+      let query = currentType.assetPrompt;
+      Object.entries(componentsData).forEach(([k, v]) => {
+        const regex = new RegExp(`{{${k}}}`, 'g');
+        query = query.replace(regex, v);
+      });
+      const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+      matchedAssets = matchedAssets.filter((a) => {
+        const text = [
+          a.name,
+          Array.isArray(a.tags) ? a.tags.join(' ') : '',
+          Array.isArray(a.audienceTags) ? a.audienceTags.join(' ') : '',
+          Array.isArray(a.angleTags) ? a.angleTags.join(' ') : '',
+          Array.isArray(a.offerTags) ? a.offerTags.join(' ') : '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        return terms.every((t) => text.includes(t));
+      });
+    } else {
+      ['audience', 'angle', 'offer'].forEach((t) => {
+        const val = componentsData[t];
+        if (val) {
+          matchedAssets = matchedAssets.filter((a) => {
+            if (a[t] && a[t] === val) return true;
+            const tagField = `${t}Tags`;
+            return Array.isArray(a[tagField]) && a[tagField].includes(val);
+          });
+        }
+      });
+      if (row.tags && row.tags.length > 0) {
+        matchedAssets = matchedAssets.filter((a) =>
+          row.tags.every((tag) => (a.tags || []).includes(tag))
+        );
       }
-    });
-    if (row.tags && row.tags.length > 0) {
-      matchedAssets = matchedAssets.filter((a) =>
-        row.tags.every((tag) => (a.tags || []).includes(tag))
-      );
     }
     if (assetCount > 0 && matchedAssets.length < assetCount) {
       console.warn('Not enough assets for recipe', matchedAssets.length, 'need', assetCount);

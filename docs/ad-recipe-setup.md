@@ -59,6 +59,12 @@ placeholders (e.g. `{{audience}} {{offer}}`). This mapping lets the system know
 which component values should be combined into search terms when looking for
 existing assets.
 
+When present, the prompt is expanded using the values chosen in the preview
+form and the resulting words are matched against asset names and tag lists.
+Only assets containing all of the search terms will be linked to the generated
+recipe. If no Asset Prompt is defined, assets fall back to matching by audience,
+angle, offer, and any tags provided in the CSV rows.
+
 ## Firestore Rules
 
 Admins must be able to read and write recipe configuration data. Ensure your
