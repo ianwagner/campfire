@@ -14,7 +14,6 @@ import PromptTextarea from './components/PromptTextarea.jsx';
 import useComponentTypes from './useComponentTypes';
 import { db } from './firebase/config';
 import useAssets from './useAssets';
-import OptimizedImage from './components/OptimizedImage.jsx';
 
 export const parseCsvFile = async (file, importType) => {
   if (!file || !importType) return [];
@@ -1346,12 +1345,15 @@ const Preview = () => {
                   <td className="flex gap-1">
                     {r.assets && r.assets.length > 0 ? (
                       r.assets.map((a) => (
-                        <OptimizedImage
+                        <a
                           key={a.id}
-                          pngUrl={a.thumbnailUrl || a.firebaseUrl}
-                          alt={a.filename}
-                          className="w-16 h-16 object-contain"
-                        />
+                          href={a.adUrl || a.firebaseUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-secondary px-1.5 py-0.5 text-xs"
+                        >
+                          Image Link
+                        </a>
                       ))
                     ) : (
                       '-'
