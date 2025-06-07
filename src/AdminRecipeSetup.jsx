@@ -662,11 +662,6 @@ const InstancesView = () => {
     fetchData();
   }, []);
 
-  useEffect(() => {
-    setCsvRows([]);
-    setCsvFile(null);
-    setCsvIndex(0);
-  }, [selectedType]);
 
   const resetForm = () => {
     setEditId(null);
