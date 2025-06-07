@@ -1103,7 +1103,9 @@ const Preview = () => {
           copy: text,
           editing: false,
         };
-        if (assetCount > 0) {
+        if (row.imageUrl) {
+          result.assets = [{ adUrl: row.imageUrl }];
+        } else if (assetCount > 0) {
           result.assets = matchedAssets.slice(0, assetCount);
         }
         return [...prev, result];
