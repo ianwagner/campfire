@@ -14,6 +14,7 @@ import PromptTextarea from './components/PromptTextarea.jsx';
 import useComponentTypes from './useComponentTypes';
 import { db } from './firebase/config';
 import useAssets from './useAssets';
+import OptimizedImage from './components/OptimizedImage.jsx';
 
 const VIEWS = {
   TYPES: 'types',
@@ -1326,6 +1327,7 @@ const Preview = () => {
                       <th key={col.key}>{col.label}</th>
                     )
                 )}
+                <th>Assets</th>
                 <th className="w-64">Generated Copy</th>
                 <th></th>
               </tr>
@@ -1340,6 +1342,20 @@ const Preview = () => {
                         <td key={col.key}>{r.components[col.key]}</td>
                       )
                   )}
+                  <td className="flex gap-1">
+                    {r.assets && r.assets.length > 0 ? (
+                      r.assets.map((a) => (
+                        <OptimizedImage
+                          key={a.id}
+                          pngUrl={a.thumbnailUrl || a.firebaseUrl}
+                          alt={a.filename}
+                          className="w-16 h-16 object-contain"
+                        />
+                      ))
+                    ) : (
+                      '-'
+                    )}
+                  </td>
                   <td className="whitespace-pre-wrap break-words text-[12px] relative w-64">
                     {editIdx === idx ? (
                       <>
