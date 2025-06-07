@@ -38,6 +38,10 @@ and may include **Name**, **Link**, **Audience Tags**, **Angle Tags**, and
 `adAssets/{assetId}` where `assetId` is derived from the **ID** column if
 present, otherwise the asset name.
 
+The admin preview matches recipes to assets using these tag arrays. Ensure your
+spreadsheet includes audience, angle, and offer tags so assets can be selected
+automatically when generating a recipe.
+
 Run the script with a spreadsheet ID:
 
 ```bash

@@ -1064,7 +1064,13 @@ const Preview = () => {
     let matchedAssets = assets;
     ['audience', 'angle', 'offer'].forEach((t) => {
       const val = componentsData[t];
-      if (val) matchedAssets = matchedAssets.filter((a) => a[t] === val);
+      if (val) {
+        matchedAssets = matchedAssets.filter((a) => {
+          if (a[t] && a[t] === val) return true;
+          const tagField = `${t}Tags`;
+          return Array.isArray(a[tagField]) && a[tagField].includes(val);
+        });
+      }
     });
     if (row.tags && row.tags.length > 0) {
       matchedAssets = matchedAssets.filter((a) =>
