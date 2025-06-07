@@ -22,7 +22,8 @@ const AdminImportAssets = () => {
       const findCol = (k) => headers.findIndex((h) => h.includes(k));
       const groupCol = findCol('group');
       const fileCol = findCol('file');
-      const urlCol = findCol('url');
+      let urlCol = findCol('url');
+      if (urlCol === -1) urlCol = findCol('link');
       if (groupCol === -1 || fileCol === -1) {
         window.alert('Required columns not found');
         return;
