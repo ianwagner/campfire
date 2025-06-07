@@ -16,6 +16,29 @@ import { db } from './firebase/config';
 import useAssets from './useAssets';
 import OptimizedImage from './components/OptimizedImage.jsx';
 
+export const parseCsvFile = async (file, importType) => {
+  if (!file || !importType) return [];
+  const text = await file.text();
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length <= 1) return [];
+  const rows = [];
+  for (let i = 1; i < lines.length; i += 1) {
+    const parts = lines[i].split(',');
+    const row = {};
+    importType.columns.forEach((col) => {
+      const val = parts[col.index] ? parts[col.index].trim() : '';
+      if (col.role === 'tag') {
+        if (!row.tags) row.tags = [];
+        if (val) row.tags.push(val);
+      } else if (col.role !== 'ignore') {
+        row[col.role] = val;
+      }
+    });
+    rows.push(row);
+  }
+  return rows;
+};
+
 const VIEWS = {
   TYPES: 'types',
   COMPONENTS: 'components',
@@ -97,28 +120,6 @@ const RecipeTypes = () => {
     fetchTypes();
   }, []);
 
-  const parseCsvFile = async (file, importType) => {
-    if (!file || !importType) return [];
-    const text = await file.text();
-    const lines = text.trim().split(/\r?\n/);
-    if (lines.length <= 1) return [];
-    const rows = [];
-    for (let i = 1; i < lines.length; i += 1) {
-      const parts = lines[i].split(',');
-      const row = {};
-      importType.columns.forEach((col) => {
-        const val = parts[col.index] ? parts[col.index].trim() : '';
-        if (col.role === 'tag') {
-          if (!row.tags) row.tags = [];
-          if (val) row.tags.push(val);
-        } else if (col.role !== 'ignore') {
-          row[col.role] = val;
-        }
-      });
-      rows.push(row);
-    }
-    return rows;
-  };
 
   const resetForm = () => {
     setEditId(null);
