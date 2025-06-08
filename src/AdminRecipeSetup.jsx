@@ -1127,28 +1127,61 @@ const Preview = () => {
   }, []);
 
   const generateOnce = async () => {
-    if (!currentType) return;
+  if (!currentType) return;
 
-    let prompt = currentType.gptPrompt || '';
-    const csvImportEnabled = currentType.csvEnabled && csvRows.length > 0;
-    let row = {};
-    if (csvImportEnabled) {
-      const scored = csvRows.map((r) => {
+  let prompt = currentType.gptPrompt || '';
+  const csvImportEnabled = currentType.csvEnabled && csvRows.length > 0;
+  let row = {};
+  if (csvImportEnabled) {
+    const formTokens = [];
+    Object.values(formData).forEach((val) => {
+      if (val === undefined) return;
+      const list = Array.isArray(val) ? val : [val];
+      list.forEach((v) => {
+        String(v)
+          .toLowerCase()
+          .split(/\W+/)
+          .filter(Boolean)
+          .forEach((t) => formTokens.push(t));
+      });
+    });
+
+    const scored = csvRows.map((r) => {
+      const rowTokens = [];
+      Object.entries(r).forEach(([key, value]) => {
+        if (key === 'imageUrl' || key === 'imageUrls') return;
+        const vals = Array.isArray(value) ? value : [value];
+        vals.forEach((v) => {
+          String(v)
+            .toLowerCase()
+            .split(/\W+/)
+            .filter(Boolean)
+            .forEach((t) => rowTokens.push(t));
+        });
+      });
+
+      const matchCount = rowTokens.filter((t) => formTokens.includes(t)).length;
+      return { row: r, score: matchCount };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    row = scored[0]?.row || {};
+  }
+};
+
+
         let score = 0;
-        Object.keys(formData).forEach((k) => {
-          const formVal = formData[k];
-          const rowVal = r[k];
-          if (formVal === undefined || rowVal === undefined) return;
-
-          const formList = Array.isArray(formVal)
-            ? formVal.map((v) => String(v).toLowerCase())
-            : [String(formVal).toLowerCase()];
-          const rowList = Array.isArray(rowVal)
-            ? rowVal.map((v) => String(v).toLowerCase())
-            : [String(rowVal).toLowerCase()];
-
-          formList.forEach((fv) => {
-            if (rowList.includes(fv)) score += 1;
+        const uniqForm = Array.from(new Set(formTokens));
+        const uniqRow = Array.from(new Set(rowTokens));
+        uniqForm.forEach((fv) => {
+          uniqRow.forEach((rv) => {
+            if (
+              fv === rv ||
+              fv.includes(rv) ||
+              rv.includes(fv)
+            ) {
+              score += 1;
+            }
           });
         });
         return { row: r, score: score + Math.random() * 0.01 };
