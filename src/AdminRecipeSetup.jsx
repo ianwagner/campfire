@@ -414,6 +414,59 @@ const RecipeTypes = () => {
           )}
         </div>
       </form>
+      {currentComp && (
+        <div className="mt-8 space-y-2 max-w-sm">
+          <h3 className="text-lg">Bulk Add via CSV</h3>
+          <input type="file" accept=".csv" onChange={handleCsvChange} />
+          {csvColumns.length > 0 && (
+            <div className="space-y-2">
+              <div>
+                <label className="block text-sm mb-1">Name Column</label>
+                <select
+                  className="w-full p-2 border rounded"
+                  value={csvMap.name ?? ''}
+                  onChange={(e) =>
+                    setCsvMap({ ...csvMap, name: e.target.value })
+                  }
+                >
+                  <option value="">Ignore</option>
+                  {csvColumns.map((c, idx) => (
+                    <option key={idx} value={idx}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {currentComp.attributes?.map((a) => (
+                <div key={a.key}>
+                  <label className="block text-sm mb-1">{a.label} Column</label>
+                  <select
+                    className="w-full p-2 border rounded"
+                    value={csvMap[a.key] ?? ''}
+                    onChange={(e) =>
+                      setCsvMap({ ...csvMap, [a.key]: e.target.value })
+                    }
+                  >
+                    <option value="">Ignore</option>
+                    {csvColumns.map((c, idx) => (
+                      <option key={idx} value={idx}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={handleAddCsvInstances}
+                className="btn-primary"
+              >
+                Add Instances
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -653,6 +706,10 @@ const InstancesView = () => {
   const [name, setName] = useState('');
   const [values, setValues] = useState({});
   const [editId, setEditId] = useState(null);
+  const [csvFile, setCsvFile] = useState(null);
+  const [csvColumns, setCsvColumns] = useState([]);
+  const [csvRows, setCsvRows] = useState([]);
+  const [csvMap, setCsvMap] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -731,6 +788,63 @@ const InstancesView = () => {
     } catch (err) {
       console.error('Failed to delete instance', err);
     }
+  };
+
+  const handleCsvChange = async (e) => {
+    const f = e.target.files?.[0];
+    setCsvFile(f || null);
+    setCsvColumns([]);
+    setCsvRows([]);
+    setCsvMap({});
+    if (f) {
+      const text = await f.text();
+      const lines = text.trim().split(/\r?\n/);
+      if (lines.length > 1) {
+        const headers = lines[0].split(',').map((h) => h.trim());
+        const rows = [];
+        for (let i = 1; i < lines.length; i += 1) {
+          if (lines[i]) rows.push(lines[i].split(',').map((p) => p.trim()));
+        }
+        setCsvColumns(headers);
+        setCsvRows(rows);
+      }
+    }
+  };
+
+  const handleAddCsvInstances = async () => {
+    const comp = components.find((c) => c.id === component);
+    if (!comp || csvRows.length === 0) return;
+    for (const row of csvRows) {
+      const instNameIdx = csvMap.name;
+      const instName =
+        instNameIdx !== undefined && instNameIdx !== ''
+          ? (row[instNameIdx] || '').trim()
+          : '';
+      const vals = {};
+      comp.attributes?.forEach((a) => {
+        const idx = csvMap[a.key];
+        if (idx !== undefined && idx !== '') {
+          vals[a.key] = row[idx] || '';
+        }
+      });
+      try {
+        const docRef = await addDoc(collection(db, 'componentInstances'), {
+          componentKey: comp.key,
+          name: instName,
+          values: vals,
+        });
+        setInstances((i) => [
+          ...i,
+          { id: docRef.id, componentKey: comp.key, name: instName, values: vals },
+        ]);
+      } catch (err) {
+        console.error('Failed to save instance from CSV', err);
+      }
+    }
+    setCsvFile(null);
+    setCsvColumns([]);
+    setCsvRows([]);
+    setCsvMap({});
   };
 
   const currentComp = components.find((c) => c.id === component);
