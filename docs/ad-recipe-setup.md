@@ -59,6 +59,10 @@ placeholders (e.g. `{{audience}} {{offer}}`). This mapping lets the system know
 which component values should be combined into search terms when looking for
 existing assets.
 
+Matching assets are scored by audience, angle, offer, and other tags. A small
+random value (`Math.random() * 0.01`) is added to each score purely to reduce
+deterministic tie behavior.
+
 If your CSV includes an `imageUrl` column, the preview uses that URL as the
 asset for the generated recipe. In this case no lookup is performed against
 Firestore, so each row can reference unique images directly from the uploaded
