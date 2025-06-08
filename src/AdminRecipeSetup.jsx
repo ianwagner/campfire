@@ -13,10 +13,8 @@ import TagInput from './components/TagInput.jsx';
 import PromptTextarea from './components/PromptTextarea.jsx';
 import useComponentTypes from './useComponentTypes';
 import { db } from './firebase/config';
-import useAssets from './useAssets';
 import selectRandomOption from './utils/selectRandomOption.js';
-import debugLog from './utils/debugLog';
-import { MAX_TAG_BONUS } from './constants';
+
 
 export const parseCsvFile = async (file, importType) => {
   if (!file || !importType) return [];
@@ -1104,7 +1102,6 @@ const Preview = () => {
   const [csvImportTypes, setCsvImportTypes] = useState([]);
   const [csvRows, setCsvRows] = useState([]);
   const [csvFile, setCsvFile] = useState(null);
-  const assets = useAssets();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1133,24 +1130,48 @@ const Preview = () => {
     if (!currentType) return;
 
     let prompt = currentType.gptPrompt || '';
+    const csvImportEnabled = currentType.csvEnabled && csvRows.length > 0;
     let row = {};
-    if (csvRows.length > 0) {
+    if (csvImportEnabled) {
+      const formTokens = [];
+      Object.values(formData).forEach((val) => {
+        if (val === undefined) return;
+        const list = Array.isArray(val) ? val : [val];
+        list.forEach((v) => {
+          String(v)
+            .toLowerCase()
+            .split(/\W+/)
+            .filter(Boolean)
+            .forEach((t) => formTokens.push(t));
+        });
+      });
+
       const scored = csvRows.map((r) => {
+        const rowTokens = [];
+        Object.entries(r).forEach(([key, value]) => {
+          if (key === 'imageUrl' || key === 'imageUrls') return;
+          const vals = Array.isArray(value) ? value : [value];
+          vals.forEach((v) => {
+            String(v)
+              .toLowerCase()
+              .split(/\W+/)
+              .filter(Boolean)
+              .forEach((t) => rowTokens.push(t));
+          });
+        });
+
         let score = 0;
-        Object.keys(formData).forEach((k) => {
-          const formVal = formData[k];
-          const rowVal = r[k];
-          if (formVal === undefined || rowVal === undefined) return;
-
-          const formList = Array.isArray(formVal)
-            ? formVal.map((v) => String(v).toLowerCase())
-            : [String(formVal).toLowerCase()];
-          const rowList = Array.isArray(rowVal)
-            ? rowVal.map((v) => String(v).toLowerCase())
-            : [String(rowVal).toLowerCase()];
-
-          formList.forEach((fv) => {
-            if (rowList.includes(fv)) score += 1;
+        const uniqForm = Array.from(new Set(formTokens));
+        const uniqRow = Array.from(new Set(rowTokens));
+        uniqForm.forEach((fv) => {
+          uniqRow.forEach((rv) => {
+            if (
+              fv === rv ||
+              fv.includes(rv) ||
+              rv.includes(fv)
+            ) {
+              score += 1;
+            }
           });
         });
         return { row: r, score: score + Math.random() * 0.01 };
@@ -1212,87 +1233,23 @@ const Preview = () => {
     });
 
     const assetCount =
-  parseInt(componentsData['layout.assetNo'], 10) ||
-  parseInt(componentsData['layout.assetCount'], 10) ||
-  0;
+      parseInt(componentsData['layout.assetNo'], 10) ||
+      parseInt(componentsData['layout.assetCount'], 10) ||
+      0;
 
-  const scoredAssets = assets.map((a) => {
-    let score = 0;
-    ['audience', 'angle', 'offer'].forEach((t) => {
-      const val = componentsData[t];
-      if (!val) return;
-
-      const valLower = val.toLowerCase();
-      const assetField = a[t];
-      const assetFieldLower =
-        typeof assetField === 'string' ? assetField.toLowerCase() : assetField;
-
-      if (assetFieldLower && assetFieldLower === valLower) {
-        score += 2;
-      } else {
-        const tagField = `${t}Tags`;
-        const tagVals = Array.isArray(a[tagField])
-          ? a[tagField].map((v) =>
-              typeof v === 'string' ? v.toLowerCase() : v
-            )
-          : [];
-        if (tagVals.includes(valLower)) {
-          score += 1;
-        }
+    let selectedAssets = [];
+    if (csvImportEnabled) {
+      if (Array.isArray(row.imageUrls) && row.imageUrls.length > 0) {
+        selectedAssets = row.imageUrls
+          .slice(0, assetCount)
+          .map((u) => ({ adUrl: u }));
+      } else if (row.imageUrl) {
+        selectedAssets = [{ adUrl: row.imageUrl }];
       }
-    });
-
-  if (a.tags && row?.tags?.length > 0) {
-    const matches = row.tags.filter((tag) => a.tags.includes(tag)).length;
-    const bonus = Math.min(matches, MAX_TAG_BONUS);
-    debugLog('Tag bonus:', bonus, 'matches:', matches);
-    score += bonus;
-  }
-
-  // Add a tiny random value to avoid deterministic ties between assets
-  return { asset: a, score: score + Math.random() * 0.01 };
-});
-
-const positiveCount = scoredAssets.filter((s) => s.score > 0).length;
-console.log('Assets with score > 0:', positiveCount);
-
-const debugTop = [...scoredAssets]
-  .sort((a, b) => b.score - a.score)
-  .slice(0, 5);
-console.log(
-  'Top 5 scored assets:',
-  debugTop.map((o) => ({
-    id: o.asset.id,
-    score: o.score,
-    audienceTags: o.asset.audienceTags,
-    angleTags: o.asset.angleTags,
-    offerTags: o.asset.offerTags,
-  }))
-);
-console.log(
-  'Includes assets with audience/angle/offer tags:',
-  debugTop.some(
-    (o) =>
-      (Array.isArray(o.asset.audienceTags) && o.asset.audienceTags.length > 0) ||
-      (Array.isArray(o.asset.angleTags) && o.asset.angleTags.length > 0) ||
-      (Array.isArray(o.asset.offerTags) && o.asset.offerTags.length > 0)
-  )
-);
-
-const topAssets = scoredAssets
-  .sort((a, b) => b.score - a.score)
-  .slice(0, assetCount);
-
-
-    scoredAssets.sort((a, b) => b.score - a.score);
-    let matchedAssets = scoredAssets
-      .filter((o) => o.score > 0)
-      .map((o) => o.asset);
-    if (matchedAssets.length < assetCount) {
-      for (const item of scoredAssets) {
-        if (item.score === 0) {
-          matchedAssets.push(item.asset);
-          if (matchedAssets.length >= assetCount) break;
+      if (selectedAssets.length === 0 && assetCount > 0) {
+        console.warn('No image URL found in CSV row; skipping asset.');
+        while (selectedAssets.length < assetCount) {
+          selectedAssets.push({ needAsset: true });
         }
       }
     }
@@ -1323,24 +1280,9 @@ const topAssets = scoredAssets
           copy: text,
           editing: false,
         };
-        if (Array.isArray(row.imageUrls) && row.imageUrls.length > 0) {
-          const selected = row.imageUrls.slice(0, assetCount).map((u) => ({ adUrl: u }));
-          while (selected.length < assetCount) {
-            selected.push({ needAsset: true });
-          }
-          result.assets = selected;
-        } else if (row.imageUrl) {
-          const selected = [{ adUrl: row.imageUrl }];
-          while (selected.length < assetCount) {
-            selected.push({ needAsset: true });
-          }
-          result.assets = selected;
-        } else if (assetCount > 0) {
-          const selected = matchedAssets.slice(0, assetCount);
-          while (selected.length < assetCount) {
-            selected.push({ needAsset: true });
-          }
-          result.assets = selected;
+        result.assets = selectedAssets.slice();
+        while (result.assets.length < assetCount) {
+          result.assets.push({ needAsset: true });
         }
         return [...prev, result];
       });
