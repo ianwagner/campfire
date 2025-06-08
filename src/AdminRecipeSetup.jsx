@@ -52,6 +52,17 @@ export const parseCsvFile = async (file, importType) => {
   return rows;
 };
 
+export const selectCsvAssets = (row = {}, assetCount = 0) => {
+  if (assetCount <= 0) return [];
+  const urls = [];
+  if (Array.isArray(row.imageUrls)) urls.push(...row.imageUrls);
+  else if (row.imageUrl) urls.push(row.imageUrl);
+  const valid = urls.filter((u) => /^https?:\/\//i.test(u));
+  const assets = valid.slice(0, assetCount).map((u) => ({ adUrl: u }));
+  while (assets.length < assetCount) assets.push({ needAsset: true });
+  return assets;
+};
+
 const VIEWS = {
   TYPES: 'types',
   COMPONENTS: 'components',
@@ -1239,17 +1250,8 @@ const Preview = () => {
 
     let selectedAssets = [];
     if (csvImportEnabled) {
-      if (Array.isArray(row.imageUrls) && row.imageUrls.length > 0) {
-        selectedAssets = row.imageUrls
-          .slice(0, assetCount)
-          .map((u) => ({ adUrl: u }));
-      } else if (row.imageUrl) {
-        selectedAssets = [{ adUrl: row.imageUrl }];
-      }
-    }
-
-
-    if (selectedAssets.length === 0 && assetCount > 0) {
+      selectedAssets = selectCsvAssets(row, assetCount);
+    } else if (assetCount > 0) {
       while (selectedAssets.length < assetCount) {
         selectedAssets.push({ needAsset: true });
       }
