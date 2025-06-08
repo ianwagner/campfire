@@ -1056,29 +1056,41 @@ const Preview = () => {
     });
 
     const assetCount =
-      parseInt(componentsData['layout.assetNo'], 10) ||
-      parseInt(componentsData['layout.assetCount'], 10) ||
-      0;
-    let matchedAssets = assets;
-    ['audience', 'angle', 'offer'].forEach((t) => {
-      const val = componentsData[t];
-      if (val) {
-        matchedAssets = matchedAssets.filter((a) => {
-          if (a[t] && a[t] === val) return true;
-          const tagField = `${t}Tags`;
-          return Array.isArray(a[tagField]) && a[tagField].includes(val);
-        });
+  parseInt(componentsData['layout.assetNo'], 10) ||
+  parseInt(componentsData['layout.assetCount'], 10) ||
+  0;
+
+const scoredAssets = assets.map((a) => {
+  let score = 0;
+  ['audience', 'angle', 'offer'].forEach((t) => {
+    const val = componentsData[t];
+    if (!val) return;
+
+    if (a[t] && a[t] === val) {
+      score += 2;
+    } else {
+      const tagField = `${t}Tags`;
+      if (Array.isArray(a[tagField]) && a[tagField].includes(val)) {
+        score += 1;
       }
-    });
-    if (row.tags && row.tags.length > 0) {
-      matchedAssets = matchedAssets.filter((a) =>
-        row.tags.every((tag) => (a.tags || []).includes(tag))
-      );
     }
-    if (assetCount > 0 && matchedAssets.length < assetCount) {
-      console.warn('Not enough assets for recipe', matchedAssets.length, 'need', assetCount);
-      return;
-    }
+  });
+
+  if (a.tags && row?.tags?.length > 0) {
+    const matches = row.tags.filter((tag) => a.tags.includes(tag)).length;
+    score += matches;
+  }
+
+  return { asset: a, score };
+});
+
+const topAssets = scoredAssets
+  .sort((a, b) => b.score - a.score)
+  .slice(0, assetCount);
+
+
+    scoredAssets.sort((a, b) => b.score - a.score);
+    let matchedAssets = scoredAssets.filter((o) => o.score > 0).map((o) => o.asset);
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1109,7 +1121,11 @@ const Preview = () => {
         if (row.imageUrl) {
           result.assets = [{ adUrl: row.imageUrl }];
         } else if (assetCount > 0) {
-          result.assets = matchedAssets.slice(0, assetCount);
+          const selected = matchedAssets.slice(0, assetCount);
+          while (selected.length < assetCount) {
+            selected.push({ needAsset: true });
+          }
+          result.assets = selected;
         }
         return [...prev, result];
       });
@@ -1350,17 +1366,23 @@ const Preview = () => {
                   )}
                   <td className="flex gap-1">
                     {r.assets && r.assets.length > 0 ? (
-                      r.assets.map((a) => (
-                        <a
-                          key={a.id}
-                          href={a.adUrl || a.firebaseUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn-secondary px-1.5 py-0.5 text-xs"
-                        >
-                          Image Link
-                        </a>
-                      ))
+                      r.assets.map((a, i) =>
+                        a.needAsset ? (
+                          <span key={`na-${i}`} className="text-red-500 text-xs">
+                            Need asset
+                          </span>
+                        ) : (
+                          <a
+                            key={a.id}
+                            href={a.adUrl || a.firebaseUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-secondary px-1.5 py-0.5 text-xs"
+                          >
+                            Image Link
+                          </a>
+                        )
+                      )
                     ) : (
                       '-'
                     )}
