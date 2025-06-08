@@ -15,6 +15,8 @@ import useComponentTypes from './useComponentTypes';
 import { db } from './firebase/config';
 import useAssets from './useAssets';
 import selectRandomOption from './utils/selectRandomOption.js';
+import debugLog from './utils/debugLog';
+import { MAX_TAG_BONUS } from './constants';
 
 export const parseCsvFile = async (file, importType) => {
   if (!file || !importType) return [];
@@ -1103,7 +1105,9 @@ const Preview = () => {
 
   if (a.tags && row?.tags?.length > 0) {
     const matches = row.tags.filter((tag) => a.tags.includes(tag)).length;
-    score += matches;
+    const bonus = Math.min(matches, MAX_TAG_BONUS);
+    debugLog('Tag bonus:', bonus, 'matches:', matches);
+    score += bonus;
   }
 
   return { asset: a, score };
