@@ -18,3 +18,20 @@ test('parseCsvFile parses basic CSV rows', async () => {
   ]);
 });
 
+test('parseCsvFile handles offer role', async () => {
+  const csv = 'offer\nDeal1\nDeal2';
+  const file = { text: () => Promise.resolve(csv) };
+  const importType = {
+    columns: [
+      { index: 0, role: 'offer' },
+    ],
+  };
+
+  const rows = await parseCsvFile(file, importType);
+
+  expect(rows).toEqual([
+    { offer: 'Deal1' },
+    { offer: 'Deal2' },
+  ]);
+});
+

@@ -42,6 +42,8 @@ export const parseCsvFile = async (file, importType) => {
           row.imageUrls = urls;
           row.imageUrl = urls[0];
         }
+      } else if (col.role === 'offer') {
+        row.offer = val;
       } else if (col.role !== 'ignore') {
         row[col.role] = val;
       }
@@ -1063,6 +1065,7 @@ const CsvImportTypesView = () => {
                   <option value="imageUrl">Image URL</option>
                   <option value="audience">Audience</option>
                   <option value="angle">Angle</option>
+                  <option value="offer">Offer</option>
                   <option value="tag">Tag</option>
                 </select>
                 <label className="text-sm">
