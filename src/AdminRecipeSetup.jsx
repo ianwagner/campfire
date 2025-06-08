@@ -1100,7 +1100,6 @@ const Preview = () => {
   const [editIdx, setEditIdx] = useState(null);
   const [csvImportTypes, setCsvImportTypes] = useState([]);
   const [csvRows, setCsvRows] = useState([]);
-  const [csvIndex, setCsvIndex] = useState(0);
   const [csvFile, setCsvFile] = useState(null);
   const assets = useAssets();
 
@@ -1131,8 +1130,31 @@ const Preview = () => {
     if (!currentType) return;
 
     let prompt = currentType.gptPrompt || '';
-    const row = csvRows.length > 0 ? csvRows[csvIndex % csvRows.length] : {};
-    setCsvIndex((i) => (csvRows.length > 0 ? (i + 1) % csvRows.length : 0));
+    let row = {};
+    if (csvRows.length > 0) {
+      const scored = csvRows.map((r) => {
+        let score = 0;
+        Object.keys(formData).forEach((k) => {
+          const formVal = formData[k];
+          const rowVal = r[k];
+          if (formVal === undefined || rowVal === undefined) return;
+
+          const formList = Array.isArray(formVal)
+            ? formVal.map((v) => String(v).toLowerCase())
+            : [String(formVal).toLowerCase()];
+          const rowList = Array.isArray(rowVal)
+            ? rowVal.map((v) => String(v).toLowerCase())
+            : [String(rowVal).toLowerCase()];
+
+          formList.forEach((fv) => {
+            if (rowList.includes(fv)) score += 1;
+          });
+        });
+        return { row: r, score: score + Math.random() * 0.01 };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      row = scored[0]?.row || {};
+    }
 
     const mergedForm = { ...row, ...formData };
     const componentsData = {};
@@ -1388,7 +1410,6 @@ const topAssets = scoredAssets
                     if (f && type) {
                       const rows = await parseCsvFile(f, type);
                       setCsvRows(rows);
-                      setCsvIndex(0);
                     } else {
                       setCsvRows([]);
                     }
