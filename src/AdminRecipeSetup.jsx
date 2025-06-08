@@ -1105,7 +1105,17 @@ const topAssets = scoredAssets
 
 
     scoredAssets.sort((a, b) => b.score - a.score);
-    let matchedAssets = scoredAssets.filter((o) => o.score > 0).map((o) => o.asset);
+    let matchedAssets = scoredAssets
+      .filter((o) => o.score > 0)
+      .map((o) => o.asset);
+    if (matchedAssets.length < assetCount) {
+      for (const item of scoredAssets) {
+        if (item.score === 0) {
+          matchedAssets.push(item.asset);
+          if (matchedAssets.length >= assetCount) break;
+        }
+      }
+    }
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
