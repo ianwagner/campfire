@@ -1099,6 +1099,32 @@ const scoredAssets = assets.map((a) => {
   return { asset: a, score };
 });
 
+const positiveCount = scoredAssets.filter((s) => s.score > 0).length;
+console.log('Assets with score > 0:', positiveCount);
+
+const debugTop = [...scoredAssets]
+  .sort((a, b) => b.score - a.score)
+  .slice(0, 5);
+console.log(
+  'Top 5 scored assets:',
+  debugTop.map((o) => ({
+    id: o.asset.id,
+    score: o.score,
+    audienceTags: o.asset.audienceTags,
+    angleTags: o.asset.angleTags,
+    offerTags: o.asset.offerTags,
+  }))
+);
+console.log(
+  'Includes assets with audience/angle/offer tags:',
+  debugTop.some(
+    (o) =>
+      (Array.isArray(o.asset.audienceTags) && o.asset.audienceTags.length > 0) ||
+      (Array.isArray(o.asset.angleTags) && o.asset.angleTags.length > 0) ||
+      (Array.isArray(o.asset.offerTags) && o.asset.offerTags.length > 0)
+  )
+);
+
 const topAssets = scoredAssets
   .sort((a, b) => b.score - a.score)
   .slice(0, assetCount);
