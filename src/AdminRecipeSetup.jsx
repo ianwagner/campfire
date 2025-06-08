@@ -14,6 +14,7 @@ import PromptTextarea from './components/PromptTextarea.jsx';
 import useComponentTypes from './useComponentTypes';
 import { db } from './firebase/config';
 import useAssets from './useAssets';
+import selectRandomOption from './utils/selectRandomOption.js';
 
 export const parseCsvFile = async (file, importType) => {
   if (!file || !importType) return [];
@@ -1048,22 +1049,9 @@ const Preview = () => {
     writeFields.forEach((f) => {
       let val = mergedForm[f.key];
       if (f.inputType === 'list') {
-        let options = [];
-        if (Array.isArray(val)) {
-          options = val;
-        } else if (typeof val === 'string') {
-          options = val
-            .split(/[,\n]+/)
-            .map((v) => v.trim())
-            .filter(Boolean);
-        }
-        val = options.length > 0
-          ? options[Math.floor(Math.random() * options.length)]
-          : '';
+        val = selectRandomOption(val);
       } else if (Array.isArray(val)) {
-        val = val.length > 0
-          ? val[Math.floor(Math.random() * val.length)]
-          : '';
+        val = selectRandomOption(val);
       } else if (val === undefined) {
         val = '';
       }
