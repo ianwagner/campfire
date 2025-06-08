@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
 import parseAdFilename from './utils/parseAdFilename';
+import { splitCsvLine } from './utils/csv.js';
 
 const AdminImportAssets = () => {
   const [file, setFile] = useState(null);
@@ -18,7 +19,7 @@ const AdminImportAssets = () => {
         window.alert('No asset rows found in CSV');
         return;
       }
-      const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+      const headers = splitCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
       const findCol = (k) => headers.findIndex((h) => h.includes(k));
       const groupCol = findCol('group');
       const fileCol = findCol('file');
@@ -30,7 +31,7 @@ const AdminImportAssets = () => {
       }
       const batch = writeBatch(db);
       for (let i = 1; i < lines.length; i += 1) {
-        const parts = lines[i].split(',').map((p) => p.trim());
+        const parts = splitCsvLine(lines[i]).map((p) => p.trim());
         const groupId = parts[groupCol];
         const filename = parts[fileCol];
         if (!groupId || !filename) continue;
