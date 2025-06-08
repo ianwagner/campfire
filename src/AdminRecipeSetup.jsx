@@ -1075,21 +1075,31 @@ const Preview = () => {
   parseInt(componentsData['layout.assetCount'], 10) ||
   0;
 
-const scoredAssets = assets.map((a) => {
-  let score = 0;
-  ['audience', 'angle', 'offer'].forEach((t) => {
-    const val = componentsData[t];
-    if (!val) return;
+  const scoredAssets = assets.map((a) => {
+    let score = 0;
+    ['audience', 'angle', 'offer'].forEach((t) => {
+      const val = componentsData[t];
+      if (!val) return;
 
-    if (a[t] && a[t] === val) {
-      score += 2;
-    } else {
-      const tagField = `${t}Tags`;
-      if (Array.isArray(a[tagField]) && a[tagField].includes(val)) {
-        score += 1;
+      const valLower = val.toLowerCase();
+      const assetField = a[t];
+      const assetFieldLower =
+        typeof assetField === 'string' ? assetField.toLowerCase() : assetField;
+
+      if (assetFieldLower && assetFieldLower === valLower) {
+        score += 2;
+      } else {
+        const tagField = `${t}Tags`;
+        const tagVals = Array.isArray(a[tagField])
+          ? a[tagField].map((v) =>
+              typeof v === 'string' ? v.toLowerCase() : v
+            )
+          : [];
+        if (tagVals.includes(valLower)) {
+          score += 1;
+        }
       }
-    }
-  });
+    });
 
   if (a.tags && row?.tags?.length > 0) {
     const matches = row.tags.filter((tag) => a.tags.includes(tag)).length;
