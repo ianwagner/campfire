@@ -44,6 +44,17 @@ export const parseCsvFile = async (file, importType) => {
   return rows;
 };
 
+export const selectCsvAssets = (row = {}, assetCount = 0) => {
+  if (assetCount <= 0) return [];
+  const urls = [];
+  if (Array.isArray(row.imageUrls)) urls.push(...row.imageUrls);
+  else if (row.imageUrl) urls.push(row.imageUrl);
+  const valid = urls.filter((u) => /^https?:\/\//i.test(u));
+  const assets = valid.slice(0, assetCount).map((u) => ({ adUrl: u }));
+  while (assets.length < assetCount) assets.push({ needAsset: true });
+  return assets;
+};
+
 const VIEWS = {
   TYPES: 'types',
   COMPONENTS: 'components',
@@ -1216,16 +1227,23 @@ const Preview = () => {
       parseInt(componentsData['layout.assetCount'], 10) ||
       0;
 
-    let selectedAssets = [];
-    if (csvImportEnabled && row && row.imageUrl) {
-      selectedAssets = [{ adUrl: row.imageUrl }];
-    }
+let selectedAssets = [];
 
-    if (selectedAssets.length === 0 && assetCount > 0) {
-      while (selectedAssets.length < assetCount) {
-        selectedAssets.push({ needAsset: true });
-      }
+if (csvImportEnabled) {
+  if (row && row.imageUrl) {
+    selectedAssets = [{ adUrl: row.imageUrl }];
+  }
+
+  if (selectedAssets.length < assetCount) {
+    while (selectedAssets.length < assetCount) {
+      selectedAssets.push({ needAsset: true });
     }
+  }
+} else if (assetCount > 0) {
+  while (selectedAssets.length < assetCount) {
+    selectedAssets.push({ needAsset: true });
+  }
+}
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
