@@ -1245,11 +1245,12 @@ const Preview = () => {
       } else if (row.imageUrl) {
         selectedAssets = [{ adUrl: row.imageUrl }];
       }
-      if (selectedAssets.length === 0 && assetCount > 0) {
-        console.warn('No image URL found in CSV row; skipping asset.');
-        while (selectedAssets.length < assetCount) {
-          selectedAssets.push({ needAsset: true });
-        }
+    }
+
+
+    if (selectedAssets.length === 0 && assetCount > 0) {
+      while (selectedAssets.length < assetCount) {
+        selectedAssets.push({ needAsset: true });
       }
     }
 
