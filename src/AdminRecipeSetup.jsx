@@ -1160,35 +1160,22 @@ const Preview = () => {
         });
       });
 
-      const matchCount = rowTokens.filter((t) => formTokens.includes(t)).length;
-      return { row: r, score: matchCount };
+      let score = 0;
+      const uniqForm = Array.from(new Set(formTokens));
+      const uniqRow = Array.from(new Set(rowTokens));
+      uniqForm.forEach((fv) => {
+        uniqRow.forEach((rv) => {
+          if (fv === rv || fv.includes(rv) || rv.includes(fv)) {
+            score += 1;
+          }
+        });
+      });
+      return { row: r, score: score + Math.random() * 0.01 };
     });
 
     scored.sort((a, b) => b.score - a.score);
     row = scored[0]?.row || {};
   }
-};
-
-
-        let score = 0;
-        const uniqForm = Array.from(new Set(formTokens));
-        const uniqRow = Array.from(new Set(rowTokens));
-        uniqForm.forEach((fv) => {
-          uniqRow.forEach((rv) => {
-            if (
-              fv === rv ||
-              fv.includes(rv) ||
-              rv.includes(fv)
-            ) {
-              score += 1;
-            }
-          });
-        });
-        return { row: r, score: score + Math.random() * 0.01 };
-      });
-      scored.sort((a, b) => b.score - a.score);
-      row = scored[0]?.row || {};
-    }
 
     const mergedForm = csvImportEnabled
       ? { ...formData, ...row }
