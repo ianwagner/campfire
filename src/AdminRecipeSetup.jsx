@@ -1134,7 +1134,7 @@ const Preview = () => {
     const row = csvRows.length > 0 ? csvRows[csvIndex % csvRows.length] : {};
     setCsvIndex((i) => (csvRows.length > 0 ? (i + 1) % csvRows.length : 0));
 
-    const mergedForm = { ...formData, ...row };
+    const mergedForm = { ...row, ...formData };
     const componentsData = {};
     orderedComponents.forEach((c) => {
       const instOptions = instances.filter((i) => i.componentKey === c.key);

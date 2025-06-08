@@ -70,6 +70,12 @@ file. Multiple URLs may be provided in the same cell separated by spaces or
 semicolons to supply several assets for layouts that require more than one
 image.
 
+### CSV Usage
+
+Values provided in a CSV row take priority over defaults from the form. Any
+fields included in the file will override previously entered values when a
+recipe is generated.
+
 ## Firestore Rules
 
 Admins must be able to read and write recipe configuration data. Ensure your
