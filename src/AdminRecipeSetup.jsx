@@ -1127,38 +1127,48 @@ const Preview = () => {
   }, []);
 
   const generateOnce = async () => {
-    if (!currentType) return;
+  if (!currentType) return;
 
-    let prompt = currentType.gptPrompt || '';
-    const csvImportEnabled = currentType.csvEnabled && csvRows.length > 0;
-    let row = {};
-    if (csvImportEnabled) {
-      const formTokens = [];
-      Object.values(formData).forEach((val) => {
-        if (val === undefined) return;
-        const list = Array.isArray(val) ? val : [val];
-        list.forEach((v) => {
+  let prompt = currentType.gptPrompt || '';
+  const csvImportEnabled = currentType.csvEnabled && csvRows.length > 0;
+  let row = {};
+  if (csvImportEnabled) {
+    const formTokens = [];
+    Object.values(formData).forEach((val) => {
+      if (val === undefined) return;
+      const list = Array.isArray(val) ? val : [val];
+      list.forEach((v) => {
+        String(v)
+          .toLowerCase()
+          .split(/\W+/)
+          .filter(Boolean)
+          .forEach((t) => formTokens.push(t));
+      });
+    });
+
+    const scored = csvRows.map((r) => {
+      const rowTokens = [];
+      Object.entries(r).forEach(([key, value]) => {
+        if (key === 'imageUrl' || key === 'imageUrls') return;
+        const vals = Array.isArray(value) ? value : [value];
+        vals.forEach((v) => {
           String(v)
             .toLowerCase()
             .split(/\W+/)
             .filter(Boolean)
-            .forEach((t) => formTokens.push(t));
+            .forEach((t) => rowTokens.push(t));
         });
       });
 
-      const scored = csvRows.map((r) => {
-        const rowTokens = [];
-        Object.entries(r).forEach(([key, value]) => {
-          if (key === 'imageUrl' || key === 'imageUrls') return;
-          const vals = Array.isArray(value) ? value : [value];
-          vals.forEach((v) => {
-            String(v)
-              .toLowerCase()
-              .split(/\W+/)
-              .filter(Boolean)
-              .forEach((t) => rowTokens.push(t));
-          });
-        });
+      const matchCount = rowTokens.filter((t) => formTokens.includes(t)).length;
+      return { row: r, score: matchCount };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    row = scored[0]?.row || {};
+  }
+};
+
 
         let score = 0;
         const uniqForm = Array.from(new Set(formTokens));
@@ -1180,7 +1190,9 @@ const Preview = () => {
       row = scored[0]?.row || {};
     }
 
-    const mergedForm = { ...row, ...formData };
+    const mergedForm = csvImportEnabled
+      ? { ...formData, ...row }
+      : { ...row, ...formData };
     const componentsData = {};
     orderedComponents.forEach((c) => {
       const instOptions = instances.filter((i) => i.componentKey === c.key);
