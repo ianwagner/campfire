@@ -72,9 +72,10 @@ image.
 
 ### CSV Usage
 
-Values provided in a CSV row take priority over defaults from the form. Any
-fields included in the file will override previously entered values when a
-recipe is generated.
+Values entered in the setup form take priority over any matching fields in a
+CSV row. When the CSV provides a value for a field that was also filled out in
+the form, the form data wins and the CSV value is ignored during recipe
+generation.
 
 ## Firestore Rules
 
