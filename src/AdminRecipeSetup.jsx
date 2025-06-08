@@ -1046,26 +1046,9 @@ const Preview = () => {
     });
     const writeFields = currentType.writeInFields || [];
     writeFields.forEach((f) => {
-      let val = mergedForm[f.key];
-      if (f.inputType === 'list') {
-        let options = [];
-        if (Array.isArray(val)) {
-          options = val;
-        } else if (typeof val === 'string') {
-          options = val
-            .split(/[,\n]+/)
-            .map((v) => v.trim())
-            .filter(Boolean);
-        }
-        val = options.length > 0
-          ? options[Math.floor(Math.random() * options.length)]
-          : '';
-      } else if (Array.isArray(val)) {
-        val = val.length > 0
-          ? val[Math.floor(Math.random() * val.length)]
-          : '';
-      } else if (val === undefined) {
-        val = '';
+      let val = mergedForm[f.key] || '';
+      if (Array.isArray(val)) {
+        val = val.length > 0 ? val[Math.floor(Math.random() * val.length)] : '';
       }
       componentsData[f.key] = val;
       const regex = new RegExp(`{{${f.key}}}`, 'g');
