@@ -1055,7 +1055,10 @@ const Preview = () => {
       prompt = prompt.replace(regex, val);
     });
 
-    const assetCount = parseInt(componentsData['layout.assetCount'], 10) || 0;
+    const assetCount =
+      parseInt(componentsData['layout.assetNo'], 10) ||
+      parseInt(componentsData['layout.assetCount'], 10) ||
+      0;
     let matchedAssets = assets;
     ['audience', 'angle', 'offer'].forEach((t) => {
       const val = componentsData[t];
