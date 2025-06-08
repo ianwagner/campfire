@@ -32,7 +32,6 @@
     "build": "vite build",
     "preview": "vite preview",
     "sync": "node sync.js",
-    "import-assets": "node importAssets.js",
     "test": "jest"
   },
   "license": "UNLICENSED"
