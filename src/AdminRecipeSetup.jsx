@@ -32,15 +32,7 @@ export const parseCsvFile = async (file, importType) => {
         if (!row.tags) row.tags = [];
         if (val) row.tags.push(val);
       } else if (col.role === 'imageUrl') {
-        // allow multiple URLs separated by whitespace or semicolons
-        const urls = val
-          .split(/[;\s]+/)
-          .map((v) => v.trim())
-          .filter(Boolean);
-        if (urls.length > 0) {
-          row.imageUrls = urls;
-          row.imageUrl = urls[0];
-        }
+        row.imageUrl = val;
       } else if (col.role === 'offer') {
         row.offer = val;
       } else if (col.role !== 'ignore') {
@@ -1145,53 +1137,40 @@ const Preview = () => {
   const csvImportEnabled = currentType.csvEnabled && csvRows.length > 0;
   let row = {};
   if (csvImportEnabled) {
-    const formTokens = [];
-    Object.values(formData).forEach((val) => {
-      if (val === undefined) return;
-      const list = Array.isArray(val) ? val : [val];
-      list.forEach((v) => {
-        String(v)
-          .toLowerCase()
-          .split(/\W+/)
-          .filter(Boolean)
-          .forEach((t) => formTokens.push(t));
-      });
-    });
-
     const scored = csvRows.map((r) => {
-      const rowTokens = [];
-      Object.entries(r).forEach(([key, value]) => {
-        if (key === 'imageUrl' || key === 'imageUrls') return;
-        const vals = Array.isArray(value) ? value : [value];
-        vals.forEach((v) => {
-          String(v)
-            .toLowerCase()
-            .split(/\W+/)
-            .filter(Boolean)
-            .forEach((t) => rowTokens.push(t));
-        });
-      });
-
       let score = 0;
-      const uniqForm = Array.from(new Set(formTokens));
-      const uniqRow = Array.from(new Set(rowTokens));
-      uniqForm.forEach((fv) => {
-        uniqRow.forEach((rv) => {
-          if (fv === rv || fv.includes(rv) || rv.includes(fv)) {
-            score += 1;
-          }
+      Object.entries(r).forEach(([key, value]) => {
+        if (key === 'imageUrl' || key === 'imageUrls' || key === 'name') return;
+        const formVal = formData[key];
+        if (formVal === undefined || formVal === null) return;
+        const rowVals = Array.isArray(value) ? value : [value];
+        const formVals = Array.isArray(formVal) ? formVal : [formVal];
+        formVals.forEach((fv) => {
+          rowVals.forEach((rv) => {
+            const f = String(fv).toLowerCase();
+            const rVal = String(rv).toLowerCase();
+            if (f === rVal) {
+              score += 2;
+            } else if (f.includes(rVal) || rVal.includes(f)) {
+              score += 1;
+            }
+          });
         });
       });
-      return { row: r, score: score + Math.random() * 0.01 };
+      return { row: r, score };
     });
 
     scored.sort((a, b) => b.score - a.score);
-    row = scored[0]?.row || {};
+    if (scored[0] && scored[0].score > 0) {
+      row = scored[0].row;
+    } else {
+      row = null;
+    }
   }
 
     const mergedForm = csvImportEnabled
-      ? { ...formData, ...row }
-      : { ...row, ...formData };
+      ? { ...formData, ...(row || {}) }
+      : { ...(row || {}), ...formData };
     const componentsData = {};
     orderedComponents.forEach((c) => {
       const instOptions = instances.filter((i) => i.componentKey === c.key);
@@ -1248,14 +1227,23 @@ const Preview = () => {
       parseInt(componentsData['layout.assetCount'], 10) ||
       0;
 
-    let selectedAssets = [];
-    if (csvImportEnabled) {
-      selectedAssets = selectCsvAssets(row, assetCount);
-    } else if (assetCount > 0) {
-      while (selectedAssets.length < assetCount) {
-        selectedAssets.push({ needAsset: true });
-      }
+let selectedAssets = [];
+
+if (csvImportEnabled) {
+  if (row && row.imageUrl) {
+    selectedAssets = [{ adUrl: row.imageUrl }];
+  }
+
+  if (selectedAssets.length < assetCount) {
+    while (selectedAssets.length < assetCount) {
+      selectedAssets.push({ needAsset: true });
     }
+  }
+} else if (assetCount > 0) {
+  while (selectedAssets.length < assetCount) {
+    selectedAssets.push({ needAsset: true });
+  }
+}
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
