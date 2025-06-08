@@ -62,7 +62,9 @@ existing assets.
 If your CSV includes an `imageUrl` column, the preview uses that URL as the
 asset for the generated recipe. In this case no lookup is performed against
 Firestore, so each row can reference unique images directly from the uploaded
-file.
+file. Multiple URLs may be provided in the same cell separated by spaces or
+semicolons to supply several assets for layouts that require more than one
+image.
 
 ## Firestore Rules
 

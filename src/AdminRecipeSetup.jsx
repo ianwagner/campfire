@@ -30,6 +30,16 @@ export const parseCsvFile = async (file, importType) => {
       if (col.role === 'tag') {
         if (!row.tags) row.tags = [];
         if (val) row.tags.push(val);
+      } else if (col.role === 'imageUrl') {
+        // allow multiple URLs separated by whitespace or semicolons
+        const urls = val
+          .split(/[;\s]+/)
+          .map((v) => v.trim())
+          .filter(Boolean);
+        if (urls.length > 0) {
+          row.imageUrls = urls;
+          row.imageUrl = urls[0];
+        }
       } else if (col.role !== 'ignore') {
         row[col.role] = val;
       }
@@ -1123,8 +1133,18 @@ const topAssets = scoredAssets
           copy: text,
           editing: false,
         };
-        if (row.imageUrl) {
-          result.assets = [{ adUrl: row.imageUrl }];
+        if (Array.isArray(row.imageUrls) && row.imageUrls.length > 0) {
+          const selected = row.imageUrls.slice(0, assetCount).map((u) => ({ adUrl: u }));
+          while (selected.length < assetCount) {
+            selected.push({ needAsset: true });
+          }
+          result.assets = selected;
+        } else if (row.imageUrl) {
+          const selected = [{ adUrl: row.imageUrl }];
+          while (selected.length < assetCount) {
+            selected.push({ needAsset: true });
+          }
+          result.assets = selected;
         } else if (assetCount > 0) {
           const selected = matchedAssets.slice(0, assetCount);
           while (selected.length < assetCount) {
