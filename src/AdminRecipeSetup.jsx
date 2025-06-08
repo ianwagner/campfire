@@ -1056,30 +1056,38 @@ const Preview = () => {
     });
 
     const assetCount =
-      parseInt(componentsData['layout.assetNo'], 10) ||
-      parseInt(componentsData['layout.assetCount'], 10) ||
-      0;
+  parseInt(componentsData['layout.assetNo'], 10) ||
+  parseInt(componentsData['layout.assetCount'], 10) ||
+  0;
 
-    const scoredAssets = assets.map((a) => {
-      let score = 0;
-      ['audience', 'angle', 'offer'].forEach((t) => {
-        const val = componentsData[t];
-        if (!val) return;
-        if (a[t] && a[t] === val) {
-          score += 2;
-        } else {
-          const tagField = `${t}Tags`;
-          if (Array.isArray(a[tagField]) && a[tagField].includes(val)) {
-            score += 1;
-          }
-        }
-      });
-      if (row.tags && row.tags.length > 0) {
-        const matches = row.tags.filter((tag) => (a.tags || []).includes(tag)).length;
-        score += matches;
+const scoredAssets = assets.map((a) => {
+  let score = 0;
+  ['audience', 'angle', 'offer'].forEach((t) => {
+    const val = componentsData[t];
+    if (!val) return;
+
+    if (a[t] && a[t] === val) {
+      score += 2;
+    } else {
+      const tagField = `${t}Tags`;
+      if (Array.isArray(a[tagField]) && a[tagField].includes(val)) {
+        score += 1;
       }
-      return { asset: a, score };
-    });
+    }
+  });
+
+  if (a.tags && row?.tags?.length > 0) {
+    const matches = row.tags.filter((tag) => a.tags.includes(tag)).length;
+    score += matches;
+  }
+
+  return { asset: a, score };
+});
+
+const topAssets = scoredAssets
+  .sort((a, b) => b.score - a.score)
+  .slice(0, assetCount);
+
 
     scoredAssets.sort((a, b) => b.score - a.score);
     let matchedAssets = scoredAssets.filter((o) => o.score > 0).map((o) => o.asset);
