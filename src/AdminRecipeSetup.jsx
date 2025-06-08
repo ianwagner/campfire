@@ -1110,7 +1110,8 @@ const Preview = () => {
     score += bonus;
   }
 
-  return { asset: a, score };
+  // Add a tiny random value to avoid deterministic ties between assets
+  return { asset: a, score: score + Math.random() * 0.01 };
 });
 
 const topAssets = scoredAssets
