@@ -14,6 +14,7 @@ import PromptTextarea from './components/PromptTextarea.jsx';
 import useComponentTypes from './useComponentTypes';
 import { db } from './firebase/config';
 import selectRandomOption from './utils/selectRandomOption.js';
+import { splitCsvLine } from './utils/csv.js';
 
 
 export const parseCsvFile = async (file, importType) => {
@@ -23,7 +24,7 @@ export const parseCsvFile = async (file, importType) => {
   if (lines.length <= 1) return [];
   const rows = [];
   for (let i = 1; i < lines.length; i += 1) {
-    const parts = lines[i].split(',');
+    const parts = splitCsvLine(lines[i]);
     const row = {};
     importType.columns.forEach((col) => {
       const val = parts[col.index] ? parts[col.index].trim() : '';
@@ -749,10 +750,10 @@ const InstancesView = () => {
       const text = await f.text();
       const lines = text.trim().split(/\r?\n/);
       if (lines.length > 1) {
-        const headers = lines[0].split(',').map((h) => h.trim());
+        const headers = splitCsvLine(lines[0]).map((h) => h.trim());
         const rows = [];
         for (let i = 1; i < lines.length; i += 1) {
-          if (lines[i]) rows.push(lines[i].split(',').map((p) => p.trim()));
+          if (lines[i]) rows.push(splitCsvLine(lines[i]).map((p) => p.trim()));
         }
         setCsvColumns(headers);
         setCsvRows(rows);
@@ -970,7 +971,7 @@ const CsvImportTypesView = () => {
     const text = await f.text();
     const lines = text.trim().split(/\r?\n/);
     if (lines.length === 0) return;
-    const headers = lines[0].split(',').map((h) => h.trim());
+    const headers = splitCsvLine(lines[0]).map((h) => h.trim());
     setColumns(headers.map((h, i) => ({ index: i, name: h, role: 'ignore', required: false })));
   };
 
