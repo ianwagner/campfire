@@ -32,12 +32,10 @@ test('parseCsvFile handles quoted values with commas', async () => {
 
   expect(rows[0]).toEqual({
     name: 'Foo,Bar',
-    imageUrls: ['http://ex.com/a,b.png'],
     imageUrl: 'http://ex.com/a,b.png',
   });
   expect(rows[1]).toEqual({
     name: 'Baz',
-    imageUrls: ['http://ex.com/b.png'],
     imageUrl: 'http://ex.com/b.png',
   });
 });
