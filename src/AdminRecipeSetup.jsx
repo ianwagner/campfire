@@ -416,59 +416,6 @@ const RecipeTypes = () => {
           )}
         </div>
       </form>
-      {currentComp && (
-        <div className="mt-8 space-y-2 max-w-sm">
-          <h3 className="text-lg">Bulk Add via CSV</h3>
-          <input type="file" accept=".csv" onChange={handleCsvChange} />
-          {csvColumns.length > 0 && (
-            <div className="space-y-2">
-              <div>
-                <label className="block text-sm mb-1">Name Column</label>
-                <select
-                  className="w-full p-2 border rounded"
-                  value={csvMap.name ?? ''}
-                  onChange={(e) =>
-                    setCsvMap({ ...csvMap, name: e.target.value })
-                  }
-                >
-                  <option value="">Ignore</option>
-                  {csvColumns.map((c, idx) => (
-                    <option key={idx} value={idx}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {currentComp.attributes?.map((a) => (
-                <div key={a.key}>
-                  <label className="block text-sm mb-1">{a.label} Column</label>
-                  <select
-                    className="w-full p-2 border rounded"
-                    value={csvMap[a.key] ?? ''}
-                    onChange={(e) =>
-                      setCsvMap({ ...csvMap, [a.key]: e.target.value })
-                    }
-                  >
-                    <option value="">Ignore</option>
-                    {csvColumns.map((c, idx) => (
-                      <option key={idx} value={idx}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={handleAddCsvInstances}
-                className="btn-primary"
-              >
-                Add Instances
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 };
@@ -935,6 +882,59 @@ const InstancesView = () => {
           )}
         </div>
       </form>
+      {currentComp && (
+        <div className="mt-8 space-y-2 max-w-sm">
+          <h3 className="text-lg">Bulk Add via CSV</h3>
+          <input type="file" accept=".csv" onChange={handleCsvChange} />
+          {csvColumns.length > 0 && (
+            <div className="space-y-2">
+              <div>
+                <label className="block text-sm mb-1">Name Column</label>
+                <select
+                  className="w-full p-2 border rounded"
+                  value={csvMap.name ?? ''}
+                  onChange={(e) =>
+                    setCsvMap({ ...csvMap, name: e.target.value })
+                  }
+                >
+                  <option value="">Ignore</option>
+                  {csvColumns.map((c, idx) => (
+                    <option key={idx} value={idx}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {currentComp.attributes?.map((a) => (
+                <div key={a.key}>
+                  <label className="block text-sm mb-1">{a.label} Column</label>
+                  <select
+                    className="w-full p-2 border rounded"
+                    value={csvMap[a.key] ?? ''}
+                    onChange={(e) =>
+                      setCsvMap({ ...csvMap, [a.key]: e.target.value })
+                    }
+                  >
+                    <option value="">Ignore</option>
+                    {csvColumns.map((c, idx) => (
+                      <option key={idx} value={idx}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={handleAddCsvInstances}
+                className="btn-primary"
+              >
+                Add Instances
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
