@@ -938,6 +938,7 @@ const Preview = () => {
   const [assetRows, setAssetRows] = useState([]);
   const [assetHeaders, setAssetHeaders] = useState([]);
   const [assetMap, setAssetMap] = useState({});
+  const [assetUsage, setAssetUsage] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -966,6 +967,7 @@ const Preview = () => {
       setAssetRows([]);
       setAssetHeaders([]);
       setAssetMap({});
+      setAssetUsage({});
       return;
     }
     const text = await f.text();
@@ -974,6 +976,7 @@ const Preview = () => {
       setAssetRows([]);
       setAssetHeaders([]);
       setAssetMap({});
+      setAssetUsage({});
       return;
     }
     const headers = splitCsvLine(lines[0]).map((h) => h.trim());
@@ -1002,6 +1005,13 @@ const Preview = () => {
       map.imageName = { header: nameHeader, score: 10 };
     }
     setAssetMap(map);
+    const idField = map.imageName?.header || map.imageUrl?.header || '';
+    const usage = {};
+    rows.forEach((r) => {
+      const id = r[idField] || r.imageUrl || r.imageName || '';
+      if (id) usage[id] = 0;
+    });
+    setAssetUsage(usage);
     debugLog('Asset CSV loaded', { headers, rowsSample: rows.slice(0, 2), map });
   };
 
@@ -1071,8 +1081,8 @@ const Preview = () => {
         rows: assetRows.length,
         map: assetMap,
       });
-      let best = null;
       let bestScore = 0;
+      let bestRows = [];
       assetRows.forEach((row, idx) => {
         let score = 0;
         const details = {};
@@ -1096,12 +1106,30 @@ const Preview = () => {
         });
         debugLog('Asset row', idx, { score, details });
         if (score > bestScore) {
-          best = row;
           bestScore = score;
+          bestRows = [row];
+        } else if (score === bestScore) {
+          bestRows.push(row);
         }
       });
-      debugLog('Best asset result', { best, bestScore });
-      return best;
+      if (bestRows.length === 0) {
+        debugLog('Best asset result', { best: null, bestScore });
+        return null;
+      }
+      const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
+      let minUsage = Infinity;
+      bestRows.forEach((row) => {
+        const id = row[idField] || row.imageUrl || row.imageName || '';
+        const usage = assetUsage[id] || 0;
+        if (usage < minUsage) minUsage = usage;
+      });
+      const lowUsageRows = bestRows.filter((row) => {
+        const id = row[idField] || row.imageUrl || row.imageName || '';
+        return (assetUsage[id] || 0) === minUsage;
+      });
+      const chosen = lowUsageRows[Math.floor(Math.random() * lowUsageRows.length)];
+      debugLog('Best asset result', { best: chosen, bestScore, minUsage });
+      return chosen;
     };
 
     const selectedAssets = [];
@@ -1111,8 +1139,16 @@ const Preview = () => {
       if (match) {
         const urlField = assetMap.imageUrl?.header || 'imageUrl';
         const nameField = assetMap.imageName?.header || 'imageName';
+        const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
         const url = match[urlField] || match.imageUrl || match.url || '';
         const name = match[nameField] || match.imageName || match.filename || url;
+        const assetId = match[idField] || match.imageUrl || match.imageName || '';
+        if (assetId) {
+          setAssetUsage((prev) => ({
+            ...prev,
+            [assetId]: (prev[assetId] || 0) + 1,
+          }));
+        }
         if (url) {
           selectedAssets.push({ id: name, adUrl: url });
         } else {
