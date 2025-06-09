@@ -15,6 +15,7 @@ import useComponentTypes from './useComponentTypes';
 import { db } from './firebase/config';
 import selectRandomOption from './utils/selectRandomOption.js';
 import { splitCsvLine } from './utils/csv.js';
+import debugLog from './utils/debugLog';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -1001,6 +1002,7 @@ const Preview = () => {
       map.imageName = { header: nameHeader, score: 10 };
     }
     setAssetMap(map);
+    debugLog('Asset CSV loaded', { headers, rowsSample: rows.slice(0, 2), map });
   };
 
   const generateOnce = async () => {
@@ -1065,10 +1067,15 @@ const Preview = () => {
       0;
 
     const findBestAsset = () => {
+      debugLog('Searching best asset', {
+        rows: assetRows.length,
+        map: assetMap,
+      });
       let best = null;
       let bestScore = 0;
-      assetRows.forEach((row) => {
+      assetRows.forEach((row, idx) => {
         let score = 0;
+        const details = {};
         const matchFields = currentType.assetMatchFields || [];
         matchFields.forEach((field) => {
           const mapping = assetMap[field];
@@ -1077,21 +1084,30 @@ const Preview = () => {
           if (rowVal === undefined) return;
           const recipeVal = componentsData[field] || '';
           const sim = similarityScore(recipeVal, rowVal);
+          details[field] = {
+            recipeVal,
+            rowVal,
+            sim,
+            threshold: mapping.score || 10,
+          };
           if (sim >= (mapping.score || 10)) {
             score += 1;
           }
         });
+        debugLog('Asset row', idx, { score, details });
         if (score > bestScore) {
           best = row;
           bestScore = score;
         }
       });
+      debugLog('Best asset result', { best, bestScore });
       return best;
     };
 
     const selectedAssets = [];
     if (assetCount > 0) {
       const match = findBestAsset();
+      debugLog('Asset match result', match);
       if (match) {
         const urlField = assetMap.imageUrl?.header || 'imageUrl';
         const nameField = assetMap.imageName?.header || 'imageName';
