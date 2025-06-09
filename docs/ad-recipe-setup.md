@@ -51,40 +51,6 @@ The generation feature uses OpenAI's ChatGPT API. Provide your API key via the
 `VITE_OPENAI_API_KEY` environment variable so the preview can send requests to
 the language model.
 
-### Asset Prompt
-
-Optionally provide an **Asset Prompt** string to control how values feed the
-asset search UI. The prompt may reference component keys using `{{key}}`
-placeholders (e.g. `{{audience}} {{offer}}`). This mapping lets the system know
-which component values should be combined into search terms when looking for
-existing assets.
-
-When a CSV file is loaded, each row is scored against the current form data.
-All values from the form are split into words and compared to the words found in
-each CSV row. A point is awarded whenever a word from the form appears in a row
-(or vice versa), allowing partial matches like “woman” and “women” to score
-positively. The row with the highest score provides its image URL(s) for the
-recipe. A small random value (`Math.random() * 0.01`) is added to reduce
-deterministic ties.
-
-If your CSV includes an `imageUrl` column, the preview uses that URL as the
-asset for the generated recipe. In this case no lookup is performed against
-Firestore, so each row can reference unique images directly from the uploaded
-file. Multiple URLs may be provided in the same cell separated by spaces or
-semicolons to supply several assets for layouts that require more than one
-image.
-
-### CSV Usage
-
-Values entered in the setup form take priority over any matching fields in a
-CSV row. When the CSV provides a value for a field that was also filled out in
-the form, the form data wins and the CSV value is ignored during recipe
-generation.
-
-When creating a CSV import type you may map each column to a specific role. The
-available roles include **Audience**, **Angle**, **Offer**, **Tag**, **Image
-URL**, or **Ignore**. These mappings control how each value is parsed when the
-file is loaded and are used during row scoring and asset selection.
 
 ## Firestore Rules
 
