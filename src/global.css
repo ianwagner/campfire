@@ -202,6 +202,12 @@
     padding: var(--space-xs) var(--space-sm);
     text-align: left;
   }
+  .ad-table tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+  }
+  .ad-table tbody tr:nth-child(even) {
+    background-color: #efefef;
+  }
   .ad-table thead {
     background-color: var(--table-head-bg);
   }
