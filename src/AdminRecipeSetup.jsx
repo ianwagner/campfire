@@ -1005,7 +1005,7 @@ const Preview = () => {
     }
     const contextHeader = headers.find((h) => /context/i.test(h));
     if (contextHeader) {
-      map.context = { header: contextHeader, score: 10 };
+      map['csv.context'] = { header: contextHeader, score: 10 };
     }
     setAssetMap(map);
     const usage = {};
@@ -1146,7 +1146,7 @@ const Preview = () => {
         } else {
           selectedAssets.push({ needAsset: true });
         }
-        const ctxField = assetMap.context?.header;
+        const ctxField = assetMap['csv.context']?.header;
         if (ctxField && match[ctxField]) {
           csvContext = match[ctxField];
         }
