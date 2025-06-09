@@ -16,6 +16,21 @@ import { db } from './firebase/config';
 import selectRandomOption from './utils/selectRandomOption.js';
 import { splitCsvLine } from './utils/csv.js';
 
+const similarityScore = (a, b) => {
+  if (!a || !b) return 1;
+  const aa = a.toString().toLowerCase();
+  const bb = b.toString().toLowerCase();
+  if (aa === bb) return 10;
+  const setA = new Set(aa.split(/\s+/));
+  const setB = new Set(bb.split(/\s+/));
+  let intersection = 0;
+  setA.forEach((w) => {
+    if (setB.has(w)) intersection += 1;
+  });
+  const union = new Set([...setA, ...setB]);
+  return Math.round((intersection / union.size) * 9) + 1;
+};
+
 
 
 const VIEWS = {
@@ -70,6 +85,8 @@ const RecipeTypes = () => {
   const [assetPrompt, setAssetPrompt] = useState('');
   const [componentOrder, setComponentOrder] = useState('');
   const [fields, setFields] = useState([{ label: '', key: '', inputType: 'text' }]);
+  const [enableAssetCsv, setEnableAssetCsv] = useState(false);
+  const [assetFields, setAssetFields] = useState([]);
   const [editId, setEditId] = useState(null);
 
   useEffect(() => {
@@ -93,6 +110,8 @@ const RecipeTypes = () => {
     setAssetPrompt('');
     setComponentOrder('');
     setFields([{ label: '', key: '', inputType: 'text' }]);
+    setEnableAssetCsv(false);
+    setAssetFields([]);
   };
 
   const handleSave = async (e) => {
@@ -114,6 +133,8 @@ const RecipeTypes = () => {
           name: name.trim(),
           gptPrompt: prompt,
           assetPrompt: assetPrompt,
+          enableAssetCsv,
+          assetMatchFields: assetFields,
           components: order,
           writeInFields: writeFields,
         });
@@ -125,8 +146,10 @@ const RecipeTypes = () => {
                   name: name.trim(),
                   gptPrompt: prompt,
                   assetPrompt: assetPrompt,
+                  enableAssetCsv,
+                  assetMatchFields: assetFields,
                   components: order,
-          writeInFields: writeFields,
+                  writeInFields: writeFields,
                 }
               : r
           )
@@ -136,6 +159,8 @@ const RecipeTypes = () => {
           name: name.trim(),
           gptPrompt: prompt,
           assetPrompt: assetPrompt,
+          enableAssetCsv,
+          assetMatchFields: assetFields,
           components: order,
           writeInFields: writeFields,
         });
@@ -146,6 +171,8 @@ const RecipeTypes = () => {
             name: name.trim(),
             gptPrompt: prompt,
             assetPrompt: assetPrompt,
+            enableAssetCsv,
+            assetMatchFields: assetFields,
             components: order,
             writeInFields: writeFields,
           },
@@ -162,6 +189,8 @@ const RecipeTypes = () => {
     setName(t.name);
     setPrompt(t.gptPrompt || '');
     setAssetPrompt(t.assetPrompt || '');
+    setEnableAssetCsv(!!t.enableAssetCsv);
+    setAssetFields(t.assetMatchFields || []);
     setComponentOrder((t.components || []).join(', '));
     setFields(
       t.writeInFields && t.writeInFields.length > 0
@@ -203,6 +232,7 @@ const RecipeTypes = () => {
                 <th>Components</th>
                 <th>Write-In Fields</th>
                 <th>Asset Prompt</th>
+                <th>Asset Fields</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -221,6 +251,11 @@ const RecipeTypes = () => {
                       : '-'}
                   </td>
                   <td>{t.assetPrompt || '-'}</td>
+                  <td>
+                    {t.assetMatchFields && t.assetMatchFields.length > 0
+                      ? t.assetMatchFields.join(', ')
+                      : '-'}
+                  </td>
                   <td className="text-center">
                     <div className="flex items-center justify-center">
                       <button
@@ -266,6 +301,28 @@ const RecipeTypes = () => {
             onChange={setAssetPrompt}
             placeholders={placeholders}
           />
+        </div>
+        <div>
+          <label className="block text-sm">
+            <input
+              type="checkbox"
+              className="mr-1"
+              checked={enableAssetCsv}
+              onChange={(e) => setEnableAssetCsv(e.target.checked)}
+            />
+            Enable Asset CSV
+          </label>
+          {enableAssetCsv && (
+            <div className="mt-2">
+              <label className="block text-sm mb-1">Asset Match Fields</label>
+              <TagInput
+                id="asset-fields"
+                value={assetFields}
+                onChange={setAssetFields}
+                suggestions={placeholders}
+              />
+            </div>
+          )}
         </div>
         <div>
           <label className="block text-sm mb-1">Components (comma separated keys in order)</label>
@@ -878,6 +935,8 @@ const Preview = () => {
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const [editIdx, setEditIdx] = useState(null);
   const [assetRows, setAssetRows] = useState([]);
+  const [assetHeaders, setAssetHeaders] = useState([]);
+  const [assetMap, setAssetMap] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -904,12 +963,16 @@ const Preview = () => {
     const f = e.target.files?.[0];
     if (!f) {
       setAssetRows([]);
+      setAssetHeaders([]);
+      setAssetMap({});
       return;
     }
     const text = await f.text();
     const lines = text.trim().split(/\r?\n/);
     if (lines.length === 0) {
       setAssetRows([]);
+      setAssetHeaders([]);
+      setAssetMap({});
       return;
     }
     const headers = splitCsvLine(lines[0]).map((h) => h.trim());
@@ -924,6 +987,12 @@ const Preview = () => {
       rows.push(obj);
     }
     setAssetRows(rows);
+    setAssetHeaders(headers);
+    const map = {};
+    (currentType?.assetMatchFields || []).forEach((fKey) => {
+      map[fKey] = { header: headers.includes(fKey) ? fKey : '', score: 10 };
+    });
+    setAssetMap(map);
   };
 
   const generateOnce = async () => {
@@ -992,10 +1061,15 @@ const Preview = () => {
       let bestScore = 0;
       assetRows.forEach((row) => {
         let score = 0;
-        Object.entries(row).forEach(([k, v]) => {
-          if (k === 'imageName' || k === 'imageUrl') return;
-          const recipeVal = (componentsData[k] || '').toString().toLowerCase();
-          if (recipeVal && v.toString().toLowerCase() === recipeVal) {
+        const matchFields = currentType.assetMatchFields || [];
+        matchFields.forEach((field) => {
+          const mapping = assetMap[field];
+          if (!mapping || !mapping.header) return;
+          const rowVal = row[mapping.header];
+          if (rowVal === undefined) return;
+          const recipeVal = componentsData[field] || '';
+          const sim = similarityScore(recipeVal, rowVal);
+          if (sim >= (mapping.score || 10)) {
             score += 1;
           }
         });
@@ -1070,6 +1144,13 @@ const Preview = () => {
   };
 
   const currentType = types.find((t) => t.id === selectedType);
+  useEffect(() => {
+    if (!currentType?.enableAssetCsv) {
+      setAssetRows([]);
+      setAssetHeaders([]);
+      setAssetMap({});
+    }
+  }, [currentType]);
   const compMap = Object.fromEntries(components.map((c) => [c.key, c]));
   const orderedComponents = currentType?.components?.length
     ? currentType.components.map((k) => compMap[k]).filter(Boolean)
@@ -1109,13 +1190,62 @@ const Preview = () => {
             ))}
           </select>
         </div>
-        <div>
-          <label className="block text-sm mb-1">Asset CSV</label>
-          <input type="file" accept=".csv" onChange={handleAssetCsvChange} />
-          {assetRows.length > 0 && (
-            <p className="text-xs">{assetRows.length} rows loaded</p>
-          )}
-        </div>
+        {currentType?.enableAssetCsv && (
+          <div className="space-y-2">
+            <div>
+              <label className="block text-sm mb-1">Asset CSV</label>
+              <input type="file" accept=".csv" onChange={handleAssetCsvChange} />
+              {assetRows.length > 0 && (
+                <p className="text-xs">{assetRows.length} rows loaded</p>
+              )}
+            </div>
+            {assetHeaders.length > 0 && currentType.assetMatchFields?.length > 0 && (
+              <div className="space-y-1">
+                {currentType.assetMatchFields.map((f) => (
+                  <div key={f} className="flex items-center gap-2">
+                    <label className="text-xs w-28">{f}</label>
+                    <select
+                      className="p-1 border rounded flex-1"
+                      value={assetMap[f]?.header || ''}
+                      onChange={(e) =>
+                        setAssetMap({
+                          ...assetMap,
+                          [f]: { ...assetMap[f], header: e.target.value },
+                        })
+                      }
+                    >
+                      <option value="">Select...</option>
+                      {assetHeaders.map((h) => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      className="w-16 p-1 border rounded"
+                      value={assetMap[f]?.score || 10}
+                      onChange={(e) =>
+                        setAssetMap({
+                          ...assetMap,
+                          [f]: {
+                            ...assetMap[f],
+                            score: Math.min(
+                              10,
+                              Math.max(1, parseInt(e.target.value, 10) || 10)
+                            ),
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {currentType && (
           <div className="space-y-4">
             {orderedComponents.map((c) => {
