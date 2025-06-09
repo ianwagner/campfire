@@ -992,6 +992,14 @@ const Preview = () => {
     (currentType?.assetMatchFields || []).forEach((fKey) => {
       map[fKey] = { header: headers.includes(fKey) ? fKey : '', score: 10 };
     });
+    const urlHeader = headers.find((h) => /url/i.test(h));
+    if (urlHeader) {
+      map.imageUrl = { header: urlHeader, score: 10 };
+    }
+    const nameHeader = headers.find((h) => /(name|file)/i.test(h));
+    if (nameHeader) {
+      map.imageName = { header: nameHeader, score: 10 };
+    }
     setAssetMap(map);
   };
 
@@ -1085,10 +1093,15 @@ const Preview = () => {
     if (assetCount > 0) {
       const match = findBestAsset();
       if (match) {
-        selectedAssets.push({
-          id: match.imageName || match.imageUrl,
-          adUrl: match.imageUrl,
-        });
+        const urlField = assetMap.imageUrl?.header || 'imageUrl';
+        const nameField = assetMap.imageName?.header || 'imageName';
+        const url = match[urlField] || match.imageUrl || match.url || '';
+        const name = match[nameField] || match.imageName || match.filename || url;
+        if (url) {
+          selectedAssets.push({ id: name, adUrl: url });
+        } else {
+          selectedAssets.push({ needAsset: true });
+        }
       } else {
         selectedAssets.push({ needAsset: true });
       }
