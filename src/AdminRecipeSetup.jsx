@@ -22,6 +22,7 @@ import PromptTextarea from './components/PromptTextarea.jsx';
 import useComponentTypes from './useComponentTypes';
 import { db } from './firebase/config';
 import selectRandomOption from './utils/selectRandomOption.js';
+import parseContextTags from './utils/parseContextTags.js';
 import { splitCsvLine } from './utils/csv.js';
 import debugLog from './utils/debugLog';
 
@@ -1037,6 +1038,10 @@ const Preview = () => {
     if (nameHeader) {
       map.imageName = { header: nameHeader, score: 10 };
     }
+    const contextHeader = headers.find((h) => /context/i.test(h));
+    if (contextHeader) {
+      map.context = { header: contextHeader };
+    }
     setAssetMap(map);
     const idField = map.imageName?.header || map.imageUrl?.header || '';
     const usage = {};
@@ -1165,12 +1170,72 @@ const Preview = () => {
       return chosen;
     };
 
+    const parseTags = (str) => parseContextTags(str);
+
     const selectedAssets = [];
+    let csvContext = '';
     if (assetCount > 0) {
       const usageCopy = { ...assetUsage };
-      for (let i = 0; i < assetCount; i += 1) {
-        const match = findBestAsset(usageCopy);
-        debugLog('Asset match result', match);
+      const mainMatch = findBestAsset(usageCopy);
+      let mainId = '';
+      if (mainMatch) {
+        const urlField = assetMap.imageUrl?.header || 'imageUrl';
+        const nameField = assetMap.imageName?.header || 'imageName';
+        const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
+        const contextField = assetMap.context?.header || '';
+        const url = mainMatch[urlField] || mainMatch.imageUrl || mainMatch.url || '';
+        const name = mainMatch[nameField] || mainMatch.imageName || mainMatch.filename || url;
+        mainId = mainMatch[idField] || mainMatch.imageUrl || mainMatch.imageName || '';
+        csvContext = mainMatch[contextField] || '';
+        if (mainId) {
+          usageCopy[mainId] = (usageCopy[mainId] || 0) + 1;
+        }
+        if (url) {
+          selectedAssets.push({ id: name, adUrl: url });
+        } else {
+          selectedAssets.push({ needAsset: true });
+        }
+      } else {
+        selectedAssets.push({ needAsset: true });
+      }
+
+      const contextTags = new Set(parseTags(csvContext));
+
+      const findRelatedAsset = (tagsSet, excludeId, usageMap) => {
+        if (!assetMap.context?.header) return null;
+        const contextField = assetMap.context.header;
+        const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
+        let best = [];
+        let bestOverlap = 0;
+        assetRows.forEach((row) => {
+          const id = row[idField] || row.imageUrl || row.imageName || '';
+          if (!id || id === excludeId) return;
+          const rowTags = parseTags(row[contextField] || '');
+          const overlap = rowTags.filter((t) => tagsSet.has(t)).length;
+          if (overlap === 0) return;
+          if (overlap > bestOverlap) {
+            bestOverlap = overlap;
+            best = [row];
+          } else if (overlap === bestOverlap) {
+            best.push(row);
+          }
+        });
+        if (best.length === 0) return null;
+        let minUsage = Infinity;
+        best.forEach((row) => {
+          const id = row[idField] || row.imageUrl || row.imageName || '';
+          const usage = usageMap[id] || 0;
+          if (usage < minUsage) minUsage = usage;
+        });
+        const lowUsage = best.filter((row) => {
+          const id = row[idField] || row.imageUrl || row.imageName || '';
+          return (usageMap[id] || 0) === minUsage;
+        });
+        return lowUsage[Math.floor(Math.random() * lowUsage.length)];
+      };
+
+      for (let i = 1; i < assetCount; i += 1) {
+        const match = findRelatedAsset(contextTags, mainId, usageCopy);
         if (match) {
           const urlField = assetMap.imageUrl?.header || 'imageUrl';
           const nameField = assetMap.imageName?.header || 'imageName';
@@ -1195,6 +1260,8 @@ const Preview = () => {
     while (selectedAssets.length < assetCount) {
       selectedAssets.push({ needAsset: true });
     }
+
+    prompt = prompt.replace(/{{csv\.context}}/g, csvContext);
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1347,6 +1414,26 @@ const Preview = () => {
                     />
                   </div>
                 ))}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs w-28">context</label>
+                  <select
+                    className="p-1 border rounded flex-1"
+                    value={assetMap.context?.header || ''}
+                    onChange={(e) =>
+                      setAssetMap({
+                        ...assetMap,
+                        context: { header: e.target.value },
+                      })
+                    }
+                  >
+                    <option value="">Ignore</option>
+                    {assetHeaders.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
           </div>
