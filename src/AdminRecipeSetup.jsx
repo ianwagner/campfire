@@ -218,6 +218,7 @@ const RecipeTypes = () => {
   fields.forEach((f) => {
     if (f.key) placeholders.push(f.key);
   });
+  if (enableAssetCsv) placeholders.push('csv.context');
 
   return (
     <div>
@@ -938,6 +939,7 @@ const Preview = () => {
   const [assetRows, setAssetRows] = useState([]);
   const [assetHeaders, setAssetHeaders] = useState([]);
   const [assetMap, setAssetMap] = useState({});
+  const [assetUsage, setAssetUsage] = useState({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1001,7 +1003,18 @@ const Preview = () => {
     if (nameHeader) {
       map.imageName = { header: nameHeader, score: 10 };
     }
+    const contextHeader = headers.find((h) => /context/i.test(h));
+    if (contextHeader) {
+      map.context = { header: contextHeader, score: 10 };
+    }
     setAssetMap(map);
+    const usage = {};
+    rows.forEach((row, idx) => {
+      const key =
+        row[nameHeader] || row[urlHeader] || `row-${idx}`;
+      usage[key] = 0;
+    });
+    setAssetUsage(usage);
     debugLog('Asset CSV loaded', { headers, rowsSample: rows.slice(0, 2), map });
   };
 
@@ -1071,7 +1084,7 @@ const Preview = () => {
         rows: assetRows.length,
         map: assetMap,
       });
-      let best = null;
+      let bestRows = [];
       let bestScore = 0;
       assetRows.forEach((row, idx) => {
         let score = 0;
@@ -1096,19 +1109,34 @@ const Preview = () => {
         });
         debugLog('Asset row', idx, { score, details });
         if (score > bestScore) {
-          best = row;
           bestScore = score;
+          bestRows = [row];
+        } else if (score === bestScore && score > 0) {
+          bestRows.push(row);
         }
       });
-      debugLog('Best asset result', { best, bestScore });
-      return best;
+      if (bestRows.length === 0) return null;
+      const urlField = assetMap.imageUrl?.header || 'imageUrl';
+      const nameField = assetMap.imageName?.header || 'imageName';
+      const withUsage = bestRows.map((row, idx) => {
+        const key = row[nameField] || row[urlField] || `row-${idx}`;
+        return { row, key, count: assetUsage[key] || 0 };
+      });
+      const minCount = Math.min(...withUsage.map((r) => r.count));
+      const candidates = withUsage.filter((r) => r.count === minCount);
+      const chosen =
+        candidates[Math.floor(Math.random() * candidates.length)];
+      debugLog('Best asset result', { chosen, bestScore });
+      return chosen;
     };
 
     const selectedAssets = [];
+    let csvContext = '';
     if (assetCount > 0) {
-      const match = findBestAsset();
-      debugLog('Asset match result', match);
-      if (match) {
+      const matchObj = findBestAsset();
+      debugLog('Asset match result', matchObj);
+      if (matchObj) {
+        const { row: match, key: usageKey } = matchObj;
         const urlField = assetMap.imageUrl?.header || 'imageUrl';
         const nameField = assetMap.imageName?.header || 'imageName';
         const url = match[urlField] || match.imageUrl || match.url || '';
@@ -1118,6 +1146,14 @@ const Preview = () => {
         } else {
           selectedAssets.push({ needAsset: true });
         }
+        const ctxField = assetMap.context?.header;
+        if (ctxField && match[ctxField]) {
+          csvContext = match[ctxField];
+        }
+        setAssetUsage((prev) => ({
+          ...prev,
+          [usageKey]: (prev[usageKey] || 0) + 1,
+        }));
       } else {
         selectedAssets.push({ needAsset: true });
       }
@@ -1125,6 +1161,10 @@ const Preview = () => {
     while (selectedAssets.length < assetCount) {
       selectedAssets.push({ needAsset: true });
     }
+
+    componentsData['csv.context'] = csvContext;
+    const contextRegex = /{{csv\.context}}/g;
+    prompt = prompt.replace(contextRegex, csvContext);
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
