@@ -531,3 +531,8 @@ body.pre-theme .full-screen-spinner {
 html.dark .full-screen-spinner {
   background-color: rgba(13, 17, 22, 0.9);
 }
+
+.copy-cell:hover {
+  background-color: var(--table-head-bg);
+  cursor: pointer;
+}

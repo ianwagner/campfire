@@ -14,7 +14,6 @@ import {
   FiEdit2,
   FiTrash,
   FiSave,
-  FiCopy,
   FiImage,
 } from 'react-icons/fi';
 import TagChecklist from './components/TagChecklist.jsx';
@@ -1495,7 +1494,7 @@ const Preview = () => {
                     )
                 )}
                 <th>Assets</th>
-                <th className="w-64">Generated Copy</th>
+                <th className="w-80">Generated Copy</th>
                 <th></th>
               </tr>
             </thead>
@@ -1508,45 +1507,83 @@ const Preview = () => {
                       visibleColumns[col.key] && (
                         <td key={col.key} className="align-middle">
                           {editIdx === idx ? (
-                            <input
-                              className="w-full p-1 border rounded"
-                              value={r.components[col.key]}
-                              onChange={(e) => {
-                                const arr = [...results];
-                                arr[idx].components[col.key] = e.target.value;
-                                setResults(arr);
-                              }}
-                            />
+                            (() => {
+                              const [compKey, attrKey] = col.key.split('.');
+                              const instVals = Array.from(
+                                new Set(
+                                  instances
+                                    .filter((i) => i.componentKey === compKey)
+                                    .map((i) => i.values?.[attrKey])
+                                    .filter(Boolean)
+                                )
+                              );
+                              if (instVals.length > 0) {
+                                return (
+                                  <select
+                                    className="w-full p-1 border rounded"
+                                    value={r.components[col.key]}
+                                    onChange={(e) => {
+                                      const arr = [...results];
+                                      arr[idx].components[col.key] = e.target.value;
+                                      setResults(arr);
+                                    }}
+                                  >
+                                    {instVals.map((v) => (
+                                      <option key={v} value={v}>
+                                        {v}
+                                      </option>
+                                    ))}
+                                  </select>
+                                );
+                              }
+                              return (
+                                <input
+                                  className="w-full p-1 border rounded"
+                                  value={r.components[col.key]}
+                                  onChange={(e) => {
+                                    const arr = [...results];
+                                    arr[idx].components[col.key] = e.target.value;
+                                    setResults(arr);
+                                  }}
+                                />
+                              );
+                            })()
                           ) : (
                             r.components[col.key]
                           )}
                         </td>
                       )
                   )}
-                  <td className="flex gap-1 items-center align-middle">
-                    {r.assets && r.assets.length > 0 ? (
-                      r.assets.map((a, i) =>
-                        a.needAsset ? (
-                          <span key={`na-${i}`} className="text-red-500 text-xs">
-                            Need asset
-                          </span>
-                        ) : (
-                          <a
-                            key={a.id}
-                            href={a.adUrl || a.firebaseUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-2 py-1 text-sm bg-accent-10 text-accent rounded"
-                          >
-                            <FiImage />
-                          </a>
+                  <td className="text-center align-middle">
+                    <div className="flex justify-center gap-1">
+                      {r.assets && r.assets.length > 0 ? (
+                        r.assets.map((a, i) =>
+                          a.needAsset ? (
+                            <span key={`na-${i}`} className="text-red-500 text-xs">Need asset</span>
+                          ) : (
+                            <span key={a.id} className="relative inline-block group">
+                              <a
+                                href={a.adUrl || a.firebaseUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 text-xl bg-accent-10 text-accent rounded inline-flex items-center justify-center"
+                              >
+                                <FiImage />
+                              </a>
+                              <img
+                                src={a.adUrl || a.firebaseUrl}
+                                alt="preview"
+                                className="hidden group-hover:block absolute left-[-8rem] top-1/2 -translate-y-1/2 w-32 border shadow-lg z-10"
+                              />
+                            </span>
+                          )
                         )
-                      )
-                    ) : (
-                      '-'
-                    )}
+                      ) : (
+                        '-'
+                      )}
+                    </div>
                   </td>
-                  <td className="whitespace-pre-wrap break-words w-64 align-middle">
+                  <td className="whitespace-pre-wrap break-words w-80 align-middle copy-cell">
                     {editIdx === idx ? (
                       <>
                       <textarea
@@ -1561,7 +1598,10 @@ const Preview = () => {
                       />
                       </>
                     ) : (
-                      <div className="min-h-[1.5rem] w-full">
+                      <div
+                        className="min-h-[1.5rem] w-full"
+                        onClick={() => navigator.clipboard.writeText(r.copy)}
+                      >
                         {r.copy}
                       </div>
                     )}
@@ -1601,14 +1641,6 @@ const Preview = () => {
                           aria-label="Edit"
                         >
                           <FiEdit2 />
-                        </button>
-                        <button
-                          type="button"
-                          className="mr-2"
-                          onClick={() => navigator.clipboard.writeText(r.copy)}
-                          aria-label="Copy"
-                        >
-                          <FiCopy />
                         </button>
                         <button
                           type="button"
