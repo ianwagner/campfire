@@ -877,6 +877,7 @@ const Preview = () => {
   const [visibleColumns, setVisibleColumns] = useState({});
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const [editIdx, setEditIdx] = useState(null);
+  const [assetRows, setAssetRows] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -898,6 +899,32 @@ const Preview = () => {
     };
     fetchData();
   }, []);
+
+  const handleAssetCsvChange = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) {
+      setAssetRows([]);
+      return;
+    }
+    const text = await f.text();
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length === 0) {
+      setAssetRows([]);
+      return;
+    }
+    const headers = splitCsvLine(lines[0]).map((h) => h.trim());
+    const rows = [];
+    for (let i = 1; i < lines.length; i += 1) {
+      if (!lines[i]) continue;
+      const parts = splitCsvLine(lines[i]).map((p) => p.trim());
+      const obj = {};
+      headers.forEach((h, idx) => {
+        obj[h] = parts[idx] || '';
+      });
+      rows.push(obj);
+    }
+    setAssetRows(rows);
+  };
 
   const generateOnce = async () => {
     if (!currentType) return;
@@ -960,7 +987,38 @@ const Preview = () => {
       parseInt(componentsData['layout.assetCount'], 10) ||
       0;
 
+    const findBestAsset = () => {
+      let best = null;
+      let bestScore = 0;
+      assetRows.forEach((row) => {
+        let score = 0;
+        Object.entries(row).forEach(([k, v]) => {
+          if (k === 'imageName' || k === 'imageUrl') return;
+          const recipeVal = (componentsData[k] || '').toString().toLowerCase();
+          if (recipeVal && v.toString().toLowerCase() === recipeVal) {
+            score += 1;
+          }
+        });
+        if (score > bestScore) {
+          best = row;
+          bestScore = score;
+        }
+      });
+      return best;
+    };
+
     const selectedAssets = [];
+    if (assetCount > 0) {
+      const match = findBestAsset();
+      if (match) {
+        selectedAssets.push({
+          id: match.imageName || match.imageUrl,
+          adUrl: match.imageUrl,
+        });
+      } else {
+        selectedAssets.push({ needAsset: true });
+      }
+    }
     while (selectedAssets.length < assetCount) {
       selectedAssets.push({ needAsset: true });
     }
@@ -1050,6 +1108,13 @@ const Preview = () => {
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Asset CSV</label>
+          <input type="file" accept=".csv" onChange={handleAssetCsvChange} />
+          {assetRows.length > 0 && (
+            <p className="text-xs">{assetRows.length} rows loaded</p>
+          )}
         </div>
         {currentType && (
           <div className="space-y-4">
