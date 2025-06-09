@@ -7,7 +7,16 @@ import {
   deleteDoc,
   doc,
 } from 'firebase/firestore';
-import { FiList, FiLayers, FiEye, FiEdit2, FiTrash, FiSave, FiCopy } from 'react-icons/fi';
+import {
+  FiList,
+  FiLayers,
+  FiEye,
+  FiEdit2,
+  FiTrash,
+  FiSave,
+  FiCopy,
+  FiImage,
+} from 'react-icons/fi';
 import TagChecklist from './components/TagChecklist.jsx';
 import TagInput from './components/TagInput.jsx';
 import PromptTextarea from './components/PromptTextarea.jsx';
@@ -1462,14 +1471,28 @@ const Preview = () => {
             <tbody>
               {results.map((r, idx) => (
                 <tr key={idx}>
-                  <td className="text-center">{r.recipeNo}</td>
+                  <td className="text-center align-middle font-bold">{r.recipeNo}</td>
                   {columnMeta.map(
                     (col) =>
                       visibleColumns[col.key] && (
-                        <td key={col.key}>{r.components[col.key]}</td>
+                        <td key={col.key} className="align-middle">
+                          {editIdx === idx ? (
+                            <input
+                              className="w-full p-1 border rounded text-[12px]"
+                              value={r.components[col.key]}
+                              onChange={(e) => {
+                                const arr = [...results];
+                                arr[idx].components[col.key] = e.target.value;
+                                setResults(arr);
+                              }}
+                            />
+                          ) : (
+                            r.components[col.key]
+                          )}
+                        </td>
                       )
                   )}
-                  <td className="flex gap-1">
+                  <td className="flex gap-1 items-center align-middle">
                     {r.assets && r.assets.length > 0 ? (
                       r.assets.map((a, i) =>
                         a.needAsset ? (
@@ -1484,7 +1507,7 @@ const Preview = () => {
                             rel="noopener noreferrer"
                             className="btn-secondary px-1.5 py-0.5 text-xs"
                           >
-                            Image Link
+                            <FiImage />
                           </a>
                         )
                       )
@@ -1492,7 +1515,7 @@ const Preview = () => {
                       '-'
                     )}
                   </td>
-                  <td className="whitespace-pre-wrap break-words text-[12px] relative w-64">
+                  <td className="whitespace-pre-wrap break-words text-[12px] relative w-64 align-middle">
                     {editIdx === idx ? (
                       <>
                       <textarea
@@ -1505,14 +1528,6 @@ const Preview = () => {
                         }}
                         spellCheck
                       />
-                      <button
-                        type="button"
-                        className="absolute top-0 right-0 p-1 text-xs"
-                        onClick={() => setEditIdx(null)}
-                        aria-label="Save"
-                      >
-                        <FiSave />
-                      </button>
                       </>
                     ) : (
                       <div className="min-h-[1.5rem] text-[12px] w-full">
@@ -1524,33 +1539,62 @@ const Preview = () => {
                         >
                           <FiCopy />
                         </button>
+                        {r.copy}
+                      </div>
+                    )}
+                  </td>
+                  <td className="text-center align-middle">
+                    {editIdx === idx ? (
+                      <>
                         <button
                           type="button"
-                          className="absolute top-0 right-0 p-1 text-xs"
+                          className="mr-2"
+                          onClick={() => setEditIdx(null)}
+                          aria-label="Save"
+                        >
+                          <FiSave />
+                        </button>
+                        <button
+                          type="button"
+                          className="text-red-600"
+                          onClick={() => {
+                            setResults((prev) =>
+                              prev
+                                .filter((_, i) => i !== idx)
+                                .map((res, i2) => ({ ...res, recipeNo: i2 + 1 }))
+                            );
+                          }}
+                          aria-label="Delete"
+                        >
+                          <FiTrash />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="mr-2"
                           onClick={() => setEditIdx(idx)}
                           aria-label="Edit"
                         >
                           <FiEdit2 />
                         </button>
-                        {r.copy}
-                      </div>
+                        <button
+                          type="button"
+                          className="text-red-600"
+                          onClick={() => {
+                            setResults((prev) =>
+                              prev
+                                .filter((_, i) => i !== idx)
+                                .map((res, i2) => ({ ...res, recipeNo: i2 + 1 }))
+                            );
+                          }}
+                          aria-label="Delete"
+                        >
+                          <FiTrash />
+                        </button>
+                      </>
                     )}
-                  </td>
-                  <td className="text-center">
-                    <button
-                      type="button"
-                      className="text-red-600"
-                      onClick={() => {
-                        setResults((prev) =>
-                          prev
-                            .filter((_, i) => i !== idx)
-                            .map((res, i2) => ({ ...res, recipeNo: i2 + 1 }))
-                        );
-                      }}
-                      aria-label="Delete"
-                    >
-                      <FiTrash />
-                    </button>
                   </td>
                 </tr>
               ))}
