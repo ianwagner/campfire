@@ -1076,7 +1076,7 @@ const Preview = () => {
       parseInt(componentsData['layout.assetCount'], 10) ||
       0;
 
-    const findBestAsset = () => {
+    const findBestAsset = (usageMap = assetUsage) => {
       debugLog('Searching best asset', {
         rows: assetRows.length,
         map: assetMap,
@@ -1120,12 +1120,12 @@ const Preview = () => {
       let minUsage = Infinity;
       bestRows.forEach((row) => {
         const id = row[idField] || row.imageUrl || row.imageName || '';
-        const usage = assetUsage[id] || 0;
+        const usage = usageMap[id] || 0;
         if (usage < minUsage) minUsage = usage;
       });
       const lowUsageRows = bestRows.filter((row) => {
         const id = row[idField] || row.imageUrl || row.imageName || '';
-        return (assetUsage[id] || 0) === minUsage;
+        return (usageMap[id] || 0) === minUsage;
       });
       const chosen = lowUsageRows[Math.floor(Math.random() * lowUsageRows.length)];
       debugLog('Best asset result', { best: chosen, bestScore, minUsage });
@@ -1134,29 +1134,30 @@ const Preview = () => {
 
     const selectedAssets = [];
     if (assetCount > 0) {
-      const match = findBestAsset();
-      debugLog('Asset match result', match);
-      if (match) {
-        const urlField = assetMap.imageUrl?.header || 'imageUrl';
-        const nameField = assetMap.imageName?.header || 'imageName';
-        const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
-        const url = match[urlField] || match.imageUrl || match.url || '';
-        const name = match[nameField] || match.imageName || match.filename || url;
-        const assetId = match[idField] || match.imageUrl || match.imageName || '';
-        if (assetId) {
-          setAssetUsage((prev) => ({
-            ...prev,
-            [assetId]: (prev[assetId] || 0) + 1,
-          }));
-        }
-        if (url) {
-          selectedAssets.push({ id: name, adUrl: url });
+      const usageCopy = { ...assetUsage };
+      for (let i = 0; i < assetCount; i += 1) {
+        const match = findBestAsset(usageCopy);
+        debugLog('Asset match result', match);
+        if (match) {
+          const urlField = assetMap.imageUrl?.header || 'imageUrl';
+          const nameField = assetMap.imageName?.header || 'imageName';
+          const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
+          const url = match[urlField] || match.imageUrl || match.url || '';
+          const name = match[nameField] || match.imageName || match.filename || url;
+          const assetId = match[idField] || match.imageUrl || match.imageName || '';
+          if (assetId) {
+            usageCopy[assetId] = (usageCopy[assetId] || 0) + 1;
+          }
+          if (url) {
+            selectedAssets.push({ id: name, adUrl: url });
+          } else {
+            selectedAssets.push({ needAsset: true });
+          }
         } else {
           selectedAssets.push({ needAsset: true });
         }
-      } else {
-        selectedAssets.push({ needAsset: true });
       }
+      setAssetUsage(usageCopy);
     }
     while (selectedAssets.length < assetCount) {
       selectedAssets.push({ needAsset: true });
