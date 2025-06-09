@@ -128,6 +128,7 @@ const RecipeTypes = () => {
         inputType: f.inputType || 'text',
       }))
       .filter((f) => f.label && f.key);
+    const cleanedAssetFields = assetFields.filter((f) => f !== 'csv.context');
     try {
       if (editId) {
         await updateDoc(doc(db, 'recipeTypes', editId), {
@@ -135,7 +136,7 @@ const RecipeTypes = () => {
           gptPrompt: prompt,
           assetPrompt: assetPrompt,
           enableAssetCsv,
-          assetMatchFields: assetFields,
+          assetMatchFields: cleanedAssetFields,
           components: order,
           writeInFields: writeFields,
         });
@@ -148,7 +149,7 @@ const RecipeTypes = () => {
                   gptPrompt: prompt,
                   assetPrompt: assetPrompt,
                   enableAssetCsv,
-                  assetMatchFields: assetFields,
+                  assetMatchFields: cleanedAssetFields,
                   components: order,
                   writeInFields: writeFields,
                 }
@@ -156,12 +157,12 @@ const RecipeTypes = () => {
           )
         );
       } else {
-        const docRef = await addDoc(collection(db, 'recipeTypes'), {
+          const docRef = await addDoc(collection(db, 'recipeTypes'), {
           name: name.trim(),
           gptPrompt: prompt,
           assetPrompt: assetPrompt,
           enableAssetCsv,
-          assetMatchFields: assetFields,
+          assetMatchFields: cleanedAssetFields,
           components: order,
           writeInFields: writeFields,
         });
@@ -173,7 +174,7 @@ const RecipeTypes = () => {
             gptPrompt: prompt,
             assetPrompt: assetPrompt,
             enableAssetCsv,
-            assetMatchFields: assetFields,
+            assetMatchFields: cleanedAssetFields,
             components: order,
             writeInFields: writeFields,
           },
@@ -191,7 +192,7 @@ const RecipeTypes = () => {
     setPrompt(t.gptPrompt || '');
     setAssetPrompt(t.assetPrompt || '');
     setEnableAssetCsv(!!t.enableAssetCsv);
-    setAssetFields(t.assetMatchFields || []);
+    setAssetFields((t.assetMatchFields || []).filter((f) => f !== 'csv.context'));
     setComponentOrder((t.components || []).join(', '));
     setFields(
       t.writeInFields && t.writeInFields.length > 0
@@ -321,7 +322,7 @@ const RecipeTypes = () => {
                 id="asset-fields"
                 value={assetFields}
                 onChange={setAssetFields}
-                suggestions={placeholders}
+                suggestions={placeholders.filter((p) => p !== 'csv.context')}
               />
             </div>
           )}
@@ -1089,7 +1090,9 @@ const Preview = () => {
       assetRows.forEach((row, idx) => {
         let score = 0;
         const details = {};
-        const matchFields = currentType.assetMatchFields || [];
+        const matchFields = (currentType.assetMatchFields || []).filter(
+          (f) => f !== 'csv.context'
+        );
         matchFields.forEach((field) => {
           const mapping = assetMap[field];
           if (!mapping || !mapping.header) return;
