@@ -97,6 +97,7 @@ const RecipeTypes = () => {
   const [fields, setFields] = useState([{ label: '', key: '', inputType: 'text' }]);
   const [enableAssetCsv, setEnableAssetCsv] = useState(false);
   const [assetFields, setAssetFields] = useState([]);
+  const [defaultColumnsText, setDefaultColumnsText] = useState('');
   const [editId, setEditId] = useState(null);
 
   useEffect(() => {
@@ -122,11 +123,16 @@ const RecipeTypes = () => {
     setFields([{ label: '', key: '', inputType: 'text' }]);
     setEnableAssetCsv(false);
     setAssetFields([]);
+    setDefaultColumnsText('');
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     const order = componentOrder
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
+    const defaultColumns = defaultColumnsText
       .split(',')
       .map((c) => c.trim())
       .filter(Boolean);
@@ -147,6 +153,7 @@ const RecipeTypes = () => {
           assetMatchFields: assetFields,
           components: order,
           writeInFields: writeFields,
+          defaultColumns,
         });
         setTypes((t) =>
           t.map((r) =>
@@ -160,6 +167,7 @@ const RecipeTypes = () => {
                   assetMatchFields: assetFields,
                   components: order,
                   writeInFields: writeFields,
+                  defaultColumns,
                 }
               : r
           )
@@ -173,6 +181,7 @@ const RecipeTypes = () => {
           assetMatchFields: assetFields,
           components: order,
           writeInFields: writeFields,
+          defaultColumns,
         });
         setTypes((t) => [
           ...t,
@@ -185,6 +194,7 @@ const RecipeTypes = () => {
             assetMatchFields: assetFields,
             components: order,
             writeInFields: writeFields,
+            defaultColumns,
           },
         ]);
       }
@@ -202,6 +212,7 @@ const RecipeTypes = () => {
     setEnableAssetCsv(!!t.enableAssetCsv);
     setAssetFields(t.assetMatchFields || []);
     setComponentOrder((t.components || []).join(', '));
+    setDefaultColumnsText((t.defaultColumns || []).join(', '));
     setFields(
       t.writeInFields && t.writeInFields.length > 0
         ? t.writeInFields
@@ -243,6 +254,7 @@ const RecipeTypes = () => {
                 <th>Write-In Fields</th>
                 <th>Asset Prompt</th>
                 <th>Asset Fields</th>
+                <th>Default Columns</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -264,6 +276,11 @@ const RecipeTypes = () => {
                   <td>
                     {t.assetMatchFields && t.assetMatchFields.length > 0
                       ? t.assetMatchFields.join(', ')
+                      : '-'}
+                  </td>
+                  <td>
+                    {t.defaultColumns && t.defaultColumns.length > 0
+                      ? t.defaultColumns.join(', ')
                       : '-'}
                   </td>
                   <td className="text-center">
@@ -340,6 +357,14 @@ const RecipeTypes = () => {
             className="w-full p-2 border rounded"
             value={componentOrder}
             onChange={(e) => setComponentOrder(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Default Visible Columns (comma separated keys)</label>
+          <input
+            className="w-full p-2 border rounded"
+            value={defaultColumnsText}
+            onChange={(e) => setDefaultColumnsText(e.target.value)}
           />
         </div>
         <div className="space-y-2">
@@ -1246,11 +1271,17 @@ const Preview = () => {
 
   useEffect(() => {
     const defaults = {};
-    columnMeta.forEach((c) => {
-      defaults[c.key] = c.label.toLowerCase().includes('name');
-    });
+    if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
+      columnMeta.forEach((c) => {
+        defaults[c.key] = currentType.defaultColumns.includes(c.key);
+      });
+    } else {
+      columnMeta.forEach((c) => {
+        defaults[c.key] = c.label.toLowerCase().includes('name');
+      });
+    }
     setVisibleColumns(defaults);
-  }, [columnMeta]);
+  }, [columnMeta, currentType]);
 
   return (
     <div>
@@ -1478,7 +1509,7 @@ const Preview = () => {
                         <td key={col.key} className="align-middle">
                           {editIdx === idx ? (
                             <input
-                              className="w-full p-1 border rounded text-[12px]"
+                              className="w-full p-1 border rounded"
                               value={r.components[col.key]}
                               onChange={(e) => {
                                 const arr = [...results];
@@ -1505,7 +1536,7 @@ const Preview = () => {
                             href={a.adUrl || a.firebaseUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="btn-secondary px-1.5 py-0.5 text-xs"
+                            className="px-2 py-1 text-sm bg-accent-10 text-accent rounded"
                           >
                             <FiImage />
                           </a>
@@ -1515,11 +1546,11 @@ const Preview = () => {
                       '-'
                     )}
                   </td>
-                  <td className="whitespace-pre-wrap break-words text-[12px] relative w-64 align-middle">
+                  <td className="whitespace-pre-wrap break-words w-64 align-middle">
                     {editIdx === idx ? (
                       <>
                       <textarea
-                        className="w-full p-1 border rounded text-[12px]"
+                        className="w-full p-1 border rounded"
                         value={r.copy}
                         onChange={(e) => {
                           const arr = [...results];
@@ -1530,15 +1561,7 @@ const Preview = () => {
                       />
                       </>
                     ) : (
-                      <div className="min-h-[1.5rem] text-[12px] w-full">
-                        <button
-                          type="button"
-                          className="absolute top-0 right-6 p-1 text-xs"
-                          onClick={() => navigator.clipboard.writeText(r.copy)}
-                          aria-label="Copy"
-                        >
-                          <FiCopy />
-                        </button>
+                      <div className="min-h-[1.5rem] w-full">
                         {r.copy}
                       </div>
                     )}
@@ -1578,6 +1601,14 @@ const Preview = () => {
                           aria-label="Edit"
                         >
                           <FiEdit2 />
+                        </button>
+                        <button
+                          type="button"
+                          className="mr-2"
+                          onClick={() => navigator.clipboard.writeText(r.copy)}
+                          aria-label="Copy"
+                        >
+                          <FiCopy />
                         </button>
                         <button
                           type="button"
