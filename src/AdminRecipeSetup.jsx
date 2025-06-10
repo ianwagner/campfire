@@ -16,6 +16,7 @@ import {
   FiSave,
   FiImage,
 } from 'react-icons/fi';
+import { FaMagic } from 'react-icons/fa';
 import TagChecklist from './components/TagChecklist.jsx';
 import TagInput from './components/TagInput.jsx';
 import PromptTextarea from './components/PromptTextarea.jsx';
@@ -1053,54 +1054,67 @@ const Preview = () => {
     debugLog('Asset CSV loaded', { headers, rowsSample: rows.slice(0, 2), map });
   };
 
-  const generateOnce = async () => {
-    if (!currentType) return;
+  const generateOnce = async (baseValues = null) => {
+    if (!currentType) return null;
 
     let prompt = currentType.gptPrompt || '';
-    const mergedForm = { ...formData };
+    const mergedForm = baseValues ? { ...baseValues } : { ...formData };
     const componentsData = {};
     orderedComponents.forEach((c) => {
-      const instOptions = instances.filter((i) => i.componentKey === c.key);
-      let selectedInst = null;
-      if (c.selectionMode === 'random') {
-        if (instOptions.length > 0) {
-          selectedInst = instOptions[Math.floor(Math.random() * instOptions.length)];
-        }
-      } else if (c.selectionMode === 'checklist') {
-        const ids =
-          selectedInstances[c.key] !== undefined
-            ? selectedInstances[c.key]
-            : instOptions.map((i) => i.id);
-        const opts = ids
-          .map((id) => instOptions.find((i) => i.id === id))
-          .filter(Boolean);
-        if (opts.length > 0) {
-          selectedInst = opts[Math.floor(Math.random() * opts.length)];
-        }
+      if (baseValues) {
+        c.attributes?.forEach((a) => {
+          const val = mergedForm[`${c.key}.${a.key}`] || '';
+          componentsData[`${c.key}.${a.key}`] = val;
+          const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
+          prompt = prompt.replace(regex, val);
+        });
       } else {
-        const id = selectedInstances[c.key];
-        const inst = instOptions.find((i) => i.id === id);
-        if (inst) selectedInst = inst;
-      }
-      c.attributes?.forEach((a) => {
-        let val = '';
-        if (selectedInst) {
-          val = selectedInst.values?.[a.key] || '';
+        const instOptions = instances.filter((i) => i.componentKey === c.key);
+        let selectedInst = null;
+        if (c.selectionMode === 'random') {
+          if (instOptions.length > 0) {
+            selectedInst = instOptions[Math.floor(Math.random() * instOptions.length)];
+          }
+        } else if (c.selectionMode === 'checklist') {
+          const ids =
+            selectedInstances[c.key] !== undefined
+              ? selectedInstances[c.key]
+              : instOptions.map((i) => i.id);
+          const opts = ids
+            .map((id) => instOptions.find((i) => i.id === id))
+            .filter(Boolean);
+          if (opts.length > 0) {
+            selectedInst = opts[Math.floor(Math.random() * opts.length)];
+          }
         } else {
-          val = mergedForm[`${c.key}.${a.key}`] || '';
+          const id = selectedInstances[c.key];
+          const inst = instOptions.find((i) => i.id === id);
+          if (inst) selectedInst = inst;
         }
-        componentsData[`${c.key}.${a.key}`] = val;
-        const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
-        prompt = prompt.replace(regex, val);
-      });
+        c.attributes?.forEach((a) => {
+          let val = '';
+          if (selectedInst) {
+            val = selectedInst.values?.[a.key] || '';
+          } else {
+            val = mergedForm[`${c.key}.${a.key}`] || '';
+          }
+          componentsData[`${c.key}.${a.key}`] = val;
+          const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
+          prompt = prompt.replace(regex, val);
+        });
+      }
     });
     const writeFields = currentType.writeInFields || [];
     writeFields.forEach((f) => {
       let val = mergedForm[f.key];
-      if (f.inputType === 'list') {
-        val = selectRandomOption(val);
-      } else if (Array.isArray(val)) {
-        val = selectRandomOption(val);
+      if (!baseValues) {
+        if (f.inputType === 'list') {
+          val = selectRandomOption(val);
+        } else if (Array.isArray(val)) {
+          val = selectRandomOption(val);
+        } else if (val === undefined) {
+          val = '';
+        }
       } else if (val === undefined) {
         val = '';
       }
@@ -1279,24 +1293,21 @@ const Preview = () => {
       const data = await response.json();
       if (!response.ok) {
         console.error('OpenAI API error', data);
-        return;
+        return null;
       }
       const text = data.choices?.[0]?.message?.content?.trim() || 'No result';
-      setResults((prev) => {
-        const result = {
-          recipeNo: prev.length + 1,
-          components: componentsData,
-          copy: text,
-          editing: false,
-        };
-        result.assets = selectedAssets.slice();
-        while (result.assets.length < assetCount) {
-          result.assets.push({ needAsset: true });
-        }
-        return [...prev, result];
-      });
+      const result = {
+        components: componentsData,
+        copy: text,
+        assets: selectedAssets.slice(),
+      };
+      while (result.assets.length < assetCount) {
+        result.assets.push({ needAsset: true });
+      }
+      return result;
     } catch (err) {
       console.error('Failed to call OpenAI', err);
+      return null;
     }
   };
 
@@ -1305,8 +1316,37 @@ const Preview = () => {
     const times = Number(generateCount) || 1;
     for (let i = 0; i < times; i++) {
       // eslint-disable-next-line no-await-in-loop
-      await generateOnce();
+      const res = await generateOnce();
+      if (res) {
+        setResults((prev) => [
+          ...prev,
+          { recipeNo: prev.length + 1, ...res },
+        ]);
+      }
     }
+  };
+
+  const handleRefresh = async (idx) => {
+    const row = results[idx];
+    const res = await generateOnce(row.components);
+    if (res) {
+      setResults((prev) => {
+        const arr = [...prev];
+        arr[idx] = { ...arr[idx], ...res };
+        return arr;
+      });
+    }
+  };
+
+  const addRecipeRow = () => {
+    const blank = {};
+    columnMeta.forEach((c) => {
+      blank[c.key] = '';
+    });
+    setResults((prev) => [
+      ...prev,
+      { recipeNo: prev.length + 1, components: blank, copy: '', assets: [] },
+    ]);
   };
 
   const currentType = types.find((t) => t.id === selectedType);
@@ -1569,6 +1609,13 @@ const Preview = () => {
                 ))}
               </div>
             )}
+            <button
+              type="button"
+              className="btn-secondary ml-2"
+              onClick={addRecipeRow}
+            >
+              Add Recipe Row
+            </button>
           </div>
           <table className="ad-table min-w-full table-auto text-sm">
             <thead>
@@ -1728,6 +1775,14 @@ const Preview = () => {
                           aria-label="Edit"
                         >
                           <FiEdit2 />
+                        </button>
+                        <button
+                          type="button"
+                          className="mr-2"
+                          onClick={() => handleRefresh(idx)}
+                          aria-label="Refresh"
+                        >
+                          <FaMagic />
                         </button>
                         <button
                           type="button"
