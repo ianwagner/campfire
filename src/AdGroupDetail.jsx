@@ -985,7 +985,7 @@ const AdGroupDetail = () => {
             </select>
           )}
           {g.assets.find((a) => a.status === "edit_requested" && a.comment) && (
-            <span className="italic text-xs mt-1">
+            <span className="italic text-xs mt-1 max-w-[20rem] block">
               {
                 g.assets.find((a) => a.status === "edit_requested" && a.comment)
                   ?.comment
