@@ -1496,9 +1496,18 @@ const Preview = () => {
                     <select
                       className="w-full p-2 border rounded"
                       value={current}
-                      onChange={(e) =>
-                        setSelectedInstances({ ...selectedInstances, [c.key]: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedInstances({ ...selectedInstances, [c.key]: val });
+                        const inst = instOptions.find((i) => i.id === val);
+                        if (inst) {
+                          const updated = { ...formData };
+                          c.attributes?.forEach((a) => {
+                            updated[`${c.key}.${a.key}`] = inst.values?.[a.key] || '';
+                          });
+                          setFormData(updated);
+                        }
+                      }}
                     >
                       <option value="">Custom...</option>
                       {instOptions.map((i) => (
