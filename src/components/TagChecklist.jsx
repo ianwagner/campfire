@@ -32,7 +32,10 @@ const TagChecklist = ({ options = [], value = [], onChange, id = 'tag-checklist'
         const opt = options.find((o) => o.id === idVal);
         const label = opt ? opt.name : idVal;
         return (
-          <span key={idVal} className="tag bg-gray-200 text-gray-700 flex items-center">
+          <span
+            key={idVal}
+            className="tag bg-gray-200 text-gray-700 dark:bg-[var(--dark-sidebar-hover)] dark:text-[var(--dark-text)] flex items-center"
+          >
             {label}
             <button
               type="button"
