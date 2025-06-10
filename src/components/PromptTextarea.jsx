@@ -49,7 +49,7 @@ const PromptTextarea = ({ value, onChange, placeholders = [], className = '' }) 
         onChange={handleChange}
       />
       {showList && (
-        <ul className="absolute z-10 bg-white border rounded shadow text-sm mt-1 max-h-40 overflow-auto dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] dark:text-[var(--dark-text)]">
+        <ul className="absolute z-10 bg-white border rounded shadow text-sm mt-1 max-h-40 overflow-auto">
           {filtered.map((p) => (
             <li key={p}>
               <button
