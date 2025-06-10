@@ -308,7 +308,7 @@ const RecipeTypes = () => {
           </table>
         </div>
       )}
-      <form onSubmit={handleSave} className="space-y-2 max-w-sm">
+      <form onSubmit={handleSave} className="space-y-2 max-w-[50rem]">
         <div>
           <label className="block text-sm mb-1">Name</label>
           <input className="w-full p-2 border rounded" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -575,7 +575,7 @@ const ComponentsView = () => {
           </table>
         </div>
       )}
-      <form onSubmit={handleSave} className="space-y-2 max-w-sm">
+      <form onSubmit={handleSave} className="space-y-2 max-w-[50rem]">
         <div>
           <label className="block text-sm mb-1">Label</label>
           <input className="w-full p-2 border rounded" value={label} onChange={(e) => setLabel(e.target.value)} required />
@@ -861,7 +861,7 @@ const InstancesView = () => {
           </table>
         </div>
       )}
-      <form onSubmit={handleSave} className="space-y-2 max-w-sm">
+      <form onSubmit={handleSave} className="space-y-2 max-w-[50rem]">
         <div>
           <label className="block text-sm mb-1">Name</label>
           <input className="w-full p-2 border rounded" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -901,7 +901,7 @@ const InstancesView = () => {
         </div>
       </form>
       {currentComp && (
-        <div className="mt-8 space-y-2 max-w-sm">
+        <div className="mt-8 space-y-2 max-w-[50rem]">
           <h3 className="text-lg">Bulk Add via CSV</h3>
           <input type="file" accept=".csv" onChange={handleCsvChange} />
           {csvColumns.length > 0 && (
@@ -1352,7 +1352,7 @@ const Preview = () => {
   return (
     <div>
       <h2 className="text-xl mb-2">Preview</h2>
-      <form onSubmit={handleGenerate} className="space-y-2 max-w-sm">
+      <form onSubmit={handleGenerate} className="space-y-2 max-w-[50rem]">
         <div>
           <label className="block text-sm mb-1">Recipe Type</label>
           <select className="w-full p-2 border rounded" value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
