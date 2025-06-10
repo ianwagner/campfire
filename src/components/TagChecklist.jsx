@@ -28,14 +28,14 @@ const TagChecklist = ({ options = [], value = [], onChange, id = 'tag-checklist'
 
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {selected.map((idVal) => {
-        const opt = options.find((o) => o.id === idVal);
-        const label = opt ? opt.name : idVal;
-        return (
-          <span key={idVal} className="tag bg-gray-200 text-gray-700 flex items-center">
-            {label}
-            <button
-              type="button"
+        {selected.map((idVal) => {
+          const opt = options.find((o) => o.id === idVal);
+          const label = opt ? opt.name : idVal;
+          return (
+            <span key={idVal} className="tag bg-accent-10 text-accent flex items-center">
+              {label}
+              <button
+                type="button"
               onClick={() => removeTag(idVal)}
               className="ml-1 text-xs text-red-500"
             >

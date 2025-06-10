@@ -25,9 +25,9 @@ const TagInput = ({ value = [], onChange, suggestions = [], id = 'tag-input' }) 
 
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {value.map((tag) => (
-        <span key={tag} className="tag bg-gray-200 text-gray-700 flex items-center">
-          {tag}
+        {value.map((tag) => (
+          <span key={tag} className="tag bg-accent-10 text-accent flex items-center">
+            {tag}
           <button
             type="button"
             onClick={() => removeTag(tag)}
