@@ -1338,6 +1338,20 @@ const Preview = () => {
     }
   };
 
+  const updateComponentValue = (rowIdx, compKey, attrKey, val) => {
+    const arr = [...results];
+    arr[rowIdx].components[`${compKey}.${attrKey}`] = val;
+    const matched = instances.find(
+      (inst) => inst.componentKey === compKey && inst.values?.[attrKey] === val
+    );
+    if (matched) {
+      Object.entries(matched.values || {}).forEach(([k, v]) => {
+        arr[rowIdx].components[`${compKey}.${k}`] = v;
+      });
+    }
+    setResults(arr);
+  };
+
   const addRecipeRow = () => {
     const blank = {};
     columnMeta.forEach((c) => {
@@ -1656,11 +1670,14 @@ const Preview = () => {
                                   <select
                                     className="w-full p-1 border rounded"
                                     value={r.components[col.key]}
-                                    onChange={(e) => {
-                                      const arr = [...results];
-                                      arr[idx].components[col.key] = e.target.value;
-                                      setResults(arr);
-                                    }}
+                                    onChange={(e) =>
+                                      updateComponentValue(
+                                        idx,
+                                        compKey,
+                                        attrKey,
+                                        e.target.value
+                                      )
+                                    }
                                   >
                                     {instVals.map((v) => (
                                       <option key={v} value={v}>
@@ -1674,11 +1691,14 @@ const Preview = () => {
                                 <input
                                   className="w-full p-1 border rounded"
                                   value={r.components[col.key]}
-                                  onChange={(e) => {
-                                    const arr = [...results];
-                                    arr[idx].components[col.key] = e.target.value;
-                                    setResults(arr);
-                                  }}
+                                  onChange={(e) =>
+                                    updateComponentValue(
+                                      idx,
+                                      compKey,
+                                      attrKey,
+                                      e.target.value
+                                    )
+                                  }
                                 />
                               );
                             })()
