@@ -26,10 +26,7 @@ const TagInput = ({ value = [], onChange, suggestions = [], id = 'tag-input' }) 
   return (
     <div className="flex flex-wrap items-center gap-1">
       {value.map((tag) => (
-        <span
-          key={tag}
-          className="tag bg-gray-200 text-gray-700 dark:bg-[var(--dark-sidebar-hover)] dark:text-[var(--dark-text)] flex items-center"
-        >
+        <span key={tag} className="tag bg-gray-200 text-gray-700 flex items-center">
           {tag}
           <button
             type="button"
