@@ -8,10 +8,10 @@
     --accent-color-10: rgba(234, 88, 12, 0.2);
     /* loading spinner should stay the default color */
     --spinner-color: #ea580c;
-    --dark-bg: #111827;
+    --dark-bg: #0D1116;
     --dark-text: #f3f4f6; /* gray-100 */
-    --dark-sidebar-bg: #1f2937;
-    --dark-sidebar-hover: #374151;
+    --dark-sidebar-bg: #141920;
+    --dark-sidebar-hover: #252d39;
     --font-primary: 'Rubik', sans-serif;
     --font-size-base: 1rem;
     --font-size-lg: 1.125rem;
