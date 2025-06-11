@@ -47,6 +47,7 @@ import OptimizedImage from "./components/OptimizedImage.jsx";
 import pickHeroAsset from "./utils/pickHeroAsset";
 import computeGroupStatus from "./utils/computeGroupStatus";
 import RecipePreview from "./RecipePreview.jsx";
+import { flattenObject, unflattenObject } from "./utils/dotNotation";
 
 const AdGroupDetail = () => {
   const { id } = useParams();
@@ -114,7 +115,7 @@ const AdGroupDetail = () => {
       (snap) => {
         const data = {};
         snap.docs.forEach((d) => {
-          const meta = d.data().metadata || {};
+          const meta = flattenObject(d.data().metadata || {});
           data[d.id] = { id: d.id, ...meta };
         });
         setRecipesMeta(data);
@@ -484,7 +485,7 @@ const AdGroupDetail = () => {
     try {
       await setDoc(
         doc(db, "adGroups", id, "recipes", metadataRecipe.id),
-        { metadata: metadataForm },
+        { metadata: unflattenObject(metadataForm) },
         { merge: true },
       );
       setRecipesMeta((prev) => ({
@@ -506,7 +507,7 @@ const AdGroupDetail = () => {
         const meta = { ...r.components, copy: r.copy };
         batch.set(
           doc(db, "adGroups", id, "recipes", idStr),
-          { recipeNumber: idStr, metadata: meta },
+          { recipeNumber: idStr, metadata: unflattenObject(meta) },
           { merge: true },
         );
       });
