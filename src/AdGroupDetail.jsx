@@ -192,7 +192,7 @@ const AdGroupDetail = () => {
             ? { thumbnailUrl: summary.thumbnail }
             : {}),
       };
-      const newStatus = computeGroupStatus(assets, group.status, recipeCount);
+      const newStatus = computeGroupStatus(assets, group.status);
       if (newStatus !== group.status) {
         update.status = newStatus;
       }
@@ -341,7 +341,7 @@ const AdGroupDetail = () => {
     if (!group) return;
     const newStatus =
       group.status === "locked"
-        ? computeGroupStatus(assets, "pending", recipeCount)
+        ? computeGroupStatus(assets, "pending")
         : "locked";
     try {
       await updateDoc(doc(db, "adGroups", id), { status: newStatus });
@@ -404,6 +404,14 @@ const AdGroupDetail = () => {
 
   const handleUpload = async (selectedFiles) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
+    if (group?.status !== "locked" && group?.status !== "pending") {
+      try {
+        await updateDoc(doc(db, "adGroups", id), { status: "pending" });
+        setGroup((p) => ({ ...p, status: "pending" }));
+      } catch (err) {
+        console.error("Failed to update group status", err);
+      }
+    }
     const existing = new Set(assets.map((a) => a.filename));
     const used = new Set();
     const files = [];
@@ -538,7 +546,6 @@ const AdGroupDetail = () => {
           { merge: true },
         );
       });
-      batch.update(doc(db, "adGroups", id), { status: "briefed", recipeCount: list.length });
       await batch.commit();
       setShowRecipes(false);
       setShowRecipesTable(false);
@@ -1056,7 +1063,7 @@ const AdGroupDetail = () => {
       )}
 
       <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center gap-2">
-        {(userRole === "admin" || userRole === "agency" || userRole === "designer") && (
+        {(userRole === "admin" || userRole === "agency") && (
           <>
             {group.status === "archived" ? (
               <>
