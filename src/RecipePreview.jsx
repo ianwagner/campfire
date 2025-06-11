@@ -161,12 +161,19 @@ const RecipePreview = ({ onSave = null }) => {
         });
       }
 
+      const compValues = [];
       c.attributes?.forEach((a) => {
         const val = mergedForm[`${c.key}.${a.key}`] || '';
         componentsData[`${c.key}.${a.key}`] = val;
+        compValues.push(val);
         const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
         prompt = prompt.replace(regex, val);
       });
+      if (compValues.length > 0) {
+        const joined = compValues.join(' ').trim();
+        componentsData[c.key] = joined;
+        prompt = prompt.replace(new RegExp(`{{${c.key}}}`, 'g'), joined);
+      }
     });
     writeFields.forEach((f) => {
       let val = mergedForm[f.key];
