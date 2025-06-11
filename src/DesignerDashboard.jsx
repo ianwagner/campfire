@@ -123,11 +123,11 @@ const DesignerDashboard = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {groups.map((g) => (
               <Link key={g.id} to={`/ad-group/${g.id}`} className="flex flex-col items-center">
-                <div className="w-32 h-32 bg-accent-10 border border-accent rounded flex items-center justify-center">
+                <div className="w-32 h-32 bg-accent-10 border border-accent rounded-2xl flex items-center justify-center">
                   <span className="text-accent font-bold text-2xl">{g.recipeCount}</span>
                 </div>
-                <p className="mt-2 font-semibold text-center">{g.name}</p>
-                <p className="text-black text-sm text-center">{g.brandCode}</p>
+                <p className="mt-2 font-semibold text-center text-black dark:text-[var(--dark-text)] mb-0">{g.name}</p>
+                <p className="text-black dark:text-[var(--dark-text)] text-sm text-center">{g.brandCode}</p>
               </Link>
             ))}
           </div>
