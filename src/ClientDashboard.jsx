@@ -55,7 +55,7 @@ const GroupCard = ({ group }) => {
           </span>
         ) : null}
       </div>
-      <h3 className="font-medium text-gray-700 dark:text-white">{group.name}</h3>
+      <h3 className="font-medium text-black dark:text-white mb-0">{group.name}</h3>
     </Link>
   );
 };

@@ -140,11 +140,11 @@ const DesignerDashboard = () => {
                   : 'text-accent';
               return (
                 <Link key={g.id} to={`/ad-group/${g.id}`} className="flex flex-col items-center">
-                  <div className={`w-32 h-32 rounded border flex items-center justify-center ${boxClass}`}>
+                  <div className={`w-32 h-32 rounded-2xl border flex items-center justify-center ${boxClass}`}>
                     <span className={`${textClass} font-bold text-2xl`}>{g.recipeCount}</span>
                   </div>
-                  <p className="mt-2 font-semibold text-center">{g.name}</p>
-                  <p className="text-black text-sm text-center">{g.brandCode}</p>
+                  <p className="mt-2 font-semibold text-center text-black dark:text-white">{g.name}</p>
+                  <p className="text-black dark:text-white text-sm text-center">{g.brandCode}</p>
                 </Link>
               );
             })}
