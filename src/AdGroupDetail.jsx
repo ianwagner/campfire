@@ -1169,6 +1169,28 @@ const AdGroupDetail = () => {
             )}
           </>
         )}
+        {userRole === "designer" && group.status !== "archived" && (
+          <>
+            <input
+              id="upload-input"
+              type="file"
+              multiple
+              onChange={(e) => {
+                const sel = e.target.files;
+                handleUpload(sel);
+                e.target.value = null;
+              }}
+              className="hidden"
+            />
+            <button
+              onClick={() => document.getElementById("upload-input").click()}
+              className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+            >
+              <FiUpload />
+              Upload
+            </button>
+          </>
+        )}
       </div>
 
       {uploading && (
