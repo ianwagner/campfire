@@ -49,8 +49,7 @@ const DesignerDashboard = () => {
         if (brandCodes && brandCodes.length > 0) {
           q = query(
             collection(db, 'adGroups'),
-            where('brandCode', 'in', brandCodes),
-            where('status', 'not-in', ['archived'])
+            where('brandCode', 'in', brandCodes)
           );
         } else {
           q = query(
@@ -60,18 +59,20 @@ const DesignerDashboard = () => {
           );
         }
         const snap = await getDocs(q);
-        const list = snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            ...data,
-            counts: {
-              approved: data.approvedCount || 0,
-              rejected: data.rejectedCount || 0,
-              edit: data.editCount || 0,
-            },
-          };
-        });
+        const list = snap.docs
+          .map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              ...data,
+              counts: {
+                approved: data.approvedCount || 0,
+                rejected: data.rejectedCount || 0,
+                edit: data.editCount || 0,
+              },
+            };
+          })
+          .filter((g) => g.status !== 'archived');
         setGroups(list);
       } catch (err) {
         console.error('Failed to fetch groups', err);
