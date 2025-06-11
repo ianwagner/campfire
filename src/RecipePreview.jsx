@@ -164,6 +164,7 @@ const RecipePreview = ({ onSave = null }) => {
         }
         c.attributes?.forEach((a) => {
           const val = mergedForm[`${c.key}.${a.key}`] || '';
+          componentsData[`${c.key}.${a.key}`] = val;
           const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
           prompt = prompt.replace(regex, val);
         });
