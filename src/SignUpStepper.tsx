@@ -4,6 +4,7 @@ import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { doc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
+import ErrorMessages from './components/ErrorMessages';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -14,27 +15,31 @@ const SignUpStepper: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const nextStep = (e: FormEvent) => {
     e.preventDefault();
     if (!companyName.trim()) {
-      setError('Company name is required');
+      setErrors(['Company name is required']);
       return;
     }
-    setError('');
+    setErrors([]);
     setStep(2);
   };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !emailRegex.test(email) || !password) {
-      setError('Please fill out all fields with valid information');
+    const msgs: string[] = [];
+    if (!fullName.trim()) msgs.push('Full name is required');
+    if (!emailRegex.test(email)) msgs.push('Valid email is required');
+    if (!password) msgs.push('Password is required');
+    if (msgs.length) {
+      setErrors(msgs);
       return;
     }
-    setError('');
+    setErrors([]);
     setLoading(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -57,7 +62,8 @@ const SignUpStepper: React.FC = () => {
       await sendEmailVerification(cred.user);
       navigate('/mfa-settings');
     } catch (err: any) {
-      setError(err.message);
+      const msg = (err?.message || '').replace('Firebase:', '').replace(/\(auth.*\)/, '').trim();
+      setErrors([msg]);
     } finally {
       setLoading(false);
     }
@@ -89,7 +95,7 @@ const SignUpStepper: React.FC = () => {
                 required
               />
             </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            <ErrorMessages messages={errors} />
             <button type="submit" className="w-full btn-primary">
               Next
             </button>
@@ -127,7 +133,7 @@ const SignUpStepper: React.FC = () => {
                 required
               />
             </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+            <ErrorMessages messages={errors} />
             <button type="submit" className="w-full btn-primary" disabled={loading}>
               {loading ? 'Creating...' : 'Create Account'}
             </button>

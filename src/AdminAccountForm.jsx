@@ -3,6 +3,9 @@ import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 import TagInput from './components/TagInput.jsx';
+import ErrorMessages from './components/ErrorMessages';
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const AdminAccountForm = () => {
   const [email, setEmail] = useState('');
@@ -11,7 +14,7 @@ const AdminAccountForm = () => {
   const [brandCodes, setBrandCodes] = useState([]);
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState([]);
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
@@ -29,7 +32,7 @@ const AdminAccountForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setErrors([]);
     setSuccess('');
     setLoading(true);
     try {
@@ -46,7 +49,8 @@ const AdminAccountForm = () => {
       setRole('client');
       setBrandCodes([]);
     } catch (err) {
-      setError(err.message);
+      const msg = (err?.message || '').replace('Firebase:', '').replace(/\(auth.*\)/, '').trim();
+      setErrors([msg]);
     } finally {
       setLoading(false);
     }
@@ -96,7 +100,7 @@ const AdminAccountForm = () => {
               id="brand-code-input"
             />
           </div>
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          <ErrorMessages messages={errors} />
           {success && <p className="text-green-600 text-sm">{success}</p>}
           <button type="submit" className="w-full btn-primary" disabled={loading}>
             {loading ? 'Creating...' : 'Create Account'}
