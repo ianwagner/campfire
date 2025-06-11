@@ -25,7 +25,7 @@ const similarityScore = (a, b) => {
   return Math.round((intersection / union.size) * 9) + 1;
 };
 
-const RecipePreview = ({ onSave = null }) => {
+const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults = false }) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
   const [instances, setInstances] = useState([]);
@@ -62,6 +62,14 @@ const RecipePreview = ({ onSave = null }) => {
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (initialResults && Array.isArray(initialResults)) {
+      setResults(
+        initialResults.map((r, idx) => ({ recipeNo: idx + 1, ...r }))
+      );
+    }
+  }, [initialResults]);
 
   const handleAssetCsvChange = async (e) => {
     const f = e.target.files?.[0];
@@ -445,16 +453,27 @@ const RecipePreview = ({ onSave = null }) => {
   const writeFields = currentType?.writeInFields || [];
   const columnMeta = useMemo(() => {
     const cols = [];
-    orderedComponents.forEach((c) => {
-      c.attributes?.forEach((a) => {
-        cols.push({ key: `${c.key}.${a.key}`, label: `${c.label} - ${a.label}` });
+    if (orderedComponents.length > 0) {
+      orderedComponents.forEach((c) => {
+        c.attributes?.forEach((a) => {
+          cols.push({ key: `${c.key}.${a.key}`, label: `${c.label} - ${a.label}` });
+        });
       });
-    });
-    writeFields.forEach((f) => {
-      cols.push({ key: f.key, label: f.label });
-    });
+      writeFields.forEach((f) => {
+        cols.push({ key: f.key, label: f.label });
+      });
+    } else if (initialResults && initialResults.length > 0) {
+      const keys = Array.from(
+        new Set(
+          initialResults.flatMap((r) => Object.keys(r.components || {}))
+        )
+      );
+      keys.forEach((k) => {
+        cols.push({ key: k, label: k });
+      });
+    }
     return cols;
-  }, [orderedComponents, writeFields]);
+  }, [orderedComponents, writeFields, initialResults]);
 
   useEffect(() => {
     const defaults = {};
@@ -473,7 +492,8 @@ const RecipePreview = ({ onSave = null }) => {
   return (
     <div>
       <h2 className="text-xl mb-2">Ad Recipe Generation</h2>
-      <form onSubmit={handleGenerate} className="space-y-2 max-w-[50rem]">
+      {!showOnlyResults && (
+        <form onSubmit={handleGenerate} className="space-y-2 max-w-[50rem]">
         <div>
           <label className="block text-sm mb-1">Recipe Type</label>
           <select className="w-full p-2 border rounded" value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
@@ -660,6 +680,7 @@ const RecipePreview = ({ onSave = null }) => {
           </div>
         )}
       </form>
+      )}
       {results.length > 0 && (
         <div className="table-container mt-6">
           <div className="relative inline-block mb-2">

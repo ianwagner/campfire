@@ -73,6 +73,7 @@ const AdGroupDetail = () => {
   const [previewGroups, setPreviewGroups] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [showRecipes, setShowRecipes] = useState(false);
+  const [showRecipesTable, setShowRecipesTable] = useState(false);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
@@ -233,6 +234,16 @@ const AdGroupDetail = () => {
     });
     return set.size;
   }, [assets]);
+
+  const savedRecipes = useMemo(() => {
+    const ids = Object.keys(recipesMeta);
+    ids.sort((a, b) => Number(a) - Number(b));
+    return ids.map((id) => ({
+      recipeNo: Number(id),
+      components: recipesMeta[id].components || {},
+      copy: recipesMeta[id].copy || "",
+    }));
+  }, [recipesMeta]);
 
   const statusCounts = useMemo(() => {
     const counts = {
@@ -1206,6 +1217,24 @@ const AdGroupDetail = () => {
       >
         {showTable ? "Hide Table" : "Show All Ads"}
       </button>
+      {savedRecipes.length > 0 && (
+        <button
+          onClick={() => setShowRecipesTable((p) => !p)}
+          className="btn-secondary px-2 py-0.5 flex items-center gap-1 my-4 ml-2"
+        >
+          {showRecipesTable ? "Hide Recipes" : "Show All Recipes"}
+        </button>
+      )}
+
+      {showRecipesTable && savedRecipes.length > 0 && (
+        <div className="my-4">
+          <RecipePreview
+            onSave={saveRecipes}
+            initialResults={savedRecipes}
+            showOnlyResults
+          />
+        </div>
+      )}
 
       {viewRecipe && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
