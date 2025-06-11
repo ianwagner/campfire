@@ -24,3 +24,16 @@ test('returns pending otherwise', () => {
   const status = computeGroupStatus([{ status: 'pending' }], 'pending');
   expect(status).toBe('pending');
 });
+
+test('keeps planning status until all recipes have ads', () => {
+  const status = computeGroupStatus([{ recipeCode: '1', status: 'pending' }], 'planning', 2);
+  expect(status).toBe('planning');
+});
+
+test('changes to pending when all recipes have ads', () => {
+  const status = computeGroupStatus([
+    { recipeCode: '1', status: 'pending' },
+    { recipeCode: '2', status: 'pending' },
+  ], 'briefed', 2);
+  expect(status).toBe('pending');
+});

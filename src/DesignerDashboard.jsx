@@ -121,15 +121,33 @@ const DesignerDashboard = () => {
           <p>No ad groups found.</p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {groups.map((g) => (
-              <Link key={g.id} to={`/ad-group/${g.id}`} className="flex flex-col items-center">
-                <div className="w-32 h-32 bg-accent-10 border border-accent rounded flex items-center justify-center">
-                  <span className="text-accent font-bold text-2xl">{g.recipeCount}</span>
-                </div>
-                <p className="mt-2 font-semibold text-center">{g.name}</p>
-                <p className="text-black text-sm text-center">{g.brandCode}</p>
-              </Link>
-            ))}
+            {groups.map((g) => {
+              const boxClass =
+                g.status === 'planning'
+                  ? 'bg-gray-300 border-gray-400'
+                  : g.status === 'briefed'
+                  ? 'bg-accent border-accent'
+                  : g.status === 'pending'
+                  ? 'bg-green-200 border-green-600'
+                  : 'bg-accent-10 border-accent';
+              const textClass =
+                g.status === 'planning'
+                  ? 'text-gray-700'
+                  : g.status === 'briefed'
+                  ? 'text-white'
+                  : g.status === 'pending'
+                  ? 'text-green-800'
+                  : 'text-accent';
+              return (
+                <Link key={g.id} to={`/ad-group/${g.id}`} className="flex flex-col items-center">
+                  <div className={`w-32 h-32 rounded border flex items-center justify-center ${boxClass}`}>
+                    <span className={`${textClass} font-bold text-2xl`}>{g.recipeCount}</span>
+                  </div>
+                  <p className="mt-2 font-semibold text-center">{g.name}</p>
+                  <p className="text-black text-sm text-center">{g.brandCode}</p>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
