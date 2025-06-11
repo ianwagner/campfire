@@ -12,7 +12,6 @@ import { auth } from "./firebase/config";
 import Login from "./Login";
 import SignUpStepper from "./SignUpStepper.tsx";
 import ReviewRoute from "./ReviewRoute";
-import CreateAdGroup from "./CreateAdGroup";
 import AdGroupDetail from "./AdGroupDetail";
 import DesignerDashboard from "./DesignerDashboard";
 import ClientDashboard from "./ClientDashboard";
@@ -445,22 +444,6 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <ManageMfa user={user} role={role} />
-                  </RoleGuard>
-                ) : (
-                  <Navigate to="/login" replace />
-                )
-              }
-            />
-            <Route
-              path="/create-group"
-              element={
-                user ? (
-                  <RoleGuard
-                    requiredRole="designer"
-                    userRole={role} isAdmin={isAdmin}
-                    loading={roleLoading}
-                  >
-                    <CreateAdGroup />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
