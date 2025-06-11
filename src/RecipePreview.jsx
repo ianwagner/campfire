@@ -472,7 +472,7 @@ const RecipePreview = ({ onSave = null }) => {
 
   return (
     <div>
-      <h2 className="text-xl mb-2">Preview</h2>
+      <h2 className="text-xl mb-2">Ad Recipe Generation</h2>
       <form onSubmit={handleGenerate} className="space-y-2 max-w-[50rem]">
         <div>
           <label className="block text-sm mb-1">Recipe Type</label>
