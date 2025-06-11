@@ -125,7 +125,9 @@ const RecipePreview = ({ onSave = null }) => {
     if (!currentType) return null;
 
     let prompt = currentType.gptPrompt || '';
-    const mergedForm = baseValues ? { ...baseValues } : { ...formData };
+    // Merge any provided base values with the current form data so
+    // missing keys fall back to the user's input
+    const mergedForm = { ...formData, ...(baseValues || {}) };
     const componentsData = {};
     orderedComponents.forEach((c) => {
       if (baseValues) {
