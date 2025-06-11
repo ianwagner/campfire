@@ -783,8 +783,7 @@ useEffect(() => {
           };
           const newGroupStatus = computeGroupStatus(
             ads.map((a) => (a.assetId === asset.assetId ? { ...a, status: newStatus } : a)),
-            gSnap.exists() ? gSnap.data().status : 'pending',
-            gSnap.data()?.recipeCount
+            gSnap.exists() ? gSnap.data().status : 'pending'
           );
           if (newGroupStatus !== gSnap.data().status) {
             updateObj.status = newGroupStatus;
