@@ -11,6 +11,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase/config";
 import Login from "./Login";
 import SignUpStepper from "./SignUpStepper.tsx";
+import DesignerSignUp from "./DesignerSignUp.tsx";
 import ReviewRoute from "./ReviewRoute";
 import AdGroupDetail from "./AdGroupDetail";
 import DesignerDashboard from "./DesignerDashboard";
@@ -159,6 +160,16 @@ const App = () => {
                   <Navigate to={defaultPath} replace />
                 ) : (
                   <SignUpStepper />
+                )
+              }
+            />
+            <Route
+              path="/signup/designer"
+              element={
+                user ? (
+                  <Navigate to={defaultPath} replace />
+                ) : (
+                  <DesignerSignUp />
                 )
               }
             />
