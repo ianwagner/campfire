@@ -3,18 +3,29 @@ import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
+import ErrorMessages from './components/ErrorMessages';
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const DesignerSignUp: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<string[]>([]);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
+    setErrors([]);
+    const msgs: string[] = [];
+    if (!fullName.trim()) msgs.push('Full name is required');
+    if (!emailRegex.test(email)) msgs.push('Valid email is required');
+    if (!password) msgs.push('Password is required');
+    if (msgs.length) {
+      setErrors(msgs);
+      return;
+    }
     setLoading(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -26,7 +37,8 @@ const DesignerSignUp: React.FC = () => {
       await sendEmailVerification(cred.user);
       navigate('/mfa-settings');
     } catch (err: any) {
-      setError(err.message);
+      const msg = (err?.message || '').replace('Firebase:', '').replace(/\(auth.*\)/, '').trim();
+      setErrors([msg]);
     } finally {
       setLoading(false);
     }
@@ -66,7 +78,7 @@ const DesignerSignUp: React.FC = () => {
             required
           />
         </div>
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        <ErrorMessages messages={errors} />
         <button type="submit" className="w-full btn-primary" disabled={loading}>
           {loading ? 'Creating...' : 'Create Account'}
         </button>
