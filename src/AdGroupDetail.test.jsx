@@ -9,11 +9,13 @@ jest.mock('./firebase/config', () => ({ db: {} }));
 const getDoc = jest.fn();
 const onSnapshot = jest.fn();
 const updateDoc = jest.fn();
+const setDoc = jest.fn();
 const getDocs = jest.fn();
 const docMock = jest.fn((...args) => args.slice(1).join('/'));
 const collectionMock = jest.fn((...args) => args);
 const queryMock = jest.fn((...args) => args);
 const whereMock = jest.fn((...args) => args);
+const arrayUnionMock = jest.fn((...args) => args);
 
 jest.mock('firebase/firestore', () => ({
   doc: (...args) => docMock(...args),
@@ -21,10 +23,12 @@ jest.mock('firebase/firestore', () => ({
   onSnapshot: (...args) => onSnapshot(...args),
   collection: (...args) => collectionMock(...args),
   updateDoc: (...args) => updateDoc(...args),
+  setDoc: (...args) => setDoc(...args),
   serverTimestamp: jest.fn(),
   writeBatch: jest.fn(() => ({ update: jest.fn(), commit: jest.fn() })),
   addDoc: jest.fn(),
   deleteDoc: jest.fn(),
+  arrayUnion: (...args) => arrayUnionMock(...args),
   getDocs: (...args) => getDocs(...args),
   query: (...args) => queryMock(...args),
   where: (...args) => whereMock(...args),
