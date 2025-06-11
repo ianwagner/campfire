@@ -130,16 +130,12 @@ const RecipePreview = ({ onSave = null }) => {
     const mergedForm = { ...formData, ...(baseValues || {}) };
     const componentsData = {};
     orderedComponents.forEach((c) => {
-      if (baseValues) {
-        c.attributes?.forEach((a) => {
-          const val = mergedForm[`${c.key}.${a.key}`] || '';
-          componentsData[`${c.key}.${a.key}`] = val;
-          const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
-          prompt = prompt.replace(regex, val);
-        });
-      } else {
-        const instOptions = instances.filter((i) => i.componentKey === c.key);
-        let selectedInst = null;
+      const instOptions = instances.filter(
+        (i) => (i.componentKey || i.component) === c.key,
+      );
+
+      let selectedInst = null;
+      if (!baseValues) {
         if (c.selectionMode === 'random') {
           if (instOptions.length > 0) {
             selectedInst = instOptions[Math.floor(Math.random() * instOptions.length)];
@@ -155,22 +151,22 @@ const RecipePreview = ({ onSave = null }) => {
             selectedInst = instOptions.find((i) => i.id === selectedId);
           }
         }
-        if (selectedInst) {
-          Object.entries(selectedInst.values || {}).forEach(([k, v]) => {
+      }
+
+      if (selectedInst) {
+        Object.entries(selectedInst.values || {}).forEach(([k, v]) => {
+          if (mergedForm[`${c.key}.${k}`] === undefined) {
             mergedForm[`${c.key}.${k}`] = v;
-          });
-        } else {
-          c.attributes?.forEach((a) => {
-            mergedForm[`${c.key}.${a.key}`] = mergedForm[`${c.key}.${a.key}`] || '';
-          });
-        }
-        c.attributes?.forEach((a) => {
-          const val = mergedForm[`${c.key}.${a.key}`] || '';
-          componentsData[`${c.key}.${a.key}`] = val;
-          const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
-          prompt = prompt.replace(regex, val);
+          }
         });
       }
+
+      c.attributes?.forEach((a) => {
+        const val = mergedForm[`${c.key}.${a.key}`] || '';
+        componentsData[`${c.key}.${a.key}`] = val;
+        const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
+        prompt = prompt.replace(regex, val);
+      });
     });
     writeFields.forEach((f) => {
       let val = mergedForm[f.key];
