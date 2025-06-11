@@ -65,9 +65,10 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
 
   useEffect(() => {
     if (initialResults && Array.isArray(initialResults)) {
-      setResults(
-        initialResults.map((r, idx) => ({ recipeNo: idx + 1, ...r }))
-      );
+      setResults(initialResults.map((r, idx) => ({ recipeNo: idx + 1, ...r })));
+      if (initialResults[0]?.type) {
+        setSelectedType(initialResults[0].type);
+      }
     }
   }, [initialResults]);
 
@@ -372,6 +373,7 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       }
       const text = data.choices?.[0]?.message?.content?.trim() || 'No result';
       const result = {
+        type: selectedType,
         components: componentsData,
         copy: text,
         assets: selectedAssets.slice(),
@@ -395,7 +397,7 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       if (res) {
         setResults((prev) => [
           ...prev,
-          { recipeNo: prev.length + 1, ...res },
+          { recipeNo: prev.length + 1, ...res, type: selectedType },
         ]);
       }
     }
@@ -403,6 +405,9 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
 
   const handleRefresh = async (idx) => {
     const row = results[idx];
+    if (row.type && !selectedType) {
+      setSelectedType(row.type);
+    }
     const res = await generateOnce(row.components);
     if (res) {
       setResults((prev) => {

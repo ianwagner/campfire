@@ -126,6 +126,8 @@ const AdGroupDetail = () => {
             ...meta,
             components: docData.components || {},
             copy: docData.copy || "",
+            assets: docData.assets || [],
+            type: docData.type || "",
           };
         });
         setRecipesMeta(data);
@@ -226,14 +228,10 @@ const AdGroupDetail = () => {
     return groups;
   }, [assets]);
 
-  const recipeCount = useMemo(() => {
-    const set = new Set();
-    assets.forEach((a) => {
-      const info = parseAdFilename(a.filename || "");
-      set.add(info.recipeCode || "unknown");
-    });
-    return set.size;
-  }, [assets]);
+  const recipeCount = useMemo(
+    () => Object.keys(recipesMeta).length,
+    [recipesMeta],
+  );
 
   const savedRecipes = useMemo(() => {
     const ids = Object.keys(recipesMeta);
@@ -242,6 +240,8 @@ const AdGroupDetail = () => {
       recipeNo: Number(id),
       components: recipesMeta[id].components || {},
       copy: recipesMeta[id].copy || "",
+      assets: recipesMeta[id].assets || [],
+      type: recipesMeta[id].type || "",
     }));
   }, [recipesMeta]);
 
@@ -523,13 +523,32 @@ const AdGroupDetail = () => {
   const saveRecipes = async (list) => {
     if (!Array.isArray(list) || list.length === 0) return;
     try {
+      if (showRecipes && Object.keys(recipesMeta).length > 0) {
+        const confirmReplace = window.confirm(
+          "Replace existing saved recipes with new generation?",
+        );
+        if (!confirmReplace) return;
+      }
+
       const batch = writeBatch(db);
+      const existingIds = Object.keys(recipesMeta);
+      const newIds = list.map((r) => String(r.recipeNo));
+      existingIds.forEach((rid) => {
+        if (!newIds.includes(rid)) {
+          batch.delete(doc(db, "adGroups", id, "recipes", rid));
+        }
+      });
       list.forEach((r) => {
         const docRef = doc(db, "adGroups", id, "recipes", String(r.recipeNo));
-        batch.set(docRef, { components: r.components, copy: r.copy }, { merge: true });
+        batch.set(
+          docRef,
+          { components: r.components, copy: r.copy, assets: r.assets || [], type: r.type || "" },
+          { merge: true },
+        );
       });
       await batch.commit();
       setShowRecipes(false);
+      setShowRecipesTable(false);
     } catch (err) {
       console.error("Failed to save recipes", err);
     }
