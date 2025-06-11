@@ -15,6 +15,7 @@ import {
   FiArchive,
   FiDownload,
   FiRotateCcw,
+  FiList,
 } from "react-icons/fi";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
@@ -73,6 +74,7 @@ const AdGroupDetail = () => {
   const [previewGroups, setPreviewGroups] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [showRecipes, setShowRecipes] = useState(false);
+  const [showRecipeList, setShowRecipeList] = useState(false);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
@@ -1056,6 +1058,13 @@ const AdGroupDetail = () => {
                   <FaMagic />
                   Recipes
                 </button>
+                <button
+                  onClick={() => setShowRecipeList((p) => !p)}
+                  className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                >
+                  <FiList />
+                  {showRecipeList ? "Hide Recipes" : "Show Recipes"}
+                </button>
                 <input
                   id="upload-input"
                   type="file"
@@ -1174,13 +1183,44 @@ const AdGroupDetail = () => {
               <p className="stat-card-title">Rejected</p>
               <p className="stat-card-value">{statusCounts.rejected}</p>
             </div>
-            <div className="stat-card status-edit_requested">
-              <p className="stat-card-title">Edit</p>
-              <p className="stat-card-value">{statusCounts.edit_requested}</p>
-            </div>
+          <div className="stat-card status-edit_requested">
+            <p className="stat-card-title">Edit</p>
+            <p className="stat-card-value">{statusCounts.edit_requested}</p>
           </div>
-        </>
-      )}
+        </div>
+      </>
+    )}
+
+    {showRecipeList && (
+      Object.keys(recipesMeta).length > 0 ? (
+        <div className="overflow-x-auto table-container mb-4">
+          <table className="ad-table min-w-max">
+            <thead>
+              <tr>
+                <th>Recipe #</th>
+                <th>Offer</th>
+                <th>Angle</th>
+                <th>Audience</th>
+                <th>Copy</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.values(recipesMeta).map((r) => (
+                <tr key={r.id}>
+                  <td className="text-center">{r.id}</td>
+                  <td>{r.offer || ""}</td>
+                  <td>{r.angle || ""}</td>
+                  <td>{r.audience || ""}</td>
+                  <td className="whitespace-pre-wrap">{r.copy || ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="mb-4">No saved recipes.</p>
+      )
+    )}
 
       {(showTable || specialGroups.length > 0) && (
         <div className="overflow-x-auto table-container">
