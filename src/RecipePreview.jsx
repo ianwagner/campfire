@@ -170,11 +170,15 @@ const RecipePreview = ({ onSave = null }) => {
       }
     });
     writeFields.forEach((f) => {
-      const val = mergedForm[f.key] || '';
+      let val = mergedForm[f.key];
       if (f.inputType === 'list') {
-        prompt = prompt.replace(new RegExp(`{{${f.key}}}`, 'g'), val.join(', '));
+        const arr = Array.isArray(val) ? val : [];
+        prompt = prompt.replace(
+          new RegExp(`{{${f.key}}}`, 'g'),
+          arr.join(', '),
+        );
       } else {
-        prompt = prompt.replace(new RegExp(`{{${f.key}}}`, 'g'), val);
+        prompt = prompt.replace(new RegExp(`{{${f.key}}}`, 'g'), val || '');
       }
     });
 
