@@ -174,11 +174,13 @@ const RecipePreview = ({ onSave = null }) => {
       let val = mergedForm[f.key];
       if (f.inputType === 'list') {
         const arr = Array.isArray(val) ? val : [];
+        componentsData[f.key] = arr.join(', ');
         prompt = prompt.replace(
           new RegExp(`{{${f.key}}}`, 'g'),
           arr.join(', '),
         );
       } else {
+        componentsData[f.key] = val || '';
         prompt = prompt.replace(new RegExp(`{{${f.key}}}`, 'g'), val || '');
       }
     });
