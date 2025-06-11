@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { FiEdit2, FiTrash, FiSave, FiImage } from 'react-icons/fi';
-import { FaMagic } from 'react-icons/fa';
+import { FiImage, FiCheckSquare, FiSquare } from 'react-icons/fi';
 import TagChecklist from './components/TagChecklist.jsx';
 import TagInput from './components/TagInput.jsx';
 import { db } from './firebase/config';
@@ -36,7 +35,6 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
   const [generateCount, setGenerateCount] = useState(1);
   const [visibleColumns, setVisibleColumns] = useState({});
   const [showColumnMenu, setShowColumnMenu] = useState(false);
-  const [editIdx, setEditIdx] = useState(null);
   const [assetRows, setAssetRows] = useState([]);
   const [assetHeaders, setAssetHeaders] = useState([]);
   const [assetMap, setAssetMap] = useState({});
@@ -403,20 +401,6 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
     }
   };
 
-  const handleRefresh = async (idx) => {
-    const row = results[idx];
-    if (row.type && !selectedType) {
-      setSelectedType(row.type);
-    }
-    const res = await generateOnce(row.components);
-    if (res) {
-      setResults((prev) => {
-        const arr = [...prev];
-        arr[idx] = { ...arr[idx], ...res };
-        return arr;
-      });
-    }
-  };
 
   const updateComponentValue = (rowIdx, compKey, attrKey, val) => {
     const arr = [...results];
@@ -747,57 +731,7 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                     (col) =>
                       visibleColumns[col.key] && (
                         <td key={col.key} className="align-middle">
-                          {editIdx === idx ? (
-                            (() => {
-                              const [compKey, attrKey] = col.key.split('.');
-                              const instVals = Array.from(
-                                new Set(
-                                  instances
-                                    .filter((i) => i.componentKey === compKey)
-                                    .map((i) => i.values?.[attrKey])
-                                    .filter(Boolean)
-                                )
-                              );
-                              if (instVals.length > 0) {
-                                return (
-                                  <select
-                                    className="w-full p-1 border rounded"
-                                    value={r.components[col.key]}
-                                    onChange={(e) =>
-                                      updateComponentValue(
-                                        idx,
-                                        compKey,
-                                        attrKey,
-                                        e.target.value
-                                      )
-                                    }
-                                  >
-                                    {instVals.map((v) => (
-                                      <option key={v} value={v}>
-                                        {v}
-                                      </option>
-                                    ))}
-                                  </select>
-                                );
-                              }
-                              return (
-                                <input
-                                  className="w-full p-1 border rounded"
-                                  value={r.components[col.key]}
-                                  onChange={(e) =>
-                                    updateComponentValue(
-                                      idx,
-                                      compKey,
-                                      attrKey,
-                                      e.target.value
-                                    )
-                                  }
-                                />
-                              );
-                            })()
-                          ) : (
-                            r.components[col.key]
-                          )}
+                          {r.components[col.key]}
                         </td>
                       )
                   )}
@@ -831,88 +765,25 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                     </div>
                   </td>
                   <td className="whitespace-pre-wrap break-words w-80 align-middle copy-cell">
-                    {editIdx === idx ? (
-                      <>
-                      <textarea
-                        className="w-full p-1 border rounded"
-                        value={r.copy}
-                        onChange={(e) => {
-                          const arr = [...results];
-                          arr[idx].copy = e.target.value;
-                          setResults(arr);
-                        }}
-                        spellCheck
-                      />
-                      </>
-                    ) : (
-                      <div
-                        className="min-h-[1.5rem] w-full"
-                        onClick={() => navigator.clipboard.writeText(r.copy)}
-                      >
-                        {r.copy}
-                      </div>
-                    )}
+                    <div
+                      className="min-h-[1.5rem] w-full"
+                      onClick={() => navigator.clipboard.writeText(r.copy)}
+                    >
+                      {r.copy}
+                    </div>
                   </td>
                   <td className="text-center align-middle">
-                    {editIdx === idx ? (
-                      <>
-                        <button
-                          type="button"
-                          className="mr-2"
-                          onClick={() => setEditIdx(null)}
-                          aria-label="Save"
-                        >
-                          <FiSave />
-                        </button>
-                        <button
-                          type="button"
-                          className="text-red-600"
-                          onClick={() => {
-                            setResults((prev) =>
-                              prev
-                                .filter((_, i) => i !== idx)
-                                .map((res, i2) => ({ ...res, recipeNo: i2 + 1 }))
-                            );
-                          }}
-                          aria-label="Delete"
-                        >
-                          <FiTrash />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          className="mr-2"
-                          onClick={() => setEditIdx(idx)}
-                          aria-label="Edit"
-                        >
-                          <FiEdit2 />
-                        </button>
-                        <button
-                          type="button"
-                          className="mr-2"
-                          onClick={() => handleRefresh(idx)}
-                          aria-label="Refresh"
-                        >
-                          <FaMagic />
-                        </button>
-                        <button
-                          type="button"
-                          className="text-red-600"
-                          onClick={() => {
-                            setResults((prev) =>
-                              prev
-                                .filter((_, i) => i !== idx)
-                                .map((res, i2) => ({ ...res, recipeNo: i2 + 1 }))
-                            );
-                          }}
-                          aria-label="Delete"
-                        >
-                          <FiTrash />
-                        </button>
-                      </>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const arr = [...results];
+                        arr[idx].selected = !arr[idx].selected;
+                        setResults(arr);
+                      }}
+                      aria-label="Toggle Select"
+                    >
+                      {r.selected ? <FiCheckSquare /> : <FiSquare />}
+                    </button>
                   </td>
                 </tr>
               ))}

@@ -11,7 +11,6 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 import deleteGroup from './utils/deleteGroup';
-import CreateAdGroup from './CreateAdGroup';
 import useUserRole from './useUserRole';
 import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
@@ -21,7 +20,7 @@ const DesignerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [viewNote, setViewNote] = useState(null);
   const user = auth.currentUser;
-  const { role } = useUserRole(user?.uid);
+  const { role, brandCodes } = useUserRole(user?.uid);
 
   const [shareInfo, setShareInfo] = useState(null);
 
@@ -46,11 +45,20 @@ const DesignerDashboard = () => {
     const fetchGroups = async () => {
       setLoading(true);
       try {
-        const q = query(
-          collection(db, 'adGroups'),
-          where('uploadedBy', '==', auth.currentUser?.uid || ''),
-          where('status', 'not-in', ['archived'])
-        );
+        let q;
+        if (brandCodes && brandCodes.length > 0) {
+          q = query(
+            collection(db, 'adGroups'),
+            where('brandCode', 'in', brandCodes),
+            where('status', 'not-in', ['archived'])
+          );
+        } else {
+          q = query(
+            collection(db, 'adGroups'),
+            where('uploadedBy', '==', auth.currentUser?.uid || ''),
+            where('status', 'not-in', ['archived'])
+          );
+        }
         const snap = await getDocs(q);
         const list = snap.docs.map((d) => {
           const data = d.data();
@@ -74,7 +82,7 @@ const DesignerDashboard = () => {
     };
 
     fetchGroups();
-  }, []);
+  }, [brandCodes]);
 
   const handleDeleteGroup = async (groupId, brandCode, groupName) => {
     if (!window.confirm('Delete this group?')) return;
@@ -171,7 +179,6 @@ const DesignerDashboard = () => {
         )}
       </div>
 
-      <CreateAdGroup showSidebar={false} />
       {viewNote && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-sm dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
