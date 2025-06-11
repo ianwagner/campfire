@@ -25,7 +25,7 @@ const similarityScore = (a, b) => {
   return Math.round((intersection / union.size) * 9) + 1;
 };
 
-const RecipePreview = () => {
+const RecipePreview = ({ onSave = null }) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
   const [instances, setInstances] = useState([]);
@@ -892,6 +892,17 @@ const RecipePreview = () => {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {results.length > 0 && (
+        <div className="mt-4 text-right">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => onSave && onSave(results)}
+          >
+            Save Recipes
+          </button>
         </div>
       )}
     </div>
