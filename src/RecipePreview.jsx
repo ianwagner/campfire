@@ -1,6 +1,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { FiImage, FiCheckSquare, FiSquare } from 'react-icons/fi';
+import {
+  FiImage,
+  FiCheckSquare,
+  FiSquare,
+  FiEdit2,
+  FiTrash,
+} from 'react-icons/fi';
+import { FaMagic } from 'react-icons/fa';
+import { auth } from './firebase/config';
+import useUserRole from './useUserRole';
 import TagChecklist from './components/TagChecklist.jsx';
 import TagInput from './components/TagInput.jsx';
 import { db } from './firebase/config';
@@ -39,6 +48,8 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
   const [assetHeaders, setAssetHeaders] = useState([]);
   const [assetMap, setAssetMap] = useState({});
   const [assetUsage, setAssetUsage] = useState({});
+  const { role: userRole } = useUserRole(auth.currentUser?.uid);
+  const isAdminOrAgency = userRole === 'admin' || userRole === 'agency';
 
   useEffect(() => {
     const fetchData = async () => {
@@ -427,6 +438,31 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
     ]);
   };
 
+  const handleEditRow = (idx) => {
+    const newCopy = window.prompt('Edit copy', results[idx].copy);
+    if (newCopy === null) return;
+    const arr = [...results];
+    arr[idx].copy = newCopy;
+    setResults(arr);
+  };
+
+  const handleDeleteRow = (idx) => {
+    if (!window.confirm('Delete this recipe?')) return;
+    setResults((prev) =>
+      prev.filter((_, i) => i !== idx).map((r, i2) => ({ ...r, recipeNo: i2 + 1 }))
+    );
+  };
+
+  const handleRefreshRow = async (idx) => {
+    const base = results[idx].components;
+    const refreshed = await generateOnce(base);
+    if (refreshed) {
+      const arr = [...results];
+      arr[idx] = { ...arr[idx], ...refreshed };
+      setResults(arr);
+    }
+  };
+
   const currentType = types.find((t) => t.id === selectedType);
   useEffect(() => {
     if (!currentType?.enableAssetCsv) {
@@ -720,7 +756,7 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                 )}
                 <th>Assets</th>
                 <th className="w-80">Generated Copy</th>
-                <th></th>
+                <th className="text-center">{isAdminOrAgency ? 'Actions' : ''}</th>
               </tr>
             </thead>
             <tbody>
@@ -773,17 +809,46 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                     </div>
                   </td>
                   <td className="text-center align-middle">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const arr = [...results];
-                        arr[idx].selected = !arr[idx].selected;
-                        setResults(arr);
-                      }}
-                      aria-label="Toggle Select"
-                    >
-                      {r.selected ? <FiCheckSquare /> : <FiSquare />}
-                    </button>
+                    {isAdminOrAgency ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleEditRow(idx)}
+                          aria-label="Edit"
+                          className="btn-secondary px-1.5 py-0.5 text-xs"
+                        >
+                          <FiEdit2 />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRefreshRow(idx)}
+                          aria-label="Refresh"
+                          className="btn-secondary px-1.5 py-0.5 text-xs"
+                        >
+                          <FaMagic />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRow(idx)}
+                          aria-label="Delete"
+                          className="btn-secondary px-1.5 py-0.5 text-xs btn-delete"
+                        >
+                          <FiTrash />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const arr = [...results];
+                          arr[idx].selected = !arr[idx].selected;
+                          setResults(arr);
+                        }}
+                        aria-label="Toggle Select"
+                      >
+                        {r.selected ? <FiCheckSquare /> : <FiSquare />}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
