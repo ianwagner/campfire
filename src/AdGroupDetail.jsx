@@ -16,6 +16,8 @@ import {
   FiDownload,
   FiRotateCcw,
 } from "react-icons/fi";
+import { FaMagic } from "react-icons/fa";
+import RecipePreview from "./RecipePreview.jsx";
 import { Link, useParams } from "react-router-dom";
 import {
   doc,
@@ -70,6 +72,7 @@ const AdGroupDetail = () => {
   const [maxAds, setMaxAds] = useState(1);
   const [previewGroups, setPreviewGroups] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [showRecipes, setShowRecipes] = useState(false);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
 
@@ -115,8 +118,14 @@ const AdGroupDetail = () => {
       (snap) => {
         const data = {};
         snap.docs.forEach((d) => {
-          const meta = d.data().metadata || {};
-          data[d.id] = { id: d.id, ...meta };
+          const docData = d.data() || {};
+          const meta = docData.metadata || {};
+          data[d.id] = {
+            id: d.id,
+            ...meta,
+            components: docData.components || {},
+            copy: docData.copy || "",
+          };
         });
         setRecipesMeta(data);
       },
@@ -459,67 +468,6 @@ const AdGroupDetail = () => {
     setUploading(false);
   };
 
-  const handleMetadataCsvUpload = async (file) => {
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const lines = text.trim().split(/\r?\n/);
-      if (lines.length === 0) return;
-      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-      const findCol = (k) => headers.findIndex((h) => h.includes(k));
-      const recipeCol = findCol("recipe");
-      const offerCol = findCol("offer");
-      const angleCol = findCol("angle");
-      const audienceCol = findCol("audience");
-      if (recipeCol === -1) {
-        window.alert("Recipe column not found");
-        return;
-      }
-      const normalize = (val) =>
-        val.toString().toLowerCase().replace(/\s+/g, "").replace("recipe", "");
-      const updates = [];
-      for (let i = 1; i < lines.length; i += 1) {
-        const parts = lines[i].split(",").map((p) => p.trim());
-        const rawCode = parts[recipeCol];
-        const recipeCode = rawCode ? normalize(rawCode) : "";
-        if (!recipeCode) continue;
-        const data = {
-          offer: offerCol >= 0 ? parts[offerCol] || "" : "",
-          angle: angleCol >= 0 ? parts[angleCol] || "" : "",
-          audience: audienceCol >= 0 ? parts[audienceCol] || "" : "",
-        };
-        console.log("Matched:", recipeCode, data);
-        updates.push({
-          id: recipeCode,
-          data,
-        });
-      }
-      if (updates.length === 0) {
-        window.alert("No metadata rows found in CSV");
-        return;
-      }
-      const batch = writeBatch(db);
-      updates.forEach((u) => {
-        batch.set(
-          doc(db, "adGroups", id, "recipes", u.id),
-          { metadata: u.data },
-          { merge: true },
-        );
-      });
-      await batch.commit();
-      setRecipesMeta((prev) => {
-        const copy = { ...prev };
-        updates.forEach((u) => {
-          copy[u.id] = { id: u.id, ...u.data };
-        });
-        return copy;
-      });
-      window.alert("Metadata uploaded");
-    } catch (err) {
-      console.error("Failed to upload metadata", err);
-      window.alert("Failed to upload metadata");
-    }
-  };
 
   const uploadVersion = async (assetId, file) => {
     if (!file) return;
@@ -558,6 +506,21 @@ const AdGroupDetail = () => {
       setMetadataRecipe(null);
     } catch (err) {
       console.error("Failed to save metadata", err);
+    }
+  };
+
+  const saveRecipes = async (list) => {
+    if (!Array.isArray(list) || list.length === 0) return;
+    try {
+      const batch = writeBatch(db);
+      list.forEach((r) => {
+        const docRef = doc(db, "adGroups", id, "recipes", String(r.recipeNo));
+        batch.set(docRef, { components: r.components, copy: r.copy }, { merge: true });
+      });
+      await batch.commit();
+      setShowRecipes(false);
+    } catch (err) {
+      console.error("Failed to save recipes", err);
     }
   };
 
@@ -1068,6 +1031,7 @@ const AdGroupDetail = () => {
           This ad group is archived and read-only.
         </p>
       )}
+
       <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center gap-2">
         {(userRole === "admin" || userRole === "agency") && (
           <>
@@ -1085,6 +1049,13 @@ const AdGroupDetail = () => {
               </>
             ) : (
               <>
+                <button
+                  onClick={() => setShowRecipes(true)}
+                  className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                >
+                  <FaMagic />
+                  Recipes
+                </button>
                 <input
                   id="upload-input"
                   type="file"
@@ -1105,30 +1076,6 @@ const AdGroupDetail = () => {
                   <FiUpload />
                   Upload
                 </button>
-                {userRole === "admin" && (
-                  <>
-                    <input
-                      id="meta-input"
-                      type="file"
-                      accept=".csv"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        handleMetadataCsvUpload(f);
-                        e.target.value = null;
-                      }}
-                      className="hidden"
-                    />
-                    <button
-                      onClick={() =>
-                        document.getElementById("meta-input").click()
-                      }
-                      className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-                    >
-                      <FiUpload />
-                      Upload Metadata CSV
-                    </button>
-                  </>
-                )}
                 <button
                   onClick={toggleLock}
                   className="btn-secondary px-2 py-0.5 flex items-center gap-1"
@@ -1324,6 +1271,21 @@ const AdGroupDetail = () => {
               Metadata for Recipe {metadataRecipe.id}
             </h3>
             <div className="space-y-2">
+              {metadataRecipe.components && (
+                <div className="text-sm">
+                  {Object.entries(metadataRecipe.components).map(([k, v]) => (
+                    <div key={k}>
+                      <span className="font-semibold mr-1">{k}:</span>
+                      {v}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {metadataRecipe.copy && (
+                <div className="text-sm whitespace-pre-wrap border-t pt-2">
+                  {metadataRecipe.copy}
+                </div>
+              )}
               <label className="block text-sm">
                 Offer
                 <input
@@ -1454,6 +1416,17 @@ const AdGroupDetail = () => {
               >
                 {exporting ? "Exporting..." : "Export"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRecipes && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-2xl w-full overflow-auto max-h-[90vh] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <RecipePreview onSave={saveRecipes} />
+            <div className="mt-2 text-right">
+              <button onClick={() => setShowRecipes(false)} className="btn-secondary px-3 py-1">Close</button>
             </div>
           </div>
         </div>
