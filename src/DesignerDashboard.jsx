@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiEye, FiTrash, FiClock, FiLink, FiThumbsUp, FiThumbsDown, FiEdit, FiFileText } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -15,6 +14,7 @@ import CreateAdGroup from './CreateAdGroup';
 import useUserRole from './useUserRole';
 import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
+import parseAdFilename from './utils/parseAdFilename';
 
 const DesignerDashboard = () => {
   const [groups, setGroups] = useState([]);
@@ -24,6 +24,7 @@ const DesignerDashboard = () => {
   const { role } = useUserRole(user?.uid);
 
   const [shareInfo, setShareInfo] = useState(null);
+  const [brandNames, setBrandNames] = useState({});
 
   const handleShare = async (id) => {
     let url = `${window.location.origin}/review/${id}`;
@@ -52,18 +53,33 @@ const DesignerDashboard = () => {
           where('status', 'not-in', ['archived'])
         );
         const snap = await getDocs(q);
-        const list = snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            ...data,
-            counts: {
-              approved: data.approvedCount || 0,
-              rejected: data.rejectedCount || 0,
-              edit: data.editCount || 0,
-            },
-          };
-        });
+        const list = await Promise.all(
+          snap.docs.map(async (d) => {
+            const data = d.data();
+            let recipeCount = data.recipeCount;
+            if (recipeCount === undefined) {
+              try {
+                const assetSnap = await getDocs(
+                  collection(db, 'adGroups', d.id, 'assets')
+                );
+                const set = new Set();
+                assetSnap.docs.forEach((adDoc) => {
+                  const info = parseAdFilename(adDoc.data().filename || '');
+                  if (info.recipeCode) set.add(info.recipeCode);
+                });
+                recipeCount = set.size;
+              } catch (err) {
+                console.error('Failed to load recipes', err);
+                recipeCount = 0;
+              }
+            }
+            return {
+              id: d.id,
+              ...data,
+              recipeCount,
+            };
+          })
+        );
         setGroups(list);
       } catch (err) {
         console.error('Failed to fetch groups', err);
@@ -75,6 +91,27 @@ const DesignerDashboard = () => {
 
     fetchGroups();
   }, []);
+
+  useEffect(() => {
+    const fetchNames = async () => {
+      const missing = groups
+        .map((g) => g.brandCode)
+        .filter((c) => c && !brandNames[c]);
+      for (const code of missing) {
+        try {
+          const snap = await getDocs(
+            query(collection(db, 'brands'), where('code', '==', code))
+          );
+          const name = !snap.empty ? snap.docs[0].data().name || code : code;
+          setBrandNames((prev) => ({ ...prev, [code]: name }));
+        } catch (err) {
+          console.error('Failed to fetch brand name', err);
+          setBrandNames((prev) => ({ ...prev, [code]: code }));
+        }
+      }
+    };
+    if (groups.length > 0) fetchNames();
+  }, [groups]);
 
   const handleDeleteGroup = async (groupId, brandCode, groupName) => {
     if (!window.confirm('Delete this group?')) return;
@@ -97,76 +134,18 @@ const DesignerDashboard = () => {
         ) : groups.length === 0 ? (
           <p>No ad groups found.</p>
         ) : (
-          <div className="overflow-x-auto table-container">
-          <table className="ad-table min-w-max">
-            <thead>
-              <tr>
-                <th>Group Name</th>
-                <th>Brand</th>
-                <th>Status</th>
-                <th className="text-center"><FiThumbsUp aria-label="Approved" /></th>
-                <th className="text-center"><FiThumbsDown aria-label="Rejected" /></th>
-                <th className="text-center"><FiEdit aria-label="Edit Requested" /></th>
-                <th>Note</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((g) => (
-                <tr key={g.id}>
-                  <td>{g.name}</td>
-                  <td>{g.brandCode}</td>
-                  <td>
-                    <span className={`status-badge status-${g.status}`}>{g.status}</span>
-                  </td>
-                  <td className="text-center">{g.counts.approved}</td>
-                  <td className="text-center">{g.counts.rejected}</td>
-                  <td className="text-center">{g.counts.edit}</td>
-                  <td className="text-center">
-                    {g.clientNote ? (
-                      <button
-                        onClick={() => setViewNote(g.clientNote)}
-                        className="flex items-center text-gray-700 underline"
-                        aria-label="View Client Note"
-                      >
-                        <FiFileText className="mr-1" />
-                        View Note
-                      </button>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td className="text-center">
-                    <div className="flex items-center justify-center">
-                      <Link
-                        to={`/ad-group/${g.id}`}
-                        className="flex items-center text-gray-700 underline"
-                        aria-label="View Details"
-                      >
-                        <FiEye />
-                        <span className="ml-1 text-[14px]">Details</span>
-                      </Link>
-                      <button
-                        onClick={() => handleShare(g.id)}
-                        className="flex items-center ml-2 text-gray-700 underline"
-                        aria-label="Share Link"
-                      >
-                        <FiLink />
-                        <span className="ml-1 text-[14px]">Share</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                        className="flex items-center ml-2 underline btn-delete"
-                        aria-label="Delete"
-                      >
-                        <FiTrash />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+            {groups.map((g) => (
+              <div key={g.id} className="text-center">
+                <Link to={`/ad-group/${g.id}`} className="block">
+                  <div className="w-32 h-32 bg-accent-10 border border-accent rounded mx-auto flex items-center justify-center">
+                    <span className="text-accent font-bold text-3xl">{g.recipeCount}</span>
+                  </div>
+                </Link>
+                <p className="mt-2 font-medium">{g.name}</p>
+                <p className="text-black">{brandNames[g.brandCode] || g.brandCode}</p>
+              </div>
+            ))}
           </div>
         )}
       </div>
