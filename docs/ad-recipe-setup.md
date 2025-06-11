@@ -22,7 +22,7 @@ Write-in fields are simpler than components. Each field specifies a `label`, `ke
 The system intelligently matches the chosen options to generate an ad recipe. The resulting recipe is displayed in the table.
 
 ## Recipe Table
-Generated recipes appear as rows in a table. The table columns list the chosen component values, the generated copy, and the ad recipe number. This structure lets you scan component selections alongside the resulting text.
+Generated recipes appear as rows in a table. The table columns list the chosen component values, the copy, and the ad recipe number. This structure lets you scan component selections alongside the resulting text.
 
 ## Recipe Type Tab
 The Recipe Type tab lets an admin define:

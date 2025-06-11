@@ -755,7 +755,7 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                     )
                 )}
                 <th>Assets</th>
-                <th className="w-80">Generated Copy</th>
+                <th className="w-80">Copy</th>
                 <th className="text-center">{isAdminOrAgency ? 'Actions' : ''}</th>
               </tr>
             </thead>
