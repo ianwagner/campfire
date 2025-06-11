@@ -9,8 +9,6 @@ const createUserWithEmailAndPassword = jest.fn();
 const sendEmailVerification = jest.fn();
 const setDoc = jest.fn();
 const docMock = jest.fn(() => 'userDoc');
-const getDocs = jest.fn(() => ({ docs: [] }));
-const collectionMock = jest.fn();
 const navigate = jest.fn();
 
 jest.mock('firebase/auth', () => ({
@@ -21,8 +19,6 @@ jest.mock('firebase/auth', () => ({
 jest.mock('firebase/firestore', () => ({
   doc: (...args: any[]) => docMock(...args),
   setDoc: (...args: any[]) => setDoc(...args),
-  getDocs: (...args: any[]) => getDocs(...args),
-  collection: (...args: any[]) => collectionMock(...args),
 }));
 
 jest.mock('react-router-dom', () => ({
