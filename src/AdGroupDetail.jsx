@@ -16,6 +16,7 @@ import {
   FiDownload,
   FiRotateCcw,
 } from "react-icons/fi";
+import { FaMagic } from "react-icons/fa";
 import { Link, useParams } from "react-router-dom";
 import {
   doc,
@@ -45,6 +46,7 @@ import LoadingOverlay from "./LoadingOverlay";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 import pickHeroAsset from "./utils/pickHeroAsset";
 import computeGroupStatus from "./utils/computeGroupStatus";
+import RecipePreview from "./RecipePreview.jsx";
 
 const AdGroupDetail = () => {
   const { id } = useParams();
@@ -60,11 +62,8 @@ const AdGroupDetail = () => {
   const [viewRecipe, setViewRecipe] = useState(null);
   const [recipesMeta, setRecipesMeta] = useState({});
   const [metadataRecipe, setMetadataRecipe] = useState(null);
-  const [metadataForm, setMetadataForm] = useState({
-    offer: "",
-    angle: "",
-    audience: "",
-  });
+  const [metadataForm, setMetadataForm] = useState({});
+  const [showRecipes, setShowRecipes] = useState(false);
   const [exportModal, setExportModal] = useState(false);
   const [groupBy, setGroupBy] = useState([]);
   const [maxAds, setMaxAds] = useState(1);
@@ -302,12 +301,8 @@ const AdGroupDetail = () => {
       const meta =
         recipesMeta[metadataRecipe.id] ||
         recipesMeta[metadataRecipe.id.toLowerCase()] ||
-        metadataRecipe;
-      setMetadataForm({
-        offer: meta.offer || "",
-        angle: meta.angle || "",
-        audience: meta.audience || "",
-      });
+        {};
+      setMetadataForm({ ...meta });
     }
   }, [metadataRecipe, recipesMeta]);
 
@@ -440,6 +435,8 @@ const AdGroupDetail = () => {
           brandCode: info.brandCode || group?.brandCode || "",
           adGroupCode: info.adGroupCode || "",
           recipeCode: info.recipeCode || "",
+          recipeId: info.recipeCode || "",
+          recipeMeta: recipesMeta[info.recipeCode] || null,
           aspectRatio: info.aspectRatio || "",
           filename: file.name,
           firebaseUrl: url,
@@ -459,67 +456,6 @@ const AdGroupDetail = () => {
     setUploading(false);
   };
 
-  const handleMetadataCsvUpload = async (file) => {
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const lines = text.trim().split(/\r?\n/);
-      if (lines.length === 0) return;
-      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-      const findCol = (k) => headers.findIndex((h) => h.includes(k));
-      const recipeCol = findCol("recipe");
-      const offerCol = findCol("offer");
-      const angleCol = findCol("angle");
-      const audienceCol = findCol("audience");
-      if (recipeCol === -1) {
-        window.alert("Recipe column not found");
-        return;
-      }
-      const normalize = (val) =>
-        val.toString().toLowerCase().replace(/\s+/g, "").replace("recipe", "");
-      const updates = [];
-      for (let i = 1; i < lines.length; i += 1) {
-        const parts = lines[i].split(",").map((p) => p.trim());
-        const rawCode = parts[recipeCol];
-        const recipeCode = rawCode ? normalize(rawCode) : "";
-        if (!recipeCode) continue;
-        const data = {
-          offer: offerCol >= 0 ? parts[offerCol] || "" : "",
-          angle: angleCol >= 0 ? parts[angleCol] || "" : "",
-          audience: audienceCol >= 0 ? parts[audienceCol] || "" : "",
-        };
-        console.log("Matched:", recipeCode, data);
-        updates.push({
-          id: recipeCode,
-          data,
-        });
-      }
-      if (updates.length === 0) {
-        window.alert("No metadata rows found in CSV");
-        return;
-      }
-      const batch = writeBatch(db);
-      updates.forEach((u) => {
-        batch.set(
-          doc(db, "adGroups", id, "recipes", u.id),
-          { metadata: u.data },
-          { merge: true },
-        );
-      });
-      await batch.commit();
-      setRecipesMeta((prev) => {
-        const copy = { ...prev };
-        updates.forEach((u) => {
-          copy[u.id] = { id: u.id, ...u.data };
-        });
-        return copy;
-      });
-      window.alert("Metadata uploaded");
-    } catch (err) {
-      console.error("Failed to upload metadata", err);
-      window.alert("Failed to upload metadata");
-    }
-  };
 
   const uploadVersion = async (assetId, file) => {
     if (!file) return;
@@ -558,6 +494,34 @@ const AdGroupDetail = () => {
       setMetadataRecipe(null);
     } catch (err) {
       console.error("Failed to save metadata", err);
+    }
+  };
+
+  const handleSaveRecipes = async (list) => {
+    if (!Array.isArray(list) || list.length === 0) return;
+    try {
+      const batch = writeBatch(db);
+      list.forEach((r) => {
+        const idStr = String(r.recipeNo);
+        const meta = { ...r.components, copy: r.copy };
+        batch.set(
+          doc(db, "adGroups", id, "recipes", idStr),
+          { recipeNumber: idStr, metadata: meta },
+          { merge: true },
+        );
+      });
+      await batch.commit();
+      setRecipesMeta((prev) => {
+        const copy = { ...prev };
+        list.forEach((r) => {
+          const idStr = String(r.recipeNo);
+          copy[idStr] = { id: idStr, ...r.components, copy: r.copy };
+        });
+        return copy;
+      });
+      setShowRecipes(false);
+    } catch (err) {
+      console.error("Failed to save recipes", err);
     }
   };
 
@@ -1097,6 +1061,13 @@ const AdGroupDetail = () => {
                   className="hidden"
                 />
                 <button
+                  onClick={() => setShowRecipes((s) => !s)}
+                  className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                >
+                  <FaMagic />
+                  Recipes
+                </button>
+                <button
                   onClick={() =>
                     document.getElementById("upload-input").click()
                   }
@@ -1105,30 +1076,6 @@ const AdGroupDetail = () => {
                   <FiUpload />
                   Upload
                 </button>
-                {userRole === "admin" && (
-                  <>
-                    <input
-                      id="meta-input"
-                      type="file"
-                      accept=".csv"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        handleMetadataCsvUpload(f);
-                        e.target.value = null;
-                      }}
-                      className="hidden"
-                    />
-                    <button
-                      onClick={() =>
-                        document.getElementById("meta-input").click()
-                      }
-                      className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-                    >
-                      <FiUpload />
-                      Upload Metadata CSV
-                    </button>
-                  </>
-                )}
                 <button
                   onClick={toggleLock}
                   className="btn-secondary px-2 py-0.5 flex items-center gap-1"
@@ -1324,42 +1271,22 @@ const AdGroupDetail = () => {
               Metadata for Recipe {metadataRecipe.id}
             </h3>
             <div className="space-y-2">
-              <label className="block text-sm">
-                Offer
-                <input
-                  type="text"
-                  className="mt-1 w-full border rounded p-1 text-black dark:text-black"
-                  value={metadataForm.offer}
-                  onChange={(e) =>
-                    setMetadataForm({ ...metadataForm, offer: e.target.value })
-                  }
-                />
-              </label>
-              <label className="block text-sm">
-                Angle
-                <input
-                  type="text"
-                  className="mt-1 w-full border rounded p-1 text-black dark:text-black"
-                  value={metadataForm.angle}
-                  onChange={(e) =>
-                    setMetadataForm({ ...metadataForm, angle: e.target.value })
-                  }
-                />
-              </label>
-              <label className="block text-sm">
-                Audience
-                <input
-                  type="text"
-                  className="mt-1 w-full border rounded p-1 text-black dark:text-black"
-                  value={metadataForm.audience}
-                  onChange={(e) =>
-                    setMetadataForm({
-                      ...metadataForm,
-                      audience: e.target.value,
-                    })
-                  }
-                />
-              </label>
+              {Object.keys(metadataForm).length === 0 && (
+                <p className="text-sm">No metadata</p>
+              )}
+              {Object.entries(metadataForm).map(([k, v]) => (
+                <label key={k} className="block text-sm">
+                  {k}
+                  <input
+                    type="text"
+                    className="mt-1 w-full border rounded p-1 text-black dark:text-black"
+                    value={v}
+                    onChange={(e) =>
+                      setMetadataForm({ ...metadataForm, [k]: e.target.value })
+                    }
+                  />
+                </label>
+              ))}
             </div>
             <div className="mt-3 flex justify-end gap-2">
               <button onClick={closeModals} className="btn-secondary px-3 py-1">
@@ -1367,6 +1294,19 @@ const AdGroupDetail = () => {
               </button>
               <button onClick={saveMetadata} className="btn-primary px-3 py-1">
                 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRecipes && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-3xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)] overflow-auto max-h-[90vh]">
+            <RecipePreview onSave={handleSaveRecipes} />
+            <div className="mt-3 flex justify-end">
+              <button onClick={() => setShowRecipes(false)} className="btn-secondary px-3 py-1">
+                Close
               </button>
             </div>
           </div>
