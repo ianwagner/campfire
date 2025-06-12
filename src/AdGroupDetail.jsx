@@ -59,6 +59,7 @@ const AdGroupDetail = () => {
   const [expanded, setExpanded] = useState({});
   const [showTable, setShowTable] = useState(false);
   const [historyRecipe, setHistoryRecipe] = useState(null);
+  const [historyAsset, setHistoryAsset] = useState(null);
   const [viewRecipe, setViewRecipe] = useState(null);
   const [recipesMeta, setRecipesMeta] = useState({});
   const [metadataRecipe, setMetadataRecipe] = useState(null);
@@ -289,25 +290,54 @@ const AdGroupDetail = () => {
 
   const openHistory = async (recipeCode) => {
     try {
-      const snap = await getDoc(doc(db, "recipes", recipeCode));
-      if (!snap.exists()) {
-        setHistoryRecipe({ recipeCode, assets: [] });
-        return;
-      }
+      const groupAssets = assets.filter((a) => {
+        const info = parseAdFilename(a.filename || "");
+        return (info.recipeCode || "unknown") === recipeCode;
+      });
       const tsMillis = (t) =>
         t?.toMillis?.() ?? (typeof t === "number" ? t : 0);
-      const hist = (snap.data().history || [])
-        .slice()
-        .sort((a, b) => tsMillis(b.timestamp) - tsMillis(a.timestamp))
-        .map((h) => ({
-          lastUpdatedAt: h.timestamp,
-          email: h.user || "N/A",
-          status: h.status,
-          comment: h.editComment || "",
-        }));
-      setHistoryRecipe({ recipeCode, assets: hist });
+      const all = [];
+      for (const asset of groupAssets) {
+        const snap = await getDocs(
+          query(
+            collection(db, "adGroups", id, "assets", asset.id, "history"),
+            orderBy("updatedAt", "desc"),
+          ),
+        );
+        snap.docs.forEach((d) => {
+          const h = d.data() || {};
+          all.push({
+            lastUpdatedAt: h.updatedAt,
+            email: h.updatedBy || "N/A",
+            status: h.status,
+            comment: h.comment || "",
+          });
+        });
+      }
+      all.sort((a, b) => tsMillis(b.lastUpdatedAt) - tsMillis(a.lastUpdatedAt));
+      setHistoryRecipe({ recipeCode, assets: all });
     } catch (err) {
       console.error("Failed to load recipe history", err);
+    }
+  };
+
+  const openAssetHistory = async (asset) => {
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, "adGroups", id, "assets", asset.id, "history"),
+          orderBy("updatedAt", "desc"),
+        ),
+      );
+      const list = snap.docs.map((d) => ({
+        lastUpdatedAt: d.data().updatedAt,
+        email: d.data().updatedBy || "N/A",
+        status: d.data().status,
+        comment: d.data().comment || "",
+      }));
+      setHistoryAsset({ filename: asset.filename, assets: list });
+    } catch (err) {
+      console.error("Failed to load ad history", err);
     }
   };
 
@@ -335,6 +365,7 @@ const AdGroupDetail = () => {
 
   const closeModals = () => {
     setHistoryRecipe(null);
+    setHistoryAsset(null);
     setViewRecipe(null);
     setMetadataRecipe(null);
   };
@@ -964,16 +995,28 @@ const AdGroupDetail = () => {
                         </div>
                       </td>
                       <td className="text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteAsset(a);
-                          }}
-                          className="btn-delete"
-                          aria-label="Delete"
-                        >
-                          <FiTrash />
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openAssetHistory(a);
+                            }}
+                            className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1"
+                            aria-label="History"
+                          >
+                            <FiClock />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteAsset(a);
+                            }}
+                            className="btn-delete"
+                            aria-label="Delete"
+                          >
+                            <FiTrash />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1364,6 +1407,34 @@ const AdGroupDetail = () => {
                         : new Date(a.lastUpdatedAt).toLocaleString()
                       : ""}{" "}
                     - {a.email}
+                  </div>
+                  <div className="text-sm">Status: {a.status}</div>
+                  {a.comment && (
+                    <div className="text-sm italic">Note: {a.comment}</div>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <button onClick={closeModals} className="btn-primary px-3 py-1">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {historyAsset && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-md dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <h3 className="mb-2 font-semibold">Ad {historyAsset.filename} History</h3>
+            <ul className="mb-2 space-y-2 max-h-[60vh] overflow-auto">
+              {historyAsset.assets.map((a, idx) => (
+                <li key={idx} className="border-b pb-2 last:border-none">
+                  <div className="text-sm font-medium">
+                    {a.lastUpdatedAt
+                      ? a.lastUpdatedAt.toDate
+                        ? a.lastUpdatedAt.toDate().toLocaleString()
+                        : new Date(a.lastUpdatedAt).toLocaleString()
+                      : ""}{" "}- {a.email}
                   </div>
                   <div className="text-sm">Status: {a.status}</div>
                   {a.comment && (
