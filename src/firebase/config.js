@@ -7,6 +7,23 @@ import { getFunctions } from "firebase/functions";
 // ✅ Fixed: Correct Firebase config
 // Configuration is read from the Vite environment so that sensitive values can
 // be provided via a `.env` file.
+
+// Ensure all required Firebase env vars are present so misconfiguration is
+// caught before any Firebase calls are made.
+const requiredVars = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID',
+];
+const missing = requiredVars.filter((v) => !import.meta.env[v]);
+if (missing.length) {
+  const message = `Missing Firebase environment variables: ${missing.join(', ')}`;
+  console.warn(message);
+  throw new Error(message);
+}
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
