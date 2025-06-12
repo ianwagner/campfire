@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { FiEye, FiEdit2, FiTrash } from 'react-icons/fi';
+import { FiEye, FiEdit2, FiTrash, FiLogOut } from 'react-icons/fi';
 import { collection, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { db, functions } from './firebase/config';
+import { httpsCallable } from 'firebase/functions';
 import debugLog from './utils/debugLog';
 import TagInput from './components/TagInput.jsx';
 
@@ -79,6 +80,17 @@ const AdminAccounts = () => {
       setAccounts((prev) => prev.filter((a) => a.id !== id));
     } catch (err) {
       console.error('Failed to delete account', err);
+    }
+  };
+
+  const handleSignOut = async (id) => {
+    if (!window.confirm('Sign this user out?')) return;
+    debugLog('Signing out user', id);
+    try {
+      const callable = httpsCallable(functions, 'signOutUser');
+      await callable({ uid: id });
+    } catch (err) {
+      console.error('Failed to sign out user', err);
     }
   };
 
@@ -171,6 +183,14 @@ const AdminAccounts = () => {
                           <span className="ml-1">Edit</span>
                         </button>
                         <button
+                          onClick={() => handleSignOut(acct.id)}
+                          className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
+                          aria-label="Sign Out"
+                        >
+                          <FiLogOut />
+                          <span className="ml-1">Sign Out</span>
+                        </button>
+                        <button
                           onClick={() => handleDelete(acct.id)}
                           className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 btn-delete"
                           aria-label="Delete"
@@ -195,7 +215,16 @@ const AdminAccounts = () => {
             {Array.isArray(viewAcct.brandCodes) && viewAcct.brandCodes.length > 0 && (
               <p className="text-sm mb-1">Brands: {viewAcct.brandCodes.join(', ')}</p>
             )}
-            <button onClick={() => setViewAcct(null)} className="btn-primary px-3 py-1 mt-2">Close</button>
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => handleSignOut(viewAcct.id)}
+                className="btn-secondary px-3 py-1 flex items-center gap-1"
+              >
+                <FiLogOut />
+                <span>Sign Out</span>
+              </button>
+              <button onClick={() => setViewAcct(null)} className="btn-primary px-3 py-1">Close</button>
+            </div>
           </div>
         </div>
       )}
