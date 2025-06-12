@@ -1,0 +1,62 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import RecipePreview from './RecipePreview.jsx';
+
+jest.mock('./firebase/config', () => ({ db: {} }));
+
+const getDocs = jest.fn();
+
+jest.mock('firebase/firestore', () => ({
+  collection: (...args) => args,
+  getDocs: (...args) => getDocs(...args),
+}));
+
+afterEach(() => {
+  jest.clearAllMocks();
+});
+
+const typeSnap = { docs: [{ id: 't1', data: () => ({ name: 'Type1', components: ['headline'] }) }] };
+const compSnap = { docs: [{ id: 'c1', data: () => ({ key: 'headline', label: 'Headline', attributes: [{ key: 'text', label: 'Text' }], selectionMode: 'dropdown' }) }] };
+const instSnap = {
+  docs: [
+    { id: 'i1', data: () => ({ componentKey: 'headline', name: 'Default', values: { text: 'Default' }, relationships: {} }) },
+    { id: 'i2', data: () => ({ componentKey: 'headline', name: 'Brand1', values: { text: 'B1' }, relationships: { brandCode: 'B1' } }) },
+    { id: 'i3', data: () => ({ componentKey: 'headline', name: 'Brand2', values: { text: 'B2' }, relationships: { brandCode: 'B2' } }) },
+  ],
+};
+const brandSnap = { docs: [{ id: 'b1', data: () => ({ code: 'B1', name: 'Brand1' }) }, { id: 'b2', data: () => ({ code: 'B2', name: 'Brand2' }) }] };
+
+test('filters component instances by selected brand', async () => {
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[1] || args[0][1] : args[1];
+    switch (col) {
+      case 'recipeTypes':
+        return Promise.resolve(typeSnap);
+      case 'componentTypes':
+        return Promise.resolve(compSnap);
+      case 'componentInstances':
+        return Promise.resolve(instSnap);
+      case 'brands':
+        return Promise.resolve(brandSnap);
+      default:
+        return Promise.resolve({ docs: [] });
+    }
+  });
+
+  render(<RecipePreview />);
+
+  await waitFor(() => expect(getDocs).toHaveBeenCalled());
+
+  fireEvent.change(screen.getByLabelText('Recipe Type'), { target: { value: 't1' } });
+  fireEvent.change(screen.getByLabelText('Brand'), { target: { value: 'B1' } });
+
+  await waitFor(() => screen.getByLabelText('Headline'));
+
+  const options = screen.getAllByRole('option');
+  const optionTexts = options.map((o) => o.textContent);
+  expect(optionTexts).toContain('Default');
+  expect(optionTexts).toContain('Brand1');
+  expect(optionTexts).not.toContain('Brand2');
+});
+
