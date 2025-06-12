@@ -613,7 +613,13 @@ const AdGroupDetail = () => {
             updatedBy: auth.currentUser?.uid || null,
             updatedAt: serverTimestamp(),
           },
-        );
+        ).catch((err) => {
+          if (err?.code === "already-exists") {
+            console.log("History entry already exists, skipping");
+          } else {
+            throw err;
+          }
+        });
         await setDoc(
           doc(db, "recipes", recipeCode),
           {
@@ -670,7 +676,13 @@ const AdGroupDetail = () => {
             updatedBy: auth.currentUser?.uid || null,
             updatedAt: serverTimestamp(),
           },
-        );
+        ).catch((err) => {
+          if (err?.code === "already-exists") {
+            console.log("History entry already exists, skipping");
+          } else {
+            throw err;
+          }
+        });
       }
 
       await setDoc(

@@ -726,7 +726,13 @@ useEffect(() => {
                 updatedAt: serverTimestamp(),
                 ...(responseType === 'edit' && comment ? { comment } : {}),
               },
-            ),
+            ).catch((err) => {
+              if (err?.code === 'already-exists') {
+                console.log('History entry already exists, skipping');
+              } else {
+                throw err;
+              }
+            }),
           );
 
           setAds((prev) =>
