@@ -720,6 +720,18 @@ useEffect(() => {
           };
           updates.push(updateDoc(assetRef, updateData));
 
+          updates.push(
+            addDoc(
+              collection(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId, 'history'),
+              {
+                status: newStatus,
+                updatedBy: user.uid,
+                updatedAt: serverTimestamp(),
+                ...(responseType === 'edit' && comment ? { comment } : {}),
+              },
+            ),
+          );
+
           setAds((prev) =>
             prev.map((a) =>
               a.assetId === asset.assetId
