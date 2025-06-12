@@ -23,9 +23,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
   const [verificationId, setVerificationId] = useState<string>('');
   const [sending, setSending] = useState<boolean>(false);
   const [verifying, setVerifying] = useState<boolean>(false);
-  const [step, setStep] = useState<'choose' | 'sms' | 'verify' | 'done'>(
-    'choose'
-  );
+  const [step, setStep] = useState<'sms' | 'verify' | 'done'>('sms');
   const [error, setError] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const navigate = useNavigate();
@@ -141,27 +139,6 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
           <p className="text-xs text-gray-500">
             Last MFA login: {new Date(Number(user.metadata.lastLoginAt)).toLocaleString()}
           </p>
-        )}
-        {step === 'choose' && (
-          <div className="space-y-2">
-            <button type="button" className="w-full btn-primary" onClick={() => setStep('sms')}>
-              SMS-based MFA
-            </button>
-            <button
-              type="button"
-              className="w-full btn-primary"
-              onClick={() => setMessage('Authenticator app setup not implemented.')}
-            >
-              Authentication App
-            </button>
-            <button
-              type="button"
-              className="w-full btn-primary"
-              onClick={() => setMessage('Backup codes not implemented.')}
-            >
-              Backup Codes
-            </button>
-          </div>
         )}
         {step === 'sms' && (
           <form onSubmit={sendCode} className="space-y-4">
