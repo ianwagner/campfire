@@ -220,3 +220,7 @@ visits skip the prompt.
 ## Ad Recipe Setup
 
 The [Ad Recipe Setup](docs/ad-recipe-setup.md) tab lets administrators define the form shown to users when creating a recipe. Inputs can include free-text fields and predefined components. Submitted options are matched together to produce the final ad recipe. The result is added to a table with columns for component values, copy, and the recipe number (table columns: component values, copy, recipe number).
+
+## Updating Ad Groups
+
+See [docs/updating-ad-groups.md](docs/updating-ad-groups.md) for an example of locking an ad group without using a stale updateTime.
