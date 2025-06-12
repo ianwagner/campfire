@@ -166,6 +166,23 @@ npm install
 npm test
 ```
 
+## Safe Firestore Updates
+
+Firestore snapshots include `createTime`, `updateTime`, and `readTime` fields
+that cannot be written back with `updateDoc`. The helper at
+`src/utils/safeUpdateDoc.js` removes these keys before updating:
+
+```javascript
+import { doc } from 'firebase/firestore';
+import { db } from './firebase/config';
+import { safeUpdateDoc } from './src/utils/safeUpdateDoc';
+
+await safeUpdateDoc(doc(db, 'example', id), {
+  name: 'Updated',
+  updateTime: 'ignored',
+});
+```
+
 ## Theme Customization
 
 Dark mode colors are defined in `src/global.css`. The `:root` section exposes CSS
