@@ -10,7 +10,6 @@ const getDocs = jest.fn();
 const getDoc = jest.fn();
 const updateDoc = jest.fn();
 const addDoc = jest.fn();
-const runTransaction = jest.fn();
 const docMock = jest.fn((...args) => args.slice(1).join('/'));
 const arrayUnion = jest.fn((val) => val);
 const increment = jest.fn((val) => val);
@@ -28,7 +27,6 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: (...args) => updateDoc(...args),
   arrayUnion: (...args) => arrayUnion(...args),
   increment: (...args) => increment(...args),
-  runTransaction: (...args) => runTransaction(...args),
 }));
 
 afterEach(() => {
@@ -773,7 +771,7 @@ test('shows alert when locking fails due to permissions', async () => {
 
   const err = new Error('nope');
   err.code = 'permission-denied';
-  runTransaction.mockRejectedValue(err);
+  updateDoc.mockRejectedValue(err);
 
   window.alert = jest.fn();
 
