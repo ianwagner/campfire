@@ -116,6 +116,13 @@ test('fetches recipe history', async () => {
   const historyBtn = screen.getByLabelText('History');
   fireEvent.click(historyBtn);
 
-  await waitFor(() => expect(getDoc).toHaveBeenCalled());
-  expect(docMock).toHaveBeenCalledWith({}, 'recipes', '1');
+  await waitFor(() => expect(getDocs).toHaveBeenCalled());
+  expect(collectionMock).toHaveBeenCalledWith(
+    {},
+    'adGroups',
+    'group1',
+    'assets',
+    'asset1',
+    'history'
+  );
 });
