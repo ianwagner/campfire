@@ -69,3 +69,15 @@ exports.processUpload = functions.storage.object().onFinalize(async (object) => 
   });
   return null;
 });
+
+exports.signOutUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !context.auth.token.admin) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+  }
+  const uid = data.uid;
+  if (!uid) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing uid');
+  }
+  await admin.auth().revokeRefreshTokens(uid);
+  return { success: true };
+});
