@@ -1268,20 +1268,22 @@ const AdGroupDetail = () => {
         </div>
       )}
 
-      <button
-        onClick={() => setShowTable((p) => !p)}
-        className="btn-secondary px-2 py-0.5 flex items-center gap-1 my-4"
-      >
-        {showTable ? "Hide Table" : "Show All Ads"}
-      </button>
-      {savedRecipes.length > 0 && (
+      <div className="flex my-4">
         <button
-          onClick={() => setShowRecipesTable((p) => !p)}
-          className="btn-secondary px-2 py-0.5 flex items-center gap-1 my-4 ml-2"
+          onClick={() => setShowTable((p) => !p)}
+          className="btn-secondary px-2 py-0.5 flex items-center gap-1"
         >
-          {showRecipesTable ? "Hide Recipes" : "Show All Recipes"}
+          {showTable ? "Hide Table" : "Show All Ads"}
         </button>
-      )}
+        {savedRecipes.length > 0 && (
+          <button
+            onClick={() => setShowRecipesTable((p) => !p)}
+            className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+          >
+            {showRecipesTable ? "Hide Recipes" : "Show Brief"}
+          </button>
+        )}
+      </div>
 
       {showRecipesTable && savedRecipes.length > 0 && (
         <div className="my-4">
