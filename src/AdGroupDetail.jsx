@@ -561,13 +561,39 @@ const AdGroupDetail = () => {
       await updateDoc(doc(db, "adGroups", id, "assets", assetId), {
         status,
       });
-      if (status === "ready") {
-        const asset = assets.find((a) => a.id === assetId);
-        if (asset?.parentAdId) {
-          await updateDoc(doc(db, "adGroups", id, "assets", asset.parentAdId), {
-            status: "archived",
-          });
-        }
+      const asset = assets.find((a) => a.id === assetId);
+      if (status === "ready" && asset?.parentAdId) {
+        await updateDoc(doc(db, "adGroups", id, "assets", asset.parentAdId), {
+          status: "archived",
+        });
+      }
+
+      if (asset) {
+        const info = parseAdFilename(asset.filename || "");
+        const recipeCode = info.recipeCode || "unknown";
+        const userName =
+          auth.currentUser?.displayName ||
+          auth.currentUser?.uid ||
+          "unknown";
+        await addDoc(
+          collection(db, "adGroups", id, "assets", assetId, "history"),
+          {
+            status,
+            updatedBy: auth.currentUser?.uid || null,
+            updatedAt: serverTimestamp(),
+          },
+        );
+        await setDoc(
+          doc(db, "recipes", recipeCode),
+          {
+            history: arrayUnion({
+              timestamp: Date.now(),
+              status,
+              user: userName,
+            }),
+          },
+          { merge: true },
+        );
       }
     } catch (err) {
       console.error("Failed to update asset status", err);
