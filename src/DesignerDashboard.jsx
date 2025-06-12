@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import parseAdFilename from './utils/parseAdFilename';
 import {
   collection,
   getDocs,
@@ -65,15 +64,10 @@ const DesignerDashboard = () => {
             let recipeCount = data.recipeCount;
             if (recipeCount === undefined) {
               try {
-                const assetSnap = await getDocs(
-                  collection(db, 'adGroups', d.id, 'assets')
+                const recipesSnap = await getDocs(
+                  collection(db, 'adGroups', d.id, 'recipes')
                 );
-                const set = new Set();
-                assetSnap.docs.forEach((adDoc) => {
-                  const info = parseAdFilename(adDoc.data().filename || '');
-                  if (info.recipeCode) set.add(info.recipeCode);
-                });
-                recipeCount = set.size;
+                recipeCount = recipesSnap.size;
               } catch (err) {
                 console.error('Failed to load recipes', err);
                 recipeCount = 0;
