@@ -51,6 +51,45 @@ The generation feature uses OpenAI's ChatGPT API. Provide your API key via the
 `VITE_OPENAI_API_KEY` environment variable so the preview can send requests to
 the language model.
 
+## Data Model
+
+The configuration for recipe generation is stored in two collections:
+
+- `componentTypes` – defines the available component fields.
+- `componentInstances` – stores values for those components.
+
+### Component Type
+
+```json
+{
+  "label": "Audience",
+  "key": "audience",
+  "selectionMode": "dropdown",
+  "attributes": [
+    { "label": "Age Range", "key": "age", "inputType": "text" }
+  ]
+}
+```
+
+### Component Instance
+
+Each instance may optionally include a `relationships` object. The first
+relationship is `brandCode` which links the instance to an existing brand code
+from the Brands tab.
+
+```json
+{
+  "componentKey": "audience",
+  "name": "Young Adults",
+  "values": {
+    "age": "18-25"
+  },
+  "relationships": {
+    "brandCode": "BR1"
+  }
+}
+```
+
 
 ## Firestore Rules
 
