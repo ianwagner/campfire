@@ -225,7 +225,7 @@
     background-color: var(--table-row-alt-bg);
     position: relative;
   }
-  .designer-selected {
+  .ad-table tbody tr.designer-selected {
     background-color: var(--accent-color-10);
   }
   .asset-row {
