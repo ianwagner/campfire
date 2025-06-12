@@ -8,6 +8,8 @@ Recipes are assembled from values that users provide through a form. Inputs can 
 
 Each component is comprised of one or more **attributes** which define the fields in the form (text, number, textarea or image). Components can also have named **instances**. An instance stores values for all of the component's attributes—for example the `audience` component could have an instance called "young adults" that provides the age range and interests. When a recipe is generated the selected instances are substituted into the GPT prompt.
 
+Instances may also include a `relationships` object. This links the instance to other records. The first supported relationship is `brandCode`, referencing a brand code from the Brands tab. Use it when an instance only applies to a particular brand.
+
 Components also define a `selectionMode` that controls how an instance is chosen when generating a recipe:
 
 - **`random`** – one instance is randomly selected for each recipe.
