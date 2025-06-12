@@ -128,6 +128,7 @@ const AdGroupDetail = () => {
             copy: docData.copy || "",
             assets: docData.assets || [],
             type: docData.type || "",
+            selected: docData.selected || false,
           };
         });
         setRecipesMeta(data);
@@ -242,6 +243,7 @@ const AdGroupDetail = () => {
       copy: recipesMeta[id].copy || "",
       assets: recipesMeta[id].assets || [],
       type: recipesMeta[id].type || "",
+      selected: recipesMeta[id].selected || false,
     }));
   }, [recipesMeta]);
 
@@ -542,7 +544,7 @@ const AdGroupDetail = () => {
         const docRef = doc(db, "adGroups", id, "recipes", String(r.recipeNo));
         batch.set(
           docRef,
-          { components: r.components, copy: r.copy, assets: r.assets || [], type: r.type || "" },
+          { components: r.components, copy: r.copy, assets: r.assets || [], type: r.type || "", selected: r.selected || false },
           { merge: true },
         );
       });
@@ -569,6 +571,20 @@ const AdGroupDetail = () => {
       }
     } catch (err) {
       console.error("Failed to update asset status", err);
+    }
+  };
+
+  const toggleRecipeSelect = async (recipeNo, selected) => {
+    try {
+      await updateDoc(doc(db, "adGroups", id, "recipes", String(recipeNo)), {
+        selected,
+      });
+      setRecipesMeta((prev) => ({
+        ...prev,
+        [recipeNo]: { ...(prev[recipeNo] || {}), selected },
+      }));
+    } catch (err) {
+      console.error("Failed to update selection", err);
     }
   };
 
@@ -1273,6 +1289,7 @@ const AdGroupDetail = () => {
             onSave={saveRecipes}
             initialResults={savedRecipes}
             showOnlyResults
+            onSelectChange={toggleRecipeSelect}
           />
         </div>
       )}
