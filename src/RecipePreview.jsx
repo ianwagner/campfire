@@ -728,7 +728,7 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       </form>
       )}
       {results.length > 0 && (
-        <div className="table-container mt-6">
+        <div className="overflow-x-auto table-container mt-6">
           <div className="relative inline-block mb-2">
             <button
               type="button"
