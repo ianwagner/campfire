@@ -14,7 +14,6 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
-  runTransaction,
   increment,
   setDoc,
   arrayUnion,
@@ -143,26 +142,24 @@ useEffect(() => {
 
   const lockGroup = async () => {
     try {
-      await runTransaction(db, async (tx) => {
-        const ref = doc(db, 'adGroups', groupId);
-        const snap = await tx.get(ref);
-        const data = snap.data() || {};
-        const lockedBySomeoneElse =
-          data.status === 'locked' &&
-          ((data.lockedByUid && data.lockedByUid !== user.uid) ||
-            (!data.lockedByUid && data.lockedBy && data.lockedBy !== reviewerName));
-        if (lockedBySomeoneElse) {
-          setGroupStatus(data.status);
-          setLockedBy(data.lockedBy);
-          setLockedByUid(data.lockedByUid || null);
-          throw new Error('locked');
-        }
-        tx.update(ref, {
-          status: 'locked',
-          lockedBy: reviewerName,
-          lockedByUid: user.uid,
-          reviewProgress: currentIndex,
-        });
+      const ref = doc(db, 'adGroups', groupId);
+      const snap = await getDoc(ref);
+      const data = snap.exists() ? snap.data() : {};
+      const lockedBySomeoneElse =
+        data.status === 'locked' &&
+        ((data.lockedByUid && data.lockedByUid !== user.uid) ||
+          (!data.lockedByUid && data.lockedBy && data.lockedBy !== reviewerName));
+      if (lockedBySomeoneElse) {
+        setGroupStatus(data.status);
+        setLockedBy(data.lockedBy);
+        setLockedByUid(data.lockedByUid || null);
+        throw new Error('locked');
+      }
+      await updateDoc(ref, {
+        status: 'locked',
+        lockedBy: reviewerName,
+        lockedByUid: user.uid,
+        reviewProgress: currentIndex,
       });
       setGroupStatus('locked');
       setLockedBy(reviewerName);
