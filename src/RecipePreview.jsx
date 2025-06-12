@@ -37,6 +37,8 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
   const [instances, setInstances] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [brandCode, setBrandCode] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [formData, setFormData] = useState({});
   const [selectedInstances, setSelectedInstances] = useState({});
@@ -65,6 +67,8 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
         );
         const instSnap = await getDocs(collection(db, 'componentInstances'));
         setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const brandSnap = await getDocs(collection(db, 'brands'));
+        setBrands(brandSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error('Failed to load data', err);
       }
@@ -77,6 +81,9 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       setResults(initialResults.map((r, idx) => ({ recipeNo: idx + 1, ...r })));
       if (initialResults[0]?.type) {
         setSelectedType(initialResults[0].type);
+      }
+      if (initialResults[0]?.brandCode) {
+        setBrandCode(initialResults[0].brandCode);
       }
     }
   }, [initialResults]);
@@ -139,10 +146,11 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
     debugLog('Asset CSV loaded', { headers, rowsSample: rows.slice(0, 2), map });
   };
 
-  const generateOnce = async (baseValues = null) => {
+  const generateOnce = async (baseValues = null, brand = brandCode) => {
     if (!currentType) return null;
 
     let prompt = currentType.gptPrompt || '';
+    prompt = prompt.replace(/{{brandCode}}/g, brand);
     const mergedForm = baseValues ? { ...baseValues } : { ...formData };
     const componentsData = {};
     orderedComponents.forEach((c) => {
@@ -154,7 +162,11 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
           prompt = prompt.replace(regex, val);
         });
       } else {
-        const instOptions = instances.filter((i) => i.componentKey === c.key);
+        const instOptions = instances.filter(
+          (i) =>
+            i.componentKey === c.key &&
+            (!i.relationships?.brandCode || i.relationships.brandCode === brand)
+        );
         let selectedInst = null;
         if (c.selectionMode === 'random') {
           if (instOptions.length > 0) {
@@ -383,6 +395,7 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       const text = data.choices?.[0]?.message?.content?.trim() || 'No result';
       const result = {
         type: selectedType,
+        brandCode: brand,
         components: componentsData,
         copy: text,
         assets: selectedAssets.slice(),
@@ -402,7 +415,7 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
     const times = Number(generateCount) || 1;
     for (let i = 0; i < times; i++) {
       // eslint-disable-next-line no-await-in-loop
-      const res = await generateOnce();
+      const res = await generateOnce(null, brandCode);
       if (res) {
         setResults((prev) => [
           ...prev,
@@ -417,7 +430,10 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
     const arr = [...results];
     arr[rowIdx].components[`${compKey}.${attrKey}`] = val;
     const matched = instances.find(
-      (inst) => inst.componentKey === compKey && inst.values?.[attrKey] === val
+      (inst) =>
+        inst.componentKey === compKey &&
+        inst.values?.[attrKey] === val &&
+        (!inst.relationships?.brandCode || inst.relationships.brandCode === brandCode)
     );
     if (matched) {
       Object.entries(matched.values || {}).forEach(([k, v]) => {
@@ -464,7 +480,10 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
 
   const handleChangeInstance = (compKey, instId) => {
     const inst = instances.find(
-      (i) => i.componentKey === compKey && i.id === instId,
+      (i) =>
+        i.componentKey === compKey &&
+        i.id === instId &&
+        (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
     );
     if (!inst) return;
     const updated = { ...editComponents };
@@ -476,7 +495,7 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
 
   const handleRefreshRow = async (idx) => {
     const base = results[idx].components;
-    const refreshed = await generateOnce(base);
+    const refreshed = await generateOnce(base, brandCode);
     if (refreshed) {
       const arr = [...results];
       arr[idx] = { ...arr[idx], ...refreshed };
@@ -546,6 +565,21 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
             <option value="">Select...</option>
             {types.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Brand</label>
+          <select
+            className="w-full p-2 border rounded"
+            value={brandCode}
+            onChange={(e) => setBrandCode(e.target.value)}
+          >
+            <option value="">None</option>
+            {brands.map((b) => (
+              <option key={b.id} value={b.code}>
+                {b.code} {b.name ? `- ${b.name}` : ''}
+              </option>
             ))}
           </select>
         </div>
@@ -628,14 +662,26 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
         {currentType && (
           <div className="space-y-4">
             {orderedComponents.map((c) => {
-              const instOptions = instances.filter((i) => i.componentKey === c.key);
+              const instOptions = instances.filter(
+                (i) =>
+                  i.componentKey === c.key &&
+                  (!i.relationships?.brandCode || i.relationships.brandCode === brandCode)
+              );
               const defaultList = instOptions.map((i) => i.id);
               const current = selectedInstances[c.key] !== undefined
                 ? selectedInstances[c.key]
                 : c.selectionMode === 'checklist'
                 ? defaultList
                 : '';
-              const inst = c.selectionMode === 'dropdown' ? instances.find((i) => i.id === current) : null;
+              const inst =
+                c.selectionMode === 'dropdown'
+                  ? instances.find(
+                      (i) =>
+                        i.id === current &&
+                        i.componentKey === c.key &&
+                        (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
+                    )
+                  : null;
               return (
                 <div key={c.id} className="space-y-2">
                   <label className="block text-sm mb-1">{c.label}</label>
@@ -799,7 +845,11 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                             >
                               <option value="">Select...</option>
                               {instances
-                                .filter((i) => i.componentKey === col.key.split('.')[0])
+                                .filter(
+                                  (i) =>
+                                    i.componentKey === col.key.split('.')[0] &&
+                                    (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
+                                )
                                 .map((inst) => (
                                   <option key={inst.id} value={inst.id}>
                                     {inst.name}
