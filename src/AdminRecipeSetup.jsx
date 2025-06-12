@@ -652,8 +652,6 @@ const InstancesView = () => {
   const [component, setComponent] = useState('');
   const [name, setName] = useState('');
   const [values, setValues] = useState({});
-  const [brandCode, setBrandCode] = useState('');
-  const [brandCodes, setBrandCodes] = useState([]);
   const [editId, setEditId] = useState(null);
   const [csvFile, setCsvFile] = useState(null);
   const [csvColumns, setCsvColumns] = useState([]);
@@ -672,8 +670,6 @@ const InstancesView = () => {
         );
         const instSnap = await getDocs(collection(db, 'componentInstances'));
         setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        const brandSnap = await getDocs(collection(db, 'brands'));
-        setBrandCodes(brandSnap.docs.map((d) => d.data().code));
       } catch (err) {
         console.error('Failed to load component instances', err);
       }
@@ -687,7 +683,6 @@ const InstancesView = () => {
     setComponent('');
     setName('');
     setValues({});
-    setBrandCode('');
   };
 
   const handleSave = async (e) => {
@@ -695,26 +690,16 @@ const InstancesView = () => {
     const comp = components.find((c) => c.id === component);
     if (!comp) return;
     try {
-      const relationships = brandCode.trim()
-        ? { brandCode: brandCode.trim() }
-        : undefined;
       if (editId) {
         await updateDoc(doc(db, 'componentInstances', editId), {
           componentKey: comp.key,
           name: name.trim(),
           values,
-          ...(relationships ? { relationships } : {}),
         });
         setInstances((i) =>
           i.map((ins) =>
             ins.id === editId
-              ? {
-                  ...ins,
-                  componentKey: comp.key,
-                  name: name.trim(),
-                  values,
-                  ...(relationships ? { relationships } : {}),
-                }
+              ? { ...ins, componentKey: comp.key, name: name.trim(), values }
               : ins
           )
         );
@@ -723,17 +708,10 @@ const InstancesView = () => {
           componentKey: comp.key,
           name: name.trim(),
           values,
-          ...(relationships ? { relationships } : {}),
         });
         setInstances((i) => [
           ...i,
-          {
-            id: docRef.id,
-            componentKey: comp.key,
-            name: name.trim(),
-            values,
-            ...(relationships ? { relationships } : {}),
-          },
+          { id: docRef.id, componentKey: comp.key, name: name.trim(), values },
         ]);
       }
       resetForm();
@@ -748,7 +726,6 @@ const InstancesView = () => {
     setComponent(comp ? comp.id : '');
     setName(inst.name);
     setValues(inst.values || {});
-    setBrandCode(inst.relationships?.brandCode || '');
   };
 
   const handleDelete = async (id) => {
@@ -831,7 +808,6 @@ const InstancesView = () => {
               <tr>
                 <th>Name</th>
                 <th>Component</th>
-                <th>Brand</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -840,7 +816,6 @@ const InstancesView = () => {
                 <tr key={i.id}>
                   <td>{i.name}</td>
                   <td>{i.componentKey}</td>
-                  <td>{i.relationships?.brandCode || ''}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center">
                       <button
@@ -877,21 +852,6 @@ const InstancesView = () => {
             <option value="">Select...</option>
             {components.map((c) => (
               <option key={c.id} value={c.id}>{c.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Brand Code</label>
-          <select
-            className="w-full p-2 border rounded"
-            value={brandCode}
-            onChange={(e) => setBrandCode(e.target.value)}
-          >
-            <option value="">None</option>
-            {brandCodes.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
             ))}
           </select>
         </div>
