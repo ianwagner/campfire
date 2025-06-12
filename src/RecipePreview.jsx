@@ -33,7 +33,7 @@ const similarityScore = (a, b) => {
   return Math.round((intersection / union.size) * 9) + 1;
 };
 
-const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults = false }) => {
+const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults = false, onSelectChange = null }) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
   const [instances, setInstances] = useState([]);
@@ -438,19 +438,40 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
     ]);
   };
 
+  const [editing, setEditing] = useState(null);
+  const [editCopy, setEditCopy] = useState('');
+  const [editComponents, setEditComponents] = useState({});
+
   const handleEditRow = (idx) => {
-    const newCopy = window.prompt('Edit copy', results[idx].copy);
-    if (newCopy === null) return;
-    const arr = [...results];
-    arr[idx].copy = newCopy;
-    setResults(arr);
+    if (editing === idx) {
+      const arr = [...results];
+      arr[idx].copy = editCopy;
+      arr[idx].components = { ...editComponents };
+      setResults(arr);
+      setEditing(null);
+    } else {
+      setEditing(idx);
+      setEditCopy(results[idx].copy);
+      setEditComponents({ ...results[idx].components });
+    }
   };
 
   const handleDeleteRow = (idx) => {
-    if (!window.confirm('Delete this recipe?')) return;
     setResults((prev) =>
       prev.filter((_, i) => i !== idx).map((r, i2) => ({ ...r, recipeNo: i2 + 1 }))
     );
+  };
+
+  const handleChangeInstance = (compKey, instId) => {
+    const inst = instances.find(
+      (i) => i.componentKey === compKey && i.id === instId,
+    );
+    if (!inst) return;
+    const updated = { ...editComponents };
+    Object.entries(inst.values || {}).forEach(([k, v]) => {
+      updated[`${compKey}.${k}`] = v;
+    });
+    setEditComponents(updated);
   };
 
   const handleRefreshRow = async (idx) => {
@@ -736,13 +757,15 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                 ))}
               </div>
             )}
-            <button
-              type="button"
-              className="btn-secondary ml-2"
-              onClick={addRecipeRow}
-            >
-              Add Recipe Row
-            </button>
+            {userRole !== 'designer' && (
+              <button
+                type="button"
+                className="btn-secondary ml-2"
+                onClick={addRecipeRow}
+              >
+                Add Recipe Row
+              </button>
+            )}
           </div>
           <table className="ad-table min-w-full table-auto text-sm">
             <thead>
@@ -761,13 +784,30 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
             </thead>
             <tbody>
               {results.map((r, idx) => (
-                <tr key={idx}>
+                <tr key={idx} className={userRole === 'designer' && r.selected ? 'designer-selected' : ''}>
                   <td className="text-center align-middle font-bold">{r.recipeNo}</td>
                   {columnMeta.map(
                     (col) =>
                       visibleColumns[col.key] && (
                         <td key={col.key} className="align-middle">
-                          {r.components[col.key]}
+                          {editing === idx && col.key.includes('.') ? (
+                            <select
+                              className="p-1 border rounded mb-1"
+                              onChange={(e) =>
+                                handleChangeInstance(col.key.split('.')[0], e.target.value)
+                              }
+                            >
+                              <option value="">Select...</option>
+                              {instances
+                                .filter((i) => i.componentKey === col.key.split('.')[0])
+                                .map((inst) => (
+                                  <option key={inst.id} value={inst.id}>
+                                    {inst.name}
+                                  </option>
+                                ))}
+                            </select>
+                          ) : null}
+                          {editing === idx ? editComponents[col.key] : r.components[col.key]}
                         </td>
                       )
                   )}
@@ -801,12 +841,20 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                     </div>
                   </td>
                   <td className="whitespace-pre-wrap break-words w-80 align-middle copy-cell">
-                    <div
-                      className="min-h-[1.5rem] w-full"
-                      onClick={() => navigator.clipboard.writeText(r.copy)}
-                    >
-                      {r.copy}
-                    </div>
+                    {editing === idx ? (
+                      <textarea
+                        className="w-full p-1 border rounded"
+                        value={editCopy}
+                        onChange={(e) => setEditCopy(e.target.value)}
+                      />
+                    ) : (
+                      <div
+                        className="min-h-[1.5rem] w-full"
+                        onClick={() => navigator.clipboard.writeText(r.copy)}
+                      >
+                        {r.copy}
+                      </div>
+                    )}
                   </td>
                   <td className="text-center align-middle">
                     {isAdminOrAgency ? (
@@ -814,10 +862,10 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                         <button
                           type="button"
                           onClick={() => handleEditRow(idx)}
-                          aria-label="Edit"
+                          aria-label={editing === idx ? 'Save' : 'Edit'}
                           className="btn-secondary px-1.5 py-0.5 text-xs"
                         >
-                          <FiEdit2 />
+                          {editing === idx ? <FiCheckSquare /> : <FiEdit2 />}
                         </button>
                         <button
                           type="button"
@@ -843,6 +891,9 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                           const arr = [...results];
                           arr[idx].selected = !arr[idx].selected;
                           setResults(arr);
+                          if (onSelectChange) {
+                            onSelectChange(arr[idx].recipeNo, arr[idx].selected);
+                          }
                         }}
                         aria-label="Toggle Select"
                       >
@@ -856,7 +907,7 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
           </table>
         </div>
       )}
-      {results.length > 0 && (
+      {results.length > 0 && userRole !== 'designer' && (
         <div className="mt-4 text-right">
           <button
             type="button"
