@@ -649,9 +649,11 @@ const ComponentsView = () => {
 const InstancesView = () => {
   const [components, setComponents] = useState([]);
   const [instances, setInstances] = useState([]);
+  const [brands, setBrands] = useState([]);
   const [component, setComponent] = useState('');
   const [name, setName] = useState('');
   const [values, setValues] = useState({});
+  const [brandCode, setBrandCode] = useState('');
   const [editId, setEditId] = useState(null);
   const [csvFile, setCsvFile] = useState(null);
   const [csvColumns, setCsvColumns] = useState([]);
@@ -665,11 +667,17 @@ const InstancesView = () => {
         setComponents(
           compSnap.docs.map((d) => {
             const data = d.data();
-            return { id: d.id, ...data, selectionMode: data.selectionMode || 'dropdown' };
+            return {
+              id: d.id,
+              ...data,
+              selectionMode: data.selectionMode || 'dropdown',
+            };
           })
         );
         const instSnap = await getDocs(collection(db, 'componentInstances'));
         setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const brandSnap = await getDocs(collection(db, 'brands'));
+        setBrands(brandSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error('Failed to load component instances', err);
       }
@@ -683,6 +691,7 @@ const InstancesView = () => {
     setComponent('');
     setName('');
     setValues({});
+    setBrandCode('');
   };
 
   const handleSave = async (e) => {
@@ -695,11 +704,18 @@ const InstancesView = () => {
           componentKey: comp.key,
           name: name.trim(),
           values,
+          relationships: brandCode ? { brandCode } : {},
         });
         setInstances((i) =>
           i.map((ins) =>
             ins.id === editId
-              ? { ...ins, componentKey: comp.key, name: name.trim(), values }
+              ? {
+                  ...ins,
+                  componentKey: comp.key,
+                  name: name.trim(),
+                  values,
+                  relationships: brandCode ? { brandCode } : {},
+                }
               : ins
           )
         );
@@ -708,10 +724,17 @@ const InstancesView = () => {
           componentKey: comp.key,
           name: name.trim(),
           values,
+          relationships: brandCode ? { brandCode } : {},
         });
         setInstances((i) => [
           ...i,
-          { id: docRef.id, componentKey: comp.key, name: name.trim(), values },
+          {
+            id: docRef.id,
+            componentKey: comp.key,
+            name: name.trim(),
+            values,
+            relationships: brandCode ? { brandCode } : {},
+          },
         ]);
       }
       resetForm();
@@ -726,6 +749,7 @@ const InstancesView = () => {
     setComponent(comp ? comp.id : '');
     setName(inst.name);
     setValues(inst.values || {});
+    setBrandCode(inst.relationships?.brandCode || '');
   };
 
   const handleDelete = async (id) => {
@@ -779,10 +803,17 @@ const InstancesView = () => {
           componentKey: comp.key,
           name: instName,
           values: vals,
+          relationships: brandCode ? { brandCode } : {},
         });
         setInstances((i) => [
           ...i,
-          { id: docRef.id, componentKey: comp.key, name: instName, values: vals },
+          {
+            id: docRef.id,
+            componentKey: comp.key,
+            name: instName,
+            values: vals,
+            relationships: brandCode ? { brandCode } : {},
+          },
         ]);
       } catch (err) {
         console.error('Failed to save instance from CSV', err);
@@ -808,6 +839,7 @@ const InstancesView = () => {
               <tr>
                 <th>Name</th>
                 <th>Component</th>
+                <th>Brand</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -816,6 +848,7 @@ const InstancesView = () => {
                 <tr key={i.id}>
                   <td>{i.name}</td>
                   <td>{i.componentKey}</td>
+                  <td>{i.relationships?.brandCode || ''}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center">
                       <button
@@ -852,6 +885,21 @@ const InstancesView = () => {
             <option value="">Select...</option>
             {components.map((c) => (
               <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Brand</label>
+          <select
+            className="w-full p-2 border rounded"
+            value={brandCode}
+            onChange={(e) => setBrandCode(e.target.value)}
+          >
+            <option value="">None</option>
+            {brands.map((b) => (
+              <option key={b.id} value={b.code}>
+                {b.code} {b.name ? `- ${b.name}` : ''}
+              </option>
             ))}
           </select>
         </div>
