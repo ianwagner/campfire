@@ -34,6 +34,19 @@ const similarityScore = (a, b) => {
   return Math.round((intersection / union.size) * 9) + 1;
 };
 
+const normalizeAssetType = (t) => {
+  if (!t) return '';
+  const type = t.toString().trim().toLowerCase();
+  if (!type) return '';
+  if (['still', 'image', 'static', 'img', 'picture', 'photo'].includes(type)) {
+    return 'image';
+  }
+  if (['motion', 'video', 'animated', 'gif'].includes(type)) {
+    return 'video';
+  }
+  return type;
+};
+
 const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults = false, onSelectChange = null }) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
@@ -248,10 +261,10 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       let bestScore = 0;
       let bestRows = [];
       const rows = typeFilter && assetMap.assetType?.header
-        ? assetRows.filter((r) =>
-            (r[assetMap.assetType.header] || '')
-              .toString()
-              .toLowerCase() === typeFilter.toLowerCase(),
+        ? assetRows.filter(
+            (r) =>
+              normalizeAssetType(r[assetMap.assetType.header]) ===
+              normalizeAssetType(typeFilter),
           )
         : assetRows;
       rows.forEach((row, idx) => {
@@ -310,9 +323,8 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       const rows = typeFilter && assetMap.assetType?.header
         ? assetRows.filter(
             (r) =>
-              (r[assetMap.assetType.header] || '')
-                .toString()
-                .toLowerCase() === typeFilter.toLowerCase(),
+              normalizeAssetType(r[assetMap.assetType.header]) ===
+              normalizeAssetType(typeFilter),
           )
         : assetRows;
       rows.forEach((row) => {
@@ -367,7 +379,8 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
           if (mainId) usageCopy[mainId] = (usageCopy[mainId] || 0) + 1;
           if (url) {
             const typeField = assetMap.assetType?.header || '';
-            const atype = typeField ? (mainMatch[typeField] || '').toLowerCase() : '';
+            const atypeRaw = typeField ? mainMatch[typeField] : '';
+            const atype = normalizeAssetType(atypeRaw);
             arr.push({ id: name, adUrl: url, assetType: atype });
           } else {
             arr.push({ needAsset: true });
@@ -389,7 +402,8 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
             if (assetId) usageCopy[assetId] = (usageCopy[assetId] || 0) + 1;
             if (url) {
               const typeField = assetMap.assetType?.header || '';
-              const atype = typeField ? (match[typeField] || '').toLowerCase() : '';
+              const atypeRaw = typeField ? match[typeField] : '';
+              const atype = normalizeAssetType(atypeRaw);
               arr.push({ id: name, adUrl: url, assetType: atype });
             } else {
               arr.push({ needAsset: true });
