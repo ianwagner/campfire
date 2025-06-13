@@ -302,6 +302,50 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       return chosen;
     };
 
+    const findRelatedAsset = (contextTags, mainId, usageMap, typeFilter = null) => {
+      if (!contextTags || contextTags.size === 0) return null;
+      let bestScore = 0;
+      let bestRows = [];
+      const rows = typeFilter && assetMap.assetType?.header
+        ? assetRows.filter(
+            (r) =>
+              (r[assetMap.assetType.header] || '')
+                .toString()
+                .toLowerCase() === typeFilter.toLowerCase(),
+          )
+        : assetRows;
+      rows.forEach((row) => {
+        const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
+        const rowId = row[idField] || row.imageUrl || row.imageName || '';
+        if (!rowId || rowId === mainId) return;
+        const ctxField = assetMap.context?.header || '';
+        const rowTags = new Set(parseTags(row[ctxField] || ''));
+        let score = 0;
+        contextTags.forEach((t) => {
+          if (rowTags.has(t)) score += 1;
+        });
+        if (score > bestScore) {
+          bestScore = score;
+          bestRows = [row];
+        } else if (score === bestScore) {
+          bestRows.push(row);
+        }
+      });
+      if (bestRows.length === 0) return null;
+      const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
+      let minUsage = Infinity;
+      bestRows.forEach((row) => {
+        const id = row[idField] || row.imageUrl || row.imageName || '';
+        const usage = usageMap[id] || 0;
+        if (usage < minUsage) minUsage = usage;
+      });
+      const lowUsageRows = bestRows.filter((row) => {
+        const id = row[idField] || row.imageUrl || row.imageName || '';
+        return (usageMap[id] || 0) === minUsage;
+      });
+      return lowUsageRows[Math.floor(Math.random() * lowUsageRows.length)];
+    };
+
     const parseTags = (str) => parseContextTags(str);
 
     const selectAssets = (count, typeFilter, usageCopy) => {
