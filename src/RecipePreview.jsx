@@ -688,9 +688,9 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                 <p className="text-xs">{assetRows.length} rows loaded</p>
               )}
             </div>
-            {assetHeaders.length > 0 && currentType.assetMatchFields?.length > 0 && (
+            {assetHeaders.length > 0 && (
               <div className="space-y-1">
-                {currentType.assetMatchFields.map((f) => (
+                {currentType.assetMatchFields?.map((f) => (
                   <div key={f} className="flex items-center gap-2">
                     <label className="text-xs w-28">{f}</label>
                     <select
@@ -740,6 +740,66 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                       setAssetMap({
                         ...assetMap,
                         context: { header: e.target.value },
+                      })
+                    }
+                  >
+                    <option value="">Ignore</option>
+                    {assetHeaders.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs w-28">imageUrl</label>
+                  <select
+                    className="p-1 border rounded flex-1"
+                    value={assetMap.imageUrl?.header || ''}
+                    onChange={(e) =>
+                      setAssetMap({
+                        ...assetMap,
+                        imageUrl: { header: e.target.value, score: 10 },
+                      })
+                    }
+                  >
+                    <option value="">Ignore</option>
+                    {assetHeaders.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs w-28">imageName</label>
+                  <select
+                    className="p-1 border rounded flex-1"
+                    value={assetMap.imageName?.header || ''}
+                    onChange={(e) =>
+                      setAssetMap({
+                        ...assetMap,
+                        imageName: { header: e.target.value, score: 10 },
+                      })
+                    }
+                  >
+                    <option value="">Ignore</option>
+                    {assetHeaders.map((h) => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs w-28">assetType</label>
+                  <select
+                    className="p-1 border rounded flex-1"
+                    value={assetMap.assetType?.header || ''}
+                    onChange={(e) =>
+                      setAssetMap({
+                        ...assetMap,
+                        assetType: { header: e.target.value },
                       })
                     }
                   >
