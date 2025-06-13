@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import {
   FiImage,
+  FiVideo,
   FiCheckSquare,
   FiSquare,
   FiEdit2,
@@ -365,7 +366,9 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
           context = mainMatch[contextField] || '';
           if (mainId) usageCopy[mainId] = (usageCopy[mainId] || 0) + 1;
           if (url) {
-            arr.push({ id: name, adUrl: url });
+            const typeField = assetMap.assetType?.header || '';
+            const atype = typeField ? (mainMatch[typeField] || '').toLowerCase() : '';
+            arr.push({ id: name, adUrl: url, assetType: atype });
           } else {
             arr.push({ needAsset: true });
           }
@@ -385,7 +388,9 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
             const assetId = match[idField] || match.imageUrl || match.imageName || '';
             if (assetId) usageCopy[assetId] = (usageCopy[assetId] || 0) + 1;
             if (url) {
-              arr.push({ id: name, adUrl: url });
+              const typeField = assetMap.assetType?.header || '';
+              const atype = typeField ? (match[typeField] || '').toLowerCase() : '';
+              arr.push({ id: name, adUrl: url, assetType: atype });
             } else {
               arr.push({ needAsset: true });
             }
@@ -554,9 +559,18 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                 href={a.adUrl || a.firebaseUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 text-xl bg-accent-10 text-accent rounded inline-flex items-center justify-center"
+                className={`p-2 text-xl rounded inline-flex items-center justify-center ${
+                  (a.assetType || '').toLowerCase() === 'video'
+                    ? ''
+                    : 'bg-accent-10 text-accent'
+                }`}
+                style={
+                  (a.assetType || '').toLowerCase() === 'video'
+                    ? { backgroundColor: 'rgba(0,17,255,0.1)', color: '#0011FF' }
+                    : {}
+                }
               >
-                <FiImage />
+                {(a.assetType || '').toLowerCase() === 'video' ? <FiVideo /> : <FiImage />}
               </a>
               <img
                 src={a.adUrl || a.firebaseUrl}
