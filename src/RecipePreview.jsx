@@ -613,16 +613,27 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       assetCols.forEach((c) => cols.push(c));
     } else if (initialResults && initialResults.length > 0) {
       const keys = Array.from(
-        new Set(
-          initialResults.flatMap((r) => Object.keys(r.components || {}))
-        )
+        new Set(initialResults.flatMap((r) => Object.keys(r.components || {})))
       );
       keys.forEach((k) => {
         cols.push({ key: k, label: k });
       });
     }
+
+    if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
+      const order = currentType.defaultColumns;
+      cols.sort((a, b) => {
+        const ai = order.indexOf(a.key);
+        const bi = order.indexOf(b.key);
+        if (ai === -1 && bi === -1) return 0;
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
+    }
+
     return cols;
-  }, [orderedComponents, writeFields, initialResults]);
+  }, [orderedComponents, writeFields, initialResults, currentType]);
 
   useEffect(() => {
     const defaults = {};
@@ -908,7 +919,6 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                       <th key={col.key}>{col.label}</th>
                     )
                 )}
-                <th>Assets</th>
                 <th className="w-80">Copy</th>
                 <th className="text-center">{isAdminOrAgency ? 'Actions' : ''}</th>
               </tr>
@@ -952,9 +962,6 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                         </td>
                       )
                   )}
-                  <td className="text-center align-middle">
-                    {renderAssetList(r.assets || [])}
-                  </td>
                   <td className="whitespace-pre-wrap break-words w-80 align-middle copy-cell">
                     {editing === idx ? (
                       <textarea
