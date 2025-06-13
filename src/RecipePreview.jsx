@@ -451,7 +451,7 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
   const addRecipeRow = () => {
     const blank = {};
     columnMeta.forEach((c) => {
-      blank[c.key] = '';
+      blank[c.key] = c.key.endsWith('.assets') ? [] : '';
     });
     setResults((prev) => [
       ...prev,
@@ -498,6 +498,36 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
     setEditComponents(updated);
   };
 
+  const renderAssetList = (list = []) => (
+    <div className="flex justify-center gap-1">
+      {list && list.length > 0 ? (
+        list.map((a, i) =>
+          a.needAsset ? (
+            <span key={`na-${i}`} className="text-red-500 text-xs">Need asset</span>
+          ) : (
+            <span key={a.id} className="relative inline-block group">
+              <a
+                href={a.adUrl || a.firebaseUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 text-xl bg-accent-10 text-accent rounded inline-flex items-center justify-center"
+              >
+                <FiImage />
+              </a>
+              <img
+                src={a.adUrl || a.firebaseUrl}
+                alt="preview"
+                className="hidden group-hover:block absolute left-[-8rem] top-1/2 -translate-y-1/2 w-32 border shadow-lg z-10"
+              />
+            </span>
+          )
+        )
+      ) : (
+        '-'
+      )}
+    </div>
+  );
+
   const handleRefreshRow = async (idx) => {
     const base = results[idx].components;
     const refreshed = await generateOnce(base, brandCode);
@@ -523,15 +553,20 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
   const writeFields = currentType?.writeInFields || [];
   const columnMeta = useMemo(() => {
     const cols = [];
+    const assetCols = [];
     if (orderedComponents.length > 0) {
       orderedComponents.forEach((c) => {
         c.attributes?.forEach((a) => {
           cols.push({ key: `${c.key}.${a.key}`, label: `${c.label} - ${a.label}` });
+          if (a.key === 'assetNo' || a.key === 'assetCount') {
+            assetCols.push({ key: `${c.key}.assets`, label: `${c.label} Assets` });
+          }
         });
       });
       writeFields.forEach((f) => {
         cols.push({ key: f.key, label: f.label });
       });
+      assetCols.forEach((c) => cols.push(c));
     } else if (initialResults && initialResults.length > 0) {
       const keys = Array.from(
         new Set(
@@ -553,7 +588,8 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       });
     } else {
       columnMeta.forEach((c) => {
-        defaults[c.key] = c.label.toLowerCase().includes('name');
+        const label = c.label.toLowerCase();
+        defaults[c.key] = label.includes('name') || label.includes('asset');
       });
     }
     setVisibleColumns(defaults);
@@ -841,59 +877,39 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                     (col) =>
                       visibleColumns[col.key] && (
                         <td key={col.key} className="align-middle">
-                          {editing === idx && col.key.includes('.') ? (
-                            <select
-                              className="p-1 border rounded mb-1"
-                              onChange={(e) =>
-                                handleChangeInstance(col.key.split('.')[0], e.target.value)
-                              }
-                            >
-                              <option value="">Select...</option>
-                              {instances
-                                .filter(
-                                  (i) =>
-                                    i.componentKey === col.key.split('.')[0] &&
-                                    (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
-                                )
-                                .map((inst) => (
-                                  <option key={inst.id} value={inst.id}>
-                                    {inst.name}
-                                  </option>
-                                ))}
-                            </select>
-                          ) : null}
-                          {editing === idx ? editComponents[col.key] : r.components[col.key]}
+                          {col.key.endsWith('.assets') ? (
+                            renderAssetList(r.components[col.key] || [])
+                          ) : (
+                            <>
+                              {editing === idx && col.key.includes('.') ? (
+                                <select
+                                  className="p-1 border rounded mb-1"
+                                  onChange={(e) =>
+                                    handleChangeInstance(col.key.split('.')[0], e.target.value)
+                                  }
+                                >
+                                  <option value="">Select...</option>
+                                  {instances
+                                    .filter(
+                                      (i) =>
+                                        i.componentKey === col.key.split('.')[0] &&
+                                        (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
+                                    )
+                                    .map((inst) => (
+                                      <option key={inst.id} value={inst.id}>
+                                        {inst.name}
+                                      </option>
+                                    ))}
+                                </select>
+                              ) : null}
+                              {editing === idx ? editComponents[col.key] : r.components[col.key]}
+                            </>
+                          )}
                         </td>
                       )
                   )}
                   <td className="text-center align-middle">
-                    <div className="flex justify-center gap-1">
-                      {r.assets && r.assets.length > 0 ? (
-                        r.assets.map((a, i) =>
-                          a.needAsset ? (
-                            <span key={`na-${i}`} className="text-red-500 text-xs">Need asset</span>
-                          ) : (
-                            <span key={a.id} className="relative inline-block group">
-                              <a
-                                href={a.adUrl || a.firebaseUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-2 text-xl bg-accent-10 text-accent rounded inline-flex items-center justify-center"
-                              >
-                                <FiImage />
-                              </a>
-                              <img
-                                src={a.adUrl || a.firebaseUrl}
-                                alt="preview"
-                                className="hidden group-hover:block absolute left-[-8rem] top-1/2 -translate-y-1/2 w-32 border shadow-lg z-10"
-                              />
-                            </span>
-                          )
-                        )
-                      ) : (
-                        '-'
-                      )}
-                    </div>
+                    {renderAssetList(r.assets || [])}
                   </td>
                   <td className="whitespace-pre-wrap break-words w-80 align-middle copy-cell">
                     {editing === idx ? (
