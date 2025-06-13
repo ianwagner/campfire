@@ -135,6 +135,10 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
     if (contextHeader) {
       map.context = { header: contextHeader };
     }
+    const typeHeader = headers.find((h) => /asset.?type/i.test(h) || /^type$/i.test(h));
+    if (typeHeader) {
+      map.assetType = { header: typeHeader };
+    }
     setAssetMap(map);
     const idField = map.imageName?.header || map.imageUrl?.header || '';
     const usage = {};
@@ -220,19 +224,36 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       prompt = prompt.replace(regex, val);
     });
 
-    const assetCount =
-      parseInt(componentsData['layout.assetNo'], 10) ||
-      parseInt(componentsData['layout.assetCount'], 10) ||
-      0;
+    const sectionCounts = {};
+    Object.entries(componentsData).forEach(([k, v]) => {
+      const m = k.match(/^(.+)\.(assetNo|assetCount)$/);
+      if (m) {
+        const n = parseInt(v, 10);
+        if (n > 0) sectionCounts[m[1]] = n;
+      }
+    });
+    const assetCount = Object.keys(sectionCounts).length > 0
+      ? Object.values(sectionCounts).reduce((a, b) => a + b, 0)
+      :
+        parseInt(componentsData['layout.assetNo'], 10) ||
+        parseInt(componentsData['layout.assetCount'], 10) ||
+        0;
 
-    const findBestAsset = (usageMap = assetUsage) => {
+    const findBestAsset = (usageMap = assetUsage, typeFilter = null) => {
       debugLog('Searching best asset', {
         rows: assetRows.length,
         map: assetMap,
       });
       let bestScore = 0;
       let bestRows = [];
-      assetRows.forEach((row, idx) => {
+      const rows = typeFilter && assetMap.assetType?.header
+        ? assetRows.filter((r) =>
+            (r[assetMap.assetType.header] || '')
+              .toString()
+              .toLowerCase() === typeFilter.toLowerCase(),
+          )
+        : assetRows;
+      rows.forEach((row, idx) => {
         let score = 0;
         const details = {};
         const matchFields = currentType.assetMatchFields || [];
@@ -283,88 +304,72 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
 
     const parseTags = (str) => parseContextTags(str);
 
+    const selectAssets = (count, typeFilter, usageCopy) => {
+      const arr = [];
+      let context = '';
+      if (count > 0) {
+        const mainMatch = findBestAsset(usageCopy, typeFilter);
+        let mainId = '';
+        if (mainMatch) {
+          const urlField = assetMap.imageUrl?.header || 'imageUrl';
+          const nameField = assetMap.imageName?.header || 'imageName';
+          const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
+          const contextField = assetMap.context?.header || '';
+          const url = mainMatch[urlField] || mainMatch.imageUrl || mainMatch.url || '';
+          const name = mainMatch[nameField] || mainMatch.imageName || mainMatch.filename || url;
+          mainId = mainMatch[idField] || mainMatch.imageUrl || mainMatch.imageName || '';
+          context = mainMatch[contextField] || '';
+          if (mainId) usageCopy[mainId] = (usageCopy[mainId] || 0) + 1;
+          if (url) {
+            arr.push({ id: name, adUrl: url });
+          } else {
+            arr.push({ needAsset: true });
+          }
+        } else {
+          arr.push({ needAsset: true });
+        }
+
+        const contextTags = new Set(parseTags(context));
+        for (let i = 1; i < count; i += 1) {
+          const match = findRelatedAsset(contextTags, mainId, usageCopy, typeFilter);
+          if (match) {
+            const urlField = assetMap.imageUrl?.header || 'imageUrl';
+            const nameField = assetMap.imageName?.header || 'imageName';
+            const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
+            const url = match[urlField] || match.imageUrl || match.url || '';
+            const name = match[nameField] || match.imageName || match.filename || url;
+            const assetId = match[idField] || match.imageUrl || match.imageName || '';
+            if (assetId) usageCopy[assetId] = (usageCopy[assetId] || 0) + 1;
+            if (url) {
+              arr.push({ id: name, adUrl: url });
+            } else {
+              arr.push({ needAsset: true });
+            }
+          } else {
+            arr.push({ needAsset: true });
+          }
+        }
+      }
+      while (arr.length < count) arr.push({ needAsset: true });
+      return { assets: arr, context };
+    };
+
     const selectedAssets = [];
     let csvContext = '';
     if (assetCount > 0) {
       const usageCopy = { ...assetUsage };
-      const mainMatch = findBestAsset(usageCopy);
-      let mainId = '';
-      if (mainMatch) {
-        const urlField = assetMap.imageUrl?.header || 'imageUrl';
-        const nameField = assetMap.imageName?.header || 'imageName';
-        const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
-        const contextField = assetMap.context?.header || '';
-        const url = mainMatch[urlField] || mainMatch.imageUrl || mainMatch.url || '';
-        const name = mainMatch[nameField] || mainMatch.imageName || mainMatch.filename || url;
-        mainId = mainMatch[idField] || mainMatch.imageUrl || mainMatch.imageName || '';
-        csvContext = mainMatch[contextField] || '';
-        if (mainId) {
-          usageCopy[mainId] = (usageCopy[mainId] || 0) + 1;
-        }
-        if (url) {
-          selectedAssets.push({ id: name, adUrl: url });
-        } else {
-          selectedAssets.push({ needAsset: true });
-        }
+      if (Object.keys(sectionCounts).length > 0) {
+        Object.entries(sectionCounts).forEach(([sec, cnt]) => {
+          const typeFilter = (componentsData[`${sec}.assetType`] || '').trim();
+          const { assets: arr, context } = selectAssets(cnt, typeFilter, usageCopy);
+          if (!csvContext) csvContext = context;
+          selectedAssets.push(...arr);
+          componentsData[`${sec}.assets`] = arr.slice();
+        });
       } else {
-        selectedAssets.push({ needAsset: true });
-      }
-
-      const contextTags = new Set(parseTags(csvContext));
-
-      const findRelatedAsset = (tagsSet, excludeId, usageMap) => {
-        if (!assetMap.context?.header) return null;
-        const contextField = assetMap.context.header;
-        const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
-        let best = [];
-        let bestOverlap = 0;
-        assetRows.forEach((row) => {
-          const id = row[idField] || row.imageUrl || row.imageName || '';
-          if (!id || id === excludeId) return;
-          const rowTags = parseTags(row[contextField] || '');
-          const overlap = rowTags.filter((t) => tagsSet.has(t)).length;
-          if (overlap === 0) return;
-          if (overlap > bestOverlap) {
-            bestOverlap = overlap;
-            best = [row];
-          } else if (overlap === bestOverlap) {
-            best.push(row);
-          }
-        });
-        if (best.length === 0) return null;
-        let minUsage = Infinity;
-        best.forEach((row) => {
-          const id = row[idField] || row.imageUrl || row.imageName || '';
-          const usage = usageMap[id] || 0;
-          if (usage < minUsage) minUsage = usage;
-        });
-        const lowUsage = best.filter((row) => {
-          const id = row[idField] || row.imageUrl || row.imageName || '';
-          return (usageMap[id] || 0) === minUsage;
-        });
-        return lowUsage[Math.floor(Math.random() * lowUsage.length)];
-      };
-
-      for (let i = 1; i < assetCount; i += 1) {
-        const match = findRelatedAsset(contextTags, mainId, usageCopy);
-        if (match) {
-          const urlField = assetMap.imageUrl?.header || 'imageUrl';
-          const nameField = assetMap.imageName?.header || 'imageName';
-          const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
-          const url = match[urlField] || match.imageUrl || match.url || '';
-          const name = match[nameField] || match.imageName || match.filename || url;
-          const assetId = match[idField] || match.imageUrl || match.imageName || '';
-          if (assetId) {
-            usageCopy[assetId] = (usageCopy[assetId] || 0) + 1;
-          }
-          if (url) {
-            selectedAssets.push({ id: name, adUrl: url });
-          } else {
-            selectedAssets.push({ needAsset: true });
-          }
-        } else {
-          selectedAssets.push({ needAsset: true });
-        }
+        const { assets: arr, context } = selectAssets(assetCount, null, usageCopy);
+        csvContext = context;
+        selectedAssets.push(...arr);
       }
       setAssetUsage(usageCopy);
     }
