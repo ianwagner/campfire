@@ -237,3 +237,12 @@ visits skip the prompt.
 ## Ad Recipe Setup
 
 The [Ad Recipe Setup](docs/ad-recipe-setup.md) tab lets administrators define the form shown to users when creating a recipe. Inputs can include free-text fields and predefined components. Submitted options are matched together to produce the final ad recipe. The result is added to a table with columns for component values, copy, and the recipe number (table columns: component values, copy, recipe number).
+
+### Asset Type Normalization
+
+When uploading an asset CSV you may include an optional `assetType` column. The
+application normalizes this value to simplify filtering. Values are matched
+case-insensitively and common synonyms map to a canonical type. The words
+`still`, `image`, `static`, `img`, `picture`, and `photo` are all stored as
+`image`. The terms `video`, `motion`, `animated`, and `gif` become `video`.
+Any unrecognized value is simply lowercased.
