@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import RecipePreview from './RecipePreview.jsx';
+import RecipePreview, { normalizeAssetType } from './RecipePreview.jsx';
 
 jest.mock('./firebase/config', () => ({ db: {} }));
 
@@ -58,5 +58,13 @@ test('filters component instances by selected brand', async () => {
   expect(optionTexts).toContain('Default');
   expect(optionTexts).toContain('Brand1');
   expect(optionTexts).not.toContain('Brand2');
+});
+
+test('normalizeAssetType detects keywords within value', () => {
+  expect(normalizeAssetType('still image')).toBe('image');
+  expect(normalizeAssetType('my_static_photo')).toBe('image');
+  expect(normalizeAssetType('Video Clip')).toBe('video');
+  expect(normalizeAssetType('animated gif file')).toBe('video');
+  expect(normalizeAssetType('unknown')).toBe('unknown');
 });
 

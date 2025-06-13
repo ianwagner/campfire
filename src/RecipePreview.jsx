@@ -34,14 +34,16 @@ const similarityScore = (a, b) => {
   return Math.round((intersection / union.size) * 9) + 1;
 };
 
-const normalizeAssetType = (t) => {
+export const normalizeAssetType = (t) => {
   if (!t) return '';
   const type = t.toString().trim().toLowerCase();
   if (!type) return '';
-  if (['still', 'image', 'static', 'img', 'picture', 'photo'].includes(type)) {
+  const imageKeywords = ['still', 'image', 'static', 'img', 'picture', 'photo'];
+  const videoKeywords = ['motion', 'video', 'animated', 'gif'];
+  if (imageKeywords.some((k) => type.includes(k))) {
     return 'image';
   }
-  if (['motion', 'video', 'animated', 'gif'].includes(type)) {
+  if (videoKeywords.some((k) => type.includes(k))) {
     return 'video';
   }
   return type;
