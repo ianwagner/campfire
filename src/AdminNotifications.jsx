@@ -6,6 +6,8 @@ import {
   query,
   orderBy,
   serverTimestamp,
+  deleteDoc,
+  doc,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 
@@ -16,6 +18,15 @@ const AdminNotifications = () => {
   const [triggerTime, setTriggerTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
+  const [rules, setRules] = useState([]);
+
+  const [trigger, setTrigger] = useState('');
+  const [conditions, setConditions] = useState([
+    { field: '', op: '==', value: '' },
+  ]);
+  const [recipientType, setRecipientType] = useState('userType');
+  const [recipient, setRecipient] = useState('');
+  const [message, setMessage] = useState('');
 
   const fetchHistory = async () => {
     try {
@@ -29,9 +40,55 @@ const AdminNotifications = () => {
     }
   };
 
+  const fetchRules = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'notificationRules'));
+      setRules(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error('Failed to load rules', err);
+      setRules([]);
+    }
+  };
+
   useEffect(() => {
     fetchHistory();
+    fetchRules();
   }, []);
+
+  const handleRuleSave = async (e) => {
+    e.preventDefault();
+    const cleanConditions = conditions.filter((c) => c.field && c.value);
+    try {
+      await addDoc(collection(db, 'notificationRules'), {
+        trigger,
+        conditions: cleanConditions,
+        action: {
+          type: 'sendNotification',
+          recipientType,
+          recipient,
+          message,
+        },
+        createdAt: serverTimestamp(),
+      });
+      setTrigger('');
+      setConditions([{ field: '', op: '==', value: '' }]);
+      setRecipient('');
+      setMessage('');
+      fetchRules();
+    } catch (err) {
+      console.error('Failed to save rule', err);
+    }
+  };
+
+  const handleDeleteRule = async (id) => {
+    if (!window.confirm('Delete this rule?')) return;
+    try {
+      await deleteDoc(doc(db, 'notificationRules', id));
+      setRules((r) => r.filter((rule) => rule.id !== id));
+    } catch (err) {
+      console.error('Failed to delete rule', err);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -60,6 +117,155 @@ const AdminNotifications = () => {
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Notifications</h1>
+
+      <h2 className="text-xl mb-2">Notification Rules</h2>
+      {rules.length === 0 ? (
+        <p>No rules found.</p>
+      ) : (
+        <div className="overflow-x-auto table-container mb-4">
+          <table className="ad-table min-w-max text-sm">
+            <thead>
+              <tr>
+                <th>Trigger</th>
+                <th>Conditions</th>
+                <th>Action</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.trigger}</td>
+                  <td>
+                    {Array.isArray(r.conditions) && r.conditions.length > 0
+                      ? r.conditions
+                          .map((c) => `${c.field} ${c.op} ${c.value}`)
+                          .join(' && ')
+                      : '-'}
+                  </td>
+                  <td>
+                    {r.action?.recipientType} {r.action?.recipient} :{' '}
+                    {r.action?.message}
+                  </td>
+                  <td className="text-center">
+                    <button
+                      onClick={() => handleDeleteRule(r.id)}
+                      className="underline btn-delete"
+                      type="button"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <form onSubmit={handleRuleSave} className="space-y-2 max-w-md mb-8">
+        <div>
+          <label className="block mb-1 text-sm font-medium">Trigger Event</label>
+          <select
+            value={trigger}
+            onChange={(e) => setTrigger(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          >
+            <option value="">Select trigger</option>
+            <option value="adGroupStatusUpdated">Ad Group Status Updated</option>
+            <option value="reviewSubmitted">Review Submitted</option>
+            <option value="accountCreated">Account Created</option>
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label className="block text-sm">Conditions</label>
+          {conditions.map((c, idx) => (
+            <div key={idx} className="flex gap-2 items-center">
+              <input
+                className="p-2 border rounded flex-1"
+                placeholder="Field"
+                value={c.field}
+                onChange={(e) => {
+                  const arr = [...conditions];
+                  arr[idx].field = e.target.value;
+                  setConditions(arr);
+                }}
+              />
+              <select
+                className="p-2 border rounded"
+                value={c.op}
+                onChange={(e) => {
+                  const arr = [...conditions];
+                  arr[idx].op = e.target.value;
+                  setConditions(arr);
+                }}
+              >
+                <option value="==">==</option>
+                <option value="!=">!=</option>
+                <option value="includes">includes</option>
+              </select>
+              <input
+                className="p-2 border rounded flex-1"
+                placeholder="Value"
+                value={c.value}
+                onChange={(e) => {
+                  const arr = [...conditions];
+                  arr[idx].value = e.target.value;
+                  setConditions(arr);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setConditions(conditions.filter((_, i) => i !== idx))}
+                className="btn-secondary px-2 py-0.5"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setConditions([...conditions, { field: '', op: '==', value: '' }])}
+            className="btn-secondary px-2 py-0.5"
+          >
+            Add Condition
+          </button>
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Recipient Type</label>
+          <select
+            value={recipientType}
+            onChange={(e) => setRecipientType(e.target.value)}
+            className="w-full p-2 border rounded"
+          >
+            <option value="userType">User Type</option>
+            <option value="userId">User ID</option>
+          </select>
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Recipient</label>
+          <input
+            type="text"
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Message</label>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+        <button type="submit" className="btn-primary">Save Rule</button>
+      </form>
+
+      <h2 className="text-xl mb-2">Manual Notification</h2>
       <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
         <div>
           <label className="block mb-1 text-sm font-medium">Audience</label>
