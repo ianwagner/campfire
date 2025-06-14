@@ -4,6 +4,14 @@
       "collectionGroup": "assets",
       "queryScope": "COLLECTION",
       "fields": [{ "fieldPath": "uploadedAt", "order": "ASCENDING" }]
+    },
+    {
+      "collectionGroup": "assets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "uploadedAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
