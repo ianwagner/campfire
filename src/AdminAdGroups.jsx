@@ -181,8 +181,8 @@ const AdminAdGroups = () => {
                 >
                   <div className="flex justify-between items-center px-3 py-2">
                     <div>
-                      <p className="font-bold text-[14px]">{g.name}</p>
-                      <p className="text-[12px]">{g.brandCode}</p>
+                      <p className="font-bold text-[14px] text-black dark:text-black mb-0">{g.name}</p>
+                      <p className="text-[12px] text-black dark:text-black mb-0">{g.brandCode}</p>
                     </div>
                     <StatusBadge status={g.status} className="ml-auto mr-2" />
                   </div>

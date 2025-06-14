@@ -1,10 +1,26 @@
-import React from 'react';
+import React from "react";
 
-const StatusBadge = ({ status, className = '' }) => {
+const knownStatuses = new Set([
+  "pending",
+  "ready",
+  "approved",
+  "rejected",
+  "edit_requested",
+  "archived",
+  "draft",
+  "reviewed",
+  "locked",
+  "mixed",
+]);
+
+const StatusBadge = ({ status, className = "" }) => {
   if (!status) return null;
-  const sanitized = String(status).replace(/\s+/g, '_').toLowerCase();
+  const sanitized = String(status).replace(/\s+/g, "_").toLowerCase();
+  const statusClass = knownStatuses.has(sanitized)
+    ? `status-${sanitized}`
+    : "status-default";
   return (
-    <span className={`status-badge status-${sanitized} ${className}`.trim()}>
+    <span className={`status-badge ${statusClass} ${className}`.trim()}>
       {status}
     </span>
   );
