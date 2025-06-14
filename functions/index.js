@@ -81,3 +81,33 @@ exports.signOutUser = functions.https.onCall(async (data, context) => {
   await admin.auth().revokeRefreshTokens(uid);
   return { success: true };
 });
+
+exports.sendNotification = functions.firestore
+  .document('notifications/{id}')
+  .onCreate(async (snap) => {
+    const data = snap.data();
+    if (!data) return null;
+    if (data.triggerTime && data.triggerTime.toDate) {
+      const ts = data.triggerTime.toDate();
+      if (ts > new Date()) {
+        return null;
+      }
+    }
+    const tokens = [];
+    const q = await db
+      .collection('users')
+      .where('audience', '==', data.audience)
+      .get();
+    q.forEach((doc) => {
+      const t = doc.get('fcmToken');
+      if (t) tokens.push(t);
+    });
+    if (tokens.length) {
+      await admin.messaging().sendEachForMulticast({
+        tokens,
+        notification: { title: data.title, body: data.body },
+      });
+    }
+    await snap.ref.update({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
+    return null;
+  });

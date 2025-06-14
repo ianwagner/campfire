@@ -34,6 +34,7 @@ import useAdminClaim from "./useAdminClaim";
 import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
 import AdminRecipeSetup from "./AdminRecipeSetup";
+import AdminNotifications from "./AdminNotifications";
 import ManageMfa from "./ManageMfa";
 import RequireMfa from "./RequireMfa";
 import SiteSettings from "./SiteSettings";
@@ -47,6 +48,7 @@ import useSiteSettings from "./useSiteSettings";
 import useAgencyTheme from "./useAgencyTheme";
 import FullScreenSpinner from "./FullScreenSpinner";
 import { DEFAULT_LOGO_URL } from "./constants";
+import useFcmToken from "./useFcmToken";
 
 const ThemeWatcher = () => {
   useTheme();
@@ -80,6 +82,7 @@ const App = () => {
   const { settings, loading: settingsLoading } = useSiteSettings(!agencyId);
   const { agency, loading: agencyLoading } = useAgencyTheme(agencyId);
   const [logoLoaded, setLogoLoaded] = React.useState(false);
+  useFcmToken(user);
 
   React.useEffect(() => {
     const url = agencyId ? agency.logoUrl || DEFAULT_LOGO_URL : settings.logoUrl || DEFAULT_LOGO_URL;
@@ -503,6 +506,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminRecipeSetup />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/notifications"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="admin"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <AdminNotifications />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
