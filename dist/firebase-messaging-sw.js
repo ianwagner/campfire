@@ -2,12 +2,12 @@ importScripts('https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging-compat.js');
 
 const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: ''
+  apiKey: 'AIzaSyDZ7h9KXAwIvzqFf9gMrMBOJvkMxSMjjRw',
+  authDomain: 'tak-campfire.firebaseapp.com',
+  projectId: 'tak-campfire',
+  storageBucket: 'tak-campfire-main',
+  messagingSenderId: '198332728326',
+  appId: '1:198332728326:web:d7eec9d577fb30fa916f87'
 };
 
 firebase.initializeApp(firebaseConfig);
