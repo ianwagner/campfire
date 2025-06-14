@@ -180,7 +180,7 @@ const AdminAdGroups = () => {
                   className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit"
                 >
                   <div className="flex items-start px-3 py-2">
-                    <div className="flex-1 min-w-0 mr-2">
+                    <div className="flex-1 min-w-0">
                       <p className="font-bold text-[14px] text-black dark:text-black mb-0 line-clamp-2">{g.name}</p>
                       <p className="text-[12px] text-black dark:text-black mb-0">{g.brandCode}</p>
                     </div>
