@@ -6,6 +6,7 @@ import AccountSettingsForm from './AccountSettingsForm';
 jest.mock('./firebase/config', () => ({
   auth: { currentUser: { uid: 'u1', displayName: 'Old', email: 'old@e.com' } },
   db: {},
+  messaging: {},
 }));
 
 const updateProfile = jest.fn();
@@ -24,6 +25,12 @@ jest.mock('firebase/auth', () => ({
 jest.mock('firebase/firestore', () => ({
   doc: (...args) => docMock(...args),
   updateDoc: (...args) => updateDoc(...args),
+  getDoc: jest.fn(async () => ({ exists: () => true, data: () => ({ notificationsEnabled: false }) })),
+}));
+
+jest.mock('firebase/messaging', () => ({
+  getToken: jest.fn(async () => 'tok'),
+  deleteToken: jest.fn(async () => {}),
 }));
 
 afterEach(() => {
