@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { updateProfile, updateEmail, updatePassword, multiFactor } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { doc, updateDoc } from 'firebase/firestore';
-import { auth, db } from './firebase/config';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { getToken, deleteToken } from 'firebase/messaging';
+import { auth, db, messaging } from './firebase/config';
 import useTheme from './useTheme';
 
 const AccountSettingsForm = () => {
@@ -12,9 +13,35 @@ const AccountSettingsForm = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const mfaEnrolled = user ? multiFactor(user).enrolledFactors.length > 0 : false;
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchPref = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'users', user.uid));
+        const enabled = !!snap.data()?.notificationsEnabled;
+        setNotificationsEnabled(enabled);
+        if (enabled && Notification.permission === 'granted') {
+          try {
+            const reg = await navigator.serviceWorker.ready;
+            await getToken(messaging, {
+              vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+              serviceWorkerRegistration: reg,
+            });
+          } catch (err) {
+            console.error('Failed to refresh FCM token', err);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load notification preference', err);
+      }
+    };
+    fetchPref();
+  }, [user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,6 +64,50 @@ const AccountSettingsForm = () => {
       setMessage('Account updated');
     } catch (err) {
       setError(err.message);
+    }
+  };
+
+  const handleNotificationToggle = async (e) => {
+    const checked = e.target.checked;
+    setNotificationsEnabled(checked);
+    if (!user) return;
+    if (checked) {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          setNotificationsEnabled(false);
+          return;
+        }
+        const registration = await navigator.serviceWorker.ready;
+        const token = await getToken(messaging, {
+          vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+          serviceWorkerRegistration: registration,
+        });
+        if (token) {
+          console.log('FCM token', token);
+          await updateDoc(doc(db, 'users', user.uid), {
+            notificationsEnabled: true,
+            fcmToken: token,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to enable notifications', err);
+        setNotificationsEnabled(false);
+      }
+    } else {
+      try {
+        await updateDoc(doc(db, 'users', user.uid), {
+          notificationsEnabled: false,
+          fcmToken: '',
+        });
+        try {
+          await deleteToken(messaging);
+        } catch (err) {
+          // ignore failure
+        }
+      } catch (err) {
+        console.error('Failed to disable notifications', err);
+      }
     }
   };
 
@@ -73,6 +144,18 @@ const AccountSettingsForm = () => {
             <option value="light">Light</option>
             <option value="dark">Dark</option>
           </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            id="enable-notifications"
+            type="checkbox"
+            checked={notificationsEnabled}
+            onChange={handleNotificationToggle}
+            className="w-4 h-4"
+          />
+          <label htmlFor="enable-notifications" className="text-sm font-medium">
+            Enable Notifications
+          </label>
         </div>
         <h2 className="text-xl mt-6">Login &amp; Security</h2>
         <div>

@@ -49,6 +49,7 @@ import useAgencyTheme from "./useAgencyTheme";
 import FullScreenSpinner from "./FullScreenSpinner";
 import { DEFAULT_LOGO_URL } from "./constants";
 import useFcmToken from "./useFcmToken";
+import useNotificationsEnabled from "./useNotificationsEnabled";
 
 const ThemeWatcher = () => {
   useTheme();
@@ -82,7 +83,8 @@ const App = () => {
   const { settings, loading: settingsLoading } = useSiteSettings(!agencyId);
   const { agency, loading: agencyLoading } = useAgencyTheme(agencyId);
   const [logoLoaded, setLogoLoaded] = React.useState(false);
-  useFcmToken(user);
+  const notificationsEnabled = useNotificationsEnabled(user?.uid);
+  useFcmToken(notificationsEnabled);
 
   React.useEffect(() => {
     const url = agencyId ? agency.logoUrl || DEFAULT_LOGO_URL : settings.logoUrl || DEFAULT_LOGO_URL;
