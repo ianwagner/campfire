@@ -179,12 +179,12 @@ const AdminAdGroups = () => {
                   to={`/ad-group/${g.id}`}
                   className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit"
                 >
-                  <div className="flex justify-between items-center px-3 py-2">
-                    <div>
-                      <p className="font-bold text-[14px] text-black dark:text-black mb-0">{g.name}</p>
+                  <div className="flex items-start px-3 py-2">
+                    <div className="flex-1 min-w-0 mr-2">
+                      <p className="font-bold text-[14px] text-black dark:text-black mb-0 line-clamp-2">{g.name}</p>
                       <p className="text-[12px] text-black dark:text-black mb-0">{g.brandCode}</p>
                     </div>
-                    <StatusBadge status={g.status} className="ml-auto mr-2" />
+                    <StatusBadge status={g.status} className="flex-shrink-0" />
                   </div>
                   <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2">
                     <div className="grid grid-cols-6 text-center text-sm">
