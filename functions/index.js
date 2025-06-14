@@ -84,11 +84,12 @@ exports.signOutUser = functions.https.onCall(async (data, context) => {
 
 async function dispatchNotification(ref, data) {
   const tokens = [];
-  const q = await db
+  // Fetch FCM tokens for users with matching role
+  const userQuery = await db
     .collection('users')
-    .where('audience', '==', data.audience)
+    .where('role', '==', data.audience)
     .get();
-  q.forEach((doc) => {
+  userQuery.forEach((doc) => {
     const t = doc.get('fcmToken');
     if (t) tokens.push(t);
   });
