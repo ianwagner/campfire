@@ -82,6 +82,25 @@ exports.signOutUser = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
+async function dispatchNotification(ref, data) {
+  const tokens = [];
+  const q = await db
+    .collection('users')
+    .where('audience', '==', data.audience)
+    .get();
+  q.forEach((doc) => {
+    const t = doc.get('fcmToken');
+    if (t) tokens.push(t);
+  });
+  if (tokens.length) {
+    await admin.messaging().sendEachForMulticast({
+      tokens,
+      notification: { title: data.title, body: data.body },
+    });
+  }
+  await ref.update({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
+}
+
 exports.sendNotification = functions.firestore
   .document('notifications/{id}')
   .onCreate(async (snap) => {
@@ -90,24 +109,32 @@ exports.sendNotification = functions.firestore
     if (data.triggerTime && data.triggerTime.toDate) {
       const ts = data.triggerTime.toDate();
       if (ts > new Date()) {
+        // Will be picked up by the scheduled processor
         return null;
       }
     }
-    const tokens = [];
-    const q = await db
-      .collection('users')
-      .where('audience', '==', data.audience)
+    await dispatchNotification(snap.ref, data);
+    return null;
+  });
+
+exports.processPendingNotifications = functions.pubsub
+  .schedule('every 1 minutes')
+  .onRun(async () => {
+    const snap = await db
+      .collection('notifications')
+      .where('sentAt', '==', null)
       .get();
-    q.forEach((doc) => {
-      const t = doc.get('fcmToken');
-      if (t) tokens.push(t);
-    });
-    if (tokens.length) {
-      await admin.messaging().sendEachForMulticast({
-        tokens,
-        notification: { title: data.title, body: data.body },
-      });
+    const now = new Date();
+    for (const docSnap of snap.docs) {
+      const data = docSnap.data();
+      if (
+        data.triggerTime &&
+        data.triggerTime.toDate &&
+        data.triggerTime.toDate() > now
+      ) {
+        continue;
+      }
+      await dispatchNotification(docSnap.ref, data);
     }
-    await snap.ref.update({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
     return null;
   });
