@@ -57,6 +57,13 @@ The `sync.js` utility also reads `GOOGLE_APPLICATION_CREDENTIALS` and
 those variables as well so `npm run sync` can locate your service account key and
 bucket.
 
+## Firebase Messaging Service Worker
+
+Running `npm run dev` or `npm run build` generates `public/firebase-messaging-sw.js`
+from `public/firebase-messaging-sw.js.template`. The Vite plugin replaces tokens
+like `__VITE_FIREBASE_API_KEY__` with the corresponding environment variables.
+Do not edit `firebase-messaging-sw.js` directly as it will be overwritten.
+
 ## Deploying to Vercel
 
 When hosting on Vercel the application runs entirely in the browser. Client-side

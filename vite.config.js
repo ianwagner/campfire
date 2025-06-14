@@ -7,7 +7,6 @@ function firebaseMessagingSwPlugin() {
   let config;
   return {
     name: 'firebase-messaging-sw',
-    apply: 'build',
     configResolved(resolved) {
       config = resolved;
     },
