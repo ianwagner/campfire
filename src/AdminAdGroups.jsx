@@ -177,7 +177,7 @@ const AdminAdGroups = () => {
                 <Link
                   key={g.id}
                   to={`/ad-group/${g.id}`}
-                  className="block border border-gray-300 dark:border-gray-600 rounded-lg"
+                  className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit"
                 >
                   <div className="flex justify-between items-center px-3 py-2">
                     <div>
