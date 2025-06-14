@@ -295,8 +295,8 @@
     color: var(--approve-color);
   }
   .status-in_review {
-    background-color: var(--table-row-alt-bg);
-    color: white;
+    background-color: var(--accent-color-10);
+    color: var(--accent-color);
   }
   .status-review_pending {
     background-color: var(--pending-color-10);
@@ -326,6 +326,10 @@
     background-color: var(--approve-color-10);
     color: var(--approve-color);
   }
+  .status-select.status-reviewed {
+    background-color: var(--approve-color-10);
+    color: var(--approve-color);
+  }
   .status-select.status-rejected {
     background-color: var(--reject-color-10);
     color: var(--reject-color);
@@ -333,6 +337,14 @@
   .status-select.status-edit_requested {
     background-color: var(--edit-color-10);
     color: var(--edit-color);
+  }
+  .status-select.status-in_review {
+    background-color: var(--accent-color-10);
+    color: var(--accent-color);
+  }
+  .status-select.status-review_pending {
+    background-color: var(--pending-color-10);
+    color: var(--pending-color);
   }
   .status-select.status-archived {
     background-color: var(--table-row-alt-bg);
