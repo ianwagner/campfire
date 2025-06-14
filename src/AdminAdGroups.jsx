@@ -4,7 +4,6 @@ import {
   FiEye,
   FiCheckCircle,
   FiTrash,
-  FiClock,
   FiLink,
   FiThumbsUp,
   FiThumbsDown,
@@ -13,6 +12,7 @@ import {
   FiGrid,
   FiArchive,
   FiRotateCcw,
+  FiZap,
 } from 'react-icons/fi';
 import { collection, getDocs, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
@@ -23,6 +23,7 @@ import useUserRole from './useUserRole';
 import parseAdFilename from './utils/parseAdFilename';
 import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
+import StatusBadge from './components/StatusBadge.jsx';
 
 const AdminAdGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -62,26 +63,33 @@ const AdminAdGroups = () => {
           snap.docs.map(async (d) => {
             const data = d.data();
             let recipeCount = data.recipeCount;
-            if (recipeCount === undefined) {
-              try {
-                const assetSnap = await getDocs(
-                  collection(db, 'adGroups', d.id, 'assets')
-                );
-                const set = new Set();
-                assetSnap.docs.forEach((adDoc) => {
-                  const info = parseAdFilename(adDoc.data().filename || '');
+            let assetCount = 0;
+            let readyCount = 0;
+            const set = new Set();
+            try {
+              const assetSnap = await getDocs(
+                collection(db, 'adGroups', d.id, 'assets')
+              );
+              assetCount = assetSnap.docs.length;
+              assetSnap.docs.forEach((adDoc) => {
+                const adData = adDoc.data();
+                if (adData.status === 'ready') readyCount += 1;
+                if (recipeCount === undefined) {
+                  const info = parseAdFilename(adData.filename || '');
                   if (info.recipeCode) set.add(info.recipeCode);
-                });
-                recipeCount = set.size;
-              } catch (err) {
-                console.error('Failed to load recipes', err);
-                recipeCount = 0;
-              }
+                }
+              });
+              if (recipeCount === undefined) recipeCount = set.size;
+            } catch (err) {
+              console.error('Failed to load assets', err);
+              if (recipeCount === undefined) recipeCount = 0;
             }
             return {
               id: d.id,
               ...data,
               recipeCount,
+              assetCount,
+              readyCount,
               counts: {
                 approved: data.approvedCount || 0,
                 rejected: data.rejectedCount || 0,
@@ -163,8 +171,54 @@ const AdminAdGroups = () => {
         ) : groups.length === 0 ? (
           <p>No ad groups found.</p>
         ) : (
-          <div className="overflow-x-auto table-container">
-          <table className="ad-table min-w-max text-[14px]">
+          <>
+            <div className="sm:hidden space-y-4">
+              {groups.map((g) => (
+                <Link
+                  key={g.id}
+                  to={`/ad-group/${g.id}`}
+                  className="block border border-gray-300 dark:border-gray-600 rounded-lg"
+                >
+                  <div className="flex justify-between items-center px-3 py-2">
+                    <div>
+                      <p className="font-bold text-[14px]">{g.name}</p>
+                      <p className="text-[12px]">{g.brandCode}</p>
+                    </div>
+                    <StatusBadge status={g.status} className="ml-auto mr-2" />
+                  </div>
+                  <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2">
+                    <div className="grid grid-cols-6 text-center text-sm">
+                      <div className="flex items-center justify-center gap-1 text-gray-600">
+                        <FiZap />
+                        <span>{g.recipeCount}</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-1 text-gray-600">
+                        <FiGrid />
+                        <span>{g.assetCount}</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-1 text-accent">
+                        <FiCheckCircle />
+                        <span>{g.readyCount}</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-1 text-approve">
+                        <FiThumbsUp />
+                        <span>{g.counts.approved}</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-1 text-reject">
+                        <FiThumbsDown />
+                        <span>{g.counts.rejected}</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-1 text-edit">
+                        <FiEdit />
+                        <span>{g.counts.edit}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <div className="overflow-x-auto table-container hidden sm:block">
+            <table className="ad-table min-w-max text-[14px]">
             <thead>
               <tr>
                 <th>Group Name</th>
@@ -265,8 +319,9 @@ const AdminAdGroups = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
-          </div>
+            </table>
+            </div>
+          </>
         )}
       </div>
 
