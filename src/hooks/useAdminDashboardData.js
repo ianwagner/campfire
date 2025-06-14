@@ -4,6 +4,7 @@ import {
   query,
   where,
   getDocs,
+  getCountFromServer,
   Timestamp,
   getDoc,
   doc,
@@ -38,7 +39,29 @@ export default function useAdminDashboardData(range) {
       const comments = {};
       const unresolved = {};
       const reviewTimes = {};
+
+      // Fetch overall counts by status first using Firestore's aggregation
+      // queries. Previously the hook downloaded every asset document just to
+      // compute these totals which was very slow and often returned 0 when the
+      // query exceeded Firestore's response size limits. Using getCountFromServer
+      // avoids that problem and significantly reduces the amount of data
+      // transferred.
       const statusTotals = { pending: 0, ready: 0, approved: 0, rejected: 0, edit_requested: 0 };
+
+      const statusList = ['pending', 'ready', 'approved', 'rejected', 'edit_requested'];
+      await Promise.all(
+        statusList.map(async (status) => {
+          const snap = await getCountFromServer(
+            query(
+              collectionGroup(db, 'assets'),
+              where('status', '==', status),
+              where('uploadedAt', '>=', s),
+              where('uploadedAt', '<', e)
+            )
+          );
+          statusTotals[status] = snap.data().count || 0;
+        })
+      );
       const groupCache = {};
       const userCache = {};
 
