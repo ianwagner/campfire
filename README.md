@@ -47,6 +47,8 @@ VITE_FIREBASE_VAPID_KEY=your-vapid-key
 VITE_OPENAI_API_KEY=your-openai-key
 ```
 
+`VITE_FIREBASE_VAPID_KEY` is required for Firebase Cloud Messaging, so be sure to provide this value.
+
 These values correspond to your Firebase project's configuration. Vite will load
 them automatically when running `npm run dev` or `npm run build`.
 
