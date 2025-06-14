@@ -8,8 +8,13 @@ const useFcmToken = (user) => {
     if (!user) return;
     const getAndStore = async () => {
       try {
+        const registration = await navigator.serviceWorker.register(
+          '/firebase-messaging-sw.js',
+          { type: 'module' }
+        );
         const token = await getToken(messaging, {
           vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+          serviceWorkerRegistration: registration,
         });
         if (token) {
           await setDoc(
