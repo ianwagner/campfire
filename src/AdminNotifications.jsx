@@ -11,6 +11,13 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 
+const FIELD_VALUES = {
+  status: ['pending', 'ready', 'approved', 'rejected', 'archived'],
+  role: ['client', 'designer', 'admin'],
+};
+
+const USER_TYPES = ['client', 'designer', 'admin'];
+
 const AdminNotifications = () => {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -27,6 +34,7 @@ const AdminNotifications = () => {
   const [recipientType, setRecipientType] = useState('userType');
   const [recipient, setRecipient] = useState('');
   const [message, setMessage] = useState('');
+  const [users, setUsers] = useState([]);
 
   const fetchHistory = async () => {
     try {
@@ -50,9 +58,25 @@ const AdminNotifications = () => {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'users'));
+      setUsers(
+        snap.docs.map((d) => ({
+          id: d.id,
+          label: d.data().fullName || d.data().email || d.id,
+        }))
+      );
+    } catch (err) {
+      console.error('Failed to load users', err);
+      setUsers([]);
+    }
+  };
+
   useEffect(() => {
     fetchHistory();
     fetchRules();
+    fetchUsers();
   }, []);
 
   const handleRuleSave = async (e) => {
@@ -182,16 +206,23 @@ const AdminNotifications = () => {
           <label className="block text-sm">Conditions</label>
           {conditions.map((c, idx) => (
             <div key={idx} className="flex gap-2 items-center">
-              <input
+              <select
                 className="p-2 border rounded flex-1"
-                placeholder="Field"
                 value={c.field}
                 onChange={(e) => {
                   const arr = [...conditions];
                   arr[idx].field = e.target.value;
+                  arr[idx].value = '';
                   setConditions(arr);
                 }}
-              />
+              >
+                <option value="">Field</option>
+                {Object.keys(FIELD_VALUES).map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
               <select
                 className="p-2 border rounded"
                 value={c.op}
@@ -205,16 +236,22 @@ const AdminNotifications = () => {
                 <option value="!=">!=</option>
                 <option value="includes">includes</option>
               </select>
-              <input
+              <select
                 className="p-2 border rounded flex-1"
-                placeholder="Value"
                 value={c.value}
                 onChange={(e) => {
                   const arr = [...conditions];
                   arr[idx].value = e.target.value;
                   setConditions(arr);
                 }}
-              />
+              >
+                <option value="">Value</option>
+                {(FIELD_VALUES[c.field] || []).map((val) => (
+                  <option key={val} value={val}>
+                    {val}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
                 onClick={() => setConditions(conditions.filter((_, i) => i !== idx))}
@@ -236,7 +273,10 @@ const AdminNotifications = () => {
           <label className="block mb-1 text-sm font-medium">Recipient Type</label>
           <select
             value={recipientType}
-            onChange={(e) => setRecipientType(e.target.value)}
+            onChange={(e) => {
+              setRecipientType(e.target.value);
+              setRecipient('');
+            }}
             className="w-full p-2 border rounded"
           >
             <option value="userType">User Type</option>
@@ -245,13 +285,35 @@ const AdminNotifications = () => {
         </div>
         <div>
           <label className="block mb-1 text-sm font-medium">Recipient</label>
-          <input
-            type="text"
-            value={recipient}
-            onChange={(e) => setRecipient(e.target.value)}
-            className="w-full p-2 border rounded"
-            required
-          />
+          {recipientType === 'userType' ? (
+            <select
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              className="w-full p-2 border rounded"
+              required
+            >
+              <option value="">Select recipient</option>
+              {USER_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <select
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              className="w-full p-2 border rounded"
+              required
+            >
+              <option value="">Select recipient</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.label}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div>
           <label className="block mb-1 text-sm font-medium">Message</label>
