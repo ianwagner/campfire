@@ -9,7 +9,8 @@ const knownStatuses = new Set([
   "archived",
   "draft",
   "reviewed",
-  "locked",
+  "in_review",
+  "review_pending",
   "mixed",
 ]);
 

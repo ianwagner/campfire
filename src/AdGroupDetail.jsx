@@ -373,9 +373,9 @@ const AdGroupDetail = () => {
   const toggleLock = async () => {
     if (!group) return;
     const newStatus =
-      group.status === "locked"
+      group.status === "in review"
         ? computeGroupStatus(assets, "pending")
-        : "locked";
+        : "in review";
     try {
       await updateDoc(doc(db, "adGroups", id), { status: newStatus });
       setGroup((p) => ({ ...p, status: newStatus }));
@@ -437,7 +437,7 @@ const AdGroupDetail = () => {
 
   const handleUpload = async (selectedFiles) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
-    if (group?.status !== "locked" && group?.status !== "pending") {
+    if (group?.status !== "in review" && group?.status !== "pending") {
       try {
         await updateDoc(doc(db, "adGroups", id), { status: "pending" });
         setGroup((p) => ({ ...p, status: "pending" }));
@@ -1207,8 +1207,8 @@ const AdGroupDetail = () => {
                   onClick={toggleLock}
                   className="btn-secondary px-2 py-0.5 flex items-center gap-1"
                 >
-                  {group.status === "locked" ? <FiUnlock /> : <FiLock />}
-                  {group.status === "locked" ? "Unlock" : "Lock"}
+                  {group.status === "in review" ? <FiUnlock /> : <FiLock />}
+                  {group.status === "in review" ? "Unlock" : "Lock"}
                 </button>
                 <button
                   onClick={resetGroup}
@@ -1223,7 +1223,7 @@ const AdGroupDetail = () => {
                     readyLoading ||
                     assets.length === 0 ||
                     group.status === "ready" ||
-                    group.status === "locked"
+                    group.status === "in review"
                   }
                   className="btn-primary px-2 py-0.5 flex items-center gap-1"
                 >

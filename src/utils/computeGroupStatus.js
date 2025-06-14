@@ -1,6 +1,6 @@
 export default function computeGroupStatus(assets = [], currentStatus = 'pending') {
   if (currentStatus === 'archived') return 'archived';
-  if (currentStatus === 'locked') return 'locked';
+  if (currentStatus === 'in review') return 'in review';
   if (assets.some((a) => a.status === 'ready')) return 'ready';
   if (
     assets.length > 0 &&
@@ -8,5 +8,6 @@ export default function computeGroupStatus(assets = [], currentStatus = 'pending
   ) {
     return 'reviewed';
   }
+  if (currentStatus === 'review pending') return 'review pending';
   return 'pending';
 }

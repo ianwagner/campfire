@@ -146,9 +146,9 @@ useEffect(() => {
       const snap = await getDoc(ref);
       const data = snap.exists() ? snap.data() : {};
       const lockedBySomeoneElse =
-        data.status === 'locked' &&
-        ((data.lockedByUid && data.lockedByUid !== user.uid) ||
-          (!data.lockedByUid && data.lockedBy && data.lockedBy !== reviewerName));
+        data.status === 'in review' &&
+          ((data.lockedByUid && data.lockedByUid !== user.uid) ||
+            (!data.lockedByUid && data.lockedBy && data.lockedBy !== reviewerName));
       if (lockedBySomeoneElse) {
         setGroupStatus(data.status);
         setLockedBy(data.lockedBy);
@@ -156,12 +156,12 @@ useEffect(() => {
         throw new Error('locked');
       }
       await updateDoc(ref, {
-        status: 'locked',
+        status: 'in review',
         lockedBy: reviewerName,
         lockedByUid: user.uid,
         reviewProgress: currentIndex,
       });
-      setGroupStatus('locked');
+      setGroupStatus('in review');
       setLockedBy(reviewerName);
       setLockedByUid(user.uid);
     } catch (err) {
@@ -176,7 +176,7 @@ useEffect(() => {
 
   const needsLock =
     !lockFailed &&
-    (groupStatus !== 'locked' ||
+    (groupStatus !== 'in review' ||
       (lockedByUid ? lockedByUid !== user.uid : lockedBy !== reviewerName));
   if (needsLock) {
     lockGroup();
@@ -186,7 +186,7 @@ useEffect(() => {
 
   useEffect(() => {
     if (!groupId || forceSplash) return;
-    if (groupStatus !== 'locked') return;
+    if (groupStatus !== 'in review') return;
     const isOwner = lockedByUid ? lockedByUid === user?.uid : lockedBy === reviewerName;
     if (!isOwner) return;
     updateDoc(doc(db, 'adGroups', groupId), {
@@ -219,7 +219,7 @@ useEffect(() => {
         }).catch(() => {});
       } else if (isOwner) {
         updateDoc(doc(db, 'adGroups', groupId), {
-          status: 'locked',
+          status: 'review pending',
           lockedBy: reviewerName,
           lockedByUid: user?.uid,
           reviewProgress: currentIndex,
@@ -912,7 +912,7 @@ useEffect(() => {
     );
   }
 
-if (groupStatus === 'locked' && lockedBy && (lockedByUid ? lockedByUid !== user?.uid : lockedBy !== reviewerName)) {
+if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== user?.uid : lockedBy !== reviewerName)) {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
       <h1 className="text-2xl font-bold">{lockedBy} is currently reviewing this group.</h1>
