@@ -35,7 +35,6 @@ import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
 import AdminRecipeSetup from "./AdminRecipeSetup";
 import AdminNotifications from "./AdminNotifications";
-import AdminNotificationRules from "./AdminNotificationRules";
 import ManageMfa from "./ManageMfa";
 import RequireMfa from "./RequireMfa";
 import SiteSettings from "./SiteSettings";
@@ -523,22 +522,6 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminNotifications />
-                  </RoleGuard>
-                ) : (
-                  <Navigate to="/login" replace />
-                )
-              }
-            />
-            <Route
-              path="/admin/notification-rules"
-              element={
-                user ? (
-                  <RoleGuard
-                    requiredRole="admin"
-                    userRole={role} isAdmin={isAdmin}
-                    loading={roleLoading}
-                  >
-                    <AdminNotificationRules />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

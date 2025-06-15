@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useNotificationTemplate from './useNotificationTemplate';
+import AdminNotificationRules from './AdminNotificationRules';
 
 const AdminNotifications = () => {
   const [title, setTitle] = useState('');
@@ -17,6 +18,7 @@ const AdminNotifications = () => {
   const [triggerTime, setTriggerTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
+  const [tab, setTab] = useState('log');
 
   const { template, loading: templateLoading, saveTemplate } =
     useNotificationTemplate();
@@ -78,6 +80,24 @@ const AdminNotifications = () => {
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Notifications</h1>
+      <div className="flex gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => setTab('log')}
+          className={tab === 'log' ? 'btn-primary' : 'btn-secondary'}
+        >
+          Log
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('rules')}
+          className={tab === 'rules' ? 'btn-primary' : 'btn-secondary'}
+        >
+          Rules
+        </button>
+      </div>
+      {tab === 'log' && (
+        <>
       <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
         <div>
           <label className="block mb-1 text-sm font-medium">Audience</label>
@@ -183,19 +203,22 @@ const AdminNotifications = () => {
         <div className="border p-2 rounded text-sm">
           <strong>
             {templateTitle
-              .replace('{{brandCode}}', 'BR123')
-              .replace('{{status}}', 'approved')}
+              .replace('{{adGroup.brandCode}}', 'BR123')
+              .replace('{{adGroup.status}}', 'approved')}
           </strong>
           <p>
             {templateBody
-              .replace('{{brandCode}}', 'BR123')
-              .replace('{{status}}', 'approved')}
+              .replace('{{adGroup.brandCode}}', 'BR123')
+              .replace('{{adGroup.status}}', 'approved')}
           </p>
         </div>
         <button type="submit" className="btn-primary" disabled={templateLoading}>
           {templateLoading ? 'Saving...' : 'Save Template'}
         </button>
       </form>
+      </>
+      )}
+      {tab === 'rules' && <AdminNotificationRules />}
     </div>
   );
 };
