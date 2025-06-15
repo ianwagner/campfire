@@ -83,6 +83,9 @@ exports.signOutUser = functions.https.onCall(async (data, context) => {
 });
 
 async function dispatchNotification(ref, data) {
+  console.log('Dispatching notification for doc:', ref.id);
+  console.log('Notification data:', data);
+
   const tokens = [];
   // Fetch FCM tokens for users with matching role
   const userQuery = await db
@@ -93,20 +96,44 @@ async function dispatchNotification(ref, data) {
     const t = doc.get('fcmToken');
     if (t) tokens.push(t);
   });
+
+  console.log('Sending to tokens:', tokens);
+
   if (tokens.length) {
-    await admin.messaging().sendEachForMulticast({
-      tokens,
-      notification: { title: data.title, body: data.body },
-    });
+    try {
+      const res = await admin.messaging().sendEachForMulticast({
+        tokens,
+        notification: { title: data.title, body: data.body },
+      });
+      console.log(
+        `FCM result - success: ${res.successCount}, failure: ${res.failureCount}`
+      );
+      res.responses.forEach((r, idx) => {
+        if (!r.success) {
+          console.error(
+            `Error sending to token ${tokens[idx]}:`,
+            r.error
+          );
+        }
+      });
+    } catch (err) {
+      console.error('Error sending FCM message:', err);
+    }
   }
+
   await ref.update({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
 }
 
 exports.sendNotification = functions.firestore
   .document('notifications/{id}')
-  .onCreate(async (snap) => {
+  .onCreate(async (snap, context) => {
+    console.log('sendNotification triggered for document:', context.params.id);
     const data = snap.data();
-    if (!data) return null;
+    if (!data) {
+      console.log('No data found in notification document');
+      return null;
+    }
+    console.log('Notification doc data:', data);
     if (data.triggerTime && data.triggerTime.toDate) {
       const ts = data.triggerTime.toDate();
       if (ts > new Date()) {
