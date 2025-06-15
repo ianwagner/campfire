@@ -1,4 +1,4 @@
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const functions = require('firebase-functions');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const admin = require('firebase-admin');
@@ -139,5 +139,44 @@ if (data.sentAt) {
   }
 
   await snap.ref.update({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
+  return null;
+});
+
+exports.notifyAdGroupStatusChange = onDocumentUpdated('adGroups/{groupId}', async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+
+  if (!before || !after) return null;
+
+  const prevStatus = before.status;
+  const newStatus = after.status;
+
+  if (prevStatus === newStatus) {
+    return null;
+  }
+
+  const brandCode = after.brandCode;
+  const q = await db
+    .collection('users')
+    .where('audience', '==', 'agency')
+    .where('brandCodes', 'array-contains', brandCode)
+    .get();
+
+  const tokens = new Set();
+  q.forEach((doc) => {
+    const token = doc.get('fcmToken');
+    if (token) tokens.add(token);
+  });
+
+  const tokenArray = Array.from(tokens);
+  if (tokenArray.length) {
+    await admin.messaging().sendEachForMulticast({
+      tokens: tokenArray,
+      notification: { title: `${brandCode}'s ads are ${newStatus}` },
+    });
+  } else {
+    console.log('⚠️ No tokens found for agency users');
+  }
+
   return null;
 });
