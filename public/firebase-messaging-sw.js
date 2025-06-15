@@ -1,23 +1,20 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
-import { getMessaging, onBackgroundMessage } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging-sw.js';
+importScripts('https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging-compat.js');
 
 console.log('FCM service worker loading...');
 
-const firebaseConfig = {
+firebase.initializeApp({
   apiKey: 'AIzaSyDZ7h9KXAwIvzqFf9gMrMBOJvkMxSMjjRw',
   authDomain: 'tak-campfire.firebaseapp.com',
   projectId: 'tak-campfire',
   storageBucket: 'tak-campfire-main',
   messagingSenderId: '198332728326',
   appId: '1:198332728326:web:d7eec9d577fb30fa916f87'
-};
+});
 
-const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
+const messaging = firebase.messaging();
 
-console.log('Firebase messaging service worker initialized');
-
-onBackgroundMessage(messaging, (payload) => {
+messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message', payload);
 
   const notificationTitle = payload.notification?.title || 'Background Message';
