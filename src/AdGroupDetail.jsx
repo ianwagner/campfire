@@ -581,6 +581,14 @@ const AdGroupDetail = () => {
         );
       });
       await batch.commit();
+      if (group?.status === "pending") {
+        try {
+          await updateDoc(doc(db, "adGroups", id), { status: "briefed" });
+          setGroup((prev) => ({ ...prev, status: "briefed" }));
+        } catch (err) {
+          console.error("Failed to update group status", err);
+        }
+      }
       setShowRecipes(false);
       setShowRecipesTable(false);
     } catch (err) {

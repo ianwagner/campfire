@@ -266,6 +266,10 @@
     background-color: var(--pending-color-10);
     color: var(--pending-color);
   }
+  .status-briefed {
+    background-color: var(--pending-color-10);
+    color: var(--pending-color);
+  }
   .status-ready {
     background-color: var(--accent-color-10);
     color: var(--accent-color);
@@ -315,6 +319,10 @@
     @apply p-1 border rounded;
   }
   .status-select.status-pending {
+    background-color: var(--pending-color-10);
+    color: var(--pending-color);
+  }
+  .status-select.status-briefed {
     background-color: var(--pending-color-10);
     color: var(--pending-color);
   }
