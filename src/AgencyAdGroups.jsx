@@ -14,6 +14,7 @@ import useUserRole from './useUserRole';
 import deleteGroup from './utils/deleteGroup';
 import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
+import StatusBadge from './components/StatusBadge.jsx';
 
 const AgencyAdGroups = () => {
   const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
@@ -100,7 +101,7 @@ const AgencyAdGroups = () => {
                 <td>{g.name}</td>
                 <td>{g.brandCode}</td>
                 <td>
-                  <span className={`status-badge status-${g.status}`}>{g.status}</span>
+                  <StatusBadge status={g.status} />
                 </td>
                 <td className="text-center">
                   <div className="flex items-center justify-center">
