@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { FiEye, FiCheckCircle, FiTrash, FiClock, FiLink } from 'react-icons/fi';
+import {
+  FiEye,
+  FiCheckCircle,
+  FiTrash,
+  FiLink,
+  FiThumbsUp,
+  FiThumbsDown,
+  FiEdit,
+  FiGrid,
+  FiZap,
+} from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -13,6 +23,7 @@ import { auth, db } from './firebase/config';
 import useUserRole from './useUserRole';
 import deleteGroup from './utils/deleteGroup';
 import generatePassword from './utils/generatePassword';
+import parseAdFilename from './utils/parseAdFilename';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 
@@ -54,19 +65,65 @@ const AgencyAdGroups = () => {
 
   useEffect(() => {
     const fetchGroups = async () => {
-      if (!agencyId) { setGroups([]); setLoading(false); return; }
+      if (!agencyId) {
+        setGroups([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
-        const bSnap = await getDocs(query(collection(db, 'brands'), where('agencyId', '==', agencyId)));
+        const bSnap = await getDocs(
+          query(collection(db, 'brands'), where('agencyId', '==', agencyId))
+        );
         const codes = bSnap.docs.map((d) => d.data().code).filter(Boolean);
-        if (codes.length === 0) { setGroups([]); setLoading(false); return; }
+        if (codes.length === 0) {
+          setGroups([]);
+          setLoading(false);
+          return;
+        }
         const gSnap = await getDocs(
           query(collection(db, 'adGroups'), where('brandCode', 'in', codes))
         );
-        const list = gSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((g) => g.status !== 'archived');
-        setGroups(list);
+        const list = await Promise.all(
+          gSnap.docs.map(async (d) => {
+            const data = d.data();
+            let recipeCount = data.recipeCount;
+            let assetCount = 0;
+            let readyCount = 0;
+            const set = new Set();
+            try {
+              const assetSnap = await getDocs(
+                collection(db, 'adGroups', d.id, 'assets')
+              );
+              assetCount = assetSnap.docs.length;
+              assetSnap.docs.forEach((adDoc) => {
+                const adData = adDoc.data();
+                if (adData.status === 'ready') readyCount += 1;
+                if (recipeCount === undefined) {
+                  const info = parseAdFilename(adData.filename || '');
+                  if (info.recipeCode) set.add(info.recipeCode);
+                }
+              });
+              if (recipeCount === undefined) recipeCount = set.size;
+            } catch (err) {
+              console.error('Failed to load assets', err);
+              if (recipeCount === undefined) recipeCount = 0;
+            }
+            return {
+              id: d.id,
+              ...data,
+              recipeCount,
+              assetCount,
+              readyCount,
+              counts: {
+                approved: data.approvedCount || 0,
+                rejected: data.rejectedCount || 0,
+                edit: data.editCount || 0,
+              },
+            };
+          })
+        );
+        setGroups(list.filter((g) => g.status !== 'archived'));
       } catch (err) {
         console.error('Failed to fetch groups', err);
         setGroups([]);
@@ -88,9 +145,10 @@ const AgencyAdGroups = () => {
         <>
           <div className="sm:hidden space-y-4">
             {groups.map((g) => (
-              <div
+              <Link
                 key={g.id}
-                className="border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow"
+                to={`/ad-group/${g.id}`}
+                className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow"
               >
                 <div className="flex items-start px-3 py-2">
                   <div className="flex-1 min-w-0">
@@ -103,42 +161,35 @@ const AgencyAdGroups = () => {
                   </div>
                   <StatusBadge status={g.status} className="flex-shrink-0" />
                 </div>
-                <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
-                  <div className="flex flex-wrap justify-around gap-2">
-                    <Link
-                      to={`/ad-group/${g.id}`}
-                      className="flex items-center gap-1 text-gray-700 underline"
-                      aria-label="View Details"
-                    >
-                      <FiEye />
-                      <span>Details</span>
-                    </Link>
-                    <Link
-                      to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
-                      className="flex items-center gap-1 text-gray-700 underline"
-                      aria-label="Review"
-                    >
+                <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2">
+                  <div className="grid grid-cols-6 text-center text-sm">
+                    <div className="flex items-center justify-center gap-1 text-gray-600">
+                      <FiZap />
+                      <span>{g.recipeCount}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-1 text-gray-600">
+                      <FiGrid />
+                      <span>{g.assetCount}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-1 text-accent">
                       <FiCheckCircle />
-                      <span>Review</span>
-                    </Link>
-                    <button
-                      onClick={() => handleShare(g.id, agencyId)}
-                      className="flex items-center gap-1 text-gray-700 underline"
-                      aria-label="Share Link"
-                    >
-                      <FiLink />
-                      <span>Share</span>
-                    </button>
-                    <button
-                      onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                      className="flex items-center gap-1 underline btn-delete"
-                      aria-label="Delete"
-                    >
-                      <FiTrash />
-                    </button>
+                      <span>{g.readyCount}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-1 text-approve">
+                      <FiThumbsUp />
+                      <span>{g.counts.approved}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-1 text-reject">
+                      <FiThumbsDown />
+                      <span>{g.counts.rejected}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-1 text-edit">
+                      <FiEdit />
+                      <span>{g.counts.edit}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
           <div className="overflow-x-auto table-container hidden sm:block">
