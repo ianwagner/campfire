@@ -181,18 +181,18 @@ const AdminAdGroups = () => {
                 >
                   <div className="flex items-start px-3 py-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-[14px] text-black dark:text-black mb-0 line-clamp-2">{g.name}</p>
-                      <p className="text-[12px] text-black dark:text-black mb-0">{g.brandCode}</p>
+                      <p className="font-bold text-[14px] text-gray-900 dark:text-[var(--dark-text)] mb-0 line-clamp-2">{g.name}</p>
+                      <p className="text-[12px] text-gray-700 dark:text-gray-300 mb-0">{g.brandCode}</p>
                     </div>
                     <StatusBadge status={g.status} className="flex-shrink-0" />
                   </div>
                   <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2">
                     <div className="grid grid-cols-6 text-center text-sm">
-                      <div className="flex items-center justify-center gap-1 text-gray-600">
+                      <div className="flex items-center justify-center gap-1 text-gray-600 dark:text-gray-400">
                         <FiZap />
                         <span>{g.recipeCount}</span>
                       </div>
-                      <div className="flex items-center justify-center gap-1 text-gray-600">
+                      <div className="flex items-center justify-center gap-1 text-gray-600 dark:text-gray-400">
                         <FiGrid />
                         <span>{g.assetCount}</span>
                       </div>
@@ -239,7 +239,7 @@ const AdminAdGroups = () => {
                   <td>{g.brandCode}</td>
                   <td className="text-center">{g.recipeCount}</td>
                   <td className="text-center">
-                    <span className={`status-badge status-${g.status}`}>{g.status}</span>
+                    <StatusBadge status={g.status} />
                   </td>
                   <td className="text-center text-approve">{g.counts.approved}</td>
                   <td className="text-center text-reject">{g.counts.rejected}</td>
