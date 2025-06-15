@@ -8,7 +8,6 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
-import useNotificationTemplate from './useNotificationTemplate';
 
 const AdminNotifications = () => {
   const [title, setTitle] = useState('');
@@ -17,18 +16,6 @@ const AdminNotifications = () => {
   const [triggerTime, setTriggerTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
-
-  const { template, loading: templateLoading, saveTemplate } =
-    useNotificationTemplate();
-  const [templateTitle, setTemplateTitle] = useState('');
-  const [templateBody, setTemplateBody] = useState('');
-
-  useEffect(() => {
-    if (!templateLoading) {
-      setTemplateTitle(template.title || '');
-      setTemplateBody(template.body || '');
-    }
-  }, [template, templateLoading]);
 
   const fetchHistory = async () => {
     try {
@@ -68,11 +55,6 @@ const AdminNotifications = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleTemplateSave = async (e) => {
-    e.preventDefault();
-    await saveTemplate({ title: templateTitle, body: templateBody });
   };
 
   return (
@@ -160,42 +142,6 @@ const AdminNotifications = () => {
           </table>
         </div>
       )}
-
-      <h2 className="text-xl mt-8 mb-2">Status Update Template</h2>
-      <form onSubmit={handleTemplateSave} className="space-y-4 max-w-md">
-        <div>
-          <label className="block mb-1 text-sm font-medium">Title Template</label>
-          <input
-            type="text"
-            value={templateTitle}
-            onChange={(e) => setTemplateTitle(e.target.value)}
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Body Template</label>
-          <textarea
-            value={templateBody}
-            onChange={(e) => setTemplateBody(e.target.value)}
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <div className="border p-2 rounded text-sm">
-          <strong>
-            {templateTitle
-              .replace('{{brandCode}}', 'BR123')
-              .replace('{{status}}', 'approved')}
-          </strong>
-          <p>
-            {templateBody
-              .replace('{{brandCode}}', 'BR123')
-              .replace('{{status}}', 'approved')}
-          </p>
-        </div>
-        <button type="submit" className="btn-primary" disabled={templateLoading}>
-          {templateLoading ? 'Saving...' : 'Save Template'}
-        </button>
-      </form>
     </div>
   );
 };
