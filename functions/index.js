@@ -1,4 +1,4 @@
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const functions = require('firebase-functions');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const admin = require('firebase-admin');
@@ -139,5 +139,82 @@ if (data.sentAt) {
   }
 
   await snap.ref.update({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
+  return null;
+});
+
+function evaluateCondition(condition, context) {
+  const { field, operator, value } = condition;
+  const path = field.split('.');
+  let actual = context;
+  for (const p of path) {
+    if (actual && Object.prototype.hasOwnProperty.call(actual, p)) {
+      actual = actual[p];
+    } else {
+      actual = undefined;
+      break;
+    }
+  }
+  switch (operator) {
+    case '==':
+      return actual == value;
+    case '!=':
+      return actual != value;
+    case 'includes':
+      if (Array.isArray(actual)) return actual.includes(value);
+      if (typeof actual === 'string') return actual.includes(value);
+      return false;
+    default:
+      return false;
+  }
+}
+
+exports.applyNotificationRules = onDocumentUpdated('adGroups/{id}', async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+  if (!before || !after) return null;
+
+  if (before.status === after.status) return null;
+
+  const rulesSnap = await db
+    .collection('notificationRules')
+    .where('trigger', '==', 'adGroupStatusUpdated')
+    .get();
+
+  let user = {};
+  if (after.uploadedBy) {
+    const userSnap = await db.collection('users').doc(after.uploadedBy).get();
+    if (userSnap.exists) {
+      user = userSnap.data();
+    }
+  }
+
+  for (const docSnap of rulesSnap.docs) {
+    const rule = docSnap.data();
+    const conditions = Array.isArray(rule.conditions) ? rule.conditions : [];
+    const allMatch = conditions.every((c) =>
+      evaluateCondition(c, { adGroup: after, user })
+    );
+    if (!allMatch) continue;
+
+    const action = rule.action || {};
+    if (action.type !== 'sendNotification') continue;
+
+    const title = (action.title || '')
+      .replace('{{adGroup.status}}', after.status)
+      .replace('{{adGroup.brandCode}}', after.brandCode || '');
+    const body = (action.body || '')
+      .replace('{{adGroup.status}}', after.status)
+      .replace('{{adGroup.brandCode}}', after.brandCode || '');
+
+    await db.collection('notifications').add({
+      title,
+      body,
+      audience: action.recipientValue || '',
+      sendNow: true,
+      triggerTime: null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
   return null;
 });
