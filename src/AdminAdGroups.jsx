@@ -172,12 +172,12 @@ const AdminAdGroups = () => {
           <p>No ad groups found.</p>
         ) : (
           <>
-            <div className="sm:hidden space-y-4">
+              <div className="sm:hidden space-y-4">
               {groups.map((g) => (
                 <Link
                   key={g.id}
                   to={`/ad-group/${g.id}`}
-                  className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit"
+                  className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow"
                 >
                   <div className="flex items-start px-3 py-2">
                     <div className="flex-1 min-w-0">
