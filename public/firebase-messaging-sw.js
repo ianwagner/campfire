@@ -7,7 +7,7 @@ firebase.initializeApp({
   apiKey: 'AIzaSyDZ7h9KXAwIvzqFf9gMrMBOJvkMxSMjjRw',
   authDomain: 'tak-campfire.firebaseapp.com',
   projectId: 'tak-campfire',
-  storageBucket: "tak-campfire.firebasestorage.app",
+  storageBucket: 'tak-campfire-main',
   messagingSenderId: '198332728326',
   appId: '1:198332728326:web:d7eec9d577fb30fa916f87'
 });
