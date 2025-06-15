@@ -62,7 +62,9 @@ bucket.
 Running `npm run dev` or `npm run build` generates `public/firebase-messaging-sw.js`
 from `public/firebase-messaging-sw.js.template`. The Vite plugin replaces tokens
 like `__VITE_FIREBASE_API_KEY__` with the corresponding environment variables.
-Do not edit `firebase-messaging-sw.js` directly as it will be overwritten.
+The same service worker now handles Firebase messaging **and** offline caching, so
+no separate `sw.js` file is needed. Do not edit `firebase-messaging-sw.js`
+directly as it will be overwritten.
 
 ## Deploying to Vercel
 

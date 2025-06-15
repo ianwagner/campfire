@@ -40,10 +40,3 @@ if (import.meta.env.DEV) {
   });
 }
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      /* registration failed */
-    });
-  });
-}
