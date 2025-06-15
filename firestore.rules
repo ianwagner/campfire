@@ -37,6 +37,10 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    match /notificationRules/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     match /componentTypes/{docId} {
       allow read: if true;
       allow write: if isAdmin();
