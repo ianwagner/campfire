@@ -1,4 +1,6 @@
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const functions = require('firebase-functions');
+const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const admin = require('firebase-admin');
 const sharp = require('sharp');
 const os = require('os');
@@ -9,7 +11,8 @@ admin.initializeApp();
 const db = admin.firestore();
 
 
-exports.processUpload = functions.storage.object().onFinalize(async (object) => {
+exports.processUpload = onObjectFinalized(async (event) => {
+  const object = event.data;
   const { bucket, name, contentType } = object;
   if (!contentType || !contentType.startsWith('image/png')) {
     return null;
@@ -82,32 +85,54 @@ exports.signOutUser = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
-exports.sendNotification = functions.firestore
-  .document('notifications/{id}')
-  .onCreate(async (snap) => {
-    const data = snap.data();
-    if (!data) return null;
-    if (data.triggerTime && data.triggerTime.toDate) {
-      const ts = data.triggerTime.toDate();
-      if (ts > new Date()) {
-        return null;
-      }
-    }
-    const tokens = [];
-    const q = await db
-      .collection('users')
-      .where('audience', '==', data.audience)
-      .get();
-    q.forEach((doc) => {
-      const t = doc.get('fcmToken');
-      if (t) tokens.push(t);
-    });
-    if (tokens.length) {
-      await admin.messaging().sendEachForMulticast({
-        tokens,
-        notification: { title: data.title, body: data.body },
-      });
-    }
-    await snap.ref.update({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
+exports.sendNotification = onDocumentCreated('notifications/{id}', async (event) => {
+  console.log('⚡ sendNotification triggered');
+
+  const snap = event.data;
+  const data = snap.data();
+
+  if (!data) {
+    console.log('❌ No data found in Firestore snapshot');
     return null;
+  }
+
+  console.log('📨 Notification data:', data);
+
+  if (data.triggerTime && data.triggerTime.toDate) {
+    const ts = data.triggerTime.toDate();
+    if (ts > new Date()) {
+      console.log('⏳ Skipping, triggerTime is in the future:', ts);
+      return null;
+    }
+  }
+
+  const tokens = [];
+  const q = await db
+    .collection('users')
+    .where('audience', '==', data.audience)
+    .get();
+
+  console.log(`🔍 Found ${q.size} users for audience "${data.audience}"`);
+
+  q.forEach((doc) => {
+    const t = doc.get('fcmToken');
+    if (t) {
+      tokens.push(t);
+    }
   });
+
+  console.log('🎯 Tokens collected:', tokens.length);
+
+  if (tokens.length) {
+    await admin.messaging().sendEachForMulticast({
+      tokens,
+      notification: { title: data.title, body: data.body },
+    });
+    console.log('✅ Notification sent');
+  } else {
+    console.log('⚠️ No tokens found for this audience');
+  }
+
+  await snap.ref.update({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
+  return null;
+});
