@@ -18,9 +18,12 @@
         rel="stylesheet"
       />
     </noscript>
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#000000" />
-    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+      <link rel="manifest" href="/manifest.json" />
+      <meta name="theme-color" content="#ffffff" />
+      <link
+        rel="apple-touch-icon"
+        href="https://storage.googleapis.com/tak-campfire-main/Campfire/site-logo/SMOL.png"
+      />
     <script>
       document.documentElement.classList.add('loading');
       const params = new URLSearchParams(window.location.search);
@@ -42,9 +45,20 @@
         return localStorage.getItem('accentColor');
       })();
       const themePref = localStorage.getItem("theme") || "system";
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      const setThemeColor = (dark) => {
+        if (!themeMeta) return;
+        const bg = dark
+          ? getComputedStyle(document.documentElement).getPropertyValue('--dark-bg').trim() || '#0d1116'
+          : '#ffffff';
+        themeMeta.setAttribute('content', bg);
+      };
       const applyTheme = (p) => {
-        const dark = p === "dark" || (p === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        const dark =
+          p === "dark" ||
+          (p === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
         document.documentElement.classList.toggle("dark", dark);
+        setThemeColor(dark);
       };
       applyTheme(themePref);
       if (accent) {

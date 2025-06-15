@@ -30,10 +30,16 @@ const useTheme = () => {
   const [resolved, setResolved] = useState(() => getResolved(getPreference()));
 
   useEffect(() => {
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    const updateMeta = (mode) => {
+      if (!themeMeta) return;
+      themeMeta.setAttribute('content', mode === 'dark' ? '#0d1116' : '#ffffff');
+    };
     const apply = (pref) => {
       const mode = getResolved(pref);
       setResolved(mode);
       document.documentElement.classList.toggle('dark', mode === 'dark');
+      updateMeta(mode);
     };
 
     apply(preference);
