@@ -10,7 +10,7 @@ const AdminAccounts = () => {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ role: 'client', brandCodes: [] });
+  const [form, setForm] = useState({ role: 'client', brandCodes: [], audience: '' });
   const [brands, setBrands] = useState([]);
   const [viewAcct, setViewAcct] = useState(null);
 
@@ -48,6 +48,7 @@ const AdminAccounts = () => {
     setForm({
       role: acct.role || 'client',
       brandCodes: Array.isArray(acct.brandCodes) ? acct.brandCodes : [],
+      audience: acct.audience || '',
     });
   };
 
@@ -60,10 +61,13 @@ const AdminAccounts = () => {
       await updateDoc(doc(db, 'users', id), {
         role: form.role,
         brandCodes: codes,
+        audience: form.audience,
       });
       setAccounts((prev) =>
         prev.map((a) =>
-          a.id === id ? { ...a, role: form.role, brandCodes: codes } : a
+          a.id === id
+            ? { ...a, role: form.role, brandCodes: codes, audience: form.audience }
+            : a
         )
       );
       setEditId(null);
@@ -109,6 +113,7 @@ const AdminAccounts = () => {
               <tr>
                 <th>Name</th>
                 <th>Role</th>
+                <th>Audience</th>
                 <th>Brand Codes</th>
                 <th>Actions</th>
               </tr>
@@ -132,6 +137,20 @@ const AdminAccounts = () => {
                       </select>
                     ) : (
                       acct.role || ''
+                    )}
+                  </td>
+                  <td>
+                    {editId === acct.id ? (
+                      <input
+                        type="text"
+                        value={form.audience}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, audience: e.target.value }))
+                        }
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      acct.audience || ''
                     )}
                   </td>
                   <td>
@@ -212,6 +231,9 @@ const AdminAccounts = () => {
             <h3 className="mb-2 font-semibold">{viewAcct.fullName || viewAcct.email || viewAcct.id}</h3>
             <p className="text-sm mb-1">Email: {viewAcct.email || 'N/A'}</p>
             <p className="text-sm mb-1">Role: {viewAcct.role}</p>
+            {viewAcct.audience && (
+              <p className="text-sm mb-1">Audience: {viewAcct.audience}</p>
+            )}
             {Array.isArray(viewAcct.brandCodes) && viewAcct.brandCodes.length > 0 && (
               <p className="text-sm mb-1">Brands: {viewAcct.brandCodes.join(', ')}</p>
             )}

@@ -88,8 +88,8 @@ firebase deploy --only functions
 
 ## Admin Account Management
 
-Visit `/admin/accounts` to view all user accounts. Admins can edit the role or
-brand codes directly in the table and delete accounts when necessary. To create
+Visit `/admin/accounts` to view all user accounts. Admins can edit the audience,
+role, or brand codes directly in the table and delete accounts when necessary. To create
 a new account use `/admin/accounts/new`, which opens the original creation
 form. The form calls `createUserWithEmailAndPassword` and then writes a user
 document to Firestore. Both operations are wrapped in a `try/catch` block. If
