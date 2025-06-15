@@ -1,9 +1,10 @@
 import React from 'react';
+import NotificationSettingsForm from './NotificationSettingsForm.jsx';
 
 const DesignerNotifications = () => (
   <div className="min-h-screen p-4">
     <h1 className="text-2xl mb-4">Notifications</h1>
-    <p>Coming soon...</p>
+    <NotificationSettingsForm />
   </div>
 );
 

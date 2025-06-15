@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import NotificationSettingsForm from './NotificationSettingsForm.jsx';
 import {
   collection,
   addDoc,
@@ -60,6 +61,7 @@ const AdminNotifications = () => {
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Notifications</h1>
+      <NotificationSettingsForm />
       <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
         <div>
           <label className="block mb-1 text-sm font-medium">Audience</label>

@@ -3,9 +3,14 @@ import { getToken, onMessage } from 'firebase/messaging';
 import { doc, setDoc } from 'firebase/firestore';
 import { messaging, db } from './firebase/config';
 
-const useFcmToken = (user) => {
+const useFcmToken = (user, enabled = false) => {
   useEffect(() => {
     if (!user) return;
+    const ref = doc(db, 'users', user.uid);
+    if (!enabled) {
+      setDoc(ref, { fcmToken: null }, { merge: true });
+      return;
+    }
     const getAndStore = async () => {
       try {
         const registration = await navigator.serviceWorker.register(
@@ -29,7 +34,7 @@ const useFcmToken = (user) => {
     getAndStore();
     const unsub = onMessage(messaging, () => {});
     return unsub;
-  }, [user]);
+  }, [user, enabled]);
 };
 
 export default useFcmToken;

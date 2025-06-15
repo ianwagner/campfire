@@ -76,13 +76,14 @@ const App = () => {
     role: dbRole,
     brandCodes,
     agencyId,
+    notificationsEnabled,
     loading: roleLoading,
   } = useUserRole(user?.uid);
   const { isAdmin, loading: adminLoading } = useAdminClaim();
   const { settings, loading: settingsLoading } = useSiteSettings(!agencyId);
   const { agency, loading: agencyLoading } = useAgencyTheme(agencyId);
   const [logoLoaded, setLogoLoaded] = React.useState(false);
-  useFcmToken(user);
+  useFcmToken(user, notificationsEnabled);
 
   React.useEffect(() => {
     const url = agencyId ? agency.logoUrl || DEFAULT_LOGO_URL : settings.logoUrl || DEFAULT_LOGO_URL;
