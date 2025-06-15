@@ -7,6 +7,7 @@ const useUserRole = (uid) => {
   const [role, setRole] = useState(null);
   const [brandCodes, setBrandCodes] = useState([]);
   const [agencyId, setAgencyId] = useState(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,10 +32,12 @@ const useUserRole = (uid) => {
           const codes = Array.isArray(data.brandCodes) ? data.brandCodes : [];
           setBrandCodes(codes);
           setAgencyId(data.agencyId || null);
+          setNotificationsEnabled(!!data.notificationsEnabled);
         } else {
           setRole(null);
           setBrandCodes([]);
           setAgencyId(null);
+          setNotificationsEnabled(false);
         }
         setLoading(false);
       },
@@ -43,6 +46,7 @@ const useUserRole = (uid) => {
         setRole(null);
         setBrandCodes([]);
         setAgencyId(null);
+        setNotificationsEnabled(false);
         setLoading(false);
       }
     );
@@ -77,7 +81,7 @@ const useUserRole = (uid) => {
     };
   }, [brandCodes, agencyId]);
 
-  return { role, brandCodes, agencyId, loading };
+  return { role, brandCodes, agencyId, notificationsEnabled, loading };
 };
 
 export default useUserRole;
