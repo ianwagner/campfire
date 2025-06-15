@@ -15,6 +15,11 @@ test('returns ready when any ad is ready', () => {
   expect(status).toBe('ready');
 });
 
+test('returns ready when status is briefed but an ad is ready', () => {
+  const status = computeGroupStatus([{ status: 'ready' }], 'briefed');
+  expect(status).toBe('ready');
+});
+
 test('returns reviewed when all ads reviewed', () => {
   const status = computeGroupStatus([{ status: 'approved' }, { status: 'rejected' }], 'ready');
   expect(status).toBe('reviewed');
@@ -23,6 +28,11 @@ test('returns reviewed when all ads reviewed', () => {
 test('returns review pending when currentStatus is review pending', () => {
   const status = computeGroupStatus([{ status: 'pending' }], 'review pending');
   expect(status).toBe('review pending');
+});
+
+test('returns briefed when currentStatus is briefed and no ready ads', () => {
+  const status = computeGroupStatus([], 'briefed');
+  expect(status).toBe('briefed');
 });
 
 test('returns pending otherwise', () => {
