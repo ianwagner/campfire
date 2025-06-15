@@ -156,9 +156,10 @@ exports.notifyAdGroupStatusChange = onDocumentUpdated('adGroups/{groupId}', asyn
   }
 
   const brandCode = after.brandCode;
+  const audience = after.notifyAudience || 'agency';
   const q = await db
     .collection('users')
-    .where('audience', '==', 'agency')
+    .where('audience', '==', audience)
     .where('brandCodes', 'array-contains', brandCode)
     .get();
 
@@ -175,7 +176,7 @@ exports.notifyAdGroupStatusChange = onDocumentUpdated('adGroups/{groupId}', asyn
       notification: { title: `${brandCode}'s ads are ${newStatus}` },
     });
   } else {
-    console.log('⚠️ No tokens found for agency users');
+    console.log(`⚠️ No tokens found for ${audience} users`);
   }
 
   return null;
