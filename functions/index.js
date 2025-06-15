@@ -91,10 +91,16 @@ exports.sendNotification = onDocumentCreated('notifications/{id}', async (event)
   const snap = event.data;
   const data = snap.data();
 
-  if (!data) {
-    console.log('❌ No data found in Firestore snapshot');
-    return null;
-  }
+if (!data) {
+  console.log('❌ No data found in Firestore snapshot');
+  return null;
+}
+
+// 🛡 Avoid double triggers
+if (data.sentAt) {
+  console.log('⏭ Notification already sent. Skipping.');
+  return null;
+}
 
   console.log('📨 Notification data:', data);
 
