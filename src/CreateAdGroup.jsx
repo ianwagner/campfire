@@ -8,6 +8,7 @@ import {
   collection,
   addDoc,
   serverTimestamp,
+  Timestamp,
 } from "firebase/firestore";
 import { db, auth } from "./firebase/config";
 
@@ -15,6 +16,7 @@ const CreateAdGroup = ({ showSidebar = true }) => {
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
   const [brandCodes, setBrandCodes] = useState([]);
+  const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -63,6 +65,7 @@ const CreateAdGroup = ({ showSidebar = true }) => {
         requireAuth: false,
         requirePassword: false,
         password: "",
+        dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
       });
       navigate(`/ad-group/${docRef.id}`);
     } catch (err) {
@@ -105,6 +108,15 @@ const CreateAdGroup = ({ showSidebar = true }) => {
           ) : (
             <p className="text-sm text-gray-500">No brands assigned</p>
           )}
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Due Date</label>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
         </div>
         <div>
           <label className="block mb-1 text-sm font-medium">Notes</label>

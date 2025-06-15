@@ -122,6 +122,9 @@ const DesignerDashboard = () => {
                 </div>
                 <p className="mt-2 font-semibold text-center text-black dark:text-[var(--dark-text)] mb-0">{g.name}</p>
                 <p className="text-black dark:text-[var(--dark-text)] text-sm text-center">{g.brandCode}</p>
+                {g.dueDate && (
+                  <p className="text-black dark:text-[var(--dark-text)] text-xs text-center">Due {g.dueDate.toDate().toLocaleDateString()}</p>
+                )}
               </Link>
             ))}
           </div>

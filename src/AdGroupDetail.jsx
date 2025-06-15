@@ -35,6 +35,7 @@ import {
   getDocs,
   orderBy,
   arrayUnion,
+  Timestamp,
 } from "firebase/firestore";
 import { deleteObject, ref } from "firebase/storage";
 import { auth, db, storage } from "./firebase/config";
@@ -1152,6 +1153,26 @@ const AdGroupDetail = () => {
         Brand: {group.brandCode}
         <span className="hidden sm:inline">|</span>
         Status: <StatusBadge status={group.status} />
+        <span className="hidden sm:inline">|</span>
+        Due Date:
+        {userRole === "admin" || userRole === "agency" ? (
+          <input
+            type="date"
+            value={group.dueDate ? group.dueDate.toDate().toISOString().slice(0, 10) : ""}
+            onChange={async (e) => {
+              const date = e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null;
+              try {
+                await updateDoc(doc(db, "adGroups", id), { dueDate: date });
+                setGroup((p) => ({ ...p, dueDate: date }));
+              } catch (err) {
+                console.error("Failed to update due date", err);
+              }
+            }}
+            className="border p-1 rounded text-black dark:text-black"
+          />
+        ) : (
+          <span>{group.dueDate ? group.dueDate.toDate().toLocaleDateString() : "N/A"}</span>
+        )}
       </p>
       {group.status === "archived" && (
         <p className="text-red-500 text-sm mb-2">
