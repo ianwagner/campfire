@@ -256,3 +256,12 @@ case-insensitively and common synonyms map to a canonical type. The words
 `still`, `image`, `static`, `img`, `picture`, and `photo` are all stored as
 `image`. The terms `video`, `motion`, `animated`, and `gif` become `video`.
 Any unrecognized value is simply lowercased.
+
+## Notification Automation
+
+Administrators can configure notification rules under `/admin/notifications`.
+Rules specify a trigger (`adGroupCreated`, `adGroupStatusUpdated`, or
+`accountCreated`), a target audience and message templates. Placeholders like
+`{{brandCode}}` or `{{status}}` are replaced with values from the event that
+fired. When a rule matches, a notification document is created which causes the
+`sendNotification` Cloud Function to distribute the message via FCM.

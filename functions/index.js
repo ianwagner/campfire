@@ -1,4 +1,4 @@
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const functions = require('firebase-functions');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const admin = require('firebase-admin');
@@ -139,5 +139,61 @@ if (data.sentAt) {
   }
 
   await snap.ref.update({ sentAt: admin.firestore.FieldValue.serverTimestamp() });
+  return null;
+});
+
+function applyTemplate(tpl, data) {
+  return tpl.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k) => (data[k] ?? ''));
+}
+
+async function runRules(trigger, data) {
+  const snap = await db.collection('notificationRules').where('trigger', '==', trigger).get();
+  if (snap.empty) return;
+  const rules = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  await Promise.all(rules.map((r) => {
+    if (r.active === false) return null;
+    const title = applyTemplate(r.titleTemplate || '', data);
+    const body = applyTemplate(r.bodyTemplate || '', data);
+    return db.collection('notifications').add({
+      title,
+      body,
+      audience: r.audience || '',
+      sendNow: true,
+      triggerTime: null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      ruleId: r.id,
+    });
+  }));
+}
+
+exports.notifyAdGroupCreated = onDocumentCreated('adGroups/{id}', async (event) => {
+  const data = event.data.data() || {};
+  await runRules('adGroupCreated', {
+    brandCode: data.brandCode,
+    status: data.status,
+    name: data.name,
+  });
+  return null;
+});
+
+exports.notifyAdGroupStatusUpdated = onDocumentUpdated('adGroups/{id}', async (event) => {
+  const before = event.data.before.data() || {};
+  const after = event.data.after.data() || {};
+  if (before.status === after.status) return null;
+  await runRules('adGroupStatusUpdated', {
+    brandCode: after.brandCode,
+    status: after.status,
+    name: after.name,
+  });
+  return null;
+});
+
+exports.notifyAccountCreated = onDocumentCreated('users/{id}', async (event) => {
+  const data = event.data.data() || {};
+  await runRules('accountCreated', {
+    displayName: data.displayName,
+    email: data.email,
+    audience: data.audience,
+  });
   return null;
 });
