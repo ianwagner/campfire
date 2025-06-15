@@ -134,7 +134,11 @@ import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 
 const cred = await createUserWithEmailAndPassword(auth, email, password);
-await setDoc(doc(db, 'users', cred.user.uid), { role, brandCodes: codes });
+await setDoc(doc(db, 'users', cred.user.uid), {
+  role,
+  audience: role,
+  brandCodes: codes,
+});
 ```
 
 Newly created accounts will automatically receive a verification email. They

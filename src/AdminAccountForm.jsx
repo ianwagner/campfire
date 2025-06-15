@@ -41,6 +41,7 @@ const AdminAccountForm = () => {
       await setDoc(doc(db, 'users', cred.user.uid), {
         role,
         brandCodes: codes,
+        audience: role,
       });
       await sendEmailVerification(cred.user);
       setSuccess('Account created. Ask the user to verify their email.');

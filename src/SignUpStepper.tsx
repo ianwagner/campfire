@@ -54,6 +54,7 @@ const SignUpStepper: React.FC = () => {
       }
       await setDoc(doc(db, 'users', cred.user.uid), {
         role: businessType,
+        audience: businessType,
         companyName: companyName.trim(),
         fullName: fullName.trim(),
         email: email.trim(),

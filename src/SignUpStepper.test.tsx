@@ -47,7 +47,10 @@ test('sends verification email after signup', async () => {
 
   await waitFor(() => expect(sendEmailVerification).toHaveBeenCalledWith({ uid: 'u1' }));
   expect(addDoc).toHaveBeenCalled();
-  expect(setDoc).toHaveBeenCalledWith('userDoc', expect.objectContaining({ agencyId: 'a1' }));
+  expect(setDoc).toHaveBeenCalledWith(
+    'userDoc',
+    expect.objectContaining({ agencyId: 'a1', audience: 'agency' })
+  );
 });
 
 test('navigates to MFA enrollment after account creation', async () => {
