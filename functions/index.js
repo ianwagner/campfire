@@ -106,7 +106,7 @@ exports.sendNotification = onDocumentCreated('notifications/{id}', async (event)
     }
   }
 
-  const tokens = [];
+  const tokens = new Set();
   const q = await db
     .collection('users')
     .where('audience', '==', data.audience)
@@ -116,16 +116,15 @@ exports.sendNotification = onDocumentCreated('notifications/{id}', async (event)
 
   q.forEach((doc) => {
     const t = doc.get('fcmToken');
-    if (t) {
-      tokens.push(t);
-    }
+    if (t) tokens.add(t);
   });
 
-  console.log('🎯 Tokens collected:', tokens.length);
+  const tokenArray = Array.from(tokens);
+  console.log('🎯 Tokens collected:', tokenArray.length);
 
-  if (tokens.length) {
+  if (tokenArray.length) {
     await admin.messaging().sendEachForMulticast({
-      tokens,
+      tokens: tokenArray,
       notification: { title: data.title, body: data.body },
     });
     console.log('✅ Notification sent');
