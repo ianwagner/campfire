@@ -39,6 +39,9 @@ test('sends verification email and navigates after signup', async () => {
   fireEvent.click(screen.getByText('Create Account'));
 
   await waitFor(() => expect(sendEmailVerification).toHaveBeenCalledWith({ uid: 'u1' }));
-  expect(setDoc).toHaveBeenCalledWith('userDoc', expect.objectContaining({ role: 'designer' }));
+  expect(setDoc).toHaveBeenCalledWith(
+    'userDoc',
+    expect.objectContaining({ role: 'designer', audience: 'designer' })
+  );
   expect(navigate).toHaveBeenCalledWith('/mfa-settings');
 });

@@ -31,6 +31,7 @@ const DesignerSignUp: React.FC = () => {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       await setDoc(doc(db, 'users', cred.user.uid), {
         role: 'designer',
+        audience: 'designer',
         fullName: fullName.trim(),
         email: email.trim(),
       });
