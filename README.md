@@ -50,6 +50,11 @@ VITE_OPENAI_API_KEY=your-openai-key
 These values correspond to your Firebase project's configuration. Vite will load
 them automatically when running `npm run dev` or `npm run build`.
 
+Because the messaging demo scripts in `public/` are served without bundling,
+`index.html` exposes these variables on `window.FIREBASE_CONFIG`. Ensure your
+`.env` file is populated so the service worker and `public/main.js` receive a
+valid API key.
+
 The `sync.js` utility also reads `GOOGLE_APPLICATION_CREDENTIALS` and
 `FIREBASE_STORAGE_BUCKET` from the environment. If you use a `.env` file, include
 those variables as well so `npm run sync` can locate your service account key and

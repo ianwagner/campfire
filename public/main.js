@@ -18,7 +18,7 @@ async function initMessaging() {
   try {
     console.log('📬 Getting FCM token...');
     const token = await getToken(messaging, {
-      vapidKey: 'BHVn4o8nW7nriA-hnKA_wGXtVnL5xy5-M-iE9bKQfLXDVnKMRb06pT7JT9CqOQFbPdiAVk1IHYg_XD4GFMEzwQ4',
+      vapidKey: window.FIREBASE_CONFIG?.vapidKey,
       serviceWorkerRegistration: registration,
     });
 
