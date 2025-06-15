@@ -93,14 +93,16 @@ const AdminNotificationRules = () => {
     }
   };
 
-  const previewTitle = title.replace('{status}', 'reviewed');
+  const previewTitle = title
+    .replace('{{adGroup.status}}', 'reviewed')
+    .replace('{{adGroup.brandCode}}', 'BR123');
   const previewBody = body
-    .replace('{status}', 'reviewed')
-    .replace('{brandName}', 'SampleBrand');
+    .replace('{{adGroup.status}}', 'reviewed')
+    .replace('{{adGroup.brandCode}}', 'BR123');
 
   return (
-    <div className="min-h-screen p-4">
-      <h1 className="text-2xl mb-4">Notification Rules</h1>
+    <div>
+      <h2 className="text-xl mb-4">Notification Rules</h2>
       <form onSubmit={handleSave} className="space-y-4 max-w-lg">
         <div>
           <label className="block mb-1 font-medium">Trigger</label>

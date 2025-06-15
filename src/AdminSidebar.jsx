@@ -7,7 +7,6 @@ const tabs = [
   { label: 'Brands', path: '/admin/brands' },
   { label: 'Ad Recipes', path: '/admin/ad-recipes' },
   { label: 'Notifications', path: '/admin/notifications' },
-  { label: 'Notification Rules', path: '/admin/notification-rules' },
   { label: 'Site Settings', path: '/admin/site-settings' },
   { label: 'Account Settings', path: '/admin/account-settings' },
 ];

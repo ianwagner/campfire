@@ -3,7 +3,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 
 const defaultTemplate = {
-  title: "{{brandCode}}'s ads are {{status}}",
+  title: "{{adGroup.brandCode}}'s ads are {{adGroup.status}}",
   body: ''
 };
 
