@@ -156,3 +156,63 @@ exports.notifyOnAdGroupReviewed = functions.firestore
     }
     return null;
   });
+
+function getFieldValue(obj, path) {
+  return path.split('.').reduce((val, key) => {
+    if (val === undefined || val === null) return undefined;
+    return val[key];
+  }, obj);
+}
+
+function evaluateConditions(data, conditions) {
+  return (conditions || []).every((c) => {
+    const op = c.operator || c.op || '==';
+    const fieldVal = getFieldValue(data, c.field);
+    switch (op) {
+      case '==':
+        return fieldVal === c.value;
+      case '!=':
+        return fieldVal !== c.value;
+      case '<':
+        return fieldVal < c.value;
+      case '<=':
+        return fieldVal <= c.value;
+      case '>':
+        return fieldVal > c.value;
+      case '>=':
+        return fieldVal >= c.value;
+      case 'includes':
+        if (Array.isArray(fieldVal)) return fieldVal.includes(c.value);
+        if (typeof fieldVal === 'string') return fieldVal.includes(c.value);
+        return false;
+      default:
+        return false;
+    }
+  });
+}
+
+exports.watchAdGroupRules = functions.firestore
+  .document('adGroups/{id}')
+  .onUpdate(async (change, context) => {
+    const after = change.after.data();
+    if (!after) return null;
+
+    const rulesSnap = await db
+      .collection('notificationRules')
+      .where('trigger', '==', 'adGroupStatusUpdated')
+      .get();
+
+    for (const docSnap of rulesSnap.docs) {
+      const rule = docSnap.data();
+      if (evaluateConditions(after, rule.conditions)) {
+        await db.collection('notifications').add({
+          audience: rule.recipient,
+          title: 'Ad Group Status Updated',
+          body: rule.message,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    return null;
+  });
