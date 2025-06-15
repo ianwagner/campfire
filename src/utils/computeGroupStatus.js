@@ -9,5 +9,6 @@ export default function computeGroupStatus(assets = [], currentStatus = 'pending
     return 'reviewed';
   }
   if (currentStatus === 'review pending') return 'review pending';
+  if (currentStatus === 'briefed') return 'briefed';
   return 'pending';
 }

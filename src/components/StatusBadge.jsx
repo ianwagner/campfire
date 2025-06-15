@@ -2,6 +2,7 @@ import React from "react";
 
 const knownStatuses = new Set([
   "pending",
+  "briefed",
   "ready",
   "approved",
   "rejected",
