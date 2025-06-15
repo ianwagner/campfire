@@ -1,29 +1,29 @@
-importScripts('https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging-compat.js');
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
+import { getMessaging, onBackgroundMessage } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging-sw.js';
 
-// Firebase configuration for this project
+console.log('FCM service worker loading...');
+
 const firebaseConfig = {
-  apiKey: 'your-api-key',
-  authDomain: 'your-auth-domain',
-  projectId: 'your-project-id',
-  storageBucket: 'your-storage-bucket',
-  messagingSenderId: 'your-sender-id',
-  appId: 'your-app-id'
+  apiKey: 'YOUR_API_KEY',
+  authDomain: 'YOUR_AUTH_DOMAIN',
+  projectId: 'YOUR_PROJECT_ID',
+  storageBucket: 'YOUR_STORAGE_BUCKET',
+  messagingSenderId: 'YOUR_SENDER_ID',
+  appId: 'YOUR_APP_ID',
 };
 
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
+const messaging = getMessaging(app);
 
-const messaging = firebase.messaging();
+console.log('Firebase messaging service worker initialized');
 
-// Handle background messages
-messaging.onBackgroundMessage((payload) => {
+onBackgroundMessage(messaging, (payload) => {
   console.log('[firebase-messaging-sw.js] Received background message', payload);
 
   const notificationTitle = payload.notification?.title || 'Background Message';
   const notificationOptions = {
     body: payload.notification?.body,
-    icon: '/icons/icon-192x192.png'
+    icon: '/icons/icon-192x192.png',
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
