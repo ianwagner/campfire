@@ -148,6 +148,14 @@ exports.notifyAdGroupStatusChange = onDocumentUpdated('adGroups/{groupId}', asyn
 
   if (!before || !after) return null;
 
+  const settingsSnap = await db.doc('settings/notifications').get();
+  const enabled =
+    !settingsSnap.exists || settingsSnap.data().notifyAdGroupStatusChange !== false;
+  if (!enabled) {
+    console.log('notifyAdGroupStatusChange disabled');
+    return null;
+  }
+
   const prevStatus = before.status;
   const newStatus = after.status;
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import NotificationSettingsForm from './NotificationSettingsForm.jsx';
+import useNotificationSettings from './useNotificationSettings';
 import {
   collection,
   addDoc,
@@ -17,6 +18,20 @@ const AdminNotifications = () => {
   const [triggerTime, setTriggerTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
+  const {
+    settings: notifSettings,
+    loading: settingsLoading,
+    saveSettings,
+  } = useNotificationSettings();
+  const [notifyAdGroupStatusChange, setNotifyAdGroupStatusChange] = useState(
+    true
+  );
+
+  useEffect(() => {
+    setNotifyAdGroupStatusChange(
+      notifSettings.notifyAdGroupStatusChange !== false
+    );
+  }, [notifSettings]);
 
   const fetchHistory = async () => {
     try {
@@ -62,6 +77,25 @@ const AdminNotifications = () => {
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Notifications</h1>
       <NotificationSettingsForm />
+      <div className="my-4">
+        <h2 className="text-xl mb-2">Notification Settings</h2>
+        {settingsLoading ? (
+          <p>Loading...</p>
+        ) : (
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={notifyAdGroupStatusChange}
+              onChange={async (e) => {
+                const value = e.target.checked;
+                setNotifyAdGroupStatusChange(value);
+                await saveSettings({ notifyAdGroupStatusChange: value });
+              }}
+            />
+            Notify on Ad Group Status Change
+          </label>
+        )}
+      </div>
       <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
         <div>
           <label className="block mb-1 text-sm font-medium">Audience</label>
