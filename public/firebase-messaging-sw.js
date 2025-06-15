@@ -4,12 +4,12 @@ import { getMessaging, onBackgroundMessage } from 'https://www.gstatic.com/fireb
 console.log('FCM service worker loading...');
 
 const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_AUTH_DOMAIN',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_STORAGE_BUCKET',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID',
+  apiKey: 'AIzaSyDZ7h9KXAwIvzqFf9gMrMBOJvkMxSMjjRw',
+  authDomain: 'tak-campfire.firebaseapp.com',
+  projectId: 'tak-campfire',
+  storageBucket: 'tak-campfire-main',
+  messagingSenderId: '198332728326',
+  appId: '1:198332728326:web:d7eec9d577fb30fa916f87'
 };
 
 const app = initializeApp(firebaseConfig);
