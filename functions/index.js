@@ -1,4 +1,4 @@
-const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const functions = require('firebase-functions');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const admin = require('firebase-admin');
@@ -168,53 +168,55 @@ function evaluateCondition(condition, context) {
   }
 }
 
-exports.applyNotificationRules = onDocumentUpdated('adGroups/{id}', async (event) => {
-  const before = event.data.before.data();
-  const after = event.data.after.data();
-  if (!before || !after) return null;
+exports.applyNotificationRules = functions.firestore
+  .document('adGroups/{id}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    if (!before || !after) return null;
 
-  if (before.status === after.status) return null;
+    if (before.status === after.status) return null;
 
-  const rulesSnap = await db
-    .collection('notificationRules')
-    .where('trigger', '==', 'adGroupStatusUpdated')
-    .get();
+    const rulesSnap = await db
+      .collection('notificationRules')
+      .where('trigger', '==', 'adGroupStatusUpdated')
+      .get();
 
-  let user = {};
-  if (after.uploadedBy) {
-    const userSnap = await db.collection('users').doc(after.uploadedBy).get();
-    if (userSnap.exists) {
-      user = userSnap.data();
+    let user = {};
+    if (after.uploadedBy) {
+      const userSnap = await db.collection('users').doc(after.uploadedBy).get();
+      if (userSnap.exists) {
+        user = userSnap.data();
+      }
     }
-  }
 
-  for (const docSnap of rulesSnap.docs) {
-    const rule = docSnap.data();
-    const conditions = Array.isArray(rule.conditions) ? rule.conditions : [];
-    const allMatch = conditions.every((c) =>
-      evaluateCondition(c, { adGroup: after, user })
-    );
-    if (!allMatch) continue;
+    for (const docSnap of rulesSnap.docs) {
+      const rule = docSnap.data();
+      const conditions = Array.isArray(rule.conditions) ? rule.conditions : [];
+      const allMatch = conditions.every((c) =>
+        evaluateCondition(c, { adGroup: after, user })
+      );
+      if (!allMatch) continue;
 
-    const action = rule.action || {};
-    if (action.type !== 'sendNotification') continue;
+      const action = rule.action || {};
+      if (action.type !== 'sendNotification') continue;
 
-    const title = (action.title || '')
-      .replace('{{adGroup.status}}', after.status)
-      .replace('{{adGroup.brandCode}}', after.brandCode || '');
-    const body = (action.body || '')
-      .replace('{{adGroup.status}}', after.status)
-      .replace('{{adGroup.brandCode}}', after.brandCode || '');
+      const title = (action.title || '')
+        .replace('{{adGroup.status}}', after.status)
+        .replace('{{adGroup.brandCode}}', after.brandCode || '');
+      const body = (action.body || '')
+        .replace('{{adGroup.status}}', after.status)
+        .replace('{{adGroup.brandCode}}', after.brandCode || '');
 
-    await db.collection('notifications').add({
-      title,
-      body,
-      audience: action.recipientValue || '',
-      sendNow: true,
-      triggerTime: null,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-  }
+      await db.collection('notifications').add({
+        title,
+        body,
+        audience: action.recipientValue || '',
+        sendNow: true,
+        triggerTime: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
 
-  return null;
-});
+    return null;
+  });
