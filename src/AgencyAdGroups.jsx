@@ -85,64 +85,121 @@ const AgencyAdGroups = () => {
       ) : groups.length === 0 ? (
         <p>No ad groups found.</p>
       ) : (
-        <div className="overflow-x-auto table-container">
-        <table className="ad-table min-w-max">
-          <thead>
-            <tr>
-              <th>Group Name</th>
-              <th>Brand</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+        <>
+          <div className="sm:hidden space-y-4">
             {groups.map((g) => (
-              <tr key={g.id}>
-                <td>{g.name}</td>
-                <td>{g.brandCode}</td>
-                <td>
-                  <StatusBadge status={g.status} />
-                </td>
-                <td className="text-center">
-                  <div className="flex items-center justify-center">
+              <div
+                key={g.id}
+                className="border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow"
+              >
+                <div className="flex items-start px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0 line-clamp-2">
+                      {g.name}
+                    </p>
+                    <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
+                      {g.brandCode}
+                    </p>
+                  </div>
+                  <StatusBadge status={g.status} className="flex-shrink-0" />
+                </div>
+                <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2 text-sm">
+                  <div className="flex flex-wrap justify-around gap-2">
                     <Link
                       to={`/ad-group/${g.id}`}
-                      className="flex items-center text-gray-700 underline"
+                      className="flex items-center gap-1 text-gray-700 underline"
                       aria-label="View Details"
                     >
                       <FiEye />
-                      <span className="ml-1 text-[14px]">Details</span>
+                      <span>Details</span>
                     </Link>
                     <Link
                       to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
-                      className="flex items-center ml-2 text-gray-700 underline"
+                      className="flex items-center gap-1 text-gray-700 underline"
                       aria-label="Review"
                     >
                       <FiCheckCircle />
-                      <span className="ml-1 text-[14px]">Review</span>
+                      <span>Review</span>
                     </Link>
                     <button
                       onClick={() => handleShare(g.id, agencyId)}
-                      className="flex items-center ml-2 text-gray-700 underline"
+                      className="flex items-center gap-1 text-gray-700 underline"
                       aria-label="Share Link"
                     >
                       <FiLink />
-                      <span className="ml-1 text-[14px]">Share</span>
+                      <span>Share</span>
                     </button>
                     <button
                       onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                      className="flex items-center ml-2 underline btn-delete"
+                      className="flex items-center gap-1 underline btn-delete"
                       aria-label="Delete"
                     >
                       <FiTrash />
                     </button>
                   </div>
-                </td>
-              </tr>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
-        </div>
+          </div>
+          <div className="overflow-x-auto table-container hidden sm:block">
+            <table className="ad-table min-w-max">
+              <thead>
+                <tr>
+                  <th>Group Name</th>
+                  <th>Brand</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groups.map((g) => (
+                  <tr key={g.id}>
+                    <td>{g.name}</td>
+                    <td>{g.brandCode}</td>
+                    <td>
+                      <StatusBadge status={g.status} />
+                    </td>
+                    <td className="text-center">
+                      <div className="flex items-center justify-center">
+                        <Link
+                          to={`/ad-group/${g.id}`}
+                          className="flex items-center text-gray-700 underline"
+                          aria-label="View Details"
+                        >
+                          <FiEye />
+                          <span className="ml-1 text-[14px]">Details</span>
+                        </Link>
+                        <Link
+                          to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
+                          className="flex items-center ml-2 text-gray-700 underline"
+                          aria-label="Review"
+                        >
+                          <FiCheckCircle />
+                          <span className="ml-1 text-[14px]">Review</span>
+                        </Link>
+                        <button
+                          onClick={() => handleShare(g.id, agencyId)}
+                          className="flex items-center ml-2 text-gray-700 underline"
+                          aria-label="Share Link"
+                        >
+                          <FiLink />
+                          <span className="ml-1 text-[14px]">Share</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
+                          className="flex items-center ml-2 underline btn-delete"
+                          aria-label="Delete"
+                        >
+                          <FiTrash />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
       {shareInfo && (
         <ShareLinkModal
