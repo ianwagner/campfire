@@ -6,6 +6,12 @@ import './global.css';
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker
+    .register('/firebase-messaging-sw.js')
+    .catch((err) => console.error('Service worker registration failed', err));
+}
+
 if (import.meta.env.DEV) {
   const warnIfBase64Bg = (el) => {
     if (el && el.style) {
