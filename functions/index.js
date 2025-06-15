@@ -139,3 +139,20 @@ exports.processPendingNotifications = functions.pubsub
     }
     return null;
   });
+
+exports.notifyOnAdGroupReviewed = functions.firestore
+  .document('adGroups/{id}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    if (!before || !after) return null;
+    if (before.status !== 'reviewed' && after.status === 'reviewed') {
+      await db.collection('notifications').add({
+        title: 'Ad Group Reviewed',
+        body: `Ad group ${after.name || context.params.id} has been reviewed`,
+        audience: 'admin',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    return null;
+  });
