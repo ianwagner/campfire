@@ -18,7 +18,7 @@ import {
 } from "react-icons/fi";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useLocation } from "react-router-dom";
 import {
   doc,
   getDoc,
@@ -78,6 +78,31 @@ const AdGroupDetail = () => {
   const [showRecipesTable, setShowRecipesTable] = useState(false);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
+  const location = useLocation();
+
+  const backPath = useMemo(() => {
+    let base = '/';
+    switch (userRole) {
+      case 'admin':
+        base = '/admin/ad-groups';
+        break;
+      case 'agency':
+        base = '/agency/ad-groups';
+        break;
+      case 'designer':
+        base = '/dashboard/designer';
+        break;
+      case 'client':
+        base = '/dashboard/client';
+        break;
+      default:
+        base = '/';
+    }
+    if (userRole === 'agency' && location.search) {
+      return base + location.search;
+    }
+    return base;
+  }, [userRole, location.search]);
 
   const summarize = (list) => {
     let reviewed = 0;
@@ -1156,7 +1181,12 @@ const AdGroupDetail = () => {
 
   return (
     <div className="min-h-screen p-4 ">
-      <h1 className="text-2xl mb-2">{group.name}</h1>
+      <div className="flex items-center mb-2">
+        <Link to={backPath} className="btn-arrow mr-2" aria-label="Back">
+          &lt;
+        </Link>
+        <h1 className="text-2xl">{group.name}</h1>
+      </div>
       <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
         Brand: {group.brandCode}
         <span className="hidden sm:inline">|</span>
