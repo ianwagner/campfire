@@ -10,6 +10,7 @@ const ServiceWorkerUpdater = () => {
         .register('/sw.js')
         .then((registration) => {
           registrationRef.current = registration;
+
           if (registration.waiting) {
             setUpdateReady(true);
           }
@@ -29,23 +30,20 @@ const ServiceWorkerUpdater = () => {
           });
         })
         .catch(() => {
-          /* registration failed */
+          // registration failed
         });
     }
   }, []);
 
   const reload = () => {
-    if (registrationRef.current && registrationRef.current.waiting) {
-      registrationRef.current.waiting.postMessage({ type: 'SKIP_WAITING' });
+    const registration = registrationRef.current;
+    if (registration?.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
       navigator.serviceWorker.addEventListener(
         'controllerchange',
-        () => {
-          window.location.reload();
-        },
+        () => window.location.reload(),
         { once: true }
       );
-    } else {
-      window.location.reload();
     }
   };
 
