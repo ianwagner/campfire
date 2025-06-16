@@ -1,4 +1,4 @@
-const CACHE_NAME = 'campfire-cache-v2';
+const CACHE_NAME = 'campfire-cache-v1';
 const URLS_TO_CACHE = [
   '/',
   '/index.html',

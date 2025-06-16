@@ -36,17 +36,10 @@ const ServiceWorkerUpdater = () => {
 
   const reload = () => {
     if (registration?.waiting) {
-      const { waiting } = registration;
-      waiting.postMessage({ type: 'SKIP_WAITING' });
-      waiting.addEventListener(
-        'statechange',
-        (e) => {
-          if (e.target.state === 'activated') {
-            window.location.reload();
-          }
-        },
-        { once: true }
-      );
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
       setUpdateReady(false);
     }
   };
