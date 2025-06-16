@@ -205,6 +205,8 @@ exports.notifyAccountCreated = onDocumentCreated('users/{id}', async (event) => 
     displayName: data.displayName,
     email: data.email,
     audience: data.audience,
+    brandCode: Array.isArray(data.brandCodes) && data.brandCodes.length > 0 ? data.brandCodes[0] : data.brandCode,
+    brandCodes: Array.isArray(data.brandCodes) ? data.brandCodes : [],
   });
   return null;
 });
