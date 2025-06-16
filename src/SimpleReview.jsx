@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import OptimizedImage from './components/OptimizedImage.jsx';
+import VideoPlayer from './components/VideoPlayer.jsx';
+import isVideoUrl from './utils/isVideoUrl';
 
 const PRELOAD_AHEAD = 5;
 
@@ -20,7 +22,7 @@ const SimpleReview = ({ ads = [] }) => {
   useEffect(() => {
     for (let i = index + 1; i <= index + PRELOAD_AHEAD && i < ads.length; i += 1) {
       const url = getUrl(ads[i]);
-      if (url && !preloaded.current[url]) {
+      if (url && !preloaded.current[url] && !isVideoUrl(url)) {
         const img = new Image();
         img.src = url; // no cache-busting params
         preloaded.current[url] = img;
@@ -50,12 +52,16 @@ const SimpleReview = ({ ads = [] }) => {
   return (
     <div className="flex flex-col items-center space-y-4">
       <div className={`max-w-full ${fade ? 'simple-fade-out' : 'simple-fade-in'}`}>
-        <OptimizedImage
-          pngUrl={currentUrl}
-          webpUrl={currentUrl.replace(/\.png$/, '.webp')}
-          alt="Ad"
-          loading="eager"
-        />
+        {isVideoUrl(currentUrl) ? (
+          <VideoPlayer src={currentUrl} className="max-h-[70vh]" />
+        ) : (
+          <OptimizedImage
+            pngUrl={currentUrl}
+            webpUrl={currentUrl.replace(/\.png$/, '.webp')}
+            alt="Ad"
+            loading="eager"
+          />
+        )}
       </div>
       <div className="flex space-x-2">
         <button
