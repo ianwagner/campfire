@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { FiTrash } from 'react-icons/fi';
 import { db } from './firebase/config';
@@ -78,18 +79,37 @@ const DesignerNotifications = () => {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
-                    <h2 className="font-semibold text-black dark:text-[var(--dark-text)] flex items-center">
-                      {!readIds.includes(n.id) && (
-                        <span
-                          className="inline-block w-2 h-2 bg-accent rounded-full mr-2"
-                          aria-label="new"
-                        />
-                      )}
-                      {n.title}
-                    </h2>
-                    <p className="mt-1 text-sm whitespace-pre-wrap text-black dark:text-[var(--dark-text)]">
-                      {n.body}
-                    </p>
+                    {n.url ? (
+                      <Link to={n.url} className="block">
+                        <h2 className="font-semibold text-black dark:text-[var(--dark-text)] flex items-center">
+                          {!readIds.includes(n.id) && (
+                            <span
+                              className="inline-block w-2 h-2 bg-accent rounded-full mr-2"
+                              aria-label="new"
+                            />
+                          )}
+                          {n.title}
+                        </h2>
+                        <p className="mt-1 text-sm whitespace-pre-wrap text-black dark:text-[var(--dark-text)]">
+                          {n.body}
+                        </p>
+                      </Link>
+                    ) : (
+                      <>
+                        <h2 className="font-semibold text-black dark:text-[var(--dark-text)] flex items-center">
+                          {!readIds.includes(n.id) && (
+                            <span
+                              className="inline-block w-2 h-2 bg-accent rounded-full mr-2"
+                              aria-label="new"
+                            />
+                          )}
+                          {n.title}
+                        </h2>
+                        <p className="mt-1 text-sm whitespace-pre-wrap text-black dark:text-[var(--dark-text)]">
+                          {n.body}
+                        </p>
+                      </>
+                    )}
                   </div>
                   <button
                     onClick={() => handleDismiss(n.id)}
