@@ -26,6 +26,7 @@ const AdminNotifications = () => {
     title: '',
     body: '',
   });
+  const [editingRuleId, setEditingRuleId] = useState(null);
 
   const fetchHistory = async () => {
     try {
@@ -83,15 +84,40 @@ const AdminNotifications = () => {
   const handleRuleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const ref = await addDoc(collection(db, 'notificationRules'), {
-        trigger: ruleForm.trigger,
-        audience: ruleForm.audience,
-        titleTemplate: ruleForm.title,
-        bodyTemplate: ruleForm.body,
-        active: true,
-        createdAt: serverTimestamp(),
-      });
-      setRules((r) => [...r, { id: ref.id, ...ruleForm, active: true }]);
+      if (editingRuleId) {
+        await updateDoc(doc(db, 'notificationRules', editingRuleId), {
+          trigger: ruleForm.trigger,
+          audience: ruleForm.audience,
+          titleTemplate: ruleForm.title,
+          bodyTemplate: ruleForm.body,
+        });
+        setRules((r) =>
+          r.map((rule) =>
+            rule.id === editingRuleId
+              ? {
+                  ...rule,
+                  trigger: ruleForm.trigger,
+                  audience: ruleForm.audience,
+                  title: ruleForm.title,
+                  body: ruleForm.body,
+                  titleTemplate: ruleForm.title,
+                  bodyTemplate: ruleForm.body,
+                }
+              : rule
+          )
+        );
+        setEditingRuleId(null);
+      } else {
+        const ref = await addDoc(collection(db, 'notificationRules'), {
+          trigger: ruleForm.trigger,
+          audience: ruleForm.audience,
+          titleTemplate: ruleForm.title,
+          bodyTemplate: ruleForm.body,
+          active: true,
+          createdAt: serverTimestamp(),
+        });
+        setRules((r) => [...r, { id: ref.id, ...ruleForm, active: true }]);
+      }
       setRuleForm({ trigger: 'adGroupCreated', audience: '', title: '', body: '' });
     } catch (err) {
       console.error('Failed to save rule', err);
@@ -105,6 +131,21 @@ const AdminNotifications = () => {
     } catch (err) {
       console.error('Failed to update rule', err);
     }
+  };
+
+  const startEditRule = (rule) => {
+    setRuleForm({
+      trigger: rule.trigger,
+      audience: rule.audience,
+      title: rule.title || rule.titleTemplate || '',
+      body: rule.body || rule.bodyTemplate || '',
+    });
+    setEditingRuleId(rule.id);
+  };
+
+  const cancelEdit = () => {
+    setRuleForm({ trigger: 'adGroupCreated', audience: '', title: '', body: '' });
+    setEditingRuleId(null);
   };
 
   const deleteRule = async (id) => {
@@ -246,7 +287,16 @@ const AdminNotifications = () => {
             required
           />
         </div>
-        <button type="submit" className="btn-primary">Save Rule</button>
+        <div className="flex gap-2">
+          <button type="submit" className="btn-primary">
+            {editingRuleId ? 'Update Rule' : 'Save Rule'}
+          </button>
+          {editingRuleId && (
+            <button type="button" onClick={cancelEdit} className="btn-secondary">
+              Cancel
+            </button>
+          )}
+        </div>
       </form>
 
       {rules.length === 0 ? (
@@ -269,6 +319,12 @@ const AdminNotifications = () => {
                   <td>{r.audience}</td>
                   <td>{r.active ? 'yes' : 'no'}</td>
                   <td>
+                    <button
+                      onClick={() => startEditRule(r)}
+                      className="underline mr-2"
+                    >
+                      Edit
+                    </button>
                     <button onClick={() => toggleRule(r.id, r.active)} className="underline mr-2">
                       {r.active ? 'Disable' : 'Enable'}
                     </button>
