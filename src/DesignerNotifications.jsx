@@ -7,7 +7,7 @@ import { db } from './firebase/config';
 const READ_KEY = 'designerNotificationsRead';
 const DISMISS_KEY = 'designerNotificationsDismissed';
 
-const DesignerNotifications = () => {
+const DesignerNotifications = ({ brandCodes = [] }) => {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,13 +15,15 @@ const DesignerNotifications = () => {
     const fetchNotes = async () => {
       setLoading(true);
       try {
-        const snap = await getDocs(
-          query(
-            collection(db, 'notifications'),
-            where('audience', '==', 'designer'),
-            orderBy('createdAt', 'desc')
-          )
+        let q = query(
+          collection(db, 'notifications'),
+          where('audience', '==', 'designer'),
+          orderBy('createdAt', 'desc')
         );
+        if (brandCodes.length > 0) {
+          q = query(q, where('brandCode', 'in', brandCodes));
+        }
+        const snap = await getDocs(q);
         const dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
         const list = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -39,7 +41,7 @@ const DesignerNotifications = () => {
       }
     };
     fetchNotes();
-  }, []);
+  }, [brandCodes]);
 
   const handleDismiss = (id) => {
     const dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
