@@ -1,10 +1,16 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import ServiceWorkerUpdater from './ServiceWorkerUpdater';
 import './global.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+root.render(
+  <>
+    <App />
+    <ServiceWorkerUpdater />
+  </>
+);
 
 if (import.meta.env.DEV) {
   const warnIfBase64Bg = (el) => {
@@ -31,13 +37,5 @@ if (import.meta.env.DEV) {
     attributeFilter: ['style'],
     childList: true,
     subtree: true,
-  });
-}
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      /* registration failed */
-    });
   });
 }
