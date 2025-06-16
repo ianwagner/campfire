@@ -23,6 +23,8 @@ import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
+import VideoPlayer from './components/VideoPlayer.jsx';
+import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
 import computeGroupStatus from './utils/computeGroupStatus';
 import LoadingOverlay from "./LoadingOverlay";
@@ -1043,19 +1045,27 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
           ads.
         </h2>
         <div className="flex flex-wrap justify-center gap-2 w-full max-w-6xl mx-auto">
-          {(finalGallery ? heroGroups : heroGroups.slice(0, 3)).map((g) => {
-            const showSet = finalGallery ? g.assets : [g.hero];
-            return showSet.map((a, idx) => (
-              <OptimizedImage
-                key={`${g.recipeCode}-${idx}`}
-                pngUrl={a.firebaseUrl}
-                webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
-                alt={a.filename}
-                cacheKey={a.firebaseUrl}
-                className="w-24 h-24 object-contain"
-              />
-            ));
-          })}
+            {(finalGallery ? heroGroups : heroGroups.slice(0, 3)).map((g) => {
+              const showSet = finalGallery ? g.assets : [g.hero];
+              return showSet.map((a, idx) => (
+                isVideoUrl(a.firebaseUrl) ? (
+                  <VideoPlayer
+                    key={`${g.recipeCode}-${idx}`}
+                    src={a.firebaseUrl}
+                    className="w-24 h-24 object-contain"
+                  />
+                ) : (
+                  <OptimizedImage
+                    key={`${g.recipeCode}-${idx}`}
+                    pngUrl={a.firebaseUrl}
+                    webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
+                    alt={a.filename}
+                    cacheKey={a.firebaseUrl}
+                    className="w-24 h-24 object-contain"
+                  />
+                )
+              ));
+            })}
         </div>
         {/* table and rejected button removed */}
         <button
@@ -1229,46 +1239,79 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
   }`}
   style={{ aspectRatio: currentAspect }}
 >
-  <OptimizedImage
-    pngUrl={adUrl}
-    webpUrl={adUrl.replace(/\.png$/, '.webp')}
-    alt="Ad"
-    loading="eager"
-    cacheKey={adUrl}
-    onLoad={() => setFirstAdLoaded(true)}
-    style={
-      isMobile && showSizes
-        ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
-        : {}
-    }
-    className="w-full h-full object-contain"
-  />
+  {isVideoUrl(adUrl) ? (
+    <VideoPlayer
+      src={adUrl}
+      onLoadedData={() => setFirstAdLoaded(true)}
+      style={
+        isMobile && showSizes
+          ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+          : {}
+      }
+      className="w-full h-full object-contain"
+    />
+  ) : (
+    <OptimizedImage
+      pngUrl={adUrl}
+      webpUrl={adUrl.replace(/\.png$/, '.webp')}
+      alt="Ad"
+      loading="eager"
+      cacheKey={adUrl}
+      onLoad={() => setFirstAdLoaded(true)}
+      style={
+        isMobile && showSizes
+          ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+          : {}
+      }
+      className="w-full h-full object-contain"
+    />
+  )}
 </div>
             {currentAd && (currentAd.version || 1) > 1 && (
               <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
             )}
-            {otherSizes.map((a, idx) => (
-              <OptimizedImage
-                key={idx}
-                pngUrl={a.firebaseUrl}
-                webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
-                alt={a.filename}
-                cacheKey={a.firebaseUrl}
-                style={
-                  isMobile && showSizes
-                    ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
-                    : {
-                        transform: showSizes
-                          ? `translateX(${(idx + 1) * 110}%)`
-                          : 'translateX(0)',
-                        opacity: showSizes ? 1 : 0,
-                      }
-                }
-                className={`max-w-[90%] mx-auto rounded shadow ${
-                  isMobile && showSizes ? 'mb-2 relative' : 'size-thumb max-h-[72vh]'
-                }`}
-              />
-            ))}
+              {otherSizes.map((a, idx) => (
+                isVideoUrl(a.firebaseUrl) ? (
+                  <VideoPlayer
+                    key={idx}
+                    src={a.firebaseUrl}
+                    style={
+                      isMobile && showSizes
+                        ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+                        : {
+                            transform: showSizes
+                              ? `translateX(${(idx + 1) * 110}%)`
+                              : 'translateX(0)',
+                            opacity: showSizes ? 1 : 0,
+                          }
+                    }
+                    className={`max-w-[90%] mx-auto rounded shadow ${
+                      isMobile && showSizes ? 'mb-2 relative' : 'size-thumb max-h-[72vh]'
+                    }`}
+                  />
+                ) : (
+                  <OptimizedImage
+                    key={idx}
+                    pngUrl={a.firebaseUrl}
+                    webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
+                    alt={a.filename}
+                    cacheKey={a.firebaseUrl}
+                    style={
+                      isMobile && showSizes
+                        ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+                        : {
+                            transform: showSizes
+                              ? `translateX(${(idx + 1) * 110}%)`
+                              : 'translateX(0)',
+                            opacity: showSizes ? 1 : 0,
+                          }
+                    }
+                    className={`max-w-[90%] mx-auto rounded shadow ${
+                      isMobile && showSizes ? 'mb-2 relative' : 'size-thumb max-h-[72vh]'
+                    }`}
+                  />
+                )
+              ))}
           </div>
         </div>
       </div>
@@ -1377,6 +1420,12 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
                 V{versionModal.previous.version || 1} (replaced)
               </button>
             </div>
+          {isVideoUrl(versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl) ? (
+            <VideoPlayer
+              src={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
+              className="max-w-full max-h-[70vh] mx-auto"
+            />
+          ) : (
             <OptimizedImage
               pngUrl={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
               webpUrl={(versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl).replace(/\.png$/, '.webp')}
@@ -1384,6 +1433,7 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
               cacheKey={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
               className="max-w-full max-h-[70vh] mx-auto"
             />
+          )}
             <button onClick={closeVersionModal} className="mt-2 btn-primary px-3 py-1">
               Close
             </button>
