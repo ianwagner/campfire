@@ -176,8 +176,8 @@ async function runRules(trigger, data) {
 exports.notifyAdGroupCreated = onDocumentCreated('adGroups/{id}', async (event) => {
   const data = event.data.data() || {};
   await runRules('adGroupCreated', {
-    brandCode: data.brandCode,
-    brandCodes: [data.brandCode].filter(Boolean),
+    brandCode: Array.isArray(data.brandCodes) ? data.brandCodes[0] : data.brandCode,
+    brandCodes: Array.isArray(data.brandCodes) ? data.brandCodes : [data.brandCode].filter(Boolean),
     status: data.status,
     name: data.name,
     url: `/ad-group/${event.params.id}`,
@@ -190,8 +190,8 @@ exports.notifyAdGroupStatusUpdated = onDocumentUpdated('adGroups/{id}', async (e
   const after = event.data.after.data() || {};
   if (before.status === after.status) return null;
   await runRules('adGroupStatusUpdated', {
-    brandCode: after.brandCode,
-    brandCodes: [after.brandCode].filter(Boolean),
+    brandCode: Array.isArray(after.brandCodes) ? after.brandCodes[0] : after.brandCode,
+    brandCodes: Array.isArray(after.brandCodes) ? after.brandCodes : [after.brandCode].filter(Boolean),
     status: after.status,
     name: after.name,
     url: `/ad-group/${event.params.id}`,
