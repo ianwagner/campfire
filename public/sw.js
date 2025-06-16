@@ -3,7 +3,7 @@ const URLS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
-  'https://storage.googleapis.com/tak-campfire-main/Campfire/site-logo/SMOL.png'
+  'https://firebasestorage.googleapis.com/v0/b/tak-campfire-main/o/Campfire%2Fsite-logo%2Ffav.png?alt=media&token=4e20a333-5189-4b25-82a7-2901688c8838'
 ];
 
 self.addEventListener('install', (event) => {
