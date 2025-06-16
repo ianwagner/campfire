@@ -26,7 +26,6 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
-import computeGroupStatus from './utils/computeGroupStatus';
 import LoadingOverlay from "./LoadingOverlay";
 import debugLog from './utils/debugLog';
 import useDebugTrace from './utils/useDebugTrace';
@@ -798,14 +797,7 @@ useEffect(() => {
             lastUpdated: serverTimestamp(),
             ...(gSnap.exists() && !gSnap.data().thumbnailUrl ? { thumbnailUrl: asset.firebaseUrl } : {}),
           };
-          const newGroupStatus = computeGroupStatus(
-            ads.map((a) => (a.assetId === asset.assetId ? { ...a, status: newStatus } : a)),
-            gSnap.exists() ? gSnap.data().status : 'pending'
-          );
-          if (newGroupStatus !== gSnap.data().status) {
-            updateObj.status = newGroupStatus;
-            setGroupStatus(newGroupStatus);
-          }
+          // avoid changing the overall ad group status mid-review
           updates.push(updateDoc(groupRef, updateObj));
 
           if (responseType === 'approve' && asset.parentAdId) {

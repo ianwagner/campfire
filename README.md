@@ -269,3 +269,7 @@ fired. When a rule matches, a notification document is created which causes the
 Notifications triggered by `adGroupCreated` or `adGroupStatusUpdated` now include a `url` field that points to the related ad group. The Designer notification UI uses this to make the message clickable so users can jump directly to the group details.
 
 If a rule outputs a `brandCode` value, only users with that code in their `brandCodes` array will receive the notification.
+
+The `adGroupStatusUpdated` trigger ignores transitions to `in review` and
+`review pending`. Ad group status is now only updated when a reviewer starts or
+finishes a session instead of after every ad action, reducing notification spam.
