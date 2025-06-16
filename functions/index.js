@@ -113,10 +113,11 @@ if (data.sentAt) {
   }
 
   const tokens = new Set();
-  const q = await db
-    .collection('users')
-    .where('audience', '==', data.audience)
-    .get();
+  let userQuery = db.collection('users').where('audience', '==', data.audience);
+  if (data.brandCode) {
+    userQuery = userQuery.where('brandCodes', 'array-contains', data.brandCode);
+  }
+  const q = await userQuery.get();
 
   console.log(`🔍 Found ${q.size} users for audience "${data.audience}"`);
 
@@ -164,6 +165,7 @@ async function runRules(trigger, data) {
       ruleId: r.id,
     };
     if (data.url) doc.url = data.url;
+    if (data.brandCode) doc.brandCode = data.brandCode;
     return db.collection('notifications').add(doc);
   }));
 }

@@ -267,3 +267,5 @@ fired. When a rule matches, a notification document is created which causes the
 `sendNotification` Cloud Function to distribute the message via FCM.
 
 Notifications triggered by `adGroupCreated` or `adGroupStatusUpdated` now include a `url` field that points to the related ad group. The Designer notification UI uses this to make the message clickable so users can jump directly to the group details.
+
+If a rule outputs a `brandCode` value, only users with that code in their `brandCodes` array will receive the notification.

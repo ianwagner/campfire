@@ -211,7 +211,7 @@ const App = () => {
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
-                    <DesignerNotifications />
+                    <DesignerNotifications brandCodes={brandCodes} />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
