@@ -8,6 +8,7 @@ import {
   FiThumbsUp,
   FiThumbsDown,
   FiEdit,
+  FiEdit2,
   FiFileText,
   FiGrid,
   FiArchive,
@@ -34,6 +35,8 @@ const AdminAdGroups = () => {
   const { role } = useUserRole(user?.uid);
 
   const [shareInfo, setShareInfo] = useState(null);
+  const [renameId, setRenameId] = useState(null);
+  const [renameName, setRenameName] = useState('');
 
   const handleShare = async (id) => {
     let url = `${window.location.origin}/review/${id}`;
@@ -151,6 +154,25 @@ const AdminAdGroups = () => {
     }
   };
 
+  const startRename = (group) => {
+    setRenameId(group.id);
+    setRenameName(group.name || '');
+  };
+
+  const cancelRename = () => setRenameId(null);
+
+  const handleRenameSave = async (groupId) => {
+    const trimmed = renameName.trim();
+    if (!trimmed) return;
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), { name: trimmed });
+      setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, name: trimmed } : g)));
+      setRenameId(null);
+    } catch (err) {
+      console.error('Failed to rename group', err);
+    }
+  };
+
   return (
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Admin Ad Groups</h1>
@@ -235,7 +257,18 @@ const AdminAdGroups = () => {
             <tbody>
               {groups.map((g) => (
                 <tr key={g.id}>
-                  <td>{g.name}</td>
+                  <td>
+                    {renameId === g.id ? (
+                      <input
+                        type="text"
+                        value={renameName}
+                        onChange={(e) => setRenameName(e.target.value)}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      g.name
+                    )}
+                  </td>
                   <td>{g.brandCode}</td>
                   <td className="text-center">{g.recipeCount}</td>
                   <td className="text-center">
@@ -260,60 +293,87 @@ const AdminAdGroups = () => {
                   </td>
                   <td className="text-center">
                     <div className="flex items-center justify-center">
-                      <Link
-                        to={`/ad-group/${g.id}`}
-                        className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-                        aria-label="View Details"
-                      >
-                        <FiEye />
-                        <span className="text-[14px]">Details</span>
-                      </Link>
-                      <Link
-                        to={
-                          g.status === 'reviewed'
-                            ? `/review/${g.id}?done=1`
-                            : `/review/${g.id}`
-                        }
-                        className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
-                        aria-label="Review"
-                      >
-                        <FiCheckCircle />
-                        <span className="text-[14px]">Review</span>
-                      </Link>
-                      <button
-                        onClick={() => handleShare(g.id)}
-                        className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
-                        aria-label="Share Link"
-                      >
-                        <FiLink />
-                        <span className="text-[14px]">Share</span>
-                      </button>
-                      {g.status === 'archived' ? (
-                        <button
-                          onClick={() => handleRestoreGroup(g.id)}
-                          className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
-                          aria-label="Restore"
-                        >
-                          <FiRotateCcw />
-                          <span className="text-[14px]">Restore</span>
-                        </button>
+                      {renameId === g.id ? (
+                        <>
+                          <button
+                            onClick={() => handleRenameSave(g.id)}
+                            className="btn-secondary px-2 py-0.5 flex items-center gap-1 mr-2"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={cancelRename}
+                            className="btn-secondary px-2 py-0.5"
+                          >
+                            Cancel
+                          </button>
+                        </>
                       ) : (
-                        <button
-                          onClick={() => handleArchiveGroup(g.id)}
-                          className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
-                          aria-label="Archive"
-                        >
-                          <FiArchive />
-                          <span className="text-[14px]">Archive</span>
-                        </button>
+                        <>
+                          <Link
+                            to={`/ad-group/${g.id}`}
+                            className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                            aria-label="View Details"
+                          >
+                            <FiEye />
+                            <span className="text-[14px]">Details</span>
+                          </Link>
+                          <Link
+                            to={
+                              g.status === 'reviewed'
+                                ? `/review/${g.id}?done=1`
+                                : `/review/${g.id}`
+                            }
+                            className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+                            aria-label="Review"
+                          >
+                            <FiCheckCircle />
+                            <span className="text-[14px]">Review</span>
+                          </Link>
+                          <button
+                            onClick={() => handleShare(g.id)}
+                            className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+                            aria-label="Share Link"
+                          >
+                            <FiLink />
+                            <span className="text-[14px]">Share</span>
+                          </button>
+                          <button
+                            onClick={() => startRename(g)}
+                            className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+                            aria-label="Rename"
+                          >
+                            <FiEdit2 />
+                            <span className="text-[14px]">Rename</span>
+                          </button>
+                          {g.status === 'archived' ? (
+                            <button
+                              onClick={() => handleRestoreGroup(g.id)}
+                              className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+                              aria-label="Restore"
+                            >
+                              <FiRotateCcw />
+                              <span className="text-[14px]">Restore</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleArchiveGroup(g.id)}
+                              className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+                              aria-label="Archive"
+                            >
+                              <FiArchive />
+                              <span className="text-[14px]">Archive</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
+                            className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2 btn-delete"
+                            aria-label="Delete"
+                          >
+                            <FiTrash />
+                          </button>
+                        </>
                       )}
-                      <button
-                        onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                        className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2 btn-delete"
-                        aria-label="Delete"
-                      >
-                        <FiTrash />
-                      </button>
                     </div>
                   </td>
                 </tr>
