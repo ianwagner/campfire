@@ -1,15 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 const ServiceWorkerUpdater = () => {
   const [updateReady, setUpdateReady] = useState(false);
-  const [registration, setRegistration] = useState(null);
+  const registrationRef = useRef(null);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/sw.js')
         .then((registration) => {
-          setRegistration(registration);
+          registrationRef.current = registration;
+
           if (registration.waiting) {
             setUpdateReady(true);
           }
@@ -29,18 +30,20 @@ const ServiceWorkerUpdater = () => {
           });
         })
         .catch(() => {
-          /* registration failed */
+          // registration failed
         });
     }
   }, []);
 
   const reload = () => {
+    const registration = registrationRef.current;
     if (registration?.waiting) {
       registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
-      });
-      setUpdateReady(false);
+      navigator.serviceWorker.addEventListener(
+        'controllerchange',
+        () => window.location.reload(),
+        { once: true }
+      );
     }
   };
 
