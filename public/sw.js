@@ -3,13 +3,25 @@ const URLS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
-  'https://storage.googleapis.com/tak-campfire-main/Campfire/site-logo/SMOL.png',
-  'https://storage.googleapis.com/tak-campfire-main/Campfire/site-logo/SMOL.png',
+  'https://storage.googleapis.com/tak-campfire-main/Campfire/site-logo/SMOL.png'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(URLS_TO_CACHE))
+    caches
+      .open(CACHE_NAME)
+      .then(async (cache) => {
+        await Promise.all(
+          URLS_TO_CACHE.map(async (url) => {
+            try {
+              const resp = await fetch(new Request(url, { mode: 'no-cors' }));
+              await cache.put(url, resp);
+            } catch (err) {
+              console.warn('SW cache failed:', url, err);
+            }
+          })
+        );
+      })
   );
 });
 
