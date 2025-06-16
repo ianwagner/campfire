@@ -189,6 +189,8 @@ exports.notifyAdGroupStatusUpdated = onDocumentUpdated('adGroups/{id}', async (e
   const before = event.data.before.data() || {};
   const after = event.data.after.data() || {};
   if (before.status === after.status) return null;
+  const noisy = new Set(['in review', 'review pending']);
+  if (noisy.has(after.status)) return null;
   await runRules('adGroupStatusUpdated', {
     brandCode: Array.isArray(after.brandCodes) ? after.brandCodes[0] : after.brandCode,
     brandCodes: Array.isArray(after.brandCodes) ? after.brandCodes : [after.brandCode].filter(Boolean),
