@@ -154,7 +154,7 @@ async function runRules(trigger, data) {
     if (r.active === false) return null;
     const title = applyTemplate(r.titleTemplate || '', data);
     const body = applyTemplate(r.bodyTemplate || '', data);
-    return db.collection('notifications').add({
+    const doc = {
       title,
       body,
       audience: r.audience || '',
@@ -162,7 +162,9 @@ async function runRules(trigger, data) {
       triggerTime: null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       ruleId: r.id,
-    });
+    };
+    if (data.url) doc.url = data.url;
+    return db.collection('notifications').add(doc);
   }));
 }
 
@@ -172,6 +174,7 @@ exports.notifyAdGroupCreated = onDocumentCreated('adGroups/{id}', async (event) 
     brandCode: data.brandCode,
     status: data.status,
     name: data.name,
+    url: `/ad-group/${event.params.id}`,
   });
   return null;
 });
@@ -184,6 +187,7 @@ exports.notifyAdGroupStatusUpdated = onDocumentUpdated('adGroups/{id}', async (e
     brandCode: after.brandCode,
     status: after.status,
     name: after.name,
+    url: `/ad-group/${event.params.id}`,
   });
   return null;
 });
