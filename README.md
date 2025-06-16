@@ -264,6 +264,9 @@ Rules specify a trigger (`adGroupCreated`, `adGroupStatusUpdated`, or
 `accountCreated`), a target audience and message templates. Placeholders like
 `{{brandCode}}` or `{{status}}` are replaced with values from the event that
 fired. When a rule matches, a notification document is created which causes the
-`sendNotification` Cloud Function to distribute the message via FCM.
+`sendNotification` Cloud Function to distribute the message via FCM. The
+notification can include a `brandCodes` array to limit delivery to users whose
+profiles contain one of those codes.
 
 Notifications triggered by `adGroupCreated` or `adGroupStatusUpdated` now include a `url` field that points to the related ad group. The Designer notification UI uses this to make the message clickable so users can jump directly to the group details.
+When a notification specifies `brandCodes`, only users whose account contains at least one of those codes will receive the push message and see it in the Designer interface.

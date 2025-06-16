@@ -7,7 +7,7 @@ import { db } from './firebase/config';
 const READ_KEY = 'designerNotificationsRead';
 const DISMISS_KEY = 'designerNotificationsDismissed';
 
-const DesignerNotifications = () => {
+const DesignerNotifications = ({ brandCodes = [] }) => {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,7 +25,11 @@ const DesignerNotifications = () => {
         const dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
         const list = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((n) => !dismissed.includes(n.id));
+          .filter((n) => !dismissed.includes(n.id))
+          .filter((n) => {
+            if (!Array.isArray(n.brandCodes) || n.brandCodes.length === 0) return true;
+            return brandCodes.some((c) => n.brandCodes.includes(c));
+          });
         setNotes(list);
 
         const readIds = JSON.parse(localStorage.getItem(READ_KEY) || '[]');
@@ -39,7 +43,7 @@ const DesignerNotifications = () => {
       }
     };
     fetchNotes();
-  }, []);
+  }, [brandCodes]);
 
   const handleDismiss = (id) => {
     const dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
