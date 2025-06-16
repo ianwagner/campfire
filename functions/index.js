@@ -113,19 +113,12 @@ if (data.sentAt) {
   }
 
   const tokens = new Set();
-  let userQuery = db
+  const q = await db
     .collection('users')
-    .where('audience', '==', data.audience);
-  const codes = Array.isArray(data.brandCodes) ? data.brandCodes.filter(Boolean) : [];
-  if (codes.length > 0) {
-    userQuery = userQuery.where('brandCodes', 'array-contains-any', codes);
-  }
-  const q = await userQuery.get();
+    .where('audience', '==', data.audience)
+    .get();
 
-  console.log(
-    `🔍 Found ${q.size} users for audience "${data.audience}"` +
-      (codes.length > 0 ? ` with brands ${codes.join(',')}` : '')
-  );
+  console.log(`🔍 Found ${q.size} users for audience "${data.audience}"`);
 
   q.forEach((doc) => {
     const t = doc.get('fcmToken');
@@ -170,11 +163,6 @@ async function runRules(trigger, data) {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       ruleId: r.id,
     };
-    if (Array.isArray(data.brandCodes) && data.brandCodes.length > 0) {
-      doc.brandCodes = data.brandCodes;
-    } else if (data.brandCode) {
-      doc.brandCodes = [data.brandCode];
-    }
     if (data.url) doc.url = data.url;
     return db.collection('notifications').add(doc);
   }));
@@ -183,7 +171,7 @@ async function runRules(trigger, data) {
 exports.notifyAdGroupCreated = onDocumentCreated('adGroups/{id}', async (event) => {
   const data = event.data.data() || {};
   await runRules('adGroupCreated', {
-    brandCodes: data.brandCode ? [data.brandCode] : [],
+    brandCode: data.brandCode,
     status: data.status,
     name: data.name,
     url: `/ad-group/${event.params.id}`,
@@ -196,7 +184,7 @@ exports.notifyAdGroupStatusUpdated = onDocumentUpdated('adGroups/{id}', async (e
   const after = event.data.after.data() || {};
   if (before.status === after.status) return null;
   await runRules('adGroupStatusUpdated', {
-    brandCodes: after.brandCode ? [after.brandCode] : [],
+    brandCode: after.brandCode,
     status: after.status,
     name: after.name,
     url: `/ad-group/${event.params.id}`,

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import TagInput from './components/TagInput.jsx';
 import {
   collection,
   addDoc,
@@ -21,8 +20,6 @@ const AdminNotifications = () => {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const [rules, setRules] = useState([]);
-  const [brandCodes, setBrandCodes] = useState([]);
-  const [brands, setBrands] = useState([]);
   const [ruleForm, setRuleForm] = useState({
     trigger: 'adGroupCreated',
     audience: '',
@@ -57,16 +54,6 @@ const AdminNotifications = () => {
   useEffect(() => {
     fetchHistory();
     fetchRules();
-    const fetchBrands = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'brands'));
-        setBrands(snap.docs.map((d) => d.data().code));
-      } catch (err) {
-        console.error('Failed to load brands', err);
-        setBrands([]);
-      }
-    };
-    fetchBrands();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -77,7 +64,6 @@ const AdminNotifications = () => {
         title,
         body,
         audience,
-        brandCodes: brandCodes.filter(Boolean),
         sendNow: !triggerTime,
         triggerTime: triggerTime ? new Date(triggerTime) : null,
         createdAt: serverTimestamp(),
@@ -85,7 +71,6 @@ const AdminNotifications = () => {
       setTitle('');
       setBody('');
       setAudience('');
-      setBrandCodes([]);
       setTriggerTime('');
       fetchHistory();
     } catch (err) {
@@ -144,15 +129,6 @@ const AdminNotifications = () => {
             onChange={(e) => setAudience(e.target.value)}
             className="w-full p-2 border rounded"
             required
-          />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Brand Codes</label>
-          <TagInput
-            value={brandCodes}
-            onChange={setBrandCodes}
-            suggestions={brands}
-            id="note-brand-code"
           />
         </div>
         <div>
