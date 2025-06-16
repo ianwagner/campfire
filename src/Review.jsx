@@ -684,6 +684,16 @@ useEffect(() => {
         ? 'rejected'
         : 'edit_requested';
 
+    const groupIdForAssets = recipeAssets[0]?.adGroupId;
+    const groupRef = groupIdForAssets ? doc(db, 'adGroups', groupIdForAssets) : null;
+    const gSnap = groupRef ? await getDoc(groupRef) : null;
+
+    let incReviewed = 0;
+    let incApproved = 0;
+    let incRejected = 0;
+    let incEdit = 0;
+    let updatedAds = [...ads];
+
     try {
       for (const asset of recipeAssets) {
         const url = asset.adUrl || asset.firebaseUrl;
@@ -771,42 +781,21 @@ useEffect(() => {
           );
 
           const prevStatus = asset.status;
-          const newState = newStatus;
-          let incReviewed = 0;
-          let incApproved = 0;
-          let incRejected = 0;
-          let incEdit = 0;
           if (prevStatus === 'ready') {
             incReviewed += 1;
           }
-          if (prevStatus !== newState) {
+          if (prevStatus !== newStatus) {
             if (prevStatus === 'approved') incApproved -= 1;
             if (prevStatus === 'rejected') incRejected -= 1;
             if (prevStatus === 'edit_requested') incEdit -= 1;
-            if (newState === 'approved') incApproved += 1;
-            if (newState === 'rejected') incRejected += 1;
-            if (newState === 'edit_requested') incEdit += 1;
+            if (newStatus === 'approved') incApproved += 1;
+            if (newStatus === 'rejected') incRejected += 1;
+            if (newStatus === 'edit_requested') incEdit += 1;
           }
 
-          const groupRef = doc(db, 'adGroups', asset.adGroupId);
-          const gSnap = await getDoc(groupRef);
-          const updateObj = {
-            ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
-            ...(incApproved ? { approvedCount: increment(incApproved) } : {}),
-            ...(incRejected ? { rejectedCount: increment(incRejected) } : {}),
-            ...(incEdit ? { editCount: increment(incEdit) } : {}),
-            lastUpdated: serverTimestamp(),
-            ...(gSnap.exists() && !gSnap.data().thumbnailUrl ? { thumbnailUrl: asset.firebaseUrl } : {}),
-          };
-          const newGroupStatus = computeGroupStatus(
-            ads.map((a) => (a.assetId === asset.assetId ? { ...a, status: newStatus } : a)),
-            gSnap.exists() ? gSnap.data().status : 'pending'
+          updatedAds = updatedAds.map((a) =>
+            a.assetId === asset.assetId ? { ...a, status: newStatus } : a
           );
-          if (newGroupStatus !== gSnap.data().status) {
-            updateObj.status = newGroupStatus;
-            setGroupStatus(newGroupStatus);
-          }
-          updates.push(updateDoc(groupRef, updateObj));
 
           if (responseType === 'approve' && asset.parentAdId) {
             const relatedQuery = query(
@@ -831,6 +820,28 @@ useEffect(() => {
           }
         }
         setResponses((prev) => ({ ...prev, [url]: respObj }));
+      }
+
+      if (groupRef) {
+        const updateObj = {
+          ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
+          ...(incApproved ? { approvedCount: increment(incApproved) } : {}),
+          ...(incRejected ? { rejectedCount: increment(incRejected) } : {}),
+          ...(incEdit ? { editCount: increment(incEdit) } : {}),
+          lastUpdated: serverTimestamp(),
+          ...(gSnap && gSnap.exists() && !gSnap.data().thumbnailUrl
+            ? { thumbnailUrl: recipeAssets[0].firebaseUrl }
+            : {}),
+        };
+        const newGroupStatus = computeGroupStatus(
+          updatedAds,
+          gSnap && gSnap.exists() ? gSnap.data().status : 'pending'
+        );
+        if (gSnap && newGroupStatus !== gSnap.data().status) {
+          updateObj.status = newGroupStatus;
+          setGroupStatus(newGroupStatus);
+        }
+        updates.push(updateDoc(groupRef, updateObj));
       }
 
       if (recipeAssets.length > 0) {
