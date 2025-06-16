@@ -20,7 +20,7 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification?.title || 'Background Message';
   const notificationOptions = {
     body: payload.notification?.body,
-    icon: 'https://storage.googleapis.com/tak-campfire-main/Campfire/site-logo/SMOL.png',
+    icon: 'https://firebasestorage.googleapis.com/v0/b/tak-campfire-main/o/Campfire%2Fsite-logo%2Ffav.png?alt=media&token=4e20a333-5189-4b25-82a7-2901688c8838',
   };
 
   // self.registration.showNotification(notificationTitle, notificationOptions);

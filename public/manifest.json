@@ -3,12 +3,12 @@
   "short_name": "Campfire",
   "icons": [
     {
-      "src": "https://storage.googleapis.com/tak-campfire-main/Campfire/site-logo/SMOL.png",
+      "src": "https://firebasestorage.googleapis.com/v0/b/tak-campfire-main/o/Campfire%2Fsite-logo%2Ffav.png?alt=media&token=4e20a333-5189-4b25-82a7-2901688c8838",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://storage.googleapis.com/tak-campfire-main/Campfire/site-logo/SMOL.png",
+      "src": "https://firebasestorage.googleapis.com/v0/b/tak-campfire-main/o/Campfire%2Fsite-logo%2Ffav.png?alt=media&token=4e20a333-5189-4b25-82a7-2901688c8838",
       "sizes": "512x512",
       "type": "image/png"
     }
