@@ -796,7 +796,8 @@ const AdGroupDetail = () => {
     const map = {};
     approved.forEach((a) => {
       const info = parseAdFilename(a.filename || "");
-      const meta = recipesMeta[info.recipeCode] || {};
+      const recipe = a.recipeCode || info.recipeCode;
+      const meta = recipesMeta[recipe] || {};
       const keyParts = groupBy.map((k) => sanitize(meta[k]));
       const key = keyParts.join("|");
       if (!map[key]) map[key] = [];
