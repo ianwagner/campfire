@@ -9,7 +9,7 @@
     /* loading spinner should stay the default color */
     --spinner-color: #ea580c;
     --dark-bg: #0d1116;
-    --dark-text: #f3f4f6; /* gray-100 */
+    --dark-text: #f3f4f6; 
     --dark-sidebar-bg: #141920;
     --dark-sidebar-hover: #171d27;
     --font-primary: "Rubik", sans-serif;
