@@ -191,13 +191,17 @@ exports.notifyAdGroupStatusUpdated = onDocumentUpdated('adGroups/{id}', async (e
   if (before.status === after.status) return null;
   const noisy = new Set(['in review', 'review pending']);
   if (noisy.has(after.status)) return null;
-  await runRules('adGroupStatusUpdated', {
-    brandCode: Array.isArray(after.brandCodes) ? after.brandCodes[0] : after.brandCode,
-    brandCodes: Array.isArray(after.brandCodes) ? after.brandCodes : [after.brandCode].filter(Boolean),
-    status: after.status,
-    name: after.name,
-    url: `/ad-group/${event.params.id}`,
-  });
+  if (after.lastStatusNotified === after.status) return null;
+  await Promise.all([
+    runRules('adGroupStatusUpdated', {
+      brandCode: Array.isArray(after.brandCodes) ? after.brandCodes[0] : after.brandCode,
+      brandCodes: Array.isArray(after.brandCodes) ? after.brandCodes : [after.brandCode].filter(Boolean),
+      status: after.status,
+      name: after.name,
+      url: `/ad-group/${event.params.id}`,
+    }),
+    event.data.after.ref.update({ lastStatusNotified: after.status }),
+  ]);
   return null;
 });
 
