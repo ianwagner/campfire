@@ -323,6 +323,7 @@ const AdGroupDetail = () => {
       const tsMillis = (t) =>
         t?.toMillis?.() ?? (typeof t === "number" ? t : 0);
       const all = [];
+      const uids = new Set();
       for (const asset of groupAssets) {
         const snap = await getDocs(
           query(
@@ -332,14 +333,34 @@ const AdGroupDetail = () => {
         );
         snap.docs.forEach((d) => {
           const h = d.data() || {};
+          const uid = h.updatedBy;
+          if (uid) uids.add(uid);
           all.push({
             lastUpdatedAt: h.updatedAt,
-            email: h.updatedBy || "N/A",
+            email: uid || "N/A",
             status: h.status,
             comment: h.comment || "",
           });
         });
       }
+
+      const userMap = {};
+      await Promise.all(
+        Array.from(uids).map(async (uid) => {
+          try {
+            const snap = await getDoc(doc(db, "users", uid));
+            userMap[uid] = snap.exists()
+              ? snap.data().fullName || snap.data().email || uid
+              : uid;
+          } catch {
+            userMap[uid] = uid;
+          }
+        }),
+      );
+
+      all.forEach((obj) => {
+        if (userMap[obj.email]) obj.email = userMap[obj.email];
+      });
       all.sort((a, b) => tsMillis(b.lastUpdatedAt) - tsMillis(a.lastUpdatedAt));
       setHistoryRecipe({ recipeCode, assets: all });
     } catch (err) {
@@ -355,12 +376,37 @@ const AdGroupDetail = () => {
           orderBy("updatedAt", "desc"),
         ),
       );
-      const list = snap.docs.map((d) => ({
-        lastUpdatedAt: d.data().updatedAt,
-        email: d.data().updatedBy || "N/A",
-        status: d.data().status,
-        comment: d.data().comment || "",
-      }));
+      const list = [];
+      const uids = new Set();
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        const uid = data.updatedBy;
+        if (uid) uids.add(uid);
+        list.push({
+          lastUpdatedAt: data.updatedAt,
+          email: uid || "N/A",
+          status: data.status,
+          comment: data.comment || "",
+        });
+      });
+
+      const userMap = {};
+      await Promise.all(
+        Array.from(uids).map(async (uid) => {
+          try {
+            const snap = await getDoc(doc(db, "users", uid));
+            userMap[uid] = snap.exists()
+              ? snap.data().fullName || snap.data().email || uid
+              : uid;
+          } catch {
+            userMap[uid] = uid;
+          }
+        }),
+      );
+
+      list.forEach((obj) => {
+        if (userMap[obj.email]) obj.email = userMap[obj.email];
+      });
       setHistoryAsset({ filename: asset.filename, assets: list });
     } catch (err) {
       console.error("Failed to load ad history", err);
