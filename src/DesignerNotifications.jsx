@@ -24,15 +24,29 @@ const DesignerNotifications = ({ brandCodes = [] }) => {
           q = query(q, where('brandCode', 'in', brandCodes));
         }
         const snap = await getDocs(q);
-        const dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
+        let dismissed = [];
+        try {
+          dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
+        } catch {
+          dismissed = [];
+        }
         const list = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
           .filter((n) => !dismissed.includes(n.id));
         setNotes(list);
 
-        const readIds = JSON.parse(localStorage.getItem(READ_KEY) || '[]');
+        let readIds = [];
+        try {
+          readIds = JSON.parse(localStorage.getItem(READ_KEY) || '[]');
+        } catch {
+          readIds = [];
+        }
         const all = new Set([...readIds, ...list.map((n) => n.id)]);
-        localStorage.setItem(READ_KEY, JSON.stringify(Array.from(all)));
+        try {
+          localStorage.setItem(READ_KEY, JSON.stringify(Array.from(all)));
+        } catch {
+          /* ignore */
+        }
       } catch (err) {
         console.error('Failed to load notifications', err);
         setNotes([]);
@@ -44,20 +58,43 @@ const DesignerNotifications = ({ brandCodes = [] }) => {
   }, [brandCodes]);
 
   const handleDismiss = (id) => {
-    const dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
+    let dismissed = [];
+    try {
+      dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
+    } catch {
+      dismissed = [];
+    }
     if (!dismissed.includes(id)) dismissed.push(id);
-    localStorage.setItem(DISMISS_KEY, JSON.stringify(dismissed));
+    try {
+      localStorage.setItem(DISMISS_KEY, JSON.stringify(dismissed));
+    } catch {
+      /* ignore */
+    }
     setNotes((n) => n.filter((note) => note.id !== id));
   };
 
   const handleClearAll = () => {
-    const dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
+    let dismissed = [];
+    try {
+      dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
+    } catch {
+      dismissed = [];
+    }
     const toAdd = notes.map((n) => n.id).filter((id) => !dismissed.includes(id));
-    localStorage.setItem(DISMISS_KEY, JSON.stringify([...dismissed, ...toAdd]));
+    try {
+      localStorage.setItem(DISMISS_KEY, JSON.stringify([...dismissed, ...toAdd]));
+    } catch {
+      /* ignore */
+    }
     setNotes([]);
   };
 
-  const readIds = JSON.parse(localStorage.getItem(READ_KEY) || '[]');
+  let readIds = [];
+  try {
+    readIds = JSON.parse(localStorage.getItem(READ_KEY) || '[]');
+  } catch {
+    readIds = [];
+  }
 
   return (
     <div className="min-h-screen p-4">
