@@ -30,10 +30,17 @@
       const agencyId = window.location.pathname.startsWith('/agency/')
         ? params.get('agencyId')
         : null;
+      const safeGet = (k) => {
+        try {
+          return localStorage.getItem(k);
+        } catch {
+          return null;
+        }
+      };
       const accent = (() => {
         if (agencyId) {
           try {
-            const stored = localStorage.getItem(`agencyTheme-${agencyId}`);
+            const stored = safeGet(`agencyTheme-${agencyId}`);
             if (stored) {
               const { themeColor } = JSON.parse(stored);
               if (themeColor) return themeColor;
@@ -42,9 +49,9 @@
             /* ignore parse errors */
           }
         }
-        return localStorage.getItem('accentColor');
+        return safeGet('accentColor');
       })();
-      const themePref = localStorage.getItem("theme") || "system";
+      const themePref = safeGet("theme") || "system";
       const themeMeta = document.querySelector('meta[name="theme-color"]');
       const setThemeColor = (dark) => {
         if (!themeMeta) return;
