@@ -149,7 +149,7 @@ const App = () => {
             <Route
               path="/login"
               element={
-                user ? (
+                signedIn ? (
                   <Navigate to={defaultPath} replace />
                 ) : (
                   <Login onLogin={() => setUser(auth.currentUser)} />
@@ -159,7 +159,7 @@ const App = () => {
             <Route
               path="/signup"
               element={
-                user ? (
+                signedIn ? (
                   <Navigate to={defaultPath} replace />
                 ) : (
                   <SignUpStepper />
@@ -169,7 +169,7 @@ const App = () => {
             <Route
               path="/signup/designer"
               element={
-                user ? (
+                signedIn ? (
                   <Navigate to={defaultPath} replace />
                 ) : (
                   <DesignerSignUp />
