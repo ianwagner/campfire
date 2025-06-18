@@ -9,7 +9,11 @@ const matchMediaRef =
 
 const getPreference = () => {
   if (typeof localStorage === 'undefined') return 'system';
-  return localStorage.getItem('theme') || 'system';
+  try {
+    return localStorage.getItem('theme') || 'system';
+  } catch (err) {
+    return 'system';
+  }
 };
 
 const getResolved = (pref) => {
@@ -57,7 +61,11 @@ const useTheme = () => {
   const setTheme = (pref) => {
     setPreference(pref);
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('theme', pref);
+      try {
+        localStorage.setItem('theme', pref);
+      } catch (err) {
+        // ignore write errors
+      }
     }
   };
 

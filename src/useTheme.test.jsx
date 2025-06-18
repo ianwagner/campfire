@@ -21,3 +21,33 @@ test('defaults to light when matchMedia is unavailable', () => {
     window.matchMedia = originalMatchMedia;
   }
 });
+
+test('useTheme does not throw when storage read fails', () => {
+  const originalGetItem = localStorage.getItem;
+  localStorage.getItem = jest.fn(() => {
+    throw new Error('failed');
+  });
+
+  expect(() => render(<ThemeDisplay />)).not.toThrow();
+
+  localStorage.getItem = originalGetItem;
+});
+
+test('setTheme does not throw when storage write fails', () => {
+  const originalSetItem = localStorage.setItem;
+  localStorage.setItem = jest.fn(() => {
+    throw new Error('failed');
+  });
+
+  const ThemeSetter = () => {
+    const { setTheme } = useTheme();
+    return <button onClick={() => setTheme('dark')}>set</button>;
+  };
+
+  expect(() => {
+    render(<ThemeSetter />);
+    screen.getByText('set').click();
+  }).not.toThrow();
+
+  localStorage.setItem = originalSetItem;
+});
