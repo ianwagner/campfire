@@ -5,6 +5,7 @@ import {
   RecaptchaVerifier,
   PhoneAuthProvider,
   PhoneMultiFactorGenerator,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
@@ -17,11 +18,15 @@ const Login = ({ onLogin }) => {
   const [mfaResolver, setMfaResolver] = useState(null);
   const [verificationId, setVerificationId] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  const [showReset, setShowReset] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     debugLog('Signing in', email);
     setError('');
+    setShowReset(false);
+    setResetSent(false);
     try {
       await signInWithEmailAndPassword(auth, email, password);
       debugLog('Sign-in successful');
@@ -46,6 +51,9 @@ const Login = ({ onLogin }) => {
         } catch (mfaErr) {
           setError(mfaErr.message);
         }
+      } else if (err.code === 'auth/wrong-password') {
+        setError('Incorrect password');
+        setShowReset(true);
       } else {
         setError(err.message);
       }
@@ -63,6 +71,16 @@ const Login = ({ onLogin }) => {
       await mfaResolver.resolveSignIn(assertion);
       debugLog('MFA sign-in successful');
       if (onLogin) onLogin();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleReset = async () => {
+    setError('');
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetSent(true);
     } catch (err) {
       setError(err.message);
     }
@@ -92,9 +110,21 @@ const Login = ({ onLogin }) => {
             required
           />
           {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
+          {resetSent && (
+            <p className="text-green-500 text-sm mb-2">Password reset email sent.</p>
+          )}
           <button type="submit" className="w-full btn-primary">
             Sign In
           </button>
+          {showReset && !resetSent && (
+            <button
+              type="button"
+              onClick={handleReset}
+              className="w-full mt-2 text-sm text-center text-blue-500"
+            >
+              Forgot password?
+            </button>
+          )}
           <div id="recaptcha-container"></div>
         </form>
       ) : (
