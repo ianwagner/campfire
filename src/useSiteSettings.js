@@ -5,7 +5,14 @@ import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
 import debugLog from './utils/debugLog';
 
-const storedAccent = localStorage.getItem('accentColor');
+// Guard against browsers where localStorage may be unavailable (e.g. privacy
+// mode). Accessing it can throw a DOMException, so wrap reads in try/catch.
+let storedAccent = null;
+try {
+  storedAccent = localStorage.getItem('accentColor');
+} catch {
+  storedAccent = null;
+}
 const defaultSettings = {
   logoUrl: '',
   iconUrl: '',
@@ -35,13 +42,21 @@ const useSiteSettings = (applyAccent = true) => {
           const color = data.accentColor || defaultSettings.accentColor;
           if (applyAccent) {
             applyAccentColor(color);
-            localStorage.setItem('accentColor', color);
+            try {
+              localStorage.setItem('accentColor', color);
+            } catch {
+              /* ignore */
+            }
           }
         } else {
           await setDoc(doc(db, 'settings', 'site'), defaultSettings);
           if (applyAccent) {
             applyAccentColor(defaultSettings.accentColor);
-            localStorage.setItem('accentColor', defaultSettings.accentColor);
+            try {
+              localStorage.setItem('accentColor', defaultSettings.accentColor);
+            } catch {
+              /* ignore */
+            }
           }
         }
       } catch (err) {
@@ -58,7 +73,11 @@ const useSiteSettings = (applyAccent = true) => {
   useEffect(() => {
     if (settings.accentColor && applyAccent) {
       applyAccentColor(settings.accentColor);
-      localStorage.setItem('accentColor', settings.accentColor);
+      try {
+        localStorage.setItem('accentColor', settings.accentColor);
+      } catch {
+        /* ignore */
+      }
     }
   }, [settings.accentColor]);
 
@@ -68,7 +87,11 @@ const useSiteSettings = (applyAccent = true) => {
     debugLog('Site settings saved');
     setSettings((prev) => ({ ...prev, ...newSettings }));
     if (newSettings.accentColor) {
-      localStorage.setItem('accentColor', newSettings.accentColor);
+      try {
+        localStorage.setItem('accentColor', newSettings.accentColor);
+      } catch {
+        /* ignore */
+      }
     }
   };
 

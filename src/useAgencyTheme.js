@@ -43,19 +43,31 @@ const useAgencyTheme = (agencyId) => {
           setAgency(updated);
           const color = data.themeColor || defaultAgency.themeColor;
           applyAccentColor(color);
-          localStorage.setItem(
-            `agencyTheme-${agencyId}`,
-            JSON.stringify({ logoUrl: updated.logoUrl, themeColor: color })
-          );
+          try {
+            localStorage.setItem(
+              `agencyTheme-${agencyId}`,
+              JSON.stringify({ logoUrl: updated.logoUrl, themeColor: color })
+            );
+          } catch {
+            /* ignore */
+          }
         } else {
           setAgency(defaultAgency);
-          localStorage.removeItem(`agencyTheme-${agencyId}`);
+          try {
+            localStorage.removeItem(`agencyTheme-${agencyId}`);
+          } catch {
+            /* ignore */
+          }
         }
       } catch (err) {
         console.error('Failed to fetch agency', err);
         setAgency(defaultAgency);
         if (agencyId) {
-          localStorage.removeItem(`agencyTheme-${agencyId}`);
+          try {
+            localStorage.removeItem(`agencyTheme-${agencyId}`);
+          } catch {
+            /* ignore */
+          }
         }
       } finally {
         setLoading(false);
@@ -72,10 +84,14 @@ const useAgencyTheme = (agencyId) => {
       const updated = { ...prev, ...data };
       const color = updated.themeColor || defaultAgency.themeColor;
       applyAccentColor(color);
-      localStorage.setItem(
-        `agencyTheme-${agencyId}`,
-        JSON.stringify({ logoUrl: updated.logoUrl, themeColor: color })
-      );
+      try {
+        localStorage.setItem(
+          `agencyTheme-${agencyId}`,
+          JSON.stringify({ logoUrl: updated.logoUrl, themeColor: color })
+        );
+      } catch {
+        /* ignore */
+      }
       return updated;
     });
   };
