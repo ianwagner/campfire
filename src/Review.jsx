@@ -718,12 +718,13 @@ useEffect(() => {
           };
           updates.push(updateDoc(assetRef, updateData));
 
+          const name = reviewerName || user.displayName || user.uid || 'unknown';
           updates.push(
             addDoc(
               collection(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId, 'history'),
               {
                 status: newStatus,
-                updatedBy: user.uid,
+                updatedBy: name,
                 updatedAt: serverTimestamp(),
                 ...(responseType === 'edit' && comment ? { comment } : {}),
               },

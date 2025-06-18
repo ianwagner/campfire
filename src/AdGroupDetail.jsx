@@ -637,14 +637,12 @@ const AdGroupDetail = () => {
         const info = parseAdFilename(asset.filename || "");
         const recipeCode = info.recipeCode || "unknown";
         const userName =
-          auth.currentUser?.displayName ||
-          auth.currentUser?.uid ||
-          "unknown";
+          auth.currentUser?.displayName || auth.currentUser?.uid || "unknown";
         await addDoc(
           collection(db, "adGroups", id, "assets", assetId, "history"),
           {
             status,
-            updatedBy: auth.currentUser?.uid || null,
+            updatedBy: userName,
             updatedAt: serverTimestamp(),
           },
         ).catch((err) => {
@@ -703,11 +701,13 @@ const AdGroupDetail = () => {
     try {
       await batch.commit();
       if (hero) {
+        const userName =
+          auth.currentUser?.displayName || auth.currentUser?.uid || "unknown";
         await addDoc(
           collection(db, "adGroups", id, "assets", hero.id, "history"),
           {
             status,
-            updatedBy: auth.currentUser?.uid || null,
+            updatedBy: userName,
             updatedAt: serverTimestamp(),
           },
         ).catch((err) => {
