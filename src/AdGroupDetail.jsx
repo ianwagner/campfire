@@ -65,9 +65,7 @@ const AdGroupDetail = () => {
   const [recipesMeta, setRecipesMeta] = useState({});
   const [metadataRecipe, setMetadataRecipe] = useState(null);
   const [metadataForm, setMetadataForm] = useState({
-    offer: "",
-    angle: "",
-    audience: "",
+    copy: "",
   });
   const [exportModal, setExportModal] = useState(false);
   const [groupBy, setGroupBy] = useState([]);
@@ -428,9 +426,7 @@ const AdGroupDetail = () => {
         recipesMeta[metadataRecipe.id.toLowerCase()] ||
         metadataRecipe;
       setMetadataForm({
-        offer: meta.offer || "",
-        angle: meta.angle || "",
-        audience: meta.audience || "",
+        copy: meta.copy || "",
       });
     }
   }, [metadataRecipe, recipesMeta]);
@@ -612,12 +608,15 @@ const AdGroupDetail = () => {
     try {
       await setDoc(
         doc(db, "adGroups", id, "recipes", metadataRecipe.id),
-        { metadata: metadataForm },
+        { copy: metadataForm.copy },
         { merge: true },
       );
       setRecipesMeta((prev) => ({
         ...prev,
-        [metadataRecipe.id]: { id: metadataRecipe.id, ...metadataForm },
+        [metadataRecipe.id]: {
+          ...(prev[metadataRecipe.id] || { id: metadataRecipe.id }),
+          copy: metadataForm.copy,
+        },
       }));
       setMetadataRecipe(null);
     } catch (err) {
@@ -1597,44 +1596,13 @@ const AdGroupDetail = () => {
                   ))}
                 </div>
               )}
-              {metadataRecipe.copy && (
-                <div className="text-sm whitespace-pre-wrap border-t pt-2">
-                  {metadataRecipe.copy}
-                </div>
-              )}
               <label className="block text-sm">
-                Offer
-                <input
-                  type="text"
+                Copy
+                <textarea
                   className="mt-1 w-full border rounded p-1 text-black dark:text-black"
-                  value={metadataForm.offer}
+                  value={metadataForm.copy}
                   onChange={(e) =>
-                    setMetadataForm({ ...metadataForm, offer: e.target.value })
-                  }
-                />
-              </label>
-              <label className="block text-sm">
-                Angle
-                <input
-                  type="text"
-                  className="mt-1 w-full border rounded p-1 text-black dark:text-black"
-                  value={metadataForm.angle}
-                  onChange={(e) =>
-                    setMetadataForm({ ...metadataForm, angle: e.target.value })
-                  }
-                />
-              </label>
-              <label className="block text-sm">
-                Audience
-                <input
-                  type="text"
-                  className="mt-1 w-full border rounded p-1 text-black dark:text-black"
-                  value={metadataForm.audience}
-                  onChange={(e) =>
-                    setMetadataForm({
-                      ...metadataForm,
-                      audience: e.target.value,
-                    })
+                    setMetadataForm({ ...metadataForm, copy: e.target.value })
                   }
                 />
               </label>
