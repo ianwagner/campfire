@@ -1637,7 +1637,9 @@ const AdGroupDetail = () => {
                   {Object.entries(metadataRecipe.components).map(([k, v]) => (
                     <div key={k}>
                       <span className="font-semibold mr-1">{k}:</span>
-                      {v}
+                      {typeof v === "object" && v !== null
+                        ? JSON.stringify(v)
+                        : String(v)}
                     </div>
                   ))}
                 </div>
