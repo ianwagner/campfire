@@ -4,7 +4,10 @@ import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import AdGroupDetail from './AdGroupDetail';
 
-jest.mock('./firebase/config', () => ({ db: {} }));
+jest.mock('./firebase/config', () => ({ db: {}, auth: {} }));
+
+const useUserRole = jest.fn(() => ({ role: 'admin', brandCodes: [], loading: false }));
+jest.mock('./useUserRole', () => (...args) => useUserRole(...args));
 
 const getDoc = jest.fn();
 const onSnapshot = jest.fn();
@@ -125,4 +128,36 @@ test('fetches recipe history', async () => {
     'asset1',
     'history'
   );
+});
+
+test('opens metadata modal for recipe id "1"', async () => {
+  onSnapshot.mockImplementation((col, cb) => {
+    const path = Array.isArray(col) ? col.join('/') : '';
+    if (path.includes('recipes')) {
+      cb({
+        docs: [
+          {
+            id: '1',
+            data: () => ({ metadata: {}, copy: 'hello', components: {} }),
+          },
+        ],
+      });
+    } else {
+      cb({ docs: [{ id: 'asset1', data: () => ({ filename: '1_9x16.png', status: 'ready' }) }] });
+    }
+    return jest.fn();
+  });
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>
+  );
+
+  await screen.findByText('1_9x16.png');
+  const metadataBtn = screen.getByLabelText('Metadata');
+  fireEvent.click(metadataBtn);
+
+  await screen.findByText('Metadata for Recipe 1');
+  expect(screen.getByLabelText('Copy')).toBeInTheDocument();
 });
