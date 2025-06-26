@@ -669,12 +669,14 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
     const defaults = {};
     if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
       columnMeta.forEach((c) => {
-        defaults[c.key] = currentType.defaultColumns.includes(c.key);
+        defaults[c.key] =
+          currentType.defaultColumns.includes(c.key) || c.key === 'layout.assets';
       });
     } else {
       columnMeta.forEach((c) => {
         const label = c.label.toLowerCase();
         defaults[c.key] = label.includes('name') || label.includes('asset');
+        if (c.key === 'layout.assets') defaults[c.key] = true;
       });
     }
     setVisibleColumns(defaults);
@@ -965,12 +967,30 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
             <button
               type="button"
               className="btn-secondary"
-              onClick={() => setShowColumnMenu((s) => !s)}
+              onClick={() => setShowColumnMenu(true)}
             >
               Columns
             </button>
-            {showColumnMenu && (
-              <div className="absolute z-10 bg-white border rounded shadow p-2 right-0">
+            {userRole !== 'designer' && (
+              <button
+                type="button"
+                className="btn-secondary ml-2"
+                onClick={addRecipeRow}
+              >
+                Add Recipe Row
+              </button>
+            )}
+          </div>
+          {showColumnMenu && (
+            <div
+              className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+              onClick={() => setShowColumnMenu(false)}
+            >
+              <div
+                className="bg-white p-4 rounded shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="mb-2 font-semibold">Visible Columns</h3>
                 {columnMeta.map((c) => (
                   <label key={c.key} className="block whitespace-nowrap">
                     <input
@@ -987,17 +1007,18 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
                     {c.label}
                   </label>
                 ))}
+                <div className="text-right mt-2">
+                  <button
+                    type="button"
+                    className="btn-secondary px-3 py-1"
+                    onClick={() => setShowColumnMenu(false)}
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
-            )}
-            {userRole !== 'designer' && (
-              <button
-                type="button"
-                className="btn-secondary ml-2"
-                onClick={addRecipeRow}
-              >
-                Add Recipe Row
-              </button>
-            )}
+            </div>
+          )}
           </div>
           <table className="ad-table min-w-full table-auto text-sm">
             <thead>
