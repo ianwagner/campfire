@@ -52,6 +52,8 @@ const Review = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [comment, setComment] = useState('');
   const [showComment, setShowComment] = useState(false);
+  const [editCopy, setEditCopy] = useState('');
+  const [origCopy, setOrigCopy] = useState('');
   const [clientNote, setClientNote] = useState('');
   const [noteSubmitting, setNoteSubmitting] = useState(false);
   const [rejectionCount, setRejectionCount] = useState(0);
@@ -668,6 +670,25 @@ useEffect(() => {
     preloads.current = preloads.current.slice(-BUFFER_COUNT);
   }, [currentIndex, reviewAds, isMobile]);
 
+  const openEditRequest = async () => {
+    setShowComment(true);
+    if (!currentAd?.adGroupId) return;
+    const recipeId = currentRecipe;
+    if (!recipeId) return;
+    try {
+      const snap = await getDoc(
+        doc(db, 'adGroups', currentAd.adGroupId, 'recipes', recipeId)
+      );
+      const text = snap.exists() ? snap.data().copy || '' : '';
+      setEditCopy(text);
+      setOrigCopy(text);
+    } catch (err) {
+      console.error('Failed to load copy', err);
+      setEditCopy('');
+      setOrigCopy('');
+    }
+  };
+
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
     advancedRef.current = false;
@@ -690,6 +711,7 @@ useEffect(() => {
           adUrl: url,
           response: responseType,
           comment: responseType === 'edit' ? comment : '',
+          copyEdit: responseType === 'edit' ? editCopy : '',
           pass: responses[url] ? 'revisit' : 'initial',
           ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
           ...(asset.groupName ? { groupName: asset.groupName } : {}),
@@ -711,6 +733,7 @@ useEffect(() => {
           const updateData = {
             status: newStatus,
             comment: responseType === 'edit' ? comment : '',
+            copyEdit: responseType === 'edit' ? editCopy : '',
             lastUpdatedBy: user.uid,
             lastUpdatedAt: serverTimestamp(),
             ...(responseType === 'approve' ? { isResolved: true } : {}),
@@ -727,6 +750,7 @@ useEffect(() => {
                 updatedBy: name,
                 updatedAt: serverTimestamp(),
                 ...(responseType === 'edit' && comment ? { comment } : {}),
+                ...(responseType === 'edit' && editCopy ? { copyEdit: editCopy } : {}),
               },
             ).catch((err) => {
               if (err?.code === 'already-exists') {
@@ -744,6 +768,7 @@ useEffect(() => {
                     ...a,
                     status: newStatus,
                     comment: responseType === 'edit' ? comment : '',
+                    copyEdit: responseType === 'edit' ? editCopy : '',
                     ...(responseType === 'approve'
                       ? { isResolved: true }
                       : responseType === 'edit'
@@ -760,6 +785,7 @@ useEffect(() => {
                     ...a,
                     status: newStatus,
                     comment: responseType === 'edit' ? comment : '',
+                    copyEdit: responseType === 'edit' ? editCopy : '',
                     ...(responseType === 'approve'
                       ? { isResolved: true }
                       : responseType === 'edit'
@@ -856,6 +882,8 @@ useEffect(() => {
       console.error('Failed to submit response', err);
     } finally {
       setComment('');
+      setEditCopy('');
+      setOrigCopy('');
       setShowComment(false);
       setSubmitting(false);
       setEditing(false);
@@ -1337,6 +1365,9 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
             {selectedResponse === 'edit' && currentAd.comment && (
               <p className="text-sm">{currentAd.comment}</p>
             )}
+            {selectedResponse === 'edit' && currentAd.copyEdit && (
+              <p className="text-sm">copy edit: {currentAd.copyEdit}</p>
+            )}
             <button
               onClick={() => setEditing(true)}
               className="btn-secondary"
@@ -1367,7 +1398,7 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
               Reject
             </button>
             <button
-              onClick={() => setShowComment(true)}
+              onClick={openEditRequest}
               className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
               disabled={submitting}
               aria-label="Request Edit"
@@ -1389,6 +1420,13 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
                 onChange={(e) => setComment(e.target.value)}
                 className="w-full p-2 border rounded"
                 placeholder="Add comments..."
+                rows={3}
+              />
+              <textarea
+                value={editCopy}
+                onChange={(e) => setEditCopy(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="Edit copy..."
                 rows={3}
               />
               <button

@@ -1085,6 +1085,9 @@ const AdGroupDetail = () => {
                           {a.status === "edit_requested" && a.comment && (
                             <span className="italic text-xs">{a.comment}</span>
                           )}
+                          {a.status === "edit_requested" && a.copyEdit && (
+                            <span className="italic text-xs">copy edit: {a.copyEdit}</span>
+                          )}
                         </div>
                       </td>
                       <td className="text-center">
@@ -1160,6 +1163,15 @@ const AdGroupDetail = () => {
               {
                 g.assets.find((a) => a.status === "edit_requested" && a.comment)
                   ?.comment
+              }
+            </span>
+          )}
+          {g.assets.find((a) => a.status === "edit_requested" && a.copyEdit) && (
+            <span className="italic text-xs mt-1 max-w-[20rem] block">
+              copy edit:{" "}
+              {
+                g.assets.find((a) => a.status === "edit_requested" && a.copyEdit)
+                  ?.copyEdit
               }
             </span>
           )}
