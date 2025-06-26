@@ -49,6 +49,12 @@ import OptimizedImage from "./components/OptimizedImage.jsx";
 import pickHeroAsset from "./utils/pickHeroAsset";
 import computeGroupStatus from "./utils/computeGroupStatus";
 
+const normalizeId = (value) =>
+  String(value ?? "")
+    .trim()
+    .replace(/^0+/, "")
+    .toLowerCase();
+
 const AdGroupDetail = () => {
   const { id } = useParams();
   const [group, setGroup] = useState(null);
@@ -421,10 +427,12 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     if (metadataRecipe) {
-      const idKey = String(metadataRecipe.id);
+      const rawId = String(metadataRecipe.id);
+      const idKey = normalizeId(rawId);
       const meta =
+        recipesMeta[rawId] ||
+        recipesMeta[rawId.toLowerCase()] ||
         recipesMeta[idKey] ||
-        recipesMeta[idKey.toLowerCase()] ||
         metadataRecipe;
       setMetadataForm({
         copy: meta.copy || "",
@@ -1204,10 +1212,13 @@ const AdGroupDetail = () => {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  const rawId = g.recipeCode;
+                  const normId = normalizeId(rawId);
                   setMetadataRecipe(
-                    recipesMeta[g.recipeCode] ||
-                      recipesMeta[String(g.recipeCode).toLowerCase()] || {
-                        id: g.recipeCode,
+                    recipesMeta[rawId] ||
+                      recipesMeta[String(rawId).toLowerCase()] ||
+                      recipesMeta[normId] || {
+                        id: rawId,
                       },
                   );
                 }}
