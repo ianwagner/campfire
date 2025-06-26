@@ -1037,7 +1037,6 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
               </div>
             </div>
           )}
-          </div>
           <table className="ad-table min-w-full table-auto text-sm">
             <thead>
               <tr>
