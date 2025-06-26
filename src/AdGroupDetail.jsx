@@ -421,9 +421,10 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     if (metadataRecipe) {
+      const idKey = String(metadataRecipe.id);
       const meta =
-        recipesMeta[metadataRecipe.id] ||
-        recipesMeta[metadataRecipe.id.toLowerCase()] ||
+        recipesMeta[idKey] ||
+        recipesMeta[idKey.toLowerCase()] ||
         metadataRecipe;
       setMetadataForm({
         copy: meta.copy || "",
@@ -1205,7 +1206,7 @@ const AdGroupDetail = () => {
                   e.stopPropagation();
                   setMetadataRecipe(
                     recipesMeta[g.recipeCode] ||
-                      recipesMeta[g.recipeCode.toLowerCase()] || {
+                      recipesMeta[String(g.recipeCode).toLowerCase()] || {
                         id: g.recipeCode,
                       },
                   );
