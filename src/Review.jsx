@@ -1467,6 +1467,27 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
                   placeholder="Edit copy..."
                   rows={3}
                 />
+                {origCopy && editCopy && editCopy !== origCopy && (
+                  <p className="text-sm mt-1">
+                    {diffWords(origCopy, editCopy).map((part, idx, arr) => {
+                      const space = idx < arr.length - 1 ? ' ' : '';
+                      if (part.type === 'same') return part.text + space;
+                      if (part.type === 'removed')
+                        return (
+                          <span key={idx} className="text-red-600 line-through">
+                            {part.text}
+                            {space}
+                          </span>
+                        );
+                      return (
+                        <span key={idx} className="text-green-600 italic">
+                          {part.text}
+                          {space}
+                        </span>
+                      );
+                    })}
+                  </p>
+                )}
                 <div className="flex justify-end space-x-2">
                   <button
                     onClick={() => setShowEditModal(false)}
