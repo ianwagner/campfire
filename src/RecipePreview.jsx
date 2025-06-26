@@ -620,11 +620,21 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       setAssetMap({});
     }
   }, [currentType]);
-  const compMap = Object.fromEntries(components.map((c) => [c.key, c]));
-  const orderedComponents = currentType?.components?.length
-    ? currentType.components.map((k) => compMap[k]).filter(Boolean)
-    : components;
-  const writeFields = currentType?.writeInFields || [];
+  const compMap = useMemo(
+    () => Object.fromEntries(components.map((c) => [c.key, c])),
+    [components],
+  );
+  const orderedComponents = useMemo(
+    () =>
+      currentType?.components?.length
+        ? currentType.components.map((k) => compMap[k]).filter(Boolean)
+        : components,
+    [currentType, compMap, components],
+  );
+  const writeFields = useMemo(
+    () => currentType?.writeInFields || [],
+    [currentType],
+  );
   const columnMeta = useMemo(() => {
     const cols = [];
     const assetCols = [];
