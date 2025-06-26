@@ -48,6 +48,7 @@ import LoadingOverlay from "./LoadingOverlay";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 import pickHeroAsset from "./utils/pickHeroAsset";
 import computeGroupStatus from "./utils/computeGroupStatus";
+import diffWords from "./utils/diffWords";
 
 const normalizeId = (value) =>
   String(value ?? "")
@@ -83,6 +84,29 @@ const AdGroupDetail = () => {
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
+
+  const renderCopyEditDiff = (recipeCode, edit) => {
+    const orig = recipesMeta[recipeCode]?.copy || '';
+    if (!edit || edit === orig) return null;
+    const diff = diffWords(orig, edit);
+    return diff.map((p, i) => {
+      const space = i < diff.length - 1 ? ' ' : '';
+      if (p.type === 'same') return p.text + space;
+      if (p.type === 'removed')
+        return (
+          <span key={i} className="text-red-600 line-through">
+            {p.text}
+            {space}
+          </span>
+        );
+      return (
+        <span key={i} className="text-green-600 italic">
+          {p.text}
+          {space}
+        </span>
+      );
+    });
+  };
 
   const backPath = useMemo(() => {
     let base = '/';
@@ -1093,9 +1117,15 @@ const AdGroupDetail = () => {
                           {a.status === "edit_requested" && a.comment && (
                             <span className="italic text-xs">{a.comment}</span>
                           )}
-                          {a.status === "edit_requested" && a.copyEdit && (
-                            <span className="italic text-xs">copy edit: {a.copyEdit}</span>
-                          )}
+                          {a.status === "edit_requested" &&
+                            renderCopyEditDiff(g.recipeCode, a.copyEdit) && (
+                              <span className="italic text-xs">
+                                copy edit: {renderCopyEditDiff(
+                                  g.recipeCode,
+                                  a.copyEdit,
+                                )}
+                              </span>
+                            )}
                         </div>
                       </td>
                       <td className="text-center">
@@ -1174,15 +1204,19 @@ const AdGroupDetail = () => {
               }
             </span>
           )}
-          {g.assets.find((a) => a.status === "edit_requested" && a.copyEdit) && (
-            <span className="italic text-xs mt-1 max-w-[20rem] block">
-              copy edit:{" "}
-              {
-                g.assets.find((a) => a.status === "edit_requested" && a.copyEdit)
-                  ?.copyEdit
-              }
-            </span>
-          )}
+          {(() => {
+            const ce = g.assets.find(
+              (a) => a.status === 'edit_requested' && a.copyEdit,
+            );
+            return (
+              ce &&
+              renderCopyEditDiff(g.recipeCode, ce.copyEdit) && (
+                <span className="italic text-xs mt-1 max-w-[20rem] block">
+                  copy edit: {renderCopyEditDiff(g.recipeCode, ce.copyEdit)}
+                </span>
+              )
+            );
+          })()}
         </td>
         <td className="text-center">
           <div className="flex items-center justify-center">

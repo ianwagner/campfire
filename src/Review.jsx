@@ -26,6 +26,7 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
+import diffWords from './utils/diffWords';
 import LoadingOverlay from "./LoadingOverlay";
 import debugLog from './utils/debugLog';
 import useDebugTrace from './utils/useDebugTrace';
@@ -682,6 +683,16 @@ useEffect(() => {
       const text = snap.exists() ? snap.data().copy || '' : '';
       setEditCopy(text);
       setOrigCopy(text);
+      setReviewAds((prev) =>
+        prev.map((a, idx) =>
+          idx === currentIndex ? { ...a, originalCopy: text } : a
+        )
+      );
+      setAds((prev) =>
+        prev.map((a) =>
+          a.assetId === currentAd.assetId ? { ...a, originalCopy: text } : a
+        )
+      );
     } catch (err) {
       console.error('Failed to load copy', err);
       setEditCopy('');
@@ -1365,9 +1376,34 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
             {selectedResponse === 'edit' && currentAd.comment && (
               <p className="text-sm">{currentAd.comment}</p>
             )}
-            {selectedResponse === 'edit' && currentAd.copyEdit && (
-              <p className="text-sm">copy edit: {currentAd.copyEdit}</p>
-            )}
+            {selectedResponse === 'edit' &&
+              currentAd.copyEdit &&
+              currentAd.originalCopy &&
+              currentAd.copyEdit !== currentAd.originalCopy && (
+                <p className="text-sm">
+                  copy edit:{' '}
+                  {diffWords(
+                    currentAd.originalCopy,
+                    currentAd.copyEdit,
+                  ).map((part, idx, arr) => {
+                    const space = idx < arr.length - 1 ? ' ' : '';
+                    if (part.type === 'same') return part.text + space;
+                    if (part.type === 'removed')
+                      return (
+                        <span key={idx} className="text-red-600 line-through">
+                          {part.text}
+                          {space}
+                        </span>
+                      );
+                    return (
+                      <span key={idx} className="text-green-600 italic">
+                        {part.text}
+                        {space}
+                      </span>
+                    );
+                  })}
+                </p>
+              )}
             <button
               onClick={() => setEditing(true)}
               className="btn-secondary"
