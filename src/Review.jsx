@@ -51,7 +51,7 @@ const Review = ({
   const [reviewAds, setReviewAds] = useState([]); // ads being reviewed in the current pass
   const [currentIndex, setCurrentIndex] = useState(0);
   const [comment, setComment] = useState('');
-  const [showComment, setShowComment] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [editCopy, setEditCopy] = useState('');
   const [origCopy, setOrigCopy] = useState('');
   const [clientNote, setClientNote] = useState('');
@@ -532,7 +532,7 @@ useEffect(() => {
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
-    if (showSizes || editing || showComment || showNoteInput || showStreakModal)
+    if (showSizes || editing || showEditModal || showNoteInput || showStreakModal)
       return;
     const touch = e.touches[0];
     debugLog('Touch start', touch);
@@ -671,7 +671,7 @@ useEffect(() => {
   }, [currentIndex, reviewAds, isMobile]);
 
   const openEditRequest = async () => {
-    setShowComment(true);
+    setShowEditModal(true);
     if (!currentAd?.adGroupId) return;
     const recipeId = currentRecipe;
     if (!recipeId) return;
@@ -884,7 +884,7 @@ useEffect(() => {
       setComment('');
       setEditCopy('');
       setOrigCopy('');
-      setShowComment(false);
+      setShowEditModal(false);
       setSubmitting(false);
       setEditing(false);
 
@@ -1413,29 +1413,40 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
               Approve
             </button>
           </div>
-          {showComment && (
-            <div className="flex flex-col items-center space-y-2 w-full max-w-sm">
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                className="w-full p-2 border rounded"
-                placeholder="Add comments..."
-                rows={3}
-              />
-              <textarea
-                value={editCopy}
-                onChange={(e) => setEditCopy(e.target.value)}
-                className="w-full p-2 border rounded"
-                placeholder="Edit copy..."
-                rows={3}
-              />
-              <button
-                onClick={() => submitResponse('edit')}
-                className="btn-primary"
-                disabled={submitting}
-              >
-                Submit
-              </button>
+          {showEditModal && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+              <div className="bg-white p-4 rounded shadow max-w-sm w-full space-y-2 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  className="w-full p-2 border rounded"
+                  placeholder="Add comments..."
+                  rows={3}
+                />
+                <p className="text-sm font-medium">Change copy</p>
+                <textarea
+                  value={editCopy}
+                  onChange={(e) => setEditCopy(e.target.value)}
+                  className="w-full p-2 border rounded"
+                  placeholder="Edit copy..."
+                  rows={3}
+                />
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    className="btn-secondary px-3 py-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => submitResponse('edit')}
+                    className="btn-primary px-3 py-1"
+                    disabled={submitting}
+                  >
+                    Submit
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </>
