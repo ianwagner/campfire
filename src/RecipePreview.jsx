@@ -666,20 +666,28 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
   }, [orderedComponents, writeFields, initialResults, currentType]);
 
   useEffect(() => {
-    const defaults = {};
-    if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
+    setVisibleColumns((prev) => {
+      const updated = { ...prev };
       columnMeta.forEach((c) => {
-        defaults[c.key] =
-          currentType.defaultColumns.includes(c.key) || c.key === 'layout.assets';
+        if (!(c.key in updated)) {
+          let show = false;
+          if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
+            show = currentType.defaultColumns.includes(c.key);
+          } else {
+            const label = c.label.toLowerCase();
+            show = label.includes('name') || label.includes('asset');
+          }
+          if (c.key.endsWith('.assets')) show = true;
+          updated[c.key] = show;
+        }
       });
-    } else {
-      columnMeta.forEach((c) => {
-        const label = c.label.toLowerCase();
-        defaults[c.key] = label.includes('name') || label.includes('asset');
-        if (c.key === 'layout.assets') defaults[c.key] = true;
+      Object.keys(updated).forEach((k) => {
+        if (!columnMeta.some((c) => c.key === k)) {
+          delete updated[k];
+        }
       });
-    }
-    setVisibleColumns(defaults);
+      return updated;
+    });
   }, [columnMeta, currentType]);
 
   return (
