@@ -5,8 +5,6 @@ import {
   FiEye,
   FiClock,
   FiTrash,
-  FiLock,
-  FiUnlock,
   FiRefreshCw,
   FiCheckCircle,
   FiShare2,
@@ -107,7 +105,7 @@ const AdGroupDetail = () => {
   const [showRecipes, setShowRecipes] = useState(false);
   const [showRecipesTable, setShowRecipesTable] = useState(false);
   const [showBrandAssets, setShowBrandAssets] = useState(false);
-  const [designerTab, setDesignerTab] = useState("stats");
+  const [tab, setTab] = useState("stats");
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState("");
   const [briefDrag, setBriefDrag] = useState(false);
@@ -116,11 +114,11 @@ const AdGroupDetail = () => {
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
   const isDesigner = userRole === "designer";
-  const tableVisible = isDesigner ? designerTab === "ads" : showTable;
-  const recipesTableVisible = isDesigner
-    ? designerTab === "brief"
-    : showRecipesTable;
-  const showStats = isDesigner ? designerTab === "stats" : !showTable;
+  const isAdmin = userRole === "admin";
+  const usesTabs = isAdmin || isDesigner;
+  const tableVisible = usesTabs ? tab === "ads" : showTable;
+  const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
+  const showStats = usesTabs ? tab === "stats" : !showTable;
 
   const renderCopyEditDiff = (recipeCode, edit) => {
     const orig = recipesMeta[recipeCode]?.copy || "";
@@ -527,20 +525,6 @@ const AdGroupDetail = () => {
     setHistoryAsset(null);
     setViewRecipe(null);
     setMetadataRecipe(null);
-  };
-
-  const toggleLock = async () => {
-    if (!group) return;
-    const newStatus =
-      group.status === "in review"
-        ? computeGroupStatus(assets, "pending")
-        : "in review";
-    try {
-      await updateDoc(doc(db, "adGroups", id), { status: newStatus });
-      setGroup((p) => ({ ...p, status: newStatus }));
-    } catch (err) {
-      console.error("Failed to toggle lock", err);
-    }
   };
 
   const resetGroup = async () => {
@@ -1505,63 +1489,90 @@ const AdGroupDetail = () => {
         </p>
       )}
 
-      <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center gap-2">
-        {(userRole === "admin" || userRole === "agency") && (
+      <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center justify-between">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setTab("stats")}
+            className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${tab === "stats" ? "bg-accent-10 text-accent" : ""}`}
+          >
+            <FiBarChart2 />
+            Stats
+          </button>
+          <button
+            onClick={() => setTab("brief")}
+            className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${tab === "brief" ? "bg-accent-10 text-accent" : ""}`}
+          >
+            <FiFileText />
+            Brief
+          </button>
+          <button
+            onClick={() => setTab("assets")}
+            className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${tab === "assets" ? "bg-accent-10 text-accent" : ""}`}
+          >
+            <FiFolder />
+            Brand Assets
+          </button>
+          <button
+            onClick={() => setTab("ads")}
+            className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${tab === "ads" ? "bg-accent-10 text-accent" : ""}`}
+          >
+            <FiEye />
+            Ads
+          </button>
+        </div>
+        {(isAdmin || userRole === "agency") && (
           <>
             {group.status === "archived" ? (
-              <>
-                {userRole === "admin" && (
+              <div className="flex flex-wrap gap-2">
+                {isAdmin && (
                   <button
                     onClick={restoreGroup}
-                    className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                    className="btn-secondary px-2 py-0.5"
+                    aria-label="Restore Group"
                   >
                     <FiRotateCcw />
-                    Restore
                   </button>
                 )}
-              </>
+              </div>
             ) : (
-              <>
-                <button
-                  onClick={() => setShowRecipes(true)}
-                  className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-                >
-                  <FaMagic />
-                  Recipes
-                </button>
-                <input
-                  id="upload-input"
-                  type="file"
-                  multiple
-                  onChange={(e) => {
-                    const sel = e.target.files;
-                    handleUpload(sel);
-                    e.target.value = null;
-                  }}
-                  className="hidden"
-                />
-                <button
-                  onClick={() =>
-                    document.getElementById("upload-input").click()
-                  }
-                  className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-                >
-                  <FiUpload />
-                  Upload
-                </button>
-                <button
-                  onClick={toggleLock}
-                  className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-                >
-                  {group.status === "in review" ? <FiUnlock /> : <FiLock />}
-                  {group.status === "in review" ? "Unlock" : "Lock"}
-                </button>
+              <div className="flex flex-wrap gap-2">
+                {tab === "brief" && (
+                  <button
+                    onClick={() => setShowRecipes(true)}
+                    className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                  >
+                    <FaMagic />
+                    Recipes
+                  </button>
+                )}
+                {tab === "ads" && group.status !== "archived" && (
+                  <>
+                    <input
+                      id="upload-input"
+                      type="file"
+                      multiple
+                      onChange={(e) => {
+                        const sel = e.target.files;
+                        handleUpload(sel);
+                        e.target.value = null;
+                      }}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => document.getElementById("upload-input").click()}
+                      className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                    >
+                      <FiUpload />
+                      Upload
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={resetGroup}
-                  className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                  className="btn-secondary px-2 py-0.5"
+                  aria-label="Reset"
                 >
                   <FiRefreshCw />
-                  Reset
                 </button>
                 <button
                   onClick={markReady}
@@ -1571,90 +1582,45 @@ const AdGroupDetail = () => {
                     group.status === "ready" ||
                     group.status === "in review"
                   }
-                  className="btn-primary px-2 py-0.5 flex items-center gap-1"
+                  className="btn-primary px-2 py-0.5"
+                  aria-label="Ready"
                 >
                   <FiCheckCircle />
-                  {readyLoading ? "Processing..." : "Ready"}
                 </button>
                 <Link
                   to={`/review/${id}`}
-                  className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                  className="btn-secondary px-2 py-0.5"
+                  aria-label="Review"
                 >
                   <FiBookOpen />
-                  Review
                 </Link>
                 <button
                   onClick={handleShare}
-                  className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                  className="btn-secondary px-2 py-0.5"
+                  aria-label="Share"
                 >
                   <FiShare2 />
-                  Share
                 </button>
-                {userRole === "admin" && (
-                  <button
-                    onClick={() => setExportModal(true)}
-                    className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-                  >
-                    <FiDownload />
-                    Export Approved
-                  </button>
+                {isAdmin && (
+                  <>
+                    <button
+                      onClick={() => setExportModal(true)}
+                      className="btn-secondary px-2 py-0.5"
+                      aria-label="Export Approved"
+                    >
+                      <FiDownload />
+                    </button>
+                    <button
+                      onClick={archiveGroup}
+                      className="btn-secondary px-2 py-0.5"
+                      aria-label="Archive"
+                    >
+                      <FiArchive />
+                    </button>
+                  </>
                 )}
-                {userRole === "admin" && (
-                  <button
-                    onClick={archiveGroup}
-                    className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-                  >
-                    <FiArchive />
-                    Archive
-                  </button>
-                )}
-              </>
+              </div>
             )}
-          </>
-        )}
-        {userRole === "designer" && group.status !== "archived" && (
-          <>
-            <input
-              id="upload-input"
-              type="file"
-              multiple
-              onChange={(e) => {
-                const sel = e.target.files;
-                handleUpload(sel);
-                e.target.value = null;
-              }}
-              className="hidden"
-            />
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setDesignerTab("stats")}
-                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === "stats" ? "bg-accent-10 text-accent" : ""}`}
-              >
-                <FiBarChart2 />
-                Stats
-              </button>
-              <button
-                onClick={() => setDesignerTab("brief")}
-                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === "brief" ? "bg-accent-10 text-accent" : ""}`}
-              >
-                <FiFileText />
-                Brief
-              </button>
-              <button
-                onClick={() => setDesignerTab("assets")}
-                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === "assets" ? "bg-accent-10 text-accent" : ""}`}
-              >
-                <FiFolder />
-                Brand Assets
-              </button>
-              <button
-                onClick={() => setDesignerTab("ads")}
-                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === "ads" ? "bg-accent-10 text-accent" : ""}`}
-              >
-                <FiEye />
-                Ads
-              </button>
-            </div>
           </>
         )}
       </div>
@@ -1722,23 +1688,25 @@ const AdGroupDetail = () => {
       )}
 
       <div className="flex my-4">
-        {!isDesigner && (
-          <button
-            onClick={() => setShowTable((p) => !p)}
-            className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-          >
-            {showTable ? "Hide Table" : "Show All Ads"}
-          </button>
+        {!usesTabs && (
+          <>
+            <button
+              onClick={() => setShowTable((p) => !p)}
+              className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+            >
+              {showTable ? "Hide Table" : "Show All Ads"}
+            </button>
+            {savedRecipes.length > 0 && (
+              <button
+                onClick={() => setShowRecipesTable((p) => !p)}
+                className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+              >
+                {showRecipesTable ? "Hide Brief" : "See Brief"}
+              </button>
+            )}
+          </>
         )}
-        {savedRecipes.length > 0 && !isDesigner && (
-          <button
-            onClick={() => setShowRecipesTable((p) => !p)}
-            className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
-          >
-            {showRecipesTable ? "Hide Brief" : "See Brief"}
-          </button>
-        )}
-        {isDesigner && tableVisible && group.status !== "archived" && (
+        {usesTabs && tab === "ads" && group.status !== "archived" && (
           <button
             onClick={() => document.getElementById("upload-input").click()}
             className="btn-primary px-2 py-0.5 flex items-center gap-1 ml-2"
@@ -1749,7 +1717,7 @@ const AdGroupDetail = () => {
         )}
       </div>
 
-      {designerTab === "ads" && responses.length > 0 && (
+      {tab === "ads" && responses.length > 0 && (
         <div className="my-4">
           <h4 className="font-medium mb-1">Responses</h4>
           <ul className="space-y-2">
@@ -2228,8 +2196,8 @@ const AdGroupDetail = () => {
         />
       )}
 
-      {isDesigner
-        ? designerTab === "assets" && (
+      {usesTabs
+        ? tab === "assets" && (
             <BrandAssets brandCode={group?.brandCode} inline />
           )
         : showBrandAssets && (
