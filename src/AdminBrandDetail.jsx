@@ -8,6 +8,8 @@ const AdminBrandDetail = () => {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [agencyId, setAgencyId] = useState('');
+  const [toneOfVoice, setToneOfVoice] = useState('');
+  const [offering, setOffering] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -21,6 +23,8 @@ const AdminBrandDetail = () => {
           setCode(data.code || '');
           setName(data.name || '');
           setAgencyId(data.agencyId || '');
+          setToneOfVoice(data.toneOfVoice || '');
+          setOffering(data.offering || '');
         }
       } catch (err) {
         console.error('Failed to load brand', err);
@@ -39,6 +43,8 @@ const AdminBrandDetail = () => {
         code: code.trim(),
         name: name.trim(),
         agencyId: agencyId.trim(),
+        toneOfVoice: toneOfVoice.trim(),
+        offering: offering.trim(),
       });
       setMessage('Brand updated');
     } catch (err) {
@@ -78,6 +84,24 @@ const AdminBrandDetail = () => {
             type="text"
             value={agencyId}
             onChange={(e) => setAgencyId(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Tone of Voice</label>
+          <input
+            type="text"
+            value={toneOfVoice}
+            onChange={(e) => setToneOfVoice(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Offering</label>
+          <input
+            type="text"
+            value={offering}
+            onChange={(e) => setOffering(e.target.value)}
             className="w-full p-2 border rounded"
           />
         </div>

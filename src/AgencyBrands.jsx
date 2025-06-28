@@ -18,7 +18,7 @@ const AgencyBrands = () => {
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ code: '', name: '' });
+  const [form, setForm] = useState({ code: '', name: '', toneOfVoice: '', offering: '' });
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -49,10 +49,22 @@ const AgencyBrands = () => {
         code: form.code.trim(),
         name: form.name.trim(),
         agencyId,
+        toneOfVoice: form.toneOfVoice.trim(),
+        offering: form.offering.trim(),
         createdAt: serverTimestamp(),
       });
-      setBrands((prev) => [...prev, { id: docRef.id, code: form.code.trim(), name: form.name.trim(), agencyId }]);
-      setForm({ code: '', name: '' });
+      setBrands((prev) => [
+        ...prev,
+        {
+          id: docRef.id,
+          code: form.code.trim(),
+          name: form.name.trim(),
+          agencyId,
+          toneOfVoice: form.toneOfVoice.trim(),
+          offering: form.offering.trim(),
+        },
+      ]);
+      setForm({ code: '', name: '', toneOfVoice: '', offering: '' });
       setMessage('Brand added');
     } catch (err) {
       console.error('Failed to add brand', err);
@@ -62,15 +74,31 @@ const AgencyBrands = () => {
 
   const startEdit = (brand) => {
     setEditId(brand.id);
-    setForm({ code: brand.code || '', name: brand.name || '' });
+    setForm({
+      code: brand.code || '',
+      name: brand.name || '',
+      toneOfVoice: brand.toneOfVoice || '',
+      offering: brand.offering || '',
+    });
   };
 
   const cancelEdit = () => setEditId(null);
 
   const handleSave = async (id) => {
     try {
-      await updateDoc(doc(db, 'brands', id), { code: form.code, name: form.name });
-      setBrands((prev) => prev.map((b) => (b.id === id ? { ...b, code: form.code, name: form.name } : b)));
+      await updateDoc(doc(db, 'brands', id), {
+        code: form.code,
+        name: form.name,
+        toneOfVoice: form.toneOfVoice,
+        offering: form.offering,
+      });
+      setBrands((prev) =>
+        prev.map((b) =>
+          b.id === id
+            ? { ...b, code: form.code, name: form.name, toneOfVoice: form.toneOfVoice, offering: form.offering }
+            : b
+        )
+      );
       setEditId(null);
     } catch (err) {
       console.error('Failed to update brand', err);
@@ -110,6 +138,24 @@ const AgencyBrands = () => {
             className="w-full p-2 border rounded"
           />
         </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Tone of Voice</label>
+          <input
+            type="text"
+            value={form.toneOfVoice}
+            onChange={(e) => setForm((f) => ({ ...f, toneOfVoice: e.target.value }))}
+            className="w-full p-2 border rounded"
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Offering</label>
+          <input
+            type="text"
+            value={form.offering}
+            onChange={(e) => setForm((f) => ({ ...f, offering: e.target.value }))}
+            className="w-full p-2 border rounded"
+          />
+        </div>
         {message && <p className="text-sm">{message}</p>}
         <button type="submit" className="btn-primary">
           Add Brand
@@ -126,6 +172,8 @@ const AgencyBrands = () => {
             <tr>
               <th>Code</th>
               <th>Name</th>
+              <th>Tone of Voice</th>
+              <th>Offering</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -154,6 +202,30 @@ const AgencyBrands = () => {
                     />
                   ) : (
                     brand.name
+                  )}
+                </td>
+                <td>
+                  {editId === brand.id ? (
+                    <input
+                      type="text"
+                      value={form.toneOfVoice}
+                      onChange={(e) => setForm((f) => ({ ...f, toneOfVoice: e.target.value }))}
+                      className="w-full p-1 border rounded"
+                    />
+                  ) : (
+                    brand.toneOfVoice || ''
+                  )}
+                </td>
+                <td>
+                  {editId === brand.id ? (
+                    <input
+                      type="text"
+                      value={form.offering}
+                      onChange={(e) => setForm((f) => ({ ...f, offering: e.target.value }))}
+                      className="w-full p-1 border rounded"
+                    />
+                  ) : (
+                    brand.offering || ''
                   )}
                 </td>
                 <td className="text-center">

@@ -12,7 +12,18 @@ export default function useComponentTypes() {
       try {
         const snap = await getDocs(collection(db, 'componentTypes'));
         if (!cancelled) {
-          setComponents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+          const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          list.push({
+            id: 'brand',
+            key: 'brand',
+            label: 'Brand',
+            selectionMode: 'brand',
+            attributes: [
+              { label: 'Tone of Voice', key: 'toneOfVoice', inputType: 'text' },
+              { label: 'Offering', key: 'offering', inputType: 'text' },
+            ],
+          });
+          setComponents(list);
         }
       } catch (err) {
         console.error('Failed to load component types', err);
