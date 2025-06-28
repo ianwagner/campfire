@@ -1599,7 +1599,7 @@ const AdGroupDetail = () => {
                 className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === 'assets' ? 'bg-accent-10 text-accent' : ''}`}
               >
                 <FiFolder />
-                Assets
+                Brand Assets
               </button>
               <button
                 onClick={() => setDesignerTab('ads')}
@@ -1704,17 +1704,19 @@ const AdGroupDetail = () => {
         <div className="my-4">
           {userRole === 'admin' ? (
             editingNotes ? (
-              <div className="mb-4">
-                <textarea
-                  className="w-full border rounded p-2 text-black dark:text-black"
-                  rows={3}
-                  value={notesInput}
-                  onChange={(e) => setNotesInput(e.target.value)}
-                />
-                <div className="flex gap-2 mt-1">
-                  <button onClick={saveNotes} className="btn-primary px-2 py-0.5">
-                    Save
-                  </button>
+              <>
+                <h4 className="font-medium mb-1">Brief Note:</h4>
+                <div className="mb-4">
+                  <textarea
+                    className="w-full border rounded p-2 text-black dark:text-black"
+                    rows={3}
+                    value={notesInput}
+                    onChange={(e) => setNotesInput(e.target.value)}
+                  />
+                  <div className="flex gap-2 mt-1">
+                    <button onClick={saveNotes} className="btn-primary px-2 py-0.5">
+                      Save
+                    </button>
                   <button
                     onClick={() => setEditingNotes(false)}
                     className="btn-secondary px-2 py-0.5"
@@ -1723,30 +1725,39 @@ const AdGroupDetail = () => {
                   </button>
                 </div>
               </div>
+              </>
             ) : (
-              <div className="mb-4 whitespace-pre-line border p-2 rounded relative">
-                <button
-                  onClick={() => {
-                    setNotesInput(group?.notes || '');
-                    setEditingNotes(true);
-                  }}
-                  className="absolute top-1 right-1 btn-secondary px-1 py-0.5 text-xs"
-                >
-                  Edit
-                </button>
-                {group?.notes}
-              </div>
+              <>
+                <h4 className="font-medium mb-1">Brief Note:</h4>
+                <div className="mb-4 whitespace-pre-line border p-2 rounded relative">
+                  <button
+                    onClick={() => {
+                      setNotesInput(group?.notes || '');
+                      setEditingNotes(true);
+                    }}
+                    className="absolute top-1 right-1 btn-secondary px-1 py-0.5 text-xs"
+                  >
+                    Edit
+                  </button>
+                  {group?.notes}
+                </div>
+              </>
             )
           ) : (
             group?.notes && (
-              <div className="mb-4 whitespace-pre-line border p-2 rounded">
-                {group.notes}
-              </div>
+              <>
+                <h4 className="font-medium mb-1">Brief Note:</h4>
+                <div className="mb-4 whitespace-pre-line border p-2 rounded">
+                  {group.notes}
+                </div>
+              </>
             )
           )}
           {briefAssets.length > 0 && (
-            <div
-              className={`flex flex-wrap gap-2 mb-4 border-dashed p-2 rounded ${briefDrag ? 'bg-accent-10' : ''}`}
+            <>
+              <h4 className="font-medium mb-1">Brief Assets:</h4>
+              <div
+                className={`flex flex-wrap gap-2 mb-4 border p-2 rounded relative ${briefDrag ? 'bg-accent-10' : ''}`}
               onDragOver={(e) => {
                 e.preventDefault();
                 setBriefDrag(true);
@@ -1757,12 +1768,12 @@ const AdGroupDetail = () => {
                 setBriefDrag(false);
                 handleBriefUpload(e.dataTransfer.files);
               }}
-            >
-              <div className="w-full flex justify-between mb-2">
-                <button onClick={downloadBriefAll} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
-                  <FiDownload />
-                  Download All
-                </button>
+              >
+                <div className="w-full flex justify-between mb-2">
+                  <button onClick={downloadBriefAll} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
+                    <FiDownload />
+                    Download All
+                  </button>
                 {userRole === 'admin' && (
                   <>
                     <input
@@ -1786,19 +1797,31 @@ const AdGroupDetail = () => {
                 )}
               </div>
               {briefAssets.map((a) => (
-                <div key={a.id} className="relative group">
-                  {a.firebaseUrl ? (
+                <div key={a.id} className="asset-card group cursor-pointer">
+                  {userRole === 'designer' && a.firebaseUrl ? (
+                    <a href={a.firebaseUrl} download>
+                      <OptimizedImage
+                        pngUrl={a.firebaseUrl}
+                        alt={a.filename}
+                        className="object-contain max-w-[10rem] max-h-32"
+                      />
+                    </a>
+                  ) : a.firebaseUrl ? (
                     <OptimizedImage
                       pngUrl={a.firebaseUrl}
                       alt={a.filename}
-                      className="object-contain max-w-[8rem] max-h-24"
+                      className="object-contain max-w-[10rem] max-h-32"
                     />
                   ) : (
-                    <div className="w-32 h-24 border flex items-center justify-center text-xs">
+                    <div className="w-40 h-32 border flex items-center justify-center text-xs">
                       {a.filename}
                     </div>
                   )}
-                  {a.note && <FiFileText className="absolute bottom-1 right-1" />}
+                  {a.note && (
+                    <div className="absolute bottom-1 right-1 bg-accent text-white rounded-full p-1">
+                      <FiFileText size={14} />
+                    </div>
+                  )}
                   {userRole === 'admin' && (
                     <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex flex-col items-center justify-center gap-1 text-white text-xs">
                       <a href={a.firebaseUrl} download className="btn-secondary px-1 py-0.5">
@@ -1830,7 +1853,8 @@ const AdGroupDetail = () => {
                   )}
                 </div>
               ))}
-            </div>
+              </div>
+            </>
           )}
           {savedRecipes.length > 0 && (
             <RecipePreview
