@@ -61,8 +61,15 @@ const App = () => {
 
   React.useEffect(() => {
     debugLog('Auth listener mounted');
+    const tokenRefreshed = { current: false };
     const unsub = onAuthStateChanged(auth, (u) => {
       debugLog('Auth state changed', u);
+      if (u && !tokenRefreshed.current) {
+        tokenRefreshed.current = true;
+        u.getIdToken(true).catch((err) => {
+          console.error('Failed to refresh ID token', err);
+        });
+      }
       setUser(u);
       setLoading(false);
     });
