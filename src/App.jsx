@@ -49,6 +49,7 @@ import useAgencyTheme from "./useAgencyTheme";
 import FullScreenSpinner from "./FullScreenSpinner";
 import { DEFAULT_LOGO_URL } from "./constants";
 import useFcmToken from "./useFcmToken";
+import AdminClaimDebug from "./AdminClaimDebug";
 
 const ThemeWatcher = () => {
   useTheme();
@@ -141,6 +142,7 @@ const App = () => {
   return (
     <Router>
       <ThemeWatcher />
+      {/* <AdminClaimDebug /> Uncomment to check admin claim */}
       <RequireMfa user={user} role={role}>
         <div className="min-h-screen flex">
           {signedIn && (
