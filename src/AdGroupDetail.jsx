@@ -15,11 +15,9 @@ import {
   FiArchive,
   FiDownload,
   FiRotateCcw,
-  FiImage,
 } from "react-icons/fi";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
-import BrandAssetsModal from "./components/BrandAssetsModal.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
 import {
   doc,
@@ -83,7 +81,6 @@ const AdGroupDetail = () => {
   const [exporting, setExporting] = useState(false);
   const [showRecipes, setShowRecipes] = useState(false);
   const [showRecipesTable, setShowRecipesTable] = useState(false);
-  const [showBrandAssets, setShowBrandAssets] = useState(false);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
@@ -1349,6 +1346,26 @@ const AdGroupDetail = () => {
                   <FaMagic />
                   Recipes
                 </button>
+                <input
+                  id="upload-input"
+                  type="file"
+                  multiple
+                  onChange={(e) => {
+                    const sel = e.target.files;
+                    handleUpload(sel);
+                    e.target.value = null;
+                  }}
+                  className="hidden"
+                />
+                <button
+                  onClick={() =>
+                    document.getElementById("upload-input").click()
+                  }
+                  className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                >
+                  <FiUpload />
+                  Upload
+                </button>
                 <button
                   onClick={toggleLock}
                   className="btn-secondary px-2 py-0.5 flex items-center gap-1"
@@ -1412,19 +1429,29 @@ const AdGroupDetail = () => {
             )}
           </>
         )}
+        {userRole === "designer" && group.status !== "archived" && (
+          <>
+            <input
+              id="upload-input"
+              type="file"
+              multiple
+              onChange={(e) => {
+                const sel = e.target.files;
+                handleUpload(sel);
+                e.target.value = null;
+              }}
+              className="hidden"
+            />
+            <button
+              onClick={() => document.getElementById("upload-input").click()}
+              className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+            >
+              <FiUpload />
+              Upload
+            </button>
+          </>
+        )}
       </div>
-
-      <input
-        id="upload-input"
-        type="file"
-        multiple
-        onChange={(e) => {
-          const sel = e.target.files;
-          handleUpload(sel);
-          e.target.value = null;
-        }}
-        className="hidden"
-      />
 
       {uploading && (
         <span className="ml-2 text-sm text-gray-600">Uploading...</span>
@@ -1464,33 +1491,6 @@ const AdGroupDetail = () => {
               <p className="stat-card-value">{statusCounts.edit_requested}</p>
             </div>
           </div>
-          <div className="flex flex-wrap justify-center gap-2 mt-2">
-            {savedRecipes.length > 0 && (
-              <button
-                onClick={() => setShowRecipesTable((p) => !p)}
-                className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-              >
-                <FiBookOpen />
-                {showRecipesTable ? "Hide Recipes" : "See Brief"}
-              </button>
-            )}
-            <button
-              onClick={() => setShowBrandAssets(true)}
-              className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-            >
-              <FiImage />
-              See Brand Assets
-            </button>
-            {userRole === "designer" && group.status !== "archived" && (
-              <button
-                onClick={() => document.getElementById("upload-input").click()}
-                className="btn-primary px-2 py-0.5 flex items-center gap-1"
-              >
-                <FiUpload />
-                Upload Ads
-              </button>
-            )}
-          </div>
         </>
       )}
 
@@ -1517,15 +1517,14 @@ const AdGroupDetail = () => {
           onClick={() => setShowTable((p) => !p)}
           className="btn-secondary px-2 py-0.5 flex items-center gap-1"
         >
-          {showTable ? "Hide Table" : "See Ads"}
+          {showTable ? "Hide Table" : "Show All Ads"}
         </button>
-        {showTable && userRole === "designer" && group.status !== "archived" && (
+        {savedRecipes.length > 0 && (
           <button
-            onClick={() => document.getElementById("upload-input").click()}
-            className="btn-primary px-2 py-0.5 flex items-center gap-1 ml-2"
+            onClick={() => setShowRecipesTable((p) => !p)}
+            className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
           >
-            <FiUpload />
-            Upload
+            {showRecipesTable ? "Hide Recipes" : "Show Brief"}
           </button>
         )}
       </div>
@@ -1770,13 +1769,6 @@ const AdGroupDetail = () => {
             />
           </div>
         </div>
-      )}
-
-      {showBrandAssets && (
-        <BrandAssetsModal
-          brandCode={group?.brandCode}
-          onClose={() => setShowBrandAssets(false)}
-        />
       )}
 
       {shareModal && (
