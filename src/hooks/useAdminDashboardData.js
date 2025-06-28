@@ -73,7 +73,6 @@ export default function useAdminDashboardData(range) {
       );
       for (const d of assetSnap.docs) {
         const a = d.data();
-        if (statusTotals[a.status] !== undefined) statusTotals[a.status] += 1;
         const brand = a.brandCode || 'Unknown';
         const statusKey = a.status === 'edit_requested' ? 'edit requested' : a.status;
         if (!statusByBrand[brand])
