@@ -143,16 +143,23 @@ const DesignerDashboard = () => {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {groups.map((g) => {
+              const colorMap = {
+                approve:
+                  'bg-[var(--approve-color-10)] border-[var(--approve-color)] text-approve',
+                edit:
+                  'bg-[var(--edit-color-10)] border-[var(--edit-color)] text-edit',
+                accent: 'bg-accent-10 border-accent text-accent',
+                gray: 'bg-gray-300 border-gray-400 text-gray-600',
+                reject:
+                  'bg-[var(--reject-color-10)] border-[var(--reject-color)] text-reject',
+              };
               const getClasses = () => {
-                if (g.recipeCount === 0)
-                  return 'bg-gray-300 border-gray-400 text-gray-600';
-                if (g.hasEdit)
-                  return 'bg-[var(--edit-color-10)] border-[var(--edit-color)] text-edit';
-                if (g.assetCount === g.recipeCount)
-                  return 'bg-[var(--approve-color-10)] border-[var(--approve-color)] text-approve';
-                if (g.assetCount === 0)
-                  return 'bg-accent-10 border-accent text-accent';
-                return 'bg-accent-10 border-accent text-accent';
+                if (g.cardColor && colorMap[g.cardColor]) return colorMap[g.cardColor];
+                if (g.recipeCount === 0) return colorMap.gray;
+                if (g.hasEdit) return colorMap.edit;
+                if (g.assetCount === g.recipeCount) return colorMap.approve;
+                if (g.assetCount === 0) return colorMap.accent;
+                return colorMap.accent;
               };
               return (
                 <Link key={g.id} to={`/ad-group/${g.id}`} className="flex flex-col items-center">
