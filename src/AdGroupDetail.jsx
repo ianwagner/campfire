@@ -1791,6 +1791,19 @@ const AdGroupDetail = () => {
               </>
             )
           )}
+          {userRole === "admin" && !group?.notes && !editingNotes && (
+            <div className="mb-4">
+              <button
+                onClick={() => {
+                  setNotesInput("");
+                  setEditingNotes(true);
+                }}
+                className="btn-secondary px-2 py-0.5"
+              >
+                Add Note
+              </button>
+            </div>
+          )}
           {briefAssets.length > 0 && (
             <>
               <h4 className="font-medium mb-1">Brief Assets:</h4>
@@ -1930,6 +1943,26 @@ const AdGroupDetail = () => {
               </div>
             </>
           )}
+          {userRole === "admin" && briefAssets.length === 0 && (
+            <div className="mb-4">
+              <input
+                id="brief-upload"
+                type="file"
+                multiple
+                onChange={(e) => {
+                  handleBriefUpload(e.target.files);
+                  e.target.value = null;
+                }}
+                className="hidden"
+              />
+              <button
+                onClick={() => document.getElementById("brief-upload").click()}
+                className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+              >
+                <FiUpload /> Add Assets
+              </button>
+            </div>
+          )}
           {savedRecipes.length > 0 && (
             <RecipePreview
               onSave={saveRecipes}
@@ -1938,6 +1971,16 @@ const AdGroupDetail = () => {
               onSelectChange={toggleRecipeSelect}
               onRecipesClick={() => setShowRecipes(true)}
             />
+          )}
+          {userRole === "admin" && savedRecipes.length === 0 && (
+            <div className="mt-4">
+              <button
+                onClick={() => setShowRecipes(true)}
+                className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+              >
+                <FaMagic /> Recipes
+              </button>
+            </div>
           )}
         </div>
       )}
