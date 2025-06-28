@@ -49,12 +49,19 @@ export const normalizeAssetType = (t) => {
   return type;
 };
 
-const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults = false, onSelectChange = null }) => {
+const RecipePreview = ({
+  onSave = null,
+  initialResults = null,
+  showOnlyResults = false,
+  onSelectChange = null,
+  brandCode: initialBrandCode = '',
+  hideBrandSelect = false,
+}) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
   const [instances, setInstances] = useState([]);
   const [brands, setBrands] = useState([]);
-  const [brandCode, setBrandCode] = useState('');
+  const [brandCode, setBrandCode] = useState(initialBrandCode);
   const [selectedType, setSelectedType] = useState('');
   const [formData, setFormData] = useState({});
   const [selectedInstances, setSelectedInstances] = useState({});
@@ -112,6 +119,12 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
       }
     }
   }, [initialResults]);
+
+  useEffect(() => {
+    if (initialBrandCode) {
+      setBrandCode(initialBrandCode);
+    }
+  }, [initialBrandCode]);
 
   const handleAssetCsvChange = async (e) => {
     const f = e.target.files?.[0];
@@ -731,21 +744,23 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
             ))}
           </select>
         </div>
-        <div>
-          <label className="block text-sm mb-1">Brand</label>
-          <select
-            className="w-full p-2 border rounded"
-            value={brandCode}
-            onChange={(e) => setBrandCode(e.target.value)}
-          >
-            <option value="">None</option>
-            {brands.map((b) => (
-              <option key={b.id} value={b.code}>
-                {b.code} {b.name ? `- ${b.name}` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
+        {!hideBrandSelect && (
+          <div>
+            <label className="block text-sm mb-1">Brand</label>
+            <select
+              className="w-full p-2 border rounded"
+              value={brandCode}
+              onChange={(e) => setBrandCode(e.target.value)}
+            >
+              <option value="">None</option>
+              {brands.map((b) => (
+                <option key={b.id} value={b.code}>
+                  {b.code} {b.name ? `- ${b.name}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {currentType?.enableAssetCsv && (
           <div className="space-y-2">
             <div>

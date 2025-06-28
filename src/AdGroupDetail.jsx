@@ -1762,7 +1762,11 @@ const AdGroupDetail = () => {
             >
               Close
             </button>
-            <RecipePreview onSave={saveRecipes} />
+            <RecipePreview
+              onSave={saveRecipes}
+              brandCode={group?.brandCode}
+              hideBrandSelect
+            />
           </div>
         </div>
       )}
