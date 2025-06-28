@@ -20,6 +20,7 @@ import {
   FiPenTool,
   FiType,
 } from "react-icons/fi";
+import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
 import BrandAssets from "./BrandAssets.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
@@ -1492,30 +1493,30 @@ const AdGroupDetail = () => {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setTab("stats")}
-            className={`btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1 ${tab === "stats" ? "bg-accent-10 text-accent" : ""}`}
+            className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${tab === "stats" ? "bg-accent-10 text-accent" : ""}`}
           >
-            <FiBarChart2 size={20} />
+            <FiBarChart2 />
             Stats
           </button>
           <button
             onClick={() => setTab("brief")}
-            className={`btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1 ${tab === "brief" ? "bg-accent-10 text-accent" : ""}`}
+            className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${tab === "brief" ? "bg-accent-10 text-accent" : ""}`}
           >
-            <FiFileText size={20} />
+            <FiFileText />
             Brief
           </button>
           <button
             onClick={() => setTab("assets")}
-            className={`btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1 ${tab === "assets" ? "bg-accent-10 text-accent" : ""}`}
+            className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${tab === "assets" ? "bg-accent-10 text-accent" : ""}`}
           >
-            <FiFolder size={20} />
+            <FiFolder />
             Brand Assets
           </button>
           <button
             onClick={() => setTab("ads")}
-            className={`btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1 ${tab === "ads" ? "bg-accent-10 text-accent" : ""}`}
+            className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${tab === "ads" ? "bg-accent-10 text-accent" : ""}`}
           >
-            <FiEye size={20} />
+            <FiEye />
             Ads
           </button>
         </div>
@@ -1535,6 +1536,15 @@ const AdGroupDetail = () => {
               </div>
             ) : (
               <div className="flex flex-wrap gap-2">
+                {tab === "brief" && (
+                  <button
+                    onClick={() => setShowRecipes(true)}
+                    className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                  >
+                    <FaMagic />
+                    Recipes
+                  </button>
+                )}
                 {tab === "ads" && group.status !== "archived" && (
                   <>
                     <input
@@ -1550,19 +1560,19 @@ const AdGroupDetail = () => {
                     />
                     <button
                       onClick={() => document.getElementById("upload-input").click()}
-                      className="btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1"
+                      className="btn-secondary px-2 py-0.5 flex items-center gap-1"
                     >
-                      <FiUpload size={20} />
+                      <FiUpload />
                       Upload
                     </button>
                   </>
                 )}
                 <button
                   onClick={resetGroup}
-                  className="btn-secondary bg-transparent px-2 py-0.5"
+                  className="btn-secondary px-2 py-0.5"
                   aria-label="Reset"
                 >
-                  <FiRefreshCw size={20} />
+                  <FiRefreshCw />
                 </button>
                 <button
                   onClick={markReady}
@@ -1575,37 +1585,37 @@ const AdGroupDetail = () => {
                   className="btn-primary px-2 py-0.5"
                   aria-label="Ready"
                 >
-                  <FiCheckCircle size={20} />
+                  <FiCheckCircle />
                 </button>
                 <Link
                   to={`/review/${id}`}
-                  className="btn-secondary bg-transparent px-2 py-0.5"
+                  className="btn-secondary px-2 py-0.5"
                   aria-label="Review"
                 >
-                  <FiBookOpen size={20} />
+                  <FiBookOpen />
                 </Link>
                 <button
                   onClick={handleShare}
-                  className="btn-secondary bg-transparent px-2 py-0.5"
+                  className="btn-secondary px-2 py-0.5"
                   aria-label="Share"
                 >
-                  <FiShare2 size={20} />
+                  <FiShare2 />
                 </button>
                 {isAdmin && (
                   <>
                     <button
                       onClick={() => setExportModal(true)}
-                      className="btn-secondary bg-transparent px-2 py-0.5"
+                      className="btn-secondary px-2 py-0.5"
                       aria-label="Export Approved"
                     >
-                      <FiDownload size={20} />
+                      <FiDownload />
                     </button>
                     <button
                       onClick={archiveGroup}
-                      className="btn-secondary bg-transparent px-2 py-0.5"
+                      className="btn-secondary px-2 py-0.5"
                       aria-label="Archive"
                     >
-                      <FiArchive size={20} />
+                      <FiArchive />
                     </button>
                   </>
                 )}
@@ -1701,7 +1711,7 @@ const AdGroupDetail = () => {
             onClick={() => document.getElementById("upload-input").click()}
             className="btn-primary px-2 py-0.5 flex items-center gap-1 ml-2"
           >
-            <FiUpload size={20} />
+            <FiUpload />
             Upload Ads
           </button>
         )}
@@ -1935,7 +1945,6 @@ const AdGroupDetail = () => {
               initialResults={savedRecipes}
               showOnlyResults
               onSelectChange={toggleRecipeSelect}
-              onRecipes={() => setShowRecipes(true)}
             />
           )}
         </div>
