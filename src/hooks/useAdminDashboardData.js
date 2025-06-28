@@ -23,15 +23,18 @@ const initial = {
 
 export default function useAdminDashboardData(range) {
   const [data, setData] = useState(initial);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!range?.start || !range?.end) return;
     const fetchData = async () => {
-      const start = new Date(range.start);
-      const end = new Date(range.end);
-      end.setDate(end.getDate() + 1);
-      const s = Timestamp.fromDate(start);
-      const e = Timestamp.fromDate(end);
+      setError('');
+      try {
+        const start = new Date(range.start);
+        const end = new Date(range.end);
+        end.setDate(end.getDate() + 1);
+        const s = Timestamp.fromDate(start);
+        const e = Timestamp.fromDate(end);
 
       const statusByBrand = {};
       const uploads = {};
@@ -48,20 +51,20 @@ export default function useAdminDashboardData(range) {
       // transferred.
       const statusTotals = { pending: 0, ready: 0, approved: 0, rejected: 0, edit_requested: 0 };
 
-      const statusList = ['pending', 'ready', 'approved', 'rejected', 'edit_requested'];
-      await Promise.all(
-        statusList.map(async (status) => {
-          const snap = await getCountFromServer(
-            query(
-              collectionGroup(db, 'assets'),
-              where('status', '==', status),
-              where('uploadedAt', '>=', s),
-              where('uploadedAt', '<', e)
-            )
-          );
-          statusTotals[status] = snap.data().count || 0;
-        })
-      );
+        const statusList = ['pending', 'ready', 'approved', 'rejected', 'edit_requested'];
+        await Promise.all(
+          statusList.map(async (status) => {
+            const snap = await getCountFromServer(
+              query(
+                collectionGroup(db, 'assets'),
+                where('status', '==', status),
+                where('uploadedAt', '>=', s),
+                where('uploadedAt', '<', e)
+              )
+            );
+            statusTotals[status] = snap.data().count || 0;
+          })
+        );
       const groupCache = {};
       const userCache = {};
 
@@ -167,9 +170,13 @@ export default function useAdminDashboardData(range) {
         reviewTimes,
         statusTotals,
       });
+    } catch (err) {
+      console.error('Failed to load dashboard data', err);
+      setError(err.message || 'Failed to load dashboard data');
+    }
     };
     fetchData();
   }, [range]);
 
-  return data;
+  return { ...data, error };
 }

@@ -17,7 +17,7 @@ const AdminDashboard = () => {
   });
   const [tab, setTab] = useState('overview');
 
-  const data = useAdminDashboardData(range);
+  const { error, ...data } = useAdminDashboardData(range);
 
   const renderOverview = () => {
     const totals = data.statusTotals || {};
@@ -66,6 +66,7 @@ const AdminDashboard = () => {
         endDate={range.end}
         onChange={(r) => setRange(r)}
       />
+      {error && <div className="text-red-500 text-center">{error}</div>}
       <div className="flex space-x-4 mb-4">
         {['overview', 'brand'].map((t) => (
           <button
