@@ -1573,7 +1573,7 @@ const AdGroupDetail = () => {
                     group.status === "ready" ||
                     group.status === "in review"
                   }
-                  className="btn-primary px-2 py-0.5"
+                  className="btn-secondary bg-transparent px-2 py-0.5"
                   aria-label="Ready"
                 >
                   <FiCheckCircle size={20} />
