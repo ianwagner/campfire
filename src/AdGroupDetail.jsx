@@ -18,6 +18,9 @@ import {
   FiDownload,
   FiRotateCcw,
   FiBarChart2,
+  FiFile,
+  FiPenTool,
+  FiType,
 } from "react-icons/fi";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
@@ -54,6 +57,23 @@ import pickHeroAsset from "./utils/pickHeroAsset";
 import computeGroupStatus from "./utils/computeGroupStatus";
 import diffWords from "./utils/diffWords";
 
+const fileExt = (name) => {
+  const idx = name.lastIndexOf(".");
+  return idx >= 0 ? name.slice(idx + 1).toLowerCase() : "";
+};
+
+const PlaceholderIcon = ({ ext }) => {
+  let Icon = FiFile;
+  if (ext === "ai") Icon = FiPenTool;
+  else if (ext === "pdf") Icon = FiFileText;
+  else if (["otf", "ttf", "woff", "woff2"].includes(ext)) Icon = FiType;
+  return (
+    <div className="w-40 h-32 flex items-center justify-center bg-accent-10 text-accent rounded">
+      <Icon size={32} />
+    </div>
+  );
+};
+
 const normalizeId = (value) =>
   String(value ?? "")
     .trim()
@@ -87,26 +107,29 @@ const AdGroupDetail = () => {
   const [showRecipes, setShowRecipes] = useState(false);
   const [showRecipesTable, setShowRecipesTable] = useState(false);
   const [showBrandAssets, setShowBrandAssets] = useState(false);
-  const [designerTab, setDesignerTab] = useState('stats');
+  const [designerTab, setDesignerTab] = useState("stats");
   const [editingNotes, setEditingNotes] = useState(false);
-  const [notesInput, setNotesInput] = useState('');
+  const [notesInput, setNotesInput] = useState("");
   const [briefDrag, setBriefDrag] = useState(false);
+  const [responses, setResponses] = useState([]);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
-  const isDesigner = userRole === 'designer';
-  const tableVisible = isDesigner ? designerTab === 'ads' : showTable;
-  const recipesTableVisible = isDesigner ? designerTab === 'brief' : showRecipesTable;
-  const showStats = isDesigner ? designerTab === 'stats' : !showTable;
+  const isDesigner = userRole === "designer";
+  const tableVisible = isDesigner ? designerTab === "ads" : showTable;
+  const recipesTableVisible = isDesigner
+    ? designerTab === "brief"
+    : showRecipesTable;
+  const showStats = isDesigner ? designerTab === "stats" : !showTable;
 
   const renderCopyEditDiff = (recipeCode, edit) => {
-    const orig = recipesMeta[recipeCode]?.copy || '';
+    const orig = recipesMeta[recipeCode]?.copy || "";
     if (!edit || edit === orig) return null;
     const diff = diffWords(orig, edit);
     return diff.map((p, i) => {
-      const space = i < diff.length - 1 ? ' ' : '';
-      if (p.type === 'same') return p.text + space;
-      if (p.type === 'removed')
+      const space = i < diff.length - 1 ? " " : "";
+      if (p.type === "same") return p.text + space;
+      if (p.type === "removed")
         return (
           <span key={i} className="text-red-600 line-through">
             {p.text}
@@ -123,24 +146,24 @@ const AdGroupDetail = () => {
   };
 
   const backPath = useMemo(() => {
-    let base = '/';
+    let base = "/";
     switch (userRole) {
-      case 'admin':
-        base = '/admin/ad-groups';
+      case "admin":
+        base = "/admin/ad-groups";
         break;
-      case 'agency':
-        base = '/agency/ad-groups';
+      case "agency":
+        base = "/agency/ad-groups";
         break;
-      case 'designer':
-        base = '/dashboard/designer';
+      case "designer":
+        base = "/dashboard/designer";
         break;
-      case 'client':
-        base = '/dashboard/client';
+      case "client":
+        base = "/dashboard/client";
         break;
       default:
-        base = '/';
+        base = "/";
     }
-    if (userRole === 'agency' && location.search) {
+    if (userRole === "agency" && location.search) {
       return base + location.search;
     }
     return base;
@@ -186,9 +209,20 @@ const AdGroupDetail = () => {
         setBriefAssets(list);
       },
     );
+    const unsubResp = onSnapshot(
+      query(
+        collection(db, "adGroups", id, "responses"),
+        orderBy("timestamp", "desc"),
+      ),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setResponses(list);
+      },
+    );
     return () => {
       unsub();
       unsubBrief();
+      unsubResp();
     };
   }, [id]);
 
@@ -739,8 +773,6 @@ const AdGroupDetail = () => {
     URL.revokeObjectURL(url);
   };
 
-
-
   const uploadVersion = async (assetId, file) => {
     if (!file) return;
     setVersionUploading(assetId);
@@ -816,7 +848,13 @@ const AdGroupDetail = () => {
         const docRef = doc(db, "adGroups", id, "recipes", String(r.recipeNo));
         batch.set(
           docRef,
-          { components: r.components, copy: r.copy, assets: r.assets || [], type: r.type || "", selected: r.selected || false },
+          {
+            components: r.components,
+            copy: r.copy,
+            assets: r.assets || [],
+            type: r.type || "",
+            selected: r.selected || false,
+          },
           { merge: true },
         );
       });
@@ -1257,10 +1295,8 @@ const AdGroupDetail = () => {
                           {a.status === "edit_requested" &&
                             renderCopyEditDiff(g.recipeCode, a.copyEdit) && (
                               <span className="italic text-xs">
-                                copy edit: {renderCopyEditDiff(
-                                  g.recipeCode,
-                                  a.copyEdit,
-                                )}
+                                copy edit:{" "}
+                                {renderCopyEditDiff(g.recipeCode, a.copyEdit)}
                               </span>
                             )}
                         </div>
@@ -1343,7 +1379,7 @@ const AdGroupDetail = () => {
           )}
           {(() => {
             const ce = g.assets.find(
-              (a) => a.status === 'edit_requested' && a.copyEdit,
+              (a) => a.status === "edit_requested" && a.copyEdit,
             );
             return (
               ce &&
@@ -1437,9 +1473,15 @@ const AdGroupDetail = () => {
         {userRole === "admin" || userRole === "agency" ? (
           <input
             type="date"
-            value={group.dueDate ? group.dueDate.toDate().toISOString().slice(0, 10) : ""}
+            value={
+              group.dueDate
+                ? group.dueDate.toDate().toISOString().slice(0, 10)
+                : ""
+            }
             onChange={async (e) => {
-              const date = e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null;
+              const date = e.target.value
+                ? Timestamp.fromDate(new Date(e.target.value))
+                : null;
               try {
                 await updateDoc(doc(db, "adGroups", id), { dueDate: date });
                 setGroup((p) => ({ ...p, dueDate: date }));
@@ -1450,7 +1492,11 @@ const AdGroupDetail = () => {
             className="border p-1 rounded text-black dark:text-black"
           />
         ) : (
-          <span>{group.dueDate ? group.dueDate.toDate().toLocaleDateString() : "N/A"}</span>
+          <span>
+            {group.dueDate
+              ? group.dueDate.toDate().toLocaleDateString()
+              : "N/A"}
+          </span>
         )}
       </p>
       {group.status === "archived" && (
@@ -1581,29 +1627,29 @@ const AdGroupDetail = () => {
             />
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => setDesignerTab('stats')}
-                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === 'stats' ? 'bg-accent-10 text-accent' : ''}`}
+                onClick={() => setDesignerTab("stats")}
+                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === "stats" ? "bg-accent-10 text-accent" : ""}`}
               >
                 <FiBarChart2 />
                 Stats
               </button>
               <button
-                onClick={() => setDesignerTab('brief')}
-                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === 'brief' ? 'bg-accent-10 text-accent' : ''}`}
+                onClick={() => setDesignerTab("brief")}
+                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === "brief" ? "bg-accent-10 text-accent" : ""}`}
               >
                 <FiFileText />
                 Brief
               </button>
               <button
-                onClick={() => setDesignerTab('assets')}
-                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === 'assets' ? 'bg-accent-10 text-accent' : ''}`}
+                onClick={() => setDesignerTab("assets")}
+                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === "assets" ? "bg-accent-10 text-accent" : ""}`}
               >
                 <FiFolder />
                 Brand Assets
               </button>
               <button
-                onClick={() => setDesignerTab('ads')}
-                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === 'ads' ? 'bg-accent-10 text-accent' : ''}`}
+                onClick={() => setDesignerTab("ads")}
+                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === "ads" ? "bg-accent-10 text-accent" : ""}`}
               >
                 <FiEye />
                 Ads
@@ -1654,7 +1700,7 @@ const AdGroupDetail = () => {
         </>
       )}
 
-      {(tableVisible || specialGroups.length > 0) && (
+      {(tableVisible || (showStats && specialGroups.length > 0)) && (
         <div className="overflow-x-auto table-container">
           <table className="ad-table min-w-max">
             <thead>
@@ -1665,9 +1711,12 @@ const AdGroupDetail = () => {
                 <th>Actions</th>
               </tr>
             </thead>
-            {[...specialGroups, ...(tableVisible ? normalGroups : [])].map((g) =>
-              renderRecipeRow(g),
-            )}
+            {(tableVisible
+              ? [...specialGroups, ...normalGroups]
+              : showStats
+                ? specialGroups
+                : []
+            ).map((g) => renderRecipeRow(g))}
           </table>
         </div>
       )}
@@ -1700,9 +1749,36 @@ const AdGroupDetail = () => {
         )}
       </div>
 
+      {designerTab === "ads" && responses.length > 0 && (
+        <div className="my-4">
+          <h4 className="font-medium mb-1">Responses</h4>
+          <ul className="space-y-2">
+            {responses.map((r) => (
+              <li key={r.id} className="border p-2 rounded bg-white shadow">
+                <div className="text-sm font-medium capitalize">
+                  {r.response}
+                </div>
+                {r.comment && <div className="text-sm italic">{r.comment}</div>}
+                {r.copyEdit && (
+                  <div className="text-sm italic">copy edit: {r.copyEdit}</div>
+                )}
+                <div className="text-xs text-gray-500">
+                  {r.timestamp
+                    ? r.timestamp.toDate
+                      ? r.timestamp.toDate().toLocaleString()
+                      : new Date(r.timestamp).toLocaleString()
+                    : ""}{" "}
+                  - {r.reviewerName || r.userEmail || r.userId || ""}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {recipesTableVisible && (
         <div className="my-4">
-          {userRole === 'admin' ? (
+          {userRole === "admin" ? (
             editingNotes ? (
               <>
                 <h4 className="font-medium mb-1">Brief Note:</h4>
@@ -1714,25 +1790,28 @@ const AdGroupDetail = () => {
                     onChange={(e) => setNotesInput(e.target.value)}
                   />
                   <div className="flex gap-2 mt-1">
-                    <button onClick={saveNotes} className="btn-primary px-2 py-0.5">
+                    <button
+                      onClick={saveNotes}
+                      className="btn-primary px-2 py-0.5"
+                    >
                       Save
                     </button>
-                  <button
-                    onClick={() => setEditingNotes(false)}
-                    className="btn-secondary px-2 py-0.5"
-                  >
-                    Cancel
-                  </button>
+                    <button
+                      onClick={() => setEditingNotes(false)}
+                      className="btn-secondary px-2 py-0.5"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              </div>
               </>
             ) : (
               <>
                 <h4 className="font-medium mb-1">Brief Note:</h4>
-                <div className="mb-4 whitespace-pre-line border p-2 rounded relative">
+                <div className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded-xl relative">
                   <button
                     onClick={() => {
-                      setNotesInput(group?.notes || '');
+                      setNotesInput(group?.notes || "");
                       setEditingNotes(true);
                     }}
                     className="absolute top-1 right-1 btn-secondary px-1 py-0.5 text-xs"
@@ -1747,7 +1826,7 @@ const AdGroupDetail = () => {
             group?.notes && (
               <>
                 <h4 className="font-medium mb-1">Brief Note:</h4>
-                <div className="mb-4 whitespace-pre-line border p-2 rounded">
+                <div className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded-xl">
                   {group.notes}
                 </div>
               </>
@@ -1757,102 +1836,138 @@ const AdGroupDetail = () => {
             <>
               <h4 className="font-medium mb-1">Brief Assets:</h4>
               <div
-                className={`flex flex-wrap gap-2 mb-4 border p-2 rounded relative ${briefDrag ? 'bg-accent-10' : ''}`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setBriefDrag(true);
-              }}
-              onDragLeave={() => setBriefDrag(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setBriefDrag(false);
-                handleBriefUpload(e.dataTransfer.files);
-              }}
+                className={`flex flex-wrap gap-2 mb-4 p-2 bg-white shadow rounded-xl relative ${briefDrag ? "bg-accent-10" : ""}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setBriefDrag(true);
+                }}
+                onDragLeave={() => setBriefDrag(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setBriefDrag(false);
+                  handleBriefUpload(e.dataTransfer.files);
+                }}
               >
                 <div className="w-full flex justify-between mb-2">
-                  <button onClick={downloadBriefAll} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
+                  <button
+                    onClick={downloadBriefAll}
+                    className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                  >
                     <FiDownload />
                     Download All
                   </button>
-                {userRole === 'admin' && (
-                  <>
-                    <input
-                      id="brief-upload"
-                      type="file"
-                      multiple
-                      onChange={(e) => {
-                        handleBriefUpload(e.target.files);
-                        e.target.value = null;
-                      }}
-                      className="hidden"
-                    />
-                    <button
-                      onClick={() => document.getElementById('brief-upload').click()}
-                      className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-                    >
-                      <FiUpload />
-                      Upload
-                    </button>
-                  </>
-                )}
-              </div>
-              {briefAssets.map((a) => (
-                <div key={a.id} className="asset-card group cursor-pointer">
-                  {userRole === 'designer' && a.firebaseUrl ? (
-                    <a href={a.firebaseUrl} download>
-                      <OptimizedImage
-                        pngUrl={a.firebaseUrl}
-                        alt={a.filename}
-                        className="object-contain max-w-[10rem] max-h-32"
+                  {userRole === "admin" && (
+                    <>
+                      <input
+                        id="brief-upload"
+                        type="file"
+                        multiple
+                        onChange={(e) => {
+                          handleBriefUpload(e.target.files);
+                          e.target.value = null;
+                        }}
+                        className="hidden"
                       />
-                    </a>
-                  ) : a.firebaseUrl ? (
-                    <OptimizedImage
-                      pngUrl={a.firebaseUrl}
-                      alt={a.filename}
-                      className="object-contain max-w-[10rem] max-h-32"
-                    />
-                  ) : (
-                    <div className="w-40 h-32 border flex items-center justify-center text-xs">
-                      {a.filename}
-                    </div>
-                  )}
-                  {a.note && (
-                    <div className="absolute bottom-1 right-1 bg-accent text-white rounded-full p-1">
-                      <FiFileText size={14} />
-                    </div>
-                  )}
-                  {userRole === 'admin' && (
-                    <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex flex-col items-center justify-center gap-1 text-white text-xs">
-                      <a href={a.firebaseUrl} download className="btn-secondary px-1 py-0.5">
-                        Download
-                      </a>
-                      <label className="btn-secondary px-1 py-0.5 cursor-pointer">
-                        Replace
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={(e) => {
-                            replaceBriefAsset(a, e.target.files[0]);
-                            e.target.value = null;
-                          }}
-                        />
-                      </label>
-                      <button onClick={() => addBriefAssetNote(a)} className="btn-secondary px-1 py-0.5">
-                        Note
+                      <button
+                        onClick={() =>
+                          document.getElementById("brief-upload").click()
+                        }
+                        className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                      >
+                        <FiUpload />
+                        Upload
                       </button>
-                      <button onClick={() => deleteBriefAsset(a)} className="btn-delete px-1 py-0.5">
-                        Delete
-                      </button>
-                    </div>
-                  )}
-                  {userRole === 'designer' && a.note && (
-                    <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex items-center justify-center text-white text-xs p-1 text-center whitespace-pre-wrap">
-                      {a.note}
-                    </div>
+                    </>
                   )}
                 </div>
-              ))}
+                {briefAssets.map((a) => (
+                  <div key={a.id} className="asset-card group cursor-pointer">
+                    {(() => {
+                      const ext = fileExt(a.filename || "");
+                      if (a.firebaseUrl && ext === "svg") {
+                        const img = (
+                          <img
+                            src={a.firebaseUrl}
+                            alt={a.filename}
+                            className="object-contain max-w-[10rem] max-h-32"
+                          />
+                        );
+                        return userRole === "designer" ? (
+                          <a href={a.firebaseUrl} download>
+                            {img}
+                          </a>
+                        ) : (
+                          img
+                        );
+                      }
+                      if (
+                        a.firebaseUrl &&
+                        !["ai", "pdf"].includes(ext) &&
+                        !["otf", "ttf", "woff", "woff2"].includes(ext)
+                      ) {
+                        const img = (
+                          <OptimizedImage
+                            pngUrl={a.firebaseUrl}
+                            alt={a.filename}
+                            className="object-contain max-w-[10rem] max-h-32"
+                          />
+                        );
+                        return userRole === "designer" ? (
+                          <a href={a.firebaseUrl} download>
+                            {img}
+                          </a>
+                        ) : (
+                          img
+                        );
+                      }
+                      return <PlaceholderIcon ext={ext} />;
+                    })()}
+                    {a.note && (
+                      <div className="absolute bottom-1 right-1 bg-accent text-white rounded-full p-1">
+                        <FiFileText size={14} />
+                      </div>
+                    )}
+                    {userRole === "admin" && (
+                      <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex flex-col items-center justify-center gap-1 text-white text-xs">
+                        <a
+                          href={a.firebaseUrl}
+                          download
+                          className="btn-secondary px-1 py-0.5"
+                        >
+                          Download
+                        </a>
+                        <label className="btn-secondary px-1 py-0.5 cursor-pointer">
+                          Replace
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => {
+                              replaceBriefAsset(a, e.target.files[0]);
+                              e.target.value = null;
+                            }}
+                          />
+                        </label>
+                        <button
+                          onClick={() => addBriefAssetNote(a)}
+                          className="btn-secondary px-1 py-0.5"
+                        >
+                          Note
+                        </button>
+                        <button
+                          onClick={() => deleteBriefAsset(a)}
+                          className="btn-delete px-1 py-0.5"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                    {userRole === "designer" && a.note && (
+                      <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex items-center justify-center text-white text-xs p-1 text-center whitespace-pre-wrap">
+                        {a.note}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </>
           )}
@@ -1927,7 +2042,9 @@ const AdGroupDetail = () => {
       {historyAsset && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-md dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <h3 className="mb-2 font-semibold">Ad {historyAsset.filename} History</h3>
+            <h3 className="mb-2 font-semibold">
+              Ad {historyAsset.filename} History
+            </h3>
             <ul className="mb-2 space-y-2 max-h-[60vh] overflow-auto">
               {historyAsset.assets.map((a, idx) => (
                 <li key={idx} className="border-b pb-2 last:border-none">
@@ -1936,7 +2053,8 @@ const AdGroupDetail = () => {
                       ? a.lastUpdatedAt.toDate
                         ? a.lastUpdatedAt.toDate().toLocaleString()
                         : new Date(a.lastUpdatedAt).toLocaleString()
-                      : ""}{" "}- {a.email}
+                      : ""}{" "}
+                    - {a.email}
                   </div>
                   <div className="text-sm">Status: {a.status}</div>
                   {a.comment && (
@@ -2110,18 +2228,16 @@ const AdGroupDetail = () => {
         />
       )}
 
-      {isDesigner ? (
-        designerTab === 'assets' && (
-          <BrandAssets brandCode={group?.brandCode} inline />
-        )
-      ) : (
-        showBrandAssets && (
-          <BrandAssets
-            brandCode={group?.brandCode}
-            onClose={() => setShowBrandAssets(false)}
-          />
-        )
-      )}
+      {isDesigner
+        ? designerTab === "assets" && (
+            <BrandAssets brandCode={group?.brandCode} inline />
+          )
+        : showBrandAssets && (
+            <BrandAssets
+              brandCode={group?.brandCode}
+              onClose={() => setShowBrandAssets(false)}
+            />
+          )}
     </div>
   );
 };

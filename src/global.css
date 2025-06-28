@@ -9,7 +9,7 @@
     /* loading spinner should stay the default color */
     --spinner-color: #ea580c;
     --dark-bg: #0d1116;
-    --dark-text: #f3f4f6; 
+    --dark-text: #f3f4f6;
     --dark-sidebar-bg: #141920;
     --dark-sidebar-hover: #171d27;
     --font-primary: "Rubik", sans-serif;
@@ -550,7 +550,7 @@
 
 /* card style for brief assets */
 .asset-card {
-  @apply relative flex items-center justify-center border rounded p-[5px] transition-transform;
+  @apply relative flex items-center justify-center border rounded-xl p-[5px] transition-transform;
 }
 .asset-card:hover {
   transform: scale(0.95);
