@@ -67,19 +67,18 @@ const AdminDashboard = () => {
         onChange={(r) => setRange(r)}
       />
       <div className="flex space-x-4 mb-4">
-        {['overview', 'brand', 'user'].map((t) => (
+        {['overview', 'brand'].map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`px-3 py-1 rounded ${tab === t ? 'bg-accent-10 text-accent' : 'border'}`}
           >
-            {t === 'overview' ? 'Overview' : t === 'brand' ? 'Brand' : 'User Management'}
+            {t === 'overview' ? 'Overview' : 'Brand'}
           </button>
         ))}
       </div>
       {tab === 'overview' && renderOverview()}
       {tab === 'brand' && renderBrand()}
-      {tab === 'user' && <p>User management coming soon.</p>}
     </div>
   );
 };
