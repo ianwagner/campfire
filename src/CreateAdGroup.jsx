@@ -11,6 +11,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db, auth } from "./firebase/config";
+import { uploadFile } from "./uploadFile";
 
 const CreateAdGroup = ({ showSidebar = true }) => {
   const [name, setName] = useState("");
@@ -18,6 +19,7 @@ const CreateAdGroup = ({ showSidebar = true }) => {
   const [brandCodes, setBrandCodes] = useState([]);
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [assetFiles, setAssetFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -67,6 +69,25 @@ const CreateAdGroup = ({ showSidebar = true }) => {
         password: "",
         dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
       });
+
+      for (const file of assetFiles) {
+        try {
+          const url = await uploadFile(
+            file,
+            docRef.id,
+            brand.trim(),
+            groupName,
+          );
+          await addDoc(collection(db, "adGroups", docRef.id, "groupAssets"), {
+            filename: file.name,
+            firebaseUrl: url,
+            uploadedAt: serverTimestamp(),
+          });
+        } catch (err) {
+          console.error("Asset upload failed", err);
+        }
+      }
+
       navigate(`/ad-group/${docRef.id}`);
     } catch (err) {
       console.error("Failed to create ad group", err);
@@ -126,6 +147,15 @@ const CreateAdGroup = ({ showSidebar = true }) => {
             className="w-full p-2 border rounded"
             rows={3}
             placeholder="Optional"
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Ad Group Assets</label>
+          <input
+            type="file"
+            multiple
+            onChange={(e) => setAssetFiles(Array.from(e.target.files))}
+            className="w-full"
           />
         </div>
         <button type="submit" className="w-full btn-primary" disabled={loading}>

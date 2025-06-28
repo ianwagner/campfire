@@ -65,6 +65,7 @@ const AdGroupDetail = () => {
   const [group, setGroup] = useState(null);
   const [brandName, setBrandName] = useState("");
   const [assets, setAssets] = useState([]);
+  const [briefAssets, setBriefAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
@@ -175,7 +176,17 @@ const AdGroupDetail = () => {
         setAssets(list);
       },
     );
-    return () => unsub();
+    const unsubBrief = onSnapshot(
+      collection(db, "adGroups", id, "groupAssets"),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setBriefAssets(list);
+      },
+    );
+    return () => {
+      unsub();
+      unsubBrief();
+    };
   }, [id]);
 
   useEffect(() => {
@@ -1573,14 +1584,33 @@ const AdGroupDetail = () => {
         )}
       </div>
 
-      {recipesTableVisible && savedRecipes.length > 0 && (
+      {recipesTableVisible && (
         <div className="my-4">
-          <RecipePreview
-            onSave={saveRecipes}
-            initialResults={savedRecipes}
-            showOnlyResults
-            onSelectChange={toggleRecipeSelect}
-          />
+          {group?.notes && (
+            <div className="mb-4 whitespace-pre-line border p-2 rounded">
+              {group.notes}
+            </div>
+          )}
+          {briefAssets.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {briefAssets.map((a) => (
+                <OptimizedImage
+                  key={a.id}
+                  pngUrl={a.firebaseUrl}
+                  alt={a.filename}
+                  className="h-24 w-auto object-contain"
+                />
+              ))}
+            </div>
+          )}
+          {savedRecipes.length > 0 && (
+            <RecipePreview
+              onSave={saveRecipes}
+              initialResults={savedRecipes}
+              showOnlyResults
+              onSelectChange={toggleRecipeSelect}
+            />
+          )}
         </div>
       )}
 
