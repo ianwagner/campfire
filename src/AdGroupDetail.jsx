@@ -12,12 +12,15 @@ import {
   FiShare2,
   FiUpload,
   FiBookOpen,
+  FiFileText,
+  FiFolder,
   FiArchive,
   FiDownload,
   FiRotateCcw,
 } from "react-icons/fi";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
+import BrandAssets from "./BrandAssets.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
 import {
   doc,
@@ -81,6 +84,7 @@ const AdGroupDetail = () => {
   const [exporting, setExporting] = useState(false);
   const [showRecipes, setShowRecipes] = useState(false);
   const [showRecipesTable, setShowRecipesTable] = useState(false);
+  const [showBrandAssets, setShowBrandAssets] = useState(false);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
@@ -1443,12 +1447,36 @@ const AdGroupDetail = () => {
               className="hidden"
             />
             <button
-              onClick={() => document.getElementById("upload-input").click()}
+              onClick={() => setShowRecipesTable((p) => !p)}
               className="btn-secondary px-2 py-0.5 flex items-center gap-1"
             >
-              <FiUpload />
-              Upload
+              <FiFileText />
+              {showRecipesTable ? "Hide Brief" : "See Brief"}
             </button>
+            <button
+              onClick={() => setShowBrandAssets(true)}
+              className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+            >
+              <FiFolder />
+              See Brand Assets
+            </button>
+            {assets.length > 0 ? (
+              <button
+                onClick={() => setShowTable(true)}
+                className="btn-primary px-2 py-0.5 flex items-center gap-1"
+              >
+                <FiEye />
+                See Ads
+              </button>
+            ) : (
+              <button
+                onClick={() => document.getElementById("upload-input").click()}
+                className="btn-primary px-2 py-0.5 flex items-center gap-1"
+              >
+                <FiUpload />
+                Upload Ads
+              </button>
+            )}
           </>
         )}
       </div>
@@ -1519,12 +1547,21 @@ const AdGroupDetail = () => {
         >
           {showTable ? "Hide Table" : "Show All Ads"}
         </button>
-        {savedRecipes.length > 0 && (
+        {savedRecipes.length > 0 && userRole !== "designer" && (
           <button
             onClick={() => setShowRecipesTable((p) => !p)}
             className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
           >
-            {showRecipesTable ? "Hide Recipes" : "Show Brief"}
+            {showRecipesTable ? "Hide Brief" : "See Brief"}
+          </button>
+        )}
+        {userRole === "designer" && showTable && group.status !== "archived" && (
+          <button
+            onClick={() => document.getElementById("upload-input").click()}
+            className="btn-primary px-2 py-0.5 flex items-center gap-1 ml-2"
+          >
+            <FiUpload />
+            Upload Ads
           </button>
         )}
       </div>
@@ -1780,6 +1817,13 @@ const AdGroupDetail = () => {
           password={group?.password}
           onClose={() => setShareModal(false)}
           onUpdate={(u) => setGroup((p) => ({ ...p, ...u }))}
+        />
+      )}
+
+      {showBrandAssets && (
+        <BrandAssets
+          brandCode={group?.brandCode}
+          onClose={() => setShowBrandAssets(false)}
         />
       )}
     </div>
