@@ -23,15 +23,18 @@ test('returns admin true when claim present', async () => {
     return () => {};
   });
 
+  const user = { getIdToken: jest.fn(() => Promise.resolve()), uid: 'u1' };
   getIdTokenResult.mockResolvedValue({ claims: { admin: true } });
 
   const { result, waitForNextUpdate } = renderHook(() => useAdminClaim());
 
   await act(async () => {
-    listener({ uid: 'u1' });
+    listener(user);
     await waitForNextUpdate();
   });
 
   expect(result.current.isAdmin).toBe(true);
+  expect(result.current.isReady).toBe(true);
   expect(result.current.loading).toBe(false);
+  expect(user.getIdToken).toHaveBeenCalledWith(true);
 });
