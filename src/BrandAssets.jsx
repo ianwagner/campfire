@@ -81,7 +81,6 @@ const BrandAssets = ({ brandCode, onClose, inline = false }) => {
           </div>
         )}
       </div>
-    </div>
   );
 
   if (inline) {
