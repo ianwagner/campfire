@@ -130,8 +130,14 @@ export default function useAdminDashboardData(range) {
       const uids = Object.keys(uploads);
       await Promise.all(
         uids.map(async (uid) => {
-          const snap = await getDoc(doc(db, 'users', uid));
-          userCache[uid] = snap.exists() ? snap.data().fullName || snap.data().email || uid : uid;
+          try {
+            const snap = await getDoc(doc(db, 'users', uid));
+            userCache[uid] = snap.exists()
+              ? snap.data().fullName || snap.data().email || uid
+              : uid;
+          } catch (err) {
+            userCache[uid] = uid;
+          }
         })
       );
 
