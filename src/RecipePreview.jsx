@@ -1109,7 +1109,7 @@ const RecipePreview = ({
                           {col.key.endsWith('.assets') ? (
                             renderAssetList(r.components[col.key] || [])
                           ) : (
-                            <>
+                            <React.Fragment>
                               {editing === idx && col.key.includes('.') ? (
                                 <select
                                   className="p-1 border rounded mb-1"
@@ -1132,7 +1132,7 @@ const RecipePreview = ({
                                 </select>
                               ) : null}
                               {editing === idx ? editComponents[col.key] : r.components[col.key]}
-                            </>
+                            </React.Fragment>
                           )}
                         </td>
                       )
