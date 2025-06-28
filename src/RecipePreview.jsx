@@ -56,6 +56,7 @@ const RecipePreview = ({
   onSelectChange = null,
   brandCode: initialBrandCode = '',
   hideBrandSelect = false,
+  onRecipesClick = null,
 }) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
@@ -1012,36 +1013,48 @@ const RecipePreview = ({
         )}
       </form>
       )}
-      {results.length > 0 && (
-        <div className="overflow-x-auto table-container mt-6">
-          <div className="relative inline-block mb-2">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setShowColumnMenu(true)}
-            >
-              Columns
-            </button>
-            {userRole !== 'designer' && (
+      <div className="overflow-x-auto table-container mt-6">
+        <div className="relative inline-block mb-2">
+          {results.length > 0 && (
+            <React.Fragment>
               <button
                 type="button"
-                className="btn-secondary ml-2"
-                onClick={addRecipeRow}
+                className="btn-secondary"
+                onClick={() => setShowColumnMenu(true)}
               >
-                Add Recipe Row
+                Columns
               </button>
-            )}
-          </div>
-          {showColumnMenu && (
-            <div
-              className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
-              onClick={() => setShowColumnMenu(false)}
+              {userRole !== 'designer' && (
+                <button
+                  type="button"
+                  className="btn-secondary ml-2"
+                  onClick={addRecipeRow}
+                >
+                  Add Recipe Row
+                </button>
+              )}
+            </React.Fragment>
+          )}
+          {onRecipesClick && (
+            <button
+              type="button"
+              className="btn-secondary ml-2 flex items-center gap-1"
+              onClick={onRecipesClick}
             >
-              <div
-                className="bg-white p-4 rounded shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h3 className="mb-2 font-semibold">Visible Columns</h3>
+              <FaMagic /> {results.length > 0 ? 'Replace Recipes' : 'Recipes'}
+            </button>
+          )}
+        </div>
+        {results.length > 0 && showColumnMenu && (
+          <div
+            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+            onClick={() => setShowColumnMenu(false)}
+          >
+            <div
+              className="bg-white p-4 rounded shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="mb-2 font-semibold">Visible Columns</h3>
                 {columnMeta.map((c) => (
                   <label key={c.key} className="block whitespace-nowrap">
                     <input
@@ -1070,6 +1083,7 @@ const RecipePreview = ({
               </div>
             </div>
           )}
+        {results.length > 0 && (
           <table className="ad-table min-w-full table-auto text-sm">
             <thead>
               <tr>
