@@ -274,3 +274,10 @@ fired. When a rule matches, a notification document is created which causes the
 Notifications triggered by `adGroupCreated` or `adGroupStatusUpdated` now include a `url` field that points to the related ad group. The Designer notification UI uses this to make the message clickable so users can jump directly to the group details.
 
 If a rule outputs a `brandCode` value, only users with that code in their `brandCodes` array will receive the notification.
+
+## Dashboard Troubleshooting
+
+The Admin Dashboard relies on Firestore aggregation queries. If charts fail to
+load, check the browser console for permission errors or missing index
+messages. Ensure the current user has read access to the relevant collections
+and create any suggested indexes in Firestore.
