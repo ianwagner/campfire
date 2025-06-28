@@ -548,6 +548,14 @@
   color: var(--edit-color);
 }
 
+/* card style for brief assets */
+.asset-card {
+  @apply relative flex items-center justify-center border rounded p-[5px] transition-transform;
+}
+.asset-card:hover {
+  transform: scale(0.95);
+}
+
 /* global loading overlay */
 .loading-overlay {
   position: fixed;
