@@ -60,6 +60,40 @@ test('filters component instances by selected brand', async () => {
   expect(optionTexts).not.toContain('Brand2');
 });
 
+test('uses provided brandCode when brand select is hidden', async () => {
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[1] || args[0][1] : args[1];
+    switch (col) {
+      case 'recipeTypes':
+        return Promise.resolve(typeSnap);
+      case 'componentTypes':
+        return Promise.resolve(compSnap);
+      case 'componentInstances':
+        return Promise.resolve(instSnap);
+      case 'brands':
+        return Promise.resolve(brandSnap);
+      default:
+        return Promise.resolve({ docs: [] });
+    }
+  });
+
+  render(<RecipePreview brandCode="B1" hideBrandSelect />);
+
+  await waitFor(() => expect(getDocs).toHaveBeenCalled());
+
+  fireEvent.change(screen.getByLabelText('Recipe Type'), { target: { value: 't1' } });
+
+  await waitFor(() => screen.getByLabelText('Headline'));
+
+  expect(screen.queryByLabelText('Brand')).toBeNull();
+
+  const options = screen.getAllByRole('option');
+  const optionTexts = options.map((o) => o.textContent);
+  expect(optionTexts).toContain('Default');
+  expect(optionTexts).toContain('Brand1');
+  expect(optionTexts).not.toContain('Brand2');
+});
+
 test('normalizeAssetType detects keywords within value', () => {
   expect(normalizeAssetType('still image')).toBe('image');
   expect(normalizeAssetType('my_static_photo')).toBe('image');
