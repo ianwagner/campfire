@@ -733,7 +733,6 @@ const RecipePreview = ({
 
   return (
     <div>
-      <h2 className="text-xl mb-2">Ad Recipe Generation</h2>
       {!showOnlyResults && (
         <form onSubmit={handleGenerate} className="space-y-2 max-w-[50rem]">
         <div>
