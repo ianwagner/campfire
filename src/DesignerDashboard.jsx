@@ -106,7 +106,7 @@ const DesignerDashboard = () => {
             if (!aDate && !bDate) return 0;
             if (!aDate) return 1;
             if (!bDate) return -1;
-            return aDate - bDate;
+            return bDate - aDate;
           });
         setGroups(filtered);
       } catch (err) {
