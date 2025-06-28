@@ -73,14 +73,41 @@ const DesignerDashboard = () => {
                 recipeCount = 0;
               }
             }
+
+            let assetCount = 0;
+            let hasEdit = false;
+            try {
+              const assetSnap = await getDocs(
+                collection(db, 'adGroups', d.id, 'assets')
+              );
+              assetCount = assetSnap.size;
+              hasEdit = assetSnap.docs.some((adDoc) => {
+                const ad = adDoc.data();
+                return ad.status === 'edit_requested' && !ad.isResolved;
+              });
+            } catch (err) {
+              console.error('Failed to load assets', err);
+            }
+
             return {
               id: d.id,
               ...data,
               recipeCount,
+              assetCount,
+              hasEdit,
             };
           })
         );
-        const filtered = list.filter((g) => g.status !== 'archived');
+        const filtered = list
+          .filter((g) => g.status !== 'archived')
+          .sort((a, b) => {
+            const aDate = a.dueDate?.toDate ? a.dueDate.toDate() : null;
+            const bDate = b.dueDate?.toDate ? b.dueDate.toDate() : null;
+            if (!aDate && !bDate) return 0;
+            if (!aDate) return 1;
+            if (!bDate) return -1;
+            return aDate - bDate;
+          });
         setGroups(filtered);
       } catch (err) {
         console.error('Failed to fetch groups', err);
@@ -115,18 +142,31 @@ const DesignerDashboard = () => {
           <p>No ad groups found.</p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {groups.map((g) => (
-              <Link key={g.id} to={`/ad-group/${g.id}`} className="flex flex-col items-center">
-                <div className="w-32 h-32 bg-accent-10 border border-accent rounded-2xl flex items-center justify-center">
-                  <span className="text-accent font-bold text-2xl">{g.recipeCount}</span>
-                </div>
-                <p className="mt-2 font-semibold text-center text-black dark:text-[var(--dark-text)] mb-0">{g.name}</p>
-                <p className="text-black dark:text-[var(--dark-text)] text-sm text-center">{g.brandCode}</p>
-                {g.dueDate && (
-                  <p className="text-black dark:text-[var(--dark-text)] text-xs text-center">Due {g.dueDate.toDate().toLocaleDateString()}</p>
-                )}
-              </Link>
-            ))}
+            {groups.map((g) => {
+              const getClasses = () => {
+                if (g.recipeCount === 0)
+                  return 'bg-gray-300 border-gray-400 text-gray-600';
+                if (g.hasEdit)
+                  return 'bg-[var(--edit-color-10)] border-[var(--edit-color)] text-edit';
+                if (g.assetCount === g.recipeCount)
+                  return 'bg-[var(--approve-color-10)] border-[var(--approve-color)] text-approve';
+                if (g.assetCount === 0)
+                  return 'bg-accent-10 border-accent text-accent';
+                return 'bg-accent-10 border-accent text-accent';
+              };
+              return (
+                <Link key={g.id} to={`/ad-group/${g.id}`} className="flex flex-col items-center">
+                  <div className={`w-32 h-32 border rounded-2xl flex items-center justify-center ${getClasses()}`}>
+                    <span className="font-bold text-2xl">{g.recipeCount}</span>
+                  </div>
+                  <p className="mt-2 font-semibold text-center text-black dark:text-[var(--dark-text)] mb-0">{g.name}</p>
+                  <p className="text-black dark:text-[var(--dark-text)] text-sm text-center">{g.brandCode}</p>
+                  {g.dueDate && (
+                    <p className="text-black dark:text-[var(--dark-text)] text-xs text-center">Due {g.dueDate.toDate().toLocaleDateString()}</p>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
