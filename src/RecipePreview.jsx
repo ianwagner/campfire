@@ -1202,7 +1202,6 @@ const RecipePreview = ({
               ))}
             </tbody>
           </table>
-        </div>
       )}
       {results.length > 0 && userRole !== 'designer' && (
         <div className="mt-4 text-right">
@@ -1215,6 +1214,7 @@ const RecipePreview = ({
           </button>
         </div>
       )}
+  </div>
     </div>
   );
 };
