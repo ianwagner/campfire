@@ -6,13 +6,16 @@ import debugLog from './utils/debugLog';
 const useAdminClaim = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     debugLog('Listening for admin claim');
     const unsub = onIdTokenChanged(auth, async (user) => {
       debugLog('Id token changed', user);
+      setIsReady(false);
       if (user) {
         try {
+          await user.getIdToken(true);
           const res = await getIdTokenResult(user);
           setIsAdmin(!!res.claims.admin);
         } catch (err) {
@@ -22,6 +25,7 @@ const useAdminClaim = () => {
       } else {
         setIsAdmin(false);
       }
+      setIsReady(true);
       setLoading(false);
     });
     return () => {
@@ -30,7 +34,7 @@ const useAdminClaim = () => {
     };
   }, []);
 
-  return { isAdmin, loading };
+  return { isAdmin, loading, isReady };
 };
 
 export default useAdminClaim;

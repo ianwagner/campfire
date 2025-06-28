@@ -10,6 +10,7 @@ import {
   doc,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import useAdminClaim from '../useAdminClaim';
 
 const initial = {
   statusByBrand: {},
@@ -24,6 +25,7 @@ const initial = {
 export default function useAdminDashboardData(range) {
   const [data, setData] = useState(initial);
   const [error, setError] = useState('');
+  const { isAdmin, isReady } = useAdminClaim();
 
   useEffect(() => {
     if (!range?.start || !range?.end) return;
@@ -130,18 +132,24 @@ export default function useAdminDashboardData(range) {
       });
 
       const uids = Object.keys(uploads);
-      await Promise.all(
-        uids.map(async (uid) => {
-          try {
-            const snap = await getDoc(doc(db, 'users', uid));
-            userCache[uid] = snap.exists()
-              ? snap.data().fullName || snap.data().email || uid
-              : uid;
-          } catch (err) {
-            userCache[uid] = uid;
-          }
-        })
-      );
+      if (isReady && isAdmin) {
+        await Promise.all(
+          uids.map(async (uid) => {
+            try {
+              const snap = await getDoc(doc(db, 'users', uid));
+              userCache[uid] = snap.exists()
+                ? snap.data().fullName || snap.data().email || uid
+                : uid;
+            } catch (err) {
+              userCache[uid] = uid;
+            }
+          })
+        );
+      } else {
+        uids.forEach((uid) => {
+          userCache[uid] = uid;
+        });
+      }
 
       const uploadsByName = {};
       uids.forEach((uid) => {
@@ -175,7 +183,7 @@ export default function useAdminDashboardData(range) {
     }
     };
     fetchData();
-  }, [range]);
+  }, [range, isReady, isAdmin]);
 
   return { ...data, error };
 }
