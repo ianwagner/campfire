@@ -3,7 +3,7 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "./firebase/config";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 
-const BrandAssets = ({ brandCode, onClose }) => {
+const BrandAssets = ({ brandCode, onClose, inline = false }) => {
   const [brand, setBrand] = useState(null);
 
   useEffect(() => {
@@ -24,13 +24,14 @@ const BrandAssets = ({ brandCode, onClose }) => {
 
   if (!brand) return null;
 
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white p-4 rounded shadow max-w-md w-full overflow-auto relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+  const content = (
+    <div className="bg-white p-4 rounded shadow max-w-md w-full overflow-auto relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+      {onClose && !inline && (
         <button onClick={onClose} className="absolute top-2 right-2 btn-secondary px-3 py-1">
           Close
         </button>
-        <h3 className="mb-3 font-semibold text-lg">Brand Assets</h3>
+      )}
+      <h3 className="mb-3 font-semibold text-lg">Brand Assets</h3>
         {brand.guidelinesUrl && (
           <div className="mb-3">
             <a href={brand.guidelinesUrl} target="_blank" rel="noopener noreferrer" className="underline">
@@ -82,6 +83,12 @@ const BrandAssets = ({ brandCode, onClose }) => {
       </div>
     </div>
   );
+
+  if (inline) {
+    return <div className="mb-4">{content}</div>;
+  }
+
+  return <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">{content}</div>;
 };
 
 export default BrandAssets;

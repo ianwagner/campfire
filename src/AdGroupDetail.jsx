@@ -17,6 +17,7 @@ import {
   FiArchive,
   FiDownload,
   FiRotateCcw,
+  FiBarChart2,
 } from "react-icons/fi";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
@@ -85,9 +86,14 @@ const AdGroupDetail = () => {
   const [showRecipes, setShowRecipes] = useState(false);
   const [showRecipesTable, setShowRecipesTable] = useState(false);
   const [showBrandAssets, setShowBrandAssets] = useState(false);
+  const [designerTab, setDesignerTab] = useState('stats');
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
+  const isDesigner = userRole === 'designer';
+  const tableVisible = isDesigner ? designerTab === 'ads' : showTable;
+  const recipesTableVisible = isDesigner ? designerTab === 'brief' : showRecipesTable;
+  const showStats = isDesigner ? designerTab === 'stats' : !showTable;
 
   const renderCopyEditDiff = (recipeCode, edit) => {
     const orig = recipesMeta[recipeCode]?.copy || '';
@@ -1446,37 +1452,36 @@ const AdGroupDetail = () => {
               }}
               className="hidden"
             />
-            <button
-              onClick={() => setShowRecipesTable((p) => !p)}
-              className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-            >
-              <FiFileText />
-              {showRecipesTable ? "Hide Brief" : "See Brief"}
-            </button>
-            <button
-              onClick={() => setShowBrandAssets(true)}
-              className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-            >
-              <FiFolder />
-              See Brand Assets
-            </button>
-            {assets.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => setShowTable(true)}
-                className="btn-primary px-2 py-0.5 flex items-center gap-1"
+                onClick={() => setDesignerTab('stats')}
+                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === 'stats' ? 'bg-accent-10 text-accent' : ''}`}
+              >
+                <FiBarChart2 />
+                Stats
+              </button>
+              <button
+                onClick={() => setDesignerTab('brief')}
+                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === 'brief' ? 'bg-accent-10 text-accent' : ''}`}
+              >
+                <FiFileText />
+                Brief
+              </button>
+              <button
+                onClick={() => setDesignerTab('assets')}
+                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === 'assets' ? 'bg-accent-10 text-accent' : ''}`}
+              >
+                <FiFolder />
+                Assets
+              </button>
+              <button
+                onClick={() => setDesignerTab('ads')}
+                className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${designerTab === 'ads' ? 'bg-accent-10 text-accent' : ''}`}
               >
                 <FiEye />
-                See Ads
+                Ads
               </button>
-            ) : (
-              <button
-                onClick={() => document.getElementById("upload-input").click()}
-                className="btn-primary px-2 py-0.5 flex items-center gap-1"
-              >
-                <FiUpload />
-                Upload Ads
-              </button>
-            )}
+            </div>
           </>
         )}
       </div>
@@ -1485,7 +1490,7 @@ const AdGroupDetail = () => {
         <span className="ml-2 text-sm text-gray-600">Uploading...</span>
       )}
 
-      {!showTable && (
+      {showStats && (
         <>
           <div className="flex flex-wrap justify-center gap-4 mb-4">
             <div className="stat-card">
@@ -1522,7 +1527,7 @@ const AdGroupDetail = () => {
         </>
       )}
 
-      {(showTable || specialGroups.length > 0) && (
+      {(tableVisible || specialGroups.length > 0) && (
         <div className="overflow-x-auto table-container">
           <table className="ad-table min-w-max">
             <thead>
@@ -1533,7 +1538,7 @@ const AdGroupDetail = () => {
                 <th>Actions</th>
               </tr>
             </thead>
-            {[...specialGroups, ...(showTable ? normalGroups : [])].map((g) =>
+            {[...specialGroups, ...(tableVisible ? normalGroups : [])].map((g) =>
               renderRecipeRow(g),
             )}
           </table>
@@ -1541,13 +1546,15 @@ const AdGroupDetail = () => {
       )}
 
       <div className="flex my-4">
-        <button
-          onClick={() => setShowTable((p) => !p)}
-          className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-        >
-          {showTable ? "Hide Table" : "Show All Ads"}
-        </button>
-        {savedRecipes.length > 0 && userRole !== "designer" && (
+        {!isDesigner && (
+          <button
+            onClick={() => setShowTable((p) => !p)}
+            className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+          >
+            {showTable ? "Hide Table" : "Show All Ads"}
+          </button>
+        )}
+        {savedRecipes.length > 0 && !isDesigner && (
           <button
             onClick={() => setShowRecipesTable((p) => !p)}
             className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
@@ -1555,7 +1562,7 @@ const AdGroupDetail = () => {
             {showRecipesTable ? "Hide Brief" : "See Brief"}
           </button>
         )}
-        {userRole === "designer" && showTable && group.status !== "archived" && (
+        {isDesigner && tableVisible && group.status !== "archived" && (
           <button
             onClick={() => document.getElementById("upload-input").click()}
             className="btn-primary px-2 py-0.5 flex items-center gap-1 ml-2"
@@ -1566,7 +1573,7 @@ const AdGroupDetail = () => {
         )}
       </div>
 
-      {showRecipesTable && savedRecipes.length > 0 && (
+      {recipesTableVisible && savedRecipes.length > 0 && (
         <div className="my-4">
           <RecipePreview
             onSave={saveRecipes}
@@ -1820,11 +1827,17 @@ const AdGroupDetail = () => {
         />
       )}
 
-      {showBrandAssets && (
-        <BrandAssets
-          brandCode={group?.brandCode}
-          onClose={() => setShowBrandAssets(false)}
-        />
+      {isDesigner ? (
+        designerTab === 'assets' && (
+          <BrandAssets brandCode={group?.brandCode} inline />
+        )
+      ) : (
+        showBrandAssets && (
+          <BrandAssets
+            brandCode={group?.brandCode}
+            onClose={() => setShowBrandAssets(false)}
+          />
+        )
       )}
     </div>
   );
