@@ -92,6 +92,7 @@ const RecipePreview = ({
           label: 'Brand',
           selectionMode: 'brand',
           attributes: [
+            { label: 'Name', key: 'name', inputType: 'text' },
             { label: 'Tone of Voice', key: 'toneOfVoice', inputType: 'text' },
             { label: 'Offering', key: 'offering', inputType: 'text' },
           ],
