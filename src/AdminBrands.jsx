@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from './firebase/config';
 
 const AdminBrands = () => {
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ code: '', name: '', agencyId: '' });
 
   useEffect(() => {
     const fetchBrands = async () => {
@@ -25,37 +23,6 @@ const AdminBrands = () => {
 
     fetchBrands();
   }, []);
-
-  const startEdit = (brand) => {
-    setEditId(brand.id);
-    setForm({
-      code: brand.code || '',
-      name: brand.name || '',
-      agencyId: brand.agencyId || '',
-    });
-  };
-
-  const cancelEdit = () => setEditId(null);
-
-  const handleSave = async (id) => {
-    try {
-      await updateDoc(doc(db, 'brands', id), {
-        code: form.code,
-        name: form.name,
-        agencyId: form.agencyId,
-      });
-      setBrands((prev) =>
-        prev.map((b) =>
-          b.id === id
-            ? { ...b, code: form.code, name: form.name, agencyId: form.agencyId }
-            : b
-        )
-      );
-      setEditId(null);
-    } catch (err) {
-      console.error('Failed to update brand', err);
-    }
-  };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this brand?')) return;
@@ -89,62 +56,22 @@ const AdminBrands = () => {
             <tbody>
               {brands.map((brand) => (
                 <tr key={brand.id}>
-                  <td>
-                    {editId === brand.id ? (
-                      <input
-                        type="text"
-                        value={form.code}
-                        onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-                        className="w-full p-1 border rounded"
-                      />
-                    ) : (
-                      brand.code
-                    )}
-                  </td>
-                  <td>
-                    {editId === brand.id ? (
-                      <input
-                        type="text"
-                        value={form.name}
-                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                        className="w-full p-1 border rounded"
-                      />
-                    ) : (
-                      brand.name
-                    )}
-                  </td>
-                  <td>
-                    {editId === brand.id ? (
-                      <input
-                        type="text"
-                        value={form.agencyId}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, agencyId: e.target.value }))
-                        }
-                        className="w-full p-1 border rounded"
-                      />
-                    ) : (
-                      brand.agencyId || ''
-                    )}
-                  </td>
+                  <td>{brand.code}</td>
+                  <td>{brand.name}</td>
+                  <td>{brand.agencyId || ''}</td>
                   <td className="text-center">
-                    {editId === brand.id ? (
-                      <>
-                        <button onClick={() => handleSave(brand.id)} className="underline text-gray-700 mr-2">
-                          Save
-                        </button>
-                        <button onClick={cancelEdit} className="underline">Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <button onClick={() => startEdit(brand)} className="underline text-gray-700 mr-2">
-                          Edit
-                        </button>
-                        <button onClick={() => handleDelete(brand.id)} className="underline btn-delete">
-                          Delete
-                        </button>
-                      </>
-                    )}
+                    <a
+                      href={`/admin/brands/${brand.id}`}
+                      className="underline text-gray-700 mr-2"
+                    >
+                      Edit
+                    </a>
+                    <button
+                      onClick={() => handleDelete(brand.id)}
+                      className="underline btn-delete"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
