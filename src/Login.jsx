@@ -18,6 +18,8 @@ const Login = ({ onLogin }) => {
   const [mfaResolver, setMfaResolver] = useState(null);
   const [verificationId, setVerificationId] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  const [signingIn, setSigningIn] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
@@ -27,6 +29,7 @@ const Login = ({ onLogin }) => {
     setError('');
     setShowReset(false);
     setResetSent(false);
+    setSigningIn(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
       debugLog('Sign-in successful');
@@ -57,6 +60,8 @@ const Login = ({ onLogin }) => {
       } else {
         setError(err.message);
       }
+    } finally {
+      setSigningIn(false);
     }
   };
 
@@ -65,6 +70,7 @@ const Login = ({ onLogin }) => {
     if (!mfaResolver) return;
     debugLog('Verifying MFA code');
     setError('');
+    setVerifying(true);
     try {
       const cred = PhoneAuthProvider.credential(verificationId, mfaCode);
       const assertion = PhoneMultiFactorGenerator.assertion(cred);
@@ -73,6 +79,8 @@ const Login = ({ onLogin }) => {
       if (onLogin) onLogin();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -113,8 +121,8 @@ const Login = ({ onLogin }) => {
           {resetSent && (
             <p className="text-green-500 text-sm mb-2">Password reset email sent.</p>
           )}
-          <button type="submit" className="w-full btn-primary">
-            Sign In
+          <button type="submit" className="w-full btn-primary" disabled={signingIn}>
+            {signingIn ? 'Signing In...' : 'Sign In'}
           </button>
           {showReset && !resetSent && (
             <button
@@ -139,8 +147,8 @@ const Login = ({ onLogin }) => {
             required
           />
           {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
-          <button type="submit" className="w-full btn-primary">
-            Verify
+          <button type="submit" className="w-full btn-primary" disabled={verifying}>
+            {verifying ? 'Verifying...' : 'Verify'}
           </button>
         </form>
       )}

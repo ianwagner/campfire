@@ -31,7 +31,11 @@ test('shows reset prompt after wrong password and sends email', async () => {
   fireEvent.change(screen.getByLabelText('Password'), {
     target: { value: 'bad' },
   });
-  fireEvent.click(screen.getByText('Sign In'));
+  const signInBtn = screen.getByRole('button', { name: 'Sign In' });
+  fireEvent.click(signInBtn);
+  expect(signInBtn).toBeDisabled();
+  fireEvent.click(signInBtn);
+  expect(signInWithEmailAndPassword).toHaveBeenCalledTimes(1);
 
   await waitFor(() =>
     expect(screen.getByText('Forgot password?')).toBeInTheDocument()
