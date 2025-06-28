@@ -693,9 +693,14 @@ const RecipePreview = ({
 
     if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
       const order = currentType.defaultColumns;
-      const filtered = cols.filter((c) => order.includes(c.key));
-      filtered.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
-      return filtered;
+      cols.sort((a, b) => {
+        const ai = order.indexOf(a.key);
+        const bi = order.indexOf(b.key);
+        if (ai === -1 && bi === -1) return 0;
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
     }
 
     return cols;
