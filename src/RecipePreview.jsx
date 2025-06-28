@@ -1016,10 +1016,10 @@ const RecipePreview = ({
       <div className="overflow-x-auto table-container mt-6">
         <div className="relative inline-block mb-2">
           {results.length > 0 && (
-            <React.Fragment>
+            <>
               <button
                 type="button"
-                className="btn-secondary"
+                className="btn-secondary px-2 py-0.5"
                 onClick={() => setShowColumnMenu(true)}
               >
                 Columns
@@ -1027,18 +1027,20 @@ const RecipePreview = ({
               {userRole !== 'designer' && (
                 <button
                   type="button"
-                  className="btn-secondary ml-2"
+                  className="btn-secondary ml-2 px-2 py-0.5"
                   onClick={addRecipeRow}
                 >
                   Add Recipe Row
                 </button>
               )}
-            </React.Fragment>
+            </>
           )}
           {onRecipesClick && (
             <button
               type="button"
-              className="btn-secondary ml-2 flex items-center gap-1"
+              className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${
+                results.length > 0 ? 'ml-2' : ''
+              }`}
               onClick={onRecipesClick}
             >
               <FaMagic /> {results.length > 0 ? 'Replace Recipes' : 'Recipes'}
