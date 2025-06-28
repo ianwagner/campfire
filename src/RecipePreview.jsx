@@ -1016,7 +1016,7 @@ const RecipePreview = ({
       <div className="overflow-x-auto table-container mt-6">
         <div className="relative inline-block mb-2">
           {results.length > 0 && (
-            <>
+            <React.Fragment>
               <button
                 type="button"
                 className="btn-secondary"
@@ -1033,7 +1033,7 @@ const RecipePreview = ({
                   Add Recipe Row
                 </button>
               )}
-            </>
+            </React.Fragment>
           )}
           {onRecipesClick && (
             <button
