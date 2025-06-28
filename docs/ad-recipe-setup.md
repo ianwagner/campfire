@@ -10,6 +10,8 @@ Each component is comprised of one or more **attributes** which define the field
 
 Instances may also include a `relationships` object. This links the instance to other records. The first supported relationship is `brandCode`, referencing a brand code from the Brands tab. Use it when an instance only applies to a particular brand.
 
+The system also provides a built-in **`brand`** component. Each brand document stores values for this component—fields such as `toneOfVoice` and `offering`—which administrators manage in the Brands tab. When a recipe type includes the `brand` component, these values are automatically loaded using the selected `brandCode` and inserted into the GPT prompt with placeholders like `{{brand.toneOfVoice}}` and `{{brand.offering}}`. No user selection is required.
+
 Components also define a `selectionMode` that controls how an instance is chosen when generating a recipe:
 
 - **`random`** – one instance is randomly selected for each recipe.

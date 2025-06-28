@@ -75,12 +75,21 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
         const typeSnap = await getDocs(collection(db, 'recipeTypes'));
         setTypes(typeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         const compSnap = await getDocs(collection(db, 'componentTypes'));
-        setComponents(
-          compSnap.docs.map((d) => {
-            const data = d.data();
-            return { id: d.id, ...data, selectionMode: data.selectionMode || 'dropdown' };
-          })
-        );
+        const list = compSnap.docs.map((d) => {
+          const data = d.data();
+          return { id: d.id, ...data, selectionMode: data.selectionMode || 'dropdown' };
+        });
+        list.push({
+          id: 'brand',
+          key: 'brand',
+          label: 'Brand',
+          selectionMode: 'brand',
+          attributes: [
+            { label: 'Tone of Voice', key: 'toneOfVoice', inputType: 'text' },
+            { label: 'Offering', key: 'offering', inputType: 'text' },
+          ],
+        });
+        setComponents(list);
         const instSnap = await getDocs(collection(db, 'componentInstances'));
         setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         const brandSnap = await getDocs(collection(db, 'brands'));
@@ -174,7 +183,15 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
     const mergedForm = baseValues ? { ...baseValues } : { ...formData };
     const componentsData = {};
     orderedComponents.forEach((c) => {
-      if (baseValues) {
+      if (c.key === 'brand') {
+        const b = brands.find((br) => br.code === brand) || {};
+        c.attributes?.forEach((a) => {
+          const val = b[a.key] || '';
+          componentsData[`${c.key}.${a.key}`] = val;
+          const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
+          prompt = prompt.replace(regex, val);
+        });
+      } else if (baseValues) {
         c.attributes?.forEach((a) => {
           const val = mergedForm[`${c.key}.${a.key}`] || '';
           componentsData[`${c.key}.${a.key}`] = val;
@@ -868,6 +885,7 @@ const RecipePreview = ({ onSave = null, initialResults = null, showOnlyResults =
         {currentType && (
           <div className="space-y-4">
             {orderedComponents.map((c) => {
+              if (c.key === 'brand') return null;
               const instOptions = instances.filter(
                 (i) =>
                   i.componentKey === c.key &&
