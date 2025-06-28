@@ -88,6 +88,9 @@ const AdGroupDetail = () => {
   const [showRecipesTable, setShowRecipesTable] = useState(false);
   const [showBrandAssets, setShowBrandAssets] = useState(false);
   const [designerTab, setDesignerTab] = useState('stats');
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesInput, setNotesInput] = useState('');
+  const [briefDrag, setBriefDrag] = useState(false);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
@@ -634,6 +637,109 @@ const AdGroupDetail = () => {
     setUploading(false);
   };
 
+  const handleBriefUpload = async (selectedFiles) => {
+    if (!selectedFiles || selectedFiles.length === 0) return;
+    setUploading(true);
+    for (const file of Array.from(selectedFiles)) {
+      try {
+        const url = await uploadFile(
+          file,
+          id,
+          brandName || group?.brandCode,
+          group?.name || id,
+        );
+        await addDoc(collection(db, "adGroups", id, "groupAssets"), {
+          filename: file.name,
+          firebaseUrl: url,
+          uploadedAt: serverTimestamp(),
+          note: "",
+        });
+      } catch (err) {
+        console.error("Brief upload failed", err);
+      }
+    }
+    setUploading(false);
+  };
+
+  const deleteBriefAsset = async (asset) => {
+    const confirm = window.confirm("Delete this asset?");
+    if (!confirm) return;
+    try {
+      await deleteDoc(doc(db, "adGroups", id, "groupAssets", asset.id));
+      if (asset.filename || asset.firebaseUrl) {
+        try {
+          const fileRef = ref(
+            storage,
+            asset.firebaseUrl ||
+              `Campfire/Brands/${brandName || group?.brandCode}/Adgroups/${
+                group?.name || id
+              }/${asset.filename}`,
+          );
+          await deleteObject(fileRef);
+        } catch (err) {
+          console.error("Failed to delete storage file", err);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to delete asset", err);
+    }
+  };
+
+  const addBriefAssetNote = async (asset) => {
+    const note = window.prompt("Asset note", asset.note || "");
+    if (note === null) return;
+    try {
+      await updateDoc(doc(db, "adGroups", id, "groupAssets", asset.id), {
+        note: note.trim(),
+      });
+    } catch (err) {
+      console.error("Failed to update note", err);
+    }
+  };
+
+  const replaceBriefAsset = async (asset, file) => {
+    if (!file) return;
+    try {
+      const url = await uploadFile(
+        file,
+        id,
+        brandName || group?.brandCode,
+        group?.name || id,
+      );
+      await updateDoc(doc(db, "adGroups", id, "groupAssets", asset.id), {
+        filename: file.name,
+        firebaseUrl: url,
+        uploadedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error("Failed to replace asset", err);
+    }
+  };
+
+  const downloadBriefAll = async () => {
+    const files = [];
+    for (const asset of briefAssets) {
+      try {
+        const resp = await fetch(asset.firebaseUrl);
+        const buf = await resp.arrayBuffer();
+        files.push({ path: asset.filename, data: buf });
+      } catch (err) {
+        console.error("Failed to download", err);
+      }
+    }
+    if (files.length === 0) return;
+    const blob = await makeZip(files);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${group?.name || "assets"}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+
 
   const uploadVersion = async (assetId, file) => {
     if (!file) return;
@@ -654,6 +760,16 @@ const AdGroupDetail = () => {
       console.error("Failed to upload version", err);
     } finally {
       setVersionUploading(null);
+    }
+  };
+
+  const saveNotes = async () => {
+    try {
+      await updateDoc(doc(db, "adGroups", id), { notes: notesInput });
+      setGroup((p) => ({ ...p, notes: notesInput }));
+      setEditingNotes(false);
+    } catch (err) {
+      console.error("Failed to save notes", err);
     }
   };
 
@@ -1586,20 +1702,133 @@ const AdGroupDetail = () => {
 
       {recipesTableVisible && (
         <div className="my-4">
-          {group?.notes && (
-            <div className="mb-4 whitespace-pre-line border p-2 rounded">
-              {group.notes}
-            </div>
+          {userRole === 'admin' ? (
+            editingNotes ? (
+              <div className="mb-4">
+                <textarea
+                  className="w-full border rounded p-2 text-black dark:text-black"
+                  rows={3}
+                  value={notesInput}
+                  onChange={(e) => setNotesInput(e.target.value)}
+                />
+                <div className="flex gap-2 mt-1">
+                  <button onClick={saveNotes} className="btn-primary px-2 py-0.5">
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditingNotes(false)}
+                    className="btn-secondary px-2 py-0.5"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-4 whitespace-pre-line border p-2 rounded relative">
+                <button
+                  onClick={() => {
+                    setNotesInput(group?.notes || '');
+                    setEditingNotes(true);
+                  }}
+                  className="absolute top-1 right-1 btn-secondary px-1 py-0.5 text-xs"
+                >
+                  Edit
+                </button>
+                {group?.notes}
+              </div>
+            )
+          ) : (
+            group?.notes && (
+              <div className="mb-4 whitespace-pre-line border p-2 rounded">
+                {group.notes}
+              </div>
+            )
           )}
           {briefAssets.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div
+              className={`flex flex-wrap gap-2 mb-4 border-dashed p-2 rounded ${briefDrag ? 'bg-accent-10' : ''}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setBriefDrag(true);
+              }}
+              onDragLeave={() => setBriefDrag(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setBriefDrag(false);
+                handleBriefUpload(e.dataTransfer.files);
+              }}
+            >
+              <div className="w-full flex justify-between mb-2">
+                <button onClick={downloadBriefAll} className="btn-secondary px-2 py-0.5 flex items-center gap-1">
+                  <FiDownload />
+                  Download All
+                </button>
+                {userRole === 'admin' && (
+                  <>
+                    <input
+                      id="brief-upload"
+                      type="file"
+                      multiple
+                      onChange={(e) => {
+                        handleBriefUpload(e.target.files);
+                        e.target.value = null;
+                      }}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => document.getElementById('brief-upload').click()}
+                      className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                    >
+                      <FiUpload />
+                      Upload
+                    </button>
+                  </>
+                )}
+              </div>
               {briefAssets.map((a) => (
-                <OptimizedImage
-                  key={a.id}
-                  pngUrl={a.firebaseUrl}
-                  alt={a.filename}
-                  className="h-24 w-auto object-contain"
-                />
+                <div key={a.id} className="relative group">
+                  {a.firebaseUrl ? (
+                    <OptimizedImage
+                      pngUrl={a.firebaseUrl}
+                      alt={a.filename}
+                      className="object-contain max-w-[8rem] max-h-24"
+                    />
+                  ) : (
+                    <div className="w-32 h-24 border flex items-center justify-center text-xs">
+                      {a.filename}
+                    </div>
+                  )}
+                  {a.note && <FiFileText className="absolute bottom-1 right-1" />}
+                  {userRole === 'admin' && (
+                    <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex flex-col items-center justify-center gap-1 text-white text-xs">
+                      <a href={a.firebaseUrl} download className="btn-secondary px-1 py-0.5">
+                        Download
+                      </a>
+                      <label className="btn-secondary px-1 py-0.5 cursor-pointer">
+                        Replace
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            replaceBriefAsset(a, e.target.files[0]);
+                            e.target.value = null;
+                          }}
+                        />
+                      </label>
+                      <button onClick={() => addBriefAssetNote(a)} className="btn-secondary px-1 py-0.5">
+                        Note
+                      </button>
+                      <button onClick={() => deleteBriefAsset(a)} className="btn-delete px-1 py-0.5">
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                  {userRole === 'designer' && a.note && (
+                    <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex items-center justify-center text-white text-xs p-1 text-center whitespace-pre-wrap">
+                      {a.note}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}
