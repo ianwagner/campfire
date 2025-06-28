@@ -53,12 +53,25 @@ import OptimizedImage from "./components/OptimizedImage.jsx";
 import pickHeroAsset from "./utils/pickHeroAsset";
 import computeGroupStatus from "./utils/computeGroupStatus";
 import diffWords from "./utils/diffWords";
+import { FaFilePdf, FaFont } from "react-icons/fa";
+import { SiAdobeillustrator } from "react-icons/si";
 
 const normalizeId = (value) =>
   String(value ?? "")
     .trim()
     .replace(/^0+/, "")
     .toLowerCase();
+
+const isImageFile = (name) =>
+  /\.(png|jpe?g|gif|webp)$/i.test(name || "");
+
+const getFileIcon = (name) => {
+  const ext = (name || "").split(".").pop().toLowerCase();
+  if (ext === "pdf") return <FaFilePdf size={32} />;
+  if (ext === "ai") return <SiAdobeillustrator size={32} />;
+  if (["otf", "ttf", "woff", "woff2"].includes(ext)) return <FaFont size={32} />;
+  return <FiFileText size={32} />;
+};
 
 const AdGroupDetail = () => {
   const { id } = useParams();
@@ -1654,7 +1667,7 @@ const AdGroupDetail = () => {
         </>
       )}
 
-      {(tableVisible || specialGroups.length > 0) && (
+      {(tableVisible || (designerTab === 'stats' && specialGroups.length > 0)) && (
         <div className="overflow-x-auto table-container">
           <table className="ad-table min-w-max">
             <thead>
@@ -1665,9 +1678,9 @@ const AdGroupDetail = () => {
                 <th>Actions</th>
               </tr>
             </thead>
-            {[...specialGroups, ...(tableVisible ? normalGroups : [])].map((g) =>
-              renderRecipeRow(g),
-            )}
+            {[
+              ...(tableVisible ? [...specialGroups, ...normalGroups] : specialGroups),
+            ].map((g) => renderRecipeRow(g))}
           </table>
         </div>
       )}
@@ -1700,13 +1713,22 @@ const AdGroupDetail = () => {
         )}
       </div>
 
+      {isDesigner && designerTab === 'ads' && savedRecipes.length > 0 && (
+        <RecipePreview
+          onSave={saveRecipes}
+          initialResults={savedRecipes}
+          showOnlyResults
+          onSelectChange={toggleRecipeSelect}
+        />
+      )}
+
       {recipesTableVisible && (
         <div className="my-4">
           {userRole === 'admin' ? (
             editingNotes ? (
               <>
-                <h4 className="font-medium mb-1">Brief Note:</h4>
-                <div className="mb-4">
+                <h4 className="font-medium mb-1 text-accent">Brief Note:</h4>
+                <div className="mb-4 border border-accent bg-accent-10 rounded p-2">
                   <textarea
                     className="w-full border rounded p-2 text-black dark:text-black"
                     rows={3}
@@ -1727,9 +1749,9 @@ const AdGroupDetail = () => {
               </div>
               </>
             ) : (
-              <>
-                <h4 className="font-medium mb-1">Brief Note:</h4>
-                <div className="mb-4 whitespace-pre-line border p-2 rounded relative">
+              <> 
+                <h4 className="font-medium mb-1 text-accent">Brief Note:</h4>
+                <div className="mb-4 whitespace-pre-line border border-accent bg-accent-10 p-2 rounded relative">
                   <button
                     onClick={() => {
                       setNotesInput(group?.notes || '');
@@ -1745,9 +1767,9 @@ const AdGroupDetail = () => {
             )
           ) : (
             group?.notes && (
-              <>
-                <h4 className="font-medium mb-1">Brief Note:</h4>
-                <div className="mb-4 whitespace-pre-line border p-2 rounded">
+              <> 
+                <h4 className="font-medium mb-1 text-accent">Brief Note:</h4>
+                <div className="mb-4 whitespace-pre-line border border-accent bg-accent-10 p-2 rounded">
                   {group.notes}
                 </div>
               </>
@@ -1755,9 +1777,9 @@ const AdGroupDetail = () => {
           )}
           {briefAssets.length > 0 && (
             <>
-              <h4 className="font-medium mb-1">Brief Assets:</h4>
+              <h4 className="font-medium mb-1 text-accent">Brief Assets:</h4>
               <div
-                className={`flex flex-wrap gap-2 mb-4 border p-2 rounded relative ${briefDrag ? 'bg-accent-10' : ''}`}
+                className={`flex flex-wrap gap-2 mb-4 border border-accent bg-accent-10 p-2 rounded relative ${briefDrag ? 'opacity-80' : ''}`}
               onDragOver={(e) => {
                 e.preventDefault();
                 setBriefDrag(true);
@@ -1798,23 +1820,25 @@ const AdGroupDetail = () => {
               </div>
               {briefAssets.map((a) => (
                 <div key={a.id} className="asset-card group cursor-pointer">
-                  {userRole === 'designer' && a.firebaseUrl ? (
-                    <a href={a.firebaseUrl} download>
+                  {isImageFile(a.filename) && a.firebaseUrl ? (
+                    userRole === 'designer' ? (
+                      <a href={a.firebaseUrl} download>
+                        <OptimizedImage
+                          pngUrl={a.firebaseUrl}
+                          alt={a.filename}
+                          className="object-contain max-w-[10rem] max-h-32"
+                        />
+                      </a>
+                    ) : (
                       <OptimizedImage
                         pngUrl={a.firebaseUrl}
                         alt={a.filename}
                         className="object-contain max-w-[10rem] max-h-32"
                       />
-                    </a>
-                  ) : a.firebaseUrl ? (
-                    <OptimizedImage
-                      pngUrl={a.firebaseUrl}
-                      alt={a.filename}
-                      className="object-contain max-w-[10rem] max-h-32"
-                    />
+                    )
                   ) : (
-                    <div className="w-40 h-32 border flex items-center justify-center text-xs">
-                      {a.filename}
+                    <div className="w-40 h-32 border flex items-center justify-center bg-accent-10 text-accent">
+                      {getFileIcon(a.filename)}
                     </div>
                   )}
                   {a.note && (
