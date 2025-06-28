@@ -20,7 +20,6 @@ import {
   FiPenTool,
   FiType,
 } from "react-icons/fi";
-import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
 import BrandAssets from "./BrandAssets.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
@@ -1695,13 +1694,6 @@ const AdGroupDetail = () => {
                 {showRecipesTable ? "Hide Brief" : "See Brief"}
               </button>
             )}
-            <button
-              onClick={() => setShowRecipes(true)}
-              className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
-            >
-              <FaMagic />
-              {savedRecipes.length > 0 ? "Replace Recipes" : "Recipes"}
-            </button>
           </>
         )}
         {usesTabs && tab === "ads" && group.status !== "archived" && (

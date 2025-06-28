@@ -1047,45 +1047,46 @@ const RecipePreview = ({
           )}
         </div>
         {results.length > 0 && (
-          {showColumnMenu && (
-            <div
-              className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
-              onClick={() => setShowColumnMenu(false)}
-            >
+          <>
+            {showColumnMenu && (
               <div
-                className="bg-white p-4 rounded shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
-                onClick={(e) => e.stopPropagation()}
+                className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+                onClick={() => setShowColumnMenu(false)}
               >
-                <h3 className="mb-2 font-semibold">Visible Columns</h3>
-                {columnMeta.map((c) => (
-                  <label key={c.key} className="block whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      className="mr-1"
-                      checked={visibleColumns[c.key] || false}
-                      onChange={() =>
-                        setVisibleColumns({
-                          ...visibleColumns,
-                          [c.key]: !visibleColumns[c.key],
-                        })
-                      }
-                    />
-                    {c.label}
-                  </label>
-                ))}
-                <div className="text-right mt-2">
-                  <button
-                    type="button"
-                    className="btn-secondary px-3 py-1"
-                    onClick={() => setShowColumnMenu(false)}
-                  >
-                    Close
-                  </button>
+                <div
+                  className="bg-white p-4 rounded shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3 className="mb-2 font-semibold">Visible Columns</h3>
+                  {columnMeta.map((c) => (
+                    <label key={c.key} className="block whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        className="mr-1"
+                        checked={visibleColumns[c.key] || false}
+                        onChange={() =>
+                          setVisibleColumns({
+                            ...visibleColumns,
+                            [c.key]: !visibleColumns[c.key],
+                          })
+                        }
+                      />
+                      {c.label}
+                    </label>
+                  ))}
+                  <div className="text-right mt-2">
+                    <button
+                      type="button"
+                      className="btn-secondary px-3 py-1"
+                      onClick={() => setShowColumnMenu(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          <table className="ad-table min-w-full table-auto text-sm">
+            )}
+            <table className="ad-table min-w-full table-auto text-sm">
             <thead>
               <tr>
                 <th>Recipe #</th>
@@ -1204,6 +1205,7 @@ const RecipePreview = ({
             </tbody>
           </table>
         </div>
+      </>
       )}
       {results.length > 0 && userRole !== 'designer' && (
         <div className="mt-4 text-right">
