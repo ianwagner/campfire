@@ -20,9 +20,15 @@ const TaggerModal = ({ onClose }) => {
     setError('');
     setResults([]);
     try {
-      console.log('Submitting tagger with:', { driveFolderUrl, campaign });
+      const payload = {
+        driveFolderUrl: driveFolderUrl.trim(),
+        campaign,
+      };
+      console.log('Submitting tagger with:', payload);
       const callable = httpsCallable(functions, 'tagger');
-      const res = await callable({ driveFolderUrl, campaign });
+      // Some environments expect the parameters nested under a `data` key, so
+      // provide both formats to maximise compatibility.
+      const res = await callable({ data: payload, ...payload });
       setResults(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Tagger failed', err);
