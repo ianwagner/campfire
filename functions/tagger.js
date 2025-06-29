@@ -75,10 +75,9 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
         await fs.writeFile(dest, Buffer.from(dl.data));
 
         const { path: thumbPath, dataUrl: thumbDataUrl } = await createThumbnail(dest);
-        const visionBuf = await sharp(dest).resize({ width: 512 }).toBuffer();
         await fs.unlink(dest).catch(() => {});
         const [visionRes] = await visionClient.labelDetection({
-          image: { content: visionBuf },
+          image: { content: await fs.readFile(thumbPath) },
         });
         await fs.unlink(thumbPath).catch(() => {});
         const labels = (visionRes.labelAnnotations || []).map(l => l.description).join(', ');
