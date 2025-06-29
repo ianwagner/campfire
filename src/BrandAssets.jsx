@@ -80,6 +80,18 @@ const BrandAssets = ({ brandCode, onClose, inline = false }) => {
             </ul>
           </div>
         )}
+        {Array.isArray(brand.notes) && brand.notes.length > 0 && (
+          <div className="mb-3">
+            <p className="font-medium text-sm mb-1">Notes</p>
+            <ul className="list-disc list-inside space-y-1">
+              {brand.notes.map((n, idx) => (
+                <li key={n.id || idx} className="text-sm whitespace-pre-wrap">
+                  {n.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
   );
 
