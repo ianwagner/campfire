@@ -5,6 +5,11 @@ import OpenAI from 'openai';
 import path from 'path';
 import os from 'os';
 import { promises as fs } from 'fs';
+import admin from 'firebase-admin';
+
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 async function listImages(folderId, drive) {
   const res = await drive.files.list({
@@ -67,7 +72,11 @@ for (let i = 0; i < files.length; i += BATCH_SIZE) {
           temperature: 0.2,
         });
         const text = gpt.choices?.[0]?.message?.content || '';
-        const parsed = JSON.parse(text);
+const jsonMatch = text.match(/\{[\s\S]*?\}/); // match first JSON block
+
+if (!jsonMatch) throw new Error("OpenAI did not return valid JSON");
+
+const parsed = JSON.parse(jsonMatch[0]);
         description = parsed.description || description;
         type = parsed.type || '';
         product = parsed.product || '';
@@ -88,7 +97,16 @@ for (let i = 0; i < files.length; i += BATCH_SIZE) {
   }
 }
 
+const job = await admin.firestore().collection('taggerJobs').add({
+  driveFolderUrl,
+  campaign,
+  total: files.length,
+  processed: results.length,
+  createdAt: Date.now(),
+});
+
     return {
+  jobId: job.id,
   total: files.length,
   processed: results.length,
   results,
