@@ -5,11 +5,6 @@ import OpenAI from 'openai';
 import path from 'path';
 import os from 'os';
 import { promises as fs } from 'fs';
-import admin from 'firebase-admin';
-
-if (!admin.apps.length) {
-  admin.initializeApp();
-}
 
 async function listImages(folderId, drive) {
   const res = await drive.files.list({
@@ -97,16 +92,7 @@ const parsed = JSON.parse(jsonMatch[0]);
   }
 }
 
-const job = await admin.firestore().collection('taggerJobs').add({
-  driveFolderUrl,
-  campaign,
-  total: files.length,
-  processed: results.length,
-  createdAt: Date.now(),
-});
-
     return {
-  jobId: job.id,
   total: files.length,
   processed: results.length,
   results,
