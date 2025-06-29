@@ -20,6 +20,7 @@ const TaggerModal = ({ onClose }) => {
     setError('');
     setResults([]);
     try {
+      console.log('Submitting tagger with:', { driveFolderUrl, campaign });
       const callable = httpsCallable(functions, 'tagger');
       const res = await callable({ driveFolderUrl, campaign });
       setResults(Array.isArray(res.data) ? res.data : []);
