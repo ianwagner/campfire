@@ -16,6 +16,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const [logos, setLogos] = useState([ { ...emptyLogo } ]);
   const [palette, setPalette] = useState(['#000000']);
   const [fonts, setFonts] = useState([ { ...emptyFont } ]);
+  const [toneOfVoice, setToneOfVoice] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -34,6 +35,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             setBrandId(propId);
             const data = snap.data();
             setBrandCode(data.code || propCode);
+            setToneOfVoice(data.toneOfVoice || '');
             setGuidelines({ url: data.guidelinesUrl || '', file: null });
             setLogos(
               Array.isArray(data.logos) && data.logos.length
@@ -57,6 +59,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             setBrandId(docData.id);
             const data = docData.data();
             setBrandCode(data.code || brandCode);
+            setToneOfVoice(data.toneOfVoice || '');
             setGuidelines({ url: data.guidelinesUrl || '', file: null });
             setLogos(
               Array.isArray(data.logos) && data.logos.length
@@ -112,7 +115,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
       }
       await setDoc(
         doc(db, 'brands', brandId),
-        { guidelinesUrl, logos: logoUrls, palette, fonts: fontData },
+        { guidelinesUrl, logos: logoUrls, palette, fonts: fontData, toneOfVoice },
         { merge: true }
       );
       setGuidelines({ url: guidelinesUrl, file: null });
@@ -138,6 +141,15 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Brand Setup</h1>
       <form onSubmit={handleSave} className="space-y-4 max-w-md">
+        <div>
+          <label className="block mb-1 text-sm font-medium">Tone of Voice</label>
+          <input
+            type="text"
+            value={toneOfVoice}
+            onChange={(e) => setToneOfVoice(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+        </div>
         <div>
           <label className="block mb-1 text-sm font-medium">Brand Guidelines (PDF)</label>
           <input
