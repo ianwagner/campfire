@@ -460,7 +460,12 @@ const RecipePreview = ({
             const typeField = assetMap.assetType?.header || '';
             const atypeRaw = typeField ? mainMatch[typeField] : '';
             const atype = normalizeAssetType(atypeRaw);
-            arr.push({ id: name, adUrl: url, assetType: atype });
+            arr.push({
+              id: name,
+              adUrl: url,
+              assetType: atype,
+              thumbnailUrl: mainMatch.thumbnailUrl || '',
+            });
           } else {
             arr.push({ needAsset: true });
           }
@@ -483,7 +488,12 @@ const RecipePreview = ({
               const typeField = assetMap.assetType?.header || '';
               const atypeRaw = typeField ? match[typeField] : '';
               const atype = normalizeAssetType(atypeRaw);
-              arr.push({ id: name, adUrl: url, assetType: atype });
+              arr.push({
+                id: name,
+                adUrl: url,
+                assetType: atype,
+                thumbnailUrl: match.thumbnailUrl || '',
+              });
             } else {
               arr.push({ needAsset: true });
             }
@@ -666,7 +676,7 @@ const RecipePreview = ({
                 {(a.assetType || '').toLowerCase() === 'video' ? <FiVideo /> : <FiImage />}
               </a>
               <img
-                src={a.adUrl || a.firebaseUrl}
+                src={a.thumbnailUrl || a.adUrl || a.firebaseUrl}
                 alt="preview"
                 className="hidden group-hover:block absolute left-[-8rem] top-1/2 -translate-y-1/2 w-32 border shadow-lg z-10"
               />
