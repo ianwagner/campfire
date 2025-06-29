@@ -19,7 +19,7 @@ module.exports.onCall = functions.https.onCall(async (data, context) => {
     // When invoked via a plain HTTP request the payload may be wrapped in a
     // `data` field. Support both invocation styles so the function doesn't
     // reject valid requests where the parameters are nested under `data`.
-    console.log('Raw data received in tagger:', JSON.stringify(data));
+  console.log('Raw data received in tagger:', data);
     const payload = data && typeof data === 'object' && 'data' in data ? data.data : data;
     console.log('Parsed payload:', payload);
     const { driveFolderUrl, campaign } = payload || {};
