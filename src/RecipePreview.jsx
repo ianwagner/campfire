@@ -190,6 +190,37 @@ const RecipePreview = ({
     debugLog('Asset CSV loaded', { headers, rowsSample: rows.slice(0, 2), map });
   };
 
+  const loadAssetLibrary = () => {
+    try {
+      const raw = localStorage.getItem('assetLibrary');
+      if (!raw) return;
+      const rows = JSON.parse(raw);
+      if (!Array.isArray(rows) || rows.length === 0) return;
+      setAssetRows(rows);
+      const headers = ['name', 'url', 'type', 'description', 'product', 'campaign'];
+      setAssetHeaders(headers);
+      const map = {};
+      (currentType?.assetMatchFields || []).forEach((fKey) => {
+        map[fKey] = { header: headers.includes(fKey) ? fKey : '', score: 10 };
+      });
+      map.imageUrl = { header: 'url', score: 10 };
+      map.imageName = { header: 'name', score: 10 };
+      map.context = { header: 'description' };
+      map.assetType = { header: 'type' };
+      setAssetMap(map);
+      const idField = map.imageName?.header || map.imageUrl?.header || '';
+      const usage = {};
+      rows.forEach((r) => {
+        const id = r[idField] || r.imageUrl || r.imageName || '';
+        if (id) usage[id] = 0;
+      });
+      setAssetUsage(usage);
+      debugLog('Asset library loaded', { rowsSample: rows.slice(0, 2), map });
+    } catch (err) {
+      console.error('Failed to load asset library', err);
+    }
+  };
+
   const generateOnce = async (baseValues = null, brand = brandCode) => {
     if (!currentType) return null;
 
@@ -765,8 +796,17 @@ const RecipePreview = ({
         {currentType?.enableAssetCsv && (
           <div className="space-y-2">
             <div>
-              <label className="block text-sm mb-1">Asset CSV</label>
-              <input type="file" accept=".csv" onChange={handleAssetCsvChange} />
+              <label className="block text-sm mb-1">Asset Source</label>
+              <div className="flex items-center gap-2">
+                <input type="file" accept=".csv" onChange={handleAssetCsvChange} />
+                <button
+                  type="button"
+                  className="btn-secondary px-2 py-0.5"
+                  onClick={loadAssetLibrary}
+                >
+                  Use Library
+                </button>
+              </div>
               {assetRows.length > 0 && (
                 <p className="text-xs">{assetRows.length} rows loaded</p>
               )}
