@@ -105,6 +105,27 @@ const AssetLibrary = ({ brandCode = '' }) => {
     setLoading(false);
   };
 
+  const createMissingThumbnails = async () => {
+    const rows = assets.filter((a) => !a.thumbnailUrl && a.url);
+    if (rows.length === 0) return;
+    setLoading(true);
+    const callable = httpsCallable(functions, 'generateThumbnailsForAssets', { timeout: 60000 });
+    for (const row of rows) {
+      try {
+        const res = await callable({ assets: [{ url: row.url, name: row.name }] });
+        const result = res.data?.results?.[0];
+        if (result?.thumbnailUrl) {
+          setAssets((prev) =>
+            prev.map((a) => (a.id === row.id ? { ...a, thumbnailUrl: result.thumbnailUrl } : a))
+          );
+        }
+      } catch (err) {
+        console.error('Failed to generate thumbnail', err);
+      }
+    }
+    setLoading(false);
+  };
+
   const saveAssets = () => {
     try {
       const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
@@ -171,6 +192,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
       id: Math.random().toString(36).slice(2),
       name: row[csvMap.name] || '',
       url: row[csvMap.url] || '',
+      thumbnailUrl: row[csvMap.thumbnailUrl] || '',
       type: row[csvMap.type] || '',
       description: row[csvMap.description] || '',
       product: row[csvMap.product] || '',
@@ -209,7 +231,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
       </div>
       {csvColumns.length > 0 && (
         <div className="mb-4 space-y-2">
-          {['name', 'url', 'type', 'description', 'product', 'campaign'].map((key) => (
+          {['name', 'url', 'thumbnailUrl', 'type', 'description', 'product', 'campaign'].map((key) => (
             <div key={key}>
               <label className="block text-sm mb-1 capitalize">{key} Column</label>
               <select
@@ -266,6 +288,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
               <th></th>
               <th>Name</th>
               <th>URL</th>
+              <th>Thumbnail</th>
               <th>Type</th>
               <th>Description</th>
               <th>Product</th>
@@ -299,6 +322,15 @@ const AssetLibrary = ({ brandCode = '' }) => {
                     onMouseDown={handleInputDown('url', a.url)}
                     onMouseOver={handleInputOver(a.id)}
                     onChange={(e) => updateRow(a.id, 'url', e.target.value)}
+                  />
+                </td>
+                <td>
+                  <input
+                    className="w-full p-1 border rounded"
+                    value={a.thumbnailUrl}
+                    onMouseDown={handleInputDown('thumbnailUrl', a.thumbnailUrl)}
+                    onMouseOver={handleInputOver(a.id)}
+                    onChange={(e) => updateRow(a.id, 'thumbnailUrl', e.target.value)}
                   />
                 </td>
                 <td>
@@ -363,6 +395,14 @@ const AssetLibrary = ({ brandCode = '' }) => {
           onClick={createThumbnails}
         >
           {loading ? 'Processing...' : 'Create Thumbnails'}
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={loading}
+          onClick={createMissingThumbnails}
+        >
+          {loading ? 'Processing...' : 'Create Missing Thumbnails'}
         </button>
       </div>
     </div>
