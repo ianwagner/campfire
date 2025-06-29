@@ -84,6 +84,14 @@ cd functions
 npm install
 firebase deploy --only functions
 ```
+Verify that `@google-cloud/storage` is listed in `functions/package.json` and
+that your functions are exported by name in `index.js`. After deployment run:
+
+```bash
+firebase functions:list
+```
+
+to confirm the functions appear in your project.
 
 
 ## Admin Account Management

@@ -23,7 +23,15 @@ export const processUpload = onObjectFinalized(async (event) => {
     return null;
   }
 
-  const bucketRef = admin.storage().bucket(bucket);
+  console.log('📦 Accessing storage bucket:', bucket);
+  let bucketRef;
+  try {
+    bucketRef = admin.storage().bucket(bucket);
+    if (!bucketRef) throw new Error('bucket() returned undefined');
+  } catch (err) {
+    console.error('❌ Failed to get bucket', err);
+    return null;
+  }
   const temp = path.join(os.tmpdir(), path.basename(name));
   await bucketRef.file(name).download({ destination: temp });
 

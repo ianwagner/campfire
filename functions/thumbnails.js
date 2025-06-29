@@ -25,7 +25,15 @@ export const generateThumbnailsForAssets = onCallFn({ timeoutSeconds: 60, memory
 
   const auth = new google.auth.GoogleAuth({ scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
   const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
-  const bucket = admin.storage().bucket();
+  console.log('📦 Accessing default storage bucket');
+  let bucket;
+  try {
+    bucket = admin.storage().bucket();
+    if (!bucket) throw new Error('bucket() returned undefined');
+  } catch (err) {
+    console.error('❌ Failed to access bucket', err);
+    throw err;
+  }
   const results = [];
 
   for (const asset of assets) {
