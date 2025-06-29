@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { FiTrash } from 'react-icons/fi';
 import { splitCsvLine } from './utils/csv.js';
 
 const emptyAsset = {
@@ -21,8 +22,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [bulkValues, setBulkValues] = useState({ type: '', product: '', campaign: '' });
 
   const lastIdx = useRef(null);
-  const dragSelecting = useRef(false);
-  const dragSelectState = useRef(false);
   const dragValue = useRef(null);
   const dragField = useRef(null);
 
@@ -38,7 +37,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
       }
     }
     const up = () => {
-      dragSelecting.current = false;
       dragValue.current = null;
       dragField.current = null;
     };
@@ -59,6 +57,15 @@ const AssetLibrary = ({ brandCode = '' }) => {
     const ids = Object.keys(selected).filter((k) => selected[k]);
     setAssets((p) => p.filter((a) => !ids.includes(a.id)));
     setSelected({});
+  };
+
+  const deleteRow = (id) => {
+    setAssets((p) => p.filter((a) => a.id !== id));
+    setSelected((p) => {
+      const next = { ...p };
+      delete next[id];
+      return next;
+    });
   };
 
   const bulkEdit = () => {
@@ -83,17 +90,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
     }
   };
 
-  const handleCheckDown = (e, idx, id) => {
-    dragSelecting.current = true;
-    dragSelectState.current = !selected[id];
-    lastIdx.current = idx;
-    setSelected((p) => ({ ...p, [id]: dragSelectState.current }));
-  };
-
-  const handleCheckOver = (idx, id) => {
-    if (!dragSelecting.current) return;
-    setSelected((p) => ({ ...p, [id]: dragSelectState.current }));
-  };
 
   const handleCheckChange = (e, idx, id) => {
     const checked = e.target.checked;
@@ -249,6 +245,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
               <th>Description</th>
               <th>Product</th>
               <th>Campaign</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -258,8 +255,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
                   <input
                     type="checkbox"
                     checked={selected[a.id] || false}
-                    onMouseDown={(e) => handleCheckDown(e, idx, a.id)}
-                    onMouseOver={() => handleCheckOver(idx, a.id)}
                     onChange={(e) => handleCheckChange(e, idx, a.id)}
                   />
                 </td>
@@ -316,6 +311,16 @@ const AssetLibrary = ({ brandCode = '' }) => {
                     onMouseOver={handleInputOver(a.id)}
                     onChange={(e) => updateRow(a.id, 'campaign', e.target.value)}
                   />
+                </td>
+                <td className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => deleteRow(a.id)}
+                    aria-label="Delete"
+                    className="btn-delete"
+                  >
+                    <FiTrash />
+                  </button>
                 </td>
               </tr>
             ))}
