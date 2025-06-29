@@ -8,7 +8,10 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { tagger } from './tagger.js';
 
-admin.initializeApp();
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
 const db = admin.firestore();
 
 
