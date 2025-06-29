@@ -264,6 +264,10 @@ case-insensitively and common synonyms map to a canonical type. The words
 `image`. The terms `video`, `motion`, `animated`, and `gif` become `video`.
 Any unrecognized value is simply lowercased.
 
+You can also populate assets directly from the in-app **Asset Library**. Click
+the **Use Library** button in the recipe generator and the stored rows will be
+loaded with all columns mapped automatically.
+
 ## Notification Automation
 
 Administrators can configure notification rules under `/admin/notifications`.
