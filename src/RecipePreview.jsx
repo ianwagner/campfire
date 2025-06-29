@@ -211,7 +211,15 @@ const RecipePreview = ({
       if (!Array.isArray(rows) || rows.length === 0) return;
       setAssetRows(rows);
       setAssetFilter('');
-      const headers = ['name', 'url', 'type', 'description', 'product', 'campaign'];
+      const headers = [
+        'name',
+        'url',
+        'thumbnailUrl',
+        'type',
+        'description',
+        'product',
+        'campaign',
+      ];
       setAssetHeaders(headers);
       const map = {};
       (currentType?.assetMatchFields || []).forEach((fKey) => {
@@ -219,6 +227,7 @@ const RecipePreview = ({
       });
       map.imageUrl = { header: 'url', score: 10 };
       map.imageName = { header: 'name', score: 10 };
+      map.thumbnailUrl = { header: 'thumbnailUrl' };
       map.context = { header: 'description' };
       map.assetType = { header: 'type' };
       setAssetMap(map);
