@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import BrandSetup from './BrandSetup';
 import AssetLibrary from './AssetLibrary.jsx';
+import TaggerModal from './TaggerModal.jsx';
 
 const BrandProfile = ({ brandId: propId = null }) => {
   const { id } = useParams();
   const brandId = propId || id || null;
   const [tab, setTab] = useState('setup');
+  const [taggerOpen, setTaggerOpen] = useState(false);
 
   return (
     <div className="min-h-screen p-4">
@@ -26,7 +28,21 @@ const BrandProfile = ({ brandId: propId = null }) => {
         </button>
       </div>
       {tab === 'setup' && <BrandSetup brandId={brandId} />}
-      {tab === 'library' && <AssetLibrary />}
+      {tab === 'library' && (
+        <>
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={() => setTaggerOpen(true)}
+              className="btn-secondary px-3 py-1"
+            >
+              Tag Drive Folder
+            </button>
+          </div>
+          <AssetLibrary />
+        </>
+      )}
+      {taggerOpen && <TaggerModal onClose={() => setTaggerOpen(false)} />}
     </div>
   );
 };
