@@ -31,10 +31,9 @@ async function createThumbnail(srcPath) {
   return { path: tempPath, dataUrl: `data:image/webp;base64,${base64}` };
 }
 
-export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'] }, async (data) => {
+export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'] }, async (req) => {
   try {
-    const payload = data && typeof data === 'object' && 'data' in data ? data.data : data;
-    const { driveFolderUrl, campaign } = payload || {};
+    const { driveFolderUrl, campaign } = req.data || {};
     if (!driveFolderUrl || driveFolderUrl.trim() === '') {
       throw new HttpsError('invalid-argument', 'Missing driveFolderUrl');
     }
@@ -43,6 +42,7 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'] }, async (data) => 
       throw new HttpsError('invalid-argument', 'Invalid driveFolderUrl');
     }
     const doc = await admin.firestore().collection('taggerJobs').add({
+      uid: req.auth?.uid || null,
       driveFolderUrl,
       campaign,
       status: 'pending',
