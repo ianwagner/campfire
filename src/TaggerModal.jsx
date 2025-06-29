@@ -25,11 +25,11 @@ const TaggerModal = ({ onClose }) => {
         campaign,
       };
       console.log('Submitting tagger with:', payload);
-      const callable = httpsCallable(functions, 'tagger');
+      const callable = httpsCallable(functions, 'tagger', { timeout: 300000 });
       // Some environments expect the parameters nested under a `data` key, so
       // provide both formats to maximise compatibility.
       const res = await callable({ data: payload, ...payload });
-      setResults(Array.isArray(res.data) ? res.data : []);
+      setResults(Array.isArray(res.data?.results) ? res.data.results : []);
     } catch (err) {
       console.error('Tagger failed', err);
       if (err) {
