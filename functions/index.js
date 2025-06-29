@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
-import { tagger, processTaggerJob } from './tagger.js';
+import { tagger } from './tagger.js';
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -218,4 +218,4 @@ export const notifyAccountCreated = onDocumentCreated('users/{id}', async (event
   return null;
 });
 
-export { tagger, processTaggerJob };
+export { tagger };
