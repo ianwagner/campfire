@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import BrandSetup from './BrandSetup';
 import AssetLibrary from './AssetLibrary.jsx';
 
-const BrandProfile = () => {
+const BrandProfile = ({ brandId: propId = null }) => {
+  const { id } = useParams();
+  const brandId = propId || id || null;
   const [tab, setTab] = useState('setup');
 
   return (
@@ -22,7 +25,7 @@ const BrandProfile = () => {
           Asset Library
         </button>
       </div>
-      {tab === 'setup' && <BrandSetup />}
+      {tab === 'setup' && <BrandSetup brandId={brandId} />}
       {tab === 'library' && <AssetLibrary />}
     </div>
   );

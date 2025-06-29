@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import { uploadBrandAsset } from './uploadBrandAsset';
@@ -7,12 +7,11 @@ import { uploadBrandAsset } from './uploadBrandAsset';
 const emptyLogo = { url: '', file: null };
 const emptyFont = { type: 'google', value: '', file: null };
 
-const BrandSetup = () => {
+const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const user = auth.currentUser;
   const { brandCodes } = useUserRole(user?.uid);
-  const brandCode = brandCodes[0] || '';
-
-  const [brandId, setBrandId] = useState(null);
+  const [brandId, setBrandId] = useState(propId);
+  const [brandCode, setBrandCode] = useState(propCode || brandCodes[0] || '');
   const [guidelines, setGuidelines] = useState({ url: '', file: null });
   const [logos, setLogos] = useState([ { ...emptyLogo } ]);
   const [palette, setPalette] = useState(['#000000']);
@@ -21,34 +20,65 @@ const BrandSetup = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!propId && !propCode) {
+      setBrandCode(brandCodes[0] || '');
+    }
+  }, [brandCodes, propId, propCode]);
+
+  useEffect(() => {
     const load = async () => {
-      if (!brandCode) return;
       try {
-        const q = query(collection(db, 'brands'), where('code', '==', brandCode));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const docData = snap.docs[0];
-          setBrandId(docData.id);
-          const data = docData.data();
-          setGuidelines({ url: data.guidelinesUrl || '', file: null });
-          setLogos(
-            Array.isArray(data.logos) && data.logos.length
-              ? data.logos.map((u) => ({ url: u, file: null }))
-              : [{ ...emptyLogo }]
-          );
-          setPalette(Array.isArray(data.palette) && data.palette.length ? data.palette : ['#000000']);
-          setFonts(
-            Array.isArray(data.fonts) && data.fonts.length
-              ? data.fonts.map((f) => ({ type: f.type || 'google', value: f.value || '', file: null }))
-              : [{ ...emptyFont }]
-          );
+        if (propId) {
+          const snap = await getDoc(doc(db, 'brands', propId));
+          if (snap.exists()) {
+            setBrandId(propId);
+            const data = snap.data();
+            setBrandCode(data.code || propCode);
+            setGuidelines({ url: data.guidelinesUrl || '', file: null });
+            setLogos(
+              Array.isArray(data.logos) && data.logos.length
+                ? data.logos.map((u) => ({ url: u, file: null }))
+                : [{ ...emptyLogo }]
+            );
+            setPalette(
+              Array.isArray(data.palette) && data.palette.length ? data.palette : ['#000000']
+            );
+            setFonts(
+              Array.isArray(data.fonts) && data.fonts.length
+                ? data.fonts.map((f) => ({ type: f.type || 'google', value: f.value || '', file: null }))
+                : [{ ...emptyFont }]
+            );
+          }
+        } else if (brandCode) {
+          const q = query(collection(db, 'brands'), where('code', '==', brandCode));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const docData = snap.docs[0];
+            setBrandId(docData.id);
+            const data = docData.data();
+            setBrandCode(data.code || brandCode);
+            setGuidelines({ url: data.guidelinesUrl || '', file: null });
+            setLogos(
+              Array.isArray(data.logos) && data.logos.length
+                ? data.logos.map((u) => ({ url: u, file: null }))
+                : [{ ...emptyLogo }]
+            );
+            setPalette(
+              Array.isArray(data.palette) && data.palette.length ? data.palette : ['#000000']
+            );
+            setFonts(
+              Array.isArray(data.fonts) && data.fonts.length
+                ? data.fonts.map((f) => ({ type: f.type || 'google', value: f.value || '', file: null }))
+                : [{ ...emptyFont }]
+            );
+          }
         }
       } catch (err) {
         console.error('Failed to load brand', err);
       }
     };
     load();
-  }, [brandCode]);
+  }, [brandCode, propId, propCode]);
 
   const handleSave = async (e) => {
     e.preventDefault();
