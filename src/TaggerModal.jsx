@@ -12,6 +12,26 @@ const TaggerModal = ({ onClose }) => {
   const [error, setError] = useState('');
   const [jobId, setJobId] = useState('');
 
+  const updateResult = (idx, field, value) => {
+    setResults((p) => p.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
+  };
+
+  const saveToLibrary = () => {
+    try {
+      const raw = localStorage.getItem('assetLibrary');
+      const existing = raw ? JSON.parse(raw) : [];
+      const arr = Array.isArray(existing) ? existing : [];
+      const newRows = results.map((r) => ({
+        id: Math.random().toString(36).slice(2),
+        ...r,
+      }));
+      localStorage.setItem('assetLibrary', JSON.stringify([...arr, ...newRows]));
+      onClose();
+    } catch (err) {
+      console.error('Failed to save assets', err);
+    }
+  };
+
   useEffect(() => {
     if (!jobId) return undefined;
     const unsub = onSnapshot(doc(db, 'taggerJobs', jobId), (snap) => {
@@ -115,24 +135,59 @@ const TaggerModal = ({ onClose }) => {
                 <tbody>
                   {results.map((r, idx) => (
                     <tr key={idx}>
-                      <td>{r.name}</td>
-                      <td className="max-w-[8rem] truncate">
-                        <a href={r.url} target="_blank" rel="noopener noreferrer" className="underline">
-                          {r.url}
-                        </a>
+                      <td>
+                        <input
+                          className="w-full p-1 border rounded"
+                          value={r.name}
+                          onChange={(e) => updateResult(idx, 'name', e.target.value)}
+                        />
                       </td>
-                      <td>{r.type}</td>
-                      <td>{r.description}</td>
-                      <td>{r.product}</td>
-                      <td>{r.campaign}</td>
+                      <td>
+                        <input
+                          className="w-full p-1 border rounded"
+                          value={r.url}
+                          onChange={(e) => updateResult(idx, 'url', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="w-full p-1 border rounded"
+                          value={r.type}
+                          onChange={(e) => updateResult(idx, 'type', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="w-full p-1 border rounded"
+                          value={r.description}
+                          onChange={(e) => updateResult(idx, 'description', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="w-full p-1 border rounded"
+                          value={r.product}
+                          onChange={(e) => updateResult(idx, 'product', e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="w-full p-1 border rounded"
+                          value={r.campaign}
+                          onChange={(e) => updateResult(idx, 'campaign', e.target.value)}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="text-right">
+            <div className="text-right space-x-2">
               <button onClick={onClose} className="btn-secondary px-3 py-1">
                 Close
+              </button>
+              <button onClick={saveToLibrary} className="btn-primary px-3 py-1">
+                Save
               </button>
             </div>
           </div>
