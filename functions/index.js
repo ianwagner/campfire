@@ -6,6 +6,7 @@ const sharp = require('sharp');
 const os = require('os');
 const path = require('path');
 const fs = require('fs').promises;
+const tagger = require('./tagger');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -216,3 +217,5 @@ exports.notifyAccountCreated = onDocumentCreated('users/{id}', async (event) => 
   });
   return null;
 });
+
+exports.tagger = tagger.onCall;
