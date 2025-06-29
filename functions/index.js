@@ -1,18 +1,18 @@
-const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
-const functions = require('firebase-functions');
-const { onObjectFinalized } = require('firebase-functions/v2/storage');
-const admin = require('firebase-admin');
-const sharp = require('sharp');
-const os = require('os');
-const path = require('path');
-const fs = require('fs').promises;
-const tagger = require('./tagger');
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import * as functions from 'firebase-functions';
+import { onObjectFinalized } from 'firebase-functions/v2/storage';
+import admin from 'firebase-admin';
+import sharp from 'sharp';
+import os from 'os';
+import path from 'path';
+import { promises as fs } from 'fs';
+import * as tagger from './tagger.js';
 
 admin.initializeApp();
 const db = admin.firestore();
 
 
-exports.processUpload = onObjectFinalized(async (event) => {
+export const processUpload = onObjectFinalized(async (event) => {
   const object = event.data;
   const { bucket, name, contentType } = object;
   if (!contentType || !contentType.startsWith('image/png')) {
@@ -74,7 +74,7 @@ exports.processUpload = onObjectFinalized(async (event) => {
   return null;
 });
 
-exports.signOutUser = functions.https.onCall(async (data, context) => {
+export const signOutUser = functions.https.onCall(async (data, context) => {
   if (!context.auth || !context.auth.token.admin) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
@@ -86,7 +86,7 @@ exports.signOutUser = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
-exports.sendNotification = onDocumentCreated('notifications/{id}', async (event) => {
+export const sendNotification = onDocumentCreated('notifications/{id}', async (event) => {
   console.log('⚡ sendNotification triggered');
 
   const snap = event.data;
@@ -174,7 +174,7 @@ async function runRules(trigger, data) {
   }));
 }
 
-exports.notifyAdGroupCreated = onDocumentCreated('adGroups/{id}', async (event) => {
+export const notifyAdGroupCreated = onDocumentCreated('adGroups/{id}', async (event) => {
   const data = event.data.data() || {};
   await runRules('adGroupCreated', {
     brandCode: Array.isArray(data.brandCodes) ? data.brandCodes[0] : data.brandCode,
@@ -186,7 +186,7 @@ exports.notifyAdGroupCreated = onDocumentCreated('adGroups/{id}', async (event) 
   return null;
 });
 
-exports.notifyAdGroupStatusUpdated = onDocumentUpdated('adGroups/{id}', async (event) => {
+export const notifyAdGroupStatusUpdated = onDocumentUpdated('adGroups/{id}', async (event) => {
   const before = event.data.before.data() || {};
   const after = event.data.after.data() || {};
   if (before.status === after.status) return null;
@@ -206,7 +206,7 @@ exports.notifyAdGroupStatusUpdated = onDocumentUpdated('adGroups/{id}', async (e
   return null;
 });
 
-exports.notifyAccountCreated = onDocumentCreated('users/{id}', async (event) => {
+export const notifyAccountCreated = onDocumentCreated('users/{id}', async (event) => {
   const data = event.data.data() || {};
   await runRules('accountCreated', {
     displayName: data.displayName,
@@ -218,4 +218,4 @@ exports.notifyAccountCreated = onDocumentCreated('users/{id}', async (event) => 
   return null;
 });
 
-exports.tagger = tagger.onCall;
+export const tagger = tagger.onCall;
