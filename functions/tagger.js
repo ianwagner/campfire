@@ -15,8 +15,13 @@ async function listImages(folderId, drive) {
 }
 
 module.exports.onCall = functions.https.onCall(async (data, context) => {
-  const { driveFolderUrl, campaign } = data || {};
-  if (!driveFolderUrl) {
+  // When invoked via a plain HTTP request the payload may be wrapped in a
+  // `data` field. Support both invocation styles so the function doesn't
+  // reject valid requests where the parameters are nested under `data`.
+  const payload = data && typeof data === 'object' && 'data' in data ? data.data : data;
+  const { driveFolderUrl, campaign } = payload || {};
+  console.log('Tagger called with data:', { driveFolderUrl, campaign });
+  if (!driveFolderUrl || driveFolderUrl.trim() === '') {
     throw new functions.https.HttpsError('invalid-argument', 'Missing driveFolderUrl');
   }
   const match = /\/folders\/([^/?]+)/.exec(driveFolderUrl);
