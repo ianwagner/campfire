@@ -1924,12 +1924,10 @@ const AdGroupDetail = () => {
                             className="object-contain max-w-[10rem] max-h-32"
                           />
                         );
-                        return userRole === "designer" ? (
+                        return (
                           <a href={a.firebaseUrl} download>
                             {img}
                           </a>
-                        ) : (
-                          img
                         );
                       }
                       if (
@@ -1944,15 +1942,17 @@ const AdGroupDetail = () => {
                             className="object-contain max-w-[10rem] max-h-32"
                           />
                         );
-                        return userRole === "designer" ? (
+                        return (
                           <a href={a.firebaseUrl} download>
                             {img}
                           </a>
-                        ) : (
-                          img
                         );
                       }
-                      return <PlaceholderIcon ext={ext} />;
+                      return (
+                        <a href={a.firebaseUrl} download>
+                          <PlaceholderIcon ext={ext} />
+                        </a>
+                      );
                     })()}
                     {a.note && (
                       <div className="absolute bottom-1 right-1 bg-accent text-white rounded-full p-1">
