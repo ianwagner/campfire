@@ -1,7 +1,7 @@
 const functions = require('firebase-functions');
 const { google } = require('googleapis');
 const vision = require('@google-cloud/vision');
-const { Configuration, OpenAIApi } = require('openai');
+const OpenAI = require('openai');
 const path = require('path');
 const os = require('os');
 const fs = require('fs').promises;
@@ -36,8 +36,8 @@ module.exports.onCall = functions.https.onCall(async (data, context) => {
     const auth = new google.auth.GoogleAuth({ scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
     const authClient = await auth.getClient();
     const drive = google.drive({ version: 'v3', auth: authClient });
-    const visionClient = new vision.ImageAnnotatorClient();
-    const openai = new OpenAIApi(new Configuration({ apiKey: process.env.OPENAI_API_KEY }));
+  const visionClient = new vision.ImageAnnotatorClient();
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const files = await listImages(folderId, drive);
     const results = [];
@@ -54,12 +54,12 @@ module.exports.onCall = functions.https.onCall(async (data, context) => {
       let product = '';
       try {
         const prompt = `These labels describe an asset: ${labels}. Provide a short description, asset type, and product in JSON {description, type, product}.`;
-        const gpt = await openai.createChatCompletion({
+        const gpt = await openai.chat.completions.create({
           model: 'gpt-3.5-turbo',
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.2,
         });
-        const text = gpt.data.choices?.[0]?.message?.content || '';
+        const text = gpt.choices?.[0]?.message?.content || '';
         const parsed = JSON.parse(text);
         description = parsed.description || description;
         type = parsed.type || '';
