@@ -1098,7 +1098,7 @@ const RecipePreview = ({
               )}
             </>
           )}
-          {onRecipesClick && (
+        {onRecipesClick && userRole !== 'designer' && (
             <button
               type="button"
               className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${

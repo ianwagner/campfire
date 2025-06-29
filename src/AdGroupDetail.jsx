@@ -772,6 +772,16 @@ const AdGroupDetail = () => {
     URL.revokeObjectURL(url);
   };
 
+  const downloadFile = (url) => {
+    if (!url) return;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
   const uploadVersion = async (assetId, file) => {
     if (!file) return;
     setVersionUploading(assetId);
@@ -1913,23 +1923,20 @@ const AdGroupDetail = () => {
                   )}
                 </div>
                 {briefAssets.map((a) => (
-                  <div key={a.id} className="asset-card group cursor-pointer">
+                  <div
+                    key={a.id}
+                    className="asset-card group cursor-pointer"
+                    onClick={() => isDesigner && downloadFile(a.firebaseUrl)}
+                  >
                     {(() => {
                       const ext = fileExt(a.filename || "");
                       if (a.firebaseUrl && ext === "svg") {
-                        const img = (
+                        return (
                           <img
                             src={a.firebaseUrl}
                             alt={a.filename}
                             className="object-contain max-w-[10rem] max-h-32"
                           />
-                        );
-                        return userRole === "designer" ? (
-                          <a href={a.firebaseUrl} download>
-                            {img}
-                          </a>
-                        ) : (
-                          img
                         );
                       }
                       if (
@@ -1937,19 +1944,12 @@ const AdGroupDetail = () => {
                         !["ai", "pdf"].includes(ext) &&
                         !["otf", "ttf", "woff", "woff2"].includes(ext)
                       ) {
-                        const img = (
+                        return (
                           <OptimizedImage
                             pngUrl={a.firebaseUrl}
                             alt={a.filename}
                             className="object-contain max-w-[10rem] max-h-32"
                           />
-                        );
-                        return userRole === "designer" ? (
-                          <a href={a.firebaseUrl} download>
-                            {img}
-                          </a>
-                        ) : (
-                          img
                         );
                       }
                       return <PlaceholderIcon ext={ext} />;
