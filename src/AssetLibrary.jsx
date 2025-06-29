@@ -5,6 +5,7 @@ const emptyAsset = {
   id: '',
   name: '',
   url: '',
+  thumbnail: '',
   type: '',
   description: '',
   product: '',
