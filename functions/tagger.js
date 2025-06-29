@@ -1,12 +1,10 @@
-const callable = httpsCallable(functions, 'tagger', { timeout: 300000 }); // 5 minutes
-await callable({ driveFolderUrl, campaign });
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { google } = require('googleapis');
-const vision = require('@google-cloud/vision');
-const OpenAI = require('openai');
-const path = require('path');
-const os = require('os');
-const fs = require('fs').promises;
+import { onCall as onCallFn, HttpsError } from 'firebase-functions/v2/https';
+import { google } from 'googleapis';
+import vision from '@google-cloud/vision';
+import OpenAI from 'openai';
+import path from 'path';
+import os from 'os';
+import { promises as fs } from 'fs';
 
 async function listImages(folderId, drive) {
   const res = await drive.files.list({
@@ -16,7 +14,7 @@ async function listImages(folderId, drive) {
   return res.data.files || [];
 }
 
-module.exports.onCall = onCall({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 300, }, async (data, context) => {
+export const onCall = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 300, }, async (data, context) => {
 
   try {
     // When invoked via a plain HTTP request the payload may be wrapped in a
