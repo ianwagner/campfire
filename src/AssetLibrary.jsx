@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { FiTrash } from 'react-icons/fi';
 import { splitCsvLine } from './utils/csv.js';
 
 const emptyAsset = {
@@ -60,6 +61,15 @@ const AssetLibrary = ({ brandCode = '' }) => {
     const ids = Object.keys(selected).filter((k) => selected[k]);
     setAssets((p) => p.filter((a) => !ids.includes(a.id)));
     setSelected({});
+  };
+
+  const deleteRow = (id) => {
+    setAssets((p) => p.filter((a) => a.id !== id));
+    setSelected((s) => {
+      const next = { ...s };
+      delete next[id];
+      return next;
+    });
   };
 
   const bulkEdit = () => {
@@ -250,6 +260,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
               <th>Description</th>
               <th>Product</th>
               <th>Campaign</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -317,6 +328,16 @@ const AssetLibrary = ({ brandCode = '' }) => {
                     onMouseOver={handleInputOver(a.id)}
                     onChange={(e) => updateRow(a.id, 'campaign', e.target.value)}
                   />
+                </td>
+                <td className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => deleteRow(a.id)}
+                    aria-label="Delete"
+                    className="btn-secondary px-1.5 py-0.5 text-xs btn-delete"
+                  >
+                    <FiTrash />
+                  </button>
                 </td>
               </tr>
             ))}
