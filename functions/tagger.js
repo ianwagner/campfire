@@ -5,6 +5,7 @@ import OpenAI from 'openai';
 import path from 'path';
 import os from 'os';
 import { promises as fs } from 'fs';
+import sharp from 'sharp';
 import admin from 'firebase-admin';
 
 if (!admin.apps.length) {
@@ -64,6 +65,12 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
           const dest = path.join(os.tmpdir(), file.id);
           const dl = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'arraybuffer' });
           await fs.writeFile(dest, Buffer.from(dl.data));
+
+          const thumbLocal = path.join(os.tmpdir(), `${file.id}_thumb.webp`);
+          await sharp(dest).resize({ width: 300 }).toFormat('webp').toFile(thumbLocal);
+          const thumbBuf = await fs.readFile(thumbLocal);
+          await fs.unlink(thumbLocal).catch(() => {});
+
           const [visionRes] = await visionClient.labelDetection(dest);
           await fs.unlink(dest).catch(() => {});
           const labels = (visionRes.labelAnnotations || []).map(l => l.description).join(', ');
@@ -90,6 +97,7 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
           results.push({
             name: file.name,
             url: file.webContentLink,
+            thumbnail: `data:image/webp;base64,${thumbBuf.toString('base64')}`,
             type,
             description,
             product,
