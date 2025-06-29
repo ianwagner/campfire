@@ -1,3 +1,5 @@
+const callable = httpsCallable(functions, 'tagger', { timeout: 300000 }); // 5 minutes
+await callable({ driveFolderUrl, campaign });
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { google } = require('googleapis');
 const vision = require('@google-cloud/vision');
@@ -14,7 +16,7 @@ async function listImages(folderId, drive) {
   return res.data.files || [];
 }
 
-module.exports.onCall = onCall({ secrets: ['OPENAI_API_KEY'] }, async (data, context) => {
+module.exports.onCall = onCall({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 300, }, async (data, context) => {
 
   try {
     // When invoked via a plain HTTP request the payload may be wrapped in a
@@ -40,9 +42,15 @@ module.exports.onCall = onCall({ secrets: ['OPENAI_API_KEY'] }, async (data, con
   const visionClient = new vision.ImageAnnotatorClient();
  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const files = await listImages(folderId, drive);
-    const results = [];
-  for (const file of files) {
+const files = await listImages(folderId, drive);
+const results = [];
+
+const BATCH_SIZE = 10;
+for (let i = 0; i < files.length; i += BATCH_SIZE) {
+  const batch = files.slice(i, i + BATCH_SIZE);
+  console.log(`Processing batch ${i / BATCH_SIZE + 1}: ${batch.length} files`);
+
+  for (const file of batch) {
     try {
       const dest = path.join(os.tmpdir(), file.id);
       const dl = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'arraybuffer' });
@@ -80,7 +88,13 @@ module.exports.onCall = onCall({ secrets: ['OPENAI_API_KEY'] }, async (data, con
       console.error(`Failed to process file ${file.name}:`, err?.message || err?.toString());
     }
   }
-    return results;
+}
+
+    return {
+  total: files.length,
+  processed: results.length,
+  results,
+};
   } catch (err) {
     console.error('Tagger failed:', err?.message || err?.toString());
     if (err instanceof HttpsError) {
