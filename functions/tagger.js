@@ -20,11 +20,11 @@ async function listImages(folderId, drive) {
   return res.data.files || [];
 }
 
-async function createThumbnail(srcPath, id) {
-  const thumbPath = path.join(os.tmpdir(), `${id}_thumb.webp`);
-  await sharp(srcPath).resize({ width: 300 }).toFormat('webp').toFile(thumbPath);
-  const buf = await fs.readFile(thumbPath);
-  await fs.unlink(thumbPath).catch(() => {});
+async function createThumbnail(srcPath) {
+  const buf = await sharp(srcPath)
+    .resize({ width: 300 })
+    .toFormat('webp')
+    .toBuffer();
   return `data:image/webp;base64,${buf.toString('base64')}`;
 }
 
@@ -66,13 +66,26 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
     for (const file of files) {
       try {
         const dest = path.join(os.tmpdir(), file.id);
-        const dl = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'arraybuffer' });
+        const dl = await drive.files.get(
+          { fileId: file.id, alt: 'media' },
+          { responseType: 'arraybuffer' }
+        );
         await fs.writeFile(dest, Buffer.from(dl.data));
 
-        const thumbDataUrl = await createThumbnail(dest, file.id);
-
-        const [visionRes] = await visionClient.labelDetection(dest);
+        const image = sharp(dest);
+        const thumbBuf = await image
+          .clone()
+          .resize({ width: 300 })
+          .toFormat('webp')
+          .toBuffer();
+        const visionBuf = await image.resize({ width: 512 }).toBuffer();
         await fs.unlink(dest).catch(() => {});
+
+        const thumbDataUrl = `data:image/webp;base64,${thumbBuf.toString('base64')}`;
+
+        const [visionRes] = await visionClient.labelDetection({
+          image: { content: visionBuf },
+        });
         const labels = (visionRes.labelAnnotations || []).map(l => l.description).join(', ');
         let description = labels;
         let type = '';
