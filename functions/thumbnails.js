@@ -7,7 +7,10 @@ import path from 'path';
 import { promises as fs } from 'fs';
 
 if (!admin.apps.length) {
-  admin.initializeApp();
+  admin.initializeApp({
+    storageBucket: 'tak-campfire-main'
+  });
+  
 }
 
 function extractFileId(url) {
