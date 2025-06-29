@@ -25,8 +25,9 @@ module.exports.onCall = functions.https.onCall(async (data, context) => {
   }
   const folderId = match[1];
 
-  const auth = new google.auth.GoogleAuth({ scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
-  const drive = google.drive({ version: 'v3', auth });
+const auth = new google.auth.GoogleAuth({ scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
+const authClient = await auth.getClient();
+const drive = google.drive({ version: 'v3', auth: authClient });
   const visionClient = new vision.ImageAnnotatorClient();
   const openai = new OpenAIApi(new Configuration({ apiKey: process.env.OPENAI_API_KEY }));
 
