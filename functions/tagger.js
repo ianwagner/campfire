@@ -5,10 +5,15 @@ import OpenAI from 'openai';
 import path from 'path';
 import os from 'os';
 import { promises as fs } from 'fs';
+import admin from 'firebase-admin';
+
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 async function listImages(folderId, drive) {
   const res = await drive.files.list({
-    q: `'${folderId}' in parents and mimeType contains 'image/' and trashed=false`,
+    q: '${folderId}' in parents and mimeType contains 'image/' and trashed=false,
     fields: 'files(id,name,webContentLink,mimeType)',
   });
   return res.data.files || [];
@@ -18,8 +23,8 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
 
   try {
     // When invoked via a plain HTTP request the payload may be wrapped in a
-    // `data` field. Support both invocation styles so the function doesn't
-    // reject valid requests where the parameters are nested under `data`.
+    // data field. Support both invocation styles so the function doesn't
+    // reject valid requests where the parameters are nested under data.
   console.log('Raw data received in tagger');
     const payload = data && typeof data === 'object' && 'data' in data ? data.data : data;
     console.log('Parsed payload:', payload);
@@ -46,7 +51,7 @@ const results = [];
 const BATCH_SIZE = 5;
 for (let i = 0; i < files.length; i += BATCH_SIZE) {
   const batch = files.slice(i, i + BATCH_SIZE);
-  console.log(`Processing batch ${i / BATCH_SIZE + 1}: ${batch.length} files`);
+  console.log(Processing batch ${i / BATCH_SIZE + 1}: ${batch.length} files);
 
   for (const file of batch) {
     try {
@@ -60,7 +65,7 @@ for (let i = 0; i < files.length; i += BATCH_SIZE) {
       let type = '';
       let product = '';
       try {
-        const prompt = `These labels describe an asset: ${labels}. Provide a short description, asset type, and product in JSON {description, type, product}.`;
+        const prompt = These labels describe an asset: ${labels}. Provide a short description, asset type, and product in JSON {description, type, product}.;
         const gpt = await openai.chat.completions.create({
           model: 'gpt-3.5-turbo',
           messages: [{ role: 'user', content: prompt }],
@@ -87,12 +92,21 @@ const parsed = JSON.parse(jsonMatch[0]);
         campaign,
       });
     } catch (err) {
-      console.error(`Failed to process file ${file.name}:`, err?.message || err?.toString());
+      console.error(Failed to process file ${file.name}:, err?.message || err?.toString());
     }
   }
 }
 
+const job = await admin.firestore().collection('taggerJobs').add({
+  driveFolderUrl,
+  campaign,
+  total: files.length,
+  processed: results.length,
+  createdAt: Date.now(),
+});
+
     return {
+  jobId: job.id,
   total: files.length,
   processed: results.length,
   results,
