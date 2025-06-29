@@ -1,4 +1,3 @@
-const { runWith } = require('firebase-functions/v2');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { google } = require('googleapis');
 const vision = require('@google-cloud/vision');
@@ -15,7 +14,7 @@ async function listImages(folderId, drive) {
   return res.data.files || [];
 }
 
-module.exports.onCall = runWith({ secrets: ['OPENAI_API_KEY'] }).onCall(async (data, context) => {
+module.exports.onCall = onCall({ secrets: ['OPENAI_API_KEY'] }, async (data, context) => {
 
   try {
     // When invoked via a plain HTTP request the payload may be wrapped in a
@@ -31,7 +30,7 @@ module.exports.onCall = runWith({ secrets: ['OPENAI_API_KEY'] }).onCall(async (d
     }
     const match = /\/folders\/([^/?]+)/.exec(driveFolderUrl);
     if (!match) {
-      throw new functions.https.HttpsError('invalid-argument', 'Invalid driveFolderUrl');
+      throw new HttpsError('invalid-argument', 'Invalid driveFolderUrl');
     }
     const folderId = match[1];
 
