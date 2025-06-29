@@ -20,6 +20,14 @@ async function listImages(folderId, drive) {
   return res.data.files || [];
 }
 
+async function createThumbnail(srcPath, id) {
+  const thumbPath = path.join(os.tmpdir(), `${id}_thumb.webp`);
+  await sharp(srcPath).resize({ width: 300 }).toFormat('webp').toFile(thumbPath);
+  const buf = await fs.readFile(thumbPath);
+  await fs.unlink(thumbPath).catch(() => {});
+  return `data:image/webp;base64,${buf.toString('base64')}`;
+}
+
 export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 300 }, async (data, context) => {
   let jobRef;
   try {
@@ -55,57 +63,48 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
       createdAt: Date.now(),
     });
 
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < files.length; i += BATCH_SIZE) {
-      const batch = files.slice(i, i + BATCH_SIZE);
-      console.log(`Processing batch ${i / BATCH_SIZE + 1}: ${batch.length} files`);
+    for (const file of files) {
+      try {
+        const dest = path.join(os.tmpdir(), file.id);
+        const dl = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'arraybuffer' });
+        await fs.writeFile(dest, Buffer.from(dl.data));
 
-      for (const file of batch) {
+        const thumbDataUrl = await createThumbnail(dest, file.id);
+
+        const [visionRes] = await visionClient.labelDetection(dest);
+        await fs.unlink(dest).catch(() => {});
+        const labels = (visionRes.labelAnnotations || []).map(l => l.description).join(', ');
+        let description = labels;
+        let type = '';
+        let product = '';
         try {
-          const dest = path.join(os.tmpdir(), file.id);
-          const dl = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'arraybuffer' });
-          await fs.writeFile(dest, Buffer.from(dl.data));
-
-          const thumbLocal = path.join(os.tmpdir(), `${file.id}_thumb.webp`);
-          await sharp(dest).resize({ width: 300 }).toFormat('webp').toFile(thumbLocal);
-          const thumbBuf = await fs.readFile(thumbLocal);
-          await fs.unlink(thumbLocal).catch(() => {});
-
-          const [visionRes] = await visionClient.labelDetection(dest);
-          await fs.unlink(dest).catch(() => {});
-          const labels = (visionRes.labelAnnotations || []).map(l => l.description).join(', ');
-          let description = labels;
-          let type = '';
-          let product = '';
-          try {
-            const prompt = `These labels describe an asset: ${labels}. Provide a short description, asset type, and product in JSON {description, type, product}.`;
-            const gpt = await openai.chat.completions.create({
-              model: 'gpt-3.5-turbo',
-              messages: [{ role: 'user', content: prompt }],
-              temperature: 0.2,
-            });
-            const text = gpt.choices?.[0]?.message?.content || '';
-            const jsonMatch = text.match(/\{[\s\S]*?\}/); // match first JSON block
-            if (!jsonMatch) throw new Error("OpenAI did not return valid JSON");
-            const parsed = JSON.parse(jsonMatch[0]);
-            description = parsed.description || description;
-            type = parsed.type || '';
-            product = parsed.product || '';
-          } catch (err) {
-            console.error('OpenAI failed:', err?.message || err?.toString());
-          }
-          results.push({
-            name: file.name,
-            url: file.webContentLink,
-            thumbnail: `data:image/webp;base64,${thumbBuf.toString('base64')}`,
-            type,
-            description,
-            product,
-            campaign,
+          const prompt = `These labels describe an asset: ${labels}. Provide a short description, asset type, and product in JSON {description, type, product}.`;
+          const gpt = await openai.chat.completions.create({
+            model: 'gpt-3.5-turbo',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.2,
           });
+          const text = gpt.choices?.[0]?.message?.content || '';
+          const jsonMatch = text.match(/\{[\s\S]*?\}/); // match first JSON block
+          if (!jsonMatch) throw new Error('OpenAI did not return valid JSON');
+          const parsed = JSON.parse(jsonMatch[0]);
+          description = parsed.description || description;
+          type = parsed.type || '';
+          product = parsed.product || '';
         } catch (err) {
-          console.error(`Failed to process file ${file.name}:`, err?.message || err?.toString());
+          console.error('OpenAI failed:', err?.message || err?.toString());
         }
+        results.push({
+          name: file.name,
+          url: file.webContentLink,
+          thumbnail: thumbDataUrl,
+          type,
+          description,
+          product,
+          campaign,
+        });
+      } catch (err) {
+        console.error(`Failed to process file ${file.name}:`, err?.message || err?.toString());
       }
     }
 
