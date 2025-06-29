@@ -31,6 +31,11 @@ const TaggerModal = ({ onClose }) => {
       setResults(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Tagger failed', err);
+      if (err) {
+        console.error('Error code:', err.code);
+        console.error('Error message:', err.message);
+        console.error('Error details:', err.details);
+      }
       setError('Failed to tag assets');
     } finally {
       setLoading(false);
