@@ -28,7 +28,7 @@ async function createThumbnail(srcPath) {
   return `data:image/webp;base64,${buf.toString('base64')}`;
 }
 
-export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 300 }, async (data, context) => {
+export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '1GiB', timeoutSeconds: 300 }, async (data, context) => {
   let jobRef;
   try {
     console.log('Raw data received in tagger');
