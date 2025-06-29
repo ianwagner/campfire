@@ -58,7 +58,7 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'] }, async (req) => {
 });
 
 export const processTaggerJob = onDocumentCreated('taggerJobs/{id}', { secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 540 }, async (event) => {
-  console.log('🔥 processTaggerJob triggered');
+  console.log(`🔥 processTaggerJob triggered for ${event.params.id}`);
 
   const snap = event.data;
   if (!snap) {
@@ -80,9 +80,30 @@ export const processTaggerJob = onDocumentCreated('taggerJobs/{id}', { secrets: 
   if (data.status !== 'pending') return null;
 
   const { driveFolderUrl, campaign } = data;
-  const match = /\/folders\/([^/?]+)/.exec(driveFolderUrl || '');
+  if (!driveFolderUrl || driveFolderUrl.trim() === '') {
+    await jobRef.update({
+      status: 'error',
+      error: 'Missing driveFolderUrl',
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return null;
+  }
+  if (!campaign || campaign.trim() === '') {
+    await jobRef.update({
+      status: 'error',
+      error: 'Missing campaign',
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return null;
+  }
+
+  const match = /\/folders\/([^/?]+)/.exec(driveFolderUrl);
   if (!match) {
-    await jobRef.update({ status: 'error', error: 'Invalid driveFolderUrl', completedAt: Date.now() });
+    await jobRef.update({
+      status: 'error',
+      error: 'Invalid driveFolderUrl',
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
     return null;
   }
   const folderId = match[1];
@@ -99,6 +120,7 @@ export const processTaggerJob = onDocumentCreated('taggerJobs/{id}', { secrets: 
     await jobRef.update({ total: files.length });
 
     let processed = 0;
+    const results = [];
     for (const file of files) {
       try {
         const dest = path.join(os.tmpdir(), file.id);
@@ -143,10 +165,7 @@ export const processTaggerJob = onDocumentCreated('taggerJobs/{id}', { secrets: 
         };
 
         processed += 1;
-        await jobRef.update({
-          processed,
-          results: admin.firestore.FieldValue.arrayUnion(result),
-        });
+        results.push(result);
       } catch (err) {
         console.error(`Failed to process file ${file.name}:`, err?.message || err?.toString());
       }
@@ -155,14 +174,15 @@ export const processTaggerJob = onDocumentCreated('taggerJobs/{id}', { secrets: 
     await jobRef.update({
       status: 'complete',
       processed,
-      completedAt: Date.now(),
+      results,
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   } catch (err) {
     console.error('Tagger job failed:', err?.message || err?.toString());
     await jobRef.update({
       status: 'error',
       error: err.message || err.toString(),
-      completedAt: Date.now(),
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   }
   return null;
