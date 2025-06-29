@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FiTrash } from 'react-icons/fi';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from './firebase/config';
 import { splitCsvLine } from './utils/csv.js';
 
 const emptyAsset = {
@@ -10,6 +12,7 @@ const emptyAsset = {
   description: '',
   product: '',
   campaign: '',
+  thumbnailUrl: '',
 };
 
 const AssetLibrary = ({ brandCode = '' }) => {
@@ -20,6 +23,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [csvRows, setCsvRows] = useState([]);
   const [csvMap, setCsvMap] = useState({});
   const [bulkValues, setBulkValues] = useState({ type: '', product: '', campaign: '' });
+  const [loading, setLoading] = useState(false);
 
   const lastIdx = useRef(null);
   const dragValue = useRef(null);
@@ -78,6 +82,27 @@ const AssetLibrary = ({ brandCode = '' }) => {
       )
     );
     setBulkValues({ type: '', product: '', campaign: '' });
+  };
+
+  const createThumbnails = async () => {
+    const rows = assets.filter((a) => selected[a.id]);
+    if (rows.length === 0) return;
+    setLoading(true);
+    try {
+      const callable = httpsCallable(functions, 'generateThumbnailsForAssets', { timeout: 60000 });
+      const payload = rows.map((r) => ({ url: r.url, name: r.name }));
+      const res = await callable({ assets: payload });
+      const results = res.data?.results || [];
+      setAssets((prev) =>
+        prev.map((a) => {
+          const match = results.find((r) => r.name === a.name);
+          return match && match.thumbnailUrl ? { ...a, thumbnailUrl: match.thumbnailUrl } : a;
+        })
+      );
+    } catch (err) {
+      console.error('Failed to generate thumbnails', err);
+    }
+    setLoading(false);
   };
 
   const saveAssets = () => {
@@ -327,9 +352,17 @@ const AssetLibrary = ({ brandCode = '' }) => {
           </tbody>
         </table>
       </div>
-      <div className="mt-4">
+      <div className="mt-4 flex gap-2 items-center">
         <button type="button" className="btn-primary" onClick={saveAssets}>
           Save
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={loading || !Object.keys(selected).some((k) => selected[k])}
+          onClick={createThumbnails}
+        >
+          {loading ? 'Processing...' : 'Create Thumbnails'}
         </button>
       </div>
     </div>

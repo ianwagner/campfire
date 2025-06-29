@@ -7,6 +7,7 @@ import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { tagger } from './tagger.js';
+import { generateThumbnailsForAssets } from './thumbnails.js';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -221,4 +222,4 @@ export const notifyAccountCreated = onDocumentCreated('users/{id}', async (event
   return null;
 });
 
-export { tagger };
+export { tagger, generateThumbnailsForAssets };
