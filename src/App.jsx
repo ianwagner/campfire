@@ -21,6 +21,7 @@ import AdminAdGroups from "./AdminAdGroups";
 import AgencyDashboard from "./AgencyDashboard";
 import Request from "./Request";
 import BrandSetup from "./BrandSetup";
+import BrandProfile from "./BrandProfile.jsx";
 import AccountSettings from "./AccountSettings";
 import DesignerNotifications from "./DesignerNotifications";
 import DesignerAccountSettings from "./DesignerAccountSettings";
@@ -436,6 +437,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <BrandSetup />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/brand-profile"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <BrandProfile />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

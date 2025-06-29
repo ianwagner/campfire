@@ -5,6 +5,7 @@ const tabs = [
   { label: 'Campfire', path: '/dashboard/client' },
   { label: 'Request', path: '/request' },
   { label: 'Brand Setup', path: '/brand-setup' },
+  { label: 'Brand Profile', path: '/brand-profile' },
   { label: 'Account Settings', path: '/account-settings' },
 ];
 
