@@ -157,8 +157,9 @@ const DesignerDashboard = () => {
                 if (g.cardColor && colorMap[g.cardColor]) return colorMap[g.cardColor];
                 if (g.recipeCount === 0) return colorMap.gray;
                 if (g.hasEdit) return colorMap.edit;
-                if (g.assetCount === g.recipeCount) return colorMap.approve;
-                if (g.assetCount === 0) return colorMap.accent;
+                // swap accent and approved color logic
+                if (g.assetCount === g.recipeCount) return colorMap.accent;
+                if (g.assetCount === 0) return colorMap.approve;
                 return colorMap.accent;
               };
               return (
