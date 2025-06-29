@@ -204,7 +204,8 @@ const RecipePreview = ({
 
   const loadAssetLibrary = () => {
     try {
-      const raw = localStorage.getItem('assetLibrary');
+      const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
+      const raw = localStorage.getItem(key);
       if (!raw) return;
       const rows = JSON.parse(raw);
       if (!Array.isArray(rows) || rows.length === 0) return;
