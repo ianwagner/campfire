@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { splitCsvLine } from './utils/csv.js';
 
 const emptyAsset = {
@@ -19,6 +19,31 @@ const AssetLibrary = () => {
   const [csvRows, setCsvRows] = useState([]);
   const [csvMap, setCsvMap] = useState({});
   const [bulkValues, setBulkValues] = useState({ type: '', product: '', campaign: '' });
+
+  const lastIdx = useRef(null);
+  const dragSelecting = useRef(false);
+  const dragSelectState = useRef(false);
+  const dragValue = useRef(null);
+  const dragField = useRef(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('assetLibrary');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) setAssets(parsed);
+      } catch (err) {
+        console.error('Failed to parse stored assets', err);
+      }
+    }
+    const up = () => {
+      dragSelecting.current = false;
+      dragValue.current = null;
+      dragField.current = null;
+    };
+    window.addEventListener('mouseup', up);
+    return () => window.removeEventListener('mouseup', up);
+  }, []);
 
   const addRow = () => {
     const id = Math.random().toString(36).slice(2);
@@ -45,6 +70,59 @@ const AssetLibrary = () => {
       )
     );
     setBulkValues({ type: '', product: '', campaign: '' });
+  };
+
+  const saveAssets = () => {
+    try {
+      localStorage.setItem('assetLibrary', JSON.stringify(assets));
+      alert('Assets saved');
+    } catch (err) {
+      console.error('Failed to save assets', err);
+    }
+  };
+
+  const handleCheckDown = (e, idx, id) => {
+    dragSelecting.current = true;
+    dragSelectState.current = !selected[id];
+    lastIdx.current = idx;
+    setSelected((p) => ({ ...p, [id]: dragSelectState.current }));
+  };
+
+  const handleCheckOver = (idx, id) => {
+    if (!dragSelecting.current) return;
+    setSelected((p) => ({ ...p, [id]: dragSelectState.current }));
+  };
+
+  const handleCheckChange = (e, idx, id) => {
+    const checked = e.target.checked;
+    if (e.shiftKey && lastIdx.current !== null) {
+      const start = Math.min(lastIdx.current, idx);
+      const end = Math.max(lastIdx.current, idx);
+      const ids = filtered.slice(start, end + 1).map((a) => a.id);
+      setSelected((p) => {
+        const next = { ...p };
+        ids.forEach((rid) => {
+          next[rid] = checked;
+        });
+        return next;
+      });
+    } else {
+      setSelected((p) => ({ ...p, [id]: checked }));
+      lastIdx.current = idx;
+    }
+  };
+
+  const handleInputDown = (field, value) => (e) => {
+    if (e.altKey) {
+      dragValue.current = value;
+      dragField.current = field;
+    }
+  };
+
+  const handleInputOver = (id) => (e) => {
+    if (dragValue.current !== null && dragField.current) {
+      updateRow(id, dragField.current, dragValue.current);
+    }
   };
 
   const handleCsv = async (e) => {
@@ -172,19 +250,23 @@ const AssetLibrary = () => {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((a) => (
+            {filtered.map((a, idx) => (
               <tr key={a.id}>
                 <td className="text-center">
                   <input
                     type="checkbox"
                     checked={selected[a.id] || false}
-                    onChange={(e) => setSelected({ ...selected, [a.id]: e.target.checked })}
+                    onMouseDown={(e) => handleCheckDown(e, idx, a.id)}
+                    onMouseOver={() => handleCheckOver(idx, a.id)}
+                    onChange={(e) => handleCheckChange(e, idx, a.id)}
                   />
                 </td>
                 <td>
                   <input
                     className="w-full p-1 border rounded"
                     value={a.name}
+                    onMouseDown={handleInputDown('name', a.name)}
+                    onMouseOver={handleInputOver(a.id)}
                     onChange={(e) => updateRow(a.id, 'name', e.target.value)}
                   />
                 </td>
@@ -192,6 +274,8 @@ const AssetLibrary = () => {
                   <input
                     className="w-full p-1 border rounded"
                     value={a.url}
+                    onMouseDown={handleInputDown('url', a.url)}
+                    onMouseOver={handleInputOver(a.id)}
                     onChange={(e) => updateRow(a.id, 'url', e.target.value)}
                   />
                 </td>
@@ -199,6 +283,8 @@ const AssetLibrary = () => {
                   <input
                     className="w-full p-1 border rounded"
                     value={a.type}
+                    onMouseDown={handleInputDown('type', a.type)}
+                    onMouseOver={handleInputOver(a.id)}
                     onChange={(e) => updateRow(a.id, 'type', e.target.value)}
                   />
                 </td>
@@ -206,6 +292,8 @@ const AssetLibrary = () => {
                   <input
                     className="w-full p-1 border rounded"
                     value={a.description}
+                    onMouseDown={handleInputDown('description', a.description)}
+                    onMouseOver={handleInputOver(a.id)}
                     onChange={(e) => updateRow(a.id, 'description', e.target.value)}
                   />
                 </td>
@@ -213,6 +301,8 @@ const AssetLibrary = () => {
                   <input
                     className="w-full p-1 border rounded"
                     value={a.product}
+                    onMouseDown={handleInputDown('product', a.product)}
+                    onMouseOver={handleInputOver(a.id)}
                     onChange={(e) => updateRow(a.id, 'product', e.target.value)}
                   />
                 </td>
@@ -220,6 +310,8 @@ const AssetLibrary = () => {
                   <input
                     className="w-full p-1 border rounded"
                     value={a.campaign}
+                    onMouseDown={handleInputDown('campaign', a.campaign)}
+                    onMouseOver={handleInputOver(a.id)}
                     onChange={(e) => updateRow(a.id, 'campaign', e.target.value)}
                   />
                 </td>
@@ -227,6 +319,11 @@ const AssetLibrary = () => {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="mt-4">
+        <button type="button" className="btn-primary" onClick={saveAssets}>
+          Save
+        </button>
       </div>
     </div>
   );
