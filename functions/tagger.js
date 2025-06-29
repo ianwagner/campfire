@@ -46,7 +46,7 @@ module.exports.onCall = onCall({ secrets: ['OPENAI_API_KEY'] }, async (data, con
     try {
       const dest = path.join(os.tmpdir(), file.id);
       const dl = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'arraybuffer' });
-      await fs.writeFile(dest, dl.data);
+      await fs.writeFile(dest, Buffer.from(dl.data));
       const [visionRes] = await visionClient.labelDetection(dest);
       await fs.unlink(dest).catch(() => {});
       const labels = (visionRes.labelAnnotations || []).map(l => l.description).join(', ');
