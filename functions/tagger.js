@@ -99,6 +99,8 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
       createdAt: Date.now(),
     });
 
+    console.log('✅ Tagger function complete. Returning results.');
+    
     return {
       jobId: job.id,
       total: files.length,
