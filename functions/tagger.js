@@ -20,6 +20,7 @@ async function listImages(folderId, drive) {
 }
 
 export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 300 }, async (data, context) => {
+  let jobRef;
   try {
     console.log('Raw data received in tagger');
     const payload = data && typeof data === 'object' && 'data' in data ? data.data : data;
@@ -43,6 +44,15 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
 
     const files = await listImages(folderId, drive);
     const results = [];
+
+    jobRef = await admin.firestore().collection('taggerJobs').add({
+      driveFolderUrl,
+      campaign,
+      total: files.length,
+      processed: 0,
+      status: 'processing',
+      createdAt: Date.now(),
+    });
 
     const BATCH_SIZE = 5;
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
@@ -91,24 +101,30 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
       }
     }
 
-    const job = await admin.firestore().collection('taggerJobs').add({
-      driveFolderUrl,
-      campaign,
-      total: files.length,
+    await jobRef.set({
+      status: 'complete',
       processed: results.length,
-      createdAt: Date.now(),
-    });
+      results,
+      completedAt: Date.now(),
+    }, { merge: true });
 
     console.log('✅ Tagger function complete. Returning results.');
-    
+
     return {
-      jobId: job.id,
+      jobId: jobRef.id,
       total: files.length,
       processed: results.length,
       results,
     };
   } catch (err) {
     console.error('Tagger failed:', err?.message || err?.toString());
+    if (jobRef) {
+      await jobRef.set({
+        status: 'error',
+        error: err.message || err.toString(),
+        completedAt: Date.now(),
+      }, { merge: true });
+    }
     if (err instanceof HttpsError) {
       throw err;
     }
