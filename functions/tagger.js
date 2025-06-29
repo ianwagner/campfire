@@ -1,4 +1,5 @@
 import { onCall as onCallFn, HttpsError } from 'firebase-functions/v2/https';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { google } from 'googleapis';
 import vision from '@google-cloud/vision';
 import OpenAI from 'openai';
@@ -30,14 +31,10 @@ async function createThumbnail(srcPath) {
   return { path: tempPath, dataUrl: `data:image/webp;base64,${base64}` };
 }
 
-export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 300 }, async (data, context) => {
-  let jobRef;
+export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'] }, async (data) => {
   try {
-    console.log('Raw data received in tagger');
     const payload = data && typeof data === 'object' && 'data' in data ? data.data : data;
-    console.log('Parsed payload:', payload);
     const { driveFolderUrl, campaign } = payload || {};
-    console.log('Tagger called with data:', { driveFolderUrl, campaign });
     if (!driveFolderUrl || driveFolderUrl.trim() === '') {
       throw new HttpsError('invalid-argument', 'Missing driveFolderUrl');
     }
@@ -45,40 +42,59 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
     if (!match) {
       throw new HttpsError('invalid-argument', 'Invalid driveFolderUrl');
     }
-    const folderId = match[1];
+    const doc = await admin.firestore().collection('taggerJobs').add({
+      driveFolderUrl,
+      campaign,
+      status: 'pending',
+      processed: 0,
+      total: 0,
+      createdAt: Date.now(),
+    });
+    return { jobId: doc.id };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    throw new HttpsError('internal', err.message || 'Tagger failed');
+  }
+});
+
+export const processTaggerJob = onDocumentCreated('taggerJobs/{id}', { secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 540 }, async (event) => {
+  const snap = event.data;
+  if (!snap) return null;
+  const data = snap.data() || {};
+  const jobRef = snap.ref;
+
+  if (data.status !== 'pending') return null;
+
+  const { driveFolderUrl, campaign } = data;
+  const match = /\/folders\/([^/?]+)/.exec(driveFolderUrl || '');
+  if (!match) {
+    await jobRef.update({ status: 'error', error: 'Invalid driveFolderUrl', completedAt: Date.now() });
+    return null;
+  }
+  const folderId = match[1];
+
+  try {
+    await jobRef.update({ status: 'processing' });
 
     const auth = new google.auth.GoogleAuth({ scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
-    const authClient = await auth.getClient();
-    const drive = google.drive({ version: 'v3', auth: authClient });
+    const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
     const visionClient = new vision.ImageAnnotatorClient();
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const files = await listImages(folderId, drive);
-    const results = [];
+    await jobRef.update({ total: files.length });
 
-    jobRef = await admin.firestore().collection('taggerJobs').add({
-      driveFolderUrl,
-      campaign,
-      total: files.length,
-      processed: 0,
-      status: 'processing',
-      createdAt: Date.now(),
-    });
-
+    let processed = 0;
     for (const file of files) {
       try {
         const dest = path.join(os.tmpdir(), file.id);
-        const dl = await drive.files.get(
-          { fileId: file.id, alt: 'media' },
-          { responseType: 'arraybuffer' }
-        );
+        const dl = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'arraybuffer' });
         await fs.writeFile(dest, Buffer.from(dl.data));
 
         const { path: thumbPath, dataUrl: thumbDataUrl } = await createThumbnail(dest);
         await fs.unlink(dest).catch(() => {});
-        const [visionRes] = await visionClient.labelDetection({
-          image: { content: await fs.readFile(thumbPath) },
-        });
+
+        const [visionRes] = await visionClient.labelDetection({ image: { content: await fs.readFile(thumbPath) } });
         await fs.unlink(thumbPath).catch(() => {});
         const labels = (visionRes.labelAnnotations || []).map(l => l.description).join(', ');
         let description = labels;
@@ -92,7 +108,7 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
             temperature: 0.2,
           });
           const text = gpt.choices?.[0]?.message?.content || '';
-          const jsonMatch = text.match(/\{[\s\S]*?\}/); // match first JSON block
+          const jsonMatch = text.match(/\{[\s\S]*?\}/);
           if (!jsonMatch) throw new Error('OpenAI did not return valid JSON');
           const parsed = JSON.parse(jsonMatch[0]);
           description = parsed.description || description;
@@ -101,7 +117,8 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
         } catch (err) {
           console.error('OpenAI failed:', err?.message || err?.toString());
         }
-        results.push({
+
+        const result = {
           name: file.name,
           url: file.webContentLink,
           thumbnail: thumbDataUrl,
@@ -109,39 +126,30 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
           description,
           product,
           campaign,
+        };
+
+        processed += 1;
+        await jobRef.update({
+          processed,
+          results: admin.firestore.FieldValue.arrayUnion(result),
         });
       } catch (err) {
         console.error(`Failed to process file ${file.name}:`, err?.message || err?.toString());
       }
     }
 
-    await jobRef.set({
+    await jobRef.update({
       status: 'complete',
-      processed: results.length,
-      results,
+      processed,
       completedAt: Date.now(),
-    }, { merge: true });
-
-    console.log('✅ Tagger function complete. Returning results.');
-
-    return {
-      jobId: jobRef.id,
-      total: files.length,
-      processed: results.length,
-      results,
-    };
+    });
   } catch (err) {
-    console.error('Tagger failed:', err?.message || err?.toString());
-    if (jobRef) {
-      await jobRef.set({
-        status: 'error',
-        error: err.message || err.toString(),
-        completedAt: Date.now(),
-      }, { merge: true });
-    }
-    if (err instanceof HttpsError) {
-      throw err;
-    }
-    throw new HttpsError('internal', err.message || 'Tagger failed');
+    console.error('Tagger job failed:', err?.message || err?.toString());
+    await jobRef.update({
+      status: 'error',
+      error: err.message || err.toString(),
+      completedAt: Date.now(),
+    });
   }
+  return null;
 });
