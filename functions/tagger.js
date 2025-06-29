@@ -1,4 +1,5 @@
-const functions = require('firebase-functions');
+const { runWith } = require('firebase-functions/v2');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { google } = require('googleapis');
 const vision = require('@google-cloud/vision');
 const OpenAI = require('openai');
@@ -14,7 +15,8 @@ async function listImages(folderId, drive) {
   return res.data.files || [];
 }
 
-module.exports.onCall = functions.https.onCall(async (data, context) => {
+module.exports.onCall = runWith({ secrets: ['OPENAI_API_KEY'] }).onCall(async (data, context) => {
+
   try {
     // When invoked via a plain HTTP request the payload may be wrapped in a
     // `data` field. Support both invocation styles so the function doesn't
@@ -25,7 +27,7 @@ module.exports.onCall = functions.https.onCall(async (data, context) => {
     const { driveFolderUrl, campaign } = payload || {};
     console.log('Tagger called with data:', { driveFolderUrl, campaign });
     if (!driveFolderUrl || driveFolderUrl.trim() === '') {
-      throw new functions.https.HttpsError('invalid-argument', 'Missing driveFolderUrl');
+      throw new HttpsError('invalid-argument', 'Missing driveFolderUrl');
     }
     const match = /\/folders\/([^/?]+)/.exec(driveFolderUrl);
     if (!match) {
@@ -37,7 +39,7 @@ module.exports.onCall = functions.https.onCall(async (data, context) => {
     const authClient = await auth.getClient();
     const drive = google.drive({ version: 'v3', auth: authClient });
   const visionClient = new vision.ImageAnnotatorClient();
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const files = await listImages(folderId, drive);
     const results = [];
@@ -82,9 +84,9 @@ module.exports.onCall = functions.https.onCall(async (data, context) => {
     return results;
   } catch (err) {
     console.error('Tagger failed:', err?.message || err?.toString());
-    if (err instanceof functions.https.HttpsError) {
+    if (err instanceof HttpsError) {
       throw err;
     }
-    throw new functions.https.HttpsError('internal', err.message || 'Tagger failed');
+    throw new HttpsError('internal', err.message || 'Tagger failed');
   }
 });
