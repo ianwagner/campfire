@@ -6,6 +6,7 @@ import useUserRole from './useUserRole';
 import BrandSetup from './BrandSetup';
 import AssetLibrary from './AssetLibrary.jsx';
 import TaggerModal from './TaggerModal.jsx';
+import BrandNotes from './BrandNotes.jsx';
 
 const BrandProfile = ({ brandId: propId = null }) => {
   const { id } = useParams();
@@ -48,6 +49,12 @@ const BrandProfile = ({ brandId: propId = null }) => {
         >
           Asset Library
         </button>
+        <button
+          onClick={() => setTab('notes')}
+          className={`btn-secondary bg-transparent px-3 py-1 ${tab === 'notes' ? 'bg-accent-10 text-accent' : ''}`}
+        >
+          Brand Notes
+        </button>
       </div>
       {tab === 'setup' && <BrandSetup brandId={brandId} />}
       {tab === 'library' && (
@@ -64,6 +71,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
           <AssetLibrary brandCode={brandCode} />
         </>
       )}
+      {tab === 'notes' && <BrandNotes brandId={brandId} brandCode={brandCode} />}
       {taggerOpen && (
         <TaggerModal brandCode={brandCode} onClose={() => setTaggerOpen(false)} />
       )}
