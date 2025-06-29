@@ -74,6 +74,17 @@ const RecipePreview = ({
   const [assetHeaders, setAssetHeaders] = useState([]);
   const [assetMap, setAssetMap] = useState({});
   const [assetUsage, setAssetUsage] = useState({});
+  const [assetFilter, setAssetFilter] = useState('');
+  const filteredAssetRows = useMemo(() => {
+    const term = assetFilter.toLowerCase();
+    if (!term) return assetRows;
+    return assetRows.filter(
+      (r) =>
+        r.name.toLowerCase().includes(term) ||
+        (r.product || '').toLowerCase().includes(term) ||
+        (r.campaign || '').toLowerCase().includes(term)
+    );
+  }, [assetRows, assetFilter]);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const isAdminOrAgency = userRole === 'admin' || userRole === 'agency';
 
@@ -159,6 +170,7 @@ const RecipePreview = ({
     }
     setAssetRows(rows);
     setAssetHeaders(headers);
+    setAssetFilter('');
     const map = {};
     (currentType?.assetMatchFields || []).forEach((fKey) => {
       map[fKey] = { header: headers.includes(fKey) ? fKey : '', score: 10 };
@@ -197,6 +209,7 @@ const RecipePreview = ({
       const rows = JSON.parse(raw);
       if (!Array.isArray(rows) || rows.length === 0) return;
       setAssetRows(rows);
+      setAssetFilter('');
       const headers = ['name', 'url', 'type', 'description', 'product', 'campaign'];
       setAssetHeaders(headers);
       const map = {};
@@ -320,18 +333,18 @@ const RecipePreview = ({
 
     const findBestAsset = (usageMap = assetUsage, typeFilter = null) => {
       debugLog('Searching best asset', {
-        rows: assetRows.length,
+        rows: filteredAssetRows.length,
         map: assetMap,
       });
       let bestScore = 0;
       let bestRows = [];
       const rows = typeFilter && assetMap.assetType?.header
-        ? assetRows.filter(
+        ? filteredAssetRows.filter(
             (r) =>
               normalizeAssetType(r[assetMap.assetType.header]) ===
               normalizeAssetType(typeFilter),
           )
-        : assetRows;
+        : filteredAssetRows;
       rows.forEach((row, idx) => {
         let score = 0;
         const details = {};
@@ -386,12 +399,12 @@ const RecipePreview = ({
       let bestScore = 0;
       let bestRows = [];
       const rows = typeFilter && assetMap.assetType?.header
-        ? assetRows.filter(
+        ? filteredAssetRows.filter(
             (r) =>
               normalizeAssetType(r[assetMap.assetType.header]) ===
               normalizeAssetType(typeFilter),
           )
-        : assetRows;
+        : filteredAssetRows;
       rows.forEach((row) => {
         const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
         const rowId = row[idField] || row.imageUrl || row.imageName || '';
@@ -808,7 +821,16 @@ const RecipePreview = ({
                 </button>
               </div>
               {assetRows.length > 0 && (
-                <p className="text-xs">{assetRows.length} rows loaded</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs">{assetRows.length} rows loaded</p>
+                  <input
+                    type="text"
+                    placeholder="Filter"
+                    value={assetFilter}
+                    onChange={(e) => setAssetFilter(e.target.value)}
+                    className="p-1 border rounded text-xs"
+                  />
+                </div>
               )}
             </div>
             {assetHeaders.length > 0 && (
