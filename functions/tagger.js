@@ -58,8 +58,22 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'] }, async (data) => 
 });
 
 export const processTaggerJob = onDocumentCreated('taggerJobs/{id}', { secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 540 }, async (event) => {
+  console.log('🔥 processTaggerJob triggered');
+
   const snap = event.data;
-  if (!snap) return null;
+  if (!snap) {
+    console.log('❌ No snapshot in event');
+    return null;
+  }
+
+  console.log('📄 Job ID:', event.params.id);
+  console.log('📄 Snapshot data:', snap.data());
+
+  if (snap.createTime && snap.updateTime && snap.createTime.toMillis() !== snap.updateTime.toMillis()) {
+    console.log('⏭ Document is not newly created');
+    return null;
+  }
+
   const data = snap.data() || {};
   const jobRef = snap.ref;
 
