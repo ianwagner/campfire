@@ -14,7 +14,7 @@ async function listImages(folderId, drive) {
   return res.data.files || [];
 }
 
-export const onCall = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 300, }, async (data, context) => {
+export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 300, }, async (data, context) => {
 
   try {
     // When invoked via a plain HTTP request the payload may be wrapped in a
