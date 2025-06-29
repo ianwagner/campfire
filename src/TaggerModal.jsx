@@ -26,9 +26,8 @@ const TaggerModal = ({ onClose }) => {
       };
       console.log('Submitting tagger with:', payload);
       const callable = httpsCallable(functions, 'tagger');
-      // Some environments expect the parameters nested under a `data` key, so
-      // provide both formats to maximise compatibility.
-      const res = await callable({ data: payload, ...payload });
+      // The Cloud Function accepts both wrapped and unwrapped payloads.
+      const res = await callable(payload);
       setResults(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Tagger failed', err);
