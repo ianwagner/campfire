@@ -4,7 +4,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { functions, db } from './firebase/config';
 import LoadingOverlay from './LoadingOverlay';
 
-const TaggerModal = ({ onClose }) => {
+const TaggerModal = ({ onClose, brandCode = '' }) => {
   const [driveFolderUrl, setDriveFolderUrl] = useState('');
   const [campaign, setCampaign] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,15 +25,17 @@ const TaggerModal = ({ onClose }) => {
 
   const saveToLibrary = () => {
     try {
-      const raw = localStorage.getItem('assetLibrary');
+      const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
+      const raw = localStorage.getItem(key);
       const existing = raw ? JSON.parse(raw) : [];
       const arr = Array.isArray(existing) ? existing : [];
       const newRows = results.map((r) => ({
         id: Math.random().toString(36).slice(2),
         ...r,
       }));
-      localStorage.setItem('assetLibrary', JSON.stringify([...arr, ...newRows]));
+      localStorage.setItem(key, JSON.stringify([...arr, ...newRows]));
       localStorage.removeItem('pendingTaggerJobId');
+      localStorage.removeItem('pendingTaggerJobBrand');
       onClose();
     } catch (err) {
       console.error('Failed to save assets', err);
@@ -77,6 +79,7 @@ const TaggerModal = ({ onClose }) => {
         setJobId(res.data.jobId);
         try {
           localStorage.setItem('pendingTaggerJobId', res.data.jobId);
+          if (brandCode) localStorage.setItem('pendingTaggerJobBrand', brandCode);
         } catch (err) {
           // ignore
         }

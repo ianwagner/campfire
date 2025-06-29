@@ -11,7 +11,7 @@ const emptyAsset = {
   campaign: '',
 };
 
-const AssetLibrary = () => {
+const AssetLibrary = ({ brandCode = '' }) => {
   const [assets, setAssets] = useState([]);
   const [selected, setSelected] = useState({});
   const [filter, setFilter] = useState('');
@@ -27,7 +27,8 @@ const AssetLibrary = () => {
   const dragField = useRef(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem('assetLibrary');
+    const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
+    const stored = localStorage.getItem(key);
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -43,7 +44,7 @@ const AssetLibrary = () => {
     };
     window.addEventListener('mouseup', up);
     return () => window.removeEventListener('mouseup', up);
-  }, []);
+  }, [brandCode]);
 
   const addRow = () => {
     const id = Math.random().toString(36).slice(2);
@@ -74,7 +75,8 @@ const AssetLibrary = () => {
 
   const saveAssets = () => {
     try {
-      localStorage.setItem('assetLibrary', JSON.stringify(assets));
+      const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
+      localStorage.setItem(key, JSON.stringify(assets));
       alert('Assets saved');
     } catch (err) {
       console.error('Failed to save assets', err);

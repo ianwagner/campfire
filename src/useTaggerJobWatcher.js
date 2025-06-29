@@ -2,16 +2,17 @@ import { useEffect } from 'react';
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 
-const saveResults = (results) => {
+const saveResults = (brandCode, results) => {
   try {
-    const raw = localStorage.getItem('assetLibrary');
+    const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
+    const raw = localStorage.getItem(key);
     const existing = raw ? JSON.parse(raw) : [];
     const arr = Array.isArray(existing) ? existing : [];
     const newRows = (Array.isArray(results) ? results : []).map((r) => ({
       id: Math.random().toString(36).slice(2),
       ...r,
     }));
-    localStorage.setItem('assetLibrary', JSON.stringify([...arr, ...newRows]));
+    localStorage.setItem(key, JSON.stringify([...arr, ...newRows]));
   } catch (err) {
     console.error('Failed to save tagger results', err);
   }
@@ -20,15 +21,18 @@ const saveResults = (results) => {
 export default function useTaggerJobWatcher() {
   useEffect(() => {
     const jobId = localStorage.getItem('pendingTaggerJobId');
+    const brandCode = localStorage.getItem('pendingTaggerJobBrand') || '';
     if (!jobId) return undefined;
     if (localStorage.getItem('taggerModalOpen') === 'true') return undefined;
 
     const handleData = (data) => {
       if (data.status === 'complete') {
-        saveResults(data.results);
+        saveResults(brandCode, data.results);
         localStorage.removeItem('pendingTaggerJobId');
+        localStorage.removeItem('pendingTaggerJobBrand');
       } else if (data.status === 'error') {
         localStorage.removeItem('pendingTaggerJobId');
+        localStorage.removeItem('pendingTaggerJobBrand');
       }
     };
 
