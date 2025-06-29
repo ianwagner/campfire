@@ -50,6 +50,7 @@ import useAgencyTheme from "./useAgencyTheme";
 import FullScreenSpinner from "./FullScreenSpinner";
 import { DEFAULT_LOGO_URL } from "./constants";
 import useFcmToken from "./useFcmToken";
+import useTaggerJobWatcher from "./useTaggerJobWatcher";
 import AdminClaimDebug from "./AdminClaimDebug";
 
 const ThemeWatcher = () => {
@@ -92,6 +93,7 @@ const App = () => {
   const { agency, loading: agencyLoading } = useAgencyTheme(agencyId);
   const [logoLoaded, setLogoLoaded] = React.useState(false);
   useFcmToken(user);
+  useTaggerJobWatcher();
 
   React.useEffect(() => {
     const url = agencyId ? agency.logoUrl || DEFAULT_LOGO_URL : settings.logoUrl || DEFAULT_LOGO_URL;

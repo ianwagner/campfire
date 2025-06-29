@@ -12,6 +12,13 @@ const TaggerModal = ({ onClose }) => {
   const [error, setError] = useState('');
   const [jobId, setJobId] = useState('');
 
+  useEffect(() => {
+    localStorage.setItem('taggerModalOpen', 'true');
+    return () => {
+      localStorage.removeItem('taggerModalOpen');
+    };
+  }, []);
+
   const updateResult = (idx, field, value) => {
     setResults((p) => p.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
   };
@@ -26,6 +33,7 @@ const TaggerModal = ({ onClose }) => {
         ...r,
       }));
       localStorage.setItem('assetLibrary', JSON.stringify([...arr, ...newRows]));
+      localStorage.removeItem('pendingTaggerJobId');
       onClose();
     } catch (err) {
       console.error('Failed to save assets', err);
@@ -67,6 +75,11 @@ const TaggerModal = ({ onClose }) => {
       const res = await callable({ data: payload, ...payload });
       if (res.data?.jobId) {
         setJobId(res.data.jobId);
+        try {
+          localStorage.setItem('pendingTaggerJobId', res.data.jobId);
+        } catch (err) {
+          // ignore
+        }
       } else {
         throw new Error('No job ID returned');
       }
