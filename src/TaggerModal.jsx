@@ -12,6 +12,10 @@ const TaggerModal = ({ onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!driveFolderUrl || driveFolderUrl.trim() === '') {
+      setError('Drive folder URL is required');
+      return;
+    }
     setLoading(true);
     setError('');
     setResults([]);

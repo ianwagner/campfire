@@ -16,7 +16,8 @@ async function listImages(folderId, drive) {
 
 module.exports.onCall = functions.https.onCall(async (data, context) => {
   const { driveFolderUrl, campaign } = data || {};
-  if (!driveFolderUrl) {
+  console.log('Tagger called with data:', { driveFolderUrl, campaign });
+  if (!driveFolderUrl || driveFolderUrl.trim() === '') {
     throw new functions.https.HttpsError('invalid-argument', 'Missing driveFolderUrl');
   }
   const match = /\/folders\/([^/?]+)/.exec(driveFolderUrl);
