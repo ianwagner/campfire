@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from './firebase/config';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { functions, db } from './firebase/config';
 import LoadingOverlay from './LoadingOverlay';
 
 const TaggerModal = ({ onClose }) => {
@@ -9,6 +10,23 @@ const TaggerModal = ({ onClose }) => {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
   const [error, setError] = useState('');
+  const [jobId, setJobId] = useState('');
+
+  useEffect(() => {
+    if (!jobId) return undefined;
+    const unsub = onSnapshot(doc(db, 'taggerJobs', jobId), (snap) => {
+      const data = snap.data();
+      if (!data) return;
+      if (data.status === 'complete') {
+        setResults(Array.isArray(data.results) ? data.results : []);
+        setLoading(false);
+      } else if (data.status === 'error') {
+        setError(data.error || 'Failed to tag assets');
+        setLoading(false);
+      }
+    });
+    return () => unsub();
+  }, [jobId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,17 +37,19 @@ const TaggerModal = ({ onClose }) => {
     setLoading(true);
     setError('');
     setResults([]);
+    setJobId('');
     try {
       const payload = {
         driveFolderUrl: driveFolderUrl.trim(),
         campaign,
       };
-      console.log('Submitting tagger with:', payload);
       const callable = httpsCallable(functions, 'tagger', { timeout: 300000 });
-      // Some environments expect the parameters nested under a `data` key, so
-      // provide both formats to maximise compatibility.
       const res = await callable({ data: payload, ...payload });
-      setResults(Array.isArray(res.data?.results) ? res.data.results : []);
+      if (res.data?.jobId) {
+        setJobId(res.data.jobId);
+      } else {
+        throw new Error('No job ID returned');
+      }
     } catch (err) {
       console.error('Tagger failed', err);
       if (err) {
@@ -38,7 +58,6 @@ const TaggerModal = ({ onClose }) => {
         console.error('Error details:', err.details);
       }
       setError('Failed to tag assets');
-    } finally {
       setLoading(false);
     }
   };
@@ -48,7 +67,7 @@ const TaggerModal = ({ onClose }) => {
       <div className="bg-white p-4 rounded shadow max-w-lg w-full relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
         {loading && <LoadingOverlay text="Tagging assets..." className="!absolute" />}
         <h3 className="mb-2 font-semibold">Tag Assets from Drive</h3>
-        {results.length === 0 ? (
+        {(!jobId || loading) ? (
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label className="block mb-1 text-sm">Google Drive Folder Link</label>
