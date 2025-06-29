@@ -110,7 +110,9 @@ The script loads your service account credentials from the `GOOGLE_APPLICATION_C
 ## Admin Brand Management
 
 Similarly, `/admin/brands` lists all brands with inline edit and delete
-controls. New brands can be added via `/admin/brands/new`.
+controls. Selecting **Edit** on a brand row opens the brand profile page,
+allowing administrators to update brand assets. New brands can be added via
+`/admin/brands/new`.
 
 ## Authentication
 

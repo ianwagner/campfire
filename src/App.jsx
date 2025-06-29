@@ -34,7 +34,6 @@ import useUserRole from "./useUserRole";
 import useAdminClaim from "./useAdminClaim";
 import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
-import AdminBrandDetail from "./AdminBrandDetail";
 import AdminRecipeSetup from "./AdminRecipeSetup";
 import AdminNotifications from "./AdminNotifications";
 import ManageMfa from "./ManageMfa";
@@ -612,7 +611,7 @@ const App = () => {
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
-                    <AdminBrandDetail />
+                    <BrandProfile />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
