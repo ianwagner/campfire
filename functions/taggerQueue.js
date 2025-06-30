@@ -10,6 +10,7 @@ import path from 'path';
 import os from 'os';
 import { promises as fs } from 'fs';
 import admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 
 async function listImages(folderId, drive) {
   const files = [];
@@ -77,7 +78,7 @@ export const createTaggerJob = onCallFn({ timeoutSeconds: 30 }, async (request) 
   return { jobId: jobRef.id };
 });
 
-async function processJobBatch(jobSnap) {
+export async function processJobBatch(jobSnap) {
   const data = jobSnap.data();
   if (!data) return;
   const jobRef = jobSnap.ref;
@@ -146,26 +147,6 @@ async function processJobBatch(jobSnap) {
   }, { merge: true });
 }
 
-export const processTaggerJob = onDocumentCreated({ document: 'taggerJobs/{id}', region: 'us-central1', inputDataFormat: 'JSON' }, async (event) => {
-  const snap = event.data;
-  if (!snap) {
-    console.error('processTaggerJob: missing event data');
-    return null;
-  }
-  const data = snap.data();
-  if (!data) {
-    console.error('processTaggerJob: snapshot has no data');
-    return null;
-  }
-  try {
-    if (data.priority === 'high') {
-      await processJobBatch(snap);
-    }
-  } catch (err) {
-    console.error('processTaggerJob failed', err);
-  }
-  return null;
-});
 
 export const onTaggerJobUpdated = onDocumentUpdated({ document: 'taggerJobs/{id}', inputDataFormat: 'JSON' }, async (event) => {
   const before = event.data.before.data();
@@ -189,3 +170,14 @@ export const runLowPriorityJobs = onSchedule('every 5 minutes', async () => {
     await processJobBatch(doc);
   }
 });
+
+export const processTaggerJob = functions.firestore
+  .document('taggerJobs/{id}')
+  .onCreate(async (snap, context) => {
+    try {
+      await processJobBatch(snap);
+    } catch (err) {
+      console.error('processTaggerJob failed', err);
+    }
+    return null;
+  });
