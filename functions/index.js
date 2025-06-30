@@ -1,7 +1,7 @@
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
-import * as functions from 'firebase-functions';
+import { firestore as firestoreV1 } from 'firebase-functions/v1';
 import admin from 'firebase-admin';
 import sharp from 'sharp';
 import os from 'os';
@@ -239,7 +239,7 @@ export const notifyAccountCreated = onDocumentCreated({ document: 'users/{id}', 
   return null;
 });
 
-export const processTaggerJob = functions.firestore
+export const processTaggerJob = firestoreV1
   .document('taggerJobs/{id}')
   .onCreate(async (snap, context) => {
     const data = snap.data();

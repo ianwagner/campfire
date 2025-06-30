@@ -10,7 +10,7 @@ import path from 'path';
 import os from 'os';
 import { promises as fs } from 'fs';
 import admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import { firestore as firestoreV1 } from 'firebase-functions/v1';
 
 async function listImages(folderId, drive) {
   const files = [];
@@ -171,7 +171,7 @@ export const runLowPriorityJobs = onSchedule('every 5 minutes', async () => {
   }
 });
 
-export const processTaggerJob = functions.firestore
+export const processTaggerJob = firestoreV1
   .document('taggerJobs/{id}')
   .onCreate(async (snap, context) => {
     try {
