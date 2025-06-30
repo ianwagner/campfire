@@ -30,20 +30,38 @@ function extractFolderId(url) {
   return match ? match[1] : null;
 }
 
-export const createTaggerJob = onCallFn({ timeoutSeconds: 30 }, async (data, context) => {
-  const payload = data && typeof data === 'object' && 'data' in data ? data.data : data;
-  const { driveFolderUrl, campaign = '', priority = 'high' } = payload || {};
-  if (!driveFolderUrl || driveFolderUrl.trim() === '') {
+function validatePayload(data) {
+  if (!data || typeof data !== 'object') {
+    throw new HttpsError('invalid-argument', 'Payload must be an object');
+  }
+  const { driveFolderUrl, campaign = '', priority = 'high' } = data;
+  if (typeof driveFolderUrl !== 'string' || driveFolderUrl.trim() === '') {
     throw new HttpsError('invalid-argument', 'Missing driveFolderUrl');
   }
   const folderId = extractFolderId(driveFolderUrl);
-  if (!folderId) throw new HttpsError('invalid-argument', 'Invalid driveFolderUrl');
+  if (!folderId) {
+    throw new HttpsError('invalid-argument', 'Invalid driveFolderUrl');
+  }
+  return { driveFolderUrl: driveFolderUrl.trim(), campaign, priority };
+}
+
+export const createTaggerJob = onCallFn({ timeoutSeconds: 30 }, async (data, context) => {
+  const payload = data && typeof data === 'object' && 'data' in data ? data.data : data;
+  console.log('📩 Received createTaggerJob payload:', payload);
+
+  if (!context.auth) {
+    console.warn('🛑 Unauthenticated call to createTaggerJob');
+    throw new HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const { driveFolderUrl, campaign, priority } = validatePayload(payload);
 
   const jobRef = await admin.firestore().collection('taggerJobs').add({
     driveFolderUrl,
     campaign,
     priority: priority === 'low' ? 'low' : 'high',
-    createdBy: context.auth?.uid || null,
+    uid: context.auth.uid,
+    createdBy: context.auth.uid,
     status: 'pending',
     processed: 0,
     total: 0,
@@ -52,6 +70,8 @@ export const createTaggerJob = onCallFn({ timeoutSeconds: 30 }, async (data, con
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
+
+  console.log('📝 Created tagger job:', jobRef.id);
 
   return { jobId: jobRef.id };
 });
