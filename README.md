@@ -93,6 +93,11 @@ firebase functions:list
 
 to confirm the functions appear in your project.
 
+The thumbnail generation code expects a Cloud Storage bucket. It defaults to
+`tak-campfire-main` but you can override this by setting the
+`FIREBASE_STORAGE_BUCKET` environment variable when deploying or running the
+functions locally.
+
 
 ## Admin Account Management
 
