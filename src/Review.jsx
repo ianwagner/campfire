@@ -90,6 +90,12 @@ const Review = ({
   const [lockedByUid, setLockedByUid] = useState(null);
   const [lockFailed, setLockFailed] = useState(false);
   const { agency } = useAgencyTheme(agencyId);
+  const canSubmitEdit = useMemo(
+    () =>
+      comment.trim().length > 0 ||
+      (editCopy.trim() && editCopy.trim() !== origCopy.trim()),
+    [comment, editCopy, origCopy],
+  );
   useDebugTrace('Review', {
     groupId,
     agencyId,
@@ -1497,8 +1503,10 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
                   </button>
                   <button
                     onClick={() => submitResponse('edit')}
-                    className="btn-primary px-3 py-1"
-                    disabled={submitting}
+                    className={`btn-primary px-3 py-1 ${
+                      canSubmitEdit ? '' : 'opacity-50 cursor-not-allowed'
+                    }`}
+                    disabled={submitting || !canSubmitEdit}
                   >
                     Submit
                   </button>
