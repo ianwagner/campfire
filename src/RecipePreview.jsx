@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import {
   FiImage,
   FiVideo,
@@ -61,6 +61,7 @@ const RecipePreview = ({
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
   const [instances, setInstances] = useState([]);
+  const [brandProducts, setBrandProducts] = useState([]);
   const [brands, setBrands] = useState([]);
   const [brandCode, setBrandCode] = useState(initialBrandCode);
   const [selectedType, setSelectedType] = useState('');
@@ -76,6 +77,7 @@ const RecipePreview = ({
   const [assetUsage, setAssetUsage] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
   const [reviewRows, setReviewRows] = useState([]);
+  const allInstances = useMemo(() => [...instances, ...brandProducts], [instances, brandProducts]);
   const filteredAssetRows = useMemo(() => {
     const term = assetFilter.toLowerCase();
     if (!term) return assetRows;
@@ -102,6 +104,38 @@ const RecipePreview = ({
       console.error('Failed to load reviews', err);
       setReviewRows([]);
     }
+  }, [brandCode]);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      if (!brandCode) {
+        setBrandProducts([]);
+        return;
+      }
+      try {
+        const q = query(collection(db, 'brands'), where('code', '==', brandCode));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          const prods = Array.isArray(data.products) ? data.products : [];
+          setBrandProducts(
+            prods.map((p, idx) => ({
+              id: `product-${idx}`,
+              componentKey: 'product',
+              name: p.name,
+              values: { name: p.name, description: p.description || '', benefits: p.benefits || '' },
+              relationships: { brandCode },
+            }))
+          );
+        } else {
+          setBrandProducts([]);
+        }
+      } catch (err) {
+        console.error('Failed to load products', err);
+        setBrandProducts([]);
+      }
+    };
+    loadProducts();
   }, [brandCode]);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const isAdminOrAgency = userRole === 'admin' || userRole === 'agency';
@@ -286,7 +320,7 @@ const RecipePreview = ({
           prompt = prompt.replace(regex, val);
         });
       } else {
-        const instOptions = instances.filter(
+        const instOptions = allInstances.filter(
           (i) =>
             i.componentKey === c.key &&
             (!i.relationships?.brandCode || i.relationships.brandCode === brand)
@@ -622,7 +656,7 @@ const RecipePreview = ({
   const updateComponentValue = (rowIdx, compKey, attrKey, val) => {
     const arr = [...results];
     arr[rowIdx].components[`${compKey}.${attrKey}`] = val;
-    const matched = instances.find(
+    const matched = allInstances.find(
       (inst) =>
         inst.componentKey === compKey &&
         inst.values?.[attrKey] === val &&
@@ -672,12 +706,12 @@ const RecipePreview = ({
   };
 
   const handleChangeInstance = (compKey, instId) => {
-    const inst = instances.find(
-      (i) =>
-        i.componentKey === compKey &&
-        i.id === instId &&
-        (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
-    );
+    const inst = allInstances.find(
+        (i) =>
+          i.componentKey === compKey &&
+          i.id === instId &&
+          (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
+      );
     if (!inst) return;
     const updated = { ...editComponents };
     Object.entries(inst.values || {}).forEach(([k, v]) => {
@@ -1013,7 +1047,7 @@ const RecipePreview = ({
           <div className="space-y-4">
             {orderedComponents.map((c) => {
               if (c.key === 'brand') return null;
-              const instOptions = instances.filter(
+              const instOptions = allInstances.filter(
                 (i) =>
                   i.componentKey === c.key &&
                   (!i.relationships?.brandCode || i.relationships.brandCode === brandCode)
@@ -1026,7 +1060,7 @@ const RecipePreview = ({
                 : '';
               const inst =
                 c.selectionMode === 'dropdown'
-                  ? instances.find(
+                  ? allInstances.find(
                       (i) =>
                         i.id === current &&
                         i.componentKey === c.key &&
@@ -1231,7 +1265,7 @@ const RecipePreview = ({
                                   }
                                 >
                                   <option value="">Select...</option>
-                                  {instances
+                                  {allInstances
                                     .filter(
                                       (i) =>
                                         i.componentKey === col.key.split('.')[0] &&

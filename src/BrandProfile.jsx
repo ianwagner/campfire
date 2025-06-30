@@ -6,6 +6,7 @@ import useUserRole from './useUserRole';
 import BrandSetup from './BrandSetup';
 import AssetLibrary from './AssetLibrary.jsx';
 import ReviewLibrary from './ReviewLibrary.jsx';
+import BrandProducts from './BrandProducts.jsx';
 import TaggerModal from './TaggerModal.jsx';
 
 const BrandProfile = ({ brandId: propId = null }) => {
@@ -55,6 +56,12 @@ const BrandProfile = ({ brandId: propId = null }) => {
         >
           Customer Reviews
         </button>
+        <button
+          onClick={() => setTab('products')}
+          className={`btn-secondary bg-transparent px-3 py-1 ${tab === 'products' ? 'bg-accent-10 text-accent' : ''}`}
+        >
+          Products
+        </button>
       </div>
       {tab === 'setup' && <BrandSetup brandId={brandId} />}
       {tab === 'library' && (
@@ -72,6 +79,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
         </>
       )}
       {tab === 'reviews' && <ReviewLibrary brandCode={brandCode} />}
+      {tab === 'products' && <BrandProducts brandId={brandId} brandCode={brandCode} />}
       {taggerOpen && (
         <TaggerModal brandCode={brandCode} onClose={() => setTaggerOpen(false)} />
       )}
