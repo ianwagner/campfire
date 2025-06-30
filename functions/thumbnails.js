@@ -6,13 +6,6 @@ import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    storageBucket: 'tak-campfire-main'
-  });
-  
-}
-
 function extractFileId(url) {
   if (!url) return null;
   // Matches ID in various drive url formats
@@ -28,10 +21,11 @@ export const generateThumbnailsForAssets = onCallFn({ timeoutSeconds: 60, memory
 
   const auth = new google.auth.GoogleAuth({ scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
   const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
-  console.log('📦 Accessing default storage bucket');
+  const bucketName = process.env.STORAGE_BUCKET;
+  console.log('📦 Accessing storage bucket:', bucketName);
   let bucket;
   try {
-    bucket = admin.storage().bucket();
+    bucket = admin.storage().bucket(bucketName);
     if (!bucket) throw new Error('bucket() returned undefined');
   } catch (err) {
     console.error('❌ Failed to access bucket', err);
