@@ -1618,56 +1618,60 @@ const AdGroupDetail = () => {
                     </button>
                   </>
                 )}
-                <button
-                  onClick={resetGroup}
-                  className="btn-secondary bg-transparent px-2 py-0.5"
-                  aria-label="Reset"
-                >
-                  <FiRefreshCw size={20} />
-                </button>
-                <button
-                  onClick={markReady}
-                  disabled={
-                    readyLoading ||
-                    assets.length === 0 ||
-                    group.status === "ready" ||
-                    group.status === "in review"
-                  }
-                  className="btn-secondary bg-transparent px-2 py-0.5"
-                  aria-label="Ready"
-                >
-                  <FiCheckCircle size={20} />
-                </button>
-                <Link
-                  to={`/review/${id}`}
-                  className="btn-secondary bg-transparent px-2 py-0.5"
-                  aria-label="Review"
-                >
-                  <FiBookOpen size={20} />
-                </Link>
-                <button
-                  onClick={handleShare}
-                  className="btn-secondary bg-transparent px-2 py-0.5"
-                  aria-label="Share"
-                >
-                  <FiShare2 size={20} />
-                </button>
-                {isAdmin && (
+                {(isAdmin || userRole === "agency") && (
                   <>
                     <button
-                      onClick={() => setExportModal(true)}
+                      onClick={resetGroup}
                       className="btn-secondary bg-transparent px-2 py-0.5"
-                      aria-label="Export Approved"
+                      aria-label="Reset"
                     >
-                      <FiDownload size={20} />
+                      <FiRefreshCw size={20} />
                     </button>
                     <button
-                      onClick={archiveGroup}
+                      onClick={markReady}
+                      disabled={
+                        readyLoading ||
+                        assets.length === 0 ||
+                        group.status === "ready" ||
+                        group.status === "in review"
+                      }
                       className="btn-secondary bg-transparent px-2 py-0.5"
-                      aria-label="Archive"
+                      aria-label="Ready"
                     >
-                      <FiArchive size={20} />
+                      <FiCheckCircle size={20} />
                     </button>
+                    <Link
+                      to={`/review/${id}`}
+                      className="btn-secondary bg-transparent px-2 py-0.5"
+                      aria-label="Review"
+                    >
+                      <FiBookOpen size={20} />
+                    </Link>
+                    <button
+                      onClick={handleShare}
+                      className="btn-secondary bg-transparent px-2 py-0.5"
+                      aria-label="Share"
+                    >
+                      <FiShare2 size={20} />
+                    </button>
+                    {isAdmin && (
+                      <>
+                        <button
+                          onClick={() => setExportModal(true)}
+                          className="btn-secondary bg-transparent px-2 py-0.5"
+                          aria-label="Export Approved"
+                        >
+                          <FiDownload size={20} />
+                        </button>
+                        <button
+                          onClick={archiveGroup}
+                          className="btn-secondary bg-transparent px-2 py-0.5"
+                          aria-label="Archive"
+                        >
+                          <FiArchive size={20} />
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
               </div>
