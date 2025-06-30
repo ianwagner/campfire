@@ -23,7 +23,7 @@ if (!serviceAccountPath) {
 
 admin.initializeApp({
   credential: admin.credential.cert(require(serviceAccountPath)),
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'tak-campfire.appspot.com',
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || 'tak-campfire.appspot.com',
 });
 
 const db = admin.firestore();

@@ -21,7 +21,7 @@ export const generateThumbnailsForAssets = onCallFn({ timeoutSeconds: 60, memory
 
   const auth = new google.auth.GoogleAuth({ scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
   const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
-  const bucketName = process.env.STORAGE_BUCKET;
+  const bucketName = process.env.VITE_FIREBASE_STORAGE_BUCKET;
   console.log('📦 Accessing storage bucket:', bucketName);
   let bucket;
   try {
