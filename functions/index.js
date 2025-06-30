@@ -1,6 +1,7 @@
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
+import * as functions from 'firebase-functions';
 import admin from 'firebase-admin';
 import sharp from 'sharp';
 import os from 'os';
@@ -8,9 +9,9 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import {
   createTaggerJob,
-  processTaggerJob,
   onTaggerJobUpdated,
   runLowPriorityJobs,
+  processJobBatch,
 } from './taggerQueue.js';
 import { generateThumbnailsForAssets } from './thumbnails.js';
 
@@ -238,9 +239,26 @@ export const notifyAccountCreated = onDocumentCreated('users/{id}', async (event
   return null;
 });
 
+export const processTaggerJob = functions.firestore
+  .document('taggerJobs/{id}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    if (!data) {
+      console.error('processTaggerJob: snapshot has no data');
+      return null;
+    }
+    try {
+      if (data.priority === 'high') {
+        await processJobBatch(snap);
+      }
+    } catch (err) {
+      console.error('processTaggerJob failed', err);
+    }
+    return null;
+  });
+
 export {
   createTaggerJob,
-  processTaggerJob,
   onTaggerJobUpdated,
   runLowPriorityJobs,
   generateThumbnailsForAssets,
