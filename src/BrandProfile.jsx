@@ -6,6 +6,7 @@ import useUserRole from './useUserRole';
 import BrandSetup from './BrandSetup';
 import AssetLibrary from './AssetLibrary.jsx';
 import TaggerModal from './TaggerModal.jsx';
+import TaggerJobsPanel from './TaggerJobsPanel.jsx';
 
 const BrandProfile = ({ brandId: propId = null }) => {
   const { id } = useParams();
@@ -15,6 +16,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
   const [brandCode, setBrandCode] = useState('');
   const [tab, setTab] = useState('setup');
   const [taggerOpen, setTaggerOpen] = useState(false);
+  const [jobsOpen, setJobsOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -60,12 +62,22 @@ const BrandProfile = ({ brandId: propId = null }) => {
             >
               Tag Drive Folder
             </button>
+            <button
+              type="button"
+              onClick={() => setJobsOpen(true)}
+              className="btn-secondary px-3 py-1 ml-2"
+            >
+              View Tag Jobs
+            </button>
           </div>
           <AssetLibrary brandCode={brandCode} />
         </>
       )}
       {taggerOpen && (
         <TaggerModal brandCode={brandCode} onClose={() => setTaggerOpen(false)} />
+      )}
+      {jobsOpen && (
+        <TaggerJobsPanel onClose={() => setJobsOpen(false)} />
       )}
     </div>
   );
