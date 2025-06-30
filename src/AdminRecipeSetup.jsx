@@ -655,6 +655,7 @@ const InstancesView = () => {
   const [values, setValues] = useState({});
   const [brandCode, setBrandCode] = useState('');
   const [editId, setEditId] = useState(null);
+  const [filter, setFilter] = useState('');
   const [csvFile, setCsvFile] = useState(null);
   const [csvColumns, setCsvColumns] = useState([]);
   const [csvRows, setCsvRows] = useState([]);
@@ -826,11 +827,29 @@ const InstancesView = () => {
   };
 
   const currentComp = components.find((c) => c.id === component);
+  const filteredInstances = instances.filter((i) => {
+    const term = filter.toLowerCase();
+    return (
+      !term ||
+      i.name.toLowerCase().includes(term) ||
+      i.componentKey.toLowerCase().includes(term) ||
+      (i.relationships?.brandCode || '').toLowerCase().includes(term)
+    );
+  });
 
   return (
     <div>
       <h2 className="text-xl mb-2">Component Instances</h2>
-      {instances.length === 0 ? (
+      <div className="mb-2">
+        <input
+          type="text"
+          placeholder="Filter"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="p-1 border rounded"
+        />
+      </div>
+      {filteredInstances.length === 0 ? (
         <p>No instances found.</p>
       ) : (
         <div className="overflow-x-auto table-container mb-4">
@@ -844,7 +863,7 @@ const InstancesView = () => {
               </tr>
             </thead>
             <tbody>
-              {instances.map((i) => (
+              {filteredInstances.map((i) => (
                 <tr key={i.id}>
                   <td>{i.name}</td>
                   <td>{i.componentKey}</td>
@@ -928,6 +947,60 @@ const InstancesView = () => {
           )}
         </div>
       </form>
+      {editId && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-lg w-full relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <form onSubmit={handleSave} className="space-y-2">
+              <div>
+                <label className="block text-sm mb-1">Name</label>
+                <input className="w-full p-2 border rounded" value={name} onChange={(e) => setName(e.target.value)} required />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Component</label>
+                <select className="w-full p-2 border rounded" value={component} onChange={(e) => setComponent(e.target.value)}>
+                  <option value="">Select...</option>
+                  {components.map((c) => (
+                    <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Brand</label>
+                <select
+                  className="w-full p-2 border rounded"
+                  value={brandCode}
+                  onChange={(e) => setBrandCode(e.target.value)}
+                >
+                  <option value="">None</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.code}>
+                      {b.code} {b.name ? `- ${b.name}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {currentComp && (
+                <div className="space-y-2">
+                  {currentComp.attributes?.map((a) => (
+                    <div key={a.key}>
+                      <label className="block text-sm mb-1">{a.label}</label>
+                      <input
+                        className="w-full p-2 border rounded"
+                        value={values[a.key] || ''}
+                        onChange={(e) => setValues({ ...values, [a.key]: e.target.value })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button type="submit" className="btn-primary">Save Instance</button>
+                <button type="button" onClick={resetForm} className="btn-secondary px-2 py-0.5">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {currentComp && (
         <div className="mt-8 space-y-2 max-w-[50rem]">
           <h3 className="text-lg">Bulk Add via CSV</h3>
