@@ -199,7 +199,7 @@ const AdminAdGroups = () => {
                 <Link
                   key={g.id}
                   to={`/ad-group/${g.id}`}
-                  className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow"
+                  className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow bg-white dark:bg-[var(--dark-sidebar-bg)]"
                 >
                   <div className="flex items-start px-3 py-2">
                     <div className="flex-1 min-w-0">
@@ -210,11 +210,11 @@ const AdminAdGroups = () => {
                   </div>
                   <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2">
                     <div className="grid grid-cols-6 text-center text-sm">
-                      <div className="flex items-center justify-center gap-1 text-gray-600">
+                      <div className="flex items-center justify-center gap-1 text-gray-600 dark:text-gray-400">
                         <FiZap />
                         <span>{g.recipeCount}</span>
                       </div>
-                      <div className="flex items-center justify-center gap-1 text-gray-600">
+                      <div className="flex items-center justify-center gap-1 text-gray-600 dark:text-gray-400">
                         <FiGrid />
                         <span>{g.assetCount}</span>
                       </div>
@@ -281,7 +281,7 @@ const AdminAdGroups = () => {
                     {g.clientNote ? (
                       <button
                         onClick={() => setViewNote(g.clientNote)}
-                        className="flex items-center text-gray-700 underline"
+                        className="flex items-center text-gray-700 dark:text-gray-200 underline"
                         aria-label="View Client Note"
                       >
                         <FiFileText className="mr-1" />
@@ -386,7 +386,7 @@ const AdminAdGroups = () => {
       </div>
 
       <h2 className="text-xl mb-2">Administration Tools</h2>
-      <p className="mb-8 text-sm text-gray-600">Additional admin features will appear here.</p>
+      <p className="mb-8 text-sm text-gray-600 dark:text-gray-400">Additional admin features will appear here.</p>
 
       <CreateAdGroup showSidebar={false} />
       {viewNote && (

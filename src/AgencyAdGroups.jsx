@@ -148,7 +148,7 @@ const AgencyAdGroups = () => {
               <Link
                 key={g.id}
                 to={`/ad-group/${g.id}`}
-                className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow"
+                className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow bg-white dark:bg-[var(--dark-sidebar-bg)]"
               >
                 <div className="flex items-start px-3 py-2">
                   <div className="flex-1 min-w-0">
@@ -163,11 +163,11 @@ const AgencyAdGroups = () => {
                 </div>
                 <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2">
                   <div className="grid grid-cols-6 text-center text-sm">
-                    <div className="flex items-center justify-center gap-1 text-gray-600">
+                    <div className="flex items-center justify-center gap-1 text-gray-600 dark:text-gray-400">
                       <FiZap />
                       <span>{g.recipeCount}</span>
                     </div>
-                    <div className="flex items-center justify-center gap-1 text-gray-600">
+                    <div className="flex items-center justify-center gap-1 text-gray-600 dark:text-gray-400">
                       <FiGrid />
                       <span>{g.assetCount}</span>
                     </div>
@@ -214,7 +214,7 @@ const AgencyAdGroups = () => {
                       <div className="flex items-center justify-center">
                         <Link
                           to={`/ad-group/${g.id}`}
-                          className="flex items-center text-gray-700 underline"
+                          className="flex items-center text-gray-700 dark:text-gray-200 underline"
                           aria-label="View Details"
                         >
                           <FiEye />
@@ -222,7 +222,7 @@ const AgencyAdGroups = () => {
                         </Link>
                         <Link
                           to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
-                          className="flex items-center ml-2 text-gray-700 underline"
+                          className="flex items-center ml-2 text-gray-700 dark:text-gray-200 underline"
                           aria-label="Review"
                         >
                           <FiCheckCircle />
@@ -230,7 +230,7 @@ const AgencyAdGroups = () => {
                         </Link>
                         <button
                           onClick={() => handleShare(g.id, agencyId)}
-                          className="flex items-center ml-2 text-gray-700 underline"
+                          className="flex items-center ml-2 text-gray-700 dark:text-gray-200 underline"
                           aria-label="Share Link"
                         >
                           <FiLink />
@@ -238,7 +238,7 @@ const AgencyAdGroups = () => {
                         </button>
                         <button
                           onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                          className="flex items-center ml-2 underline btn-delete"
+                          className="flex items-center ml-2 underline btn-delete dark:text-gray-200"
                           aria-label="Delete"
                         >
                           <FiTrash />
