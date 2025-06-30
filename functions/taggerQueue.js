@@ -45,11 +45,11 @@ function validatePayload(data) {
   return { driveFolderUrl: driveFolderUrl.trim(), campaign, priority };
 }
 
-export const createTaggerJob = onCallFn({ timeoutSeconds: 30 }, async (data, context) => {
-  const payload = data && typeof data === 'object' && 'data' in data ? data.data : data;
+export const createTaggerJob = onCallFn({ timeoutSeconds: 30 }, async (request) => {
+  const payload = request.data && typeof request.data === 'object' && 'data' in request.data ? request.data.data : request.data;
   console.log('📩 Received createTaggerJob payload:', payload);
 
-  if (!context.auth) {
+  if (!request.auth) {
     console.warn('🛑 Unauthenticated call to createTaggerJob');
     throw new HttpsError('unauthenticated', 'Authentication required');
   }
@@ -60,8 +60,8 @@ export const createTaggerJob = onCallFn({ timeoutSeconds: 30 }, async (data, con
     driveFolderUrl,
     campaign,
     priority: priority === 'low' ? 'low' : 'high',
-    uid: context.auth.uid,
-    createdBy: context.auth.uid,
+    uid: request.auth.uid,
+    createdBy: request.auth.uid,
     status: 'pending',
     processed: 0,
     total: 0,
