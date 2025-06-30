@@ -18,6 +18,7 @@ const AdminBrandDetail = () => {
   const [logos, setLogos] = useState([{ ...emptyLogo }]);
   const [palette, setPalette] = useState(['#000000']);
   const [fonts, setFonts] = useState([{ ...emptyFont }]);
+  const [notes, setNotes] = useState(['']);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -49,6 +50,7 @@ const AdminBrandDetail = () => {
               ? data.fonts.map((f) => ({ type: f.type || 'google', value: f.value || '', file: null }))
               : [{ ...emptyFont }]
           );
+          setNotes(Array.isArray(data.notes) && data.notes.length ? data.notes : ['']);
         }
       } catch (err) {
         console.error('Failed to load brand', err);
@@ -114,6 +116,7 @@ const AdminBrandDetail = () => {
         logos: logoUrls,
         palette,
         fonts: fontData,
+        notes,
       });
       setGuidelines({ url: guidelinesUrl, file: null });
       setLogos(logoUrls.map((u) => ({ url: u, file: null })));
@@ -297,18 +300,42 @@ const AdminBrandDetail = () => {
               )}
             </div>
           ))}
-          <button
-            type="button"
-            onClick={() => setFonts((p) => [...p, { ...emptyFont }])}
-            className="underline text-sm"
-          >
-            Add Typeface
-          </button>
-        </div>
-        {message && <p className="text-sm text-center">{message}</p>}
-        <button type="submit" className="w-full btn-primary" disabled={loading}>
-          {loading ? 'Saving...' : 'Save Brand'}
+        <button
+          type="button"
+          onClick={() => setFonts((p) => [...p, { ...emptyFont }])}
+          className="underline text-sm"
+        >
+          Add Typeface
         </button>
+      </div>
+      <div>
+        <label className="block mb-1 text-sm font-medium">Brand Notes</label>
+        {notes.map((note, idx) => (
+          <div key={idx} className="flex items-start mb-2 gap-2">
+            <textarea
+              className="w-full p-2 border rounded"
+              value={note}
+              onChange={(e) =>
+                setNotes((p) => p.map((n, i) => (i === idx ? e.target.value : n)))
+              }
+            />
+            <button
+              type="button"
+              onClick={() => setNotes((p) => p.filter((_, i) => i !== idx))}
+              className="underline text-sm text-red-600"
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+        <button type="button" onClick={() => setNotes((p) => [...p, ''])} className="underline text-sm">
+          Add Note
+        </button>
+      </div>
+      {message && <p className="text-sm text-center">{message}</p>}
+      <button type="submit" className="w-full btn-primary" disabled={loading}>
+        {loading ? 'Saving...' : 'Save Brand'}
+      </button>
       </form>
     </div>
   );
