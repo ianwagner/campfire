@@ -1,7 +1,7 @@
 // Tagger job creation and processing workers
 import { onCall as onCallFn, HttpsError } from 'firebase-functions/v2/https';
-// Use v1 Firestore triggers to avoid protobuf decoding issues
-import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v1/firestore';
+// Use v2 Firestore triggers but request JSON payloads to avoid protobuf decoding issues
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { google } from 'googleapis';
 import vision from '@google-cloud/vision';
@@ -10,6 +10,7 @@ import path from 'path';
 import os from 'os';
 import { promises as fs } from 'fs';
 import admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
 
 async function listImages(folderId, drive) {
   const files = [];
@@ -147,8 +148,7 @@ export async function processJobBatch(jobSnap) {
 }
 
 
-
-export const onTaggerJobUpdated = onDocumentUpdated('taggerJobs/{id}', async (event) => {
+export const onTaggerJobUpdated = onDocumentUpdated({ document: 'taggerJobs/{id}', inputDataFormat: 'JSON' }, async (event) => {
   const before = event.data.before.data();
   const after = event.data.after.data();
   if (!after) return null;
@@ -170,3 +170,14 @@ export const runLowPriorityJobs = onSchedule('every 5 minutes', async () => {
     await processJobBatch(doc);
   }
 });
+
+export const processTaggerJob = functions.firestore
+  .document('taggerJobs/{id}')
+  .onCreate(async (snap, context) => {
+    try {
+      await processJobBatch(snap);
+    } catch (err) {
+      console.error('processTaggerJob failed', err);
+    }
+    return null;
+  });

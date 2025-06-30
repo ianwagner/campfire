@@ -107,7 +107,7 @@ export const signOutUser = onCall(async (request) => {
   return { success: true };
 });
 
-export const sendNotification = onDocumentCreated('notifications/{id}', async (event) => {
+export const sendNotification = onDocumentCreated({ document: 'notifications/{id}', inputDataFormat: 'JSON' }, async (event) => {
   console.log('⚡ sendNotification triggered');
 
   const snap = event.data;
@@ -195,7 +195,7 @@ async function runRules(trigger, data) {
   }));
 }
 
-export const notifyAdGroupCreated = onDocumentCreated('adGroups/{id}', async (event) => {
+export const notifyAdGroupCreated = onDocumentCreated({ document: 'adGroups/{id}', inputDataFormat: 'JSON' }, async (event) => {
   const data = event.data.data() || {};
   await runRules('adGroupCreated', {
     brandCode: Array.isArray(data.brandCodes) ? data.brandCodes[0] : data.brandCode,
@@ -207,7 +207,7 @@ export const notifyAdGroupCreated = onDocumentCreated('adGroups/{id}', async (ev
   return null;
 });
 
-export const notifyAdGroupStatusUpdated = onDocumentUpdated('adGroups/{id}', async (event) => {
+export const notifyAdGroupStatusUpdated = onDocumentUpdated({ document: 'adGroups/{id}', inputDataFormat: 'JSON' }, async (event) => {
   const before = event.data.before.data() || {};
   const after = event.data.after.data() || {};
   if (before.status === after.status) return null;
@@ -227,7 +227,7 @@ export const notifyAdGroupStatusUpdated = onDocumentUpdated('adGroups/{id}', asy
   return null;
 });
 
-export const notifyAccountCreated = onDocumentCreated('users/{id}', async (event) => {
+export const notifyAccountCreated = onDocumentCreated({ document: 'users/{id}', inputDataFormat: 'JSON' }, async (event) => {
   const data = event.data.data() || {};
   await runRules('accountCreated', {
     displayName: data.displayName,
