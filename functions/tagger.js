@@ -15,7 +15,7 @@ async function listImages(folderId, drive) {
   return res.data.files || [];
 }
 
-export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', timeoutSeconds: 300 }, async (data, context) => {
+export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '750MiB', timeoutSeconds: 300 }, async (data, context) => {
   let jobRef;
   try {
     console.log('Raw data received in tagger');
@@ -50,7 +50,7 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
       createdAt: Date.now(),
     });
 
-    const BATCH_SIZE = 1;
+    const BATCH_SIZE = 5;
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
       console.log(`Processing batch ${i / BATCH_SIZE + 1}: ${batch.length} files`);
