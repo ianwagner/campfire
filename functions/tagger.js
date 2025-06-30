@@ -41,7 +41,7 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const files = await listImages(folderId, drive);
-    const results = [];
+    let processedCount = 0;
 
     jobRef = await admin.firestore().collection('taggerJobs').add({
       driveFolderUrl,
@@ -52,76 +52,73 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
       createdAt: Date.now(),
     });
 
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < files.length; i += BATCH_SIZE) {
-      const batch = files.slice(i, i + BATCH_SIZE);
-      console.log(`Processing batch ${i / BATCH_SIZE + 1}: ${batch.length} files`);
-
-      for (const file of batch) {
-        try {
-          const dl = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'arraybuffer' });
-          let buffer = Buffer.from(dl.data);
-          if (buffer.length > 2 * 1024 * 1024) {
-            try {
-              buffer = await sharp(buffer)
-                .resize({ width: 1024, withoutEnlargement: true })
-                .jpeg({ quality: 70 })
-                .toBuffer();
-            } catch (err) {
-              console.error('Image compression failed, using original buffer', err?.message || err?.toString());
-            }
-          }
-          const [visionRes] = await visionClient.labelDetection({ image: { content: buffer } });
-          buffer = null;
-          const labels = (visionRes.labelAnnotations || []).map(l => l.description).join(', ');
-          let description = labels;
-          let type = '';
-          let product = '';
+    for (const file of files) {
+      try {
+        const dl = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'arraybuffer' });
+        let buffer = Buffer.from(dl.data);
+        if (buffer.length > 2 * 1024 * 1024) {
           try {
-            const prompt = `These labels describe an asset: ${labels}. Provide a short description, asset type, and product in JSON {description, type, product}.`;
-            const gpt = await openai.chat.completions.create({
-              model: 'gpt-3.5-turbo',
-              messages: [{ role: 'user', content: prompt }],
-              temperature: 0.2,
-            });
-            const text = gpt.choices?.[0]?.message?.content || '';
-            const jsonMatch = text.match(/\{[\s\S]*?\}/); // match first JSON block
-            if (!jsonMatch) throw new Error("OpenAI did not return valid JSON");
-            const parsed = JSON.parse(jsonMatch[0]);
-            description = parsed.description || description;
-            type = parsed.type || '';
-            product = parsed.product || '';
+            buffer = await sharp(buffer)
+              .resize({ width: 1024, withoutEnlargement: true })
+              .jpeg({ quality: 70 })
+              .toBuffer();
           } catch (err) {
-            console.error('OpenAI failed:', err?.message || err?.toString());
+            console.error('Image compression failed, using original buffer', err?.message || err?.toString());
           }
-          results.push({
-            name: file.name,
-            url: file.webContentLink,
-            type,
-            description,
-            product,
-            campaign,
-          });
-        } catch (err) {
-          console.error(`Failed to process file ${file.name}:`, err?.message || err?.toString());
         }
+        const [visionRes] = await visionClient.labelDetection({ image: { content: buffer } });
+        buffer = null;
+        const labels = (visionRes.labelAnnotations || []).map(l => l.description).join(', ');
+        let description = labels;
+        let type = '';
+        let product = '';
+        try {
+          const prompt = `These labels describe an asset: ${labels}. Provide a short description, asset type, and product in JSON {description, type, product}.`;
+          const gpt = await openai.chat.completions.create({
+            model: 'gpt-3.5-turbo',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.2,
+          });
+          const text = gpt.choices?.[0]?.message?.content || '';
+          const jsonMatch = text.match(/\{[\s\S]*?\}/); // match first JSON block
+          if (!jsonMatch) throw new Error("OpenAI did not return valid JSON");
+          const parsed = JSON.parse(jsonMatch[0]);
+          description = parsed.description || description;
+          type = parsed.type || '';
+          product = parsed.product || '';
+        } catch (err) {
+          console.error('OpenAI failed:', err?.message || err?.toString());
+        }
+        const result = {
+          name: file.name,
+          url: file.webContentLink,
+          type,
+          description,
+          product,
+          campaign,
+        };
+        await jobRef.set({
+          processed: admin.firestore.FieldValue.increment(1),
+          results: admin.firestore.FieldValue.arrayUnion(result),
+        }, { merge: true });
+        processedCount += 1;
+      } catch (err) {
+        console.error(`Failed to process file ${file.name}:`, err?.message || err?.toString());
       }
     }
 
     await jobRef.set({
       status: 'complete',
-      processed: results.length,
-      results,
+      processed: processedCount,
       completedAt: Date.now(),
     }, { merge: true });
 
-    console.log('✅ Tagger function complete. Returning results.');
+    console.log('✅ Tagger function complete.');
 
     return {
       jobId: jobRef.id,
       total: files.length,
-      processed: results.length,
-      results,
+      processed: processedCount,
     };
   } catch (err) {
     console.error('Tagger failed:', err?.message || err?.toString());
