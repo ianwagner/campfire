@@ -1580,7 +1580,7 @@ const AdGroupDetail = () => {
             Ads
           </button>
         </div>
-        {(isAdmin || userRole === "agency") && (
+        {(isAdmin || userRole === "agency" || isDesigner) && (
           <>
             {group.status === "archived" ? (
               <div className="flex flex-wrap gap-2">
