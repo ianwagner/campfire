@@ -98,6 +98,26 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
     }
   };
 
+  const handleAddRows = async () => {
+    if (!driveFolderUrl || driveFolderUrl.trim() === '') {
+      setError('Drive folder URL is required');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const payload = { driveFolderUrl: driveFolderUrl.trim(), campaign };
+      const callable = httpsCallable(functions, 'listDriveFiles', { timeout: 60000 });
+      const res = await callable({ data: payload, ...payload });
+      const rows = Array.isArray(res.data?.results) ? res.data.results : [];
+      setResults((p) => [...p, ...rows]);
+    } catch (err) {
+      console.error('Add rows from drive failed', err);
+      setError('Failed to add rows');
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
       <div className="bg-white p-4 rounded shadow max-w-lg w-full relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
@@ -129,6 +149,9 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
               <button type="button" onClick={onClose} className="btn-secondary px-3 py-1">
                 Cancel
               </button>
+              <button type="button" onClick={handleAddRows} className="btn-primary px-3 py-1" disabled={loading}>
+                Add Rows from Drive
+              </button>
               <button type="submit" className="btn-primary px-3 py-1" disabled={loading}>
                 Start Tagging
               </button>
@@ -136,6 +159,32 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
           </form>
         ) : (
           <div className="space-y-3">
+            <form onSubmit={(e) => { e.preventDefault(); handleAddRows(); }} className="space-y-2">
+              <div>
+                <label className="block mb-1 text-sm">Google Drive Folder Link</label>
+                <input
+                  type="text"
+                  value={driveFolderUrl}
+                  onChange={(e) => setDriveFolderUrl(e.target.value)}
+                  className="w-full p-1 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm">Campaign Name</label>
+                <input
+                  type="text"
+                  value={campaign}
+                  onChange={(e) => setCampaign(e.target.value)}
+                  className="w-full p-1 border rounded"
+                />
+              </div>
+              <div className="text-right">
+                <button type="submit" className="btn-primary px-3 py-1" disabled={loading}>
+                  Add Rows from Drive
+                </button>
+              </div>
+            </form>
             <div className="overflow-x-auto max-h-96">
               <table className="ad-table min-w-max text-sm">
                 <thead>
