@@ -10,7 +10,9 @@ import { tagger } from './tagger.js';
 import { generateThumbnailsForAssets } from './thumbnails.js';
 
 if (!admin.apps.length) {
-  admin.initializeApp();
+  admin.initializeApp({
+    storageBucket: process.env.STORAGE_BUCKET,
+  });
 }
 
 const db = admin.firestore();

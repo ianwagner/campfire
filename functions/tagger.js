@@ -7,10 +7,6 @@ import os from 'os';
 import { promises as fs } from 'fs';
 import admin from 'firebase-admin';
 
-if (!admin.apps.length) {
-  admin.initializeApp();
-}
-
 async function listImages(folderId, drive) {
   const res = await drive.files.list({
     q: `'${folderId}' in parents and mimeType contains 'image/' and trashed=false`,
