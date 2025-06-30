@@ -75,6 +75,7 @@ const RecipePreview = ({
   const [assetMap, setAssetMap] = useState({});
   const [assetUsage, setAssetUsage] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
+  const [reviewRows, setReviewRows] = useState([]);
   const filteredAssetRows = useMemo(() => {
     const term = assetFilter.toLowerCase();
     if (!term) return assetRows;
@@ -85,6 +86,23 @@ const RecipePreview = ({
         (r.campaign || '').toLowerCase().includes(term)
     );
   }, [assetRows, assetFilter]);
+
+  useEffect(() => {
+    try {
+      const key = brandCode ? `reviews_${brandCode}` : 'reviews';
+      const raw = localStorage.getItem(key);
+      if (!raw) {
+        setReviewRows([]);
+        return;
+      }
+      const rows = JSON.parse(raw);
+      if (Array.isArray(rows)) setReviewRows(rows);
+      else setReviewRows([]);
+    } catch (err) {
+      console.error('Failed to load reviews', err);
+      setReviewRows([]);
+    }
+  }, [brandCode]);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const isAdminOrAgency = userRole === 'admin' || userRole === 'agency';
 
@@ -325,6 +343,15 @@ const RecipePreview = ({
       const regex = new RegExp(`{{${f.key}}}`, 'g');
       prompt = prompt.replace(regex, val);
     });
+
+    const review =
+      reviewRows.length > 0
+        ? reviewRows[Math.floor(Math.random() * reviewRows.length)]
+        : { name: '', body: '' };
+    componentsData['review.name'] = review.name || '';
+    componentsData['review.body'] = review.body || '';
+    prompt = prompt.replace(/{{review\.name}}/g, review.name || '');
+    prompt = prompt.replace(/{{review\.body}}/g, review.body || '');
 
     const sectionCounts = {};
     Object.entries(componentsData).forEach(([k, v]) => {
@@ -747,6 +774,8 @@ const RecipePreview = ({
         cols.push({ key: f.key, label: f.label });
       });
       assetCols.forEach((c) => cols.push(c));
+      cols.push({ key: 'review.name', label: 'Review - Name' });
+      cols.push({ key: 'review.body', label: 'Review - Body' });
     } else if (initialResults && initialResults.length > 0) {
       const keys = Array.from(
         new Set(initialResults.flatMap((r) => Object.keys(r.components || {})))

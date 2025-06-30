@@ -5,6 +5,7 @@ import { auth, db } from './firebase/config';
 import useUserRole from './useUserRole';
 import BrandSetup from './BrandSetup';
 import AssetLibrary from './AssetLibrary.jsx';
+import ReviewLibrary from './ReviewLibrary.jsx';
 import TaggerModal from './TaggerModal.jsx';
 
 const BrandProfile = ({ brandId: propId = null }) => {
@@ -48,6 +49,12 @@ const BrandProfile = ({ brandId: propId = null }) => {
         >
           Asset Library
         </button>
+        <button
+          onClick={() => setTab('reviews')}
+          className={`btn-secondary bg-transparent px-3 py-1 ${tab === 'reviews' ? 'bg-accent-10 text-accent' : ''}`}
+        >
+          Customer Reviews
+        </button>
       </div>
       {tab === 'setup' && <BrandSetup brandId={brandId} />}
       {tab === 'library' && (
@@ -64,6 +71,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
           <AssetLibrary brandCode={brandCode} />
         </>
       )}
+      {tab === 'reviews' && <ReviewLibrary brandCode={brandCode} />}
       {taggerOpen && (
         <TaggerModal brandCode={brandCode} onClose={() => setTaggerOpen(false)} />
       )}
