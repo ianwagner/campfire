@@ -1,6 +1,7 @@
 // Tagger job creation and processing workers
 import { onCall as onCallFn, HttpsError } from 'firebase-functions/v2/https';
-import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+// Use v1 Firestore triggers to avoid protobuf decoding issues
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v1/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { google } from 'googleapis';
 import vision from '@google-cloud/vision';
