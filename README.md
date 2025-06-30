@@ -13,7 +13,7 @@ Google Sheet into Firestore.
    ```
 2. Provide a Firebase service account key and set the environment variable
    `GOOGLE_APPLICATION_CREDENTIALS` to its path. The storage bucket can be
-   overridden with `FIREBASE_STORAGE_BUCKET`.
+   overridden with `VITE_FIREBASE_STORAGE_BUCKET`.
 3. Run the script:
    ```bash
    npm run sync
@@ -56,9 +56,10 @@ Because the messaging demo scripts in `public/` are served without bundling,
 valid API key.
 
 The `sync.js` utility also reads `GOOGLE_APPLICATION_CREDENTIALS` and
-`FIREBASE_STORAGE_BUCKET` from the environment. If you use a `.env` file, include
-those variables as well so `npm run sync` can locate your service account key and
-bucket.
+`VITE_FIREBASE_STORAGE_BUCKET` from the environment. Cloud Functions rely on the same
+`VITE_FIREBASE_STORAGE_BUCKET` variable when initializing the Admin SDK. If you use a
+`.env` file, include those variables so both the sync script and functions can
+locate your service account key and bucket.
 
 ## Deploying to Vercel
 

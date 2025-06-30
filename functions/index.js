@@ -16,7 +16,7 @@ import { generateThumbnailsForAssets } from './thumbnails.js';
 
 if (!admin.apps.length) {
   admin.initializeApp({
-    storageBucket: process.env.STORAGE_BUCKET,
+    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
   });
 }
 
