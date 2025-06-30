@@ -556,12 +556,6 @@
   transform: scale(0.95);
 }
 
-/* preview image inside asset cards */
-.asset-preview {
-  min-width: 100px;
-  height: auto;
-}
-
 /* global loading overlay */
 .loading-overlay {
   position: fixed;
