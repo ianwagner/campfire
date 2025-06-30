@@ -1011,16 +1011,45 @@ const InstancesView = () => {
               </div>
               {currentComp && (
                 <div className="space-y-2">
-                  {currentComp.attributes?.map((a) => (
-                    <div key={a.key}>
-                      <label className="block text-sm mb-1">{a.label}</label>
-                      <input
-                        className="w-full p-2 border rounded"
-                        value={values[a.key] || ''}
-                        onChange={(e) => setValues({ ...values, [a.key]: e.target.value })}
-                      />
-                    </div>
-                  ))}
+                  {currentComp.attributes?.map((a) => {
+                    const val = values[a.key];
+                    const handleChange = (v) => setValues({ ...values, [a.key]: v });
+                    const toArray = (v) => {
+                      if (Array.isArray(v)) return v;
+                      if (typeof v === 'string') {
+                        return v
+                          .split(/[;,\n]+/)
+                          .map((p) => p.trim())
+                          .filter(Boolean);
+                      }
+                      return [];
+                    };
+                    return (
+                      <div key={a.key}>
+                        <label className="block text-sm mb-1">{a.label}</label>
+                        {a.inputType === 'textarea' ? (
+                          <textarea
+                            className="w-full p-2 border rounded"
+                            value={val || ''}
+                            onChange={(e) => handleChange(e.target.value)}
+                          />
+                        ) : a.inputType === 'list' ? (
+                          <TagInput
+                            id={`modal-attr-${a.key}`}
+                            value={toArray(val)}
+                            onChange={handleChange}
+                          />
+                        ) : (
+                          <input
+                            className="w-full p-2 border rounded"
+                            type={a.inputType}
+                            value={val || ''}
+                            onChange={(e) => handleChange(e.target.value)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               <div className="flex gap-2">
