@@ -1921,7 +1921,7 @@ const AdGroupDetail = () => {
                           <img
                             src={a.firebaseUrl}
                             alt={a.filename}
-                            className="object-contain max-w-[10rem] max-h-32"
+                            className="object-contain asset-preview"
                           />
                         );
                         return (
@@ -1939,7 +1939,7 @@ const AdGroupDetail = () => {
                           <OptimizedImage
                             pngUrl={a.firebaseUrl}
                             alt={a.filename}
-                            className="object-contain max-w-[10rem] max-h-32"
+                            className="object-contain asset-preview"
                           />
                         );
                         return (
