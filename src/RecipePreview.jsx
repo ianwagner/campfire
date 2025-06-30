@@ -353,6 +353,13 @@ const RecipePreview = ({
           } else {
             val = mergedForm[`${c.key}.${a.key}`] || '';
           }
+          if (!baseValues) {
+            if (a.inputType === 'list') {
+              val = selectRandomOption(val);
+            } else if (Array.isArray(val)) {
+              val = selectRandomOption(val);
+            }
+          }
           componentsData[`${c.key}.${a.key}`] = val;
           const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
           prompt = prompt.replace(regex, val);
