@@ -123,7 +123,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
       <div className="bg-white p-4 rounded shadow max-w-lg w-full relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
         {loading && <LoadingOverlay text="Tagging assets..." className="!absolute" />}
         <h3 className="mb-2 font-semibold">Tag Assets from Drive</h3>
-        {(!jobId || loading) ? (
+        {((!jobId && results.length === 0) || loading) ? (
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label className="block mb-1 text-sm">Google Drive Folder Link</label>
