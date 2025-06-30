@@ -1,5 +1,5 @@
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import admin from 'firebase-admin';
 import sharp from 'sharp';
@@ -93,13 +93,14 @@ export const processUpload = onObjectFinalized(async (event) => {
   return null;
 });
 
-export const signOutUser = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !context.auth.token.admin) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+export const signOutUser = onCall(async (request) => {
+  const { auth, data } = request;
+  if (!auth || !auth.token?.admin) {
+    throw new HttpsError('permission-denied', 'Admin only');
   }
   const uid = data.uid;
   if (!uid) {
-    throw new functions.https.HttpsError('invalid-argument', 'Missing uid');
+    throw new HttpsError('invalid-argument', 'Missing uid');
   }
   await admin.auth().revokeRefreshTokens(uid);
   return { success: true };
