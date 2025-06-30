@@ -145,10 +145,23 @@ async function processJobBatch(jobSnap) {
   }, { merge: true });
 }
 
-export const onTaggerJobCreated = onDocumentCreated('taggerJobs/{id}', async (event) => {
-  const data = event.data.data();
-  if (data.priority === 'high') {
-    await processJobBatch(event.data);
+export const processTaggerJob = onDocumentCreated({ document: 'taggerJobs/{id}', region: 'us-central1' }, async (event) => {
+  const snap = event.data;
+  if (!snap) {
+    console.error('processTaggerJob: missing event data');
+    return null;
+  }
+  const data = snap.data();
+  if (!data) {
+    console.error('processTaggerJob: snapshot has no data');
+    return null;
+  }
+  try {
+    if (data.priority === 'high') {
+      await processJobBatch(snap);
+    }
+  } catch (err) {
+    console.error('processTaggerJob failed', err);
   }
   return null;
 });

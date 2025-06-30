@@ -8,7 +8,7 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import {
   createTaggerJob,
-  onTaggerJobCreated,
+  processTaggerJob,
   onTaggerJobUpdated,
   runLowPriorityJobs,
 } from './taggerQueue.js';
@@ -240,7 +240,7 @@ export const notifyAccountCreated = onDocumentCreated('users/{id}', async (event
 
 export {
   createTaggerJob,
-  onTaggerJobCreated,
+  processTaggerJob,
   onTaggerJobUpdated,
   runLowPriorityJobs,
   generateThumbnailsForAssets,
