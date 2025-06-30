@@ -1,7 +1,7 @@
 // Tagger job creation and processing workers
 import { onCall as onCallFn, HttpsError } from 'firebase-functions/v2/https';
-// Use v1 Firestore triggers to avoid protobuf decoding issues
-import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v1/firestore';
+// Use v2 Firestore triggers but request JSON payloads to avoid protobuf decoding issues
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { google } from 'googleapis';
 import vision from '@google-cloud/vision';
@@ -146,7 +146,7 @@ async function processJobBatch(jobSnap) {
   }, { merge: true });
 }
 
-export const processTaggerJob = onDocumentCreated({ document: 'taggerJobs/{id}', region: 'us-central1' }, async (event) => {
+export const processTaggerJob = onDocumentCreated({ document: 'taggerJobs/{id}', region: 'us-central1', inputDataFormat: 'JSON' }, async (event) => {
   const snap = event.data;
   if (!snap) {
     console.error('processTaggerJob: missing event data');
@@ -167,7 +167,7 @@ export const processTaggerJob = onDocumentCreated({ document: 'taggerJobs/{id}',
   return null;
 });
 
-export const onTaggerJobUpdated = onDocumentUpdated('taggerJobs/{id}', async (event) => {
+export const onTaggerJobUpdated = onDocumentUpdated({ document: 'taggerJobs/{id}', inputDataFormat: 'JSON' }, async (event) => {
   const before = event.data.before.data();
   const after = event.data.after.data();
   if (!after) return null;
