@@ -2,9 +2,7 @@ import { onCall as onCallFn, HttpsError } from 'firebase-functions/v2/https';
 import { google } from 'googleapis';
 import vision from '@google-cloud/vision';
 import OpenAI from 'openai';
-import path from 'path';
-import os from 'os';
-import { promises as fs } from 'fs';
+import sharp from 'sharp';
 import admin from 'firebase-admin';
 
 if (!admin.apps.length) {
@@ -61,11 +59,20 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
 
       for (const file of batch) {
         try {
-          const dest = path.join(os.tmpdir(), file.id);
           const dl = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'arraybuffer' });
-          await fs.writeFile(dest, Buffer.from(dl.data));
-          const [visionRes] = await visionClient.labelDetection(dest);
-          await fs.unlink(dest).catch(() => {});
+          let buffer = Buffer.from(dl.data);
+          if (buffer.length > 2 * 1024 * 1024) {
+            try {
+              buffer = await sharp(buffer)
+                .resize({ width: 1024, withoutEnlargement: true })
+                .jpeg({ quality: 70 })
+                .toBuffer();
+            } catch (err) {
+              console.error('Image compression failed, using original buffer', err?.message || err?.toString());
+            }
+          }
+          const [visionRes] = await visionClient.labelDetection({ image: { content: buffer } });
+          buffer = null;
           const labels = (visionRes.labelAnnotations || []).map(l => l.description).join(', ');
           let description = labels;
           let type = '';
