@@ -3,6 +3,7 @@ import { FiTrash } from 'react-icons/fi';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase/config';
 import { splitCsvLine } from './utils/csv.js';
+import AddFromDriveModal from './AddFromDriveModal.jsx';
 
 const emptyAsset = {
   id: '',
@@ -24,6 +25,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [csvMap, setCsvMap] = useState({});
   const [bulkValues, setBulkValues] = useState({ type: '', product: '', campaign: '' });
   const [loading, setLoading] = useState(false);
+  const [driveModal, setDriveModal] = useState(false);
 
   const lastIdx = useRef(null);
   const dragValue = useRef(null);
@@ -126,6 +128,47 @@ const AssetLibrary = ({ brandCode = '' }) => {
     setLoading(false);
   };
 
+  const tagRow = async (row) => {
+    const callable = httpsCallable(functions, 'generateTagsForAssets', { timeout: 300000 });
+    try {
+      const res = await callable({ assets: [{ url: row.url, name: row.name }] });
+      const result = res.data?.results?.[0];
+      if (result) {
+        setAssets((prev) =>
+          prev.map((a) =>
+            a.id === row.id
+              ? { ...a, type: result.type || a.type, description: result.description || a.description, product: result.product || a.product, campaign: result.campaign || a.campaign }
+              : a
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Failed to tag asset', err);
+    }
+  };
+
+  const tagSelected = async () => {
+    const rows = assets.filter((a) => selected[a.id] && a.url);
+    if (rows.length === 0) return;
+    setLoading(true);
+    for (const row of rows) {
+      // eslint-disable-next-line no-await-in-loop
+      await tagRow(row);
+    }
+    setLoading(false);
+  };
+
+  const tagMissing = async () => {
+    const rows = assets.filter((a) => (!a.type || !a.description) && a.url);
+    if (rows.length === 0) return;
+    setLoading(true);
+    for (const row of rows) {
+      // eslint-disable-next-line no-await-in-loop
+      await tagRow(row);
+    }
+    setLoading(false);
+  };
+
   const saveAssets = () => {
     try {
       const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
@@ -204,6 +247,20 @@ const AssetLibrary = ({ brandCode = '' }) => {
     setCsvMap({});
   };
 
+  const addDriveRows = (rows) => {
+    const newAssets = rows.map((row) => ({
+      id: Math.random().toString(36).slice(2),
+      name: row.name || '',
+      url: row.url || '',
+      campaign: row.campaign || '',
+      thumbnailUrl: '',
+      type: '',
+      description: '',
+      product: '',
+    }));
+    setAssets((p) => [...p, ...newAssets]);
+  };
+
   const filtered = assets.filter((a) => {
     const term = filter.toLowerCase();
     return (
@@ -219,6 +276,9 @@ const AssetLibrary = ({ brandCode = '' }) => {
       <div className="mb-4 flex flex-col sm:flex-row gap-2">
         <button type="button" className="btn-secondary" onClick={addRow}>
           Add Row
+        </button>
+        <button type="button" className="btn-secondary" onClick={() => setDriveModal(true)}>
+          Add From Drive
         </button>
         <input type="file" accept=".csv" onChange={handleCsv} />
         <input
@@ -404,7 +464,26 @@ const AssetLibrary = ({ brandCode = '' }) => {
         >
           {loading ? 'Processing...' : 'Create Missing Thumbnails'}
         </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={loading || !Object.keys(selected).some((k) => selected[k])}
+          onClick={tagSelected}
+        >
+          {loading ? 'Processing...' : 'Tag Selected'}
+        </button>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={loading}
+          onClick={tagMissing}
+        >
+          {loading ? 'Processing...' : 'Tag Missing'}
+        </button>
       </div>
+      {driveModal && (
+        <AddFromDriveModal onClose={() => setDriveModal(false)} addRows={addDriveRows} />
+      )}
     </div>
   );
 };
