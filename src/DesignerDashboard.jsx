@@ -149,7 +149,7 @@ const DesignerDashboard = () => {
                 edit:
                   'bg-[var(--edit-color-10)] border-[var(--edit-color)] text-edit',
                 accent: 'bg-accent-10 border-accent text-accent',
-                gray: 'bg-gray-300 border-gray-400 text-gray-600 dark:bg-gray-700 dark:border-gray-500 dark:text-gray-200',
+                gray: 'bg-gray-300 border-gray-400 text-gray-600',
                 reject:
                   'bg-[var(--reject-color-10)] border-[var(--reject-color)] text-reject',
               };

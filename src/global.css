@@ -205,7 +205,6 @@
     border: 1px solid var(--table-border-color);
     padding: var(--space-xs) var(--space-sm);
     text-align: left;
-    color: var(--table-text-color);
   }
   .ad-table tbody tr:nth-child(odd) {
     background-color: #ffffff;
