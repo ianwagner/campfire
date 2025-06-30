@@ -7,6 +7,7 @@ import LoadingOverlay from './LoadingOverlay';
 const TaggerModal = ({ onClose, brandCode = '' }) => {
   const [driveFolderUrl, setDriveFolderUrl] = useState('');
   const [campaign, setCampaign] = useState('');
+  const [priority, setPriority] = useState('high');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
   const [error, setError] = useState('');
@@ -72,8 +73,9 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
       const payload = {
         driveFolderUrl: driveFolderUrl.trim(),
         campaign,
+        priority,
       };
-      const callable = httpsCallable(functions, 'tagger', { timeout: 300000 });
+      const callable = httpsCallable(functions, 'createTaggerJob', { timeout: 300000 });
       const res = await callable({ data: payload, ...payload });
       if (res.data?.jobId) {
         setJobId(res.data.jobId);
@@ -123,6 +125,17 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
                 onChange={(e) => setCampaign(e.target.value)}
                 className="w-full p-1 border rounded"
               />
+            </div>
+            <div>
+              <label className="block mb-1 text-sm">Priority</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="w-full p-1 border rounded"
+              >
+                <option value="high">High</option>
+                <option value="low">Low</option>
+              </select>
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="text-right space-x-2">

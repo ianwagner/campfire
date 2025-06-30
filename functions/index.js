@@ -6,7 +6,12 @@ import sharp from 'sharp';
 import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
-import { tagger } from './tagger.js';
+import {
+  createTaggerJob,
+  onTaggerJobCreated,
+  onTaggerJobUpdated,
+  runLowPriorityJobs,
+} from './taggerQueue.js';
 import { generateThumbnailsForAssets } from './thumbnails.js';
 
 if (!admin.apps.length) {
@@ -232,4 +237,10 @@ export const notifyAccountCreated = onDocumentCreated('users/{id}', async (event
   return null;
 });
 
-export { tagger, generateThumbnailsForAssets };
+export {
+  createTaggerJob,
+  onTaggerJobCreated,
+  onTaggerJobUpdated,
+  runLowPriorityJobs,
+  generateThumbnailsForAssets,
+};
