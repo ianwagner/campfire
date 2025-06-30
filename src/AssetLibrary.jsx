@@ -3,6 +3,7 @@ import { FiTrash } from 'react-icons/fi';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase/config';
 import { splitCsvLine } from './utils/csv.js';
+import AddFromDriveModal from './AddFromDriveModal.jsx';
 
 const emptyAsset = {
   id: '',
@@ -24,6 +25,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [csvMap, setCsvMap] = useState({});
   const [bulkValues, setBulkValues] = useState({ type: '', product: '', campaign: '' });
   const [loading, setLoading] = useState(false);
+  const [driveModal, setDriveModal] = useState(false);
 
   const lastIdx = useRef(null);
   const dragValue = useRef(null);
@@ -245,6 +247,20 @@ const AssetLibrary = ({ brandCode = '' }) => {
     setCsvMap({});
   };
 
+  const addDriveRows = (rows) => {
+    const newAssets = rows.map((row) => ({
+      id: Math.random().toString(36).slice(2),
+      name: row.name || '',
+      url: row.url || '',
+      campaign: row.campaign || '',
+      thumbnailUrl: '',
+      type: '',
+      description: '',
+      product: '',
+    }));
+    setAssets((p) => [...p, ...newAssets]);
+  };
+
   const filtered = assets.filter((a) => {
     const term = filter.toLowerCase();
     return (
@@ -260,6 +276,9 @@ const AssetLibrary = ({ brandCode = '' }) => {
       <div className="mb-4 flex flex-col sm:flex-row gap-2">
         <button type="button" className="btn-secondary" onClick={addRow}>
           Add Row
+        </button>
+        <button type="button" className="btn-secondary" onClick={() => setDriveModal(true)}>
+          Add From Drive
         </button>
         <input type="file" accept=".csv" onChange={handleCsv} />
         <input
@@ -462,6 +481,9 @@ const AssetLibrary = ({ brandCode = '' }) => {
           {loading ? 'Processing...' : 'Tag Missing'}
         </button>
       </div>
+      {driveModal && (
+        <AddFromDriveModal onClose={() => setDriveModal(false)} addRows={addDriveRows} />
+      )}
     </div>
   );
 };
