@@ -54,7 +54,7 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
       createdAt: Date.now(),
     });
 
-    const BATCH_SIZE = 5;
+    const BATCH_SIZE = 1;
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
       console.log(`Processing batch ${i / BATCH_SIZE + 1}: ${batch.length} files`);
