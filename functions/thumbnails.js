@@ -7,10 +7,11 @@ import path from 'path';
 import { promises as fs } from 'fs';
 
 if (!admin.apps.length) {
-  admin.initializeApp();
+  admin.initializeApp({
+    storageBucket: 'tak-campfire-main'
+  });
+  
 }
-
-const DEFAULT_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'tak-campfire-main';
 
 function extractFileId(url) {
   if (!url) return null;
@@ -27,10 +28,10 @@ export const generateThumbnailsForAssets = onCallFn({ timeoutSeconds: 60, memory
 
   const auth = new google.auth.GoogleAuth({ scopes: ['https://www.googleapis.com/auth/drive.readonly'] });
   const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
-  console.log(`📦 Accessing storage bucket: ${DEFAULT_BUCKET}`);
+  console.log('📦 Accessing default storage bucket');
   let bucket;
   try {
-    bucket = admin.storage().bucket(DEFAULT_BUCKET);
+    bucket = admin.storage().bucket();
     if (!bucket) throw new Error('bucket() returned undefined');
   } catch (err) {
     console.error('❌ Failed to access bucket', err);
