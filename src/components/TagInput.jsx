@@ -17,7 +17,7 @@ const TagInput = ({ value = [], onChange, suggestions = [], id = 'tag-input' }) 
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' || e.key === ',' || e.key === 'Comma') {
       e.preventDefault();
       addTag(input);
     }
