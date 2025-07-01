@@ -18,6 +18,7 @@ import selectRandomOption from './utils/selectRandomOption.js';
 import parseContextTags from './utils/parseContextTags.js';
 import { splitCsvLine } from './utils/csv.js';
 import debugLog from './utils/debugLog';
+import AssetPickerModal from './components/AssetPickerModal.jsx';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -691,6 +692,7 @@ const RecipePreview = ({
   const [editing, setEditing] = useState(null);
   const [editCopy, setEditCopy] = useState('');
   const [editComponents, setEditComponents] = useState({});
+  const [assetPicker, setAssetPicker] = useState(null); // { rowIdx, key, assetIdx }
 
   const handleEditRow = (idx) => {
     if (editing === idx) {
@@ -727,7 +729,23 @@ const RecipePreview = ({
     setEditComponents(updated);
   };
 
-  const renderAssetList = (list = []) => (
+  const handleAssetSelect = (asset) => {
+    if (!assetPicker) return;
+    const { rowIdx, key, assetIdx } = assetPicker;
+    const arr = [...results];
+    const list = Array.isArray(arr[rowIdx].components[key]) ? arr[rowIdx].components[key].slice() : [];
+    list[assetIdx] = {
+      id: asset.name || asset.filename || asset.url,
+      adUrl: asset.url,
+      assetType: normalizeAssetType(asset.type || asset.assetType),
+      thumbnailUrl: asset.thumbnailUrl || '',
+    };
+    arr[rowIdx].components[key] = list;
+    setResults(arr);
+    setAssetPicker(null);
+  };
+
+  const renderAssetList = (list = [], rowIdx = null, key = '') => (
     <div className="flex justify-center gap-1">
       {list && list.length > 0 ? (
         list.map((a, i) =>
@@ -735,10 +753,14 @@ const RecipePreview = ({
             <span key={`na-${i}`} className="text-red-500 text-xs">Need asset</span>
           ) : (
             <span key={a.id} className="relative inline-block group">
-              <a
-                href={a.adUrl || a.firebaseUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() =>
+                  userRole === 'admin' && editing === rowIdx
+                    ? setAssetPicker({ rowIdx, key, assetIdx: i })
+                    : window.open(a.adUrl || a.firebaseUrl, '_blank')
+                }
+                aria-label="Asset"
                 className={`p-2 text-xl rounded inline-flex items-center justify-center ${
                   (a.assetType || '').toLowerCase() === 'video'
                     ? ''
@@ -751,7 +773,7 @@ const RecipePreview = ({
                 }
               >
                 {(a.assetType || '').toLowerCase() === 'video' ? <FiVideo /> : <FiImage />}
-              </a>
+              </button>
               <img
                 src={a.thumbnailUrl || a.adUrl || a.firebaseUrl}
                 alt="preview"
@@ -1261,7 +1283,7 @@ const RecipePreview = ({
                       visibleColumns[col.key] && (
                         <td key={col.key} className="align-middle">
                           {col.key.endsWith('.assets') ? (
-                            renderAssetList(r.components[col.key] || [])
+                            renderAssetList(r.components[col.key] || [], idx, col.key)
                           ) : (
                             <React.Fragment>
                               {editing === idx && col.key.includes('.') ? (
@@ -1367,6 +1389,13 @@ const RecipePreview = ({
             Save Recipes
           </button>
         </div>
+      )}
+      {assetPicker && (
+        <AssetPickerModal
+          brandCode={brandCode}
+          onSelect={handleAssetSelect}
+          onClose={() => setAssetPicker(null)}
+        />
       )}
   </div>
     </div>
