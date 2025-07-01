@@ -366,13 +366,22 @@ const AssetLibrary = ({ brandCode = '' }) => {
                   />
                 </td>
                 <td>
-                  <input
-                    className="w-full p-1 border rounded"
-                    value={a.thumbnailUrl}
-                    onMouseDown={handleInputDown('thumbnailUrl', a.thumbnailUrl)}
-                    onMouseOver={handleInputOver(a.id)}
-                    onChange={(e) => updateRow(a.id, 'thumbnailUrl', e.target.value)}
-                  />
+                  <span className="relative inline-block group w-full">
+                    <input
+                      className="w-full p-1 border rounded"
+                      value={a.thumbnailUrl}
+                      onMouseDown={handleInputDown('thumbnailUrl', a.thumbnailUrl)}
+                      onMouseOver={handleInputOver(a.id)}
+                      onChange={(e) => updateRow(a.id, 'thumbnailUrl', e.target.value)}
+                    />
+                    {a.thumbnailUrl && (
+                      <img
+                        src={a.thumbnailUrl}
+                        alt="preview"
+                        className="hidden group-hover:block absolute left-full ml-2 top-1/2 -translate-y-1/2 min-w-[100px] w-auto h-auto border shadow-lg z-10"
+                      />
+                    )}
+                  </span>
                 </td>
                 <td>
                   <input
