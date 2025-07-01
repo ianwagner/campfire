@@ -323,9 +323,25 @@ const RecipePreview = ({
     const componentsData = {};
     orderedComponents.forEach((c) => {
       if (c.key === 'brand') {
-        const b = brands.find((br) => br.code === brand) || {};
+        let b = brands.find((br) => br.code === brand);
+        if (!b && brand) {
+          try {
+            const q = query(collection(db, 'brands'), where('code', '==', brand));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+              b = { id: snap.docs[0].id, ...snap.docs[0].data() };
+              setBrands((prev) => {
+                const exists = prev.some((br) => br.code === brand);
+                return exists ? prev.map((br) => (br.code === brand ? b : br)) : [...prev, b];
+              });
+            }
+          } catch (err) {
+            console.error('Failed to fetch brand', err);
+          }
+        }
+        const brandData = b || {};
         c.attributes?.forEach((a) => {
-          const val = b[a.key] || '';
+          const val = brandData[a.key] || '';
           componentsData[`${c.key}.${a.key}`] = val;
           const regex = new RegExp(`{{${c.key}\\.${a.key}}}`, 'g');
           prompt = prompt.replace(regex, val);
