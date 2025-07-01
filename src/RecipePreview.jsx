@@ -895,21 +895,20 @@ const RecipePreview = ({
   useEffect(() => {
     setVisibleColumns((prev) => {
       const updated = { ...prev };
-      columnMeta.forEach((c) => {
-        if (!(c.key in updated)) {
+      const addKey = (key) => {
+        if (!(key in updated)) {
           let show = false;
           if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
-            show = currentType.defaultColumns.includes(c.key);
-          } else {
-            const label = c.label.toLowerCase();
-            show = label.includes('name') || label.includes('asset');
+            show = currentType.defaultColumns.includes(key);
           }
-          if (c.key.endsWith('.assets')) show = true;
-          updated[c.key] = show;
+          updated[key] = show;
         }
-      });
+      };
+      addKey('recipeNo');
+      columnMeta.forEach((c) => addKey(c.key));
+      addKey('copy');
       Object.keys(updated).forEach((k) => {
-        if (!columnMeta.some((c) => c.key === k)) {
+        if (!(columnMeta.some((c) => c.key === k) || k === 'recipeNo' || k === 'copy')) {
           delete updated[k];
         }
       });
@@ -1260,6 +1259,20 @@ const RecipePreview = ({
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="mb-2 font-semibold">Visible Columns</h3>
+                <label className="block whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    className="mr-1"
+                    checked={visibleColumns['recipeNo'] || false}
+                    onChange={() =>
+                      setVisibleColumns({
+                        ...visibleColumns,
+                        recipeNo: !visibleColumns['recipeNo'],
+                      })
+                    }
+                  />
+                  Recipe #
+                </label>
                 {columnMeta.map((c) => (
                   <label key={c.key} className="block whitespace-nowrap">
                     <input
@@ -1276,6 +1289,20 @@ const RecipePreview = ({
                     {c.label}
                   </label>
                 ))}
+                <label className="block whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    className="mr-1"
+                    checked={visibleColumns['copy'] || false}
+                    onChange={() =>
+                      setVisibleColumns({
+                        ...visibleColumns,
+                        copy: !visibleColumns['copy'],
+                      })
+                    }
+                  />
+                  Copy
+                </label>
                 <div className="text-right mt-2">
                   <button
                     type="button"
@@ -1292,21 +1319,23 @@ const RecipePreview = ({
           <table className="ad-table min-w-full table-auto text-sm">
             <thead>
               <tr>
-                <th>Recipe #</th>
+                {visibleColumns['recipeNo'] && <th>Recipe #</th>}
                 {columnMeta.map(
                   (col) =>
                     visibleColumns[col.key] && (
                       <th key={col.key}>{col.label}</th>
                     )
                 )}
-                <th className="w-80">Copy</th>
+                {visibleColumns['copy'] && <th className="w-80">Copy</th>}
                 <th className="text-center">{isAdminOrAgency ? 'Actions' : ''}</th>
               </tr>
             </thead>
             <tbody>
               {results.map((r, idx) => (
                 <tr key={idx} className={userRole === 'designer' && r.selected ? 'designer-selected' : ''}>
-                  <td className="text-center align-middle font-bold">{r.recipeNo}</td>
+                  {visibleColumns['recipeNo'] && (
+                    <td className="text-center align-middle font-bold">{r.recipeNo}</td>
+                  )}
                   {columnMeta.map(
                     (col) =>
                       visibleColumns[col.key] && (
@@ -1348,22 +1377,24 @@ const RecipePreview = ({
                         </td>
                       )
                   )}
-                  <td className="whitespace-pre-wrap break-words w-80 align-middle copy-cell">
-                    {editing === idx ? (
-                      <textarea
-                        className="w-full p-1 border rounded"
-                        value={editCopy}
-                        onChange={(e) => setEditCopy(e.target.value)}
-                      />
-                    ) : (
-                      <div
-                        className="min-h-[1.5rem] w-full"
-                        onClick={() => navigator.clipboard.writeText(r.copy)}
-                      >
-                        {r.copy}
-                      </div>
-                    )}
-                  </td>
+                  {visibleColumns['copy'] && (
+                    <td className="whitespace-pre-wrap break-words w-80 align-middle copy-cell">
+                      {editing === idx ? (
+                        <textarea
+                          className="w-full p-1 border rounded"
+                          value={editCopy}
+                          onChange={(e) => setEditCopy(e.target.value)}
+                        />
+                      ) : (
+                        <div
+                          className="min-h-[1.5rem] w-full"
+                          onClick={() => navigator.clipboard.writeText(r.copy)}
+                        >
+                          {r.copy}
+                        </div>
+                      )}
+                    </td>
+                  )}
                   <td className="text-center align-middle">
                     {isAdminOrAgency ? (
                       <div className="flex items-center justify-center gap-1">
