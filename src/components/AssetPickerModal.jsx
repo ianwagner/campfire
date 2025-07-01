@@ -51,9 +51,9 @@ const AssetPickerModal = ({ brandCode = '', onSelect, onClose }) => {
               onClick={() => onSelect && onSelect(a)}
               className="break-inside-avoid mb-2 w-full"
             >
-              {a.thumbnailUrl || a.url ? (
+              {a.thumbnailUrl || a.url || a.firebaseUrl ? (
                 <img
-                  src={a.thumbnailUrl || a.url}
+                  src={a.thumbnailUrl || a.url || a.firebaseUrl}
                   alt={a.name}
                   className="w-full h-auto object-contain border rounded"
                   style={{ minWidth: '100px' }}
