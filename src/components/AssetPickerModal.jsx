@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FiImage, FiVideo } from 'react-icons/fi';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../firebase/config';
 import { normalizeAssetType } from '../RecipePreview.jsx';
 
 const AssetPickerModal = ({ brandCode = '', onSelect, onClose }) => {
@@ -7,15 +9,29 @@ const AssetPickerModal = ({ brandCode = '', onSelect, onClose }) => {
   const [filter, setFilter] = useState('');
 
   useEffect(() => {
-    try {
-      const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
-      const raw = localStorage.getItem(key);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) setAssets(parsed);
-    } catch (err) {
-      console.error('Failed to load asset library', err);
-    }
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        let q = collection(db, 'adAssets');
+        if (brandCode) {
+          q = query(q, where('brandCode', '==', brandCode));
+        }
+        const snap = await getDocs(q);
+        if (!cancelled) {
+          setAssets(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        }
+      } catch (err) {
+        console.error('Failed to load asset library', err);
+        if (!cancelled) setAssets([]);
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [brandCode]);
 
   const filtered = assets.filter((a) => {
