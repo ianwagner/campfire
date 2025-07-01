@@ -321,7 +321,7 @@ const RecipePreview = ({
     prompt = prompt.replace(/{{brandCode}}/g, brand);
     const mergedForm = baseValues ? { ...baseValues } : { ...formData };
     const componentsData = {};
-    orderedComponents.forEach((c) => {
+    for (const c of orderedComponents) {
       if (c.key === 'brand') {
         let b = brands.find((br) => br.code === brand);
         if (!b && brand) {
@@ -399,7 +399,7 @@ const RecipePreview = ({
           prompt = prompt.replace(regex, val);
         });
       }
-    });
+    }
     const writeFields = currentType.writeInFields || [];
     writeFields.forEach((f) => {
       let val = mergedForm[f.key];
