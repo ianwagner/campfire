@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { splitCsvLine } from './utils/csv.js';
 
-const emptyReview = { id: '', name: '', body: '' };
+const emptyReview = { id: '', name: '', body: '', title: '', rating: '', product: '' };
 
 const ReviewLibrary = ({ brandCode = '' }) => {
   const [reviews, setReviews] = useState([]);
@@ -15,7 +15,9 @@ const ReviewLibrary = ({ brandCode = '' }) => {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) setReviews(parsed);
+        if (Array.isArray(parsed)) {
+          setReviews(parsed.map((r) => ({ ...emptyReview, ...r })));
+        }
       } catch (err) {
         console.error('Failed to parse stored reviews', err);
       }
@@ -74,6 +76,18 @@ const ReviewLibrary = ({ brandCode = '' }) => {
         csvMap.body !== undefined && csvMap.body !== ''
           ? row[csvMap.body] || ''
           : '',
+      title:
+        csvMap.title !== undefined && csvMap.title !== ''
+          ? row[csvMap.title] || ''
+          : '',
+      rating:
+        csvMap.rating !== undefined && csvMap.rating !== ''
+          ? row[csvMap.rating] || ''
+          : '',
+      product:
+        csvMap.product !== undefined && csvMap.product !== ''
+          ? row[csvMap.product] || ''
+          : '',
     }));
     setReviews((p) => [...p, ...newReviews]);
     setCsvColumns([]);
@@ -94,7 +108,7 @@ const ReviewLibrary = ({ brandCode = '' }) => {
       </div>
       {csvColumns.length > 0 && (
         <div className="mb-4 space-y-2">
-          {['name', 'body'].map((key) => (
+          {['name', 'body', 'title', 'rating', 'product'].map((key) => (
             <div key={key}>
               <label className="block text-sm mb-1 capitalize">{key} Column</label>
               <select
@@ -125,6 +139,9 @@ const ReviewLibrary = ({ brandCode = '' }) => {
               <tr>
                 <th>Name</th>
                 <th>Body</th>
+                <th>Title</th>
+                <th>Rating</th>
+                <th>Product</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -143,6 +160,30 @@ const ReviewLibrary = ({ brandCode = '' }) => {
                       className="p-1 border rounded w-full"
                       value={r.body}
                       onChange={(e) => updateRow(r.id, 'body', e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="p-1 border rounded w-full"
+                      value={r.title}
+                      onChange={(e) => updateRow(r.id, 'title', e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="1"
+                      max="5"
+                      className="p-1 border rounded w-full"
+                      value={r.rating}
+                      onChange={(e) => updateRow(r.id, 'rating', e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="p-1 border rounded w-full"
+                      value={r.product}
+                      onChange={(e) => updateRow(r.id, 'product', e.target.value)}
                     />
                   </td>
                   <td className="text-center">

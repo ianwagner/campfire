@@ -216,6 +216,7 @@ const RecipeTypes = () => {
     fields.forEach((f) => {
       if (f.key) arr.push(f.key);
     });
+    arr.push('review.name', 'review.body', 'review.title', 'review.rating', 'review.product');
     return arr;
   }, [componentsData, fields]);
 
@@ -232,7 +233,15 @@ const RecipeTypes = () => {
     fields.forEach((f) => {
       if (f.key) cols.push(f.key);
     });
-    cols.push('review.name', 'review.body', 'recipeNo', 'copy');
+    cols.push(
+      'review.name',
+      'review.body',
+      'review.title',
+      'review.rating',
+      'review.product',
+      'recipeNo',
+      'copy',
+    );
     return Array.from(new Set(cols));
   }, [componentsData, fields]);
 
