@@ -106,8 +106,18 @@ const RecipePreview = ({
         return;
       }
       const rows = JSON.parse(raw);
-      if (Array.isArray(rows)) setReviewRows(rows);
-      else setReviewRows([]);
+      if (Array.isArray(rows)) {
+        setReviewRows(
+          rows.map((r) => ({
+            name: '',
+            body: '',
+            title: '',
+            rating: '',
+            product: '',
+            ...r,
+          })),
+        );
+      } else setReviewRows([]);
     } catch (err) {
       console.error('Failed to load reviews', err);
       setReviewRows([]);
@@ -423,11 +433,17 @@ const RecipePreview = ({
     const review =
       reviewRows.length > 0
         ? reviewRows[Math.floor(Math.random() * reviewRows.length)]
-        : { name: '', body: '' };
+        : { name: '', body: '', title: '', rating: '', product: '' };
     componentsData['review.name'] = review.name || '';
     componentsData['review.body'] = review.body || '';
+    componentsData['review.title'] = review.title || '';
+    componentsData['review.rating'] = review.rating || '';
+    componentsData['review.product'] = review.product || '';
     prompt = prompt.replace(/{{review\.name}}/g, review.name || '');
     prompt = prompt.replace(/{{review\.body}}/g, review.body || '');
+    prompt = prompt.replace(/{{review\.title}}/g, review.title || '');
+    prompt = prompt.replace(/{{review\.rating}}/g, review.rating || '');
+    prompt = prompt.replace(/{{review\.product}}/g, review.product || '');
 
     const sectionCounts = {};
     Object.entries(componentsData).forEach(([k, v]) => {
@@ -920,6 +936,9 @@ const RecipePreview = ({
       assetCols.forEach((c) => cols.push(c));
       cols.push({ key: 'review.name', label: 'Review - Name' });
       cols.push({ key: 'review.body', label: 'Review - Body' });
+      cols.push({ key: 'review.title', label: 'Review - Title' });
+      cols.push({ key: 'review.rating', label: 'Review - Rating' });
+      cols.push({ key: 'review.product', label: 'Review - Product' });
     } else if (initialResults && initialResults.length > 0) {
       const keys = Array.from(
         new Set(initialResults.flatMap((r) => Object.keys(r.components || {})))
