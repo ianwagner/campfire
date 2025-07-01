@@ -78,6 +78,12 @@ const RecipePreview = ({
   const [assetUsage, setAssetUsage] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
   const [reviewRows, setReviewRows] = useState([]);
+
+  // Reset visible columns when the selected recipe type changes so defaults
+  // for the new type can be applied in the column initialization effect below.
+  useEffect(() => {
+    setVisibleColumns({});
+  }, [selectedType]);
   const allInstances = useMemo(() => [...instances, ...brandProducts], [instances, brandProducts]);
   const filteredAssetRows = useMemo(() => {
     const term = assetFilter.toLowerCase();
