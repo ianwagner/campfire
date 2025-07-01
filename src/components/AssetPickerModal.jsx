@@ -43,27 +43,37 @@ const AssetPickerModal = ({ brandCode = '', onSelect, onClose }) => {
             Close
           </button>
         </div>
-        <div className="space-y-1">
+        <div className="columns-2 sm:columns-3 gap-2">
           {filtered.map((a) => (
             <button
               key={a.id}
               type="button"
               onClick={() => onSelect && onSelect(a)}
-              className="w-full text-left flex items-center gap-2 p-1 rounded hover:bg-accent-10"
+              className="break-inside-avoid mb-2 w-full"
             >
-              <span
-                className={`p-1 text-xl rounded inline-flex items-center justify-center ${
-                  normalizeAssetType(a.type || a.assetType) === 'video' ? '' : 'bg-accent-10 text-accent'
-                }`}
-                style={
-                  normalizeAssetType(a.type || a.assetType) === 'video'
-                    ? { backgroundColor: 'rgba(0,17,255,0.1)', color: '#0011FF' }
-                    : {}
-                }
-              >
-                {normalizeAssetType(a.type || a.assetType) === 'video' ? <FiVideo /> : <FiImage />}
-              </span>
-              <span className="flex-1 truncate">{a.name}</span>
+              {a.thumbnailUrl || a.url ? (
+                <img
+                  src={a.thumbnailUrl || a.url}
+                  alt={a.name}
+                  className="w-full h-auto object-contain border rounded"
+                  style={{ minWidth: '100px' }}
+                />
+              ) : (
+                <span
+                  className={`p-4 text-xl rounded flex items-center justify-center w-full border ${
+                    normalizeAssetType(a.type || a.assetType) === 'video'
+                      ? ''
+                      : 'bg-accent-10 text-accent'
+                  }`}
+                  style={
+                    normalizeAssetType(a.type || a.assetType) === 'video'
+                      ? { backgroundColor: 'rgba(0,17,255,0.1)', color: '#0011FF' }
+                      : {}
+                  }
+                >
+                  {normalizeAssetType(a.type || a.assetType) === 'video' ? <FiVideo /> : <FiImage />}
+                </span>
+              )}
             </button>
           ))}
         </div>
