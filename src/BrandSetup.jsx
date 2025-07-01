@@ -17,6 +17,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const [palette, setPalette] = useState(['#000000']);
   const [fonts, setFonts] = useState([ { ...emptyFont } ]);
   const [toneOfVoice, setToneOfVoice] = useState('');
+  const [offering, setOffering] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -36,6 +37,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             const data = snap.data();
             setBrandCode(data.code || propCode);
             setToneOfVoice(data.toneOfVoice || '');
+            setOffering(data.offering || '');
             setGuidelines({ url: data.guidelinesUrl || '', file: null });
             setLogos(
               Array.isArray(data.logos) && data.logos.length
@@ -60,6 +62,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             const data = docData.data();
             setBrandCode(data.code || brandCode);
             setToneOfVoice(data.toneOfVoice || '');
+            setOffering(data.offering || '');
             setGuidelines({ url: data.guidelinesUrl || '', file: null });
             setLogos(
               Array.isArray(data.logos) && data.logos.length
@@ -115,7 +118,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
       }
       await setDoc(
         doc(db, 'brands', brandId),
-        { guidelinesUrl, logos: logoUrls, palette, fonts: fontData, toneOfVoice },
+        { guidelinesUrl, logos: logoUrls, palette, fonts: fontData, toneOfVoice, offering },
         { merge: true }
       );
       setGuidelines({ url: guidelinesUrl, file: null });
@@ -147,6 +150,15 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             type="text"
             value={toneOfVoice}
             onChange={(e) => setToneOfVoice(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Offering</label>
+          <input
+            type="text"
+            value={offering}
+            onChange={(e) => setOffering(e.target.value)}
             className="w-full p-2 border rounded"
           />
         </div>
