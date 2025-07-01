@@ -733,7 +733,9 @@ const RecipePreview = ({
     if (!assetPicker) return;
     const { rowIdx, key, assetIdx } = assetPicker;
     const arr = [...results];
-    const list = Array.isArray(arr[rowIdx].components[key]) ? arr[rowIdx].components[key].slice() : [];
+    const list = Array.isArray(arr[rowIdx].components[key])
+      ? arr[rowIdx].components[key].slice()
+      : [];
     list[assetIdx] = {
       id: asset.name || asset.filename || asset.url || asset.firebaseUrl,
       adUrl: asset.url || asset.firebaseUrl,
@@ -742,6 +744,13 @@ const RecipePreview = ({
     };
     arr[rowIdx].components[key] = list;
     setResults(arr);
+    if (editing === rowIdx) {
+      const ec = { ...editComponents };
+      const elist = Array.isArray(ec[key]) ? ec[key].slice() : [];
+      elist[assetIdx] = list[assetIdx];
+      ec[key] = elist;
+      setEditComponents(ec);
+    }
     setAssetPicker(null);
   };
 
@@ -1283,7 +1292,13 @@ const RecipePreview = ({
                       visibleColumns[col.key] && (
                         <td key={col.key} className="align-middle">
                           {col.key.endsWith('.assets') ? (
-                            renderAssetList(r.components[col.key] || [], idx, col.key)
+                            renderAssetList(
+                              editing === idx
+                                ? editComponents[col.key] || []
+                                : r.components[col.key] || [],
+                              idx,
+                              col.key,
+                            )
                           ) : (
                             <React.Fragment>
                               {editing === idx && col.key.includes('.') ? (
