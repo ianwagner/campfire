@@ -236,8 +236,13 @@ const RecipePreview = ({
       map.imageName = { header: nameHeader, score: 10 };
     }
     const contextHeader = headers.find((h) => /context/i.test(h));
+    const descHeader = headers.find((h) => /description/i.test(h));
     if (contextHeader) {
       map.context = { header: contextHeader };
+    }
+    if (descHeader) {
+      map.description = { header: descHeader };
+      if (!map.context) map.context = { header: descHeader };
     }
     const typeHeader = headers.find((h) => /asset.?type/i.test(h) || /^type$/i.test(h));
     if (typeHeader) {
@@ -280,6 +285,7 @@ const RecipePreview = ({
       map.imageUrl = { header: 'url', score: 10 };
       map.imageName = { header: 'name', score: 10 };
       map.thumbnailUrl = { header: 'thumbnailUrl' };
+      map.description = { header: 'description' };
       map.context = { header: 'description' };
       map.assetType = { header: 'type' };
       setAssetMap(map);
@@ -528,7 +534,7 @@ const RecipePreview = ({
           const nameField = assetMap.imageName?.header || 'imageName';
           const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
           const contextField = assetMap.context?.header || '';
-          const descField = assetMap.context?.header || '';
+          const descField = assetMap.description?.header || assetMap.context?.header || '';
           const url = mainMatch[urlField] || mainMatch.imageUrl || mainMatch.url || '';
           const name = mainMatch[nameField] || mainMatch.imageName || mainMatch.filename || url;
           mainId = mainMatch[idField] || mainMatch.imageUrl || mainMatch.imageName || '';
@@ -559,7 +565,7 @@ const RecipePreview = ({
             const urlField = assetMap.imageUrl?.header || 'imageUrl';
             const nameField = assetMap.imageName?.header || 'imageName';
             const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
-            const descField = assetMap.context?.header || '';
+            const descField = assetMap.description?.header || assetMap.context?.header || '';
             const url = match[urlField] || match.imageUrl || match.url || '';
             const name = match[nameField] || match.imageName || match.filename || url;
             const assetId = match[idField] || match.imageUrl || match.imageName || '';
