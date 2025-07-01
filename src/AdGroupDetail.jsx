@@ -241,6 +241,7 @@ const AdGroupDetail = () => {
             assets: docData.assets || [],
             type: docData.type || "",
             selected: docData.selected || false,
+            brandCode: docData.brandCode || group?.brandCode || "",
           };
         });
         setRecipesMeta(data);
@@ -356,6 +357,7 @@ const AdGroupDetail = () => {
       assets: recipesMeta[id].assets || [],
       type: recipesMeta[id].type || "",
       selected: recipesMeta[id].selected || false,
+      brandCode: recipesMeta[id].brandCode || group?.brandCode || "",
     }));
   }, [recipesMeta]);
 
@@ -853,6 +855,7 @@ const AdGroupDetail = () => {
             assets: r.assets || [],
             type: r.type || "",
             selected: r.selected || false,
+            brandCode: r.brandCode || group?.brandCode || "",
           },
           { merge: true },
         );
