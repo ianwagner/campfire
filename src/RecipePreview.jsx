@@ -7,6 +7,7 @@ import {
   FiSquare,
   FiEdit2,
   FiTrash,
+  FiX,
 } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import { auth } from './firebase/config';
@@ -789,6 +790,25 @@ const RecipePreview = ({
     setAssetPicker(null);
   };
 
+  const handleAssetRemove = (rowIdx, key, assetIdx) => {
+    const arr = [...results];
+    const row = { ...arr[rowIdx] };
+    const comps = { ...row.components };
+    const list = Array.isArray(comps[key]) ? comps[key].slice() : [];
+    list[assetIdx] = { needAsset: true };
+    comps[key] = list;
+    row.components = comps;
+    arr[rowIdx] = row;
+    setResults(arr);
+    if (editing === rowIdx) {
+      const ec = { ...editComponents };
+      const elist = Array.isArray(ec[key]) ? ec[key].slice() : [];
+      elist[assetIdx] = list[assetIdx];
+      ec[key] = elist;
+      setEditComponents(ec);
+    }
+  };
+
   const renderAssetList = (list = [], rowIdx = null, key = '') => (
     <div className="flex justify-center gap-1">
       {list && list.length > 0 ? (
@@ -825,6 +845,16 @@ const RecipePreview = ({
               >
                 {(a.assetType || '').toLowerCase() === 'video' ? <FiVideo /> : <FiImage />}
               </button>
+              {userRole === 'admin' && editing === rowIdx && (
+                <button
+                  type="button"
+                  onClick={() => handleAssetRemove(rowIdx, key, i)}
+                  className="absolute -top-1 -right-1 bg-white rounded-full text-red-600 hover:text-red-800"
+                  aria-label="Remove Asset"
+                >
+                  <FiX />
+                </button>
+              )}
               <img
                 src={a.thumbnailUrl || a.adUrl || a.firebaseUrl}
                 alt="preview"
