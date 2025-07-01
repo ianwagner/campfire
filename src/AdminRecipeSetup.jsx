@@ -77,7 +77,7 @@ const RecipeTypes = () => {
   const [fields, setFields] = useState([{ label: '', key: '', inputType: 'text' }]);
   const [enableAssetCsv, setEnableAssetCsv] = useState(false);
   const [assetFields, setAssetFields] = useState([]);
-  const [defaultColumnsText, setDefaultColumnsText] = useState('');
+  const [defaultColumns, setDefaultColumns] = useState([]);
   const [editId, setEditId] = useState(null);
 
   useEffect(() => {
@@ -103,7 +103,7 @@ const RecipeTypes = () => {
     setFields([{ label: '', key: '', inputType: 'text' }]);
     setEnableAssetCsv(false);
     setAssetFields([]);
-    setDefaultColumnsText('');
+    setDefaultColumns([]);
   };
 
   const handleSave = async (e) => {
@@ -112,10 +112,7 @@ const RecipeTypes = () => {
       .split(',')
       .map((c) => c.trim())
       .filter(Boolean);
-    const defaultColumns = defaultColumnsText
-      .split(',')
-      .map((c) => c.trim())
-      .filter(Boolean);
+    const defaultCols = defaultColumns.filter(Boolean);
     const writeFields = fields
       .map((f) => ({
         label: f.label.trim(),
@@ -133,7 +130,7 @@ const RecipeTypes = () => {
           assetMatchFields: assetFields,
           components: order,
           writeInFields: writeFields,
-          defaultColumns,
+          defaultColumns: defaultCols,
         });
         setTypes((t) =>
           t.map((r) =>
@@ -147,7 +144,7 @@ const RecipeTypes = () => {
                   assetMatchFields: assetFields,
                   components: order,
                   writeInFields: writeFields,
-                  defaultColumns,
+                  defaultColumns: defaultCols,
                 }
               : r
           )
@@ -161,7 +158,7 @@ const RecipeTypes = () => {
           assetMatchFields: assetFields,
           components: order,
           writeInFields: writeFields,
-          defaultColumns,
+          defaultColumns: defaultCols,
         });
         setTypes((t) => [
           ...t,
@@ -174,7 +171,7 @@ const RecipeTypes = () => {
             assetMatchFields: assetFields,
             components: order,
             writeInFields: writeFields,
-            defaultColumns,
+            defaultColumns: defaultCols,
           },
         ]);
       }
@@ -192,7 +189,7 @@ const RecipeTypes = () => {
     setEnableAssetCsv(!!t.enableAssetCsv);
     setAssetFields(t.assetMatchFields || []);
     setComponentOrder((t.components || []).join(', '));
-    setDefaultColumnsText((t.defaultColumns || []).join(', '));
+    setDefaultColumns(t.defaultColumns || []);
     setFields(
       t.writeInFields && t.writeInFields.length > 0
         ? t.writeInFields
@@ -209,15 +206,35 @@ const RecipeTypes = () => {
     }
   };
 
-  const placeholders = [];
-  componentsData.forEach((c) => {
-    c.attributes?.forEach((a) => {
-      placeholders.push(`${c.key}.${a.key}`);
+  const placeholders = useMemo(() => {
+    const arr = [];
+    componentsData.forEach((c) => {
+      c.attributes?.forEach((a) => {
+        arr.push(`${c.key}.${a.key}`);
+      });
     });
-  });
-  fields.forEach((f) => {
-    if (f.key) placeholders.push(f.key);
-  });
+    fields.forEach((f) => {
+      if (f.key) arr.push(f.key);
+    });
+    return arr;
+  }, [componentsData, fields]);
+
+  const columnOptions = useMemo(() => {
+    const cols = [];
+    componentsData.forEach((c) => {
+      c.attributes?.forEach((a) => {
+        cols.push(`${c.key}.${a.key}`);
+        if (a.key === 'assetNo' || a.key === 'assetCount') {
+          cols.push(`${c.key}.assets`);
+        }
+      });
+    });
+    fields.forEach((f) => {
+      if (f.key) cols.push(f.key);
+    });
+    cols.push('review.name', 'review.body', 'recipeNo', 'copy');
+    return Array.from(new Set(cols));
+  }, [componentsData, fields]);
 
   return (
     <div>
@@ -340,11 +357,12 @@ const RecipeTypes = () => {
           />
         </div>
         <div>
-          <label className="block text-sm mb-1">Default Visible Columns (comma separated keys)</label>
-          <input
-            className="w-full p-2 border rounded"
-            value={defaultColumnsText}
-            onChange={(e) => setDefaultColumnsText(e.target.value)}
+          <label className="block text-sm mb-1">Default Visible Columns</label>
+          <TagInput
+            id="default-columns"
+            value={defaultColumns}
+            onChange={setDefaultColumns}
+            suggestions={columnOptions}
           />
         </div>
         <div className="space-y-2">
