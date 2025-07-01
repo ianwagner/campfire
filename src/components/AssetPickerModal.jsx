@@ -1,17 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { FiImage, FiVideo } from 'react-icons/fi';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { auth, db } from '../firebase/config';
+import useUserRole from '../useUserRole';
 import { normalizeAssetType } from '../RecipePreview.jsx';
 
 const AssetPickerModal = ({ brandCode: propBrandCode = '', onSelect, onClose }) => {
+  const user = auth.currentUser;
+  const { brandCodes } = useUserRole(user?.uid);
   const [assets, setAssets] = useState([]);
   const [filter, setFilter] = useState('');
-  const [brandCode, setBrandCode] = useState(propBrandCode);
+  const [brandCode, setBrandCode] = useState(propBrandCode || brandCodes[0] || '');
 
   useEffect(() => {
-    setBrandCode(propBrandCode);
-  }, [propBrandCode]);
+    if (propBrandCode) setBrandCode(propBrandCode);
+    else if (brandCodes.length > 0) setBrandCode((b) => b || brandCodes[0]);
+  }, [propBrandCode, brandCodes]);
 
   useEffect(() => {
     let cancelled = false;
