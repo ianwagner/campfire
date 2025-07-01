@@ -528,6 +528,7 @@ const RecipePreview = ({
           const nameField = assetMap.imageName?.header || 'imageName';
           const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
           const contextField = assetMap.context?.header || '';
+          const descField = assetMap.context?.header || '';
           const url = mainMatch[urlField] || mainMatch.imageUrl || mainMatch.url || '';
           const name = mainMatch[nameField] || mainMatch.imageName || mainMatch.filename || url;
           mainId = mainMatch[idField] || mainMatch.imageUrl || mainMatch.imageName || '';
@@ -542,6 +543,7 @@ const RecipePreview = ({
               adUrl: url,
               assetType: atype,
               thumbnailUrl: mainMatch.thumbnailUrl || '',
+              description: mainMatch[descField] || '',
             });
           } else {
             arr.push({ needAsset: true });
@@ -557,6 +559,7 @@ const RecipePreview = ({
             const urlField = assetMap.imageUrl?.header || 'imageUrl';
             const nameField = assetMap.imageName?.header || 'imageName';
             const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
+            const descField = assetMap.context?.header || '';
             const url = match[urlField] || match.imageUrl || match.url || '';
             const name = match[nameField] || match.imageName || match.filename || url;
             const assetId = match[idField] || match.imageUrl || match.imageName || '';
@@ -570,6 +573,7 @@ const RecipePreview = ({
                 adUrl: url,
                 assetType: atype,
                 thumbnailUrl: match.thumbnailUrl || '',
+                description: match[descField] || '',
               });
             } else {
               arr.push({ needAsset: true });
@@ -607,6 +611,14 @@ const RecipePreview = ({
     }
 
     prompt = prompt.replace(/{{csv\.context}}/g, csvContext);
+
+    selectedAssets.forEach((a, idx) => {
+      const desc = a.description || '';
+      const regex = new RegExp(`{{csv\\.asset${idx + 1}}}`, 'g');
+      prompt = prompt.replace(regex, desc);
+    });
+    // remove any placeholders for unused assets
+    prompt = prompt.replace(/{{csv\.asset\d+}}/g, '');
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -737,6 +749,7 @@ const RecipePreview = ({
             <span key={a.id} className="relative inline-block group">
               <a
                 href={a.adUrl || a.firebaseUrl}
+                title={a.description || ''}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`p-2 text-xl rounded inline-flex items-center justify-center ${

@@ -218,6 +218,10 @@ const RecipeTypes = () => {
   fields.forEach((f) => {
     if (f.key) placeholders.push(f.key);
   });
+  placeholders.push('csv.context');
+  for (let i = 1; i <= 10; i += 1) {
+    placeholders.push(`csv.asset${i}`);
+  }
 
   return (
     <div>
