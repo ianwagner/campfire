@@ -735,10 +735,10 @@ const RecipePreview = ({
     const arr = [...results];
     const list = Array.isArray(arr[rowIdx].components[key]) ? arr[rowIdx].components[key].slice() : [];
     list[assetIdx] = {
-      id: asset.name || asset.filename || asset.url,
-      adUrl: asset.url,
+      id: asset.name || asset.filename || asset.url || asset.firebaseUrl,
+      adUrl: asset.url || asset.firebaseUrl,
       assetType: normalizeAssetType(asset.type || asset.assetType),
-      thumbnailUrl: asset.thumbnailUrl || '',
+      thumbnailUrl: asset.thumbnailUrl || asset.firebaseUrl || '',
     };
     arr[rowIdx].components[key] = list;
     setResults(arr);
