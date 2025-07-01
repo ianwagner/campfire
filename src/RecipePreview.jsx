@@ -297,6 +297,17 @@ const RecipePreview = ({
     }
   };
 
+  useEffect(() => {
+    if (brandCode) {
+      loadAssetLibrary();
+    } else {
+      setAssetRows([]);
+      setAssetHeaders([]);
+      setAssetMap({});
+      setAssetUsage({});
+    }
+  }, [brandCode]);
+
   const generateOnce = async (baseValues = null, brand = brandCode) => {
     if (!currentType) return null;
 
@@ -759,7 +770,14 @@ const RecipePreview = ({
       {list && list.length > 0 ? (
         list.map((a, i) =>
           a.needAsset ? (
-            <span key={`na-${i}`} className="text-red-500 text-xs">Need asset</span>
+            <button
+              key={`na-${i}`}
+              type="button"
+              onClick={() => setAssetPicker({ rowIdx, key, assetIdx: i })}
+              className="text-red-500 text-xs underline"
+            >
+              Need asset
+            </button>
           ) : (
             <span key={a.id} className="relative inline-block group">
               <button
