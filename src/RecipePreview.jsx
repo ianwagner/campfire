@@ -744,16 +744,18 @@ const RecipePreview = ({
     if (!assetPicker) return;
     const { rowIdx, key, assetIdx } = assetPicker;
     const arr = [...results];
-    const list = Array.isArray(arr[rowIdx].components[key])
-      ? arr[rowIdx].components[key].slice()
-      : [];
+    const row = { ...arr[rowIdx] };
+    const comps = { ...row.components };
+    const list = Array.isArray(comps[key]) ? comps[key].slice() : [];
     list[assetIdx] = {
       id: asset.name || asset.filename || asset.url || asset.firebaseUrl,
       adUrl: asset.url || asset.firebaseUrl,
       assetType: normalizeAssetType(asset.type || asset.assetType),
       thumbnailUrl: asset.thumbnailUrl || asset.firebaseUrl || '',
     };
-    arr[rowIdx].components[key] = list;
+    comps[key] = list;
+    row.components = comps;
+    arr[rowIdx] = row;
     setResults(arr);
     if (editing === rowIdx) {
       const ec = { ...editComponents };
