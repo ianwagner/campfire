@@ -4,15 +4,34 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { normalizeAssetType } from '../RecipePreview.jsx';
 
-const AssetPickerModal = ({ brandCode = '', onSelect, onClose }) => {
+const AssetPickerModal = ({ brandCode: propBrandCode = '', onSelect, onClose }) => {
   const [assets, setAssets] = useState([]);
   const [filter, setFilter] = useState('');
+  const [brandCode, setBrandCode] = useState(propBrandCode);
+
+  useEffect(() => {
+    setBrandCode(propBrandCode);
+  }, [propBrandCode]);
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       try {
+        const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && !cancelled) {
+              setAssets(parsed);
+              return;
+            }
+          } catch (err) {
+            console.error('Failed to parse stored assets', err);
+          }
+        }
+
         let q = collection(db, 'adAssets');
         if (brandCode) {
           q = query(q, where('brandCode', '==', brandCode));
@@ -47,7 +66,16 @@ const AssetPickerModal = ({ brandCode = '', onSelect, onClose }) => {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
       <div className="bg-white p-4 rounded shadow max-h-[80vh] overflow-y-auto w-full max-w-lg dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          {!propBrandCode && (
+            <input
+              type="text"
+              className="p-1 border rounded w-32"
+              placeholder="Brand Code"
+              value={brandCode}
+              onChange={(e) => setBrandCode(e.target.value)}
+            />
+          )}
           <input
             type="text"
             className="flex-1 p-1 border rounded"
