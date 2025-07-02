@@ -68,8 +68,7 @@ const Review = ({
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
   const [editing, setEditing] = useState(false);
   const [allAds, setAllAds] = useState([]); // includes all non-pending versions
-  const [versionModal, setVersionModal] = useState(null); // {current, previous}
-  const [versionView, setVersionView] = useState('current');
+  const [showVersionMap, setShowVersionMap] = useState({}); // assetId -> show previous
   const [finalGallery, setFinalGallery] = useState(false);
   const [secondPass, setSecondPass] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
@@ -83,6 +82,19 @@ const Review = ({
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
   const advancedRef = useRef(false);
+  const prevMap = useMemo(() => {
+    const byId = {};
+    allAds.forEach((a) => {
+      if (a.assetId) byId[a.assetId] = a;
+    });
+    const map = {};
+    allAds.forEach((a) => {
+      if (a.parentAdId && byId[a.parentAdId]) {
+        map[a.assetId] = byId[a.parentAdId];
+      }
+    });
+    return map;
+  }, [allAds]);
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
   const [groupStatus, setGroupStatus] = useState(null);
@@ -268,6 +280,17 @@ useEffect(() => {
   useEffect(() => {
     setShowSizes(false);
   }, [currentIndex]);
+
+  useEffect(() => {
+    if (!showSizes) return;
+    const handler = (e) => {
+      if (!e.target.closest('.size-container')) {
+        setShowSizes(false);
+      }
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [showSizes]);
 
 
   useEffect(() => {
@@ -510,10 +533,14 @@ useEffect(() => {
   }, [agencyId, agency.logoUrl]);
 
   const currentAd = reviewAds[currentIndex];
-  const adUrl =
-    currentAd && typeof currentAd === 'object'
-      ? currentAd.adUrl || currentAd.firebaseUrl
+  const effectiveCurrent =
+    currentAd && showVersionMap[currentAd.assetId] && prevMap[currentAd.assetId]
+      ? prevMap[currentAd.assetId]
       : currentAd;
+  const adUrl =
+    effectiveCurrent && typeof effectiveCurrent === 'object'
+      ? effectiveCurrent.adUrl || effectiveCurrent.firebaseUrl
+      : effectiveCurrent;
   const brandCode =
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
@@ -527,15 +554,11 @@ useEffect(() => {
       : 0;
 
 
-  const openVersionModal = () => {
-    if (!currentAd || !currentAd.parentAdId) return;
-    const prev = allAds.find((a) => a.assetId === currentAd.parentAdId);
-    if (!prev) return;
-    setVersionModal({ current: currentAd, previous: prev });
-    setVersionView('current');
+  const toggleVersion = (asset) => {
+    if (!asset || !asset.assetId) return;
+    if (!prevMap[asset.assetId]) return;
+    setShowVersionMap((m) => ({ ...m, [asset.assetId]: !m[asset.assetId] }));
   };
-
-  const closeVersionModal = () => setVersionModal(null);
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
@@ -649,9 +672,7 @@ useEffect(() => {
     (g) => g.recipeCode === currentRecipe
   );
   const otherSizes = currentRecipeGroup
-    ? currentRecipeGroup.assets.filter(
-        (a) => (a.adUrl || a.firebaseUrl) !== adUrl
-      )
+    ? currentRecipeGroup.assets.filter((a) => a.assetId !== currentAd?.assetId)
     : [];
 
   const currentAspect = (
@@ -1271,15 +1292,20 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
       }
 }
 >
-<div
-  className={`relative ad-aspect max-w-[90%] mx-auto rounded shadow ${
-    isMobile && showSizes ? 'mb-2' : 'max-h-[72vh]'
-  }`}
-  style={{ aspectRatio: currentAspect }}
->
-  {isVideoUrl(adUrl) ? (
-    <VideoPlayer
-      src={adUrl}
+          <div
+            className={`relative ad-aspect max-w-[90%] mx-auto rounded shadow ${
+              isMobile && showSizes ? 'mb-2' : 'max-h-[72vh]'
+            }`}
+            style={{ aspectRatio: currentAspect }}
+            onClick={() => {
+              if (currentRecipeGroup && currentRecipeGroup.assets.length > 1) {
+                setShowSizes((p) => !p);
+              }
+            }}
+          >
+            {isVideoUrl(adUrl) ? (
+              <VideoPlayer
+                src={adUrl}
       onLoadedData={() => setFirstAdLoaded(true)}
       style={
         isMobile && showSizes
@@ -1301,55 +1327,74 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
           ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
           : {}
       }
-      className="w-full h-full object-contain"
-    />
-  )}
-</div>
-            {currentAd && (currentAd.version || 1) > 1 && (
-              <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
+            className="w-full h-full object-contain"
+          />
+        )}
+      </div>
+            {currentAd && prevMap[currentAd.assetId] && (
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleVersion(currentAd);
+                }}
+                className="version-badge cursor-pointer"
+              >
+                V{
+                  showVersionMap[currentAd.assetId]
+                    ? prevMap[currentAd.assetId].version || 1
+                    : currentAd.version || 1
+                }
+              </span>
             )}
-              {otherSizes.map((a, idx) => (
-                isVideoUrl(a.firebaseUrl) ? (
-                  <VideoPlayer
-                    key={idx}
-                    src={a.firebaseUrl}
-                    style={
-                      isMobile && showSizes
-                        ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
-                        : {
-                            transform: showSizes
-                              ? `translateX(${(idx + 1) * 110}%)`
-                              : 'translateX(0)',
-                            opacity: showSizes ? 1 : 0,
-                          }
-                    }
-                    className={`max-w-[90%] mx-auto rounded shadow ${
-                      isMobile && showSizes ? 'mb-2 relative' : 'size-thumb max-h-[72vh]'
-                    }`}
-                  />
-                ) : (
-                  <OptimizedImage
-                    key={idx}
-                    pngUrl={a.firebaseUrl}
-                    webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
-                    alt={a.filename}
-                    cacheKey={a.firebaseUrl}
-                    style={
-                      isMobile && showSizes
-                        ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
-                        : {
-                            transform: showSizes
-                              ? `translateX(${(idx + 1) * 110}%)`
-                              : 'translateX(0)',
-                            opacity: showSizes ? 1 : 0,
-                          }
-                    }
-                    className={`max-w-[90%] mx-auto rounded shadow ${
-                      isMobile && showSizes ? 'mb-2 relative' : 'size-thumb max-h-[72vh]'
-                    }`}
-                  />
-                )
-              ))}
+              {otherSizes.map((a, idx) => {
+                const disp =
+                  showVersionMap[a.assetId] && prevMap[a.assetId]
+                    ? prevMap[a.assetId]
+                    : a;
+                const style =
+                  isMobile && showSizes
+                    ? { maxHeight: `${72 / (otherSizes.length + 1)}vh` }
+                    : {
+                        transform: showSizes
+                          ? `translateX(${(idx + 1) * 110}%)`
+                          : 'translateX(0)',
+                        opacity: showSizes ? 1 : 0,
+                      };
+                const className = `max-w-[90%] mx-auto rounded shadow ${
+                  isMobile && showSizes ? 'mb-2 relative' : 'size-thumb max-h-[72vh]'
+                }`;
+                return (
+                  <div key={idx} className="relative">
+                    {isVideoUrl(disp.firebaseUrl) ? (
+                      <VideoPlayer src={disp.firebaseUrl} style={style} className={className} />
+                    ) : (
+                      <OptimizedImage
+                        pngUrl={disp.firebaseUrl}
+                        webpUrl={disp.firebaseUrl.replace(/\.png$/, '.webp')}
+                        alt={disp.filename}
+                        cacheKey={disp.firebaseUrl}
+                        style={style}
+                        className={className}
+                      />
+                    )}
+                    {prevMap[a.assetId] && (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleVersion(a);
+                        }}
+                        className="version-badge cursor-pointer"
+                      >
+                        V{
+                          showVersionMap[a.assetId]
+                            ? prevMap[a.assetId].version || 1
+                            : a.version || 1
+                        }
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </div>
       </div>
@@ -1516,37 +1561,6 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
           )}
         </>
       ))}
-      {versionModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-md text-center">
-            <div className="mb-2 space-x-2">
-              <button onClick={() => setVersionView('current')} className="btn-secondary px-2 py-1">
-                V{versionModal.current.version || 1}
-              </button>
-              <button onClick={() => setVersionView('previous')} className="btn-secondary px-2 py-1">
-                V{versionModal.previous.version || 1} (replaced)
-              </button>
-            </div>
-          {isVideoUrl(versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl) ? (
-            <VideoPlayer
-              src={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
-              className="max-w-full max-h-[70vh] mx-auto"
-            />
-          ) : (
-            <OptimizedImage
-              pngUrl={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
-              webpUrl={(versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl).replace(/\.png$/, '.webp')}
-              alt="Ad version"
-              cacheKey={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
-              className="max-w-full max-h-[70vh] mx-auto"
-            />
-          )}
-            <button onClick={closeVersionModal} className="mt-2 btn-primary px-3 py-1">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
