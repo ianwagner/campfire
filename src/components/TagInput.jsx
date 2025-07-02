@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
 
-const TagInput = ({ value = [], onChange, suggestions = [], id = 'tag-input' }) => {
+const TagInput = ({
+  value = [],
+  onChange,
+  suggestions = [],
+  id = 'tag-input',
+  onlySuggestions = false,
+}) => {
   const [input, setInput] = useState('');
 
   const addTag = (tag) => {
     const t = tag.trim();
     if (!t) return;
+    if (onlySuggestions && !suggestions.includes(t)) return;
     if (!value.includes(t)) {
       onChange([...value, t]);
     }

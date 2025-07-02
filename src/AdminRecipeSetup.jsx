@@ -73,7 +73,7 @@ const RecipeTypes = () => {
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
   const [assetPrompt, setAssetPrompt] = useState('');
-  const [componentOrder, setComponentOrder] = useState('');
+  const [componentOrder, setComponentOrder] = useState([]);
   const [fields, setFields] = useState([{ label: '', key: '', inputType: 'text' }]);
   const [enableAssetCsv, setEnableAssetCsv] = useState(false);
   const [assetFields, setAssetFields] = useState([]);
@@ -99,7 +99,7 @@ const RecipeTypes = () => {
     setName('');
     setPrompt('');
     setAssetPrompt('');
-    setComponentOrder('');
+    setComponentOrder([]);
     setFields([{ label: '', key: '', inputType: 'text' }]);
     setEnableAssetCsv(false);
     setAssetFields([]);
@@ -108,10 +108,7 @@ const RecipeTypes = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    const order = componentOrder
-      .split(',')
-      .map((c) => c.trim())
-      .filter(Boolean);
+    const order = componentOrder.filter(Boolean);
     const defaultCols = defaultColumns.filter(Boolean);
     const writeFields = fields
       .map((f) => ({
@@ -188,7 +185,7 @@ const RecipeTypes = () => {
     setAssetPrompt(t.assetPrompt || '');
     setEnableAssetCsv(!!t.enableAssetCsv);
     setAssetFields(t.assetMatchFields || []);
-    setComponentOrder((t.components || []).join(', '));
+    setComponentOrder(t.components || []);
     setDefaultColumns(t.defaultColumns || []);
     setFields(
       t.writeInFields && t.writeInFields.length > 0
@@ -358,11 +355,13 @@ const RecipeTypes = () => {
           )}
         </div>
         <div>
-          <label className="block text-sm mb-1">Components (comma separated keys in order)</label>
-          <input
-            className="w-full p-2 border rounded"
+          <label className="block text-sm mb-1">Components (in order)</label>
+          <TagInput
+            id="component-order"
             value={componentOrder}
-            onChange={(e) => setComponentOrder(e.target.value)}
+            onChange={setComponentOrder}
+            suggestions={componentsData.map((c) => c.key)}
+            onlySuggestions
           />
         </div>
         <div>
