@@ -179,6 +179,17 @@ const RecipePreview = ({
             { label: 'Offering', key: 'offering', inputType: 'text' },
           ],
         });
+        list.push({
+          id: 'product',
+          key: 'product',
+          label: 'Product',
+          selectionMode: 'checklist',
+          attributes: [
+            { label: 'Name', key: 'name', inputType: 'text' },
+            { label: 'Description', key: 'description', inputType: 'text' },
+            { label: 'Benefits', key: 'benefits', inputType: 'text' },
+          ],
+        });
         setComponents(list);
         const instSnap = await getDocs(collection(db, 'componentInstances'));
         setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
