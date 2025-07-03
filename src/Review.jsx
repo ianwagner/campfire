@@ -1569,7 +1569,11 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
             <div className="flex flex-wrap justify-center gap-2">
               {ads.map((a, idx) => (
                 isVideoUrl(a.firebaseUrl) ? (
-                  <VideoPlayer key={idx} src={a.firebaseUrl} className="w-24 h-24 object-contain" />
+                  <VideoPlayer
+                    key={idx}
+                    src={a.firebaseUrl}
+                    className="min-w-[125px] h-auto object-contain"
+                  />
                 ) : (
                   <OptimizedImage
                     key={idx}
@@ -1577,7 +1581,7 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
                     webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
                     alt={a.filename}
                     cacheKey={a.firebaseUrl}
-                    className="w-24 h-24 object-contain"
+                    className="min-w-[125px] h-auto object-contain"
                   />
                 )
               ))}
