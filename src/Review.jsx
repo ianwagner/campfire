@@ -7,6 +7,7 @@ import React, {
   useRef,
   useImperativeHandle,
   forwardRef,
+  useCallback,
 } from 'react';
 import { FiEdit, FiX } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
@@ -240,6 +241,29 @@ useEffect(() => {
     }).catch((err) => console.error('Failed to save progress', err));
   }, [currentIndex]);
 
+  const releaseLock = useCallback(() => {
+    if (!groupId || forceSplash) return;
+    const idx = currentIndexRef.current;
+    const len = reviewLengthRef.current;
+    const uid = lockedByUidRef.current;
+    const isOwner = uid ? uid === user?.uid : false;
+    if (idx >= len) {
+      updateDoc(doc(db, 'adGroups', groupId), {
+        status: 'reviewed',
+        lockedBy: null,
+        lockedByUid: null,
+        reviewProgress: null,
+      }).catch(() => {});
+    } else if (isOwner) {
+      updateDoc(doc(db, 'adGroups', groupId), {
+        status: 'review pending',
+        lockedBy: null,
+        lockedByUid: null,
+        reviewProgress: idx,
+      }).catch(() => {});
+    }
+  }, [groupId, forceSplash, user]);
+
   useEffect(() => {
     if (!groupId || forceSplash) return;
     if (currentIndex >= reviewAds.length && reviewAds.length > 0) {
@@ -253,29 +277,12 @@ useEffect(() => {
   }, [currentIndex, reviewAds.length, groupId, forceSplash]);
 
   useEffect(() => {
+    window.addEventListener('beforeunload', releaseLock);
     return () => {
-      if (!groupId || forceSplash) return;
-      const idx = currentIndexRef.current;
-      const len = reviewLengthRef.current;
-      const uid = lockedByUidRef.current;
-      const isOwner = uid ? uid === user?.uid : false;
-      if (idx >= len) {
-        updateDoc(doc(db, 'adGroups', groupId), {
-          status: 'reviewed',
-          lockedBy: null,
-          lockedByUid: null,
-          reviewProgress: null,
-        }).catch(() => {});
-      } else if (isOwner) {
-        updateDoc(doc(db, 'adGroups', groupId), {
-          status: 'review pending',
-          lockedBy: null,
-          lockedByUid: null,
-          reviewProgress: idx,
-        }).catch(() => {});
-      }
+      window.removeEventListener('beforeunload', releaseLock);
+      releaseLock();
     };
-  }, [groupId, forceSplash, user]);
+  }, [releaseLock]);
 
   const recipeGroups = useMemo(() => {
     const map = {};
@@ -1000,6 +1007,9 @@ if (
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
       <h1 className="text-2xl font-bold">{lockedBy} is currently reviewing this group.</h1>
       <p className="text-lg">Please wait until they've finished before hopping in.</p>
+      <button onClick={() => setShowGallery(true)} className="btn-primary px-3 py-1">
+        Preview Ads
+      </button>
       {agencyId && (
         <OptimizedImage
           pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
@@ -1009,6 +1019,37 @@ if (
           onLoad={() => setLogoReady(true)}
           className="mb-2 max-h-16 w-auto"
         />
+      )}
+      {showGallery && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
+          <div className="bg-white p-4 rounded shadow max-w-6xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <div className="flex flex-wrap justify-center gap-2">
+              {ads.map((a, idx) => (
+                isVideoUrl(a.firebaseUrl) ? (
+                  <VideoPlayer
+                    key={idx}
+                    src={a.firebaseUrl}
+                    className="max-w-[125px] w-full h-auto object-contain"
+                  />
+                ) : (
+                  <OptimizedImage
+                    key={idx}
+                    pngUrl={a.firebaseUrl}
+                    webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
+                    alt={a.filename}
+                    cacheKey={a.firebaseUrl}
+                    className="max-w-[125px] w-full h-auto object-contain"
+                  />
+                )
+              ))}
+            </div>
+            <div className="text-right mt-4">
+              <button onClick={() => setShowGallery(false)} className="btn-secondary px-3 py-1">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
