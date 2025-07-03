@@ -90,6 +90,7 @@ const Review = forwardRef(
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
+  const [showModeSelect, setShowModeSelect] = useState(!forceSplash);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -182,7 +183,7 @@ const Review = forwardRef(
   }, [groupId]);
 
 useEffect(() => {
-  if (!groupId || !reviewerName || reviewAds.length === 0 || forceSplash) return;
+  if (!groupId || !reviewerName || reviewAds.length === 0 || forceSplash || showModeSelect) return;
 
   const lockGroup = async () => {
     try {
@@ -227,21 +228,21 @@ useEffect(() => {
   if (needsLock) {
     lockGroup();
   }
-}, [groupId, reviewerName, reviewAds.length, currentIndex, groupStatus, lockedByUid, lockedBy, forceSplash, user, lockFailed]);
+}, [groupId, reviewerName, reviewAds.length, currentIndex, groupStatus, lockedByUid, lockedBy, forceSplash, user, lockFailed, showModeSelect]);
 
 
   useEffect(() => {
-  if (!groupId || forceSplash) return;
+  if (!groupId || forceSplash || showModeSelect) return;
   if (groupStatus !== 'in review') return;
   const isOwner = lockedByUid ? lockedByUid === user?.uid : false;
   if (!isOwner) return;
     updateDoc(doc(db, 'adGroups', groupId), {
       reviewProgress: currentIndex,
     }).catch((err) => console.error('Failed to save progress', err));
-  }, [currentIndex]);
+  }, [currentIndex, showModeSelect]);
 
   useEffect(() => {
-    if (!groupId || forceSplash) return;
+    if (!groupId || forceSplash || showModeSelect) return;
     if (currentIndex >= reviewAds.length && reviewAds.length > 0) {
       updateDoc(doc(db, 'adGroups', groupId), {
         status: 'reviewed',
@@ -250,11 +251,11 @@ useEffect(() => {
         reviewProgress: null,
       }).catch((err) => console.error('Failed to update status', err));
     }
-  }, [currentIndex, reviewAds.length, groupId, forceSplash]);
+  }, [currentIndex, reviewAds.length, groupId, forceSplash, showModeSelect]);
 
   useEffect(() => {
     return () => {
-      if (!groupId || forceSplash) return;
+      if (!groupId || forceSplash || showModeSelect) return;
       const idx = currentIndexRef.current;
       const len = reviewLengthRef.current;
       const uid = lockedByUidRef.current;
@@ -275,7 +276,7 @@ useEffect(() => {
         }).catch(() => {});
       }
     };
-  }, [groupId, forceSplash, user]);
+  }, [groupId, forceSplash, user, showModeSelect]);
 
   const recipeGroups = useMemo(() => {
     const map = {};
@@ -979,7 +980,7 @@ useEffect(() => {
     }
   };
 
-  if (loading || !firstAdLoaded || !logoReady) {
+  if (loading || (!firstAdLoaded && !showModeSelect) || !logoReady) {
     return <LoadingOverlay />;
   }
 
@@ -1037,6 +1038,69 @@ if (
           )}
         <h1 className="text-2xl font-bold">Ads Pending Review</h1>
         <p className="text-lg">We'll notify you when your ads are ready.</p>
+      </div>
+    );
+  }
+
+  if (showModeSelect) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+        <h1 className="text-2xl font-bold">What would you like to do?</h1>
+        <div className="space-x-4">
+          <button
+            onClick={() => setShowGallery(true)}
+            className="btn-secondary px-4 py-2"
+          >
+            Preview Ads
+          </button>
+          <button
+            onClick={() => setShowModeSelect(false)}
+            className="btn-primary px-4 py-2"
+          >
+            Review Ads
+          </button>
+        </div>
+        {agencyId && (
+          <OptimizedImage
+            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+            alt={`${agency.name || 'Agency'} logo`}
+            loading="eager"
+            cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+            onLoad={() => setLogoReady(true)}
+            className="mb-2 max-h-16 w-auto"
+          />
+        )}
+        {showGallery && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
+            <div className="bg-white p-4 rounded shadow max-w-6xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+              <div className="flex flex-wrap justify-center gap-2">
+                {ads.map((a, idx) => (
+                  isVideoUrl(a.firebaseUrl) ? (
+                    <VideoPlayer
+                      key={idx}
+                      src={a.firebaseUrl}
+                      className="max-w-[125px] w-full h-auto object-contain"
+                    />
+                  ) : (
+                    <OptimizedImage
+                      key={idx}
+                      pngUrl={a.firebaseUrl}
+                      webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
+                      alt={a.filename}
+                      cacheKey={a.firebaseUrl}
+                      className="max-w-[125px] w-full h-auto object-contain"
+                    />
+                  )
+                ))}
+              </div>
+              <div className="text-right mt-4">
+                <button onClick={() => setShowGallery(false)} className="btn-secondary px-3 py-1">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
