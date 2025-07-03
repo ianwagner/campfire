@@ -3,7 +3,7 @@
 ## Overview
 The ad review interface allows multiple reviewers to provide feedback on ad assets. To keep the state simple and flexible, each ad document stores a single status field that is updated by any reviewer.
 
-The interface now uses a lightweight locking mechanism on ad groups so only one reviewer edits at a time. Each group document stores `lockedBy` (display name) and `lockedByUid` (the reviewer's uid). Older documents may omit `lockedByUid`, so the UI falls back to comparing names when determining who holds the lock.
+The interface now uses a lightweight locking mechanism on ad groups so only one reviewer edits at a time. Each group document stores `lockedBy` (display name) and `lockedByUid` (the reviewer's uid). Older documents may omit `lockedByUid`; when missing, the group is treated as locked until the previous reviewer releases it.
 
 ## Data Model
 Each ad asset (stored under `adGroups/{groupId}/assets/{assetId}`) includes the following fields:

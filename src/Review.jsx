@@ -106,7 +106,6 @@ const Review = forwardRef(
   const currentIndexRef = useRef(currentIndex);
   const reviewLengthRef = useRef(reviewAds.length);
   const lockedByUidRef = useRef(lockedByUid);
-  const lockedByNameRef = useRef(lockedBy);
   const { agency } = useAgencyTheme(agencyId);
 
   useEffect(() => {
@@ -121,9 +120,6 @@ const Review = forwardRef(
     lockedByUidRef.current = lockedByUid;
   }, [lockedByUid]);
 
-  useEffect(() => {
-    lockedByNameRef.current = lockedBy;
-  }, [lockedBy]);
 
   useImperativeHandle(ref, () => ({
     openGallery: () => setShowGallery(true),
@@ -197,7 +193,7 @@ useEffect(() => {
         const lockedBySomeoneElse =
           data.status === 'in review' &&
           ((data.lockedByUid && data.lockedByUid !== user.uid) ||
-            (!data.lockedByUid && data.lockedBy && data.lockedBy !== reviewerName));
+            (!data.lockedByUid && data.lockedBy));
         if (lockedBySomeoneElse) {
           setGroupStatus(data.status);
           setLockedBy(data.lockedBy);
@@ -235,10 +231,10 @@ useEffect(() => {
 
 
   useEffect(() => {
-    if (!groupId || forceSplash) return;
-    if (groupStatus !== 'in review') return;
-    const isOwner = lockedByUid ? lockedByUid === user?.uid : lockedBy === reviewerName;
-    if (!isOwner) return;
+  if (!groupId || forceSplash) return;
+  if (groupStatus !== 'in review') return;
+  const isOwner = lockedByUid ? lockedByUid === user?.uid : false;
+  if (!isOwner) return;
     updateDoc(doc(db, 'adGroups', groupId), {
       reviewProgress: currentIndex,
     }).catch((err) => console.error('Failed to save progress', err));
@@ -262,8 +258,7 @@ useEffect(() => {
       const idx = currentIndexRef.current;
       const len = reviewLengthRef.current;
       const uid = lockedByUidRef.current;
-      const name = lockedByNameRef.current;
-      const isOwner = uid ? uid === user?.uid : name === reviewerName;
+      const isOwner = uid ? uid === user?.uid : false;
       if (idx >= len) {
         updateDoc(doc(db, 'adGroups', groupId), {
           status: 'reviewed',
@@ -280,7 +275,7 @@ useEffect(() => {
         }).catch(() => {});
       }
     };
-  }, [groupId, forceSplash, reviewerName, user]);
+  }, [groupId, forceSplash, user]);
 
   const recipeGroups = useMemo(() => {
     const map = {};
@@ -996,7 +991,11 @@ useEffect(() => {
     );
   }
 
-if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== user?.uid : lockedBy !== reviewerName)) {
+if (
+  groupStatus === 'in review' &&
+  lockedBy &&
+  (lockedByUid ? lockedByUid !== user?.uid : true)
+) {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
       <h1 className="text-2xl font-bold">{lockedBy} is currently reviewing this group.</h1>
