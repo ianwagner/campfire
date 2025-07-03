@@ -249,8 +249,8 @@ useEffect(() => {
       } else if (isOwner) {
         updateDoc(doc(db, 'adGroups', groupId), {
           status: 'review pending',
-          lockedBy: reviewerName,
-          lockedByUid: user?.uid,
+          lockedBy: null,
+          lockedByUid: null,
           reviewProgress: currentIndex,
         }).catch(() => {});
       }
