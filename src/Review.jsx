@@ -1575,7 +1575,7 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
                   <VideoPlayer
                     key={idx}
                     src={a.firebaseUrl}
-                    className="min-w-[125px] h-auto object-contain"
+                    className="max-w-[125px] w-full h-auto object-contain"
                   />
                 ) : (
                   <OptimizedImage
@@ -1584,7 +1584,7 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
                     webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
                     alt={a.filename}
                     cacheKey={a.firebaseUrl}
-                    className="min-w-[125px] h-auto object-contain"
+                    className="max-w-[125px] w-full h-auto object-contain"
                   />
                 )
               ))}
