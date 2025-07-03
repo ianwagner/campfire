@@ -91,7 +91,6 @@ const Review = forwardRef(
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
   const [showModeSelect, setShowModeSelect] = useState(!forceSplash);
-  const reviewActiveRef = useRef(false);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -109,11 +108,6 @@ const Review = forwardRef(
   const reviewLengthRef = useRef(reviewAds.length);
   const lockedByUidRef = useRef(lockedByUid);
   const { agency } = useAgencyTheme(agencyId);
-  useEffect(() => {
-    if (showModeSelect) {
-      reviewActiveRef.current = false;
-    }
-  }, [showModeSelect]);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -217,14 +211,6 @@ useEffect(() => {
       setGroupStatus('in review');
       setLockedBy(reviewerName);
       setLockedByUid(user.uid);
-      if (!reviewActiveRef.current) {
-        await updateDoc(doc(db, 'adGroups', groupId), {
-          status: 'review pending',
-          lockedBy: null,
-          lockedByUid: null,
-          reviewProgress: currentIndex,
-        }).catch(() => {});
-      }
     } catch (err) {
       if (err.code === 'permission-denied') {
         window.alert('Unable to acquire lock for this group. You may not have permission.');
@@ -268,27 +254,8 @@ useEffect(() => {
   }, [currentIndex, reviewAds.length, groupId, forceSplash, showModeSelect]);
 
   useEffect(() => {
-    if (!groupId || forceSplash || showModeSelect) return;
-    const handleUnload = () => {
-      const idx = currentIndexRef.current;
-      const uid = lockedByUidRef.current;
-      const isOwner = uid ? uid === user?.uid : false;
-      if (!isOwner) return;
-      updateDoc(doc(db, 'adGroups', groupId), {
-        status: idx >= reviewLengthRef.current ? 'reviewed' : 'review pending',
-        lockedBy: null,
-        lockedByUid: null,
-        reviewProgress: idx >= reviewLengthRef.current ? null : idx,
-      }).catch(() => {});
-    };
-    window.addEventListener('beforeunload', handleUnload);
-    return () => window.removeEventListener('beforeunload', handleUnload);
-  }, [groupId, forceSplash, showModeSelect, user]);
-
-  useEffect(() => {
     return () => {
       if (!groupId || forceSplash || showModeSelect) return;
-      reviewActiveRef.current = false;
       const idx = currentIndexRef.current;
       const len = reviewLengthRef.current;
       const uid = lockedByUidRef.current;
@@ -1034,7 +1001,6 @@ if (
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
       <h1 className="text-2xl font-bold">{lockedBy} is currently reviewing this group.</h1>
       <p className="text-lg">Please wait until they've finished before hopping in.</p>
-      <button onClick={() => setShowModeSelect(true)} className="btn-secondary px-3 py-1">Back</button>
       {agencyId && (
         <OptimizedImage
           pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
@@ -1079,6 +1045,21 @@ if (
   if (showModeSelect) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+        <h1 className="text-2xl font-bold">What would you like to do?</h1>
+        <div className="space-x-4">
+          <button
+            onClick={() => setShowGallery(true)}
+            className="btn-secondary px-4 py-2"
+          >
+            Preview Ads
+          </button>
+          <button
+            onClick={() => setShowModeSelect(false)}
+            className="btn-primary px-4 py-2"
+          >
+            Review Ads
+          </button>
+        </div>
         {agencyId && (
           <OptimizedImage
             pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
@@ -1089,24 +1070,6 @@ if (
             className="mb-2 max-h-16 w-auto"
           />
         )}
-        <h1 className="text-2xl font-bold">Your ads are ready!</h1>
-        <div className="space-x-4">
-          <button
-            onClick={() => setShowGallery(true)}
-            className="btn-secondary px-4 py-2"
-          >
-            Preview Ads
-          </button>
-          <button
-            onClick={() => {
-              reviewActiveRef.current = true;
-              setShowModeSelect(false);
-            }}
-            className="btn-primary px-4 py-2"
-          >
-            Review Ads
-          </button>
-        </div>
         {showGallery && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
             <div className="bg-white p-4 rounded shadow max-w-6xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
