@@ -102,7 +102,28 @@ const Review = forwardRef(
   const [lockedBy, setLockedBy] = useState(null);
   const [lockedByUid, setLockedByUid] = useState(null);
   const [lockFailed, setLockFailed] = useState(false);
+  // refs to track latest values for cleanup on unmount
+  const currentIndexRef = useRef(currentIndex);
+  const reviewLengthRef = useRef(reviewAds.length);
+  const lockedByUidRef = useRef(lockedByUid);
+  const lockedByNameRef = useRef(lockedBy);
   const { agency } = useAgencyTheme(agencyId);
+
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  useEffect(() => {
+    reviewLengthRef.current = reviewAds.length;
+  }, [reviewAds.length]);
+
+  useEffect(() => {
+    lockedByUidRef.current = lockedByUid;
+  }, [lockedByUid]);
+
+  useEffect(() => {
+    lockedByNameRef.current = lockedBy;
+  }, [lockedBy]);
 
   useImperativeHandle(ref, () => ({
     openGallery: () => setShowGallery(true),
@@ -238,8 +259,12 @@ useEffect(() => {
   useEffect(() => {
     return () => {
       if (!groupId || forceSplash) return;
-      const isOwner = lockedByUid ? lockedByUid === user?.uid : lockedBy === reviewerName;
-      if (currentIndex >= reviewAds.length) {
+      const idx = currentIndexRef.current;
+      const len = reviewLengthRef.current;
+      const uid = lockedByUidRef.current;
+      const name = lockedByNameRef.current;
+      const isOwner = uid ? uid === user?.uid : name === reviewerName;
+      if (idx >= len) {
         updateDoc(doc(db, 'adGroups', groupId), {
           status: 'reviewed',
           lockedBy: null,
@@ -251,11 +276,11 @@ useEffect(() => {
           status: 'review pending',
           lockedBy: null,
           lockedByUid: null,
-          reviewProgress: currentIndex,
+          reviewProgress: idx,
         }).catch(() => {});
       }
     };
-  }, [groupId, currentIndex, reviewAds.length, lockedByUid, lockedBy, reviewerName, forceSplash, user]);
+  }, [groupId, forceSplash, reviewerName, user]);
 
   const recipeGroups = useMemo(() => {
     const map = {};
