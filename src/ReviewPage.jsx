@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { signInAnonymously } from "firebase/auth";
 import {
@@ -13,6 +13,7 @@ import { auth, db } from "./firebase/config";
 import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
 import ThemeToggle from "./ThemeToggle";
+import { FiGrid } from "react-icons/fi";
 
 const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const { groupId } = useParams();
@@ -31,6 +32,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const [passwordOk, setPasswordOk] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(!auth.currentUser);
+  const reviewRef = useRef(null);
 
   useEffect(() => {
     if (!currentUser) {
@@ -226,10 +228,19 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
 
   return (
     <div className="min-h-screen relative">
-      {currentUser?.isAnonymous && (
-        <ThemeToggle className="absolute top-2 right-2" />
-      )}
+      <div className="absolute top-2 right-2 flex gap-2">
+        {currentUser?.isAnonymous && <ThemeToggle />}
+        <button
+          type="button"
+          aria-label="See gallery"
+          onClick={() => reviewRef.current?.openGallery()}
+          className="p-2 rounded"
+        >
+          <FiGrid />
+        </button>
+      </div>
       <Review
+        ref={reviewRef}
         user={userObj}
         groupId={groupId}
         reviewerName={reviewerName}
