@@ -46,7 +46,7 @@ When the revised ad is approved, set `isResolved` to true on all documents with 
 - The dashboard displays the latest status (`status`, `lastUpdatedBy`, `lastUpdatedAt`).
 
 ## Locking Behavior
-Role-based permissions are still avoided, but ad groups can be locked by a reviewer to reduce conflicts. The `lockedBy` and `lockedByUid` fields identify who currently holds the lock.
+Role-based permissions are still avoided, but ad groups can be locked by a reviewer to reduce conflicts. The `lockedBy` and `lockedByUid` fields identify who currently holds the lock. The lock is cleared when the reviewer leaves the page so another user can resume the review later.
 
 ## Error Handling
 If a status update fails (e.g. network error), the UI should surface the failure to the reviewer and allow them to retry. Firestore writes should be wrapped in try/catch blocks with appropriate user feedback.
