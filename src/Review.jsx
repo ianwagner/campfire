@@ -1,6 +1,13 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
 import { FiEdit, FiX } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -39,15 +46,19 @@ const isSafari =
 
 const BUFFER_COUNT = 3;
 
-const Review = ({
-  user,
-  userRole = null,
-  brandCodes = [],
-  groupId = null,
-  reviewerName = '',
-  agencyId = null,
-  forceSplash = false,
-}) => {
+const Review = forwardRef(
+  (
+    {
+      user,
+      userRole = null,
+      brandCodes = [],
+      groupId = null,
+      reviewerName = '',
+      agencyId = null,
+      forceSplash = false,
+    },
+    ref,
+  ) => {
   const [ads, setAds] = useState([]); // full list of ads
   const [reviewAds, setReviewAds] = useState([]); // ads being reviewed in the current pass
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -73,6 +84,7 @@ const Review = ({
   const [finalGallery, setFinalGallery] = useState(false);
   const [secondPass, setSecondPass] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -90,6 +102,10 @@ const Review = ({
   const [lockedByUid, setLockedByUid] = useState(null);
   const [lockFailed, setLockFailed] = useState(false);
   const { agency } = useAgencyTheme(agencyId);
+
+  useImperativeHandle(ref, () => ({
+    openGallery: () => setShowGallery(true),
+  }));
   const canSubmitEdit = useMemo(
     () =>
       comment.trim().length > 0 ||
@@ -1547,8 +1563,35 @@ if (groupStatus === 'in review' && lockedBy && (lockedByUid ? lockedByUid !== us
           </div>
         </div>
       )}
+      {showGallery && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
+          <div className="bg-white p-4 rounded shadow max-w-6xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <div className="flex flex-wrap justify-center gap-2">
+              {ads.map((a, idx) => (
+                isVideoUrl(a.firebaseUrl) ? (
+                  <VideoPlayer key={idx} src={a.firebaseUrl} className="w-24 h-24 object-contain" />
+                ) : (
+                  <OptimizedImage
+                    key={idx}
+                    pngUrl={a.firebaseUrl}
+                    webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
+                    alt={a.filename}
+                    cacheKey={a.firebaseUrl}
+                    className="w-24 h-24 object-contain"
+                  />
+                )
+              ))}
+            </div>
+            <div className="text-right mt-4">
+              <button onClick={() => setShowGallery(false)} className="btn-secondary px-3 py-1">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+});
 
 export default Review;
