@@ -1810,7 +1810,7 @@ const AdGroupDetail = () => {
                 <h4 className="font-medium mb-1">Brief Note:</h4>
                 <div className="mb-4">
                   <textarea
-                    className="w-full border rounded p-2 text-black dark:text-black"
+                    className="w-full border rounded p-2"
                     rows={3}
                     value={notesInput}
                     onChange={(e) => setNotesInput(e.target.value)}
@@ -1834,7 +1834,7 @@ const AdGroupDetail = () => {
             ) : (
               <>
                 <h4 className="font-medium mb-1">Brief Note:</h4>
-                <div className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded-xl relative">
+                <div className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded-xl relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
                   <button
                     onClick={() => {
                       setNotesInput(group?.notes || "");
@@ -1852,7 +1852,7 @@ const AdGroupDetail = () => {
             group?.notes && (
               <>
                 <h4 className="font-medium mb-1">Brief Note:</h4>
-                <div className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded-xl">
+                <div className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded-xl dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
                   {group.notes}
                 </div>
               </>
@@ -1875,7 +1875,7 @@ const AdGroupDetail = () => {
             <>
               <h4 className="font-medium mb-1">Brief Assets:</h4>
               <div
-                className={`flex flex-wrap gap-2 mb-4 p-2 bg-white shadow rounded-xl relative ${briefDrag ? "bg-accent-10" : ""}`}
+                className={`flex flex-wrap gap-2 mb-4 p-2 bg-white shadow rounded-xl relative ${briefDrag ? "bg-accent-10" : ""} dark:bg-[var(--dark-sidebar-bg)]`}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setBriefDrag(true);
