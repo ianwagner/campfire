@@ -276,6 +276,12 @@ You can also populate assets directly from the in-app **Asset Library**. Click
 the **Use Library** button in the recipe generator and the stored rows will be
 loaded with all columns mapped automatically.
 
+## Copy Recipe Setup
+
+The [Copy Recipe Setup](docs/copy-recipe-setup.md) section works just like Ad
+Recipe Setup. Copy recipes can reference all brand and product information using
+the same `brand` and `product` components available to ad recipes.
+
 ## Notification Automation
 
 Administrators can configure notification rules under `/admin/notifications`.
