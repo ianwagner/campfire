@@ -997,11 +997,21 @@ if (
   lockedBy &&
   (lockedByUid ? lockedByUid !== user?.uid : true)
 ) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
-      <h1 className="text-2xl font-bold">{lockedBy} is currently reviewing this group.</h1>
-      <p className="text-lg">Please wait until they've finished before hopping in.</p>
-      <div className="flex space-x-2">
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+        {agencyId && (
+          <OptimizedImage
+            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+            alt={`${agency.name || 'Agency'} logo`}
+            loading="eager"
+            cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+            onLoad={() => setLogoReady(true)}
+            className="mb-2 max-h-16 w-auto"
+          />
+        )}
+        <h1 className="text-2xl font-bold">{lockedBy} is currently reviewing this group.</h1>
+        <p className="text-lg">Please wait until they've finished before hopping in.</p>
+        <div className="flex space-x-2">
         <button onClick={() => setStarted(false)} className="btn-secondary px-3 py-1">
           Back
         </button>
@@ -1012,19 +1022,9 @@ if (
           <FiGrid className="mr-1" /> See Gallery
         </button>
       </div>
-      {agencyId && (
-        <OptimizedImage
-          pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-          alt={`${agency.name || 'Agency'} logo`}
-          loading="eager"
-          cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
-          onLoad={() => setLogoReady(true)}
-          className="mb-2 max-h-16 w-auto"
-        />
-      )}
-      {showGallery && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
-          <div className="bg-white p-4 rounded shadow max-w-6xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+        {showGallery && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
+            <div className="bg-white p-4 rounded shadow max-w-6xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
             <div className="flex flex-wrap justify-center gap-2">
               {ads.map((a, idx) => (
                 isVideoUrl(a.firebaseUrl) ? (
@@ -1060,6 +1060,16 @@ if (
   if (!started) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+        {agencyId && (
+          <OptimizedImage
+            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+            alt={`${agency.name || 'Agency'} logo`}
+            loading="eager"
+            cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+            onLoad={() => setLogoReady(true)}
+            className="mb-2 max-h-16 w-auto"
+          />
+        )}
         <h1 className="text-2xl font-bold">Your ads are ready!</h1>
         <div className="flex space-x-2">
           <button
@@ -1075,16 +1085,6 @@ if (
             <FiCheck className="mr-1" /> Review Ads
           </button>
         </div>
-        {agencyId && (
-          <OptimizedImage
-            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-            alt={`${agency.name || 'Agency'} logo`}
-            loading="eager"
-            cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
-            onLoad={() => setLogoReady(true)}
-            className="mb-2 max-h-16 w-auto"
-          />
-        )}
         {showGallery && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
             <div className="bg-white p-4 rounded shadow max-w-6xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
