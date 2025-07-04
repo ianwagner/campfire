@@ -36,6 +36,7 @@ import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
 import AdminRecipeSetup from "./AdminRecipeSetup";
 import AdminNotifications from "./AdminNotifications";
+import AdminCopyRecipes from "./AdminCopyRecipes";
 import ManageMfa from "./ManageMfa";
 import RequireMfa from "./RequireMfa";
 import SiteSettings from "./SiteSettings";
@@ -534,6 +535,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminRecipeSetup />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/copy-recipes"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="admin"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <AdminCopyRecipes />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
