@@ -246,24 +246,15 @@ useEffect(() => {
     if (!started || !groupId || forceSplash) return;
     const idx = currentIndexRef.current;
     const len = reviewLengthRef.current;
-    const uid = lockedByUidRef.current;
-    const isOwner = uid ? uid === user?.uid : false;
-    if (idx >= len) {
-      updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'reviewed',
-        lockedBy: null,
-        lockedByUid: null,
-        reviewProgress: null,
-      }).catch(() => {});
-    } else if (isOwner) {
-      updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'review pending',
-        lockedBy: null,
-        lockedByUid: null,
-        reviewProgress: idx,
-      }).catch(() => {});
-    }
-  }, [groupId, forceSplash, user]);
+    const status = idx >= len ? 'reviewed' : 'review pending';
+    const progress = idx >= len ? null : idx;
+    updateDoc(doc(db, 'adGroups', groupId), {
+      status,
+      lockedBy: null,
+      lockedByUid: null,
+      reviewProgress: progress,
+    }).catch(() => {});
+  }, [groupId, forceSplash, started]);
 
   useEffect(() => {
     if (!started || !groupId || forceSplash) return;
@@ -992,69 +983,6 @@ useEffect(() => {
     return <LoadingOverlay />;
   }
 
-  if (!started) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
-        <h1 className="text-2xl font-bold">Your ads are ready!</h1>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setShowGallery(true)}
-            className="btn-secondary flex items-center px-3 py-1"
-          >
-            <FiGrid className="mr-1" /> See Gallery
-          </button>
-          <button
-            onClick={() => setStarted(true)}
-            className="btn-primary flex items-center px-3 py-1"
-          >
-            <FiCheck className="mr-1" /> Review Ads
-          </button>
-        </div>
-        {agencyId && (
-          <OptimizedImage
-            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-            alt={`${agency.name || 'Agency'} logo`}
-            loading="eager"
-            cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
-            onLoad={() => setLogoReady(true)}
-            className="mb-2 max-h-16 w-auto"
-          />
-        )}
-        {showGallery && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
-            <div className="bg-white p-4 rounded shadow max-w-6xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-              <div className="flex flex-wrap justify-center gap-2">
-                {ads.map((a, idx) =>
-                  isVideoUrl(a.firebaseUrl) ? (
-                    <VideoPlayer
-                      key={idx}
-                      src={a.firebaseUrl}
-                      className="max-w-[125px] w-full h-auto object-contain"
-                    />
-                  ) : (
-                    <OptimizedImage
-                      key={idx}
-                      pngUrl={a.firebaseUrl}
-                      webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
-                      alt={a.filename}
-                      cacheKey={a.firebaseUrl}
-                      className="max-w-[125px] w-full h-auto object-contain"
-                    />
-                  )
-                )}
-              </div>
-              <div className="text-right mt-4">
-                <button onClick={() => setShowGallery(false)} className="btn-secondary px-3 py-1">
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   if (lockFailed) {
     return (
       <div className="p-4 text-center">
@@ -1127,6 +1055,69 @@ if (
     </div>
   );
 }
+
+  if (!started) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+        <h1 className="text-2xl font-bold">Your ads are ready!</h1>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowGallery(true)}
+            className="btn-secondary flex items-center px-3 py-1"
+          >
+            <FiGrid className="mr-1" /> See Gallery
+          </button>
+          <button
+            onClick={() => setStarted(true)}
+            className="btn-primary flex items-center px-3 py-1"
+          >
+            <FiCheck className="mr-1" /> Review Ads
+          </button>
+        </div>
+        {agencyId && (
+          <OptimizedImage
+            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+            alt={`${agency.name || 'Agency'} logo`}
+            loading="eager"
+            cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+            onLoad={() => setLogoReady(true)}
+            className="mb-2 max-h-16 w-auto"
+          />
+        )}
+        {showGallery && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
+            <div className="bg-white p-4 rounded shadow max-w-6xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+              <div className="flex flex-wrap justify-center gap-2">
+                {ads.map((a, idx) =>
+                  isVideoUrl(a.firebaseUrl) ? (
+                    <VideoPlayer
+                      key={idx}
+                      src={a.firebaseUrl}
+                      className="max-w-[125px] w-full h-auto object-contain"
+                    />
+                  ) : (
+                    <OptimizedImage
+                      key={idx}
+                      pngUrl={a.firebaseUrl}
+                      webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
+                      alt={a.filename}
+                      cacheKey={a.firebaseUrl}
+                      className="max-w-[125px] w-full h-auto object-contain"
+                    />
+                  )
+                )}
+              </div>
+              <div className="text-right mt-4">
+                <button onClick={() => setShowGallery(false)} className="btn-secondary px-3 py-1">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!ads || ads.length === 0) {
     return (
