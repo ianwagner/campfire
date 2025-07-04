@@ -87,6 +87,7 @@ const Review = forwardRef(
   const [secondPass, setSecondPass] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [swipeX, setSwipeX] = useState(0);
@@ -276,6 +277,30 @@ useEffect(() => {
       releaseLock();
     };
   }, [releaseLock, started]);
+
+  useEffect(() => {
+    if (!started) return;
+    const TIMEOUT = 300000; // 5 minutes
+    let timer = setTimeout(() => {
+      setTimedOut(true);
+      setStarted(false);
+      releaseLock();
+    }, TIMEOUT);
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        setTimedOut(true);
+        setStarted(false);
+        releaseLock();
+      }, TIMEOUT);
+    };
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart'];
+    events.forEach((e) => window.addEventListener(e, reset));
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [started, releaseLock]);
 
   const recipeGroups = useMemo(() => {
     const map = {};
@@ -1060,6 +1085,9 @@ if (
   if (!started) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+        {timedOut && (
+          <p className="text-red-600">Review timed out due to inactivity.</p>
+        )}
         {agencyId && (
           <OptimizedImage
             pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
@@ -1079,7 +1107,10 @@ if (
             <FiGrid className="mr-1" /> See Gallery
           </button>
           <button
-            onClick={() => setStarted(true)}
+            onClick={() => {
+              setTimedOut(false);
+              setStarted(true);
+            }}
             className="btn-primary flex items-center px-3 py-1"
           >
             <FiCheck className="mr-1" /> Review Ads

@@ -48,6 +48,10 @@ When the revised ad is approved, set `isResolved` to true on all documents with 
 ## Locking Behavior
 Role-based permissions are still avoided, but ad groups can be locked by a reviewer to reduce conflicts. The `lockedBy` and `lockedByUid` fields identify who currently holds the lock. The lock is cleared when the reviewer leaves the page so another user can resume the review later.
 
+Review sessions also time out after five minutes of inactivity. When the timeout
+triggers the lock is released and the interface returns to the start screen with
+a message indicating the session expired.
+
 ## Error Handling
 If a status update fails (e.g. network error), the UI should surface the failure to the reviewer and allow them to retry. Firestore writes should be wrapped in try/catch blocks with appropriate user feedback.
 
