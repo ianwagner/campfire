@@ -246,6 +246,9 @@ const RecipeTypes = () => {
       'review.title',
       'review.rating',
       'review.product',
+      'primaryText',
+      'headline',
+      'description',
       'recipeNo',
       'copy',
     );
