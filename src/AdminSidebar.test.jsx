@@ -44,6 +44,16 @@ test('navigates to ad recipes page when Ad Recipes clicked', () => {
   expect(navigate).toHaveBeenCalledWith('/admin/ad-recipes');
 });
 
+test('navigates to copy recipes page when Copy Recipes clicked', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  fireEvent.click(screen.getByText('Copy Recipes'));
+  expect(navigate).toHaveBeenCalledWith('/admin/copy-recipes');
+});
+
 test('renders Site Settings tab', () => {
   render(
     <MemoryRouter>
@@ -69,4 +79,13 @@ test('renders Ad Recipes tab', () => {
     </MemoryRouter>
   );
   expect(screen.getByText('Ad Recipes')).toBeInTheDocument();
+});
+
+test('renders Copy Recipes tab', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  expect(screen.getByText('Copy Recipes')).toBeInTheDocument();
 });
