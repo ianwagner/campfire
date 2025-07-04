@@ -992,6 +992,7 @@ useEffect(() => {
   }
 
 if (
+  started &&
   groupStatus === 'in review' &&
   lockedBy &&
   (lockedByUid ? lockedByUid !== user?.uid : true)
