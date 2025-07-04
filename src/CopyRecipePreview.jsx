@@ -12,6 +12,7 @@ import {
 import { FaMagic } from 'react-icons/fa';
 import { auth } from './firebase/config';
 import useUserRole from './useUserRole';
+import useCopyRules from './useCopyRules';
 import TagChecklist from './components/TagChecklist.jsx';
 import TagInput from './components/TagInput.jsx';
 import { db } from './firebase/config';
@@ -77,6 +78,7 @@ const CopyRecipePreview = ({
   const [assetHeaders, setAssetHeaders] = useState([]);
   const [assetMap, setAssetMap] = useState({});
   const [assetUsage, setAssetUsage] = useState({});
+  const { rules } = useCopyRules();
   const [assetFilter, setAssetFilter] = useState('');
   const [reviewRows, setReviewRows] = useState([]);
 
@@ -163,7 +165,7 @@ const CopyRecipePreview = ({
       try {
         const typeSnap = await getDocs(collection(db, 'recipeTypes'));
         setTypes(typeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        const compSnap = await getDocs(collection(db, 'componentTypes'));
+        const compSnap = await getDocs(collection(db, 'copyComponentTypes'));
         const list = compSnap.docs.map((d) => {
           const data = d.data();
           return { id: d.id, ...data, selectionMode: data.selectionMode || 'dropdown' };
@@ -191,7 +193,7 @@ const CopyRecipePreview = ({
           ],
         });
         setComponents(list);
-        const instSnap = await getDocs(collection(db, 'componentInstances'));
+        const instSnap = await getDocs(collection(db, 'copyComponentInstances'));
         setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         const brandSnap = await getDocs(collection(db, 'brands'));
         setBrands(brandSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -341,6 +343,15 @@ const CopyRecipePreview = ({
 
     let prompt = currentType.gptPrompt || '';
     prompt = prompt.replace(/{{brandCode}}/g, brand);
+    if (rules.primaryRule) {
+      prompt += `\nPrimary Text Rules: ${rules.primaryRule}`;
+    }
+    if (rules.headlineRule) {
+      prompt += `\nHeadline Rules: ${rules.headlineRule}`;
+    }
+    if (rules.descriptionRule) {
+      prompt += `\nDescription Rules: ${rules.descriptionRule}`;
+    }
     const mergedForm = baseValues ? { ...baseValues } : { ...formData };
     const componentsData = {};
     for (const c of orderedComponents) {

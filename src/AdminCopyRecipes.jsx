@@ -16,7 +16,8 @@ import {
 } from 'react-icons/fi';
 import TagInput from './components/TagInput.jsx';
 import PromptTextarea from './components/PromptTextarea.jsx';
-import useComponentTypes from './useComponentTypes';
+import useCopyComponentTypes from './useCopyComponentTypes';
+import useCopyRules from './useCopyRules';
 import { db } from './firebase/config';
 import { splitCsvLine } from "./utils/csv.js";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
@@ -27,6 +28,7 @@ const VIEWS = {
   TYPES: 'types',
   COMPONENTS: 'components',
   INSTANCES: 'instances',
+  RULES: 'rules',
   PREVIEW: 'preview',
 };
 
@@ -58,6 +60,14 @@ const Tabs = ({ view, setView }) => (
     </button>
     <button
       className={`px-3 py-1 rounded flex items-center gap-1 ${
+        view === VIEWS.RULES ? 'bg-accent-10 text-accent' : 'border'
+      }`}
+      onClick={() => setView(VIEWS.RULES)}
+    >
+      <FiEdit2 /> <span>Rules</span>
+    </button>
+    <button
+      className={`px-3 py-1 rounded flex items-center gap-1 ${
         view === VIEWS.PREVIEW ? 'bg-accent-10 text-accent' : 'border'
       }`}
       onClick={() => setView(VIEWS.PREVIEW)}
@@ -68,16 +78,13 @@ const Tabs = ({ view, setView }) => (
 );
 
 const RecipeTypes = () => {
-  const componentsData = useComponentTypes();
+  const componentsData = useCopyComponentTypes();
   const [types, setTypes] = useState([]);
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
   const [assetPrompt, setAssetPrompt] = useState('');
   const [componentOrder, setComponentOrder] = useState([]);
   const [fields, setFields] = useState([{ label: '', key: '', inputType: 'text' }]);
-  const [primaryRule, setPrimaryRule] = useState("");
-  const [headlineRule, setHeadlineRule] = useState("");
-  const [descriptionRule, setDescriptionRule] = useState("");
   const [enableAssetCsv, setEnableAssetCsv] = useState(false);
   const [assetFields, setAssetFields] = useState([]);
   const [defaultColumns, setDefaultColumns] = useState([]);
@@ -102,9 +109,6 @@ const RecipeTypes = () => {
     setName('');
     setPrompt('');
     setAssetPrompt('');
-    setPrimaryRule("");
-    setHeadlineRule("");
-    setDescriptionRule("");
     setComponentOrder([]);
     setFields([{ label: '', key: '', inputType: 'text' }]);
     setEnableAssetCsv(false);
@@ -134,9 +138,6 @@ const RecipeTypes = () => {
           components: order,
           writeInFields: writeFields,
           defaultColumns: defaultCols,
-          primaryRule: primaryRule,
-          headlineRule: headlineRule,
-          descriptionRule: descriptionRule,
         });
         setTypes((t) =>
           t.map((r) =>
@@ -151,9 +152,6 @@ const RecipeTypes = () => {
                   components: order,
                   writeInFields: writeFields,
                   defaultColumns: defaultCols,
-                  primaryRule: primaryRule,
-                  headlineRule: headlineRule,
-                  descriptionRule: descriptionRule,
                 }
               : r
           )
@@ -168,9 +166,6 @@ const RecipeTypes = () => {
           components: order,
           writeInFields: writeFields,
           defaultColumns: defaultCols,
-          primaryRule: primaryRule,
-          headlineRule: headlineRule,
-          descriptionRule: descriptionRule,
         });
         setTypes((t) => [
           ...t,
@@ -184,9 +179,6 @@ const RecipeTypes = () => {
             components: order,
             writeInFields: writeFields,
             defaultColumns: defaultCols,
-            primaryRule: primaryRule,
-            headlineRule: headlineRule,
-            descriptionRule: descriptionRule,
           },
         ]);
       }
@@ -203,9 +195,6 @@ const RecipeTypes = () => {
     setAssetPrompt(t.assetPrompt || '');
     setEnableAssetCsv(!!t.enableAssetCsv);
     setAssetFields(t.assetMatchFields || []);
-    setPrimaryRule(t.primaryRule || "");
-    setHeadlineRule(t.headlineRule || "");
-    setDescriptionRule(t.descriptionRule || "");
     setComponentOrder(t.components || []);
     setDefaultColumns(t.defaultColumns || []);
     setFields(
@@ -346,18 +335,6 @@ const RecipeTypes = () => {
           />
         </div>
         <div>
-        <div>
-          <label className="block text-sm mb-1">Primary Text Rules</label>
-          <textarea className="w-full p-2 border rounded" value={primaryRule} onChange={(e) => setPrimaryRule(e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Headline Rules</label>
-          <textarea className="w-full p-2 border rounded" value={headlineRule} onChange={(e) => setHeadlineRule(e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Description Rules</label>
-          <textarea className="w-full p-2 border rounded" value={descriptionRule} onChange={(e) => setDescriptionRule(e.target.value)} />
-        </div>
           <label className="block text-sm mb-1">Asset Prompt</label>
           <PromptTextarea
             value={assetPrompt}
@@ -488,7 +465,7 @@ const ComponentsView = () => {
   useEffect(() => {
     const fetchComponents = async () => {
       try {
-        const snap = await getDocs(collection(db, 'componentTypes'));
+        const snap = await getDocs(collection(db, 'copyComponentTypes'));
         setComponents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error('Failed to fetch components', err);
@@ -517,7 +494,7 @@ const ComponentsView = () => {
       .filter((a) => a.label && a.key);
     try {
       if (editId) {
-        await updateDoc(doc(db, 'componentTypes', editId), {
+        await updateDoc(doc(db, 'copyComponentTypes', editId), {
           label: label.trim(),
           key: keyVal.trim(),
           selectionMode,
@@ -531,7 +508,7 @@ const ComponentsView = () => {
           )
         );
       } else {
-        const docRef = await addDoc(collection(db, 'componentTypes'), {
+        const docRef = await addDoc(collection(db, 'copyComponentTypes'), {
           label: label.trim(),
           key: keyVal.trim(),
           selectionMode,
@@ -558,7 +535,7 @@ const ComponentsView = () => {
 
   const handleDelete = async (id) => {
     try {
-      await deleteDoc(doc(db, 'componentTypes', id));
+      await deleteDoc(doc(db, 'copyComponentTypes', id));
       setComponents((c) => c.filter((comp) => comp.id !== id));
     } catch (err) {
       console.error('Failed to delete component type', err);
@@ -724,7 +701,7 @@ const InstancesView = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const compSnap = await getDocs(collection(db, 'componentTypes'));
+        const compSnap = await getDocs(collection(db, 'copyComponentTypes'));
         setComponents(
           compSnap.docs.map((d) => {
             const data = d.data();
@@ -735,7 +712,7 @@ const InstancesView = () => {
             };
           })
         );
-        const instSnap = await getDocs(collection(db, 'componentInstances'));
+        const instSnap = await getDocs(collection(db, 'copyComponentInstances'));
         setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         const brandSnap = await getDocs(collection(db, 'brands'));
         setBrands(brandSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -761,7 +738,7 @@ const InstancesView = () => {
     if (!comp) return;
     try {
       if (editId) {
-        await updateDoc(doc(db, 'componentInstances', editId), {
+        await updateDoc(doc(db, 'copyComponentInstances', editId), {
           componentKey: comp.key,
           name: name.trim(),
           values,
@@ -781,7 +758,7 @@ const InstancesView = () => {
           )
         );
       } else {
-        const docRef = await addDoc(collection(db, 'componentInstances'), {
+        const docRef = await addDoc(collection(db, 'copyComponentInstances'), {
           componentKey: comp.key,
           name: name.trim(),
           values,
@@ -815,7 +792,7 @@ const InstancesView = () => {
 
   const handleDelete = async (id) => {
     try {
-      await deleteDoc(doc(db, 'componentInstances', id));
+      await deleteDoc(doc(db, 'copyComponentInstances', id));
       setInstances((i) => i.filter((ins) => ins.id !== id));
     } catch (err) {
       console.error('Failed to delete instance', err);
@@ -860,7 +837,7 @@ const InstancesView = () => {
         }
       });
       try {
-        const docRef = await addDoc(collection(db, 'componentInstances'), {
+        const docRef = await addDoc(collection(db, 'copyComponentInstances'), {
           componentKey: comp.key,
           name: instName,
           values: vals,
@@ -1176,6 +1153,73 @@ const InstancesView = () => {
   );
 };
 
+const RulesView = () => {
+  const { rules, saveRules } = useCopyRules();
+  const [primary, setPrimary] = useState('');
+  const [headline, setHeadline] = useState('');
+  const [description, setDescription] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    setPrimary(rules.primaryRule || '');
+    setHeadline(rules.headlineRule || '');
+    setDescription(rules.descriptionRule || '');
+  }, [rules]);
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+    try {
+      await saveRules({
+        primaryRule: primary,
+        headlineRule: headline,
+        descriptionRule: description,
+      });
+      setMessage('Rules saved');
+    } catch (err) {
+      console.error('Failed to save rules', err);
+      setMessage('Failed to save rules');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSave} className="space-y-2 max-w-md">
+      <div>
+        <label className="block text-sm mb-1">Primary Text Rules</label>
+        <textarea
+          className="w-full p-2 border rounded"
+          value={primary}
+          onChange={(e) => setPrimary(e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="block text-sm mb-1">Headline Rules</label>
+        <textarea
+          className="w-full p-2 border rounded"
+          value={headline}
+          onChange={(e) => setHeadline(e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="block text-sm mb-1">Description Rules</label>
+        <textarea
+          className="w-full p-2 border rounded"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+      {message && <p className="text-sm">{message}</p>}
+      <button type="submit" className="btn-primary" disabled={loading}>
+        {loading ? 'Saving...' : 'Save Rules'}
+      </button>
+    </form>
+  );
+};
+
 
 const AdminRecipeSetup = () => {
   const [view, setView] = useState(VIEWS.TYPES);
@@ -1186,6 +1230,7 @@ const AdminRecipeSetup = () => {
       {view === VIEWS.TYPES && <RecipeTypes />}
       {view === VIEWS.COMPONENTS && <ComponentsView />}
       {view === VIEWS.INSTANCES && <InstancesView />}
+      {view === VIEWS.RULES && <RulesView />}
       {view === VIEWS.PREVIEW && <CopyRecipePreview />}
     </div>
   );
