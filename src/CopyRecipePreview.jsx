@@ -699,10 +699,15 @@ const CopyRecipePreview = ({
           description,
           assets: selectedAssets.slice(),
         };
-        while (result.assets.length < assetCount) {
-          result.assets.push({ needAsset: true });
-        }
-        return result;
+      while (result.assets.length < assetCount) {
+        result.assets.push({ needAsset: true });
+      }
+      return result;
+    } catch (err) {
+      console.error('Failed to generate copy', err);
+      return null;
+    }
+  };
 
   const handleGenerate = async (e) => {
     e.preventDefault();
