@@ -1397,7 +1397,10 @@ if (
           <div className="relative w-full max-w-md mb-2.5 flex justify-center">
             <button
               type="button"
-              onClick={() => navigate(-1)}
+              onClick={() => {
+                releaseLock();
+                setStarted(false);
+              }}
               aria-label="Exit Review"
               className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
             >
