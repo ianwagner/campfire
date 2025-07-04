@@ -689,8 +689,7 @@ const CopyRecipePreview = ({
         return null;
       }
         const text = data.choices?.[0]?.message?.content?.trim() || "No result";
-        const [primaryText = "", headline = "", description = ""] = text.split(/
-+/);
+        const [primaryText = "", headline = "", description = ""] = text.split(/\n+/);
         const result = {
           type: selectedType,
           brandCode: brand,
