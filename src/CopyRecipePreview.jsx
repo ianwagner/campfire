@@ -943,13 +943,15 @@ const CopyRecipePreview = ({
     () => Object.fromEntries(components.map((c) => [c.key, c])),
     [components],
   );
-  const orderedComponents = useMemo(
-    () =>
-      currentType?.components?.length
-        ? currentType.components.map((k) => compMap[k]).filter(Boolean)
-        : components,
-    [currentType, compMap, components],
-  );
+  const orderedComponents = useMemo(() => {
+    if (currentType?.components?.length) {
+      const base = Array.from(
+        new Set(['brand', 'product', ...currentType.components])
+      );
+      return base.map((k) => compMap[k]).filter(Boolean);
+    }
+    return components;
+  }, [currentType, compMap, components]);
   const writeFields = useMemo(
     () => currentType?.writeInFields || [],
     [currentType],
