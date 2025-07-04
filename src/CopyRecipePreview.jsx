@@ -163,7 +163,7 @@ const CopyRecipePreview = ({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const typeSnap = await getDocs(collection(db, 'recipeTypes'));
+        const typeSnap = await getDocs(collection(db, 'copyRecipeTypes'));
         setTypes(typeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         const compSnap = await getDocs(collection(db, 'copyComponentTypes'));
         const list = compSnap.docs.map((d) => {

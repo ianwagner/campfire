@@ -93,7 +93,7 @@ const RecipeTypes = () => {
   useEffect(() => {
     const fetchTypes = async () => {
       try {
-        const snap = await getDocs(collection(db, 'recipeTypes'));
+        const snap = await getDocs(collection(db, 'copyRecipeTypes'));
         setTypes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error('Failed to fetch recipe types', err);
@@ -129,7 +129,7 @@ const RecipeTypes = () => {
       .filter((f) => f.label && f.key);
     try {
       if (editId) {
-        await updateDoc(doc(db, 'recipeTypes', editId), {
+        await updateDoc(doc(db, 'copyRecipeTypes', editId), {
           name: name.trim(),
           gptPrompt: prompt,
           assetPrompt: assetPrompt,
@@ -157,7 +157,7 @@ const RecipeTypes = () => {
           )
         );
       } else {
-        const docRef = await addDoc(collection(db, 'recipeTypes'), {
+        const docRef = await addDoc(collection(db, 'copyRecipeTypes'), {
           name: name.trim(),
           gptPrompt: prompt,
           assetPrompt: assetPrompt,
@@ -206,7 +206,7 @@ const RecipeTypes = () => {
 
   const handleDelete = async (id) => {
     try {
-      await deleteDoc(doc(db, 'recipeTypes', id));
+      await deleteDoc(doc(db, 'copyRecipeTypes', id));
       setTypes((t) => t.filter((r) => r.id !== id));
     } catch (err) {
       console.error('Failed to delete recipe type', err);
