@@ -10,9 +10,13 @@ export default function useCopyComponentTypes() {
 
     const load = async () => {
       try {
-        const snap = await getDocs(collection(db, 'copyComponentTypes'));
+        const copySnap = await getDocs(collection(db, 'copyComponentTypes'));
+        const baseSnap = await getDocs(collection(db, 'componentTypes'));
         if (!cancelled) {
-          const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          const list = [
+            ...baseSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+            ...copySnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+          ];
           list.push({
             id: 'brand',
             key: 'brand',

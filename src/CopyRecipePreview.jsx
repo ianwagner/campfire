@@ -165,8 +165,9 @@ const CopyRecipePreview = ({
       try {
         const typeSnap = await getDocs(collection(db, 'copyRecipeTypes'));
         setTypes(typeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        const compSnap = await getDocs(collection(db, 'copyComponentTypes'));
-        const list = compSnap.docs.map((d) => {
+        const copySnap = await getDocs(collection(db, 'copyComponentTypes'));
+        const baseSnap = await getDocs(collection(db, 'componentTypes'));
+        const list = [...baseSnap.docs, ...copySnap.docs].map((d) => {
           const data = d.data();
           return { id: d.id, ...data, selectionMode: data.selectionMode || 'dropdown' };
         });
@@ -193,8 +194,12 @@ const CopyRecipePreview = ({
           ],
         });
         setComponents(list);
-        const instSnap = await getDocs(collection(db, 'copyComponentInstances'));
-        setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const instSnap = await getDocs(collection(db, 'componentInstances'));
+        const copyInstSnap = await getDocs(collection(db, 'copyComponentInstances'));
+        setInstances([
+          ...instSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+          ...copyInstSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        ]);
         const brandSnap = await getDocs(collection(db, 'brands'));
         setBrands(brandSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
