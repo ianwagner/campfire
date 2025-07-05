@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import TagInput from './components/TagInput.jsx';
+import { FiEdit2, FiTrash, FiCheck } from 'react-icons/fi';
 
 const CopyRecipePreview = () => {
   const [types, setTypes] = useState([]);
   const [selectedType, setSelectedType] = useState('');
-  const [primary, setPrimary] = useState('');
-  const [headline, setHeadline] = useState('');
-  const [description, setDescription] = useState('');
+  const [copies, setCopies] = useState([]);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [loading, setLoading] = useState(false);
   const [brands, setBrands] = useState([]);
   const [brandCode, setBrandCode] = useState('');
@@ -134,9 +134,11 @@ const CopyRecipePreview = () => {
       fetchCopy(buildPrompt(type.headlinePrompt, type)),
       fetchCopy(buildPrompt(type.descriptionPrompt, type)),
     ]);
-    setPrimary(p);
-    setHeadline(h);
-    setDescription(d);
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setCopies((arr) => [
+      ...arr,
+      { id, primary: p, headline: h, description: d, editing: false },
+    ]);
     setLoading(false);
   };
 
@@ -228,33 +230,111 @@ const CopyRecipePreview = () => {
           {loading ? 'Generating...' : 'Generate'}
         </button>
       </form>
-      <div>
-        <label className="block text-sm mb-1">Primary Text</label>
-        <textarea
-          className="w-full p-2 border rounded"
-          rows="3"
-          value={primary}
-          onChange={(e) => setPrimary(e.target.value)}
-        />
+      <div className="flex flex-wrap gap-4">
+        {copies.map((c) => (
+          <div
+            key={c.id}
+            className="border rounded p-2 relative max-w-[350px] w-full"
+          >
+            <button
+              type="button"
+              onClick={() =>
+                setCopies((arr) =>
+                  arr.map((x) =>
+                    x.id === c.id ? { ...x, editing: !x.editing } : x,
+                  ),
+                )
+              }
+              aria-label={c.editing ? 'Save' : 'Edit'}
+              className="absolute top-1 right-7 text-sm"
+            >
+              {c.editing ? <FiCheck /> : <FiEdit2 />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(c.id)}
+              aria-label="Delete"
+              className="absolute top-1 right-1 text-sm btn-delete"
+            >
+              <FiTrash />
+            </button>
+            <div>
+              <label className="block text-sm mb-1">Primary Text</label>
+              <textarea
+                className="w-full p-2 border rounded"
+                rows="3"
+                value={c.primary}
+                readOnly={!c.editing}
+                onChange={(e) =>
+                  setCopies((arr) =>
+                    arr.map((x) =>
+                      x.id === c.id ? { ...x, primary: e.target.value } : x,
+                    ),
+                  )
+                }
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Headline</label>
+              <textarea
+                className="w-full p-2 border rounded"
+                rows="2"
+                value={c.headline}
+                readOnly={!c.editing}
+                onChange={(e) =>
+                  setCopies((arr) =>
+                    arr.map((x) =>
+                      x.id === c.id ? { ...x, headline: e.target.value } : x,
+                    ),
+                  )
+                }
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Description</label>
+              <textarea
+                className="w-full p-2 border rounded"
+                rows="2"
+                value={c.description}
+                readOnly={!c.editing}
+                onChange={(e) =>
+                  setCopies((arr) =>
+                    arr.map((x) =>
+                      x.id === c.id
+                        ? { ...x, description: e.target.value }
+                        : x,
+                    ),
+                  )
+                }
+              />
+            </div>
+          </div>
+        ))}
       </div>
-      <div>
-        <label className="block text-sm mb-1">Headline</label>
-        <textarea
-          className="w-full p-2 border rounded"
-          rows="2"
-          value={headline}
-          onChange={(e) => setHeadline(e.target.value)}
-        />
-      </div>
-      <div>
-        <label className="block text-sm mb-1">Description</label>
-        <textarea
-          className="w-full p-2 border rounded"
-          rows="2"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </div>
+      {confirmDelete && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <p className="mb-4">Delete this copy?</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="btn-secondary px-3 py-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setCopies((arr) => arr.filter((x) => x.id !== confirmDelete));
+                  setConfirmDelete(null);
+                }}
+                className="btn-delete px-3 py-1"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
