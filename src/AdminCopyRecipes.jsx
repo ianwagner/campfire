@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   collection,
   getDocs,
@@ -10,6 +10,7 @@ import {
 import { FiList, FiEye, FiEdit2, FiTrash } from 'react-icons/fi';
 import { db } from './firebase/config';
 import PromptTextarea from './components/PromptTextarea.jsx';
+import TagInput from './components/TagInput.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 
 const VIEWS = {
@@ -53,13 +54,31 @@ const CopyRecipeTypes = () => {
   const [primaryPrompt, setPrimaryPrompt] = React.useState('');
   const [headlinePrompt, setHeadlinePrompt] = React.useState('');
   const [descriptionPrompt, setDescriptionPrompt] = React.useState('');
+  const [writeFields, setWriteFields] = React.useState([{ label: '', key: '', inputType: 'text' }]);
+
+  const placeholders = useMemo(() => {
+    const arr = [
+      'brand.name',
+      'brand.toneOfVoice',
+      'brand.offering',
+      'product.name',
+      'product.description',
+      'product.benefits',
+    ];
+    writeFields.forEach((f) => {
+      if (f.key) arr.push(f.key);
+    });
+    return arr;
+  }, [writeFields]);
   const [editId, setEditId] = React.useState(null);
 
   React.useEffect(() => {
     const fetchTypes = async () => {
       try {
         const snap = await getDocs(collection(db, 'copyRecipeTypes'));
-        setTypes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setTypes(
+          snap.docs.map((d) => ({ id: d.id, writeInFields: [], ...d.data() }))
+        );
       } catch (err) {
         console.error('Failed to fetch copy recipe types', err);
         setTypes([]);
@@ -74,6 +93,7 @@ const CopyRecipeTypes = () => {
     setPrimaryPrompt('');
     setHeadlinePrompt('');
     setDescriptionPrompt('');
+    setWriteFields([{ label: '', key: '', inputType: 'text' }]);
   };
 
   const handleSave = async (e) => {
@@ -83,6 +103,7 @@ const CopyRecipeTypes = () => {
       primaryPrompt,
       headlinePrompt,
       descriptionPrompt,
+      writeInFields: writeFields,
     };
     try {
       if (editId) {
@@ -104,6 +125,11 @@ const CopyRecipeTypes = () => {
     setPrimaryPrompt(t.primaryPrompt || '');
     setHeadlinePrompt(t.headlinePrompt || '');
     setDescriptionPrompt(t.descriptionPrompt || '');
+    setWriteFields(
+      t.writeInFields && t.writeInFields.length > 0
+        ? t.writeInFields
+        : [{ label: '', key: '', inputType: 'text' }]
+    );
   };
 
   const handleDelete = async (id) => {
@@ -180,15 +206,94 @@ const CopyRecipeTypes = () => {
         </div>
         <div>
           <label className="block text-sm mb-1">Primary Prompt</label>
-          <PromptTextarea value={primaryPrompt} onChange={setPrimaryPrompt} />
+          <PromptTextarea
+            value={primaryPrompt}
+            onChange={setPrimaryPrompt}
+            placeholders={placeholders}
+          />
         </div>
         <div>
           <label className="block text-sm mb-1">Headline Prompt</label>
-          <PromptTextarea value={headlinePrompt} onChange={setHeadlinePrompt} />
+          <PromptTextarea
+            value={headlinePrompt}
+            onChange={setHeadlinePrompt}
+            placeholders={placeholders}
+          />
         </div>
         <div>
           <label className="block text-sm mb-1">Description Prompt</label>
-          <PromptTextarea value={descriptionPrompt} onChange={setDescriptionPrompt} />
+          <PromptTextarea
+            value={descriptionPrompt}
+            onChange={setDescriptionPrompt}
+            placeholders={placeholders}
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="block text-sm">Write-In Fields</label>
+          {writeFields.map((f, idx) => (
+            <div key={idx} className="flex gap-2 items-center">
+              <input
+                className="p-2 border rounded flex-1"
+                placeholder="Label"
+                value={f.label}
+                onChange={(e) => {
+                  const arr = [...writeFields];
+                  arr[idx].label = e.target.value;
+                  setWriteFields(arr);
+                }}
+              />
+              <input
+                className="p-2 border rounded flex-1"
+                placeholder="Key"
+                value={f.key}
+                onChange={(e) => {
+                  const arr = [...writeFields];
+                  arr[idx].key = e.target.value;
+                  setWriteFields(arr);
+                }}
+              />
+              <select
+                className="p-2 border rounded"
+                value={f.inputType}
+                onChange={(e) => {
+                  const arr = [...writeFields];
+                  arr[idx].inputType = e.target.value;
+                  setWriteFields(arr);
+                }}
+              >
+                <option value="text">Text</option>
+                <option value="number">Number</option>
+                <option value="textarea">Textarea</option>
+                <option value="image">Image</option>
+                <option value="list">List</option>
+              </select>
+              {f.inputType === 'list' && (
+                <TagInput
+                  id={`list-${idx}`}
+                  value={Array.isArray(f.options) ? f.options : []}
+                  onChange={(arr) => {
+                    const copy = [...writeFields];
+                    copy[idx].options = arr;
+                    setWriteFields(copy);
+                  }}
+                />
+              )}
+              <button
+                type="button"
+                onClick={() => setWriteFields(writeFields.filter((_, i) => i !== idx))}
+                className="btn-secondary px-2 py-0.5"
+              >
+                <FiTrash />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setWriteFields([...writeFields, { label: '', key: '', inputType: 'text' }])}
+            className="btn-secondary px-2 py-0.5"
+          >
+            Add Field
+          </button>
         </div>
         <div className="flex gap-2">
           <button type="submit" className="btn-primary">
