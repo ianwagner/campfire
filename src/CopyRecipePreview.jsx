@@ -190,7 +190,7 @@ const CopyRecipePreview = ({
               ))}
             </select>
           </div>
-          {!hideBrandSelect && (
+          {!hideBrandSelect ? (
             <div>
               <label className="block text-sm mb-1">Brand</label>
               <select
@@ -209,6 +209,13 @@ const CopyRecipePreview = ({
                 ))}
               </select>
             </div>
+          ) : (
+            <div>
+              <label className="block text-sm mb-1">Brand</label>
+              <div className="p-2 border rounded bg-gray-100 dark:bg-gray-800">
+                {brands.find((b) => b.code === brandCode)?.name || brandCode || '-'}
+              </div>
+            </div>
           )}
           {brandProducts.length > 0 && (
             <div>
@@ -218,7 +225,7 @@ const CopyRecipePreview = ({
                 value={selectedProduct}
                 onChange={(e) => setSelectedProduct(e.target.value)}
               >
-                <option value="">Select product...</option>
+                <option value="">Evergreen</option>
                 {brandProducts.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
