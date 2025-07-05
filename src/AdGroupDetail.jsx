@@ -22,6 +22,7 @@ import {
 } from "react-icons/fi";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
+import CopyRecipePreview from "./CopyRecipePreview.jsx";
 import BrandAssets from "./BrandAssets.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
 import {
@@ -104,6 +105,8 @@ const AdGroupDetail = () => {
   const [exporting, setExporting] = useState(false);
   const [showRecipes, setShowRecipes] = useState(false);
   const [showRecipesTable, setShowRecipesTable] = useState(false);
+  const [copyCards, setCopyCards] = useState([]);
+  const [showCopyModal, setShowCopyModal] = useState(false);
   const [showBrandAssets, setShowBrandAssets] = useState(false);
   const [tab, setTab] = useState("stats");
   const [editingNotes, setEditingNotes] = useState(false);
@@ -245,6 +248,17 @@ const AdGroupDetail = () => {
           };
         });
         setRecipesMeta(data);
+      },
+    );
+    return () => unsub();
+  }, [id]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, "adGroups", id, "copyCards"),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setCopyCards(list);
       },
     );
     return () => unsub();
@@ -873,6 +887,43 @@ const AdGroupDetail = () => {
       setShowRecipesTable(false);
     } catch (err) {
       console.error("Failed to save recipes", err);
+    }
+  };
+
+  const saveCopyCards = async (list) => {
+    if (!Array.isArray(list) || list.length === 0) return;
+    try {
+      if (showCopyModal && copyCards.length > 0) {
+        const confirmReplace = window.confirm(
+          'Replace existing saved copy with new generation?',
+        );
+        if (!confirmReplace) return;
+      }
+
+      const existingIds = copyCards.map((c) => c.id);
+      const newIds = list.map((c) => c.id).filter(Boolean);
+      const deletions = existingIds.filter((id) => !newIds.includes(id));
+      await Promise.all(
+        deletions.map((cid) => deleteDoc(doc(db, 'adGroups', id, 'copyCards', cid))),
+      );
+      await Promise.all(
+        list.map((c) => {
+          const data = {
+            primary: c.primary || '',
+            headline: c.headline || '',
+            description: c.description || '',
+          };
+          if (c.id) {
+            return setDoc(doc(db, 'adGroups', id, 'copyCards', c.id), data, {
+              merge: true,
+            });
+          }
+          return addDoc(collection(db, 'adGroups', id, 'copyCards'), data);
+        }),
+      );
+      setShowCopyModal(false);
+    } catch (err) {
+      console.error('Failed to save copy cards', err);
     }
   };
 
@@ -1565,11 +1616,20 @@ const AdGroupDetail = () => {
             onClick={() => setTab("brief")}
             className={`btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1 ${tab === "brief" ? "bg-accent-10 text-accent" : ""}`}
           >
-            <FiFileText size={18} />
-            Brief
-          </button>
+          <FiFileText size={18} />
+          Brief
+        </button>
+        {isAdmin && (
           <button
-            onClick={() => setTab("assets")}
+            onClick={() => setTab('copy')}
+            className={`btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1 ${tab === 'copy' ? 'bg-accent-10 text-accent' : ''}`}
+          >
+            <FiType size={18} />
+            Platform Copy
+          </button>
+        )}
+        <button
+          onClick={() => setTab("assets")}
             className={`btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1 ${tab === "assets" ? "bg-accent-10 text-accent" : ""}`}
           >
             <FiFolder size={18} />
@@ -2052,6 +2112,30 @@ const AdGroupDetail = () => {
         </div>
       )}
 
+      {isAdmin && tab === 'copy' && (
+        <div className="my-4">
+          {copyCards.length > 0 ? (
+            <CopyRecipePreview
+              onSave={saveCopyCards}
+              initialResults={copyCards}
+              showOnlyResults
+              onCopyClick={() => setShowCopyModal(true)}
+              brandCode={group?.brandCode}
+              hideBrandSelect
+            />
+          ) : (
+            <div className="mt-4">
+              <button
+                onClick={() => setShowCopyModal(true)}
+                className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+              >
+                <FiType /> Platform Copy
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {viewRecipe && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-md dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
@@ -2279,6 +2363,24 @@ const AdGroupDetail = () => {
             </button>
             <RecipePreview
               onSave={saveRecipes}
+              brandCode={group?.brandCode}
+              hideBrandSelect
+            />
+          </div>
+        </div>
+      )}
+
+      {showCopyModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-[50rem] w-full overflow-auto max-h-[90vh] relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <button
+              onClick={() => setShowCopyModal(false)}
+              className="absolute top-2 right-2 btn-secondary px-3 py-1"
+            >
+              Close
+            </button>
+            <CopyRecipePreview
+              onSave={saveCopyCards}
               brandCode={group?.brandCode}
               hideBrandSelect
             />

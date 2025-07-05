@@ -4,17 +4,44 @@ import { db } from './firebase/config';
 import TagInput from './components/TagInput.jsx';
 import { FiEdit2, FiTrash, FiCheck } from 'react-icons/fi';
 
-const CopyRecipePreview = () => {
+const CopyRecipePreview = ({
+  onSave = null,
+  initialResults = null,
+  showOnlyResults = false,
+  brandCode: initialBrandCode = '',
+  hideBrandSelect = false,
+  onCopyClick = null,
+}) => {
   const [types, setTypes] = useState([]);
   const [selectedType, setSelectedType] = useState('');
   const [copies, setCopies] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [loading, setLoading] = useState(false);
   const [brands, setBrands] = useState([]);
-  const [brandCode, setBrandCode] = useState('');
+  const [brandCode, setBrandCode] = useState(initialBrandCode);
   const [brandProducts, setBrandProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [formData, setFormData] = useState({});
+
+  useEffect(() => {
+    if (initialResults && Array.isArray(initialResults)) {
+      setCopies(
+        initialResults.map((c) => ({
+          id: c.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          primary: c.primary || '',
+          headline: c.headline || '',
+          description: c.description || '',
+          editing: false,
+        }))
+      );
+    }
+  }, [initialResults]);
+
+  useEffect(() => {
+    if (initialBrandCode) {
+      setBrandCode(initialBrandCode);
+    }
+  }, [initialBrandCode]);
 
   useEffect(() => {
     const fetchTypes = async () => {
@@ -146,90 +173,107 @@ const CopyRecipePreview = () => {
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="block text-sm mb-1">Recipe Type</label>
-        <select
-          className="p-2 border rounded"
-          value={selectedType}
-          onChange={(e) => setSelectedType(e.target.value)}
-        >
-          <option value="">Select type...</option>
-          {types.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="block text-sm mb-1">Brand</label>
-        <select
-          className="p-2 border rounded"
-          value={brandCode}
-          onChange={(e) => {
-            setBrandCode(e.target.value);
-            setSelectedProduct('');
-          }}
-        >
-          <option value="">Select brand...</option>
-          {brands.map((b) => (
-            <option key={b.id} value={b.code}>
-              {b.code} {b.name ? `- ${b.name}` : ''}
-            </option>
-          ))}
-        </select>
-      </div>
-      {brandProducts.length > 0 && (
-        <div>
-          <label className="block text-sm mb-1">Product</label>
-          <select
-            className="p-2 border rounded"
-            value={selectedProduct}
-            onChange={(e) => setSelectedProduct(e.target.value)}
-          >
-            <option value="">Select product...</option>
-            {brandProducts.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
+      {!showOnlyResults && (
+        <>
+          <div>
+            <label className="block text-sm mb-1">Recipe Type</label>
+            <select
+              className="p-2 border rounded"
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+            >
+              <option value="">Select type...</option>
+              {types.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {!hideBrandSelect && (
+            <div>
+              <label className="block text-sm mb-1">Brand</label>
+              <select
+                className="p-2 border rounded"
+                value={brandCode}
+                onChange={(e) => {
+                  setBrandCode(e.target.value);
+                  setSelectedProduct('');
+                }}
+              >
+                <option value="">Select brand...</option>
+                {brands.map((b) => (
+                  <option key={b.id} value={b.code}>
+                    {b.code} {b.name ? `- ${b.name}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {brandProducts.length > 0 && (
+            <div>
+              <label className="block text-sm mb-1">Product</label>
+              <select
+                className="p-2 border rounded"
+                value={selectedProduct}
+                onChange={(e) => setSelectedProduct(e.target.value)}
+              >
+                <option value="">Select product...</option>
+                {brandProducts.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <form onSubmit={handleGenerate} className="space-y-2">
+            {currentType?.writeInFields?.map((f) => (
+              <div key={f.key}>
+                <label className="block text-sm mb-1">{f.label}</label>
+                {f.inputType === 'textarea' ? (
+                  <textarea
+                    className="w-full p-2 border rounded"
+                    value={formData[f.key] || ''}
+                    onChange={(e) => setFormData({ ...formData, [f.key]: e.target.value })}
+                  />
+                ) : f.inputType === 'list' ? (
+                  <TagInput
+                    id={`list-${f.key}`}
+                    value={formData[f.key] || []}
+                    onChange={(arr) => setFormData({ ...formData, [f.key]: arr })}
+                  />
+                ) : (
+                  <input
+                    className="w-full p-2 border rounded"
+                    type={f.inputType}
+                    value={formData[f.key] || ''}
+                    onChange={(e) => setFormData({ ...formData, [f.key]: e.target.value })}
+                  />
+                )}
+              </div>
             ))}
-          </select>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={!selectedType || loading}
+            >
+              {loading ? 'Generating...' : 'Generate'}
+            </button>
+          </form>
+        </>
+      )}
+      {showOnlyResults && onCopyClick && (
+        <div>
+          <button
+            type="button"
+            className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+            onClick={onCopyClick}
+          >
+            Copy
+          </button>
         </div>
       )}
-      <form onSubmit={handleGenerate} className="space-y-2">
-        {currentType?.writeInFields?.map((f) => (
-          <div key={f.key}>
-            <label className="block text-sm mb-1">{f.label}</label>
-            {f.inputType === 'textarea' ? (
-              <textarea
-                className="w-full p-2 border rounded"
-                value={formData[f.key] || ''}
-                onChange={(e) => setFormData({ ...formData, [f.key]: e.target.value })}
-              />
-            ) : f.inputType === 'list' ? (
-              <TagInput
-                id={`list-${f.key}`}
-                value={formData[f.key] || []}
-                onChange={(arr) => setFormData({ ...formData, [f.key]: arr })}
-              />
-            ) : (
-              <input
-                className="w-full p-2 border rounded"
-                type={f.inputType}
-                value={formData[f.key] || ''}
-                onChange={(e) => setFormData({ ...formData, [f.key]: e.target.value })}
-              />
-            )}
-          </div>
-        ))}
-        <button
-          type="submit"
-          className="btn-primary"
-          disabled={!selectedType || loading}
-        >
-          {loading ? 'Generating...' : 'Generate'}
-        </button>
-      </form>
       <div className="flex flex-wrap gap-4">
         {copies.map((c) => (
           <div
@@ -311,6 +355,17 @@ const CopyRecipePreview = () => {
           </div>
         ))}
       </div>
+      {!showOnlyResults && onSave && copies.length > 0 && (
+        <div className="mt-4 text-right">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => onSave(copies)}
+          >
+            Save Copy
+          </button>
+        </div>
+      )}
       {confirmDelete && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
