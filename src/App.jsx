@@ -20,7 +20,6 @@ import AdminDashboard from "./AdminDashboard";
 import AdminAdGroups from "./AdminAdGroups";
 import AgencyDashboard from "./AgencyDashboard";
 import Request from "./Request";
-import BrandSetup from "./BrandSetup";
 import BrandProfile from "./BrandProfile.jsx";
 import AccountSettings from "./AccountSettings";
 import DesignerNotifications from "./DesignerNotifications";
@@ -423,22 +422,6 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <Request />
-                  </RoleGuard>
-                ) : (
-                  <Navigate to="/login" replace />
-                )
-              }
-            />
-            <Route
-              path="/brand-setup"
-              element={
-                user ? (
-                  <RoleGuard
-                    requiredRole="client"
-                    userRole={role} isAdmin={isAdmin}
-                    loading={roleLoading}
-                  >
-                    <BrandSetup />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
