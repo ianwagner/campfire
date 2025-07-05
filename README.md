@@ -263,6 +263,10 @@ visits skip the prompt.
 
 The [Ad Recipe Setup](docs/ad-recipe-setup.md) tab lets administrators define the form shown to users when creating a recipe. Inputs can include free-text fields and predefined components. Submitted options are matched together to produce the final ad recipe. The result is added to a table with columns for component values, copy, and the recipe number (table columns: component values, copy, recipe number).
 
+## Copy Recipe Setup
+
+The [Copy Recipe Setup](docs/copy-recipe-setup.md) tab mirrors the ad recipe generator but focuses solely on text generation. When the GPT prompt includes placeholders like `{{brand.name}}` the values are pulled from the selected brand profile automatically.
+
 ### Asset Type Normalization
 
 When uploading an asset CSV you may include an optional `assetType` column. The

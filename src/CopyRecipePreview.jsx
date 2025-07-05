@@ -16,6 +16,7 @@ import useCopyRules from './useCopyRules';
 import TagChecklist from './components/TagChecklist.jsx';
 import TagInput from './components/TagInput.jsx';
 import { db } from './firebase/config';
+import useBrandProfile from './useBrandProfile';
 import selectRandomOption from './utils/selectRandomOption.js';
 import parseContextTags from './utils/parseContextTags.js';
 import { splitCsvLine } from './utils/csv.js';
@@ -67,6 +68,7 @@ const CopyRecipePreview = ({
   const [brandProducts, setBrandProducts] = useState([]);
   const [brands, setBrands] = useState([]);
   const [brandCode, setBrandCode] = useState(initialBrandCode);
+  const brandProfile = useBrandProfile(brandCode);
   const [selectedType, setSelectedType] = useState('');
   const [formData, setFormData] = useState({});
   const [selectedInstances, setSelectedInstances] = useState({});
@@ -361,20 +363,23 @@ const CopyRecipePreview = ({
     const componentsData = {};
     for (const c of orderedComponents) {
       if (c.key === 'brand') {
-        let b = brands.find((br) => br.code === brand);
-        if (!b && brand) {
-          try {
-            const q = query(collection(db, 'brands'), where('code', '==', brand));
-            const snap = await getDocs(q);
-            if (!snap.empty) {
-              b = { id: snap.docs[0].id, ...snap.docs[0].data() };
-              setBrands((prev) => {
-                const exists = prev.some((br) => br.code === brand);
-                return exists ? prev.map((br) => (br.code === brand ? b : br)) : [...prev, b];
-              });
+        let b = brandProfile;
+        if (!b) {
+          b = brands.find((br) => br.code === brand);
+          if (!b && brand) {
+            try {
+              const q = query(collection(db, 'brands'), where('code', '==', brand));
+              const snap = await getDocs(q);
+              if (!snap.empty) {
+                b = { id: snap.docs[0].id, ...snap.docs[0].data() };
+                setBrands((prev) => {
+                  const exists = prev.some((br) => br.code === brand);
+                  return exists ? prev.map((br) => (br.code === brand ? b : br)) : [...prev, b];
+                });
+              }
+            } catch (err) {
+              console.error('Failed to fetch brand', err);
             }
-          } catch (err) {
-            console.error('Failed to fetch brand', err);
           }
         }
         const brandData = b || {};
