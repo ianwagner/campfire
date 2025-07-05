@@ -33,6 +33,9 @@ import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
+import GalleryModal from './components/GalleryModal.jsx';
+import VersionModal from './components/VersionModal.jsx';
+import EditRequestModal from './components/EditRequestModal.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
 import diffWords from './utils/diffWords';
@@ -1639,128 +1642,29 @@ if (
             </button>
           </div>
           {showEditModal && (
-            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-              <div className="bg-white p-4 rounded shadow max-w-sm w-full space-y-2 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  className="w-full p-2 border rounded"
-                  placeholder="Add comments..."
-                  rows={3}
-                />
-                <p className="text-sm font-medium">Change copy</p>
-                <textarea
-                  value={editCopy}
-                  onChange={(e) => setEditCopy(e.target.value)}
-                  className="w-full p-2 border rounded"
-                  placeholder="Edit copy..."
-                  rows={3}
-                />
-                {origCopy && editCopy && editCopy !== origCopy && (
-                  <p className="text-sm mt-1">
-                    {diffWords(origCopy, editCopy).map((part, idx, arr) => {
-                      const space = idx < arr.length - 1 ? ' ' : '';
-                      if (part.type === 'same') return part.text + space;
-                      if (part.type === 'removed')
-                        return (
-                          <span key={idx} className="text-red-600 line-through">
-                            {part.text}
-                            {space}
-                          </span>
-                        );
-                      return (
-                        <span key={idx} className="text-green-600 italic">
-                          {part.text}
-                          {space}
-                        </span>
-                      );
-                    })}
-                  </p>
-                )}
-                <div className="flex justify-end space-x-2">
-                  <button
-                    onClick={() => setShowEditModal(false)}
-                    className="btn-secondary px-3 py-1"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => submitResponse('edit')}
-                    className={`btn-primary px-3 py-1 ${
-                      canSubmitEdit ? '' : 'opacity-50 cursor-not-allowed'
-                    }`}
-                    disabled={submitting || !canSubmitEdit}
-                  >
-                    Submit
-                  </button>
-                </div>
-              </div>
-            </div>
+            <EditRequestModal
+              comment={comment}
+              onCommentChange={setComment}
+              editCopy={editCopy}
+              onEditCopyChange={setEditCopy}
+              origCopy={origCopy}
+              canSubmit={canSubmitEdit}
+              onCancel={() => setShowEditModal(false)}
+              onSubmit={() => submitResponse('edit')}
+              submitting={submitting}
+            />
           )}
         </>
       ))}
       {versionModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-md text-center">
-            <div className="mb-2 space-x-2">
-              <button onClick={() => setVersionView('current')} className="btn-secondary px-2 py-1">
-                V{versionModal.current.version || 1}
-              </button>
-              <button onClick={() => setVersionView('previous')} className="btn-secondary px-2 py-1">
-                V{versionModal.previous.version || 1} (replaced)
-              </button>
-            </div>
-          {isVideoUrl(versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl) ? (
-            <VideoPlayer
-              src={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
-              className="max-w-full max-h-[70vh] mx-auto"
-            />
-          ) : (
-            <OptimizedImage
-              pngUrl={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
-              webpUrl={(versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl).replace(/\.png$/, '.webp')}
-              alt="Ad version"
-              cacheKey={versionView === 'previous' ? versionModal.previous.firebaseUrl : versionModal.current.firebaseUrl}
-              className="max-w-full max-h-[70vh] mx-auto"
-            />
-          )}
-            <button onClick={closeVersionModal} className="mt-2 btn-primary px-3 py-1">
-              Close
-            </button>
-          </div>
-        </div>
+        <VersionModal
+          data={versionModal}
+          view={versionView}
+          onViewChange={setVersionView}
+          onClose={closeVersionModal}
+        />
       )}
-      {showGallery && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
-          <div className="bg-white p-4 rounded shadow max-w-6xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <div className="flex flex-wrap justify-center gap-2">
-              {ads.map((a, idx) => (
-                isVideoUrl(a.firebaseUrl) ? (
-                  <VideoPlayer
-                    key={idx}
-                    src={a.firebaseUrl}
-                    className="max-w-[125px] w-full h-auto object-contain"
-                  />
-                ) : (
-                  <OptimizedImage
-                    key={idx}
-                    pngUrl={a.firebaseUrl}
-                    webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
-                    alt={a.filename}
-                    cacheKey={a.firebaseUrl}
-                    className="max-w-[125px] w-full h-auto object-contain"
-                  />
-                )
-              ))}
-            </div>
-            <div className="text-right mt-4">
-              <button onClick={() => setShowGallery(false)} className="btn-secondary px-3 py-1">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
     </div>
   );
 });
