@@ -202,10 +202,36 @@ import { doc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import { safeUpdateDoc } from './src/utils/safeUpdateDoc';
 
-await safeUpdateDoc(doc(db, 'example', id), {
-  name: 'Updated',
-  updateTime: 'ignored',
-});
+  await safeUpdateDoc(doc(db, 'example', id), {
+    name: 'Updated',
+    updateTime: 'ignored',
+  });
+  ```
+
+## Table Component and Action Buttons
+
+Admin screens share a simple `Table` component located at
+`src/components/common/Table.jsx`. Wrap your headers and rows with `<Table>`
+so they receive the standard scrolling container and `ad-table` classes:
+
+```jsx
+import Table from './components/common/Table';
+
+<Table>
+  <thead>{/* columns */}</thead>
+  <tbody>{/* rows */}</tbody>
+</Table>
+```
+
+Small icon buttons now use the `.btn-action` class. This applies compact
+padding and an inline icon layout. Individual `px-1.5`, `py-0.5`, and `text-xs`
+overrides are no longer needed:
+
+```jsx
+<button className="btn-action">
+  <FiEdit2 />
+  <span>Edit</span>
+</button>
 ```
 
 ## Theme Customization

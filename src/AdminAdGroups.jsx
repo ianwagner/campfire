@@ -18,6 +18,7 @@ import {
 import { collection, getDocs, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
 import deleteGroup from './utils/deleteGroup';
+import Table from './components/common/Table';
 import CreateAdGroup from './CreateAdGroup';
 import { auth } from './firebase/config';
 import useUserRole from './useUserRole';
@@ -239,8 +240,8 @@ const AdminAdGroups = () => {
                 </Link>
               ))}
             </div>
-            <div className="overflow-x-auto table-container hidden sm:block">
-            <table className="ad-table min-w-max text-[14px]">
+            <div className="hidden sm:block">
+            <Table>
             <thead>
               <tr>
                 <th>Group Name</th>
@@ -297,13 +298,13 @@ const AdminAdGroups = () => {
                         <>
                           <button
                             onClick={() => handleRenameSave(g.id)}
-                            className="btn-secondary px-2 py-0.5 flex items-center gap-1 mr-2"
+                            className="btn-action mr-2"
                           >
                             Save
                           </button>
                           <button
                             onClick={cancelRename}
-                            className="btn-secondary px-2 py-0.5"
+                            className="btn-action"
                           >
                             Cancel
                           </button>
@@ -312,7 +313,7 @@ const AdminAdGroups = () => {
                         <>
                           <Link
                             to={`/ad-group/${g.id}`}
-                            className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                            className="btn-action"
                             aria-label="View Details"
                           >
                             <FiEye />
@@ -324,7 +325,7 @@ const AdminAdGroups = () => {
                                 ? `/review/${g.id}?done=1`
                                 : `/review/${g.id}`
                             }
-                            className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+                            className="btn-action ml-2"
                             aria-label="Review"
                           >
                             <FiCheckCircle />
@@ -332,7 +333,7 @@ const AdminAdGroups = () => {
                           </Link>
                           <button
                             onClick={() => handleShare(g.id)}
-                            className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+                            className="btn-action ml-2"
                             aria-label="Share Link"
                           >
                             <FiLink />
@@ -340,7 +341,7 @@ const AdminAdGroups = () => {
                           </button>
                           <button
                             onClick={() => startRename(g)}
-                            className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+                            className="btn-action ml-2"
                             aria-label="Rename"
                           >
                             <FiEdit2 />
@@ -349,7 +350,7 @@ const AdminAdGroups = () => {
                           {g.status === 'archived' ? (
                             <button
                               onClick={() => handleRestoreGroup(g.id)}
-                              className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+                              className="btn-action ml-2"
                               aria-label="Restore"
                             >
                               <FiRotateCcw />
@@ -358,7 +359,7 @@ const AdminAdGroups = () => {
                           ) : (
                             <button
                               onClick={() => handleArchiveGroup(g.id)}
-                              className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
+                              className="btn-action ml-2"
                               aria-label="Archive"
                             >
                               <FiArchive />
@@ -367,7 +368,7 @@ const AdminAdGroups = () => {
                           )}
                           <button
                             onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                            className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2 btn-delete"
+                            className="btn-action ml-2 btn-delete"
                             aria-label="Delete"
                           >
                             <FiTrash />
@@ -379,7 +380,7 @@ const AdminAdGroups = () => {
                 </tr>
               ))}
             </tbody>
-            </table>
+            </Table>
             </div>
           </>
         )}
