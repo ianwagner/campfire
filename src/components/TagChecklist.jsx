@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Button from './Button.jsx';
 
 const TagChecklist = ({ options = [], value = [], onChange, id = 'tag-checklist' }) => {
   const [input, setInput] = useState('');
@@ -34,13 +35,14 @@ const TagChecklist = ({ options = [], value = [], onChange, id = 'tag-checklist'
           return (
             <span key={idVal} className="tag bg-accent-10 text-accent flex items-center">
               {label}
-              <button
+              <Button
                 type="button"
+                variant="delete"
               onClick={() => removeTag(idVal)}
-              className="ml-1 text-xs text-red-500"
+              className="ml-1 text-xs"
             >
               &times;
-            </button>
+            </Button>
           </span>
         );
       })}

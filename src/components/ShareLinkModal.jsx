@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import generatePassword from "../utils/generatePassword";
+import Button from "./Button.jsx";
 
 const ShareLinkModal = ({
   groupId,
@@ -154,25 +155,26 @@ const ShareLinkModal = ({
                       }}
                       className="flex-1 border rounded p-1 text-black dark:text-black"
                     />
-                    <button
+                    <Button
                       onClick={handleGenerate}
-                      className="btn-secondary px-2 py-1"
+                      variant="secondary"
+                      className="px-2 py-1"
                     >
                       Generate Password
-                    </button>
+                    </Button>
                   </div>
                 )}
               </>
             )}
-            <button onClick={copy} className="btn-primary mb-3 px-3 py-1">
+            <Button onClick={copy} variant="primary" className="mb-3 px-3 py-1">
               Copy Link
-            </button>
+            </Button>
           </>
         )}
         <div className="text-right">
-          <button onClick={onClose} className="btn-secondary px-3 py-1">
+          <Button onClick={onClose} variant="secondary" className="px-3 py-1">
             Close
-          </button>
+          </Button>
         </div>
       </div>
     </div>

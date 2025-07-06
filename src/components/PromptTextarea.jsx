@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import Button from './Button.jsx';
 
 const PromptTextarea = ({ value, onChange, placeholders = [], className = '' }) => {
   const ref = useRef(null);
@@ -52,13 +53,13 @@ const PromptTextarea = ({ value, onChange, placeholders = [], className = '' }) 
         <ul className="absolute z-10 bg-white border rounded shadow text-sm mt-1 max-h-40 overflow-auto">
           {filtered.map((p) => (
             <li key={p}>
-              <button
+              <Button
                 type="button"
                 className="block w-full text-left px-2 py-1 hover:bg-accent-10"
                 onClick={() => insert(p)}
               >
                 {'{{' + p + '}}'}
-              </button>
+              </Button>
             </li>
           ))}
         </ul>

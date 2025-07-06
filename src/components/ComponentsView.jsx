@@ -4,6 +4,7 @@ import { FiEdit2, FiTrash } from 'react-icons/fi';
 import TagInput from './TagInput.jsx';
 import Table from './common/Table';
 import { db } from '../firebase/config';
+import Button from './Button.jsx';
 
 const ComponentsView = () => {
   const [components, setComponents] = useState([]);
@@ -118,21 +119,23 @@ const ComponentsView = () => {
                   <td>{c.attributes ? c.attributes.length : 0}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center">
-                      <button
+                      <Button
+                        variant="action"
                         onClick={() => startEdit(c)}
-                        className="btn-action mr-2"
+                        className="mr-2"
                         aria-label="Edit"
                       >
                         <FiEdit2 />
                         <span className="ml-1">Edit</span>
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="action"
                         onClick={() => handleDelete(c.id)}
-                        className="btn-action btn-delete"
+                        className="btn-delete"
                         aria-label="Delete"
                       >
                         <FiTrash />
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -196,23 +199,23 @@ const ComponentsView = () => {
                 <option value="image">Image</option>
                 <option value="list">List</option>
               </select>
-              <button type="button" onClick={() => setAttributes(attributes.filter((_, i) => i !== idx))} className="btn-secondary px-2 py-0.5">
+              <Button type="button" variant="secondary" onClick={() => setAttributes(attributes.filter((_, i) => i !== idx))} className="px-2 py-0.5">
                 <FiTrash />
-              </button>
+              </Button>
             </div>
           ))}
-          <button type="button" onClick={() => setAttributes([...attributes, { label: '', key: '', inputType: 'text' }])} className="btn-secondary px-2 py-0.5">
+          <Button type="button" variant="secondary" onClick={() => setAttributes([...attributes, { label: '', key: '', inputType: 'text' }])} className="px-2 py-0.5">
             Add Attribute
-          </button>
+          </Button>
         </div>
         <div className="flex gap-2">
-          <button type="submit" className="btn-primary">
+          <Button type="submit" variant="primary">
             {editId ? 'Save Component' : 'Add Component'}
-          </button>
+          </Button>
           {editId && (
-            <button type="button" onClick={resetForm} className="btn-secondary px-2 py-0.5">
+            <Button type="button" onClick={resetForm} variant="secondary" className="px-2 py-0.5">
               Cancel
-            </button>
+            </Button>
           )}
         </div>
       </form>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Button from './Button.jsx';
 
 const TagInput = ({
   value = [],
@@ -35,13 +36,14 @@ const TagInput = ({
         {value.map((tag) => (
           <span key={tag} className="tag bg-accent-10 text-accent flex items-center">
             {tag}
-          <button
+          <Button
             type="button"
+            variant="delete"
             onClick={() => removeTag(tag)}
-            className="ml-1 text-xs text-red-500"
+            className="ml-1 text-xs"
           >
             &times;
-          </button>
+          </Button>
         </span>
       ))}
       <input

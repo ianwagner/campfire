@@ -1,4 +1,5 @@
 import React from 'react';
+import Button from './Button.jsx';
 import diffWords from '../utils/diffWords';
 
 const EditRequestModal = ({ comment, onCommentChange, editCopy, onEditCopyChange, origCopy, canSubmit, onCancel, onSubmit, submitting }) => (
@@ -41,16 +42,17 @@ const EditRequestModal = ({ comment, onCommentChange, editCopy, onEditCopyChange
         </p>
       )}
       <div className="flex justify-end space-x-2">
-        <button onClick={onCancel} className="btn-secondary px-3 py-1">
+        <Button onClick={onCancel} variant="secondary" className="px-3 py-1">
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={onSubmit}
-          className={`btn-primary px-3 py-1 ${canSubmit ? '' : 'opacity-50 cursor-not-allowed'}`}
+          variant="primary"
+          className={`px-3 py-1 ${canSubmit ? '' : 'opacity-50 cursor-not-allowed'}`}
           disabled={submitting || !canSubmit}
         >
           Submit
-        </button>
+        </Button>
       </div>
     </div>
   </div>
