@@ -16,3 +16,14 @@ test('handles missing version', () => {
   expect(info.version).toBeUndefined();
   expect(info.aspectRatio).toBe('3x5');
 });
+
+test('detects hero ad without aspect ratio', () => {
+  const info = parseAdFilename('LGND_CM01_001_V1.png');
+  expect(info).toEqual({
+    brandCode: 'LGND',
+    adGroupCode: 'CM01',
+    recipeCode: '001',
+    aspectRatio: '',
+    version: 1,
+  });
+});
