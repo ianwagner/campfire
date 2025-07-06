@@ -107,6 +107,7 @@ const AdGroupDetail = () => {
   const [showRecipesTable, setShowRecipesTable] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
   const [showCopyModal, setShowCopyModal] = useState(false);
+  const [modalCopies, setModalCopies] = useState([]);
   const [showBrandAssets, setShowBrandAssets] = useState(false);
   const [tab, setTab] = useState("stats");
   const [editingNotes, setEditingNotes] = useState(false);
@@ -170,6 +171,19 @@ const AdGroupDetail = () => {
     }
     return base;
   }, [userRole, location.search]);
+
+  const copyChanges = useMemo(() => {
+    const clean = (arr) =>
+      arr.map((c) => ({
+        id: c.id || '',
+        primary: c.primary || '',
+        headline: c.headline || '',
+        description: c.description || '',
+      }));
+    return (
+      JSON.stringify(clean(copyCards)) !== JSON.stringify(clean(modalCopies))
+    );
+  }, [copyCards, modalCopies]);
 
   const summarize = (list) => {
     let reviewed = 0;
@@ -263,6 +277,12 @@ const AdGroupDetail = () => {
     );
     return () => unsub();
   }, [id]);
+
+  useEffect(() => {
+    if (showCopyModal) {
+      setModalCopies(copyCards);
+    }
+  }, [showCopyModal]);
 
   useEffect(() => {
     const loadBrand = async () => {
@@ -2375,7 +2395,16 @@ const AdGroupDetail = () => {
           <div className="bg-white p-4 rounded shadow max-w-[50rem] w-full max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-semibold">Platform Copy</h2>
-              <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => saveCopyCards(modalCopies)}
+                  className={`btn-primary px-3 py-1 ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
+                  disabled={!copyChanges}
+                >
+                  Save
+                </button>
+                <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
+              </div>
             </div>
             <p className="text-sm mb-2">
               These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
@@ -2385,6 +2414,7 @@ const AdGroupDetail = () => {
                 onSave={saveCopyCards}
                 brandCode={group?.brandCode}
                 hideBrandSelect
+                onCopiesChange={setModalCopies}
               />
             </div>
           </div>
