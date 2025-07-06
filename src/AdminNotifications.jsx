@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
+import TabButton from './components/TabButton.jsx';
 import { FiPlus } from 'react-icons/fi';
 
 const AdminNotifications = () => {
@@ -25,6 +26,9 @@ const AdminNotifications = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('created');
+  const [tab, setTab] = useState('all');
+  const [page, setPage] = useState(0);
+  const PER_PAGE = 25;
   const [ruleForm, setRuleForm] = useState({
     trigger: 'adGroupCreated',
     audience: '',
@@ -61,6 +65,10 @@ const AdminNotifications = () => {
     fetchHistory();
     fetchRules();
   }, []);
+
+  useEffect(() => {
+    setPage(0);
+  }, [filter, sortField, history.length]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -163,6 +171,16 @@ const AdminNotifications = () => {
     }
   };
 
+  const deleteNotification = async (id) => {
+    if (!window.confirm('Delete this notification?')) return;
+    try {
+      await deleteDoc(doc(db, 'notifications', id));
+      setHistory((h) => h.filter((n) => n.id !== id));
+    } catch (err) {
+      console.error('Failed to delete notification', err);
+    }
+  };
+
   const term = filter.toLowerCase();
   const displayHistory = history
     .filter(
@@ -177,41 +195,59 @@ const AdminNotifications = () => {
       return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
     });
 
+  const pageCount = Math.ceil(displayHistory.length / PER_PAGE) || 1;
+  const currentPage = Math.min(page, pageCount - 1);
+  const paginatedHistory = displayHistory.slice(
+    currentPage * PER_PAGE,
+    currentPage * PER_PAGE + PER_PAGE
+  );
+
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Notifications</h1>
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <button
-          onClick={() => setShowCreate(true)}
-          className="btn-primary flex items-center gap-1"
-        >
-          <FiPlus />
-          Create Notification
-        </button>
-        <div className="flex items-center gap-2">
-          <select
-            value={sortField}
-            onChange={(e) => setSortField(e.target.value)}
-            className="p-1 border rounded"
-          >
-            <option value="created">Created</option>
-            <option value="title">Title</option>
-            <option value="audience">Audience</option>
-          </select>
-          <input
-            type="text"
-            placeholder="Filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="p-1 border rounded"
-          />
-        </div>
+      <div className="flex space-x-4 mb-4">
+        <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
+          All Notifications
+        </TabButton>
+        <TabButton active={tab === 'automations'} onClick={() => setTab('automations')}>
+          Automations
+        </TabButton>
       </div>
 
-      {showCreate && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-md w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)] overflow-y-auto max-h-[90vh]">
-            <form onSubmit={handleSubmit} className="space-y-4">
+      {tab === 'all' && (
+        <>
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <button
+              onClick={() => setShowCreate(true)}
+              className="btn-primary flex items-center gap-1"
+            >
+              <FiPlus />
+              Create Notification
+            </button>
+            <div className="flex items-center gap-2">
+              <select
+                value={sortField}
+                onChange={(e) => setSortField(e.target.value)}
+                className="p-1 border rounded"
+              >
+                <option value="created">Created</option>
+                <option value="title">Title</option>
+                <option value="audience">Audience</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Filter"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="p-1 border rounded"
+              />
+            </div>
+          </div>
+
+          {showCreate && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+              <div className="bg-white p-4 rounded shadow max-w-md w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)] overflow-y-auto max-h-[90vh]">
+                <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block mb-1 text-sm font-medium">Audience</label>
                 <input
@@ -264,42 +300,76 @@ const AdminNotifications = () => {
             </form>
           </div>
         </div>
+          )}
+
+          <h2 className="text-xl mt-8 mb-2">History</h2>
+          {history.length === 0 ? (
+            <p>No notifications found.</p>
+          ) : (
+            <>
+              <Table>
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Audience</th>
+                    <th>Trigger</th>
+                    <th>Sent At</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedHistory.map((n) => (
+                    <tr key={n.id}>
+                      <td>{n.title}</td>
+                      <td>{n.audience}</td>
+                      <td>
+                        {n.triggerTime
+                          ? new Date(n.triggerTime.seconds * 1000).toLocaleString()
+                          : 'Now'}
+                      </td>
+                      <td>
+                        {n.sentAt
+                          ? new Date(n.sentAt.seconds * 1000).toLocaleString()
+                          : ''}
+                      </td>
+                      <td>
+                        <button onClick={() => deleteNotification(n.id)} className="underline btn-delete">
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+              <div className="flex justify-between items-center mt-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="btn-secondary px-3 py-1"
+                >
+                  Previous
+                </button>
+                <span>
+                  Page {currentPage + 1} of {pageCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => (p + 1 < pageCount ? p + 1 : p))}
+                  disabled={currentPage + 1 >= pageCount}
+                  className="btn-secondary px-3 py-1"
+                >
+                  Next
+                </button>
+              </div>
+            </>
+          )}
+
+        </>
       )}
 
-      <h2 className="text-xl mt-8 mb-2">History</h2>
-      {history.length === 0 ? (
-        <p>No notifications found.</p>
-      ) : (
-        <Table>
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Audience</th>
-                <th>Trigger</th>
-                <th>Sent At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayHistory.map((n) => (
-                <tr key={n.id}>
-                  <td>{n.title}</td>
-                  <td>{n.audience}</td>
-                  <td>
-                    {n.triggerTime
-                      ? new Date(n.triggerTime.seconds * 1000).toLocaleString()
-                      : 'Now'}
-                  </td>
-                  <td>
-                    {n.sentAt
-                      ? new Date(n.sentAt.seconds * 1000).toLocaleString()
-                      : ''}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-
+      {tab === 'automations' && (
+        <>
       <h2 className="text-xl mt-8 mb-2">Automation Rules</h2>
       <form onSubmit={handleRuleSubmit} className="space-y-2 max-w-md mb-4">
         <div>
@@ -391,7 +461,9 @@ const AdminNotifications = () => {
               ))}
             </tbody>
           </Table>
-        )}
+      )}
+      </>
+      )}
     </div>
   );
 };
