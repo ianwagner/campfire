@@ -300,19 +300,14 @@ useEffect(() => {
   useEffect(() => {
     if (!started || !groupId || forceSplash) return;
     if (currentIndex >= reviewAds.length && reviewAds.length > 0) {
-      const nextIdx = reviewAds.findIndex((a) => a.status === 'ready');
-      if (nextIdx >= 0) {
-        setCurrentIndex(nextIdx);
-      } else {
-        updateDoc(doc(db, 'adGroups', groupId), {
-          status: 'reviewed',
-          lockedBy: null,
-          lockedByUid: null,
-          reviewProgress: null,
-        }).catch((err) => console.error('Failed to update status', err));
-      }
+      updateDoc(doc(db, 'adGroups', groupId), {
+        status: 'reviewed',
+        lockedBy: null,
+        lockedByUid: null,
+        reviewProgress: null,
+      }).catch((err) => console.error('Failed to update status', err));
     }
-  }, [currentIndex, reviewAds, groupId, forceSplash, started]);
+  }, [currentIndex, reviewAds.length, groupId, forceSplash, started]);
 
   useEffect(() => {
     if (!started) return;
