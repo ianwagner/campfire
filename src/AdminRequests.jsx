@@ -382,10 +382,12 @@ const AdminRequests = () => {
           </div>
         </>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="overflow-x-auto mb-8">
+          <div className="min-w-max flex gap-4">
           {['new', 'pending', 'ready', 'done'].map((status) => (
             <div
               key={status}
+              className="flex-shrink-0 w-[220px] sm:w-[300px]"
               onDragOver={allowDrop}
               onDrop={() => handleDrop(status)}
             >
@@ -410,6 +412,7 @@ const AdminRequests = () => {
               )}
             </div>
           ))}
+          </div>
         </div>
       )}
 
