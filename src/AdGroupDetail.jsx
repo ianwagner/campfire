@@ -52,6 +52,7 @@ import parseAdFilename from "./utils/parseAdFilename";
 import StatusBadge from "./components/StatusBadge.jsx";
 import LoadingOverlay from "./LoadingOverlay";
 import OptimizedImage from "./components/OptimizedImage.jsx";
+import IconButton from "./components/IconButton.jsx";
 import pickHeroAsset from "./utils/pickHeroAsset";
 import computeGroupStatus from "./utils/computeGroupStatus";
 import diffWords from "./utils/diffWords";
@@ -1625,56 +1626,56 @@ const AdGroupDetail = () => {
 
       <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center justify-between">
         <div className="flex flex-wrap gap-2">
-          <button
+          <IconButton
             onClick={() => setTab("stats")}
-            className={`btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1 ${tab === "stats" ? "bg-accent-10 text-accent" : ""}`}
+            className={`bg-transparent ${tab === "stats" ? "bg-accent-10 text-accent" : ""}`}
           >
             <FiBarChart2 size={18} />
             Stats
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={() => setTab("brief")}
-            className={`btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1 ${tab === "brief" ? "bg-accent-10 text-accent" : ""}`}
+            className={`bg-transparent ${tab === "brief" ? "bg-accent-10 text-accent" : ""}`}
           >
-          <FiFileText size={18} />
-          Brief
-        </button>
+            <FiFileText size={18} />
+            Brief
+          </IconButton>
         {isAdmin && (
-          <button
+          <IconButton
             onClick={() => setTab('copy')}
-            className={`btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1 ${tab === 'copy' ? 'bg-accent-10 text-accent' : ''}`}
+            className={`bg-transparent ${tab === 'copy' ? 'bg-accent-10 text-accent' : ''}`}
           >
             <FiType size={18} />
             Platform Copy
-          </button>
+          </IconButton>
         )}
-        <button
+        <IconButton
           onClick={() => setTab("assets")}
-            className={`btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1 ${tab === "assets" ? "bg-accent-10 text-accent" : ""}`}
-          >
-            <FiFolder size={18} />
-            Brand Assets
-          </button>
-          <button
-            onClick={() => setTab("ads")}
-            className={`btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1 ${tab === "ads" ? "bg-accent-10 text-accent" : ""}`}
-          >
-            <FiEye size={18} />
-            Ads
-          </button>
+          className={`bg-transparent ${tab === "assets" ? "bg-accent-10 text-accent" : ""}`}
+        >
+          <FiFolder size={18} />
+          Brand Assets
+        </IconButton>
+        <IconButton
+          onClick={() => setTab("ads")}
+          className={`bg-transparent ${tab === "ads" ? "bg-accent-10 text-accent" : ""}`}
+        >
+          <FiEye size={18} />
+          Ads
+        </IconButton>
         </div>
         {(isAdmin || userRole === "agency" || isDesigner) && (
           <>
             {group.status === "archived" ? (
               <div className="flex flex-wrap gap-2">
                 {isAdmin && (
-                  <button
+                  <IconButton
                     onClick={restoreGroup}
-                    className="btn-secondary bg-transparent px-2 py-0.5"
                     aria-label="Restore Group"
+                    className="bg-transparent"
                   >
                     <FiRotateCcw size={20} />
-                  </button>
+                  </IconButton>
                 )}
               </div>
             ) : (
@@ -1692,25 +1693,25 @@ const AdGroupDetail = () => {
                       }}
                       className="hidden"
                     />
-                    <button
+                    <IconButton
                       onClick={() => document.getElementById("upload-input").click()}
-                      className="btn-secondary bg-transparent px-2 py-0.5 flex items-center gap-1"
+                      className="bg-transparent"
                     >
                       <FiUpload size={20} />
                       Upload
-                    </button>
+                    </IconButton>
                   </>
                 )}
                 {(isAdmin || userRole === "agency") && (
                   <>
-                    <button
+                    <IconButton
                       onClick={resetGroup}
-                      className="btn-secondary bg-transparent px-2 py-0.5"
                       aria-label="Reset"
+                      className="bg-transparent"
                     >
                       <FiRefreshCw size={20} />
-                    </button>
-                    <button
+                    </IconButton>
+                    <IconButton
                       onClick={markReady}
                       disabled={
                         readyLoading ||
@@ -1718,41 +1719,42 @@ const AdGroupDetail = () => {
                         group.status === "ready" ||
                         group.status === "in review"
                       }
-                      className="btn-secondary bg-transparent px-2 py-0.5"
                       aria-label="Ready"
+                      className="bg-transparent"
                     >
                       <FiCheckCircle size={20} />
-                    </button>
-                    <Link
+                    </IconButton>
+                    <IconButton
+                      as={Link}
                       to={`/review/${id}`}
-                      className="btn-secondary bg-transparent px-2 py-0.5"
                       aria-label="Review"
+                      className="bg-transparent"
                     >
                       <FiBookOpen size={20} />
-                    </Link>
-                    <button
+                    </IconButton>
+                    <IconButton
                       onClick={handleShare}
-                      className="btn-secondary bg-transparent px-2 py-0.5"
                       aria-label="Share"
+                      className="bg-transparent"
                     >
                       <FiShare2 size={20} />
-                    </button>
+                    </IconButton>
                     {isAdmin && (
                       <>
-                        <button
+                        <IconButton
                           onClick={() => setExportModal(true)}
-                          className="btn-secondary bg-transparent px-2 py-0.5"
                           aria-label="Export Approved"
+                          className="bg-transparent"
                         >
                           <FiDownload size={20} />
-                        </button>
-                        <button
+                        </IconButton>
+                        <IconButton
                           onClick={archiveGroup}
-                          className="btn-secondary bg-transparent px-2 py-0.5"
                           aria-label="Archive"
+                          className="bg-transparent"
                         >
                           <FiArchive size={20} />
-                        </button>
+                        </IconButton>
                       </>
                     )}
                   </>
@@ -1828,19 +1830,13 @@ const AdGroupDetail = () => {
       <div className="flex my-4">
         {!usesTabs && (
           <>
-            <button
-              onClick={() => setShowTable((p) => !p)}
-              className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-            >
+            <IconButton onClick={() => setShowTable((p) => !p)}>
               {showTable ? "Hide Table" : "Show All Ads"}
-            </button>
+            </IconButton>
             {savedRecipes.length > 0 && (
-              <button
-                onClick={() => setShowRecipesTable((p) => !p)}
-                className="btn-secondary px-2 py-0.5 flex items-center gap-1 ml-2"
-              >
+              <IconButton onClick={() => setShowRecipesTable((p) => !p)} className="ml-2">
                 {showRecipesTable ? "Hide Brief" : "See Brief"}
-              </button>
+              </IconButton>
             )}
           </>
         )}
@@ -1902,12 +1898,9 @@ const AdGroupDetail = () => {
                     >
                       Save
                     </button>
-                    <button
-                      onClick={() => setEditingNotes(false)}
-                      className="btn-secondary px-2 py-0.5"
-                    >
+                    <IconButton onClick={() => setEditingNotes(false)}>
                       Cancel
-                    </button>
+                    </IconButton>
                   </div>
                 </div>
               </>
@@ -1940,15 +1933,14 @@ const AdGroupDetail = () => {
           )}
           {userRole === "admin" && !group?.notes && !editingNotes && (
             <div className="mb-4">
-              <button
+              <IconButton
                 onClick={() => {
                   setNotesInput("");
                   setEditingNotes(true);
                 }}
-                className="btn-secondary px-2 py-0.5"
               >
                 Add Note
-              </button>
+              </IconButton>
             </div>
           )}
           {briefAssets.length > 0 && (
@@ -1968,13 +1960,10 @@ const AdGroupDetail = () => {
                 }}
               >
                 <div className="w-full flex justify-between mb-2">
-                  <button
-                    onClick={downloadBriefAll}
-                    className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-                  >
+                  <IconButton onClick={downloadBriefAll}>
                     <FiDownload />
                     Download All
-                  </button>
+                  </IconButton>
                   {userRole === "admin" && (
                     <>
                       <input
@@ -1987,15 +1976,15 @@ const AdGroupDetail = () => {
                         }}
                         className="hidden"
                       />
-                      <button
+                      <IconButton
                         onClick={() =>
                           document.getElementById("brief-upload").click()
                         }
-                        className="btn-secondary px-2 py-0.5 flex items-center gap-1"
+                        className=""
                       >
                         <FiUpload />
                         Upload
-                      </button>
+                      </IconButton>
                     </>
                   )}
                 </div>
@@ -2102,12 +2091,9 @@ const AdGroupDetail = () => {
                 }}
                 className="hidden"
               />
-              <button
-                onClick={() => document.getElementById("brief-upload").click()}
-                className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-              >
+              <IconButton onClick={() => document.getElementById("brief-upload").click()}>
                 <FiUpload /> Add Assets
-              </button>
+              </IconButton>
             </div>
           )}
           {savedRecipes.length > 0 && (
@@ -2121,12 +2107,9 @@ const AdGroupDetail = () => {
           )}
           {userRole === "admin" && savedRecipes.length === 0 && (
             <div className="mt-4">
-              <button
-                onClick={() => setShowRecipes(true)}
-                className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-              >
+              <IconButton onClick={() => setShowRecipes(true)}>
                 <FaMagic /> Recipes
-              </button>
+              </IconButton>
             </div>
           )}
         </div>
@@ -2145,12 +2128,9 @@ const AdGroupDetail = () => {
             />
           ) : (
             <div className="mt-4">
-              <button
-                onClick={() => setShowCopyModal(true)}
-                className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-              >
+              <IconButton onClick={() => setShowCopyModal(true)}>
                 <FiType /> Platform Copy
-              </button>
+              </IconButton>
             </div>
           )}
         </div>
@@ -2275,9 +2255,9 @@ const AdGroupDetail = () => {
               </label>
             </div>
             <div className="mt-3 flex justify-end gap-2">
-              <button onClick={closeModals} className="btn-secondary px-3 py-1">
+              <IconButton onClick={closeModals} className="px-3 py-1">
                 Cancel
-              </button>
+              </IconButton>
               <button onClick={saveMetadata} className="btn-primary px-3 py-1">
                 Save
               </button>
@@ -2354,12 +2334,9 @@ const AdGroupDetail = () => {
               <p className="text-sm">Preview Groups: {previewGroups}</p>
             </div>
             <div className="mt-3 flex justify-end gap-2">
-              <button
-                onClick={() => setExportModal(false)}
-                className="btn-secondary px-3 py-1"
-              >
+              <IconButton onClick={() => setExportModal(false)} className="px-3 py-1">
                 Cancel
-              </button>
+              </IconButton>
               <button
                 onClick={handleExport}
                 disabled={exporting}
@@ -2375,12 +2352,12 @@ const AdGroupDetail = () => {
       {showRecipes && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-[50rem] w-full overflow-auto max-h-[90vh] relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <button
+            <IconButton
               onClick={() => setShowRecipes(false)}
-              className="absolute top-2 right-2 btn-secondary px-3 py-1"
+              className="absolute top-2 right-2 px-3 py-1"
             >
               Close
-            </button>
+            </IconButton>
             <RecipePreview
               onSave={saveRecipes}
               brandCode={group?.brandCode}
@@ -2403,7 +2380,9 @@ const AdGroupDetail = () => {
                 >
                   Save
                 </button>
-                <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
+                <IconButton onClick={() => setShowCopyModal(false)} className="px-3 py-1">
+                  Close
+                </IconButton>
               </div>
             </div>
             <p className="text-sm mb-2">
