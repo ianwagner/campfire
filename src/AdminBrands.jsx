@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from './firebase/config';
+import Table from './components/common/Table';
 
 const AdminBrands = () => {
   const [brands, setBrands] = useState([]);
@@ -43,8 +44,7 @@ const AdminBrands = () => {
         ) : brands.length === 0 ? (
           <p>No brands found.</p>
         ) : (
-          <div className="overflow-x-auto table-container">
-          <table className="ad-table min-w-max">
+          <Table>
             <thead>
               <tr>
                 <th>Code</th>
@@ -60,24 +60,25 @@ const AdminBrands = () => {
                   <td>{brand.name}</td>
                   <td>{brand.agencyId || ''}</td>
                   <td className="text-center">
-                    <a
-                      href={`/admin/brands/${brand.id}`}
-                      className="underline text-gray-700 mr-2"
-                    >
-                      Edit
-                    </a>
-                    <button
-                      onClick={() => handleDelete(brand.id)}
-                      className="underline btn-delete"
-                    >
-                      Delete
-                    </button>
+                    <div className="flex items-center justify-center">
+                      <a
+                        href={`/admin/brands/${brand.id}`}
+                        className="btn-action mr-2"
+                      >
+                        Edit
+                      </a>
+                      <button
+                        onClick={() => handleDelete(brand.id)}
+                        className="btn-action btn-delete"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-          </div>
+          </Table>
         )}
       </div>
     );
