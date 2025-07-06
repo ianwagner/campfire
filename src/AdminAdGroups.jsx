@@ -14,6 +14,7 @@ import {
   FiArchive,
   FiRotateCcw,
   FiZap,
+  FiPlus,
 } from 'react-icons/fi';
 import { collection, getDocs, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
@@ -38,6 +39,9 @@ const AdminAdGroups = () => {
   const [shareInfo, setShareInfo] = useState(null);
   const [renameId, setRenameId] = useState(null);
   const [renameName, setRenameName] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [filter, setFilter] = useState('');
+  const [sortField, setSortField] = useState('status');
 
   const handleShare = async (id) => {
     let url = `${window.location.origin}/review/${id}`;
@@ -174,12 +178,56 @@ const AdminAdGroups = () => {
     }
   };
 
+  const statusOrder = { pending: 1, reviewed: 2, archived: 3 };
+  const term = filter.toLowerCase();
+  const displayGroups = groups
+    .filter(
+      (g) =>
+        !term ||
+        g.name?.toLowerCase().includes(term) ||
+        g.brandCode?.toLowerCase().includes(term),
+    )
+    .sort((a, b) => {
+      if (sortField === 'name') return (a.name || '').localeCompare(b.name || '');
+      if (sortField === 'brand') return (a.brandCode || '').localeCompare(b.brandCode || '');
+      return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+    });
+
   return (
     <div className="min-h-screen p-4">
-        <h1 className="text-2xl mb-4">Admin Ad Groups</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl">Admin Ad Groups</h1>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="btn-primary flex items-center gap-1"
+        >
+          <FiPlus />
+          Create Ad Group
+        </button>
+      </div>
 
       <div className="mb-8">
-        <h2 className="text-xl mb-2">All Ad Groups</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-xl">All Ad Groups</h2>
+          <div className="flex items-center gap-2">
+            <select
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value)}
+              className="p-1 border rounded"
+            >
+              <option value="status">Status</option>
+              <option value="brand">Brand</option>
+              <option value="name">Group Name</option>
+            </select>
+            <input
+              type="text"
+              placeholder="Filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="p-1 border rounded"
+            />
+          </div>
+        </div>
         <label className="block mb-2 text-sm">
           <input
             type="checkbox"
@@ -191,12 +239,12 @@ const AdminAdGroups = () => {
         </label>
         {loading ? (
           <p>Loading groups...</p>
-        ) : groups.length === 0 ? (
+        ) : displayGroups.length === 0 ? (
           <p>No ad groups found.</p>
         ) : (
           <>
               <div className="sm:hidden space-y-4">
-              {groups.map((g) => (
+              {displayGroups.map((g) => (
                 <Link
                   key={g.id}
                   to={`/ad-group/${g.id}`}
@@ -256,7 +304,7 @@ const AdminAdGroups = () => {
               </tr>
             </thead>
             <tbody>
-              {groups.map((g) => (
+              {displayGroups.map((g) => (
                 <tr key={g.id}>
                   <td>
                     {renameId === g.id ? (
@@ -386,10 +434,18 @@ const AdminAdGroups = () => {
         )}
       </div>
 
-      <h2 className="text-xl mb-2">Administration Tools</h2>
-      <p className="mb-8 text-sm text-gray-600">Additional admin features will appear here.</p>
-
-      <CreateAdGroup showSidebar={false} />
+      {showCreate && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-md w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)] overflow-y-auto max-h-[90vh]">
+            <CreateAdGroup showSidebar={false} asModal={true} />
+            <div className="text-right mt-2">
+              <button onClick={() => setShowCreate(false)} className="btn-secondary px-3 py-1">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {viewNote && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-sm dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">

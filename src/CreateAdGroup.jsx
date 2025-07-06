@@ -13,7 +13,7 @@ import {
 import { db, auth } from "./firebase/config";
 import { uploadFile } from "./uploadFile";
 
-const CreateAdGroup = ({ showSidebar = true }) => {
+const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
   const [brandCodes, setBrandCodes] = useState([]);
@@ -97,7 +97,9 @@ const CreateAdGroup = ({ showSidebar = true }) => {
   };
 
   return (
-    <div className="min-h-screen p-4 max-w-md mx-auto mt-10">
+    <div
+      className={`${asModal ? '' : 'min-h-screen mt-10'} p-4 max-w-md mx-auto`}
+    >
       <h1 className="text-2xl mb-4">Create Ad Group</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
