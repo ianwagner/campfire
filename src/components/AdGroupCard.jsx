@@ -13,7 +13,7 @@ import StatusBadge from './StatusBadge.jsx';
 const AdGroupCard = ({ group }) => (
   <Link
     to={`/ad-group/${group.id}`}
-    className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow w-[220px] sm:w-[300px]"
+    className="block border border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow-md w-[220px] sm:w-[300px]"
   >
     <div className="flex items-start px-3 py-2">
       <div className="flex-1 min-w-0">
