@@ -3,6 +3,8 @@ import { collection, query, where, getDocs, doc, setDoc, getDoc } from 'firebase
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import { uploadBrandAsset } from './uploadBrandAsset';
+import PageWrapper from './components/PageWrapper.jsx';
+import FormField from './components/FormField.jsx';
 
 const emptyLogo = { url: '', file: null };
 const emptyFont = { type: 'google', value: '', file: null };
@@ -141,29 +143,25 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   };
 
   return (
-    <div className="min-h-screen p-4">
-      <h1 className="text-2xl mb-4">Brand Setup</h1>
+    <PageWrapper title="Brand Setup">
       <form onSubmit={handleSave} className="space-y-4 max-w-md">
-        <div>
-          <label className="block mb-1 text-sm font-medium">Tone of Voice</label>
+        <FormField label="Tone of Voice">
           <input
             type="text"
             value={toneOfVoice}
             onChange={(e) => setToneOfVoice(e.target.value)}
             className="w-full p-2 border rounded"
           />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Offering</label>
+        </FormField>
+        <FormField label="Offering">
           <input
             type="text"
             value={offering}
             onChange={(e) => setOffering(e.target.value)}
             className="w-full p-2 border rounded"
           />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Brand Guidelines (PDF)</label>
+        </FormField>
+        <FormField label="Brand Guidelines (PDF)">
           <input
             type="file"
             accept="application/pdf"
@@ -175,9 +173,8 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
               Current file
             </a>
           )}
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Logos</label>
+        </FormField>
+        <FormField label="Logos">
           {logos.map((logo, idx) => (
             <div key={idx} className="mb-2">
               <input
@@ -189,12 +186,15 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
               {logo.url && <img src={logo.url} alt="logo" className="mt-1 h-16 w-auto" />}
             </div>
           ))}
-          <button type="button" onClick={() => setLogos((p) => [...p, { ...emptyLogo }])} className="underline text-sm">
+          <button
+            type="button"
+            onClick={() => setLogos((p) => [...p, { ...emptyLogo }])}
+            className="btn-action mt-1"
+          >
             Add Logo
           </button>
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Palette</label>
+        </FormField>
+        <FormField label="Palette">
           {palette.map((color, idx) => (
             <div key={idx} className="flex items-center mb-2 space-x-2">
               <input
@@ -211,12 +211,15 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
               />
             </div>
           ))}
-          <button type="button" onClick={() => setPalette((p) => [...p, '#000000'])} className="underline text-sm">
+          <button
+            type="button"
+            onClick={() => setPalette((p) => [...p, '#000000'])}
+            className="btn-action mt-1"
+          >
             Add Color
           </button>
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Typefaces</label>
+        </FormField>
+        <FormField label="Typefaces">
           {fonts.map((font, idx) => (
             <div key={idx} className="mb-2 space-y-1">
               <select
@@ -238,7 +241,14 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
               ) : (
                 <input
                   type="file"
-                  onChange={(e) => updateFont(idx, { file: e.target.files[0], value: e.target.files[0] ? URL.createObjectURL(e.target.files[0]) : font.value })}
+                  onChange={(e) =>
+                    updateFont(idx, {
+                      file: e.target.files[0],
+                      value: e.target.files[0]
+                        ? URL.createObjectURL(e.target.files[0])
+                        : font.value,
+                    })
+                  }
                   className="w-full p-2 border rounded"
                 />
               )}
@@ -249,16 +259,22 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
               )}
             </div>
           ))}
-          <button type="button" onClick={() => setFonts((p) => [...p, { ...emptyFont }])} className="underline text-sm">
+          <button
+            type="button"
+            onClick={() => setFonts((p) => [...p, { ...emptyFont }])}
+            className="btn-action mt-1"
+          >
             Add Typeface
           </button>
-        </div>
+        </FormField>
         {message && <p className="text-sm">{message}</p>}
-        <button type="submit" className="btn-primary" disabled={loading}>
-          {loading ? 'Saving...' : 'Save Assets'}
-        </button>
+        <div className="text-right">
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? 'Saving...' : 'Save Assets'}
+          </button>
+        </div>
       </form>
-    </div>
+    </PageWrapper>
   );
 };
 

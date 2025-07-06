@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import { uploadBrandAsset } from './uploadBrandAsset';
+import PageWrapper from './components/PageWrapper.jsx';
+import FormField from './components/FormField.jsx';
 
 const emptyLogo = { url: '', file: null };
 const emptyFont = { type: 'google', value: '', file: null };
@@ -131,11 +133,9 @@ const AdminBrandDetail = () => {
   };
 
   return (
-    <div className="min-h-screen p-4 flex flex-col items-center">
-      <h1 className="text-2xl mb-4">Edit Brand</h1>
+    <PageWrapper title="Edit Brand" className="flex flex-col items-center">
       <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-sm">
-        <div>
-          <label className="block mb-1 text-sm font-medium">Code</label>
+        <FormField label="Code">
           <input
             type="text"
             value={code}
@@ -143,45 +143,40 @@ const AdminBrandDetail = () => {
             className="w-full p-2 border rounded"
             required
           />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Name</label>
+        </FormField>
+        <FormField label="Name">
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full p-2 border rounded"
           />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Agency ID</label>
+        </FormField>
+        <FormField label="Agency ID">
           <input
             type="text"
             value={agencyId}
             onChange={(e) => setAgencyId(e.target.value)}
             className="w-full p-2 border rounded"
           />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Tone of Voice</label>
+        </FormField>
+        <FormField label="Tone of Voice">
           <input
             type="text"
             value={toneOfVoice}
             onChange={(e) => setToneOfVoice(e.target.value)}
             className="w-full p-2 border rounded"
           />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Offering</label>
+        </FormField>
+        <FormField label="Offering">
           <input
             type="text"
             value={offering}
             onChange={(e) => setOffering(e.target.value)}
             className="w-full p-2 border rounded"
           />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Brand Guidelines (PDF)</label>
+        </FormField>
+        <FormField label="Brand Guidelines (PDF)">
           <input
             type="file"
             accept="application/pdf"
@@ -200,9 +195,8 @@ const AdminBrandDetail = () => {
               Current file
             </a>
           )}
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Logos</label>
+        </FormField>
+        <FormField label="Logos">
           {logos.map((logo, idx) => (
             <div key={idx} className="mb-2">
               <input
@@ -211,21 +205,18 @@ const AdminBrandDetail = () => {
                 onChange={(e) => updateLogoFile(idx, e.target.files[0])}
                 className="w-full p-2 border rounded"
               />
-              {logo.url && (
-                <img src={logo.url} alt="logo" className="mt-1 h-16 w-auto" />
-              )}
+              {logo.url && <img src={logo.url} alt="logo" className="mt-1 h-16 w-auto" />}
             </div>
           ))}
           <button
             type="button"
             onClick={() => setLogos((p) => [...p, { ...emptyLogo }])}
-            className="underline text-sm"
+            className="btn-action mt-1"
           >
             Add Logo
           </button>
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Palette</label>
+        </FormField>
+        <FormField label="Palette">
           {palette.map((color, idx) => (
             <div key={idx} className="flex items-center mb-2 space-x-2">
               <input
@@ -249,13 +240,12 @@ const AdminBrandDetail = () => {
           <button
             type="button"
             onClick={() => setPalette((p) => [...p, '#000000'])}
-            className="underline text-sm"
+            className="btn-action mt-1"
           >
             Add Color
           </button>
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Typefaces</label>
+        </FormField>
+        <FormField label="Typefaces">
           {fonts.map((font, idx) => (
             <div key={idx} className="mb-2 space-y-1">
               <select
@@ -300,44 +290,45 @@ const AdminBrandDetail = () => {
               )}
             </div>
           ))}
-        <button
-          type="button"
-          onClick={() => setFonts((p) => [...p, { ...emptyFont }])}
-          className="underline text-sm"
-        >
-          Add Typeface
-        </button>
-      </div>
-      <div>
-        <label className="block mb-1 text-sm font-medium">Brand Notes</label>
-        {notes.map((note, idx) => (
-          <div key={idx} className="flex items-start mb-2 gap-2">
-            <textarea
-              className="w-full p-2 border rounded"
-              value={note}
-              onChange={(e) =>
-                setNotes((p) => p.map((n, i) => (i === idx ? e.target.value : n)))
-              }
-            />
-            <button
-              type="button"
-              onClick={() => setNotes((p) => p.filter((_, i) => i !== idx))}
-              className="underline text-sm text-red-600"
-            >
-              Delete
-            </button>
-          </div>
-        ))}
-        <button type="button" onClick={() => setNotes((p) => [...p, ''])} className="underline text-sm">
-          Add Note
-        </button>
-      </div>
-      {message && <p className="text-sm text-center">{message}</p>}
-      <button type="submit" className="w-full btn-primary" disabled={loading}>
-        {loading ? 'Saving...' : 'Save Brand'}
-      </button>
+          <button
+            type="button"
+            onClick={() => setFonts((p) => [...p, { ...emptyFont }])}
+            className="btn-action mt-1"
+          >
+            Add Typeface
+          </button>
+        </FormField>
+        <FormField label="Brand Notes">
+          {notes.map((note, idx) => (
+            <div key={idx} className="flex items-start mb-2 gap-2">
+              <textarea
+                className="w-full p-2 border rounded"
+                value={note}
+                onChange={(e) =>
+                  setNotes((p) => p.map((n, i) => (i === idx ? e.target.value : n)))
+                }
+              />
+              <button
+                type="button"
+                onClick={() => setNotes((p) => p.filter((_, i) => i !== idx))}
+                className="btn-action btn-delete"
+              >
+                Delete
+              </button>
+            </div>
+          ))}
+          <button type="button" onClick={() => setNotes((p) => [...p, ''])} className="btn-action mt-1">
+            Add Note
+          </button>
+        </FormField>
+        {message && <p className="text-sm text-center">{message}</p>}
+        <div className="text-right">
+          <button type="submit" className="w-full btn-primary" disabled={loading}>
+            {loading ? 'Saving...' : 'Save Brand'}
+          </button>
+        </div>
       </form>
-    </div>
+    </PageWrapper>
   );
 };
 
