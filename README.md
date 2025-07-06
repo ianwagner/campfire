@@ -289,9 +289,3 @@ Notifications triggered by `adGroupCreated` or `adGroupStatusUpdated` now includ
 
 If a rule outputs a `brandCode` value, only users with that code in their `brandCodes` array will receive the notification.
 
-## Dashboard Troubleshooting
-
-The Admin Dashboard relies on Firestore aggregation queries. If charts fail to
-load, check the browser console for permission errors or missing index
-messages. Ensure the current user has read access to the relevant collections
-and create any suggested indexes in Firestore.
