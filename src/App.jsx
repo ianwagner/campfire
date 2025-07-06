@@ -2,7 +2,6 @@
 // This file is part of a proprietary software project. Do not distribute.
 import React from "react";
 import {
-  BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
@@ -146,7 +145,7 @@ const App = () => {
   }
 
   return (
-    <Router>
+    <>
       <ThemeWatcher />
       {/* <AdminClaimDebug /> Uncomment to check admin claim */}
       <RequireMfa user={user} role={role}>
@@ -629,7 +628,7 @@ const App = () => {
           </div>
         </div>
       </RequireMfa>
-      </Router>
+    </>
   );
 };
 
