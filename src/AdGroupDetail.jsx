@@ -55,6 +55,7 @@ import OptimizedImage from "./components/OptimizedImage.jsx";
 import pickHeroAsset from "./utils/pickHeroAsset";
 import computeGroupStatus from "./utils/computeGroupStatus";
 import diffWords from "./utils/diffWords";
+import Modal from "./components/Modal.jsx";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -2157,142 +2158,124 @@ const AdGroupDetail = () => {
       )}
 
       {viewRecipe && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-md dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <h3 className="mb-2 font-semibold">
-              Recipe {viewRecipe.recipeCode}
-            </h3>
-            <div className="grid grid-cols-2 gap-2 max-h-[60vh] overflow-auto">
-              {viewRecipe.assets.map((a) => (
-                <OptimizedImage
-                  key={a.id}
-                  pngUrl={a.thumbnailUrl || a.firebaseUrl}
-                  alt={a.filename}
-                  className="w-full object-contain max-h-40"
-                />
-              ))}
-            </div>
-            <button
-              onClick={closeModals}
-              className="mt-2 btn-primary px-3 py-1"
-            >
-              Close
-            </button>
+        <Modal sizeClass="max-w-md">
+          <h3 className="mb-2 font-semibold">Recipe {viewRecipe.recipeCode}</h3>
+          <div className="grid grid-cols-2 gap-2 max-h-[60vh] overflow-auto">
+            {viewRecipe.assets.map((a) => (
+              <OptimizedImage
+                key={a.id}
+                pngUrl={a.thumbnailUrl || a.firebaseUrl}
+                alt={a.filename}
+                className="w-full object-contain max-h-40"
+              />
+            ))}
           </div>
-        </div>
+          <button onClick={closeModals} className="mt-2 btn-primary px-3 py-1">
+            Close
+          </button>
+        </Modal>
       )}
 
       {historyRecipe && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-md dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <h3 className="mb-2 font-semibold">
-              Recipe {historyRecipe.recipeCode} History
-            </h3>
-            <ul className="mb-2 space-y-2 max-h-[60vh] overflow-auto">
-              {historyRecipe.assets.map((a, idx) => (
-                <li key={idx} className="border-b pb-2 last:border-none">
-                  <div className="text-sm font-medium">
-                    {a.lastUpdatedAt
-                      ? a.lastUpdatedAt.toDate
-                        ? a.lastUpdatedAt.toDate().toLocaleString()
-                        : new Date(a.lastUpdatedAt).toLocaleString()
-                      : ""}{" "}
-                    - {a.email}
-                  </div>
-                  <div className="text-sm">Status: {a.status}</div>
-                  {a.comment && (
-                    <div className="text-sm italic">Note: {a.comment}</div>
-                  )}
-                </li>
-              ))}
-            </ul>
-            <button onClick={closeModals} className="btn-primary px-3 py-1">
-              Close
-            </button>
-          </div>
-        </div>
+        <Modal sizeClass="max-w-md">
+          <h3 className="mb-2 font-semibold">
+            Recipe {historyRecipe.recipeCode} History
+          </h3>
+          <ul className="mb-2 space-y-2 max-h-[60vh] overflow-auto">
+            {historyRecipe.assets.map((a, idx) => (
+              <li key={idx} className="border-b pb-2 last:border-none">
+                <div className="text-sm font-medium">
+                  {a.lastUpdatedAt
+                    ? a.lastUpdatedAt.toDate
+                      ? a.lastUpdatedAt.toDate().toLocaleString()
+                      : new Date(a.lastUpdatedAt).toLocaleString()
+                    : ""}{" "}
+                  - {a.email}
+                </div>
+                <div className="text-sm">Status: {a.status}</div>
+                {a.comment && (
+                  <div className="text-sm italic">Note: {a.comment}</div>
+                )}
+              </li>
+            ))}
+          </ul>
+          <button onClick={closeModals} className="btn-primary px-3 py-1">
+            Close
+          </button>
+        </Modal>
       )}
 
       {historyAsset && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-md dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <h3 className="mb-2 font-semibold">
-              Ad {historyAsset.filename} History
-            </h3>
-            <ul className="mb-2 space-y-2 max-h-[60vh] overflow-auto">
-              {historyAsset.assets.map((a, idx) => (
-                <li key={idx} className="border-b pb-2 last:border-none">
-                  <div className="text-sm font-medium">
-                    {a.lastUpdatedAt
-                      ? a.lastUpdatedAt.toDate
-                        ? a.lastUpdatedAt.toDate().toLocaleString()
-                        : new Date(a.lastUpdatedAt).toLocaleString()
-                      : ""}{" "}
-                    - {a.email}
-                  </div>
-                  <div className="text-sm">Status: {a.status}</div>
-                  {a.comment && (
-                    <div className="text-sm italic">Note: {a.comment}</div>
-                  )}
-                </li>
-              ))}
-            </ul>
-            <button onClick={closeModals} className="btn-primary px-3 py-1">
-              Close
-            </button>
-          </div>
-        </div>
+        <Modal sizeClass="max-w-md">
+          <h3 className="mb-2 font-semibold">Ad {historyAsset.filename} History</h3>
+          <ul className="mb-2 space-y-2 max-h-[60vh] overflow-auto">
+            {historyAsset.assets.map((a, idx) => (
+              <li key={idx} className="border-b pb-2 last:border-none">
+                <div className="text-sm font-medium">
+                  {a.lastUpdatedAt
+                    ? a.lastUpdatedAt.toDate
+                      ? a.lastUpdatedAt.toDate().toLocaleString()
+                      : new Date(a.lastUpdatedAt).toLocaleString()
+                    : ""}{" "}
+                  - {a.email}
+                </div>
+                <div className="text-sm">Status: {a.status}</div>
+                {a.comment && (
+                  <div className="text-sm italic">Note: {a.comment}</div>
+                )}
+              </li>
+            ))}
+          </ul>
+          <button onClick={closeModals} className="btn-primary px-3 py-1">
+            Close
+          </button>
+        </Modal>
       )}
 
       {metadataRecipe && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-sm dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <h3 className="mb-2 font-semibold">
-              Metadata for Recipe {metadataRecipe.id}
-            </h3>
-            <div className="space-y-2">
-              {metadataRecipe.components && (
-                <div className="text-sm">
-                  {Object.entries(metadataRecipe.components).map(([k, v]) => (
-                    <div key={k}>
-                      <span className="font-semibold mr-1">{k}:</span>
-                      {typeof v === "object" && v !== null
-                        ? JSON.stringify(v)
-                        : String(v)}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <label className="block text-sm">
-                Copy
-                <textarea
-                  className="mt-1 w-full border rounded p-1 text-black dark:text-black"
-                  value={metadataForm.copy}
-                  onChange={(e) =>
-                    setMetadataForm({ ...metadataForm, copy: e.target.value })
-                  }
-                />
-              </label>
-            </div>
-            <div className="mt-3 flex justify-end gap-2">
-              <button onClick={closeModals} className="btn-secondary px-3 py-1">
-                Cancel
-              </button>
-              <button onClick={saveMetadata} className="btn-primary px-3 py-1">
-                Save
-              </button>
-            </div>
+        <Modal sizeClass="max-w-sm">
+          <h3 className="mb-2 font-semibold">Metadata for Recipe {metadataRecipe.id}</h3>
+          <div className="space-y-2">
+            {metadataRecipe.components && (
+              <div className="text-sm">
+                {Object.entries(metadataRecipe.components).map(([k, v]) => (
+                  <div key={k}>
+                    <span className="font-semibold mr-1">{k}:</span>
+                    {typeof v === "object" && v !== null
+                      ? JSON.stringify(v)
+                      : String(v)}
+                  </div>
+                ))}
+              </div>
+            )}
+            <label className="block text-sm">
+              Copy
+              <textarea
+                className="mt-1 w-full border rounded p-1 text-black dark:text-black"
+                value={metadataForm.copy}
+                onChange={(e) =>
+                  setMetadataForm({ ...metadataForm, copy: e.target.value })
+                }
+              />
+            </label>
           </div>
-        </div>
+          <div className="mt-3 flex justify-end gap-2">
+            <button onClick={closeModals} className="btn-secondary px-3 py-1">
+              Cancel
+            </button>
+            <button onClick={saveMetadata} className="btn-primary px-3 py-1">
+              Save
+            </button>
+          </div>
+        </Modal>
       )}
 
       {exportModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <h3 className="mb-2 font-semibold">Export Approved Ads</h3>
-            <div className="space-y-2">
-              <div>
-                <p className="text-sm font-medium mb-1">Group By</p>
+        <Modal sizeClass="max-w-sm w-full">
+          <h3 className="mb-2 font-semibold">Export Approved Ads</h3>
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-medium mb-1">Group By</p>
                 <label className="mr-2 text-sm">
                   <input
                     type="checkbox"
@@ -2352,14 +2335,14 @@ const AdGroupDetail = () => {
                 </select>
               </label>
               <p className="text-sm">Preview Groups: {previewGroups}</p>
-            </div>
-            <div className="mt-3 flex justify-end gap-2">
-              <button
-                onClick={() => setExportModal(false)}
-                className="btn-secondary px-3 py-1"
-              >
-                Cancel
-              </button>
+          </div>
+          <div className="mt-3 flex justify-end gap-2">
+            <button
+              onClick={() => setExportModal(false)}
+              className="btn-secondary px-3 py-1"
+            >
+              Cancel
+            </button>
               <button
                 onClick={handleExport}
                 disabled={exporting}
@@ -2367,58 +2350,53 @@ const AdGroupDetail = () => {
               >
                 {exporting ? "Exporting..." : "Export"}
               </button>
-            </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {showRecipes && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-[50rem] w-full overflow-auto max-h-[90vh] relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <button
-              onClick={() => setShowRecipes(false)}
-              className="absolute top-2 right-2 btn-secondary px-3 py-1"
-            >
-              Close
-            </button>
-            <RecipePreview
-              onSave={saveRecipes}
-              brandCode={group?.brandCode}
-              hideBrandSelect
-            />
-          </div>
-        </div>
+        <Modal sizeClass="max-w-[50rem] w-full overflow-auto max-h-[90vh] relative">
+          <button
+            onClick={() => setShowRecipes(false)}
+            className="absolute top-2 right-2 btn-secondary px-3 py-1"
+          >
+            Close
+          </button>
+          <RecipePreview
+            onSave={saveRecipes}
+            brandCode={group?.brandCode}
+            hideBrandSelect
+          />
+        </Modal>
       )}
 
       {showCopyModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
-          <div className="bg-white p-4 rounded shadow max-w-[50rem] w-full max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold">Platform Copy</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => saveCopyCards(modalCopies)}
-                  className={`btn-primary px-3 py-1 ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
-                  disabled={!copyChanges}
-                >
-                  Save
-                </button>
-                <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
-              </div>
-            </div>
-            <p className="text-sm mb-2">
-              These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
-            </p>
-            <div className="overflow-auto flex-1">
-              <CopyRecipePreview
-                onSave={saveCopyCards}
-                brandCode={group?.brandCode}
-                hideBrandSelect
-                onCopiesChange={setModalCopies}
-              />
+        <Modal sizeClass="max-w-[50rem] w-full max-h-[90vh] flex flex-col">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold">Platform Copy</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => saveCopyCards(modalCopies)}
+                className={`btn-primary px-3 py-1 ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
+                disabled={!copyChanges}
+              >
+                Save
+              </button>
+              <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
             </div>
           </div>
-        </div>
+          <p className="text-sm mb-2">
+            These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
+          </p>
+          <div className="overflow-auto flex-1">
+            <CopyRecipePreview
+              onSave={saveCopyCards}
+              brandCode={group?.brandCode}
+              hideBrandSelect
+              onCopiesChange={setModalCopies}
+            />
+          </div>
+        </Modal>
       )}
 
       {shareModal && (
