@@ -392,24 +392,29 @@ const AdminRequests = () => {
               onDrop={() => handleDrop(status)}
             >
               <h2 className="text-xl mb-2 capitalize">{status}</h2>
-              {loading ? (
-                <p>Loading...</p>
-              ) : grouped[status].length === 0 ? (
-                <p>No requests.</p>
-              ) : (
-                <div className="space-y-4">
-                  {grouped[status].map((req) => (
-                    <RequestCard
-                      key={req.id}
-                      request={req}
-                      onEdit={startEdit}
-                      onDelete={handleDelete}
-                      onDragStart={handleDragStart}
-                      onCreateGroup={handleCreateGroup}
-                    />
-                  ))}
-                </div>
-              )}
+              <div
+                className="bg-[#F7F7F7] border border-gray-300 rounded-t-lg pb-4 space-y-4"
+                style={{ minHeight: 'calc(100vh - 8rem)' }}
+              >
+                {loading ? (
+                  <p>Loading...</p>
+                ) : grouped[status].length === 0 ? (
+                  <p>No requests.</p>
+                ) : (
+                  <>
+                    {grouped[status].map((req) => (
+                      <RequestCard
+                        key={req.id}
+                        request={req}
+                        onEdit={startEdit}
+                        onDelete={handleDelete}
+                        onDragStart={handleDragStart}
+                        onCreateGroup={handleCreateGroup}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
             </div>
           ))}
           </div>
