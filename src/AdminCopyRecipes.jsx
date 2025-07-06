@@ -7,7 +7,7 @@ import {
   deleteDoc,
   doc,
 } from 'firebase/firestore';
-import { FiList, FiEye, FiEdit2, FiTrash, FiPlus } from 'react-icons/fi';
+import { FiList, FiEye, FiEdit2, FiTrash, FiPlus, FiCheckSquare } from 'react-icons/fi';
 import { db } from './firebase/config';
 import PromptTextarea from './components/PromptTextarea.jsx';
 import TagInput from './components/TagInput.jsx';
@@ -32,7 +32,7 @@ const Tabs = ({ view, setView }) => (
       <FiEye /> <span>Preview</span>
     </TabButton>
     <TabButton active={view === VIEWS.RULES} onClick={() => setView(VIEWS.RULES)}>
-      <FiEye /> <span>Rules</span>
+      <FiCheckSquare /> <span>Rules</span>
     </TabButton>
   </div>
 );

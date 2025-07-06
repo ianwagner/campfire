@@ -13,7 +13,13 @@ import {
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 import TabButton from './components/TabButton.jsx';
-import { FiPlus, FiEdit2, FiTrash } from 'react-icons/fi';
+import {
+  FiPlus,
+  FiEdit2,
+  FiTrash,
+  FiBell,
+  FiZap,
+} from 'react-icons/fi';
 import IconButton from './components/IconButton.jsx';
 
 const AdminNotifications = () => {
@@ -208,10 +214,10 @@ const AdminNotifications = () => {
       <h1 className="text-2xl mb-4">Notifications</h1>
       <div className="flex space-x-4 mb-4">
         <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
-          All Notifications
+          <FiBell /> <span>All Notifications</span>
         </TabButton>
         <TabButton active={tab === 'automations'} onClick={() => setTab('automations')}>
-          Automations
+          <FiZap /> <span>Automations</span>
         </TabButton>
       </div>
 
