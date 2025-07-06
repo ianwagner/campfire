@@ -54,8 +54,6 @@
     --table-head-bg: var(--dark-sidebar-hover);
     --table-row-alt-bg: var(--dark-sidebar-bg);
     --table-text-color: #9ca3af; /* gray-400 */
-    /* default border color for dark mode */
-    --border-color-default: #4b5563; /* gray-600 */
   }
   body {
     @apply bg-white text-gray-900 dark:bg-[var(--dark-bg)] dark:text-[var(--dark-text)];
@@ -165,15 +163,6 @@
   select {
     @apply border px-2 py-1 dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] dark:text-white;
     border-radius: var(--border-radius-base);
-  }
-
-  /* use a softer border color for unspecified borders in dark mode */
-  html.dark .border,
-  html.dark .border-t,
-  html.dark .border-r,
-  html.dark .border-b,
-  html.dark .border-l {
-    border-color: var(--border-color-default);
   }
   .text-accent {
     color: var(--accent-color);
