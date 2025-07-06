@@ -13,6 +13,8 @@ import { db } from '../firebase/config';
 const RecipeTypes = () => {
   const componentsData = useComponentTypes();
   const [types, setTypes] = useState([]);
+  const [filter, setFilter] = useState('');
+  const [sortAsc, setSortAsc] = useState(true);
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
   const [assetPrompt, setAssetPrompt] = useState('');
@@ -192,15 +194,40 @@ const RecipeTypes = () => {
     return Array.from(new Set(cols));
   }, [componentsData, fields]);
 
+  const filteredTypes = useMemo(() => {
+    const term = filter.toLowerCase();
+    const arr = types.filter((t) => t.name.toLowerCase().includes(term));
+    arr.sort((a, b) => a.name.localeCompare(b.name));
+    if (!sortAsc) arr.reverse();
+    return arr;
+  }, [types, filter, sortAsc]);
+
   return (
     <div>
       <h2 className="text-xl mb-2">Recipe Types</h2>
-      <div className="flex justify-end mb-2">
+      <div className="flex justify-between mb-2">
+        <div>
+          <input
+            type="text"
+            placeholder="Filter"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="p-1 border rounded mr-2"
+          />
+          <select
+            value={sortAsc ? 'asc' : 'desc'}
+            onChange={(e) => setSortAsc(e.target.value === 'asc')}
+            className="p-1 border rounded"
+          >
+            <option value="asc">Sort A-Z</option>
+            <option value="desc">Sort Z-A</option>
+          </select>
+        </div>
         <Button variant="primary" onClick={openCreate} className="flex items-center gap-1">
           <FiPlus /> Create Recipe Type
         </Button>
       </div>
-      {types.length === 0 ? (
+      {filteredTypes.length === 0 ? (
         <p>No recipe types found.</p>
       ) : (
         <Table>
@@ -216,7 +243,7 @@ const RecipeTypes = () => {
               </tr>
             </thead>
             <tbody>
-              {types.map((t) => (
+              {filteredTypes.map((t) => (
                 <tr key={t.id}>
                   <td>{t.name}</td>
                   <td>
