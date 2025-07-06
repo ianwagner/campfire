@@ -47,29 +47,6 @@ import useDebugTrace from './utils/useDebugTrace';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
 
-const buildHeroList = (ads) => {
-  const prefOrder = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
-  const getRecipe = (a) =>
-    a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
-  const getAspect = (a) =>
-    a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
-  const map = {};
-  ads.forEach((a) => {
-    const r = getRecipe(a);
-    if (!map[r]) map[r] = [];
-    map[r].push(a);
-  });
-  const heroes = Object.values(map).map((list) => {
-    for (const asp of prefOrder) {
-      const found = list.find((x) => getAspect(x) === asp);
-      if (found) return found;
-    }
-    return list[0];
-  });
-  heroes.sort((a, b) => getRecipe(a).localeCompare(getRecipe(b)));
-  return heroes;
-};
-
 const isSafari =
   typeof navigator !== 'undefined' &&
   /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -136,11 +113,9 @@ const Review = forwardRef(
   const [lockedBy, setLockedBy] = useState(null);
   const [lockedByUid, setLockedByUid] = useState(null);
   const [lockFailed, setLockFailed] = useState(false);
-  const [groupInfo, setGroupInfo] = useState({ name: '', brandCode: '' });
   // refs to track latest values for cleanup on unmount
   const currentIndexRef = useRef(currentIndex);
   const reviewLengthRef = useRef(reviewAds.length);
-  const reviewAdsRef = useRef(reviewAds);
   const lockedByUidRef = useRef(lockedByUid);
   const { agency } = useAgencyTheme(agencyId);
 
@@ -151,10 +126,6 @@ const Review = forwardRef(
   useEffect(() => {
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
-
-  useEffect(() => {
-    reviewAdsRef.current = reviewAds;
-  }, [reviewAds]);
 
   useEffect(() => {
     lockedByUidRef.current = lockedByUid;
@@ -231,7 +202,6 @@ const Review = forwardRef(
       setGroupStatus(data.status || 'pending');
       setLockedBy(data.lockedBy || null);
       setLockedByUid(data.lockedByUid || null);
-      setGroupInfo({ name: data.name || '', brandCode: data.brandCode || '' });
     });
     return () => unsub();
   }, [groupId]);
@@ -371,62 +341,6 @@ useEffect(() => {
       events.forEach((e) => window.removeEventListener(e, reset));
     };
   }, [started, releaseLock]);
-
-  const updateFromAssets = useCallback(
-    (list) => {
-      const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
-      list.sort((a, b) => {
-        const infoA = parseAdFilename(a.filename || '');
-        const infoB = parseAdFilename(b.filename || '');
-        const rA = a.recipeCode || infoA.recipeCode || '';
-        const rB = b.recipeCode || infoB.recipeCode || '';
-        if (rA < rB) return -1;
-        if (rA > rB) return 1;
-        const aAsp = a.aspectRatio || infoA.aspectRatio || '';
-        const bAsp = b.aspectRatio || infoB.aspectRatio || '';
-        return (order[aAsp] ?? 99) - (order[bAsp] ?? 99);
-      });
-
-      const versionMap = {};
-      list.forEach((a) => {
-        const root = a.parentAdId || a.assetId;
-        if (!versionMap[root] || (versionMap[root].version || 1) < (a.version || 1)) {
-          versionMap[root] = a;
-        }
-      });
-      const deduped = Object.values(versionMap);
-      const hasPendingAds = deduped.some((a) => a.status === 'pending');
-      const nonPending = deduped.filter((a) => a.status !== 'pending');
-      const fullNonPending = list.filter((a) => a.status !== 'pending');
-      setAllAds(fullNonPending);
-      setAds(nonPending);
-      setHasPending(hasPendingAds);
-
-      const readyAds = nonPending.filter((a) => a.status === 'ready');
-      const heroes = buildHeroList(readyAds);
-
-      const prev = reviewAdsRef.current;
-      const prevIds = new Set(prev.map((a) => a.assetId));
-      const heroMap = new Map(heroes.map((a) => [a.assetId, a]));
-      const newList = [];
-      prev.forEach((a) => {
-        if (heroMap.has(a.assetId)) {
-          newList.push(heroMap.get(a.assetId));
-          heroMap.delete(a.assetId);
-        }
-      });
-      heroMap.forEach((a) => newList.push(a));
-
-      const currentId = prev[currentIndexRef.current]?.assetId;
-      reviewLengthRef.current = newList.length;
-      let nextIndex = currentId ? newList.findIndex((x) => x.assetId === currentId) : currentIndexRef.current;
-      if (nextIndex === -1) nextIndex = Math.min(currentIndexRef.current, newList.length);
-
-      setReviewAds(newList);
-      if (nextIndex !== currentIndexRef.current) setCurrentIndex(nextIndex);
-    },
-    [],
-  );
 
   const recipeGroups = useMemo(() => {
     const map = {};
@@ -649,23 +563,6 @@ useEffect(() => {
 
     fetchAds();
   }, [user, brandCodes, groupId]);
-
-  useEffect(() => {
-    if (!groupId) return;
-    const assetsRef = collection(db, 'adGroups', groupId, 'assets');
-    const unsub = onSnapshot(assetsRef, (snap) => {
-      const list = snap.docs.map((d) => ({
-        ...d.data(),
-        assetId: d.id,
-        adGroupId: groupId,
-        groupName: groupInfo.name,
-        firebaseUrl: d.data().firebaseUrl,
-        ...(groupInfo.brandCode ? { brandCode: groupInfo.brandCode } : {}),
-      }));
-      updateFromAssets(list);
-    });
-    return () => unsub();
-  }, [groupId, groupInfo, updateFromAssets]);
 
   // ensure first ad and agency logo are loaded before removing overlay
   useEffect(() => {
