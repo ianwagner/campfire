@@ -4,7 +4,7 @@ import StatusBadge from './StatusBadge.jsx';
 
 const RequestCard = ({ request, onEdit, onDelete, onCreateGroup, onDragStart }) => (
   <div
-    className="border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow p-3 space-y-1"
+    className="border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow p-3 space-y-1 w-[220px] sm:w-[300px]"
     draggable
     onDragStart={() => onDragStart(request.id)}
   >

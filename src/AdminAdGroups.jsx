@@ -184,15 +184,17 @@ const AdminAdGroups = () => {
 
   const statusOrder = {
     pending: 1,
-    ready: 2,
-    'review pending': 3,
-    'in review': 3,
-    reviewed: 4,
-    archived: 5,
+    briefed: 2,
+    ready: 3,
+    'review pending': 4,
+    'in review': 4,
+    reviewed: 5,
+    archived: 6,
   };
 
   const kanbanColumns = [
     { label: 'Pending', statuses: ['pending'] },
+    { label: 'Briefed', statuses: ['briefed'] },
     { label: 'Ready', statuses: ['ready'] },
     { label: 'In Review/Review Pending', statuses: ['in review', 'review pending'] },
     { label: 'Reviewed', statuses: ['reviewed'] },
@@ -416,10 +418,10 @@ const AdminAdGroups = () => {
               </Table>
             </div>
           ) : (
-            <div className="hidden sm:block">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="hidden sm:block overflow-x-auto">
+              <div className="min-w-max flex gap-4">
                 {kanbanColumns.map((col) => (
-                  <div key={col.label}>
+                  <div key={col.label} className="flex-shrink-0 w-[220px] sm:w-[300px]">
                     <h3 className="mb-2">{col.label}</h3>
                     <div className="space-y-4">
                       {displayGroups
