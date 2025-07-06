@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp } from 'firebase/firestore';
+import { FiPlus } from 'react-icons/fi';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 import Modal from './components/Modal.jsx';
@@ -110,7 +111,9 @@ const AdminRequests = () => {
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Requests</h1>
-      <button onClick={openCreate} className="btn-primary mb-4">Request Ads</button>
+      <button onClick={openCreate} className="btn-primary mb-4 flex items-center gap-1">
+        <FiPlus /> Request Ads
+      </button>
       <div className="mb-8">
         <h2 className="text-xl mb-2">Ready</h2>
         {loading ? (
