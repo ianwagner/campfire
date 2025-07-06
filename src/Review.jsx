@@ -1114,12 +1114,12 @@ if (
         <h1 className="text-2xl font-bold">{lockedBy} is currently reviewing this group.</h1>
         <p className="text-lg">Please wait until they've finished before hopping in.</p>
         <div className="flex space-x-2">
-        <button onClick={() => setStarted(false)} className="btn-secondary px-3 py-1">
+        <button onClick={() => setStarted(false)} className="btn-secondary">
           Back
         </button>
         <button
           onClick={() => setShowGallery(true)}
-          className="btn-primary flex items-center px-3 py-1"
+          className="btn-primary flex items-center"
         >
           <FiGrid className="mr-1" /> See Gallery
         </button>
@@ -1159,14 +1159,14 @@ if (
           <div className="flex space-x-2">
             <button
               onClick={() => setShowGallery(true)}
-              className="btn-secondary px-3 py-1"
+              className="btn-secondary"
             >
               <FiGrid className="mr-1" /> Ad Gallery
             </button>
             {copyCards.length > 0 && (
               <button
                 onClick={() => setShowCopyModal(true)}
-                className="btn-secondary px-3 py-1"
+                className="btn-secondary"
               >
                 <FiType className="mr-1" /> Platform Copy
               </button>
@@ -1182,12 +1182,12 @@ if (
                 <div className="flex gap-2">
                   <button
                     onClick={() => saveCopyCards(modalCopies)}
-                    className={`btn-primary px-3 py-1 ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
+                    className={`btn-primary ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
                     disabled={!copyChanges}
                   >
                     Save
                   </button>
-                  <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
+                  <button onClick={() => setShowCopyModal(false)} className="btn-secondary">Close</button>
                 </div>
               </div>
               <p className="text-sm mb-2">
@@ -1371,7 +1371,7 @@ if (
                 <div className="flex justify-center space-x-2">
                   <button
                     onClick={() => setShowNoteInput(true)}
-                    className="btn-primary px-3 py-1"
+                    className="btn-primary"
                   >
                     Leave Note
                   </button>
@@ -1381,7 +1381,7 @@ if (
                       setShowNoteInput(false);
                       setAskContinue(false);
                     }}
-                    className="btn-secondary px-3 py-1 text-white"
+                    className="btn-secondary text-white"
                   >
                     Keep reviewing
                   </button>
@@ -1401,7 +1401,7 @@ if (
                   <button
                     onClick={submitNote}
                     disabled={noteSubmitting}
-                    className="btn-primary px-3 py-1"
+                    className="btn-primary"
                   >
                     Submit Note
                   </button>
@@ -1410,7 +1410,7 @@ if (
                       setShowNoteInput(false);
                       setClientNote('');
                     }}
-                    className="btn-secondary px-3 py-1 text-white"
+                    className="btn-secondary text-white"
                   >
                     Cancel
                   </button>
@@ -1426,11 +1426,11 @@ if (
                       setShowStreakModal(false);
                       setAskContinue(false);
                     }}
-                    className="btn-primary px-3 py-1"
+                    className="btn-primary"
                   >
                     Yes
                   </button>
-                  <button onClick={handleStopReview} className="btn-secondary px-3 py-1 text-white">
+                  <button onClick={handleStopReview} className="btn-secondary text-white">
                     No
                   </button>
                 </div>
@@ -1727,12 +1727,12 @@ if (
               <div className="flex gap-2">
                 <button
                   onClick={() => saveCopyCards(modalCopies)}
-                  className={`btn-primary px-3 py-1 ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
+                  className={`btn-primary ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
                   disabled={!copyChanges}
                 >
                   Save
                 </button>
-                <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
+                <button onClick={() => setShowCopyModal(false)} className="btn-secondary">Close</button>
               </div>
             </div>
             <p className="text-sm mb-2">
