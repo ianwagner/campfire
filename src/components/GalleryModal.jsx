@@ -41,7 +41,7 @@ const GalleryModal = ({ ads = [], onClose }) => (
         <button onClick={onClose} className="btn-secondary px-3 py-1">Close</button>
       </div>
       <div className="overflow-auto flex-1">
-        <div className="flex flex-wrap justify-center gap-2">
+        <div className="flex flex-wrap justify-center gap-x-2 gap-y-4">
           {ads.map((a, idx) => (
             <AdThumb key={idx} ad={a} />
           ))}

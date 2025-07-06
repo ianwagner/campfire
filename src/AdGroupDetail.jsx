@@ -2373,7 +2373,10 @@ const AdGroupDetail = () => {
       {showCopyModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
           <div className="bg-white p-4 rounded shadow max-w-[50rem] w-full max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <h2 className="text-lg font-semibold">Platform Copy</h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold">Platform Copy</h2>
+              <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
+            </div>
             <p className="text-sm mb-2">
               These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
             </p>
@@ -2383,9 +2386,6 @@ const AdGroupDetail = () => {
                 brandCode={group?.brandCode}
                 hideBrandSelect
               />
-            </div>
-            <div className="text-right mt-4">
-              <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
             </div>
           </div>
         </div>

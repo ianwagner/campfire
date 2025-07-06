@@ -285,7 +285,7 @@ const CopyRecipePreview = ({
         {copies.map((c) => (
           <div
             key={c.id}
-            className="rounded-lg shadow p-3 relative max-w-[350px] w-full dark:bg-[var(--dark-sidebar-hover)]"
+            className="rounded-lg border border-gray-300 dark:border-gray-600 shadow p-3 relative max-w-[350px] w-full dark:bg-[var(--dark-sidebar-hover)]"
           >
             <button
               type="button"

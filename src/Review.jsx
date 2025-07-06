@@ -1104,37 +1104,7 @@ if (
           <FiGrid className="mr-1" /> See Gallery
         </button>
       </div>
-        {showGallery && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
-            <div className="bg-white p-4 rounded shadow max-w-6xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <div className="flex flex-wrap justify-center gap-2">
-              {ads.map((a, idx) => (
-                isVideoUrl(a.firebaseUrl) ? (
-                  <VideoPlayer
-                    key={idx}
-                    src={a.firebaseUrl}
-                    className="max-w-[125px] w-full h-auto object-contain"
-                  />
-                ) : (
-                  <OptimizedImage
-                    key={idx}
-                    pngUrl={a.firebaseUrl}
-                    webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
-                    alt={a.filename}
-                    cacheKey={a.firebaseUrl}
-                    className="max-w-[125px] w-full h-auto object-contain"
-                  />
-                )
-              ))}
-            </div>
-            <div className="text-right mt-4">
-              <button onClick={() => setShowGallery(false)} className="btn-secondary px-3 py-1">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
     </div>
   );
 }
@@ -1181,41 +1151,14 @@ if (
             <FiCheck className="mr-1" /> Review Ads
           </button>
         </div>
-        {showGallery && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
-            <div className="bg-white p-4 rounded shadow max-w-6xl w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-              <div className="flex flex-wrap justify-center gap-2">
-                {ads.map((a, idx) =>
-                  isVideoUrl(a.firebaseUrl) ? (
-                    <VideoPlayer
-                      key={idx}
-                      src={a.firebaseUrl}
-                      className="max-w-[125px] w-full h-auto object-contain"
-                    />
-                  ) : (
-                    <OptimizedImage
-                      key={idx}
-                      pngUrl={a.firebaseUrl}
-                      webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
-                      alt={a.filename}
-                      cacheKey={a.firebaseUrl}
-                      className="max-w-[125px] w-full h-auto object-contain"
-                    />
-                  )
-                )}
-              </div>
-              <div className="text-right mt-4">
-                <button onClick={() => setShowGallery(false)} className="btn-secondary px-3 py-1">
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
         {showCopyModal && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
             <div className="bg-white p-4 rounded shadow max-w-[50rem] w-full max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-              <h2 className="text-lg font-semibold">Platform Copy</h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-lg font-semibold">Platform Copy</h2>
+                <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
+              </div>
               <p className="text-sm mb-2">
                 These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
               </p>
@@ -1226,9 +1169,6 @@ if (
                   showOnlyResults
                   hideBrandSelect
                 />
-              </div>
-              <div className="text-right mt-4">
-                <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
               </div>
             </div>
           </div>
@@ -1749,14 +1689,15 @@ if (
       )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
       {showCopyModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
-          <div className="bg-white p-4 rounded shadow max-w-[50rem] w-full overflow-auto max-h-[90vh] relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <button
-              onClick={() => setShowCopyModal(false)}
-              className="absolute top-2 right-2 btn-secondary px-3 py-1"
-            >
-              Close
-            </button>
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto p-4">
+          <div className="bg-white p-4 rounded shadow max-w-[50rem] w-full overflow-auto max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold">Platform Copy</h2>
+              <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
+            </div>
+            <p className="text-sm mb-2">
+              These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
+            </p>
             <CopyRecipePreview
               onSave={saveCopyCards}
               initialResults={copyCards}
