@@ -19,6 +19,8 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
   const location = useLocation();
   const [open, setOpen] = React.useState(false);
   const { settings } = useSiteSettings(applySiteAccent);
+  const [logoReady, setLogoReady] = React.useState(false);
+  const logoSrc = logoUrl || settings.logoUrl || DEFAULT_LOGO_URL;
 
   const handleClick = (tab) => {
     debugLog('Navigate to', tab.path);
@@ -57,13 +59,22 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
       {/* Desktop sidebar */}
       <div className="hidden md:flex fixed top-0 left-0 w-[250px] border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] p-4 flex-col h-screen justify-between">
         <div className="space-y-2">
-          <OptimizedImage
-            pngUrl={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
-            alt={logoAlt || 'Logo'}
-            loading="eager"
-            cacheKey={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
-            className="mx-auto mt-4 mb-4 max-h-16 w-auto"
-          />
+          <div className="relative mx-auto mt-4 mb-4 h-16 flex items-center justify-center">
+            {!logoReady && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="loading-ring w-6 h-6" />
+              </div>
+            )}
+            <OptimizedImage
+              pngUrl={logoSrc}
+              alt={logoAlt || 'Logo'}
+              loading="eager"
+              cacheKey={logoSrc}
+              className={`max-h-full w-auto ${logoReady ? '' : 'opacity-0'}`}
+              onLoad={() => setLogoReady(true)}
+              onError={() => setLogoReady(true)}
+            />
+          </div>
           {menuItems}
         </div>
         <div className="flex flex-col items-center space-y-1">
@@ -100,13 +111,22 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
               &times;
             </button>
             <div className="space-y-2 mt-8">
-              <OptimizedImage
-                pngUrl={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
-                alt={logoAlt || 'Logo'}
-                loading="eager"
-                cacheKey={logoUrl || settings.logoUrl || DEFAULT_LOGO_URL}
-                className="mx-auto mt-4 mb-4 max-h-16 w-auto"
-              />
+              <div className="relative mx-auto mt-4 mb-4 h-16 flex items-center justify-center">
+                {!logoReady && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="loading-ring w-6 h-6" />
+                  </div>
+                )}
+                <OptimizedImage
+                  pngUrl={logoSrc}
+                  alt={logoAlt || 'Logo'}
+                  loading="eager"
+                  cacheKey={logoSrc}
+                  className={`max-h-full w-auto ${logoReady ? '' : 'opacity-0'}`}
+                  onLoad={() => setLogoReady(true)}
+                  onError={() => setLogoReady(true)}
+                />
+              </div>
               {menuItems}
             </div>
             <div className="flex flex-col items-center space-y-1">
