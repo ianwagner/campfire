@@ -9,6 +9,7 @@ import ReviewLibrary from './ReviewLibrary.jsx';
 import BrandProducts from './BrandProducts.jsx';
 import TaggerModal from './TaggerModal.jsx';
 import TabButton from './components/TabButton.jsx';
+import { FiSettings, FiFolder, FiStar, FiShoppingCart } from 'react-icons/fi';
 
 const BrandProfile = ({ brandId: propId = null }) => {
   const { id } = useParams();
@@ -40,16 +41,16 @@ const BrandProfile = ({ brandId: propId = null }) => {
       <h1 className="text-2xl mb-4">Brand Profile</h1>
       <div className="flex space-x-4 mb-4">
         <TabButton active={tab === 'setup'} onClick={() => setTab('setup')}>
-          Brand Setup
+          <FiSettings /> <span>Brand Setup</span>
         </TabButton>
         <TabButton active={tab === 'library'} onClick={() => setTab('library')}>
-          Asset Library
+          <FiFolder /> <span>Asset Library</span>
         </TabButton>
         <TabButton active={tab === 'reviews'} onClick={() => setTab('reviews')}>
-          Customer Reviews
+          <FiStar /> <span>Customer Reviews</span>
         </TabButton>
         <TabButton active={tab === 'products'} onClick={() => setTab('products')}>
-          Products
+          <FiShoppingCart /> <span>Products</span>
         </TabButton>
       </div>
       {tab === 'setup' && <BrandSetup brandId={brandId} />}
