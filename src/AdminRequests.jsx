@@ -382,7 +382,7 @@ const AdminRequests = () => {
           </div>
         </>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto mt-[0.8rem]">
           <div className="min-w-max flex gap-4">
           {['new', 'pending', 'ready', 'done'].map((status) => (
             <div
@@ -393,7 +393,7 @@ const AdminRequests = () => {
             >
               <h2 className="text-xl mb-2 capitalize">{status}</h2>
               <div
-                className="bg-[#F7F7F7] border border-gray-300 rounded-t-lg flex flex-col items-center gap-4 py-4"
+                className="bg-[#F7F7F7] border border-gray-300 rounded-t-[1rem] rounded-b-[1rem] flex flex-col items-center gap-4 py-4"
                 style={{ minHeight: 'calc(100vh - 8rem)' }}
               >
                 {loading ? (
