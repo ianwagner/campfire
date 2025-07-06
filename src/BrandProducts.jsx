@@ -3,6 +3,8 @@ import { collection, query, where, getDocs, doc, setDoc, getDoc } from 'firebase
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import { uploadBrandAsset } from './uploadBrandAsset';
+import PageWrapper from './components/PageWrapper.jsx';
+import FormField from './components/FormField.jsx';
 
 const emptyImage = { url: '', file: null };
 const emptyProduct = { name: '', description: '', benefits: '', images: [{ ...emptyImage }] };
@@ -140,38 +142,33 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
   };
 
   return (
-    <div className="min-h-screen p-4">
-      <h1 className="text-2xl mb-4">Products</h1>
+    <PageWrapper title="Products">
       <form onSubmit={handleSave} className="space-y-4">
         {products.map((prod, pIdx) => (
           <div key={pIdx} className="border p-3 rounded space-y-2">
-            <div>
-              <label className="block mb-1 text-sm font-medium">Name</label>
+            <FormField label="Name">
               <input
                 type="text"
                 value={prod.name}
                 onChange={(e) => updateProduct(pIdx, { name: e.target.value })}
                 className="w-full p-2 border rounded"
               />
-            </div>
-            <div>
-              <label className="block mb-1 text-sm font-medium">Description</label>
+            </FormField>
+            <FormField label="Description">
               <textarea
                 value={prod.description}
                 onChange={(e) => updateProduct(pIdx, { description: e.target.value })}
                 className="w-full p-2 border rounded"
               />
-            </div>
-            <div>
-              <label className="block mb-1 text-sm font-medium">Benefits</label>
+            </FormField>
+            <FormField label="Benefits">
               <textarea
                 value={prod.benefits}
                 onChange={(e) => updateProduct(pIdx, { benefits: e.target.value })}
                 className="w-full p-2 border rounded"
               />
-            </div>
-            <div>
-              <label className="block mb-1 text-sm font-medium">Images</label>
+            </FormField>
+            <FormField label="Images">
               {prod.images.map((img, idx) => (
                 <div key={idx} className="mb-2">
                   <input
@@ -183,24 +180,26 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
                   {img.url && <img src={img.url} alt="product" className="mt-1 h-16 w-auto" />}
                 </div>
               ))}
-              <button type="button" onClick={() => addImage(pIdx)} className="underline text-sm">
+              <button type="button" onClick={() => addImage(pIdx)} className="btn-action mt-1">
                 Add Image
               </button>
-            </div>
-            <button type="button" onClick={() => removeProduct(pIdx)} className="underline text-sm text-red-600">
+            </FormField>
+            <button type="button" onClick={() => removeProduct(pIdx)} className="btn-action btn-delete mt-1">
               Delete Product
             </button>
           </div>
         ))}
-        <button type="button" onClick={() => setProducts((p) => [...p, { ...emptyProduct }])} className="underline">
+        <button type="button" onClick={() => setProducts((p) => [...p, { ...emptyProduct }])} className="btn-action">
           Add Product
         </button>
         {message && <p className="text-sm">{message}</p>}
-        <button type="submit" className="btn-primary" disabled={loading}>
-          {loading ? 'Saving...' : 'Save Products'}
-        </button>
+        <div className="text-right">
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? 'Saving...' : 'Save Products'}
+          </button>
+        </div>
       </form>
-    </div>
+    </PageWrapper>
   );
 };
 
