@@ -5,6 +5,7 @@ import { db, functions } from './firebase/config';
 import { httpsCallable } from 'firebase/functions';
 import debugLog from './utils/debugLog';
 import TagInput from './components/TagInput.jsx';
+import Table from './components/common/Table';
 
 const AdminAccounts = () => {
   const [accounts, setAccounts] = useState([]);
@@ -107,8 +108,7 @@ const AdminAccounts = () => {
         ) : accounts.length === 0 ? (
           <p>No accounts found.</p>
         ) : (
-          <div className="overflow-x-auto table-container">
-          <table className="ad-table min-w-max">
+          <Table>
             <thead>
               <tr>
                 <th>Name</th>
@@ -172,13 +172,13 @@ const AdminAccounts = () => {
                       <div className="flex items-center justify-center">
                         <button
                           onClick={() => handleSave(acct.id)}
-                          className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
+                          className="btn-action mr-2"
                         >
                           Save
                         </button>
                         <button
                           onClick={cancelEdit}
-                          className="btn-secondary px-1.5 py-0.5 text-xs"
+                          className="btn-action"
                         >
                           Cancel
                         </button>
@@ -187,7 +187,7 @@ const AdminAccounts = () => {
                       <div className="flex items-center justify-center">
                         <button
                           onClick={() => setViewAcct(acct)}
-                          className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
+                          className="btn-action mr-2"
                           aria-label="View"
                         >
                           <FiEye />
@@ -195,7 +195,7 @@ const AdminAccounts = () => {
                         </button>
                         <button
                           onClick={() => startEdit(acct)}
-                          className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
+                          className="btn-action mr-2"
                           aria-label="Edit"
                         >
                           <FiEdit2 />
@@ -203,7 +203,7 @@ const AdminAccounts = () => {
                         </button>
                         <button
                           onClick={() => handleSignOut(acct.id)}
-                          className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
+                          className="btn-action mr-2"
                           aria-label="Sign Out"
                         >
                           <FiLogOut />
@@ -211,7 +211,7 @@ const AdminAccounts = () => {
                         </button>
                         <button
                           onClick={() => handleDelete(acct.id)}
-                          className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 btn-delete"
+                          className="btn-action btn-delete"
                           aria-label="Delete"
                         >
                           <FiTrash />
@@ -222,8 +222,7 @@ const AdminAccounts = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
-          </div>
+          </Table>
         )}
       {viewAcct && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">

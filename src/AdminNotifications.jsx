@@ -11,6 +11,7 @@ import {
   doc,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
+import Table from './components/common/Table';
 
 const AdminNotifications = () => {
   const [title, setTitle] = useState('');
@@ -212,8 +213,7 @@ const AdminNotifications = () => {
       {history.length === 0 ? (
         <p>No notifications found.</p>
       ) : (
-        <div className="overflow-x-auto table-container">
-          <table className="ad-table min-w-max text-sm">
+        <Table>
             <thead>
               <tr>
                 <th>Title</th>
@@ -240,9 +240,8 @@ const AdminNotifications = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      )}
+          </Table>
+        )}
 
       <h2 className="text-xl mt-8 mb-2">Automation Rules</h2>
       <form onSubmit={handleRuleSubmit} className="space-y-2 max-w-md mb-4">
@@ -302,8 +301,7 @@ const AdminNotifications = () => {
       {rules.length === 0 ? (
         <p>No rules configured.</p>
       ) : (
-        <div className="overflow-x-auto table-container">
-          <table className="ad-table min-w-max text-sm">
+        <Table>
             <thead>
               <tr>
                 <th>Trigger</th>
@@ -335,9 +333,8 @@ const AdminNotifications = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      )}
+          </Table>
+        )}
     </div>
   );
 };

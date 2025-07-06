@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { FiEdit2, FiTrash } from 'react-icons/fi';
 import TagInput from './TagInput.jsx';
+import Table from './common/Table';
 import { db } from '../firebase/config';
 
 const ComponentsView = () => {
@@ -98,8 +99,7 @@ const ComponentsView = () => {
       {components.length === 0 ? (
         <p>No components found.</p>
       ) : (
-        <div className="overflow-x-auto table-container mb-4">
-          <table className="ad-table min-w-max text-sm">
+        <Table>
             <thead>
               <tr>
                 <th>Label</th>
@@ -120,7 +120,7 @@ const ComponentsView = () => {
                     <div className="flex items-center justify-center">
                       <button
                         onClick={() => startEdit(c)}
-                        className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 mr-2"
+                        className="btn-action mr-2"
                         aria-label="Edit"
                       >
                         <FiEdit2 />
@@ -128,7 +128,7 @@ const ComponentsView = () => {
                       </button>
                       <button
                         onClick={() => handleDelete(c.id)}
-                        className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 btn-delete"
+                        className="btn-action btn-delete"
                         aria-label="Delete"
                       >
                         <FiTrash />
@@ -138,8 +138,7 @@ const ComponentsView = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
       )}
       <form onSubmit={handleSave} className="space-y-2 max-w-[50rem]">
         <div>

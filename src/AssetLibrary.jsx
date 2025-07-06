@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FiTrash } from 'react-icons/fi';
+import Table from './components/common/Table';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase/config';
 import { splitCsvLine } from './utils/csv.js';
@@ -322,8 +323,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
           </button>
         </div>
       )}
-      <div className="overflow-x-auto table-container">
-        <table className="ad-table min-w-max text-sm">
+      <Table>
           <thead>
             <tr>
               <th></th>
@@ -432,8 +432,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+        </Table>
       <div className="mt-4 flex gap-2 items-center">
         <button type="button" className="btn-primary" onClick={saveAssets}>
           Save
