@@ -65,14 +65,14 @@ const SimpleReview = ({ ads = [] }) => {
       </div>
       <div className="flex space-x-2">
         <button
-          className="btn-secondary px-3 py-1"
+          className="btn-secondary"
           onClick={() => advance(-1)}
           disabled={index === 0}
         >
           Prev
         </button>
         <button
-          className="btn-primary px-3 py-1"
+          className="btn-primary"
           onClick={() => advance(1)}
           disabled={index >= ads.length - 1}
         >
