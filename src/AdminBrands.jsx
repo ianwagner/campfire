@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { FiPlus } from 'react-icons/fi';
 import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
@@ -38,7 +40,10 @@ const AdminBrands = () => {
   return (
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Brands</h1>
-        <a href="/admin/brands/new" className="underline text-gray-700 block mb-2">Add Brand</a>
+        <Link to="/admin/brands/new" className="btn-primary flex items-center gap-1 mb-2">
+          <FiPlus />
+          Create Brand
+        </Link>
         {loading ? (
           <p>Loading brands...</p>
         ) : brands.length === 0 ? (

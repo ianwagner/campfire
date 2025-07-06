@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { FiEye, FiEdit2, FiTrash, FiLogOut } from 'react-icons/fi';
+import { Link } from 'react-router-dom';
+import { FiEye, FiEdit2, FiTrash, FiLogOut, FiPlus } from 'react-icons/fi';
 import { collection, getDocs, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db, functions } from './firebase/config';
 import { httpsCallable } from 'firebase/functions';
@@ -102,7 +103,10 @@ const AdminAccounts = () => {
   return (
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Accounts</h1>
-        <a href="/admin/accounts/new" className="underline text-gray-700 block mb-2">Add Account</a>
+        <Link to="/admin/accounts/new" className="btn-primary flex items-center gap-1 mb-2">
+          <FiPlus />
+          Create Account
+        </Link>
         {loading ? (
           <p>Loading accounts...</p>
         ) : accounts.length === 0 ? (

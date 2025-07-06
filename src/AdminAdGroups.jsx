@@ -195,16 +195,7 @@ const AdminAdGroups = () => {
 
   return (
     <div className="min-h-screen p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl">Admin Ad Groups</h1>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="btn-primary flex items-center gap-1"
-        >
-          <FiPlus />
-          Create Ad Group
-        </button>
-      </div>
+      <h1 className="text-2xl mb-4">Admin Ad Groups</h1>
 
       <div className="mb-8">
         <div className="flex items-center justify-between mb-2">
@@ -219,6 +210,15 @@ const AdminAdGroups = () => {
               <option value="brand">Brand</option>
               <option value="name">Group Name</option>
             </select>
+            <label className="text-sm flex items-center">
+              <input
+                type="checkbox"
+                className="mr-1"
+                checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+              />
+              Show archived
+            </label>
             <input
               type="text"
               placeholder="Filter"
@@ -228,15 +228,13 @@ const AdminAdGroups = () => {
             />
           </div>
         </div>
-        <label className="block mb-2 text-sm">
-          <input
-            type="checkbox"
-            className="mr-1"
-            checked={showArchived}
-            onChange={(e) => setShowArchived(e.target.checked)}
-          />
-          Show archived
-        </label>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="btn-primary flex items-center gap-1 mb-2"
+        >
+          <FiPlus />
+          Create Ad Group
+        </button>
         {loading ? (
           <p>Loading groups...</p>
         ) : displayGroups.length === 0 ? (
