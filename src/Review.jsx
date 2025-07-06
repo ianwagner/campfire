@@ -1451,33 +1451,32 @@ if (
             />
           )}
         {/* Gallery view removed */}
-        {!secondPass && (
-          <div className="relative w-full max-w-md mb-2.5 flex justify-center">
-            <button
-              type="button"
-              onClick={() => {
-                releaseLock();
-                setStarted(false);
-              }}
-              aria-label="Exit Review"
-              className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
-            >
-              <FiX />
-            </button>
+        {/* Show exit button even during change review */}
+        <div className="relative w-full max-w-md mb-2.5 flex justify-center">
+          <button
+            type="button"
+            onClick={() => {
+              releaseLock();
+              setStarted(false);
+            }}
+            aria-label="Exit Review"
+            className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
+          >
+            <FiX />
+          </button>
+          <div
+            className="progress-bar"
+            role="progressbar"
+            aria-valuenow={progress}
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
             <div
-              className="progress-bar"
-              role="progressbar"
-              aria-valuenow={progress}
-              aria-valuemin="0"
-              aria-valuemax="100"
-            >
-              <div
-                className="progress-bar-inner"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+              className="progress-bar-inner"
+              style={{ width: `${progress}%` }}
+            />
           </div>
-        )}
+        </div>
         {currentRecipeGroup && currentRecipeGroup.assets.length > 1 && (
           <button
             onClick={() => setShowSizes((p) => !p)}
