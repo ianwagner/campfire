@@ -1126,30 +1126,32 @@ if (
           />
         )}
         <h1 className="text-2xl font-bold">Your ads are ready!</h1>
-        <div className="flex flex-col space-y-2">
-          <button
-            onClick={() => setShowGallery(true)}
-            className="btn-secondary flex items-center px-3 py-1"
-          >
-            <FiGrid className="mr-1" /> See Gallery
-          </button>
-          {copyCards.length > 0 && (
-            <button
-              onClick={() => setShowCopyModal(true)}
-              className="btn-secondary flex items-center px-3 py-1"
-            >
-              <FiType className="mr-1" /> See Platform Copy
-            </button>
-          )}
+        <div className="flex flex-col items-center space-y-3">
           <button
             onClick={() => {
               setTimedOut(false);
               setStarted(true);
             }}
-            className="btn-primary flex items-center px-3 py-1"
+            className="btn-primary px-6 py-3 text-lg"
           >
-            <FiCheck className="mr-1" /> Review Ads
+            <FiCheck className="mr-2" /> Review Ads
           </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setShowGallery(true)}
+              className="btn-secondary px-3 py-1"
+            >
+              <FiGrid className="mr-1" /> Ad Gallery
+            </button>
+            {copyCards.length > 0 && (
+              <button
+                onClick={() => setShowCopyModal(true)}
+                className="btn-secondary px-3 py-1"
+              >
+                <FiType className="mr-1" /> Platform Copy
+              </button>
+            )}
+          </div>
         </div>
         {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
         {showCopyModal && (
