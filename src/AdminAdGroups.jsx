@@ -45,7 +45,7 @@ const AdminAdGroups = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('status');
-  const [view, setView] = useState('table');
+  const [view, setView] = useState('kanban');
 
   const handleShare = async (id) => {
     let url = `${window.location.origin}/review/${id}`;
@@ -182,7 +182,21 @@ const AdminAdGroups = () => {
     }
   };
 
-  const statusOrder = { pending: 1, reviewed: 2, archived: 3 };
+  const statusOrder = {
+    pending: 1,
+    ready: 2,
+    'review pending': 3,
+    'in review': 3,
+    reviewed: 4,
+    archived: 5,
+  };
+
+  const kanbanColumns = [
+    { label: 'Pending', statuses: ['pending'] },
+    { label: 'Ready', statuses: ['ready'] },
+    { label: 'In Review/Review Pending', statuses: ['in review', 'review pending'] },
+    { label: 'Reviewed', statuses: ['reviewed'] },
+  ];
   const term = filter.toLowerCase();
   const displayGroups = groups
     .filter(
@@ -203,48 +217,50 @@ const AdminAdGroups = () => {
 
       <div className="mb-8">
         <h2 className="text-xl mb-2">All Ad Groups</h2>
-        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <button
-            onClick={() => setShowCreate(true)}
-            className="btn-primary flex items-center gap-1"
-          >
-            <FiPlus />
-            Create Ad Group
-          </button>
-          <div className="flex items-center gap-2">
-            <select
-              value={sortField}
-              onChange={(e) => setSortField(e.target.value)}
-              className="p-1 border rounded"
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <button
+              onClick={() => setShowCreate(true)}
+              className="btn-primary flex items-center gap-1"
             >
-              <option value="status">Status</option>
-              <option value="brand">Brand</option>
-              <option value="name">Group Name</option>
-            </select>
+              <FiPlus />
+              Create Ad Group
+            </button>
+            <div className="flex items-center gap-2">
+              <select
+                value={sortField}
+                onChange={(e) => setSortField(e.target.value)}
+                className="p-1 border rounded"
+              >
+                <option value="status">Status</option>
+                <option value="brand">Brand</option>
+                <option value="name">Group Name</option>
+              </select>
+              <label className="text-sm flex items-center">
+                <input
+                  type="checkbox"
+                  className="mr-1"
+                  checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+              />
+              Show archived
+            </label>
+              <input
+                type="text"
+                placeholder="Filter"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="p-1 border rounded"
+              />
+            </div>
+          </div>
+          <div className="flex justify-center gap-2 mb-2">
             <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
               <FiList />
             </TabButton>
             <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
               <FiColumns />
             </TabButton>
-            <label className="text-sm flex items-center">
-              <input
-                type="checkbox"
-                className="mr-1"
-                checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
-              />
-              Show archived
-            </label>
-            <input
-              type="text"
-              placeholder="Filter"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="p-1 border rounded"
-            />
           </div>
-        </div>
         {loading ? (
           <p>Loading groups...</p>
         ) : displayGroups.length === 0 ? (
@@ -401,14 +417,16 @@ const AdminAdGroups = () => {
             </div>
           ) : (
             <div className="hidden sm:block">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {['pending', 'reviewed', 'archived'].map((status) => (
-                  <div key={status}>
-                    <h3 className="mb-2 capitalize">{status}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {kanbanColumns.map((col) => (
+                  <div key={col.label}>
+                    <h3 className="mb-2">{col.label}</h3>
                     <div className="space-y-4">
-                      {displayGroups.filter((g) => g.status === status).map((g) => (
-                        <AdGroupCard key={g.id} group={g} />
-                      ))}
+                      {displayGroups
+                        .filter((g) => col.statuses.includes(g.status))
+                        .map((g) => (
+                          <AdGroupCard key={g.id} group={g} />
+                        ))}
                     </div>
                   </div>
                 ))}
