@@ -39,3 +39,18 @@ test('opens modal when Request Ads clicked', async () => {
   fireEvent.click(screen.getByText('Request Ads'));
   expect(screen.getByText('Save')).toBeInTheDocument();
 });
+
+test('saving request adds item to pending table', async () => {
+  getDocs.mockResolvedValue({ docs: [] });
+  render(
+    <MemoryRouter>
+      <AdminRequests />
+    </MemoryRouter>
+  );
+
+  await waitFor(() => expect(screen.getAllByText('No requests.').length).toBe(3));
+  fireEvent.click(screen.getByText('Request Ads'));
+  fireEvent.click(screen.getByText('Save'));
+  await waitFor(() => expect(addDoc).toHaveBeenCalled());
+  await waitFor(() => expect(screen.getAllByText('No requests.').length).toBe(2));
+});

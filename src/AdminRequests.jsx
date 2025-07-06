@@ -9,7 +9,7 @@ const emptyForm = {
   dueDate: '',
   numAds: 1,
   details: '',
-  status: 'ready',
+  status: 'pending',
 };
 
 const AdminRequests = () => {
@@ -66,7 +66,7 @@ const AdminRequests = () => {
       dueDate: req.dueDate ? req.dueDate.toDate().toISOString().slice(0,10) : '',
       numAds: req.numAds || 1,
       details: req.details || '',
-      status: req.status || 'ready',
+      status: req.status || 'pending',
     });
     setShowModal(true);
   };
@@ -104,6 +104,7 @@ const AdminRequests = () => {
     }
   };
 
+  const pending = requests.filter((r) => r.status === 'pending');
   const ready = requests.filter((r) => r.status === 'ready');
   const done = requests.filter((r) => r.status === 'done');
 
@@ -111,6 +112,44 @@ const AdminRequests = () => {
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Requests</h1>
       <button onClick={openCreate} className="btn-primary mb-4">Request Ads</button>
+      <div className="mb-8">
+        <h2 className="text-xl mb-2">Pending</h2>
+        {loading ? (
+          <p>Loading...</p>
+        ) : pending.length === 0 ? (
+          <p>No requests.</p>
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                <th>Brand</th>
+                <th>Due Date</th>
+                <th># Ads</th>
+                <th>Details</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((req) => (
+                <tr key={req.id}>
+                  <td>{req.brandCode}</td>
+                  <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
+                  <td>{req.numAds}</td>
+                  <td>{req.details}</td>
+                  <td><span className="status-badge status-pending">Pending</span></td>
+                  <td className="text-center">
+                    <div className="flex items-center justify-center">
+                      <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
+                      <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </div>
       <div className="mb-8">
         <h2 className="text-xl mb-2">Ready</h2>
         {loading ? (
@@ -238,6 +277,7 @@ const AdminRequests = () => {
                 onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
                 className="w-full p-2 border rounded"
               >
+                <option value="pending">Pending</option>
                 <option value="ready">Ready</option>
                 <option value="done">Done</option>
               </select>
