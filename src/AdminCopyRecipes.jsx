@@ -12,6 +12,7 @@ import { db } from './firebase/config';
 import PromptTextarea from './components/PromptTextarea.jsx';
 import TagInput from './components/TagInput.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
+import TabButton from './components/TabButton.jsx';
 
 const VIEWS = {
   TYPES: 'types',
@@ -21,30 +22,15 @@ const VIEWS = {
 
 const Tabs = ({ view, setView }) => (
   <div className="flex space-x-4 mb-4">
-    <button
-      className={`px-3 py-1 rounded flex items-center gap-1 ${
-        view === VIEWS.TYPES ? 'bg-accent-10 text-accent' : 'border'
-      }`}
-      onClick={() => setView(VIEWS.TYPES)}
-    >
+    <TabButton active={view === VIEWS.TYPES} onClick={() => setView(VIEWS.TYPES)}>
       <FiList /> <span>Recipe Types</span>
-    </button>
-    <button
-      className={`px-3 py-1 rounded flex items-center gap-1 ${
-        view === VIEWS.PREVIEW ? 'bg-accent-10 text-accent' : 'border'
-      }`}
-      onClick={() => setView(VIEWS.PREVIEW)}
-    >
+    </TabButton>
+    <TabButton active={view === VIEWS.PREVIEW} onClick={() => setView(VIEWS.PREVIEW)}>
       <FiEye /> <span>Preview</span>
-    </button>
-    <button
-      className={`px-3 py-1 rounded flex items-center gap-1 ${
-        view === VIEWS.RULES ? 'bg-accent-10 text-accent' : 'border'
-      }`}
-      onClick={() => setView(VIEWS.RULES)}
-    >
+    </TabButton>
+    <TabButton active={view === VIEWS.RULES} onClick={() => setView(VIEWS.RULES)}>
       <FiEye /> <span>Rules</span>
-    </button>
+    </TabButton>
   </div>
 );
 

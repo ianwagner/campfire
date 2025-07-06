@@ -8,6 +8,7 @@ import AssetLibrary from './AssetLibrary.jsx';
 import ReviewLibrary from './ReviewLibrary.jsx';
 import BrandProducts from './BrandProducts.jsx';
 import TaggerModal from './TaggerModal.jsx';
+import TabButton from './components/TabButton.jsx';
 
 const BrandProfile = ({ brandId: propId = null }) => {
   const { id } = useParams();
@@ -38,30 +39,18 @@ const BrandProfile = ({ brandId: propId = null }) => {
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Brand Profile</h1>
       <div className="flex space-x-4 mb-4">
-        <button
-          onClick={() => setTab('setup')}
-          className={`btn-secondary bg-transparent px-3 py-1 ${tab === 'setup' ? 'bg-accent-10 text-accent' : ''}`}
-        >
+        <TabButton active={tab === 'setup'} onClick={() => setTab('setup')}>
           Brand Setup
-        </button>
-        <button
-          onClick={() => setTab('library')}
-          className={`btn-secondary bg-transparent px-3 py-1 ${tab === 'library' ? 'bg-accent-10 text-accent' : ''}`}
-        >
+        </TabButton>
+        <TabButton active={tab === 'library'} onClick={() => setTab('library')}>
           Asset Library
-        </button>
-        <button
-          onClick={() => setTab('reviews')}
-          className={`btn-secondary bg-transparent px-3 py-1 ${tab === 'reviews' ? 'bg-accent-10 text-accent' : ''}`}
-        >
+        </TabButton>
+        <TabButton active={tab === 'reviews'} onClick={() => setTab('reviews')}>
           Customer Reviews
-        </button>
-        <button
-          onClick={() => setTab('products')}
-          className={`btn-secondary bg-transparent px-3 py-1 ${tab === 'products' ? 'bg-accent-10 text-accent' : ''}`}
-        >
+        </TabButton>
+        <TabButton active={tab === 'products'} onClick={() => setTab('products')}>
           Products
-        </button>
+        </TabButton>
       </div>
       {tab === 'setup' && <BrandSetup brandId={brandId} />}
       {tab === 'library' && (
