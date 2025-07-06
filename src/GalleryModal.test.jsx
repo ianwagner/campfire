@@ -15,6 +15,7 @@ test('renders ads and handles close', () => {
   const ads = [{ firebaseUrl: 'img1.png', filename: 'img1.png' }];
   const onClose = jest.fn();
   render(<GalleryModal ads={ads} onClose={onClose} />);
+  expect(screen.getByText('Ad Gallery')).toBeInTheDocument();
   expect(screen.getByAltText('img1.png')).toBeInTheDocument();
   fireEvent.click(screen.getByText('Close'));
   expect(onClose).toHaveBeenCalled();

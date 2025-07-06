@@ -285,7 +285,7 @@ const CopyRecipePreview = ({
         {copies.map((c) => (
           <div
             key={c.id}
-            className="border rounded p-2 relative max-w-[350px] w-full"
+            className="rounded-lg shadow p-3 relative max-w-[350px] w-full dark:bg-[var(--dark-sidebar-hover)]"
           >
             <button
               type="button"
@@ -311,53 +311,68 @@ const CopyRecipePreview = ({
             </button>
             <div>
               <label className="block text-sm mb-1">Primary Text</label>
-              <textarea
-                className="w-full p-2 border rounded"
-                rows="3"
-                value={c.primary}
-                readOnly={!c.editing}
-                onChange={(e) =>
-                  setCopies((arr) =>
-                    arr.map((x) =>
-                      x.id === c.id ? { ...x, primary: e.target.value } : x,
-                    ),
-                  )
-                }
-              />
+              {c.editing ? (
+                <textarea
+                  className="w-full p-2 border rounded"
+                  rows="3"
+                  value={c.primary}
+                  onChange={(e) =>
+                    setCopies((arr) =>
+                      arr.map((x) =>
+                        x.id === c.id ? { ...x, primary: e.target.value } : x,
+                      ),
+                    )
+                  }
+                />
+              ) : (
+                <p className="p-2 whitespace-pre-wrap bg-gray-50 rounded dark:bg-[var(--dark-sidebar-bg)]">
+                  {c.primary}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm mb-1">Headline</label>
-              <textarea
-                className="w-full p-2 border rounded"
-                rows="2"
-                value={c.headline}
-                readOnly={!c.editing}
-                onChange={(e) =>
-                  setCopies((arr) =>
-                    arr.map((x) =>
-                      x.id === c.id ? { ...x, headline: e.target.value } : x,
-                    ),
-                  )
-                }
-              />
+              {c.editing ? (
+                <textarea
+                  className="w-full p-2 border rounded"
+                  rows="2"
+                  value={c.headline}
+                  onChange={(e) =>
+                    setCopies((arr) =>
+                      arr.map((x) =>
+                        x.id === c.id ? { ...x, headline: e.target.value } : x,
+                      ),
+                    )
+                  }
+                />
+              ) : (
+                <p className="p-2 whitespace-pre-wrap bg-gray-50 rounded dark:bg-[var(--dark-sidebar-bg)]">
+                  {c.headline}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm mb-1">Description</label>
-              <textarea
-                className="w-full p-2 border rounded"
-                rows="2"
-                value={c.description}
-                readOnly={!c.editing}
-                onChange={(e) =>
-                  setCopies((arr) =>
-                    arr.map((x) =>
-                      x.id === c.id
-                        ? { ...x, description: e.target.value }
-                        : x,
-                    ),
-                  )
-                }
-              />
+              {c.editing ? (
+                <textarea
+                  className="w-full p-2 border rounded"
+                  rows="2"
+                  value={c.description}
+                  onChange={(e) =>
+                    setCopies((arr) =>
+                      arr.map((x) =>
+                        x.id === c.id
+                          ? { ...x, description: e.target.value }
+                          : x,
+                      ),
+                    )
+                  }
+                />
+              ) : (
+                <p className="p-2 whitespace-pre-wrap bg-gray-50 rounded dark:bg-[var(--dark-sidebar-bg)]">
+                  {c.description}
+                </p>
+              )}
             </div>
           </div>
         ))}
