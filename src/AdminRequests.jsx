@@ -10,6 +10,7 @@ import RequestCard from './components/RequestCard.jsx';
 
 const emptyForm = {
   brandCode: '',
+  title: '',
   dueDate: '',
   numAds: 1,
   details: '',
@@ -69,6 +70,7 @@ const AdminRequests = () => {
     setEditId(req.id);
     setForm({
       brandCode: req.brandCode || '',
+      title: req.title || '',
       dueDate: req.dueDate ? req.dueDate.toDate().toISOString().slice(0,10) : '',
       numAds: req.numAds || 1,
       details: req.details || '',
@@ -79,6 +81,7 @@ const AdminRequests = () => {
   const handleSave = async () => {
     const data = {
       brandCode: form.brandCode,
+      title: form.title,
       dueDate: form.dueDate ? Timestamp.fromDate(new Date(form.dueDate)) : null,
       numAds: Number(form.numAds) || 0,
       details: form.details,
@@ -131,7 +134,7 @@ const AdminRequests = () => {
   const allowDrop = (e) => e.preventDefault();
 
   const handleCreateGroup = async (req) => {
-    const groupName = `Group ${Date.now()}`;
+    const groupName = req.title?.trim() || `Group ${Date.now()}`;
     try {
       const docRef = await addDoc(collection(db, 'adGroups'), {
         name: groupName,
@@ -414,24 +417,33 @@ const AdminRequests = () => {
         <Modal>
           <h2 className="text-xl mb-4">{editId ? 'Edit Request' : 'Request Ads'}</h2>
           <div className="space-y-4">
-            <div>
-              <label className="block mb-1 text-sm font-medium">Brand</label>
-              <select
-                value={form.brandCode}
-                onChange={(e) => setForm((f) => ({ ...f, brandCode: e.target.value }))}
-                className="w-full p-2 border rounded"
-              >
-                <option value="">Select brand</option>
-                {brands.map((code) => (
-                  <option key={code} value={code}>{code}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block mb-1 text-sm font-medium">Due Date</label>
-              <input
-                type="date"
-                value={form.dueDate}
+          <div>
+            <label className="block mb-1 text-sm font-medium">Brand</label>
+            <select
+              value={form.brandCode}
+              onChange={(e) => setForm((f) => ({ ...f, brandCode: e.target.value }))}
+              className="w-full p-2 border rounded"
+            >
+              <option value="">Select brand</option>
+              {brands.map((code) => (
+                <option key={code} value={code}>{code}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block mb-1 text-sm font-medium">Title</label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          <div>
+            <label className="block mb-1 text-sm font-medium">Due Date</label>
+            <input
+              type="date"
+              value={form.dueDate}
                 onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
                 className="w-full p-2 border rounded"
               />

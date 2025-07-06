@@ -10,6 +10,11 @@ const RequestCard = ({ request, onEdit, onDelete, onCreateGroup, onDragStart }) 
   >
     <div className="flex items-start justify-between">
       <div>
+        {request.title && (
+          <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
+            {request.title}
+          </p>
+        )}
         <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
           {request.brandCode}
         </p>
