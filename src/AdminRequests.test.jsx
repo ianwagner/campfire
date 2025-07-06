@@ -48,9 +48,9 @@ test('saving request adds item to pending table', async () => {
     </MemoryRouter>
   );
 
-  await waitFor(() => expect(screen.getAllByText('No requests.').length).toBe(3));
+  await waitFor(() => expect(screen.getAllByText('No requests.').length).toBe(4));
   fireEvent.click(screen.getByText('Request Ads'));
   fireEvent.click(screen.getByText('Save'));
   await waitFor(() => expect(addDoc).toHaveBeenCalled());
-  await waitFor(() => expect(screen.getAllByText('No requests.').length).toBe(2));
+  await waitFor(() => expect(screen.getAllByText('No requests.').length).toBe(3));
 });

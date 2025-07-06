@@ -279,6 +279,10 @@
     @apply px-2 py-0.5 rounded-full font-bold whitespace-nowrap;
     display: inline-block;
   }
+  .status-new {
+    background-color: var(--pending-color-10);
+    color: var(--pending-color);
+  }
   .status-pending {
     background-color: var(--pending-color-10);
     color: var(--pending-color);
@@ -334,6 +338,10 @@
 
   .status-select {
     @apply p-1 border rounded;
+  }
+  .status-select.status-new {
+    background-color: var(--pending-color-10);
+    color: var(--pending-color);
   }
   .status-select.status-pending {
     background-color: var(--pending-color-10);

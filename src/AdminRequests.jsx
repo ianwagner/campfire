@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { FiPlus, FiList, FiColumns } from 'react-icons/fi';
-import { db } from './firebase/config';
+import { db, auth } from './firebase/config';
+import { useNavigate } from 'react-router-dom';
 import Table from './components/common/Table';
 import Modal from './components/Modal.jsx';
 import TabButton from './components/TabButton.jsx';
@@ -12,7 +13,6 @@ const emptyForm = {
   dueDate: '',
   numAds: 1,
   details: '',
-  status: 'pending',
 };
 
 const AdminRequests = () => {
@@ -22,7 +22,9 @@ const AdminRequests = () => {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [brands, setBrands] = useState([]);
-  const [view, setView] = useState('table');
+  const [view, setView] = useState('kanban');
+  const [dragId, setDragId] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -70,7 +72,6 @@ const AdminRequests = () => {
       dueDate: req.dueDate ? req.dueDate.toDate().toISOString().slice(0,10) : '',
       numAds: req.numAds || 1,
       details: req.details || '',
-      status: req.status || 'pending',
     });
     setShowModal(true);
   };
@@ -81,7 +82,7 @@ const AdminRequests = () => {
       dueDate: form.dueDate ? Timestamp.fromDate(new Date(form.dueDate)) : null,
       numAds: Number(form.numAds) || 0,
       details: form.details,
-      status: form.status,
+      status: editId ? (requests.find((r) => r.id === editId)?.status || 'new') : 'new',
     };
     try {
       if (editId) {
@@ -108,10 +109,61 @@ const AdminRequests = () => {
     }
   };
 
+  const handleStatusChange = async (id, status) => {
+    try {
+      await updateDoc(doc(db, 'requests', id), { status });
+      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    } catch (err) {
+      console.error('Failed to update status', err);
+    }
+  };
+
+  const handleDragStart = (id) => {
+    setDragId(id);
+  };
+
+  const handleDrop = (status) => {
+    if (!dragId) return;
+    handleStatusChange(dragId, status);
+    setDragId(null);
+  };
+
+  const allowDrop = (e) => e.preventDefault();
+
+  const handleCreateGroup = async (req) => {
+    const groupName = `Group ${Date.now()}`;
+    try {
+      const docRef = await addDoc(collection(db, 'adGroups'), {
+        name: groupName,
+        brandCode: req.brandCode || '',
+        notes: req.details || '',
+        uploadedBy: auth.currentUser?.uid || null,
+        createdAt: serverTimestamp(),
+        status: 'pending',
+        reviewedCount: 0,
+        approvedCount: 0,
+        editCount: 0,
+        rejectedCount: 0,
+        thumbnailUrl: '',
+        lastUpdated: serverTimestamp(),
+        visibility: 'private',
+        requireAuth: false,
+        requirePassword: false,
+        password: '',
+        dueDate: req.dueDate || null,
+        clientNote: '',
+      });
+      navigate(`/ad-group/${docRef.id}`);
+    } catch (err) {
+      console.error('Failed to create group', err);
+    }
+  };
+
+  const newReq = requests.filter((r) => r.status === 'new');
   const pending = requests.filter((r) => r.status === 'pending');
   const ready = requests.filter((r) => r.status === 'ready');
   const done = requests.filter((r) => r.status === 'done');
-  const grouped = { pending, ready, done };
+  const grouped = { new: newReq, pending, ready, done };
 
   return (
     <div className="min-h-screen p-4">
@@ -131,6 +183,55 @@ const AdminRequests = () => {
       </div>
       {view === 'table' ? (
         <>
+          <div className="mb-8">
+            <h2 className="text-xl mb-2">New</h2>
+            {loading ? (
+              <p>Loading...</p>
+            ) : newReq.length === 0 ? (
+              <p>No requests.</p>
+            ) : (
+              <Table>
+                <thead>
+                  <tr>
+                    <th>Brand</th>
+                    <th>Due Date</th>
+                    <th># Ads</th>
+                    <th>Details</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {newReq.map((req) => (
+                    <tr key={req.id}>
+                      <td>{req.brandCode}</td>
+                      <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
+                      <td>{req.numAds}</td>
+                      <td>{req.details}</td>
+                      <td>
+                        <select
+                          value={req.status}
+                          onChange={(e) => handleStatusChange(req.id, e.target.value)}
+                          className={`status-select status-${req.status.replace(/\s+/g, '_')}`}
+                        >
+                          <option value="new">New</option>
+                          <option value="pending">Pending</option>
+                          <option value="ready">Ready</option>
+                          <option value="done">Done</option>
+                        </select>
+                      </td>
+                      <td className="text-center">
+                        <div className="flex items-center justify-center">
+                          <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
+                          <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </div>
           <div className="mb-8">
             <h2 className="text-xl mb-2">Pending</h2>
             {loading ? (
@@ -156,7 +257,18 @@ const AdminRequests = () => {
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds}</td>
                       <td>{req.details}</td>
-                      <td><span className="status-badge status-pending">Pending</span></td>
+                      <td>
+                        <select
+                          value={req.status}
+                          onChange={(e) => handleStatusChange(req.id, e.target.value)}
+                          className={`status-select status-${req.status.replace(/\s+/g, '_')}`}
+                        >
+                          <option value="new">New</option>
+                          <option value="pending">Pending</option>
+                          <option value="ready">Ready</option>
+                          <option value="done">Done</option>
+                        </select>
+                      </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
                           <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
@@ -194,7 +306,18 @@ const AdminRequests = () => {
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds}</td>
                       <td>{req.details}</td>
-                      <td><span className="status-badge status-ready">Ready</span></td>
+                      <td>
+                        <select
+                          value={req.status}
+                          onChange={(e) => handleStatusChange(req.id, e.target.value)}
+                          className={`status-select status-${req.status.replace(/\s+/g, '_')}`}
+                        >
+                          <option value="new">New</option>
+                          <option value="pending">Pending</option>
+                          <option value="ready">Ready</option>
+                          <option value="done">Done</option>
+                        </select>
+                      </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
                           <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
@@ -230,7 +353,18 @@ const AdminRequests = () => {
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds}</td>
                       <td>{req.details}</td>
-                      <td><span className="status-badge">Done</span></td>
+                      <td>
+                        <select
+                          value={req.status}
+                          onChange={(e) => handleStatusChange(req.id, e.target.value)}
+                          className={`status-select status-${req.status.replace(/\s+/g, '_')}`}
+                        >
+                          <option value="new">New</option>
+                          <option value="pending">Pending</option>
+                          <option value="ready">Ready</option>
+                          <option value="done">Done</option>
+                        </select>
+                      </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
                           <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
@@ -245,9 +379,13 @@ const AdminRequests = () => {
           </div>
         </>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          {['pending', 'ready', 'done'].map((status) => (
-            <div key={status}>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          {['new', 'pending', 'ready', 'done'].map((status) => (
+            <div
+              key={status}
+              onDragOver={allowDrop}
+              onDrop={() => handleDrop(status)}
+            >
               <h2 className="text-xl mb-2 capitalize">{status}</h2>
               {loading ? (
                 <p>Loading...</p>
@@ -261,6 +399,8 @@ const AdminRequests = () => {
                       request={req}
                       onEdit={startEdit}
                       onDelete={handleDelete}
+                      onDragStart={handleDragStart}
+                      onCreateGroup={handleCreateGroup}
                     />
                   ))}
                 </div>
@@ -314,18 +454,6 @@ const AdminRequests = () => {
                 className="w-full p-2 border rounded"
                 rows={3}
               />
-            </div>
-            <div>
-              <label className="block mb-1 text-sm font-medium">Status</label>
-              <select
-                value={form.status}
-                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-                className="w-full p-2 border rounded"
-              >
-                <option value="pending">Pending</option>
-                <option value="ready">Ready</option>
-                <option value="done">Done</option>
-              </select>
             </div>
           </div>
           <div className="text-right mt-4 space-x-2">

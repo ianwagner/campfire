@@ -2,8 +2,12 @@ import React from 'react';
 import { FiEdit2, FiTrash } from 'react-icons/fi';
 import StatusBadge from './StatusBadge.jsx';
 
-const RequestCard = ({ request, onEdit, onDelete }) => (
-  <div className="border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow p-3 space-y-1">
+const RequestCard = ({ request, onEdit, onDelete, onCreateGroup, onDragStart }) => (
+  <div
+    className="border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow p-3 space-y-1"
+    draggable
+    onDragStart={() => onDragStart(request.id)}
+  >
     <div className="flex items-start justify-between">
       <div>
         <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
@@ -30,6 +34,11 @@ const RequestCard = ({ request, onEdit, onDelete }) => (
           <FiTrash />
         </button>
       </div>
+    </div>
+    <div className="text-right">
+      <button onClick={() => onCreateGroup(request)} className="btn-primary mt-2 text-sm">
+        Create Ad Group
+      </button>
     </div>
   </div>
 );
