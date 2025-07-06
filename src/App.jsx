@@ -145,7 +145,8 @@ const App = () => {
   }
 
   return (
-    <ThemeWatcher />
+    <>
+      <ThemeWatcher />
       {/* <AdminClaimDebug /> Uncomment to check admin claim */}
       <RequireMfa user={user} role={role}>
         <div className="min-h-screen flex">
@@ -627,6 +628,7 @@ const App = () => {
           </div>
         </div>
       </RequireMfa>
+    </>
   );
 };
 
