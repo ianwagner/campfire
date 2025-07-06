@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
+import { FiPlus } from 'react-icons/fi';
 
 const AdminNotifications = () => {
   const [title, setTitle] = useState('');
@@ -21,6 +22,9 @@ const AdminNotifications = () => {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const [rules, setRules] = useState([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [filter, setFilter] = useState('');
+  const [sortField, setSortField] = useState('created');
   const [ruleForm, setRuleForm] = useState({
     trigger: 'adGroupCreated',
     audience: '',
@@ -159,15 +163,60 @@ const AdminNotifications = () => {
     }
   };
 
+  const term = filter.toLowerCase();
+  const displayHistory = history
+    .filter(
+      (h) =>
+        !term ||
+        h.title?.toLowerCase().includes(term) ||
+        h.audience?.toLowerCase().includes(term)
+    )
+    .sort((a, b) => {
+      if (sortField === 'title') return (a.title || '').localeCompare(b.title || '');
+      if (sortField === 'audience') return (a.audience || '').localeCompare(b.audience || '');
+      return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+    });
+
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Notifications</h1>
-      <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
-        <div>
-          <label className="block mb-1 text-sm font-medium">Audience</label>
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="btn-primary flex items-center gap-1"
+        >
+          <FiPlus />
+          Create Notification
+        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={sortField}
+            onChange={(e) => setSortField(e.target.value)}
+            className="p-1 border rounded"
+          >
+            <option value="created">Created</option>
+            <option value="title">Title</option>
+            <option value="audience">Audience</option>
+          </select>
           <input
             type="text"
-            value={audience}
+            placeholder="Filter"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="p-1 border rounded"
+          />
+        </div>
+      </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-4 rounded shadow max-w-md w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)] overflow-y-auto max-h-[90vh]">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block mb-1 text-sm font-medium">Audience</label>
+                <input
+                  type="text"
+                  value={audience}
             onChange={(e) => setAudience(e.target.value)}
             className="w-full p-2 border rounded"
             required
@@ -204,10 +253,18 @@ const AdminNotifications = () => {
             Leave blank to send immediately.
           </p>
         </div>
-        <button type="submit" className="btn-primary" disabled={loading}>
-          {loading ? 'Saving...' : 'Save Notification'}
-        </button>
-      </form>
+                <button type="submit" className="btn-primary" disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Notification'}
+                </button>
+              <div className="text-right mt-2">
+                <button onClick={() => setShowCreate(false)} className="btn-secondary px-3 py-1">
+                  Close
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <h2 className="text-xl mt-8 mb-2">History</h2>
       {history.length === 0 ? (
@@ -223,7 +280,7 @@ const AdminNotifications = () => {
               </tr>
             </thead>
             <tbody>
-              {history.map((n) => (
+              {displayHistory.map((n) => (
                 <tr key={n.id}>
                   <td>{n.title}</td>
                   <td>{n.audience}</td>

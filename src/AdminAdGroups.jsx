@@ -198,8 +198,15 @@ const AdminAdGroups = () => {
       <h1 className="text-2xl mb-4">Admin Ad Groups</h1>
 
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xl">All Ad Groups</h2>
+        <h2 className="text-xl mb-2">All Ad Groups</h2>
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="btn-primary flex items-center gap-1"
+          >
+            <FiPlus />
+            Create Ad Group
+          </button>
           <div className="flex items-center gap-2">
             <select
               value={sortField}
@@ -228,13 +235,6 @@ const AdminAdGroups = () => {
             />
           </div>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="btn-primary flex items-center gap-1 mb-2"
-        >
-          <FiPlus />
-          Create Ad Group
-        </button>
         {loading ? (
           <p>Loading groups...</p>
         ) : displayGroups.length === 0 ? (
