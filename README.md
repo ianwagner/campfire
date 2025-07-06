@@ -234,6 +234,19 @@ overrides are no longer needed:
 </button>
 ```
 
+### Button Types
+
+All button styles are defined in [src/global.css](src/global.css). Use these
+classes for consistent actions:
+
+- `.btn-primary` – main action buttons (submit, save)
+- `.btn-secondary` – secondary or neutral actions
+- `.btn-action` – compact icon buttons
+- `.btn-approve`, `.btn-reject`, `.btn-edit`, `.btn-delete` – specialized
+  review or destructive actions
+
+Adjust colors or sizes by editing `src/global.css`.
+
 ## Theme Customization
 
 Dark mode colors are defined in `src/global.css`. The `:root` section exposes CSS
