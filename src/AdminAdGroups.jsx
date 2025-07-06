@@ -2,25 +2,28 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiEye,
-  FiCheckCircle,
   FiTrash,
   FiLink,
-  FiThumbsUp,
-  FiThumbsDown,
-  FiEdit,
   FiEdit2,
   FiFileText,
   FiGrid,
   FiArchive,
   FiRotateCcw,
-  FiZap,
   FiPlus,
+  FiList,
+  FiColumns,
+  FiCheckCircle,
+  FiThumbsUp,
+  FiThumbsDown,
+  FiEdit,
 } from 'react-icons/fi';
 import { collection, getDocs, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
 import deleteGroup from './utils/deleteGroup';
 import Table from './components/common/Table';
 import CreateAdGroup from './CreateAdGroup';
+import AdGroupCard from './components/AdGroupCard.jsx';
+import TabButton from './components/TabButton.jsx';
 import { auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import parseAdFilename from './utils/parseAdFilename';
@@ -42,6 +45,7 @@ const AdminAdGroups = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('status');
+  const [view, setView] = useState('table');
 
   const handleShare = async (id) => {
     let url = `${window.location.origin}/review/${id}`;
@@ -217,6 +221,12 @@ const AdminAdGroups = () => {
               <option value="brand">Brand</option>
               <option value="name">Group Name</option>
             </select>
+            <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
+              <FiList />
+            </TabButton>
+            <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
+              <FiColumns />
+            </TabButton>
             <label className="text-sm flex items-center">
               <input
                 type="checkbox"
@@ -241,54 +251,15 @@ const AdminAdGroups = () => {
           <p>No ad groups found.</p>
         ) : (
           <>
-              <div className="sm:hidden space-y-4">
-              {displayGroups.map((g) => (
-                <Link
-                  key={g.id}
-                  to={`/ad-group/${g.id}`}
-                  className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow"
-                >
-                  <div className="flex items-start px-3 py-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0 line-clamp-2">{g.name}</p>
-                      <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">{g.brandCode}</p>
-                    </div>
-                    <StatusBadge status={g.status} className="flex-shrink-0" />
-                  </div>
-                  <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2">
-                    <div className="grid grid-cols-6 text-center text-sm">
-                      <div className="flex items-center justify-center gap-1 text-gray-600">
-                        <FiZap />
-                        <span>{g.recipeCount}</span>
-                      </div>
-                      <div className="flex items-center justify-center gap-1 text-gray-600">
-                        <FiGrid />
-                        <span>{g.assetCount}</span>
-                      </div>
-                      <div className="flex items-center justify-center gap-1 text-accent">
-                        <FiCheckCircle />
-                        <span>{g.readyCount}</span>
-                      </div>
-                      <div className="flex items-center justify-center gap-1 text-approve">
-                        <FiThumbsUp />
-                        <span>{g.counts.approved}</span>
-                      </div>
-                      <div className="flex items-center justify-center gap-1 text-reject">
-                        <FiThumbsDown />
-                        <span>{g.counts.rejected}</span>
-                      </div>
-                      <div className="flex items-center justify-center gap-1 text-edit">
-                        <FiEdit />
-                        <span>{g.counts.edit}</span>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+          <div className="sm:hidden space-y-4">
+            {displayGroups.map((g) => (
+              <AdGroupCard key={g.id} group={g} />
+            ))}
+          </div>
+          {view === 'table' ? (
             <div className="hidden sm:block">
-            <Table>
-            <thead>
+              <Table>
+              <thead>
               <tr>
                 <th>Group Name</th>
                 <th>Brand</th>
@@ -426,8 +397,24 @@ const AdminAdGroups = () => {
                 </tr>
               ))}
             </tbody>
-            </Table>
+              </Table>
             </div>
+          ) : (
+            <div className="hidden sm:block">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {['pending', 'reviewed', 'archived'].map((status) => (
+                  <div key={status}>
+                    <h3 className="mb-2 capitalize">{status}</h3>
+                    <div className="space-y-4">
+                      {displayGroups.filter((g) => g.status === status).map((g) => (
+                        <AdGroupCard key={g.id} group={g} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           </>
         )}
       </div>

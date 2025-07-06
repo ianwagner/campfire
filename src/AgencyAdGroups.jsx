@@ -2,14 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   FiEye,
-  FiCheckCircle,
   FiTrash,
   FiLink,
-  FiThumbsUp,
-  FiThumbsDown,
-  FiEdit,
-  FiGrid,
-  FiZap,
 } from 'react-icons/fi';
 import {
   collection,
@@ -27,6 +21,7 @@ import parseAdFilename from './utils/parseAdFilename';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 import Table from './components/common/Table';
+import AdGroupCard from './components/AdGroupCard.jsx';
 
 const AgencyAdGroups = () => {
   const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
@@ -146,51 +141,7 @@ const AgencyAdGroups = () => {
         <>
           <div className="sm:hidden space-y-4">
             {groups.map((g) => (
-              <Link
-                key={g.id}
-                to={`/ad-group/${g.id}`}
-                className="block border-2 border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow"
-              >
-                <div className="flex items-start px-3 py-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0 line-clamp-2">
-                      {g.name}
-                    </p>
-                    <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
-                      {g.brandCode}
-                    </p>
-                  </div>
-                  <StatusBadge status={g.status} className="flex-shrink-0" />
-                </div>
-                <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2">
-                  <div className="grid grid-cols-6 text-center text-sm">
-                    <div className="flex items-center justify-center gap-1 text-gray-600">
-                      <FiZap />
-                      <span>{g.recipeCount}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1 text-gray-600">
-                      <FiGrid />
-                      <span>{g.assetCount}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1 text-accent">
-                      <FiCheckCircle />
-                      <span>{g.readyCount}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1 text-approve">
-                      <FiThumbsUp />
-                      <span>{g.counts.approved}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1 text-reject">
-                      <FiThumbsDown />
-                      <span>{g.counts.rejected}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1 text-edit">
-                      <FiEdit />
-                      <span>{g.counts.edit}</span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
+              <AdGroupCard key={g.id} group={g} />
             ))}
           </div>
           <div className="hidden sm:block">
