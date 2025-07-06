@@ -574,6 +574,7 @@
 /* card style for brief assets */
 .asset-card {
   @apply relative flex items-center justify-center border rounded-xl p-[5px] transition-transform;
+  outline: 1px solid var(--border-color-default, #d1d5db);
 }
 .asset-card:hover {
   transform: scale(0.95);
