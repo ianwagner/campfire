@@ -421,10 +421,10 @@ const AdminAdGroups = () => {
             <div className="hidden sm:block overflow-x-auto">
               <div className="min-w-max flex gap-4">
                 {kanbanColumns.map((col) => (
-                  <div key={col.label} className="flex-shrink-0 w-[220px] sm:w-[300px]">
+                  <div key={col.label} className="flex-shrink-0 w-[240px] sm:w-[320px]">
                     <h3 className="mb-2">{col.label}</h3>
                     <div
-                      className="bg-[#F7F7F7] border border-gray-300 rounded-t-lg space-y-4 pb-4"
+                      className="bg-[#F7F7F7] border border-gray-300 rounded-t-lg flex flex-col items-center gap-4 py-4"
                       style={{ minHeight: 'calc(100vh - 8rem)' }}
                     >
                       {displayGroups
