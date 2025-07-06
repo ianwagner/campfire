@@ -1213,20 +1213,23 @@ if (
           </div>
         )}
         {showCopyModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
-            <div className="bg-white p-4 rounded shadow max-w-[50rem] w-full overflow-auto max-h-[90vh] relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-              <button
-                onClick={() => setShowCopyModal(false)}
-                className="absolute top-2 right-2 btn-secondary px-3 py-1"
-              >
-                Close
-              </button>
-              <CopyRecipePreview
-                onSave={saveCopyCards}
-                initialResults={copyCards}
-                showOnlyResults
-                hideBrandSelect
-              />
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
+            <div className="bg-white p-4 rounded shadow max-w-[50rem] w-full max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+              <h2 className="text-lg font-semibold">Platform Copy</h2>
+              <p className="text-sm mb-2">
+                These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
+              </p>
+              <div className="overflow-auto flex-1">
+                <CopyRecipePreview
+                  onSave={saveCopyCards}
+                  initialResults={copyCards}
+                  showOnlyResults
+                  hideBrandSelect
+                />
+              </div>
+              <div className="text-right mt-4">
+                <button onClick={() => setShowCopyModal(false)} className="btn-secondary px-3 py-1">Close</button>
+              </div>
             </div>
           </div>
         )}
