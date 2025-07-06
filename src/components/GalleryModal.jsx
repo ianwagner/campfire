@@ -7,7 +7,7 @@ const AdThumb = ({ ad }) => {
   const [loading, setLoading] = useState(true);
   const onLoad = () => setLoading(false);
   return (
-    <div className="relative flex-shrink-0 flex items-center justify-center w-[125px] h-[125px]">
+    <div className="relative flex-shrink-0 flex items-center justify-center w-[125px] h-auto">
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="loading-ring w-6 h-6" />
