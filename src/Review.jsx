@@ -9,7 +9,7 @@ import React, {
   forwardRef,
   useCallback,
 } from 'react';
-import { FiEdit, FiX, FiGrid, FiCheck } from 'react-icons/fi';
+import { FiEdit, FiX, FiGrid, FiCheck, FiType } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
   collection,
@@ -26,6 +26,7 @@ import {
   increment,
   setDoc,
   arrayUnion,
+  deleteDoc,
   onSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
@@ -36,6 +37,7 @@ import VideoPlayer from './components/VideoPlayer.jsx';
 import GalleryModal from './components/GalleryModal.jsx';
 import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
+import CopyRecipePreview from './CopyRecipePreview.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
 import diffWords from './utils/diffWords';
@@ -90,6 +92,8 @@ const Review = forwardRef(
   const [secondPass, setSecondPass] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [copyCards, setCopyCards] = useState([]);
+  const [showCopyModal, setShowCopyModal] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
@@ -129,6 +133,7 @@ const Review = forwardRef(
 
   useImperativeHandle(ref, () => ({
     openGallery: () => setShowGallery(true),
+    openCopy: () => setShowCopyModal(true),
   }));
   const canSubmitEdit = useMemo(
     () =>
@@ -184,6 +189,18 @@ const Review = forwardRef(
       setLockedBy(data.lockedBy || null);
       setLockedByUid(data.lockedByUid || null);
     });
+    return () => unsub();
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!groupId) return;
+    const unsub = onSnapshot(
+      collection(db, 'adGroups', groupId, 'copyCards'),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setCopyCards(list);
+      },
+    );
     return () => unsub();
   }, [groupId]);
 
@@ -773,6 +790,43 @@ useEffect(() => {
     }
   };
 
+  const saveCopyCards = async (list) => {
+    if (!groupId || !Array.isArray(list)) return;
+    try {
+      const existingIds = copyCards.map((c) => c.id);
+      const newIds = list.map((c) => c.id).filter(Boolean);
+      const deletions = existingIds.filter((id) => !newIds.includes(id));
+      await Promise.all(
+        deletions.map((cid) =>
+          deleteDoc(doc(db, 'adGroups', groupId, 'copyCards', cid)),
+        ),
+      );
+      await Promise.all(
+        list.map((c) => {
+          const data = {
+            primary: c.primary || '',
+            headline: c.headline || '',
+            description: c.description || '',
+          };
+          if (c.id) {
+            return setDoc(
+              doc(db, 'adGroups', groupId, 'copyCards', c.id),
+              data,
+              { merge: true },
+            );
+          }
+          return addDoc(
+            collection(db, 'adGroups', groupId, 'copyCards'),
+            data,
+          );
+        }),
+      );
+      setShowCopyModal(false);
+    } catch (err) {
+      console.error('Failed to save copy cards', err);
+    }
+  };
+
   const submitResponse = async (responseType) => {
     if (!currentAd) return;
     advancedRef.current = false;
@@ -1102,13 +1156,21 @@ if (
           />
         )}
         <h1 className="text-2xl font-bold">Your ads are ready!</h1>
-        <div className="flex space-x-2">
+        <div className="flex flex-col space-y-2">
           <button
             onClick={() => setShowGallery(true)}
             className="btn-secondary flex items-center px-3 py-1"
           >
             <FiGrid className="mr-1" /> See Gallery
           </button>
+          {copyCards.length > 0 && (
+            <button
+              onClick={() => setShowCopyModal(true)}
+              className="btn-secondary flex items-center px-3 py-1"
+            >
+              <FiType className="mr-1" /> See Platform Copy
+            </button>
+          )}
           <button
             onClick={() => {
               setTimedOut(false);
@@ -1665,6 +1727,24 @@ if (
         />
       )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
+      {showCopyModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto">
+          <div className="bg-white p-4 rounded shadow max-w-[50rem] w-full overflow-auto max-h-[90vh] relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <button
+              onClick={() => setShowCopyModal(false)}
+              className="absolute top-2 right-2 btn-secondary px-3 py-1"
+            >
+              Close
+            </button>
+            <CopyRecipePreview
+              onSave={saveCopyCards}
+              initialResults={copyCards}
+              showOnlyResults
+              hideBrandSelect
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 });
