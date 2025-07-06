@@ -225,6 +225,14 @@ const AdminAdGroups = () => {
               <FiPlus />
               Create Ad Group
             </button>
+            <div className="flex-1 flex justify-center gap-2 order-last md:order-none">
+              <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
+                <FiList />
+              </TabButton>
+              <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
+                <FiColumns />
+              </TabButton>
+            </div>
             <div className="flex items-center gap-2">
               <select
                 value={sortField}
@@ -252,14 +260,6 @@ const AdminAdGroups = () => {
                 className="p-1 border rounded"
               />
             </div>
-          </div>
-          <div className="flex justify-center gap-2 mb-2">
-            <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
-              <FiList />
-            </TabButton>
-            <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
-              <FiColumns />
-            </TabButton>
           </div>
         {loading ? (
           <p>Loading groups...</p>
