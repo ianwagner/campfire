@@ -8,6 +8,8 @@ import Table from './components/common/Table';
 const AdminBrands = () => {
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('');
+  const [sortField, setSortField] = useState('code');
 
   useEffect(() => {
     const fetchBrands = async () => {
@@ -37,13 +39,45 @@ const AdminBrands = () => {
     }
   };
 
+  const term = filter.toLowerCase();
+  const displayBrands = brands
+    .filter(
+      (b) =>
+        !term ||
+        b.code?.toLowerCase().includes(term) ||
+        b.name?.toLowerCase().includes(term)
+    )
+    .sort((a, b) => {
+      if (sortField === 'name') return (a.name || '').localeCompare(b.name || '');
+      return (a.code || '').localeCompare(b.code || '');
+    });
+
   return (
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Brands</h1>
-        <Link to="/admin/brands/new" className="btn-primary flex items-center gap-1 mb-2">
-          <FiPlus />
-          Create Brand
-        </Link>
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <Link to="/admin/brands/new" className="btn-primary flex items-center gap-1">
+            <FiPlus />
+            Create Brand
+          </Link>
+          <div className="flex items-center gap-2">
+            <select
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value)}
+              className="p-1 border rounded"
+            >
+              <option value="code">Code</option>
+              <option value="name">Name</option>
+            </select>
+            <input
+              type="text"
+              placeholder="Filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="p-1 border rounded"
+            />
+          </div>
+        </div>
         {loading ? (
           <p>Loading brands...</p>
         ) : brands.length === 0 ? (
@@ -59,7 +93,7 @@ const AdminBrands = () => {
               </tr>
             </thead>
             <tbody>
-              {brands.map((brand) => (
+              {displayBrands.map((brand) => (
                 <tr key={brand.id}>
                   <td>{brand.code}</td>
                   <td>{brand.name}</td>

@@ -11,6 +11,8 @@ import Table from './components/common/Table';
 const AdminAccounts = () => {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('');
+  const [sortField, setSortField] = useState('name');
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ role: 'client', brandCodes: [], audience: '' });
   const [brands, setBrands] = useState([]);
@@ -100,13 +102,47 @@ const AdminAccounts = () => {
     }
   };
 
+  const term = filter.toLowerCase();
+  const displayAccounts = accounts
+    .filter(
+      (a) =>
+        !term ||
+        a.fullName?.toLowerCase().includes(term) ||
+        a.email?.toLowerCase().includes(term)
+    )
+    .sort((a, b) => {
+      if (sortField === 'role') return (a.role || '').localeCompare(b.role || '');
+      if (sortField === 'email') return (a.email || '').localeCompare(b.email || '');
+      return (a.fullName || '').localeCompare(b.fullName || '');
+    });
+
   return (
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Accounts</h1>
-        <Link to="/admin/accounts/new" className="btn-primary flex items-center gap-1 mb-2">
-          <FiPlus />
-          Create Account
-        </Link>
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <Link to="/admin/accounts/new" className="btn-primary flex items-center gap-1">
+            <FiPlus />
+            Create Account
+          </Link>
+          <div className="flex items-center gap-2">
+            <select
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value)}
+              className="p-1 border rounded"
+            >
+              <option value="name">Name</option>
+              <option value="email">Email</option>
+              <option value="role">Role</option>
+            </select>
+            <input
+              type="text"
+              placeholder="Filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="p-1 border rounded"
+            />
+          </div>
+        </div>
         {loading ? (
           <p>Loading accounts...</p>
         ) : accounts.length === 0 ? (
@@ -123,7 +159,7 @@ const AdminAccounts = () => {
               </tr>
             </thead>
             <tbody>
-              {accounts.map((acct) => (
+              {displayAccounts.map((acct) => (
                 <tr key={acct.id}>
                   <td>{acct.fullName || acct.email || acct.id}</td>
                   <td>
