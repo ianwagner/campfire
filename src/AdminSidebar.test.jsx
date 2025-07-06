@@ -70,3 +70,12 @@ test('renders Ad Recipes tab', () => {
   );
   expect(screen.getByText('Ad Recipes')).toBeInTheDocument();
 });
+
+test('renders Requests tab', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  expect(screen.getByText('Requests')).toBeInTheDocument();
+});
