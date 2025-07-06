@@ -11,6 +11,7 @@ const CopyRecipePreview = ({
   brandCode: initialBrandCode = '',
   hideBrandSelect = false,
   onCopyClick = null,
+  onCopiesChange = null,
 }) => {
   const [types, setTypes] = useState([]);
   const [selectedType, setSelectedType] = useState('');
@@ -22,6 +23,12 @@ const CopyRecipePreview = ({
   const [brandProducts, setBrandProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [formData, setFormData] = useState({});
+
+  useEffect(() => {
+    if (typeof onCopiesChange === 'function') {
+      onCopiesChange(copies);
+    }
+  }, [copies, onCopiesChange]);
 
   useEffect(() => {
     if (initialResults && Array.isArray(initialResults)) {
