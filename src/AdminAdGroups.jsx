@@ -423,7 +423,10 @@ const AdminAdGroups = () => {
                 {kanbanColumns.map((col) => (
                   <div key={col.label} className="flex-shrink-0 w-[220px] sm:w-[300px]">
                     <h3 className="mb-2">{col.label}</h3>
-                    <div className="space-y-4">
+                    <div
+                      className="bg-[#F7F7F7] border border-gray-300 rounded-t-lg space-y-4 pb-4"
+                      style={{ minHeight: 'calc(100vh - 8rem)' }}
+                    >
                       {displayGroups
                         .filter((g) => col.statuses.includes(g.status))
                         .map((g) => (
