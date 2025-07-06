@@ -1,5 +1,6 @@
 import React from 'react';
 import { FiList, FiLayers, FiEye } from 'react-icons/fi';
+import TabButton from './TabButton.jsx';
 
 export const VIEWS = {
   TYPES: 'types',
@@ -10,38 +11,24 @@ export const VIEWS = {
 
 const AdminRecipeTabs = ({ view, setView }) => (
   <div className="flex space-x-4 mb-4">
-    <button
-      className={`px-3 py-1 rounded flex items-center gap-1 ${
-        view === VIEWS.TYPES ? 'bg-accent-10 text-accent' : 'border'
-      }`}
-      onClick={() => setView(VIEWS.TYPES)}
-    >
+    <TabButton active={view === VIEWS.TYPES} onClick={() => setView(VIEWS.TYPES)}>
       <FiList /> <span>Recipe Types</span>
-    </button>
-    <button
-      className={`px-3 py-1 rounded flex items-center gap-1 ${
-        view === VIEWS.COMPONENTS ? 'bg-accent-10 text-accent' : 'border'
-      }`}
+    </TabButton>
+    <TabButton
+      active={view === VIEWS.COMPONENTS}
       onClick={() => setView(VIEWS.COMPONENTS)}
     >
       <FiLayers /> <span>Components</span>
-    </button>
-    <button
-      className={`px-3 py-1 rounded flex items-center gap-1 ${
-        view === VIEWS.INSTANCES ? 'bg-accent-10 text-accent' : 'border'
-      }`}
+    </TabButton>
+    <TabButton
+      active={view === VIEWS.INSTANCES}
       onClick={() => setView(VIEWS.INSTANCES)}
     >
       <FiLayers /> <span>Instances</span>
-    </button>
-    <button
-      className={`px-3 py-1 rounded flex items-center gap-1 ${
-        view === VIEWS.PREVIEW ? 'bg-accent-10 text-accent' : 'border'
-      }`}
-      onClick={() => setView(VIEWS.PREVIEW)}
-    >
+    </TabButton>
+    <TabButton active={view === VIEWS.PREVIEW} onClick={() => setView(VIEWS.PREVIEW)}>
       <FiEye /> <span>Preview</span>
-    </button>
+    </TabButton>
   </div>
 );
 

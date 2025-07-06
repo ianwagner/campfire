@@ -57,6 +57,7 @@ import computeGroupStatus from "./utils/computeGroupStatus";
 import diffWords from "./utils/diffWords";
 import Modal from "./components/Modal.jsx";
 import IconButton from "./components/IconButton.jsx";
+import TabButton from "./components/TabButton.jsx";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -1627,43 +1628,28 @@ const AdGroupDetail = () => {
 
       <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center justify-between">
         <div className="flex flex-wrap gap-2">
-          <IconButton
-            onClick={() => setTab("stats")}
-            className={`bg-transparent ${tab === "stats" ? "bg-accent-10 text-accent" : ""}`}
-          >
+          <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
             <FiBarChart2 size={18} />
             Stats
-          </IconButton>
-          <IconButton
-            onClick={() => setTab("brief")}
-            className={`bg-transparent ${tab === "brief" ? "bg-accent-10 text-accent" : ""}`}
-          >
+          </TabButton>
+          <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
             <FiFileText size={18} />
             Brief
-          </IconButton>
+          </TabButton>
         {isAdmin && (
-          <IconButton
-            onClick={() => setTab('copy')}
-            className={`bg-transparent ${tab === 'copy' ? 'bg-accent-10 text-accent' : ''}`}
-          >
+          <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
             <FiType size={18} />
             Platform Copy
-          </IconButton>
+          </TabButton>
         )}
-        <IconButton
-          onClick={() => setTab("assets")}
-          className={`bg-transparent ${tab === "assets" ? "bg-accent-10 text-accent" : ""}`}
-        >
+        <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
           <FiFolder size={18} />
           Brand Assets
-        </IconButton>
-        <IconButton
-          onClick={() => setTab("ads")}
-          className={`bg-transparent ${tab === "ads" ? "bg-accent-10 text-accent" : ""}`}
-        >
+        </TabButton>
+        <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
           <FiEye size={18} />
           Ads
-        </IconButton>
+        </TabButton>
         </div>
         {(isAdmin || userRole === "agency" || isDesigner) && (
           <>
