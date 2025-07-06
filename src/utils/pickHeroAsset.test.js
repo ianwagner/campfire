@@ -19,3 +19,9 @@ test('returns first when no preferred aspect ratio found', () => {
   const hero = pickHeroAsset(list);
   expect(hero.aspectRatio).toBe('something');
 });
+
+test('prefers asset with no aspect ratio', () => {
+  const list = [make('9x16'), { filename: 'LGND_CM01_001_V1.png' }];
+  const hero = pickHeroAsset(list);
+  expect(hero.filename).toBe('LGND_CM01_001_V1.png');
+});
