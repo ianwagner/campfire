@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp } from 'firebase/firestore';
-import { FiPlus } from 'react-icons/fi';
+import { FiPlus, FiList, FiColumns } from 'react-icons/fi';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 import Modal from './components/Modal.jsx';
+import TabButton from './components/TabButton.jsx';
+import RequestCard from './components/RequestCard.jsx';
 
 const emptyForm = {
   brandCode: '',
@@ -20,6 +22,7 @@ const AdminRequests = () => {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [brands, setBrands] = useState([]);
+  const [view, setView] = useState('table');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -108,125 +111,164 @@ const AdminRequests = () => {
   const pending = requests.filter((r) => r.status === 'pending');
   const ready = requests.filter((r) => r.status === 'ready');
   const done = requests.filter((r) => r.status === 'done');
+  const grouped = { pending, ready, done };
 
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Requests</h1>
-      <button onClick={openCreate} className="btn-primary mb-4 flex items-center gap-1">
-        <FiPlus /> Request Ads
-      </button>
-      <div className="mb-8">
-        <h2 className="text-xl mb-2">Pending</h2>
-        {loading ? (
-          <p>Loading...</p>
-        ) : pending.length === 0 ? (
-          <p>No requests.</p>
-        ) : (
-          <Table>
-            <thead>
-              <tr>
-                <th>Brand</th>
-                <th>Due Date</th>
-                <th># Ads</th>
-                <th>Details</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pending.map((req) => (
-                <tr key={req.id}>
-                  <td>{req.brandCode}</td>
-                  <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
-                  <td>{req.numAds}</td>
-                  <td>{req.details}</td>
-                  <td><span className="status-badge status-pending">Pending</span></td>
-                  <td className="text-center">
-                    <div className="flex items-center justify-center">
-                      <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
-                      <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <button onClick={openCreate} className="btn-primary flex items-center gap-1">
+          <FiPlus /> Request Ads
+        </button>
+        <div className="flex items-center gap-2">
+          <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
+            <FiList />
+          </TabButton>
+          <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
+            <FiColumns />
+          </TabButton>
+        </div>
       </div>
-      <div className="mb-8">
-        <h2 className="text-xl mb-2">Ready</h2>
-        {loading ? (
-          <p>Loading...</p>
-        ) : ready.length === 0 ? (
-          <p>No requests.</p>
-        ) : (
-          <Table>
-            <thead>
-              <tr>
-                <th>Brand</th>
-                <th>Due Date</th>
-                <th># Ads</th>
-                <th>Details</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ready.map((req) => (
-                <tr key={req.id}>
-                  <td>{req.brandCode}</td>
-                  <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
-                  <td>{req.numAds}</td>
-                  <td>{req.details}</td>
-                  <td><span className="status-badge status-ready">Ready</span></td>
-                  <td className="text-center">
-                    <div className="flex items-center justify-center">
-                      <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
-                      <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-      </div>
-      <div>
-        <h2 className="text-xl mb-2">Done</h2>
-        {done.length === 0 ? (
-          <p>No requests.</p>
-        ) : (
-          <Table>
-            <thead>
-              <tr>
-                <th>Brand</th>
-                <th>Due Date</th>
-                <th># Ads</th>
-                <th>Details</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {done.map((req) => (
-                <tr key={req.id}>
-                  <td>{req.brandCode}</td>
-                  <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
-                  <td>{req.numAds}</td>
-                  <td>{req.details}</td>
-                  <td><span className="status-badge">Done</span></td>
-                  <td className="text-center">
-                    <div className="flex items-center justify-center">
-                      <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
-                      <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-      </div>
+      {view === 'table' ? (
+        <>
+          <div className="mb-8">
+            <h2 className="text-xl mb-2">Pending</h2>
+            {loading ? (
+              <p>Loading...</p>
+            ) : pending.length === 0 ? (
+              <p>No requests.</p>
+            ) : (
+              <Table>
+                <thead>
+                  <tr>
+                    <th>Brand</th>
+                    <th>Due Date</th>
+                    <th># Ads</th>
+                    <th>Details</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pending.map((req) => (
+                    <tr key={req.id}>
+                      <td>{req.brandCode}</td>
+                      <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
+                      <td>{req.numAds}</td>
+                      <td>{req.details}</td>
+                      <td><span className="status-badge status-pending">Pending</span></td>
+                      <td className="text-center">
+                        <div className="flex items-center justify-center">
+                          <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
+                          <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </div>
+          <div className="mb-8">
+            <h2 className="text-xl mb-2">Ready</h2>
+            {loading ? (
+              <p>Loading...</p>
+            ) : ready.length === 0 ? (
+              <p>No requests.</p>
+            ) : (
+              <Table>
+                <thead>
+                  <tr>
+                    <th>Brand</th>
+                    <th>Due Date</th>
+                    <th># Ads</th>
+                    <th>Details</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ready.map((req) => (
+                    <tr key={req.id}>
+                      <td>{req.brandCode}</td>
+                      <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
+                      <td>{req.numAds}</td>
+                      <td>{req.details}</td>
+                      <td><span className="status-badge status-ready">Ready</span></td>
+                      <td className="text-center">
+                        <div className="flex items-center justify-center">
+                          <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
+                          <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </div>
+          <div>
+            <h2 className="text-xl mb-2">Done</h2>
+            {done.length === 0 ? (
+              <p>No requests.</p>
+            ) : (
+              <Table>
+                <thead>
+                  <tr>
+                    <th>Brand</th>
+                    <th>Due Date</th>
+                    <th># Ads</th>
+                    <th>Details</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {done.map((req) => (
+                    <tr key={req.id}>
+                      <td>{req.brandCode}</td>
+                      <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
+                      <td>{req.numAds}</td>
+                      <td>{req.details}</td>
+                      <td><span className="status-badge">Done</span></td>
+                      <td className="text-center">
+                        <div className="flex items-center justify-center">
+                          <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
+                          <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {['pending', 'ready', 'done'].map((status) => (
+            <div key={status}>
+              <h2 className="text-xl mb-2 capitalize">{status}</h2>
+              {loading ? (
+                <p>Loading...</p>
+              ) : grouped[status].length === 0 ? (
+                <p>No requests.</p>
+              ) : (
+                <div className="space-y-4">
+                  {grouped[status].map((req) => (
+                    <RequestCard
+                      key={req.id}
+                      request={req}
+                      onEdit={startEdit}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {showModal && (
         <Modal>
