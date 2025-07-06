@@ -97,13 +97,13 @@
     @apply text-blue-600;
   }
   .btn-primary {
-    @apply text-white px-4 py-2;
+    @apply text-white px-4 py-2 inline-flex items-center justify-center hover:brightness-105;
     background-color: var(--accent-color);
     color: #ffffff;
     border-radius: var(--border-radius-base);
   }
   .btn-secondary {
-    @apply bg-gray-300 px-4 py-2 text-gray-700 no-underline dark:bg-[var(--dark-sidebar-hover)] dark:text-white;
+    @apply bg-gray-300 px-4 py-2 text-gray-700 no-underline inline-flex items-center justify-center hover:brightness-105 dark:bg-[var(--dark-sidebar-hover)] dark:text-white;
     border-radius: var(--border-radius-base);
   }
   .btn-logout {
