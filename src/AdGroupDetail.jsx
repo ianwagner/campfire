@@ -365,7 +365,7 @@ const AdGroupDetail = () => {
       if (!map[recipe]) map[recipe] = [];
       map[recipe].push(item);
     });
-    const order = { "3x5": 0, "9x16": 1, "1x1": 2 };
+    const order = { "": 0, "3x5": 1, "9x16": 2, "1x1": 3 };
     const groups = Object.entries(map).map(([recipeCode, list]) => {
       list.sort((a, b) => {
         const diff =

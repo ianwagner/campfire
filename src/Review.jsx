@@ -352,7 +352,7 @@ useEffect(() => {
       if (!map[recipe]) map[recipe] = [];
       map[recipe].push(item);
     });
-    const order = { '9x16': 0, '3x5': 1, '1x1': 2 };
+    const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
     return Object.entries(map).map(([recipeCode, list]) => {
       list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
       return { recipeCode, assets: list };
@@ -430,7 +430,7 @@ useEffect(() => {
           );
         }
 
-        const order = { '9x16': 0, '3x5': 1, '1x1': 2 };
+        const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
         list.sort((a, b) => {
           const infoA = parseAdFilename(a.filename || '');
           const infoB = parseAdFilename(b.filename || '');
@@ -507,7 +507,7 @@ useEffect(() => {
         }
 
         // build hero list from all ready ads so hero assets always appear
-        const prefOrder = ['9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
+        const prefOrder = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
         const getRecipe = (a) =>
           a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
         const getAspect = (a) =>
@@ -1253,7 +1253,7 @@ if (
       return responses[url]?.response === 'approve';
     });
     const approvedMap = {};
-    const order = { '9x16': 0, '3x5': 1, '1x1': 2 };
+    const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
     approvedAds.forEach((a) => {
       const info = parseAdFilename(a.filename || '');
       const recipe = a.recipeCode || info.recipeCode || 'unknown';
@@ -1282,7 +1282,7 @@ if (
         if (!heroMap[recipe]) heroMap[recipe] = [];
         heroMap[recipe].push(a);
       });
-      const prefOrder = ['9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
+      const prefOrder = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
       const heroList = Object.values(heroMap).map((list) => {
         for (const asp of prefOrder) {
           const f = list.find((x) =>
