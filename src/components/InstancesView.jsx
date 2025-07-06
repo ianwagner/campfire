@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase
 import { FiEdit2, FiTrash } from 'react-icons/fi';
 import TagInput from './TagInput.jsx';
 import Table from './common/Table';
+import Button from './Button.jsx';
 import { splitCsvLine } from '../utils/csv.js';
 import { db } from '../firebase/config';
 
@@ -197,21 +198,23 @@ const InstancesView = () => {
                   <td>{i.relationships?.brandCode || ''}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center">
-                      <button
+                      <Button
+                        variant="action"
                         onClick={() => startEdit(i)}
-                        className="btn-action mr-2"
+                        className="mr-2"
                         aria-label="Edit"
                       >
                         <FiEdit2 />
                         <span className="ml-1">Edit</span>
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="action"
                         onClick={() => handleDelete(i.id)}
-                        className="btn-action btn-delete"
+                        className="btn-delete"
                         aria-label="Delete"
                       >
                         <FiTrash />
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -275,13 +278,13 @@ const InstancesView = () => {
           </div>
         )}
         <div className="flex gap-2">
-          <button type="submit" className="btn-primary">
+          <Button type="submit" variant="primary">
             {editId ? 'Save Instance' : 'Add Instance'}
-          </button>
+          </Button>
           {editId && (
-            <button type="button" onClick={resetForm} className="btn-secondary px-2 py-0.5">
+            <Button type="button" onClick={resetForm} variant="secondary" className="px-2 py-0.5">
               Cancel
-            </button>
+            </Button>
           )}
         </div>
       </form>
@@ -344,8 +347,8 @@ const InstancesView = () => {
                 </div>
               )}
               <div className="flex gap-2">
-                <button type="submit" className="btn-primary">Save Instance</button>
-                <button type="button" onClick={resetForm} className="btn-secondary px-2 py-0.5">Cancel</button>
+                <Button type="submit" variant="primary">Save Instance</Button>
+                <Button type="button" onClick={resetForm} variant="secondary" className="px-2 py-0.5">Cancel</Button>
               </div>
             </form>
           </div>
@@ -381,9 +384,9 @@ const InstancesView = () => {
                   </select>
                 </div>
               ))}
-              <button type="button" onClick={handleAddCsvInstances} className="btn-primary">
+              <Button type="button" onClick={handleAddCsvInstances} variant="primary">
                 Add Instances
-              </button>
+              </Button>
             </div>
           )}
         </div>

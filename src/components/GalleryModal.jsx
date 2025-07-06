@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import OptimizedImage from './OptimizedImage.jsx';
 import VideoPlayer from './VideoPlayer.jsx';
 import isVideoUrl from '../utils/isVideoUrl';
+import Button from './Button.jsx';
 
 const AdThumb = ({ ad }) => {
   const [loading, setLoading] = useState(true);
@@ -38,7 +39,7 @@ const GalleryModal = ({ ads = [], onClose }) => (
     <div className="bg-white p-4 rounded shadow max-w-6xl w-full max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-lg font-semibold">Ad Gallery</h2>
-        <button onClick={onClose} className="btn-secondary px-3 py-1">Close</button>
+        <Button onClick={onClose} variant="secondary" className="px-3 py-1">Close</Button>
       </div>
       <div className="overflow-auto flex-1">
         <div className="flex flex-wrap justify-center gap-x-2 gap-y-4">

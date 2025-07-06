@@ -4,6 +4,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import useUserRole from '../useUserRole';
 import { normalizeAssetType } from '../RecipePreview.jsx';
+import Button from './Button.jsx';
 
 const AssetPickerModal = ({ brandCode: propBrandCode = '', onSelect, onClose }) => {
   const user = auth.currentUser;
@@ -87,13 +88,13 @@ const AssetPickerModal = ({ brandCode: propBrandCode = '', onSelect, onClose }) 
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
-          <button type="button" className="btn-secondary px-2 py-1" onClick={onClose}>
+          <Button type="button" variant="secondary" className="px-2 py-1" onClick={onClose}>
             Close
-          </button>
+          </Button>
         </div>
         <div className="columns-2 sm:columns-3 gap-2">
           {filtered.map((a) => (
-            <button
+            <Button
               key={a.id}
               type="button"
               onClick={() => onSelect && onSelect(a)}
@@ -122,7 +123,7 @@ const AssetPickerModal = ({ brandCode: propBrandCode = '', onSelect, onClose }) 
                   {normalizeAssetType(a.type || a.assetType) === 'video' ? <FiVideo /> : <FiImage />}
                 </span>
               )}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
