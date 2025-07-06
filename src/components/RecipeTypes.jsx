@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { FiEdit2, FiTrash } from 'react-icons/fi';
+import { FiEdit2, FiTrash, FiPlus } from 'react-icons/fi';
 import TagInput from './TagInput.jsx';
 import PromptTextarea from './PromptTextarea.jsx';
 import useComponentTypes from '../useComponentTypes';
 import Table from './common/Table';
 import Button from './Button.jsx';
+import IconButton from './IconButton.jsx';
+import Modal from './Modal.jsx';
 import { db } from '../firebase/config';
 
 const RecipeTypes = () => {
@@ -20,6 +22,7 @@ const RecipeTypes = () => {
   const [assetFields, setAssetFields] = useState([]);
   const [defaultColumns, setDefaultColumns] = useState([]);
   const [editId, setEditId] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     const fetchTypes = async () => {
@@ -44,6 +47,11 @@ const RecipeTypes = () => {
     setEnableAssetCsv(false);
     setAssetFields([]);
     setDefaultColumns([]);
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setShowModal(true);
   };
 
   const handleSave = async (e) => {
@@ -113,6 +121,7 @@ const RecipeTypes = () => {
         ]);
       }
       resetForm();
+      setShowModal(false);
     } catch (err) {
       console.error('Failed to save recipe type', err);
     }
@@ -132,6 +141,7 @@ const RecipeTypes = () => {
         ? t.writeInFields
         : [{ label: '', key: '', inputType: 'text' }]
     );
+    setShowModal(true);
   };
 
   const handleDelete = async (id) => {
@@ -185,6 +195,11 @@ const RecipeTypes = () => {
   return (
     <div>
       <h2 className="text-xl mb-2">Recipe Types</h2>
+      <div className="flex justify-end mb-2">
+        <Button variant="primary" onClick={openCreate} className="flex items-center gap-1">
+          <FiPlus /> Create Recipe Type
+        </Button>
+      </div>
       {types.length === 0 ? (
         <p>No recipe types found.</p>
       ) : (
@@ -226,31 +241,26 @@ const RecipeTypes = () => {
                       : '-'}
                   </td>
                   <td className="text-center">
-                    <div className="flex items-center justify-center">
-                      <Button
-                        variant="action"
-                        onClick={() => startEdit(t)}
-                        className="mr-2"
-                        aria-label="Edit"
-                      >
+                    <div className="flex items-center justify-center gap-2">
+                      <IconButton onClick={() => startEdit(t)} aria-label="Edit">
                         <FiEdit2 />
-                        <span className="ml-1">Edit</span>
-                      </Button>
-                      <Button
-                        variant="action"
+                      </IconButton>
+                      <IconButton
                         onClick={() => handleDelete(t.id)}
                         className="btn-delete"
                         aria-label="Delete"
                       >
                         <FiTrash />
-                      </Button>
+                      </IconButton>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </Table>
+        </Table>
       )}
+      {showModal && (
+        <Modal sizeClass="max-w-2xl">
       <form onSubmit={handleSave} className="space-y-2 max-w-[50rem]">
         <div>
           <label className="block text-sm mb-1">Name</label>
@@ -375,13 +385,21 @@ const RecipeTypes = () => {
           <Button type="submit" variant="primary">
             {editId ? 'Save Type' : 'Add Type'}
           </Button>
-          {editId && (
-            <Button type="button" onClick={resetForm} variant="secondary" className="px-2 py-0.5">
-              Cancel
-            </Button>
-          )}
+          <Button
+            type="button"
+            onClick={() => {
+              resetForm();
+              setShowModal(false);
+            }}
+            variant="secondary"
+            className="px-2 py-0.5"
+          >
+            Cancel
+          </Button>
         </div>
       </form>
+        </Modal>
+      )}
     </div>
   );
 };

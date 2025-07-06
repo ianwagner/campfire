@@ -7,12 +7,15 @@ import {
   deleteDoc,
   doc,
 } from 'firebase/firestore';
-import { FiList, FiEye, FiEdit2, FiTrash } from 'react-icons/fi';
+import { FiList, FiEye, FiEdit2, FiTrash, FiPlus } from 'react-icons/fi';
 import { db } from './firebase/config';
 import PromptTextarea from './components/PromptTextarea.jsx';
 import TagInput from './components/TagInput.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import TabButton from './components/TabButton.jsx';
+import Modal from './components/Modal.jsx';
+import IconButton from './components/IconButton.jsx';
+import Button from './components/Button.jsx';
 
 const VIEWS = {
   TYPES: 'types',
@@ -36,6 +39,7 @@ const Tabs = ({ view, setView }) => (
 
 const CopyRecipeTypes = () => {
   const [types, setTypes] = React.useState([]);
+  const [showModal, setShowModal] = React.useState(false);
   const [name, setName] = React.useState('');
   const [primaryPrompt, setPrimaryPrompt] = React.useState('');
   const [headlinePrompt, setHeadlinePrompt] = React.useState('');
@@ -73,13 +77,18 @@ const CopyRecipeTypes = () => {
     fetchTypes();
   }, []);
 
-  const resetForm = () => {
-    setEditId(null);
-    setName('');
-    setPrimaryPrompt('');
-    setHeadlinePrompt('');
-    setDescriptionPrompt('');
-    setWriteFields([{ label: '', key: '', inputType: 'text' }]);
+const resetForm = () => {
+  setEditId(null);
+  setName('');
+  setPrimaryPrompt('');
+  setHeadlinePrompt('');
+  setDescriptionPrompt('');
+  setWriteFields([{ label: '', key: '', inputType: 'text' }]);
+};
+
+  const openCreate = () => {
+    resetForm();
+    setShowModal(true);
   };
 
   const handleSave = async (e) => {
@@ -100,6 +109,7 @@ const CopyRecipeTypes = () => {
         setTypes((t) => [...t, { id: ref.id, ...data }]);
       }
       resetForm();
+      setShowModal(false);
     } catch (err) {
       console.error('Failed to save type', err);
     }
@@ -116,6 +126,7 @@ const CopyRecipeTypes = () => {
         ? t.writeInFields
         : [{ label: '', key: '', inputType: 'text' }]
     );
+    setShowModal(true);
   };
 
   const handleDelete = async (id) => {
@@ -129,6 +140,11 @@ const CopyRecipeTypes = () => {
 
   return (
     <div>
+      <div className="flex justify-end mb-2">
+        <Button variant="primary" onClick={openCreate} className="flex items-center gap-1">
+          <FiPlus /> Create Recipe Type
+        </Button>
+      </div>
       {types.length === 0 ? (
         <p>No recipe types found.</p>
       ) : (
@@ -158,20 +174,16 @@ const CopyRecipeTypes = () => {
                   </td>
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => startEdit(t)}
-                        className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1"
-                        aria-label="Edit"
-                      >
+                      <IconButton onClick={() => startEdit(t)} aria-label="Edit">
                         <FiEdit2 />
-                      </button>
-                      <button
+                      </IconButton>
+                      <IconButton
                         onClick={() => handleDelete(t.id)}
-                        className="btn-secondary px-1.5 py-0.5 text-xs flex items-center gap-1 btn-delete"
+                        className="btn-delete"
                         aria-label="Delete"
                       >
                         <FiTrash />
-                      </button>
+                      </IconButton>
                     </div>
                   </td>
                 </tr>
@@ -180,16 +192,18 @@ const CopyRecipeTypes = () => {
           </table>
         </div>
       )}
-      <form onSubmit={handleSave} className="space-y-2 max-w-xl">
-        <div>
-          <label className="block text-sm mb-1">Name</label>
-          <input
-            className="w-full p-2 border rounded"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </div>
+      {showModal && (
+        <Modal sizeClass="max-w-2xl">
+          <form onSubmit={handleSave} className="space-y-2 max-w-xl">
+            <div>
+              <label className="block text-sm mb-1">Name</label>
+              <input
+                className="w-full p-2 border rounded"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
         <div>
           <label className="block text-sm mb-1">Primary Prompt</label>
           <PromptTextarea
@@ -285,13 +299,20 @@ const CopyRecipeTypes = () => {
           <button type="submit" className="btn-primary">
             {editId ? 'Save Type' : 'Add Type'}
           </button>
-          {editId && (
-            <button type="button" onClick={resetForm} className="btn-secondary px-2 py-0.5">
-              Cancel
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              setShowModal(false);
+            }}
+            className="btn-secondary px-2 py-0.5"
+          >
+            Cancel
+          </button>
         </div>
       </form>
+        </Modal>
+      )}
     </div>
   );
 };

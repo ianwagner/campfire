@@ -13,7 +13,8 @@ import {
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 import TabButton from './components/TabButton.jsx';
-import { FiPlus } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash } from 'react-icons/fi';
+import IconButton from './components/IconButton.jsx';
 
 const AdminNotifications = () => {
   const [title, setTitle] = useState('');
@@ -333,9 +334,9 @@ const AdminNotifications = () => {
                           : ''}
                       </td>
                       <td>
-                        <button onClick={() => deleteNotification(n.id)} className="underline btn-delete">
-                          Delete
-                        </button>
+                        <IconButton onClick={() => deleteNotification(n.id)} className="btn-delete" aria-label="Delete">
+                          <FiTrash />
+                        </IconButton>
                       </td>
                     </tr>
                   ))}
@@ -444,18 +445,17 @@ const AdminNotifications = () => {
                   <td>{r.audience}</td>
                   <td>{r.active ? 'yes' : 'no'}</td>
                   <td>
-                    <button
-                      onClick={() => startEditRule(r)}
-                      className="underline mr-2"
-                    >
-                      Edit
-                    </button>
-                    <button onClick={() => toggleRule(r.id, r.active)} className="underline mr-2">
-                      {r.active ? 'Disable' : 'Enable'}
-                    </button>
-                    <button onClick={() => deleteRule(r.id)} className="underline btn-delete">
-                      Delete
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <IconButton onClick={() => startEditRule(r)} aria-label="Edit">
+                        <FiEdit2 />
+                      </IconButton>
+                      <button onClick={() => toggleRule(r.id, r.active)} className="underline mr-2">
+                        {r.active ? 'Disable' : 'Enable'}
+                      </button>
+                      <IconButton onClick={() => deleteRule(r.id)} className="btn-delete" aria-label="Delete">
+                        <FiTrash />
+                      </IconButton>
+                    </div>
                   </td>
                 </tr>
               ))}

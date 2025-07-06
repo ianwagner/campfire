@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiPlus } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash } from 'react-icons/fi';
 import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
+import IconButton from './components/IconButton.jsx';
 
 const AdminBrands = () => {
   const [brands, setBrands] = useState([]);
@@ -99,19 +100,17 @@ const AdminBrands = () => {
                   <td>{brand.name}</td>
                   <td>{brand.agencyId || ''}</td>
                   <td className="text-center">
-                    <div className="flex items-center justify-center">
-                      <a
-                        href={`/admin/brands/${brand.id}`}
-                        className="btn-action mr-2"
-                      >
-                        Edit
-                      </a>
-                      <button
+                    <div className="flex items-center justify-center gap-2">
+                      <IconButton as="a" href={`/admin/brands/${brand.id}`} aria-label="Edit">
+                        <FiEdit2 />
+                      </IconButton>
+                      <IconButton
                         onClick={() => handleDelete(brand.id)}
-                        className="btn-action btn-delete"
+                        className="btn-delete"
+                        aria-label="Delete"
                       >
-                        Delete
-                      </button>
+                        <FiTrash />
+                      </IconButton>
                     </div>
                   </td>
                 </tr>

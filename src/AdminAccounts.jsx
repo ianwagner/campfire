@@ -7,6 +7,8 @@ import { httpsCallable } from 'firebase/functions';
 import debugLog from './utils/debugLog';
 import TagInput from './components/TagInput.jsx';
 import Table from './components/common/Table';
+import IconButton from './components/IconButton.jsx';
+import Button from './components/Button.jsx';
 
 const AdminAccounts = () => {
   const [accounts, setAccounts] = useState([]);
@@ -209,53 +211,32 @@ const AdminAccounts = () => {
                   </td>
                   <td className="text-center">
                     {editId === acct.id ? (
-                      <div className="flex items-center justify-center">
-                        <button
-                          onClick={() => handleSave(acct.id)}
-                          className="btn-action mr-2"
-                        >
+                      <div className="flex items-center justify-center gap-2">
+                        <Button variant="action" onClick={() => handleSave(acct.id)}>
                           Save
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="btn-action"
-                        >
+                        </Button>
+                        <Button variant="action" onClick={cancelEdit}>
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-center">
-                        <button
-                          onClick={() => setViewAcct(acct)}
-                          className="btn-action mr-2"
-                          aria-label="View"
-                        >
+                      <div className="flex items-center justify-center gap-2">
+                        <IconButton onClick={() => setViewAcct(acct)} aria-label="View">
                           <FiEye />
-                          <span className="ml-1">View</span>
-                        </button>
-                        <button
-                          onClick={() => startEdit(acct)}
-                          className="btn-action mr-2"
-                          aria-label="Edit"
-                        >
+                        </IconButton>
+                        <IconButton onClick={() => startEdit(acct)} aria-label="Edit">
                           <FiEdit2 />
-                          <span className="ml-1">Edit</span>
-                        </button>
-                        <button
-                          onClick={() => handleSignOut(acct.id)}
-                          className="btn-action mr-2"
-                          aria-label="Sign Out"
-                        >
+                        </IconButton>
+                        <IconButton onClick={() => handleSignOut(acct.id)} aria-label="Sign Out">
                           <FiLogOut />
-                          <span className="ml-1">Sign Out</span>
-                        </button>
-                        <button
+                        </IconButton>
+                        <IconButton
                           onClick={() => handleDelete(acct.id)}
-                          className="btn-action btn-delete"
+                          className="btn-delete"
                           aria-label="Delete"
                         >
                           <FiTrash />
-                        </button>
+                        </IconButton>
                       </div>
                     )}
                   </td>
