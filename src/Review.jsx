@@ -506,7 +506,7 @@ useEffect(() => {
           setResponses(initial);
         }
 
-        // prefer 9x16 or 3x5 for hero selection
+        // build hero list from all ready ads so hero assets always appear
         const prefOrder = ['9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
         const getRecipe = (a) =>
           a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
@@ -514,7 +514,7 @@ useEffect(() => {
           a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
 
         const map = {};
-        filtered.forEach((a) => {
+        list.forEach((a) => {
           const r = getRecipe(a);
           if (!map[r]) map[r] = [];
           map[r].push(a);
