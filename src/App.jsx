@@ -2,7 +2,6 @@
 // This file is part of a proprietary software project. Do not distribute.
 import React from "react";
 import {
-  BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
@@ -146,8 +145,7 @@ const App = () => {
   }
 
   return (
-    <Router>
-      <ThemeWatcher />
+    <ThemeWatcher />
       {/* <AdminClaimDebug /> Uncomment to check admin claim */}
       <RequireMfa user={user} role={role}>
         <div className="min-h-screen flex">
@@ -629,7 +627,6 @@ const App = () => {
           </div>
         </div>
       </RequireMfa>
-      </Router>
   );
 };
 
