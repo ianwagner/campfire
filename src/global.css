@@ -106,6 +106,9 @@
     @apply bg-gray-300 px-4 py-2 text-gray-700 no-underline inline-flex items-center justify-center hover:brightness-105 dark:bg-[var(--dark-sidebar-hover)] dark:text-white;
     border-radius: var(--border-radius-base);
   }
+  .btn-action {
+    @apply btn-secondary px-1.5 py-0.5 text-xs gap-1;
+  }
   .btn-logout {
     @apply text-sm text-gray-500 hover:text-black underline;
   }

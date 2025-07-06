@@ -26,6 +26,7 @@ import generatePassword from './utils/generatePassword';
 import parseAdFilename from './utils/parseAdFilename';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
+import Table from './components/common/Table';
 
 const AgencyAdGroups = () => {
   const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
@@ -192,8 +193,8 @@ const AgencyAdGroups = () => {
               </Link>
             ))}
           </div>
-          <div className="overflow-x-auto table-container hidden sm:block">
-            <table className="ad-table min-w-max">
+          <div className="hidden sm:block">
+            <Table>
               <thead>
                 <tr>
                   <th>Group Name</th>
@@ -248,7 +249,7 @@ const AgencyAdGroups = () => {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         </>
       )}

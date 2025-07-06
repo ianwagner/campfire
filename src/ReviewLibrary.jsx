@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { splitCsvLine } from './utils/csv.js';
+import Table from './components/common/Table';
 
 const emptyReview = { id: '', name: '', body: '', title: '', rating: '', product: '' };
 
@@ -133,9 +134,8 @@ const ReviewLibrary = ({ brandCode = '' }) => {
       {reviews.length === 0 ? (
         <p>No reviews found.</p>
       ) : (
-        <div className="overflow-x-auto table-container">
-          <table className="ad-table min-w-max text-sm">
-            <thead>
+        <Table>
+          <thead>
               <tr>
                 <th>Name</th>
                 <th>Body</th>
@@ -198,8 +198,7 @@ const ReviewLibrary = ({ brandCode = '' }) => {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
       )}
     </div>
   );
