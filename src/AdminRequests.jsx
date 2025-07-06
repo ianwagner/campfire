@@ -382,18 +382,18 @@ const AdminRequests = () => {
           </div>
         </>
       ) : (
-        <div className="overflow-x-auto mb-8">
+        <div className="overflow-x-auto">
           <div className="min-w-max flex gap-4">
           {['new', 'pending', 'ready', 'done'].map((status) => (
             <div
               key={status}
-              className="flex-shrink-0 w-[220px] sm:w-[300px]"
+              className="flex-shrink-0 w-[240px] sm:w-[320px]"
               onDragOver={allowDrop}
               onDrop={() => handleDrop(status)}
             >
               <h2 className="text-xl mb-2 capitalize">{status}</h2>
               <div
-                className="bg-[#F7F7F7] border border-gray-300 rounded-t-lg pb-4 space-y-4"
+                className="bg-[#F7F7F7] border border-gray-300 rounded-t-lg flex flex-col items-center gap-4 py-4"
                 style={{ minHeight: 'calc(100vh - 8rem)' }}
               >
                 {loading ? (
