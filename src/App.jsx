@@ -6,6 +6,7 @@ import {
   Routes,
   Route,
   Navigate,
+  useLocation,
 } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase/config";
@@ -116,6 +117,8 @@ const App = () => {
     !agencyLoading &&
     logoLoaded;
 
+  const location = useLocation();
+
   React.useEffect(() => {
     if (ready) {
       document.body.classList.remove('pre-theme');
@@ -156,8 +159,8 @@ const App = () => {
               signedIn ? 'md:pl-[250px]' : ''
             }`}
           >
-            <div className="flex-grow">
-              <Routes>
+            <div className="flex-grow page-transition" key={location.pathname}>
+              <Routes location={location}>
             <Route
               path="/login"
               element={

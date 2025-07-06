@@ -632,3 +632,18 @@ html.dark .full-screen-spinner {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* simple fade-in effect for page transitions */
+.page-transition {
+  opacity: 0;
+  animation: page-fade var(--duration-fast) forwards;
+}
+
+@keyframes page-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
