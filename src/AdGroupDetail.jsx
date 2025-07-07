@@ -117,7 +117,6 @@ const AdGroupDetail = () => {
   const [notesInput, setNotesInput] = useState("");
   const [briefDrag, setBriefDrag] = useState(false);
   const [responses, setResponses] = useState([]);
-  const [colorMenuOpen, setColorMenuOpen] = useState(false);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
@@ -398,19 +397,6 @@ const AdGroupDetail = () => {
     }));
   }, [recipesMeta]);
 
-  const computedCardColor = useMemo(() => {
-    if (!group) return 'accent';
-    if (group.cardColor) return group.cardColor;
-    const aCount = assets.length;
-    const hasEdit = assets.some(
-      (a) => a.status === 'edit_requested' && !a.isResolved,
-    );
-    if (recipeCount === 0) return 'gray';
-    if (hasEdit) return 'edit';
-    if (aCount === recipeCount) return 'approve';
-    if (aCount === 0) return 'accent';
-    return 'accent';
-  }, [group, assets, recipeCount]);
 
   const statusCounts = useMemo(() => {
     const counts = {
@@ -1565,7 +1551,7 @@ const AdGroupDetail = () => {
                 console.error("Failed to update due date", err);
               }
             }}
-            className="border p-1 rounded text-black dark:text-black"
+            className="border p-1 rounded"
           />
         ) : (
           <span>
@@ -1573,51 +1559,6 @@ const AdGroupDetail = () => {
               ? group.dueDate.toDate().toLocaleDateString()
               : "N/A"}
           </span>
-        )}
-        {isAdmin && (
-          <div className="relative ml-1">
-            <button
-              onClick={() => setColorMenuOpen((v) => !v)}
-              className={`w-4 h-4 rounded-full border border-gray-400 ${
-                {
-                  accent: 'bg-accent',
-                  approve: 'bg-[var(--approve-color)]',
-                  edit: 'bg-[var(--edit-color)]',
-                  gray: 'bg-gray-400',
-                  reject: 'bg-[var(--reject-color)]',
-                }[computedCardColor]
-              }`}
-              aria-label="Change color"
-            />
-            {colorMenuOpen && (
-              <div className="absolute z-10 flex gap-1 p-1 mt-1 bg-white border rounded shadow dark:bg-[var(--dark-sidebar-bg)]">
-                {['approve','gray','accent','edit','reject'].map((c) => (
-                  <button
-                    key={c}
-                    onClick={async () => {
-                      setColorMenuOpen(false);
-                      try {
-                        await updateDoc(doc(db, 'adGroups', id), { cardColor: c });
-                        setGroup((p) => ({ ...p, cardColor: c }));
-                      } catch (err) {
-                        console.error('Failed to update color', err);
-                      }
-                    }}
-                    className={`w-4 h-4 rounded-full border border-gray-400 ${
-                      {
-                        accent: 'bg-accent',
-                        approve: 'bg-[var(--approve-color)]',
-                        edit: 'bg-[var(--edit-color)]',
-                        gray: 'bg-gray-400',
-                        reject: 'bg-[var(--reject-color)]',
-                      }[c]
-                    }`}
-                    aria-label={c}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
         )}
       </p>
       {group.status === "archived" && (
