@@ -42,7 +42,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
         const isActive = tab.path && currentPath.startsWith(tab.path);
         const classes =
           (isActive
-            ? 'text-accent font-medium border border-accent bg-accent-10 '
+            ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
             : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
           'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200';
         return (
