@@ -1901,7 +1901,7 @@ const AdGroupDetail = () => {
                 <h4 className="font-medium mb-1">Brief Note:</h4>
                   <div
                     style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
-                    className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded-xl border relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                  className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded-xl relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
                   >
                   <button
                     onClick={() => {
@@ -1922,7 +1922,7 @@ const AdGroupDetail = () => {
                 <h4 className="font-medium mb-1">Brief Note:</h4>
                 <div
                   style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
-                  className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded-xl border dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                  className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded-xl dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
                 >
                   {group.notes}
                 </div>
@@ -1946,7 +1946,7 @@ const AdGroupDetail = () => {
               <h4 className="font-medium mb-1">Brief Assets:</h4>
                 <div
                   style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
-                  className={`flex flex-wrap gap-2 mb-4 p-2 bg-white shadow rounded-xl border relative ${briefDrag ? "bg-accent-10" : ""} dark:bg-[var(--dark-sidebar-bg)]`}
+                  className={`flex flex-wrap gap-2 mb-4 p-2 bg-white shadow rounded-xl relative ${briefDrag ? "bg-accent-10" : ""} dark:bg-[var(--dark-sidebar-bg)]`}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setBriefDrag(true);
