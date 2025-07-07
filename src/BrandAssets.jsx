@@ -96,14 +96,21 @@ const BrandAssets = ({ brandCode, onClose, inline = false }) => {
 
   if (inline) {
     return (
-      <div className="mb-4 bg-white p-4 rounded shadow max-w-md w-full overflow-auto relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+      <div
+        className="mb-4 bg-white p-4 rounded shadow max-w-md w-full overflow-auto relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+        style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
+      >
         {content}
       </div>
     );
   }
 
   return (
-    <Modal sizeClass="max-w-md w-full" className="relative overflow-auto">
+    <Modal
+      sizeClass="max-w-md w-full"
+      className="relative overflow-auto"
+      style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
+    >
       {content}
     </Modal>
   );
