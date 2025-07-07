@@ -245,15 +245,15 @@ const AdminAdGroups = () => {
                 <option value="brand">Brand</option>
                 <option value="name">Group Name</option>
               </select>
-              <label className="text-sm flex items-center">
-                <input
-                  type="checkbox"
-                  className="mr-1"
-                  checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
-              />
-              Show archived
-            </label>
+              <button
+                type="button"
+                onClick={() => setShowArchived((p) => !p)}
+                aria-pressed={showArchived}
+                className="btn-secondary flex items-center gap-1 text-sm"
+              >
+                <FiArchive />
+                {showArchived ? 'Hide archived' : 'Show archived'}
+              </button>
               <input
                 type="text"
                 placeholder="Filter"
