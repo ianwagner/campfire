@@ -94,11 +94,11 @@ const AssetPickerModal = ({ brandCode: propBrandCode = '', onSelect, onClose }) 
         </div>
         <div className="columns-2 sm:columns-3 gap-2">
           {filtered.map((a) => (
-            <Button
+            <button
               key={a.id}
               type="button"
               onClick={() => onSelect && onSelect(a)}
-              className="break-inside-avoid mb-2 w-full"
+              className="break-inside-avoid mb-2 w-full rounded"
             >
               {a.thumbnailUrl || a.url || a.firebaseUrl ? (
                 <img
@@ -123,7 +123,7 @@ const AssetPickerModal = ({ brandCode: propBrandCode = '', onSelect, onClose }) 
                   {normalizeAssetType(a.type || a.assetType) === 'video' ? <FiVideo /> : <FiImage />}
                 </span>
               )}
-            </Button>
+            </button>
           ))}
         </div>
       </div>
