@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp } from 'firebase/firestore';
-import { FiPlus, FiList, FiColumns } from 'react-icons/fi';
+import { FiPlus, FiList, FiColumns, FiArchive } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import { useNavigate } from 'react-router-dom';
 import Table from './components/common/Table';
@@ -112,6 +112,20 @@ const AdminRequests = () => {
     }
   };
 
+  const handleArchive = async (id) => {
+    if (!window.confirm('Archive this request?')) return;
+    try {
+      await updateDoc(doc(db, 'requests', id), {
+        status: 'archived',
+        archivedAt: serverTimestamp(),
+        archivedBy: auth.currentUser?.uid || null,
+      });
+      setRequests((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      console.error('Failed to archive request', err);
+    }
+  };
+
   const handleStatusChange = async (id, status) => {
     try {
       await updateDoc(doc(db, 'requests', id), { status });
@@ -156,6 +170,8 @@ const AdminRequests = () => {
         dueDate: req.dueDate || null,
         clientNote: '',
       });
+      await updateDoc(doc(db, 'requests', req.id), { status: 'done' });
+      setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, status: 'done' } : r)));
       navigate(`/ad-group/${docRef.id}`);
     } catch (err) {
       console.error('Failed to create group', err);
@@ -227,6 +243,10 @@ const AdminRequests = () => {
                         <div className="flex items-center justify-center">
                           <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
                           <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                          <button onClick={() => handleArchive(req.id)} className="btn-action ml-2" aria-label="Archive">
+                            <FiArchive />
+                            <span className="text-[14px]">Archive</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -276,6 +296,10 @@ const AdminRequests = () => {
                         <div className="flex items-center justify-center">
                           <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
                           <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                          <button onClick={() => handleArchive(req.id)} className="btn-action ml-2" aria-label="Archive">
+                            <FiArchive />
+                            <span className="text-[14px]">Archive</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -325,6 +349,10 @@ const AdminRequests = () => {
                         <div className="flex items-center justify-center">
                           <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
                           <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                          <button onClick={() => handleArchive(req.id)} className="btn-action ml-2" aria-label="Archive">
+                            <FiArchive />
+                            <span className="text-[14px]">Archive</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -372,6 +400,10 @@ const AdminRequests = () => {
                         <div className="flex items-center justify-center">
                           <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
                           <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                          <button onClick={() => handleArchive(req.id)} className="btn-action ml-2" aria-label="Archive">
+                            <FiArchive />
+                            <span className="text-[14px]">Archive</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -403,14 +435,15 @@ const AdminRequests = () => {
                 ) : (
                   <>
                     {grouped[status].map((req) => (
-                      <RequestCard
-                        key={req.id}
-                        request={req}
-                        onEdit={startEdit}
-                        onDelete={handleDelete}
-                        onDragStart={handleDragStart}
-                        onCreateGroup={handleCreateGroup}
-                      />
+                        <RequestCard
+                          key={req.id}
+                          request={req}
+                          onEdit={startEdit}
+                          onDelete={handleDelete}
+                          onArchive={handleArchive}
+                          onDragStart={handleDragStart}
+                          onCreateGroup={handleCreateGroup}
+                        />
                     ))}
                   </>
                 )}

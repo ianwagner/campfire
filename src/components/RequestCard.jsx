@@ -1,8 +1,8 @@
 import React from 'react';
-import { FiEdit2, FiTrash } from 'react-icons/fi';
+import { FiEdit2, FiTrash, FiArchive } from 'react-icons/fi';
 import StatusBadge from './StatusBadge.jsx';
 
-const RequestCard = ({ request, onEdit, onDelete, onCreateGroup, onDragStart }) => (
+const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart }) => (
   <div
     className="bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded-lg shadow-md p-3 space-y-1 w-[220px] sm:w-[300px]"
     draggable
@@ -38,12 +38,23 @@ const RequestCard = ({ request, onEdit, onDelete, onCreateGroup, onDragStart }) 
         <button onClick={() => onDelete(request.id)} className="btn-action btn-delete" aria-label="Delete">
           <FiTrash />
         </button>
+        <button onClick={() => onArchive(request.id)} className="btn-action" aria-label="Archive">
+          <FiArchive />
+        </button>
       </div>
     </div>
     <div className="text-right">
-      <button onClick={() => onCreateGroup(request)} className="btn-primary mt-2 text-sm">
-        Create Ad Group
-      </button>
+      {request.status === 'done' ? (
+        <span className="text-sm text-gray-500">Ad Group Created</span>
+      ) : (
+        <button
+          onClick={() => onCreateGroup(request)}
+          className={`btn-primary mt-2 text-sm ${request.status !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
+          disabled={request.status !== 'ready'}
+        >
+          Create Ad Group
+        </button>
+      )}
     </div>
   </div>
 );
