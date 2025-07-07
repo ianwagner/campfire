@@ -55,7 +55,7 @@
     --table-row-alt-bg: var(--dark-sidebar-bg);
     --table-text-color: #9ca3af; /* gray-400 */
     /* default border color for dark mode */
-    --border-color-default: #4b5563; /* gray-600 */
+    --border-color-default: #1c242e;
   }
   body {
     @apply bg-white text-gray-900 dark:bg-[var(--dark-bg)] dark:text-[var(--dark-text)];
