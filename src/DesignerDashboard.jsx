@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import AdGroupCard from './components/AdGroupCard.jsx';
+import parseAdFilename from './utils/parseAdFilename';
 import {
   collection,
   getDocs,
@@ -9,7 +10,6 @@ import {
   doc,
 } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
-import deleteGroup from './utils/deleteGroup';
 import useUserRole from './useUserRole';
 import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
@@ -22,6 +22,14 @@ const DesignerDashboard = () => {
   const { role, brandCodes } = useUserRole(user?.uid);
 
   const [shareInfo, setShareInfo] = useState(null);
+
+  const kanbanColumns = [
+    { label: 'Pending', statuses: ['pending'] },
+    { label: 'Briefed', statuses: ['briefed'] },
+    { label: 'Designed', statuses: ['ready'] },
+    { label: 'In Review/Review Pending', statuses: ['in review', 'review pending'] },
+    { label: 'Reviewed', statuses: ['reviewed'] },
+  ];
 
   const handleShare = async (id) => {
     let url = `${window.location.origin}/review/${id}`;
@@ -62,39 +70,38 @@ const DesignerDashboard = () => {
           snap.docs.map(async (d) => {
             const data = d.data();
             let recipeCount = data.recipeCount;
-            if (recipeCount === undefined) {
-              try {
-                const recipesSnap = await getDocs(
-                  collection(db, 'adGroups', d.id, 'recipes')
-                );
-                recipeCount = recipesSnap.size;
-              } catch (err) {
-                console.error('Failed to load recipes', err);
-                recipeCount = 0;
-              }
-            }
-
             let assetCount = 0;
-            let hasEdit = false;
+            let readyCount = 0;
+            const set = new Set();
             try {
               const assetSnap = await getDocs(
                 collection(db, 'adGroups', d.id, 'assets')
               );
-              assetCount = assetSnap.size;
-              hasEdit = assetSnap.docs.some((adDoc) => {
-                const ad = adDoc.data();
-                return ad.status === 'edit_requested' && !ad.isResolved;
+              assetCount = assetSnap.docs.length;
+              assetSnap.docs.forEach((adDoc) => {
+                const adData = adDoc.data();
+                if (adData.status === 'ready') readyCount += 1;
+                if (recipeCount === undefined) {
+                  const info = parseAdFilename(adData.filename || '');
+                  if (info.recipeCode) set.add(info.recipeCode);
+                }
               });
+              if (recipeCount === undefined) recipeCount = set.size;
             } catch (err) {
               console.error('Failed to load assets', err);
+              if (recipeCount === undefined) recipeCount = 0;
             }
-
             return {
               id: d.id,
               ...data,
               recipeCount,
               assetCount,
-              hasEdit,
+              readyCount,
+              counts: {
+                approved: data.approvedCount || 0,
+                rejected: data.rejectedCount || 0,
+                edit: data.editCount || 0,
+              },
             };
           })
         );
@@ -120,15 +127,6 @@ const DesignerDashboard = () => {
     fetchGroups();
   }, [brandCodes]);
 
-  const handleDeleteGroup = async (groupId, brandCode, groupName) => {
-    if (!window.confirm('Delete this group?')) return;
-    try {
-      await deleteGroup(groupId, brandCode, groupName);
-      setGroups((prev) => prev.filter((g) => g.id !== groupId));
-    } catch (err) {
-      console.error('Failed to delete group', err);
-    }
-  };
 
   return (
     <div className="min-h-screen p-4">
@@ -141,41 +139,32 @@ const DesignerDashboard = () => {
         ) : groups.length === 0 ? (
           <p>No ad groups found.</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {groups.map((g) => {
-              const colorMap = {
-                approve:
-                  'bg-[var(--approve-color-10)] border-[var(--approve-color)] text-approve',
-                edit:
-                  'bg-[var(--edit-color-10)] border-[var(--edit-color)] text-edit',
-                accent: 'bg-accent-10 border-accent text-accent',
-                gray: 'bg-gray-300 border-gray-400 text-gray-600',
-                reject:
-                  'bg-[var(--reject-color-10)] border-[var(--reject-color)] text-reject',
-              };
-              const getClasses = () => {
-                if (g.cardColor && colorMap[g.cardColor]) return colorMap[g.cardColor];
-                if (g.recipeCount === 0) return colorMap.gray;
-                if (g.hasEdit) return colorMap.edit;
-                // swap accent and approved color logic
-                if (g.assetCount === g.recipeCount) return colorMap.accent;
-                if (g.assetCount === 0) return colorMap.approve;
-                return colorMap.accent;
-              };
-              return (
-                <Link key={g.id} to={`/ad-group/${g.id}`} className="flex flex-col items-center">
-                  <div className={`w-32 h-32 border rounded-2xl flex items-center justify-center ${getClasses()}`}>
-                    <span className="font-bold text-2xl">{g.recipeCount}</span>
+          <>
+            <div className="sm:hidden space-y-4">
+              {groups.map((g) => (
+                <AdGroupCard key={g.id} group={g} />
+              ))}
+            </div>
+            <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
+              <div className="min-w-max flex gap-4">
+                {kanbanColumns.map((col) => (
+                  <div key={col.label} className="flex-shrink-0 w-[240px] sm:w-[320px]">
+                    <h3 className="mb-2">{col.label}</h3>
+                    <div
+                      className="bg-[#F7F7F7] dark:bg-[#0C1115] border border-gray-300 dark:border-gray-600 rounded-t-[1rem] rounded-b-[1rem] flex flex-col items-center gap-4 p-[0.6rem]"
+                      style={{ minHeight: 'calc(-13rem + 100vh)' }}
+                    >
+                      {groups
+                        .filter((g) => col.statuses.includes(g.status))
+                        .map((g) => (
+                          <AdGroupCard key={g.id} group={g} />
+                        ))}
+                    </div>
                   </div>
-                  <p className="mt-2 font-semibold text-center text-black dark:text-[var(--dark-text)] mb-0">{g.name}</p>
-                  <p className="text-black dark:text-[var(--dark-text)] text-sm text-center">{g.brandCode}</p>
-                  {g.dueDate && (
-                    <p className="text-black dark:text-[var(--dark-text)] text-xs text-center">Due {g.dueDate.toDate().toLocaleDateString()}</p>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+            </div>
+          </>
         )}
       </div>
 
