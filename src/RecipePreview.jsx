@@ -935,7 +935,7 @@ const RecipePreview = ({
     if (orderedComponents.length > 0) {
       orderedComponents.forEach((c) => {
         c.attributes?.forEach((a) => {
-          cols.push({ key: `${c.key}.${a.key}`, label: `${c.label} - ${a.label}` });
+          cols.push({ key: `${c.key}.${a.key}`, label: `${c.label} - ${a.label}`, inputType: a.inputType || 'text' });
           if (a.key === 'assetNo' || a.key === 'assetCount') {
             assetCols.push({ key: `${c.key}.assets`, label: `${c.label} Assets` });
           }
@@ -955,7 +955,7 @@ const RecipePreview = ({
         new Set(initialResults.flatMap((r) => Object.keys(r.components || {})))
       );
       keys.forEach((k) => {
-        cols.push({ key: k, label: k });
+        cols.push({ key: k, label: k, inputType: 'text' });
       });
     }
 
@@ -1453,7 +1453,17 @@ const RecipePreview = ({
                                     ))}
                                 </select>
                               ) : null}
-                              {editing === idx ? editComponents[col.key] : r.components[col.key]}
+                              {col.inputType === 'image' ? (
+                                (editing === idx ? editComponents[col.key] : r.components[col.key]) ? (
+                                  <img
+                                    src={editing === idx ? editComponents[col.key] : r.components[col.key]}
+                                    alt={col.label}
+                                    className="max-w-[125px] w-auto h-auto"
+                                  />
+                                ) : null
+                              ) : (
+                                editing === idx ? editComponents[col.key] : r.components[col.key]
+                              )}
                             </React.Fragment>
                           )}
                         </td>

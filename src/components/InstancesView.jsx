@@ -6,6 +6,7 @@ import Table from './common/Table';
 import Button from './Button.jsx';
 import { splitCsvLine } from '../utils/csv.js';
 import { db } from '../firebase/config';
+import { uploadInstanceImage } from '../uploadInstanceImage.js';
 
 const InstancesView = () => {
   const [components, setComponents] = useState([]);
@@ -56,17 +57,32 @@ const InstancesView = () => {
     const comp = components.find((c) => c.id === component);
     if (!comp) return;
     try {
+      const vals = { ...values };
+      for (const a of comp.attributes || []) {
+        if (a.inputType === 'image') {
+          const val = values[a.key];
+          if (val?.file) {
+            // eslint-disable-next-line no-await-in-loop
+            vals[a.key] = await uploadInstanceImage(val.file, comp.key, name.trim());
+          } else if (val?.url) {
+            vals[a.key] = val.url;
+          } else {
+            vals[a.key] = '';
+          }
+        }
+      }
+
       if (editId) {
         await updateDoc(doc(db, 'componentInstances', editId), {
           componentKey: comp.key,
           name: name.trim(),
-          values,
+          values: vals,
           relationships: brandCode ? { brandCode } : {},
         });
         setInstances((i) =>
           i.map((ins) =>
             ins.id === editId
-              ? { ...ins, componentKey: comp.key, name: name.trim(), values, relationships: brandCode ? { brandCode } : {} }
+              ? { ...ins, componentKey: comp.key, name: name.trim(), values: vals, relationships: brandCode ? { brandCode } : {} }
               : ins
           )
         );
@@ -74,12 +90,12 @@ const InstancesView = () => {
         const docRef = await addDoc(collection(db, 'componentInstances'), {
           componentKey: comp.key,
           name: name.trim(),
-          values,
+          values: vals,
           relationships: brandCode ? { brandCode } : {},
         });
         setInstances((i) => [
           ...i,
-          { id: docRef.id, componentKey: comp.key, name: name.trim(), values, relationships: brandCode ? { brandCode } : {} },
+          { id: docRef.id, componentKey: comp.key, name: name.trim(), values: vals, relationships: brandCode ? { brandCode } : {} },
         ]);
       }
       resetForm();
@@ -93,7 +109,20 @@ const InstancesView = () => {
     const comp = components.find((c) => c.key === inst.componentKey);
     setComponent(comp ? comp.id : '');
     setName(inst.name);
-    setValues(inst.values || {});
+    const vals = {};
+    if (comp) {
+      comp.attributes?.forEach((a) => {
+        const raw = inst.values?.[a.key];
+        if (a.inputType === 'image') {
+          vals[a.key] = raw ? { url: raw, file: null } : { url: '', file: null };
+        } else {
+          vals[a.key] = raw;
+        }
+      });
+    } else {
+      Object.assign(vals, inst.values || {});
+    }
+    setValues(vals);
     setBrandCode(inst.relationships?.brandCode || '');
   };
 
@@ -269,6 +298,25 @@ const InstancesView = () => {
                     <textarea className="w-full p-2 border rounded" value={val || ''} onChange={(e) => handleChange(e.target.value)} />
                   ) : a.inputType === 'list' ? (
                     <TagInput id={`attr-${a.key}`} value={toArray(val)} onChange={handleChange} />
+                  ) : a.inputType === 'image' ? (
+                    <div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) =>
+                          handleChange({
+                            url: e.target.files[0]
+                              ? URL.createObjectURL(e.target.files[0])
+                              : val?.url || '',
+                            file: e.target.files[0] || null,
+                          })
+                        }
+                        className="w-full p-2 border rounded"
+                      />
+                      {val?.url && (
+                        <img src={val.url} alt={a.label} className="mt-1 max-w-[125px] w-auto h-auto" />
+                      )}
+                    </div>
                   ) : (
                     <input className="w-full p-2 border rounded" type={a.inputType} value={val || ''} onChange={(e) => handleChange(e.target.value)} />
                   )}
@@ -338,6 +386,25 @@ const InstancesView = () => {
                           <textarea className="w-full p-2 border rounded" value={val || ''} onChange={(e) => handleChange(e.target.value)} />
                         ) : a.inputType === 'list' ? (
                           <TagInput id={`modal-attr-${a.key}`} value={toArray(val)} onChange={handleChange} />
+                        ) : a.inputType === 'image' ? (
+                          <div>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) =>
+                                handleChange({
+                                  url: e.target.files[0]
+                                    ? URL.createObjectURL(e.target.files[0])
+                                    : val?.url || '',
+                                  file: e.target.files[0] || null,
+                                })
+                              }
+                              className="w-full p-2 border rounded"
+                            />
+                            {val?.url && (
+                              <img src={val.url} alt={a.label} className="mt-1 max-w-[125px] w-auto h-auto" />
+                            )}
+                          </div>
                         ) : (
                           <input className="w-full p-2 border rounded" type={a.inputType} value={val || ''} onChange={(e) => handleChange(e.target.value)} />
                         )}
