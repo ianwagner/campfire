@@ -88,6 +88,7 @@ const Review = forwardRef(
   const [allAds, setAllAds] = useState([]); // includes all non-pending versions
   const [versionModal, setVersionModal] = useState(null); // {current, previous}
   const [versionView, setVersionView] = useState('current');
+  const [showPrevVersion, setShowPrevVersion] = useState(false);
   const [finalGallery, setFinalGallery] = useState(false);
   const [secondPass, setSecondPass] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
@@ -130,6 +131,10 @@ const Review = forwardRef(
   useEffect(() => {
     lockedByUidRef.current = lockedByUid;
   }, [lockedByUid]);
+
+  useEffect(() => {
+    setShowPrevVersion(false);
+  }, [currentIndex]);
 
 
   useImperativeHandle(ref, () => ({
@@ -614,14 +619,21 @@ useEffect(() => {
   }, [agencyId, agency.logoUrl]);
 
   const currentAd = reviewAds[currentIndex];
+  const previousAd = useMemo(() => {
+    if (!currentAd || !currentAd.parentAdId) return null;
+    return allAds.find((a) => a.assetId === currentAd.parentAdId) || null;
+  }, [currentAd, allAds]);
+
+  const displayAd = showPrevVersion && previousAd ? previousAd : currentAd;
+
   const adUrl =
-    currentAd && typeof currentAd === 'object'
-      ? currentAd.adUrl || currentAd.firebaseUrl
-      : currentAd;
+    displayAd && typeof displayAd === 'object'
+      ? displayAd.adUrl || displayAd.firebaseUrl
+      : displayAd;
   const brandCode =
-    currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
+    displayAd && typeof displayAd === 'object' ? displayAd.brandCode : undefined;
   const groupName =
-    currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
+    displayAd && typeof displayAd === 'object' ? displayAd.groupName : undefined;
   const selectedResponse = responses[adUrl]?.response;
   const showSecondView = secondPass && selectedResponse && !editing;
   // show next step as soon as a decision is made
@@ -640,6 +652,13 @@ useEffect(() => {
   };
 
   const closeVersionModal = () => setVersionModal(null);
+
+  const toggleVersion = () => {
+    if (!currentAd || !currentAd.parentAdId) return;
+    const prev = allAds.find((a) => a.assetId === currentAd.parentAdId);
+    if (!prev) return;
+    setShowPrevVersion((v) => !v);
+  };
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
@@ -1557,7 +1576,9 @@ if (
   )}
 </div>
             {currentAd && (currentAd.version || 1) > 1 && (
-              <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
+              <span onClick={toggleVersion} className="version-badge cursor-pointer">
+                V{showPrevVersion && previousAd ? previousAd.version || 1 : currentAd.version || 1}
+              </span>
             )}
               {otherSizes.map((a, idx) => (
                 isVideoUrl(a.firebaseUrl) ? (
