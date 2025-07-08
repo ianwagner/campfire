@@ -1,6 +1,21 @@
 import React from 'react';
-import { FiEdit2, FiTrash, FiArchive } from 'react-icons/fi';
+import {
+  FiEdit2,
+  FiTrash,
+  FiArchive,
+  FiFilePlus,
+  FiPackage,
+  FiAlertOctagon,
+  FiZap,
+} from 'react-icons/fi';
 import StatusBadge from './StatusBadge.jsx';
+
+const typeIcons = {
+  newAds: FiFilePlus,
+  newBrand: FiPackage,
+  bug: FiAlertOctagon,
+  feature: FiZap,
+};
 
 const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart }) => (
   <div
@@ -10,6 +25,11 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
   >
     <div className="flex items-start justify-between">
       <div>
+        {typeIcons[request.type] && (
+          <div className="text-lg mb-1 text-gray-600 dark:text-gray-300">
+            {React.createElement(typeIcons[request.type])}
+          </div>
+        )}
         {request.title && (
           <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
             {request.title}
