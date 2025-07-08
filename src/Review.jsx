@@ -752,11 +752,22 @@ useEffect(() => {
   const currentRecipeGroup = recipeGroups.find(
     (g) => g.recipeCode === currentRecipe
   );
-  const otherSizes = currentRecipeGroup
-    ? currentRecipeGroup.assets.filter(
-        (a) => (a.adUrl || a.firebaseUrl) !== adUrl
-      )
-    : [];
+  const sizeMap = currentRecipeGroup
+    ? currentRecipeGroup.assets.reduce((map, a) => {
+        const aspect =
+          a.aspectRatio ||
+          parseAdFilename(a.filename || '').aspectRatio ||
+          '';
+        if (!map[aspect] || (map[aspect].version || 1) < (a.version || 1)) {
+          map[aspect] = a;
+        }
+        return map;
+      }, {})
+    : {};
+  const sizeList = Object.values(sizeMap);
+  const otherSizes = sizeList.filter(
+    (a) => (a.adUrl || a.firebaseUrl) !== adUrl
+  );
 
   const currentAspect = (
     currentAd?.aspectRatio ||
@@ -1477,12 +1488,12 @@ if (
             />
           </div>
         </div>
-        {currentRecipeGroup && currentRecipeGroup.assets.length > 1 && (
+        {currentRecipeGroup && sizeList.length > 1 && (
           <button
             onClick={() => setShowSizes((p) => !p)}
             className="text-xs text-gray-500 mb-2 px-2 py-0.5 rounded-full transition-colors hover:bg-gray-200"
           >
-            {currentRecipeGroup.assets.length} sizes
+            {sizeList.length} sizes
           </button>
         )}
         <div className="flex justify-center relative">
