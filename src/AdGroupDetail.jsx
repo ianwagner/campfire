@@ -460,10 +460,13 @@ const AdGroupDetail = () => {
           const uid = h.updatedBy;
           if (uid) uids.add(uid);
           all.push({
+            id: d.id,
+            assetId: asset.id,
             lastUpdatedAt: h.updatedAt,
             email: uid || "N/A",
             status: h.status,
             comment: h.comment || "",
+            copyEdit: h.copyEdit || "",
           });
         });
       }
@@ -507,10 +510,12 @@ const AdGroupDetail = () => {
         const uid = data.updatedBy;
         if (uid) uids.add(uid);
         list.push({
+          id: d.id,
           lastUpdatedAt: data.updatedAt,
           email: uid || "N/A",
           status: data.status,
           comment: data.comment || "",
+          copyEdit: data.copyEdit || "",
         });
       });
 
@@ -531,7 +536,13 @@ const AdGroupDetail = () => {
       list.forEach((obj) => {
         if (userMap[obj.email]) obj.email = userMap[obj.email];
       });
-      setHistoryAsset({ filename: asset.filename, assets: list });
+      const info = parseAdFilename(asset.filename || "");
+      setHistoryAsset({
+        filename: asset.filename,
+        assetId: asset.id,
+        recipeCode: info.recipeCode || "",
+        assets: list,
+      });
     } catch (err) {
       console.error("Failed to load ad history", err);
     }
@@ -565,6 +576,25 @@ const AdGroupDetail = () => {
     setHistoryAsset(null);
     setViewRecipe(null);
     setMetadataRecipe(null);
+  };
+
+  const deleteHistoryEntry = async (assetId, entryId) => {
+    if (!window.confirm("Delete this history entry?")) return;
+    try {
+      await deleteDoc(doc(db, "adGroups", id, "assets", assetId, "history", entryId));
+      setHistoryRecipe((prev) =>
+        prev
+          ? { ...prev, assets: prev.assets.filter((h) => h.id !== entryId) }
+          : prev,
+      );
+      setHistoryAsset((prev) =>
+        prev && prev.assetId === assetId
+          ? { ...prev, assets: prev.assets.filter((h) => h.id !== entryId) }
+          : prev,
+      );
+    } catch (err) {
+      console.error("Failed to delete history entry", err);
+    }
   };
 
   const resetGroup = async () => {
@@ -2104,18 +2134,34 @@ const AdGroupDetail = () => {
           </h3>
           <ul className="mb-2 space-y-2 max-h-[60vh] overflow-auto">
             {historyRecipe.assets.map((a, idx) => (
-              <li key={idx} className="border-b pb-2 last:border-none">
-                <div className="text-sm font-medium">
-                  {a.lastUpdatedAt
-                    ? a.lastUpdatedAt.toDate
-                      ? a.lastUpdatedAt.toDate().toLocaleString()
-                      : new Date(a.lastUpdatedAt).toLocaleString()
-                    : ""}{" "}
-                  - {a.email}
+              <li key={idx} className="border-b pb-2 last:border-none flex justify-between items-start">
+                <div>
+                  <div className="text-sm font-medium">
+                    {a.lastUpdatedAt
+                      ? a.lastUpdatedAt.toDate
+                        ? a.lastUpdatedAt.toDate().toLocaleString()
+                        : new Date(a.lastUpdatedAt).toLocaleString()
+                      : ""}{" "}
+                    - {a.email}
+                  </div>
+                  <div className="text-sm">Status: {a.status}</div>
+                  {a.comment && (
+                    <div className="text-sm italic">Note: {a.comment}</div>
+                  )}
+                  {a.copyEdit && (
+                    <div className="text-sm italic">
+                      Edit Request: {renderCopyEditDiff(historyRecipe.recipeCode, a.copyEdit) || a.copyEdit}
+                    </div>
+                  )}
                 </div>
-                <div className="text-sm">Status: {a.status}</div>
-                {a.comment && (
-                  <div className="text-sm italic">Note: {a.comment}</div>
+                {isAdmin && (
+                  <button
+                    onClick={() => deleteHistoryEntry(a.assetId, a.id)}
+                    className="btn-delete"
+                    aria-label="Delete"
+                  >
+                    <FiTrash />
+                  </button>
                 )}
               </li>
             ))}
@@ -2131,18 +2177,34 @@ const AdGroupDetail = () => {
           <h3 className="mb-2 font-semibold">Ad {historyAsset.filename} History</h3>
           <ul className="mb-2 space-y-2 max-h-[60vh] overflow-auto">
             {historyAsset.assets.map((a, idx) => (
-              <li key={idx} className="border-b pb-2 last:border-none">
-                <div className="text-sm font-medium">
+              <li key={idx} className="border-b pb-2 last:border-none flex justify-between items-start">
+                <div>
+                  <div className="text-sm font-medium">
                   {a.lastUpdatedAt
                     ? a.lastUpdatedAt.toDate
                       ? a.lastUpdatedAt.toDate().toLocaleString()
                       : new Date(a.lastUpdatedAt).toLocaleString()
                     : ""}{" "}
-                  - {a.email}
+                    - {a.email}
+                  </div>
+                  <div className="text-sm">Status: {a.status}</div>
+                  {a.comment && (
+                    <div className="text-sm italic">Note: {a.comment}</div>
+                  )}
+                  {a.copyEdit && (
+                    <div className="text-sm italic">
+                      Edit Request: {renderCopyEditDiff(historyAsset.recipeCode, a.copyEdit) || a.copyEdit}
+                    </div>
+                  )}
                 </div>
-                <div className="text-sm">Status: {a.status}</div>
-                {a.comment && (
-                  <div className="text-sm italic">Note: {a.comment}</div>
+                {isAdmin && (
+                  <button
+                    onClick={() => deleteHistoryEntry(historyAsset.assetId, a.id)}
+                    className="btn-delete"
+                    aria-label="Delete"
+                  >
+                    <FiTrash />
+                  </button>
                 )}
               </li>
             ))}
