@@ -29,18 +29,18 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-test('opens modal when Request Ads clicked', async () => {
+test('opens modal when Add Ticket clicked', async () => {
   getDocs.mockResolvedValue({ docs: [] });
   render(
     <MemoryRouter>
       <AdminRequests />
     </MemoryRouter>
   );
-  fireEvent.click(screen.getByText('Request Ads'));
+  fireEvent.click(screen.getByText('Add Ticket'));
   expect(screen.getByText('Save')).toBeInTheDocument();
 });
 
-test('saving request adds item to pending table', async () => {
+test('saving ticket adds item to pending table', async () => {
   getDocs.mockResolvedValue({ docs: [] });
   render(
     <MemoryRouter>
@@ -48,9 +48,9 @@ test('saving request adds item to pending table', async () => {
     </MemoryRouter>
   );
 
-  await waitFor(() => expect(screen.getAllByText('No requests.').length).toBe(4));
-  fireEvent.click(screen.getByText('Request Ads'));
+  await waitFor(() => expect(screen.getAllByText('No tickets.').length).toBe(4));
+  fireEvent.click(screen.getByText('Add Ticket'));
   fireEvent.click(screen.getByText('Save'));
   await waitFor(() => expect(addDoc).toHaveBeenCalled());
-  await waitFor(() => expect(screen.getAllByText('No requests.').length).toBe(3));
+  await waitFor(() => expect(screen.getAllByText('No tickets.').length).toBe(3));
 });

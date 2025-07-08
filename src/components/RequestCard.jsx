@@ -15,12 +15,16 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
             {request.title}
           </p>
         )}
-        <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
-          {request.brandCode}
-        </p>
-        <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
-          {request.dueDate ? request.dueDate.toDate().toLocaleDateString() : ''}
-        </p>
+        {request.brandCode && (
+          <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
+            {request.brandCode}
+          </p>
+        )}
+        {request.dueDate && (
+          <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
+            {request.dueDate.toDate().toLocaleDateString()}
+          </p>
+        )}
       </div>
       <StatusBadge status={request.status} className="flex-shrink-0" />
     </div>
@@ -30,7 +34,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
       </p>
     )}
     <div className="flex items-center justify-between text-sm">
-      <span># Ads: {request.numAds}</span>
+      {request.type === 'newAds' && <span># Ads: {request.numAds}</span>}
       <div className="flex gap-2">
         <button onClick={() => onEdit(request)} className="btn-action" aria-label="Edit">
           <FiEdit2 />
@@ -44,16 +48,20 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
       </div>
     </div>
     <div className="text-right">
-      {request.status === 'done' ? (
-        <span className="text-sm text-gray-500">Ad Group Created</span>
-      ) : (
-        <button
-          onClick={() => onCreateGroup(request)}
-          className={`btn-primary mt-2 text-sm ${request.status !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
-          disabled={request.status !== 'ready'}
-        >
-          Create Ad Group
-        </button>
+      {request.type === 'bug' || request.type === 'feature' ? null : (
+        request.status === 'done' ? (
+          <span className="text-sm text-gray-500">
+            {request.type === 'newBrand' ? 'Brand Created' : 'Ad Group Created'}
+          </span>
+        ) : (
+          <button
+            onClick={() => onCreateGroup(request)}
+            className={`btn-primary mt-2 text-sm ${request.status !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={request.status !== 'ready'}
+          >
+            {request.type === 'newBrand' ? 'Create Brand' : 'Create Ad Group'}
+          </button>
+        )
       )}
     </div>
   </div>
