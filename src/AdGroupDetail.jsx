@@ -1789,7 +1789,10 @@ const AdGroupDetail = () => {
           <h4 className="font-medium mb-1">Responses</h4>
           <ul className="space-y-2">
             {responses.map((r) => (
-              <li key={r.id} className="border p-2 rounded bg-white shadow">
+              <li
+                key={r.id}
+                className="border p-2 rounded bg-white shadow dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+              >
                 <div className="text-sm font-medium capitalize">
                   {r.response}
                 </div>
@@ -1797,7 +1800,7 @@ const AdGroupDetail = () => {
                 {r.copyEdit && (
                   <div className="text-sm italic">copy edit: {r.copyEdit}</div>
                 )}
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-gray-500 dark:text-gray-400">
                   {r.timestamp
                     ? r.timestamp.toDate
                       ? r.timestamp.toDate().toLocaleString()
