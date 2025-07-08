@@ -412,7 +412,7 @@ useEffect(() => {
           const q = query(
             collectionGroup(db, 'assets'),
             where('brandCode', 'in', brandCodes),
-            where('status', 'in', ['ready', 'archived']),
+            where('status', '==', 'ready'),
             where('isResolved', '==', false)
           );
           const snap = await getDocs(q);

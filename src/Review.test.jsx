@@ -746,48 +746,6 @@ test('ad container is not remounted when currentIndex changes', async () => {
   expect(newContainer).toBe(initialContainer);
 });
 
-test('toggles to previous ad when version badge clicked', async () => {
-  const assetSnapshot = {
-    docs: [
-      {
-        id: 'prev',
-        data: () => ({
-          firebaseUrl: 'prev.png',
-          status: 'archived',
-          adGroupId: 'group1',
-          brandCode: 'BR1',
-        }),
-      },
-      {
-        id: 'curr',
-        data: () => ({
-          firebaseUrl: 'curr.png',
-          status: 'ready',
-          parentAdId: 'prev',
-          adGroupId: 'group1',
-          brandCode: 'BR1',
-          version: 2,
-        }),
-      },
-    ],
-  };
-
-  getDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
-    return Promise.resolve({ docs: [] });
-  });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
-
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
-
-  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'curr.png'));
-
-  fireEvent.click(screen.getByText('V2'));
-
-  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'prev.png'));
-});
-
 test('shows alert when locking fails due to permissions', async () => {
   const assetSnapshot = {
     docs: [
