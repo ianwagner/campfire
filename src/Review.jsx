@@ -36,6 +36,7 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import GalleryModal from './components/GalleryModal.jsx';
 import VersionModal from './components/VersionModal.jsx';
+import VersionHistory from './components/VersionHistory.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import isVideoUrl from './utils/isVideoUrl';
@@ -1579,6 +1580,9 @@ if (
               <span onClick={toggleVersion} className="version-badge cursor-pointer">
                 V{showPrevVersion && previousAd ? previousAd.version || 1 : currentAd.version || 1}
               </span>
+            )}
+            {showPrevVersion && previousAd && (
+              <VersionHistory asset={previousAd} />
             )}
               {otherSizes.map((a, idx) => (
                 isVideoUrl(a.firebaseUrl) ? (
