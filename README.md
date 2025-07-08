@@ -256,7 +256,7 @@ variables so you can tweak the palette:
 :root {
   --accent-color: #ea580c;
   --accent-color-10: rgba(234, 88, 12, 0.1);
-  --dark-bg: #111827;
+  --dark-bg: #0d1116;
   --dark-text: #f3f4f6;
   --dark-sidebar-bg: #1f2937;
   --dark-sidebar-hover: #374151;
