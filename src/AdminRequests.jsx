@@ -9,11 +9,17 @@ import TabButton from './components/TabButton.jsx';
 import RequestCard from './components/RequestCard.jsx';
 
 const emptyForm = {
+  type: 'newAds',
   brandCode: '',
   title: '',
   dueDate: '',
   numAds: 1,
   details: '',
+  priority: 'low',
+  name: '',
+  agencyId: '',
+  toneOfVoice: '',
+  offering: '',
 };
 
 const AdminRequests = () => {
@@ -69,22 +75,34 @@ const AdminRequests = () => {
   const startEdit = (req) => {
     setEditId(req.id);
     setForm({
+      type: req.type || 'newAds',
       brandCode: req.brandCode || '',
       title: req.title || '',
       dueDate: req.dueDate ? req.dueDate.toDate().toISOString().slice(0,10) : '',
       numAds: req.numAds || 1,
       details: req.details || '',
+      priority: req.priority || 'low',
+      name: req.name || '',
+      agencyId: req.agencyId || '',
+      toneOfVoice: req.toneOfVoice || '',
+      offering: req.offering || '',
     });
     setShowModal(true);
   };
 
   const handleSave = async () => {
     const data = {
+      type: form.type,
       brandCode: form.brandCode,
       title: form.title,
       dueDate: form.dueDate ? Timestamp.fromDate(new Date(form.dueDate)) : null,
       numAds: Number(form.numAds) || 0,
       details: form.details,
+      priority: form.priority,
+      name: form.name,
+      agencyId: form.agencyId,
+      toneOfVoice: form.toneOfVoice,
+      offering: form.offering,
       status: editId ? (requests.find((r) => r.id === editId)?.status || 'new') : 'new',
     };
     try {
@@ -148,33 +166,50 @@ const AdminRequests = () => {
   const allowDrop = (e) => e.preventDefault();
 
   const handleCreateGroup = async (req) => {
-    const groupName = req.title?.trim() || `Group ${Date.now()}`;
-    try {
-      const docRef = await addDoc(collection(db, 'adGroups'), {
-        name: groupName,
-        brandCode: req.brandCode || '',
-        notes: req.details || '',
-        uploadedBy: auth.currentUser?.uid || null,
-        createdAt: serverTimestamp(),
-        status: 'pending',
-        reviewedCount: 0,
-        approvedCount: 0,
-        editCount: 0,
-        rejectedCount: 0,
-        thumbnailUrl: '',
-        lastUpdated: serverTimestamp(),
-        visibility: 'private',
-        requireAuth: false,
-        requirePassword: false,
-        password: '',
-        dueDate: req.dueDate || null,
-        clientNote: '',
-      });
-      await updateDoc(doc(db, 'requests', req.id), { status: 'done' });
-      setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, status: 'done' } : r)));
-      navigate(`/ad-group/${docRef.id}`);
-    } catch (err) {
-      console.error('Failed to create group', err);
+    if (req.type === 'newBrand') {
+      try {
+        await addDoc(collection(db, 'brands'), {
+          code: req.brandCode || '',
+          name: req.name || '',
+          agencyId: req.agencyId || '',
+          toneOfVoice: req.toneOfVoice || '',
+          offering: req.offering || '',
+          createdAt: serverTimestamp(),
+        });
+        await updateDoc(doc(db, 'requests', req.id), { status: 'done' });
+        setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, status: 'done' } : r)));
+      } catch (err) {
+        console.error('Failed to create brand', err);
+      }
+    } else {
+      const groupName = req.title?.trim() || `Group ${Date.now()}`;
+      try {
+        const docRef = await addDoc(collection(db, 'adGroups'), {
+          name: groupName,
+          brandCode: req.brandCode || '',
+          notes: req.details || '',
+          uploadedBy: auth.currentUser?.uid || null,
+          createdAt: serverTimestamp(),
+          status: 'pending',
+          reviewedCount: 0,
+          approvedCount: 0,
+          editCount: 0,
+          rejectedCount: 0,
+          thumbnailUrl: '',
+          lastUpdated: serverTimestamp(),
+          visibility: 'private',
+          requireAuth: false,
+          requirePassword: false,
+          password: '',
+          dueDate: req.dueDate || null,
+          clientNote: '',
+        });
+        await updateDoc(doc(db, 'requests', req.id), { status: 'done' });
+        setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, status: 'done' } : r)));
+        navigate(`/ad-group/${docRef.id}`);
+      } catch (err) {
+        console.error('Failed to create group', err);
+      }
     }
   };
 
@@ -186,10 +221,10 @@ const AdminRequests = () => {
 
   return (
     <div className="min-h-screen p-4">
-      <h1 className="text-2xl mb-4">Requests</h1>
+      <h1 className="text-2xl mb-4">Tickets</h1>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <button onClick={openCreate} className="btn-primary flex items-center gap-1">
-          <FiPlus /> Request Ads
+          <FiPlus /> Add Ticket
         </button>
         <div className="flex items-center gap-2">
           <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
@@ -207,7 +242,7 @@ const AdminRequests = () => {
             {loading ? (
               <p>Loading...</p>
             ) : newReq.length === 0 ? (
-              <p>No requests.</p>
+              <p>No tickets.</p>
             ) : (
               <Table>
                 <thead>
@@ -260,7 +295,7 @@ const AdminRequests = () => {
             {loading ? (
               <p>Loading...</p>
             ) : pending.length === 0 ? (
-              <p>No requests.</p>
+              <p>No tickets.</p>
             ) : (
               <Table>
                 <thead>
@@ -313,7 +348,7 @@ const AdminRequests = () => {
             {loading ? (
               <p>Loading...</p>
             ) : ready.length === 0 ? (
-              <p>No requests.</p>
+              <p>No tickets.</p>
             ) : (
               <Table>
                 <thead>
@@ -364,7 +399,7 @@ const AdminRequests = () => {
           <div>
             <h2 className="text-xl mb-2">Done</h2>
             {done.length === 0 ? (
-              <p>No requests.</p>
+              <p>No tickets.</p>
             ) : (
               <Table>
                 <thead>
@@ -431,7 +466,7 @@ const AdminRequests = () => {
                 {loading ? (
                   <p>Loading...</p>
                 ) : grouped[status].length === 0 ? (
-                  <p>No requests.</p>
+                  <p>No tickets.</p>
                 ) : (
                   <>
                     {grouped[status].map((req) => (
@@ -456,58 +491,160 @@ const AdminRequests = () => {
 
       {showModal && (
         <Modal>
-          <h2 className="text-xl mb-4">{editId ? 'Edit Request' : 'Request Ads'}</h2>
+          <h2 className="text-xl mb-4">{editId ? 'Edit Ticket' : 'Add Ticket'}</h2>
           <div className="space-y-4">
           <div>
-            <label className="block mb-1 text-sm font-medium">Brand</label>
+            <label className="block mb-1 text-sm font-medium">Type</label>
             <select
-              value={form.brandCode}
-              onChange={(e) => setForm((f) => ({ ...f, brandCode: e.target.value }))}
+              value={form.type}
+              onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
               className="w-full p-2 border rounded"
             >
-              <option value="">Select brand</option>
-              {brands.map((code) => (
-                <option key={code} value={code}>{code}</option>
-              ))}
+              <option value="newAds">New Ads</option>
+              <option value="newBrand">New Brand</option>
+              <option value="bug">Bug</option>
+              <option value="feature">Feature</option>
             </select>
           </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium">Title</label>
-            <input
-              type="text"
-              value={form.title}
-              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              className="w-full p-2 border rounded"
-            />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium">Due Date</label>
-            <input
-              type="date"
-              value={form.dueDate}
-                onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
-                className="w-full p-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block mb-1 text-sm font-medium">Number of Ads</label>
-              <input
-                type="number"
-                min="1"
-                value={form.numAds}
-                onChange={(e) => setForm((f) => ({ ...f, numAds: e.target.value }))}
-                className="w-full p-2 border rounded"
-              />
-            </div>
-            <div>
-              <label className="block mb-1 text-sm font-medium">Details</label>
-              <textarea
-                value={form.details}
-                onChange={(e) => setForm((f) => ({ ...f, details: e.target.value }))}
-                className="w-full p-2 border rounded"
-                rows={3}
-              />
-            </div>
+          {form.type === 'newAds' && (
+            <>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Brand</label>
+                <select
+                  value={form.brandCode}
+                  onChange={(e) => setForm((f) => ({ ...f, brandCode: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select brand</option>
+                  {brands.map((code) => (
+                    <option key={code} value={code}>{code}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Title</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Due Date</label>
+                <input
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Number of Ads</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={form.numAds}
+                  onChange={(e) => setForm((f) => ({ ...f, numAds: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Details</label>
+                <textarea
+                  value={form.details}
+                  onChange={(e) => setForm((f) => ({ ...f, details: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                  rows={3}
+                />
+              </div>
+            </>
+          )}
+
+          {form.type === 'newBrand' && (
+            <>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Brand Code</label>
+                <input
+                  type="text"
+                  value={form.brandCode}
+                  onChange={(e) => setForm((f) => ({ ...f, brandCode: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Brand Name</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Agency ID</label>
+                <input
+                  type="text"
+                  value={form.agencyId}
+                  onChange={(e) => setForm((f) => ({ ...f, agencyId: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Tone of Voice</label>
+                <input
+                  type="text"
+                  value={form.toneOfVoice}
+                  onChange={(e) => setForm((f) => ({ ...f, toneOfVoice: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Offering</label>
+                <input
+                  type="text"
+                  value={form.offering}
+                  onChange={(e) => setForm((f) => ({ ...f, offering: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+            </>
+          )}
+
+          {(form.type === 'bug' || form.type === 'feature') && (
+            <>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Title</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Description</label>
+                <textarea
+                  value={form.details}
+                  onChange={(e) => setForm((f) => ({ ...f, details: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Priority</label>
+                <select
+                  value={form.priority}
+                  onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            </>
+          )}
           </div>
           <div className="text-right mt-4 space-x-2">
             <button onClick={handleSave} className="btn-primary">Save</button>

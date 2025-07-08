@@ -297,7 +297,7 @@ const App = () => {
               }
             />
             <Route
-              path="/admin/requests"
+              path="/admin/tickets"
               element={
                 user ? (
                   <RoleGuard
