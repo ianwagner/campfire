@@ -28,6 +28,7 @@ import {
   arrayUnion,
   deleteDoc,
   onSnapshot,
+  orderBy,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
@@ -35,7 +36,7 @@ import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import GalleryModal from './components/GalleryModal.jsx';
-import VersionModal from './components/VersionModal.jsx';
+import TabButton from './components/TabButton.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import isVideoUrl from './utils/isVideoUrl';
@@ -86,8 +87,8 @@ const Review = forwardRef(
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
   const [editing, setEditing] = useState(false);
   const [allAds, setAllAds] = useState([]); // includes all non-pending versions
-  const [versionModal, setVersionModal] = useState(null); // {current, previous}
-  const [versionView, setVersionView] = useState('current');
+  const [activeVersion, setActiveVersion] = useState(null); // assetId
+  const [historyMap, setHistoryMap] = useState({});
   const [finalGallery, setFinalGallery] = useState(false);
   const [secondPass, setSecondPass] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
@@ -361,6 +362,7 @@ useEffect(() => {
 
   useEffect(() => {
     setEditing(false);
+    setActiveVersion(null);
   }, [currentIndex]);
 
   useEffect(() => {
@@ -614,14 +616,32 @@ useEffect(() => {
   }, [agencyId, agency.logoUrl]);
 
   const currentAd = reviewAds[currentIndex];
+  const versions = useMemo(() => {
+    if (!currentAd) return [];
+    const root = currentAd.parentAdId || currentAd.assetId;
+    return allAds
+      .filter(
+        (a) => a.assetId === root || a.parentAdId === root,
+      )
+      .sort((a, b) => (a.version || 1) - (b.version || 1));
+  }, [currentAd, allAds]);
+  const displayedAd = useMemo(() => {
+    if (!activeVersion) return currentAd;
+    const found = versions.find((v) => v.assetId === activeVersion);
+    return found || currentAd;
+  }, [activeVersion, versions, currentAd]);
   const adUrl =
-    currentAd && typeof currentAd === 'object'
-      ? currentAd.adUrl || currentAd.firebaseUrl
-      : currentAd;
+    displayedAd && typeof displayedAd === 'object'
+      ? displayedAd.adUrl || displayedAd.firebaseUrl
+      : displayedAd;
   const brandCode =
-    currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
+    displayedAd && typeof displayedAd === 'object'
+      ? displayedAd.brandCode
+      : undefined;
   const groupName =
-    currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
+    displayedAd && typeof displayedAd === 'object'
+      ? displayedAd.groupName
+      : undefined;
   const selectedResponse = responses[adUrl]?.response;
   const showSecondView = secondPass && selectedResponse && !editing;
   // show next step as soon as a decision is made
@@ -631,15 +651,28 @@ useEffect(() => {
       : 0;
 
 
-  const openVersionModal = () => {
-    if (!currentAd || !currentAd.parentAdId) return;
-    const prev = allAds.find((a) => a.assetId === currentAd.parentAdId);
-    if (!prev) return;
-    setVersionModal({ current: currentAd, previous: prev });
-    setVersionView('current');
+  const handleVersionClick = async (ad) => {
+    if (!ad || ad.assetId === currentAd.assetId) {
+      setActiveVersion(null);
+      return;
+    }
+    setActiveVersion(ad.assetId);
+    if (!historyMap[ad.assetId]) {
+      try {
+        const snap = await getDocs(
+          query(
+            collection(db, 'adGroups', ad.adGroupId, 'assets', ad.assetId, 'history'),
+            orderBy('updatedAt', 'desc')
+          )
+        );
+        const list = snap.docs.map((d) => d.data());
+        setHistoryMap((p) => ({ ...p, [ad.assetId]: list }));
+      } catch (err) {
+        console.error('Failed to load history', err);
+        setHistoryMap((p) => ({ ...p, [ad.assetId]: [] }));
+      }
+    }
   };
-
-  const closeVersionModal = () => setVersionModal(null);
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
@@ -747,8 +780,10 @@ useEffect(() => {
     edit: 'text-black',
   };
 
-  const currentInfo = currentAd ? parseAdFilename(currentAd.filename || '') : {};
-  const currentRecipe = currentAd?.recipeCode || currentInfo.recipeCode;
+  const currentInfo = displayedAd
+    ? parseAdFilename(displayedAd.filename || '')
+    : {};
+  const currentRecipe = displayedAd?.recipeCode || currentInfo.recipeCode;
   const currentRecipeGroup = recipeGroups.find(
     (g) => g.recipeCode === currentRecipe
   );
@@ -759,7 +794,7 @@ useEffect(() => {
     : [];
 
   const currentAspect = (
-    currentAd?.aspectRatio ||
+    displayedAd?.aspectRatio ||
     currentInfo.aspectRatio ||
     '9x16'
   ).replace('x', '/');
@@ -1545,8 +1580,42 @@ if (
     />
   )}
 </div>
-            {currentAd && (currentAd.version || 1) > 1 && (
-              <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
+            {versions.length > 1 && (
+              <div className="absolute left-full top-0 ml-2 flex flex-col items-start">
+                <div className="flex space-x-1 mb-1">
+                  {versions.map((v) => (
+                    <TabButton
+                      key={v.assetId}
+                      active={(activeVersion || currentAd.assetId) === v.assetId}
+                      onClick={() => handleVersionClick(v)}
+                      className="px-2 py-0.5 text-xs"
+                    >
+                      V{v.version || 1}
+                    </TabButton>
+                  ))}
+                </div>
+                {activeVersion && historyMap[activeVersion] && (
+                  <ul className="bg-white bg-opacity-80 p-2 rounded shadow max-h-[60vh] overflow-auto w-44 text-xs space-y-1 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+                    {historyMap[activeVersion].length === 0 && (
+                      <li>No history</li>
+                    )}
+                    {historyMap[activeVersion].map((h, idx) => (
+                      <li key={idx} className="border-b pb-1 last:border-none">
+                        <div>
+                          {h.updatedAt
+                            ? h.updatedAt.toDate
+                              ? h.updatedAt.toDate().toLocaleString()
+                              : new Date(h.updatedAt).toLocaleString()
+                            : ''}{' '}- {h.updatedBy || 'unknown'}
+                        </div>
+                        <div>Status: {h.status}</div>
+                        {h.comment && <div className="italic">Note: {h.comment}</div>}
+                        {h.copyEdit && <div className="italic">Edit: {h.copyEdit}</div>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
               {otherSizes.map((a, idx) => (
                 isVideoUrl(a.firebaseUrl) ? (
@@ -1710,14 +1779,6 @@ if (
           )}
         </>
       ))}
-      {versionModal && (
-        <VersionModal
-          data={versionModal}
-          view={versionView}
-          onViewChange={setVersionView}
-          onClose={closeVersionModal}
-        />
-      )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
       {showCopyModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto p-4">
