@@ -460,7 +460,7 @@ const AdminRequests = () => {
             >
               <h2 className="text-xl mb-2 capitalize">{status}</h2>
               <div
-                className="bg-[#F7F7F7] dark:bg-[#0C1115] border border-gray-300 dark:border-gray-600 rounded-t-[1rem] rounded-b-[1rem] flex flex-col items-center gap-4 p-[0.6rem] overflow-y-auto"
+                className="bg-[#F7F7F7] dark:bg-[var(--dark-bg)] border border-gray-300 dark:border-gray-600 rounded-t-[1rem] rounded-b-[1rem] flex flex-col items-center gap-4 p-[0.6rem] overflow-y-auto"
                 style={{ maxHeight: 'calc(100vh - 13rem)' }}
               >
                 {loading ? (
