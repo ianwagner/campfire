@@ -35,6 +35,7 @@ import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import GalleryModal from './components/GalleryModal.jsx';
+import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import isVideoUrl from './utils/isVideoUrl';
@@ -85,10 +86,8 @@ const Review = forwardRef(
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
   const [editing, setEditing] = useState(false);
   const [allAds, setAllAds] = useState([]); // includes all non-pending versions
-  const [versions, setVersions] = useState([]); // ordered oldest -> latest
-  const [selectedVersion, setSelectedVersion] = useState(0); // index in versions
-  const [versionAd, setVersionAd] = useState(null); // ad object for selected version
-  const [versionHistory, setVersionHistory] = useState([]);
+  const [versionModal, setVersionModal] = useState(null); // {current, previous}
+  const [versionView, setVersionView] = useState('current');
   const [finalGallery, setFinalGallery] = useState(false);
   const [secondPass, setSecondPass] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
@@ -224,74 +223,6 @@ const Review = forwardRef(
       setModalCopies(copyCards);
     }
   }, [showCopyModal]);
-
-  useEffect(() => {
-    if (!currentAd) return;
-    const list = [];
-    let ad = currentAd;
-    while (ad) {
-      list.unshift(ad);
-      ad = allAds.find((a) => a.assetId === ad.parentAdId);
-    }
-    setVersions(list);
-    setSelectedVersion(list.length - 1);
-  }, [currentAd, allAds]);
-
-  useEffect(() => {
-    if (versions.length === 0) return;
-    const ad = versions[selectedVersion];
-    setVersionAd(ad);
-    if (selectedVersion < versions.length - 1) {
-      const fetchHistory = async () => {
-        try {
-          const snap = await getDocs(
-            query(
-              collection(db, 'adGroups', ad.adGroupId, 'assets', ad.assetId, 'history'),
-              orderBy('updatedAt', 'desc'),
-            ),
-          );
-          const list = [];
-          const uids = new Set();
-          snap.docs.forEach((d) => {
-            const data = d.data();
-            const uid = data.updatedBy;
-            if (uid) uids.add(uid);
-            list.push({
-              id: d.id,
-              lastUpdatedAt: data.updatedAt,
-              email: uid || 'N/A',
-              status: data.status,
-              comment: data.comment || '',
-              copyEdit: data.copyEdit || '',
-            });
-          });
-          const userMap = {};
-          await Promise.all(
-            Array.from(uids).map(async (uid) => {
-              try {
-                const uSnap = await getDoc(doc(db, 'users', uid));
-                userMap[uid] = uSnap.exists()
-                  ? uSnap.data().fullName || uSnap.data().email || uid
-                  : uid;
-              } catch {
-                userMap[uid] = uid;
-              }
-            }),
-          );
-          list.forEach((obj) => {
-            if (userMap[obj.email]) obj.email = userMap[obj.email];
-          });
-          setVersionHistory(list);
-        } catch (err) {
-          console.error('Failed to load ad history', err);
-          setVersionHistory([]);
-        }
-      };
-      fetchHistory();
-    } else {
-      setVersionHistory([]);
-    }
-  }, [versions, selectedVersion]);
 
 useEffect(() => {
   if (!started || !groupId || !reviewerName || reviewAds.length === 0 || forceSplash) return;
@@ -683,15 +614,14 @@ useEffect(() => {
   }, [agencyId, agency.logoUrl]);
 
   const currentAd = reviewAds[currentIndex];
-  const displayAd = versionAd || currentAd;
   const adUrl =
-    displayAd && typeof displayAd === 'object'
-      ? displayAd.adUrl || displayAd.firebaseUrl
-      : displayAd;
+    currentAd && typeof currentAd === 'object'
+      ? currentAd.adUrl || currentAd.firebaseUrl
+      : currentAd;
   const brandCode =
-    displayAd && typeof displayAd === 'object' ? displayAd.brandCode : undefined;
+    currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
-    displayAd && typeof displayAd === 'object' ? displayAd.groupName : undefined;
+    currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
   const selectedResponse = responses[adUrl]?.response;
   const showSecondView = secondPass && selectedResponse && !editing;
   // show next step as soon as a decision is made
@@ -701,6 +631,15 @@ useEffect(() => {
       : 0;
 
 
+  const openVersionModal = () => {
+    if (!currentAd || !currentAd.parentAdId) return;
+    const prev = allAds.find((a) => a.assetId === currentAd.parentAdId);
+    if (!prev) return;
+    setVersionModal({ current: currentAd, previous: prev });
+    setVersionView('current');
+  };
+
+  const closeVersionModal = () => setVersionModal(null);
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
@@ -808,8 +747,8 @@ useEffect(() => {
     edit: 'text-black',
   };
 
-  const currentInfo = displayAd ? parseAdFilename(displayAd.filename || '') : {};
-  const currentRecipe = displayAd?.recipeCode || currentInfo.recipeCode;
+  const currentInfo = currentAd ? parseAdFilename(currentAd.filename || '') : {};
+  const currentRecipe = currentAd?.recipeCode || currentInfo.recipeCode;
   const currentRecipeGroup = recipeGroups.find(
     (g) => g.recipeCode === currentRecipe
   );
@@ -820,7 +759,7 @@ useEffect(() => {
     : [];
 
   const currentAspect = (
-    displayAd?.aspectRatio ||
+    currentAd?.aspectRatio ||
     currentInfo.aspectRatio ||
     '9x16'
   ).replace('x', '/');
@@ -1547,41 +1486,6 @@ if (
           </button>
         )}
         <div className="flex justify-center relative">
-          {versions.length > 1 && (
-            <div className="absolute left-full ml-2 top-0 flex flex-col items-start">
-              <div className="flex space-x-1 mb-2">
-                {versions.map((v, idx) => (
-                  <span
-                    key={v.assetId}
-                    onClick={() => setSelectedVersion(idx)}
-                    className={`version-tag ${idx === selectedVersion ? 'version-tag-active' : ''}`}
-                  >
-                    V{v.version || idx + 1}
-                  </span>
-                ))}
-              </div>
-              {selectedVersion < versions.length - 1 && versionHistory.length > 0 && (
-                <ul className="space-y-1 text-xs max-h-[60vh] overflow-auto w-48">
-                  {versionHistory.map((h, i) => (
-                    <li key={i} className="border-b pb-1 last:border-none">
-                      <div>
-                        {h.lastUpdatedAt
-                          ? h.lastUpdatedAt.toDate
-                            ? h.lastUpdatedAt.toDate().toLocaleString()
-                            : new Date(h.lastUpdatedAt).toLocaleString()
-                          : ''}{' '}- {h.email}
-                      </div>
-                      <div>Status: {h.status}</div>
-                      {h.comment && <div className="italic">Note: {h.comment}</div>}
-                      {h.copyEdit && (
-                        <div className="italic">Edit Request: {h.copyEdit}</div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
           <div
             onTouchStart={!isSafari ? handleTouchStart : undefined}
             onTouchMove={!isSafari ? handleTouchMove : undefined}
@@ -1641,8 +1545,8 @@ if (
     />
   )}
 </div>
-            {displayAd && (displayAd.version || 1) > 1 && (
-              <span className="version-badge">V{displayAd.version || 1}</span>
+            {currentAd && (currentAd.version || 1) > 1 && (
+              <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
             )}
               {otherSizes.map((a, idx) => (
                 isVideoUrl(a.firebaseUrl) ? (
@@ -1806,6 +1710,14 @@ if (
           )}
         </>
       ))}
+      {versionModal && (
+        <VersionModal
+          data={versionModal}
+          view={versionView}
+          onViewChange={setVersionView}
+          onClose={closeVersionModal}
+        />
+      )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
       {showCopyModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto p-4">

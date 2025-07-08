@@ -540,16 +540,6 @@
   @apply absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded;
 }
 
-.version-tag {
-  @apply px-1 py-0.5 text-xs border rounded cursor-pointer;
-}
-
-.version-tag-active {
-  background-color: var(--accent-color-10);
-  color: var(--accent-color);
-  border-color: var(--accent-color);
-}
-
 /* simple card for displaying summary stats */
 .stat-card {
   @apply p-4 text-center bg-white rounded shadow w-32 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)];
