@@ -1,33 +1,53 @@
 import React from 'react';
-import { FiEdit2, FiTrash, FiArchive } from 'react-icons/fi';
+import {
+  FiEdit2,
+  FiTrash,
+  FiArchive,
+  FiVideo,
+  FiPackage,
+  FiBug,
+  FiStar,
+} from 'react-icons/fi';
 import StatusBadge from './StatusBadge.jsx';
 
-const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart }) => (
-  <div
-    className="bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded-lg shadow-md p-3 space-y-1 w-[220px] sm:w-[300px]"
-    draggable
-    onDragStart={() => onDragStart(request.id)}
-  >
-    <div className="flex items-start justify-between">
-      <div>
-        {request.title && (
-          <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
-            {request.title}
-          </p>
-        )}
-        {request.brandCode && (
-          <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
-            {request.brandCode}
-          </p>
-        )}
-        {request.dueDate && (
-          <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
-            {request.dueDate.toDate().toLocaleDateString()}
-          </p>
-        )}
+const typeIcons = {
+  newAds: FiVideo,
+  newBrand: FiPackage,
+  bug: FiBug,
+  feature: FiStar,
+};
+
+const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart }) => {
+  const Icon = typeIcons[request.type];
+  return (
+    <div
+      className="bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded-lg shadow-md p-3 space-y-1 w-[220px] sm:w-[300px]"
+      draggable
+      onDragStart={() => onDragStart(request.id)}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-2">
+          {Icon && <Icon className="mt-0.5 flex-shrink-0" />}
+          <div>
+            {request.title && (
+              <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
+                {request.title}
+              </p>
+            )}
+            {request.brandCode && (
+              <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
+                {request.brandCode}
+              </p>
+            )}
+            {request.dueDate && (
+              <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
+                {request.dueDate.toDate().toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        </div>
+        <StatusBadge status={request.status} className="flex-shrink-0" />
       </div>
-      <StatusBadge status={request.status} className="flex-shrink-0" />
-    </div>
     {request.details && (
       <p className="text-sm text-black dark:text-[var(--dark-text)]">
         {request.details}
@@ -65,6 +85,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
       )}
     </div>
   </div>
-);
+  );
+};
 
 export default RequestCard;
