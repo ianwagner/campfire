@@ -28,6 +28,7 @@ import {
   arrayUnion,
   deleteDoc,
   onSnapshot,
+  orderBy,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
@@ -98,6 +99,8 @@ const Review = forwardRef(
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
+  const [activeVersion, setActiveVersion] = useState(null); // selected version
+  const [versionHistory, setVersionHistory] = useState({}); // map assetId -> history
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
@@ -630,6 +633,26 @@ useEffect(() => {
       ? ((currentIndex + (animating ? 1 : 0)) / reviewAds.length) * 100
       : 0;
 
+  const rootId = currentAd ? currentAd.parentAdId || currentAd.assetId : null;
+  const versions = useMemo(() => {
+    if (!rootId) return [];
+    return allAds
+      .filter((a) => a.assetId === rootId || a.parentAdId === rootId)
+      .sort((a, b) => (a.version || 1) - (b.version || 1));
+  }, [allAds, rootId]);
+
+  useEffect(() => {
+    if (currentAd) {
+      setActiveVersion(currentAd);
+    }
+  }, [currentAd]);
+
+  useEffect(() => {
+    if (activeVersion && activeVersion.assetId !== currentAd?.assetId) {
+      loadHistory(activeVersion);
+    }
+  }, [activeVersion, currentAd, loadHistory]);
+
 
   const openVersionModal = () => {
     if (!currentAd || !currentAd.parentAdId) return;
@@ -640,6 +663,23 @@ useEffect(() => {
   };
 
   const closeVersionModal = () => setVersionModal(null);
+
+  const loadHistory = useCallback(async (asset) => {
+    if (!asset?.adGroupId || !asset?.assetId) return;
+    if (versionHistory[asset.assetId]) return;
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId, 'history'),
+          orderBy('updatedAt', 'desc'),
+        ),
+      );
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setVersionHistory((prev) => ({ ...prev, [asset.assetId]: list }));
+    } catch (err) {
+      console.error('Failed to load version history', err);
+    }
+  }, [versionHistory]);
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
@@ -1590,6 +1630,44 @@ if (
                   />
                 )
               ))}
+          </div>
+          <div className="absolute top-0 right-0 flex flex-col items-start space-y-2">
+            <div className="flex flex-wrap gap-1">
+              {versions.map((v) => (
+                <button
+                  key={v.assetId}
+                  onClick={() => setActiveVersion(v)}
+                  className={`px-2 py-0.5 rounded text-xs ${
+                    activeVersion?.assetId === v.assetId
+                      ? 'bg-accent text-white'
+                      : 'bg-gray-200 dark:bg-[var(--dark-sidebar-hover)]'
+                  }`}
+                >
+                  V{v.version || 1}
+                </button>
+              ))}
+            </div>
+            {activeVersion &&
+              activeVersion.assetId !== currentAd?.assetId &&
+              versionHistory[activeVersion.assetId] && (
+                <ul className="text-xs max-h-[60vh] overflow-auto pr-1 space-y-1">
+                  {versionHistory[activeVersion.assetId].map((h, idx) => (
+                    <li key={idx} className="border-b pb-1 last:border-none">
+                      <div>
+                        {h.updatedAt?.toDate
+                          ? h.updatedAt.toDate().toLocaleString()
+                          : h.updatedAt
+                          ? new Date(h.updatedAt).toLocaleString()
+                          : ''}{' '}
+                        - {h.updatedBy || h.email || ''}
+                      </div>
+                      <div>Status: {h.status}</div>
+                      {h.comment && <div className="italic">{h.comment}</div>}
+                      {h.copyEdit && <div className="italic">Edit: {h.copyEdit}</div>}
+                    </li>
+                  ))}
+                </ul>
+              )}
           </div>
         </div>
       </div>
