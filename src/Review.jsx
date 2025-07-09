@@ -1441,7 +1441,7 @@ useEffect(() => {
       </div>
 
       {!showSizes && (showSecondView ? (
-        <div className="flex items-center space-x-4 mt-4">
+        <div className="flex items-center space-x-4">
           {currentIndex > 0 && (
             <button
               aria-label="Previous"
@@ -1491,14 +1491,14 @@ useEffect(() => {
             <button
               aria-label="End Review"
               onClick={() => setCurrentIndex(reviewAds.length)}
-              className="btn-arrow text-sm font-bold"
+              className="btn-arrow"
             >
               End
             </button>
           )}
         </div>
       ) : (
-        <div className="flex space-x-4 mt-4">
+        <div className="flex space-x-4">
           <button
             onClick={() => submitResponse('reject')}
             className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
@@ -1577,7 +1577,7 @@ useEffect(() => {
       </div>
       <FeedbackPanel
         entries={historyEntries}
-        className="mt-4 md:mt-5 w-full md:w-60 max-h-[70vh] overflow-y-auto"
+        className="mt-4 md:mt-0 w-full md:w-60 max-h-[70vh] overflow-y-auto"
       />
     </div>
     </div>
