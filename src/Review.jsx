@@ -1364,7 +1364,8 @@ useEffect(() => {
         </div>
       )}
       <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
-        <div className="relative flex flex-col items-center w-fit mx-auto">
+        <div className="flex flex-col items-center">
+          <div className="relative flex flex-col items-center w-fit mx-auto">
           {agencyId && (
             <OptimizedImage
               pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
@@ -1673,6 +1674,7 @@ useEffect(() => {
           </div>
         </div>
       )}
+      </div>
       <FeedbackPanel
         entries={historyEntries}
         className="mt-4 md:mt-0 w-full md:w-60 max-h-[70vh] overflow-y-auto"
