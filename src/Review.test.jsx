@@ -822,3 +822,44 @@ test('returns to start screen after finishing review', async () => {
   await screen.findByText(/Thank you for your feedback/i);
 });
 
+test('updates group status after finishing review', async () => {
+  const groupDoc = {
+    exists: () => true,
+    data: () => ({ name: 'Group 1', status: 'pending' }),
+  };
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+        }),
+      },
+    ],
+  };
+
+  getDoc.mockResolvedValue(groupDoc);
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      return Promise.resolve(assetSnapshot);
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+
+  fireEvent.click(screen.getByText('Review Ads'));
+  await screen.findByRole('img');
+  fireEvent.click(screen.getByText('Approve'));
+  fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
+
+  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+
+  const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
+  expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
+});
+
