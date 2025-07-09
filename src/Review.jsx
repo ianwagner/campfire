@@ -22,12 +22,12 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
-  runTransaction,
   increment,
   setDoc,
   arrayUnion,
   deleteDoc,
   onSnapshot,
+  orderBy,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
@@ -38,6 +38,7 @@ import GalleryModal from './components/GalleryModal.jsx';
 import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
+import FeedbackPanel from './components/FeedbackPanel.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
 import diffWords from './utils/diffWords';
@@ -110,13 +111,10 @@ const Review = forwardRef(
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
   const [groupStatus, setGroupStatus] = useState(null);
-  const [lockedBy, setLockedBy] = useState(null);
-  const [lockedByUid, setLockedByUid] = useState(null);
-  const [lockFailed, setLockFailed] = useState(false);
+  const [historyEntries, setHistoryEntries] = useState([]);
   // refs to track latest values for cleanup on unmount
   const currentIndexRef = useRef(currentIndex);
   const reviewLengthRef = useRef(reviewAds.length);
-  const lockedByUidRef = useRef(lockedByUid);
   const { agency } = useAgencyTheme(agencyId);
 
   useEffect(() => {
@@ -126,10 +124,6 @@ const Review = forwardRef(
   useEffect(() => {
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
-
-  useEffect(() => {
-    lockedByUidRef.current = lockedByUid;
-  }, [lockedByUid]);
 
 
   useImperativeHandle(ref, () => ({
@@ -200,8 +194,6 @@ const Review = forwardRef(
       if (!snap.exists()) return;
       const data = snap.data();
       setGroupStatus(data.status || 'pending');
-      setLockedBy(data.lockedBy || null);
-      setLockedByUid(data.lockedByUid || null);
     });
     return () => unsub();
   }, [groupId]);
@@ -225,63 +217,23 @@ const Review = forwardRef(
   }, [showCopyModal]);
 
 useEffect(() => {
-  if (!started || !groupId || !reviewerName || reviewAds.length === 0 || forceSplash) return;
+  if (!started || !groupId || reviewAds.length === 0 || forceSplash) return;
 
-  const lockGroup = async () => {
-    try {
-      await runTransaction(db, async (tx) => {
-        const ref = doc(db, 'adGroups', groupId);
-        const snap = await tx.get(ref);
-        const data = snap.exists() ? snap.data() : {};
-        const lockedBySomeoneElse =
-          data.status === 'in review' &&
-          ((data.lockedByUid && data.lockedByUid !== user.uid) ||
-            (!data.lockedByUid && data.lockedBy));
-        if (lockedBySomeoneElse) {
-          setGroupStatus(data.status);
-          setLockedBy(data.lockedBy);
-          setLockedByUid(data.lockedByUid || null);
-          throw new Error('locked');
-        }
-        tx.update(ref, {
-          status: 'in review',
-          lockedBy: reviewerName,
-          lockedByUid: user.uid,
-          reviewProgress: currentIndex,
-        });
-      });
-      setGroupStatus('in review');
-      setLockedBy(reviewerName);
-      setLockedByUid(user.uid);
-    } catch (err) {
-      if (err.code === 'permission-denied') {
-        window.alert('Unable to acquire lock for this group. You may not have permission.');
-        setLockFailed(true);
-      } else if (err.message !== 'locked') {
-        console.error('Failed to lock group', err);
-      }
-    }
-  };
-
-  const needsLock =
-    !lockFailed &&
-    (groupStatus !== 'in review' ||
-      (lockedByUid ? lockedByUid !== user.uid : lockedBy !== reviewerName));
-  if (needsLock) {
-    lockGroup();
-  }
-}, [groupId, reviewerName, reviewAds.length, currentIndex, groupStatus, lockedByUid, lockedBy, forceSplash, user, lockFailed]);
+  updateDoc(doc(db, 'adGroups', groupId), {
+    status: 'in review',
+    reviewProgress: currentIndex,
+  })
+    .then(() => setGroupStatus('in review'))
+    .catch((err) => console.error('Failed to update group status', err));
+}, [started, groupId, reviewAds.length, currentIndex, forceSplash]);
 
 
 useEffect(() => {
   if (!started || !groupId || forceSplash) return;
-  if (groupStatus !== 'in review') return;
-  const isOwner = lockedByUid ? lockedByUid === user?.uid : false;
-  if (!isOwner) return;
-    updateDoc(doc(db, 'adGroups', groupId), {
-      reviewProgress: currentIndex,
-    }).catch((err) => console.error('Failed to save progress', err));
-  }, [currentIndex]);
+  updateDoc(doc(db, 'adGroups', groupId), {
+    reviewProgress: currentIndex,
+  }).catch((err) => console.error('Failed to save progress', err));
+}, [currentIndex, started, groupId, forceSplash]);
 
   const releaseLock = useCallback(() => {
     if (!started || !groupId || forceSplash) return;
@@ -291,8 +243,6 @@ useEffect(() => {
     const progress = idx >= len ? null : idx;
     updateDoc(doc(db, 'adGroups', groupId), {
       status,
-      lockedBy: null,
-      lockedByUid: null,
       reviewProgress: progress,
     }).catch(() => {});
   }, [groupId, forceSplash, started]);
@@ -302,8 +252,6 @@ useEffect(() => {
     if (currentIndex >= reviewAds.length && reviewAds.length > 0) {
       updateDoc(doc(db, 'adGroups', groupId), {
         status: 'reviewed',
-        lockedBy: null,
-        lockedByUid: null,
         reviewProgress: null,
       }).catch((err) => console.error('Failed to update status', err));
     }
@@ -640,6 +588,25 @@ useEffect(() => {
   };
 
   const closeVersionModal = () => setVersionModal(null);
+
+  useEffect(() => {
+    if (!currentAd?.adGroupId || !currentAd?.assetId) return;
+    const assetRef = doc(db, 'adGroups', currentAd.adGroupId, 'assets', currentAd.assetId);
+    const unsubDoc = onSnapshot(assetRef, (snap) => {
+      if (!snap.exists()) return;
+      const data = { assetId: snap.id, ...snap.data() };
+      setAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
+      setReviewAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
+    });
+    const q = query(collection(assetRef, 'history'), orderBy('updatedAt', 'asc'));
+    const unsubHist = onSnapshot(q, (snap) => {
+      setHistoryEntries(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+    return () => {
+      unsubDoc();
+      unsubHist();
+    };
+  }, [currentAd?.adGroupId, currentAd?.assetId]);
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
@@ -1085,49 +1052,6 @@ useEffect(() => {
     return <LoadingOverlay />;
   }
 
-  if (lockFailed) {
-    return (
-      <div className="p-4 text-center">
-        Unable to acquire lock for this group. Please check your permissions.
-      </div>
-    );
-  }
-
-if (
-  started &&
-  groupStatus === 'in review' &&
-  lockedBy &&
-  (lockedByUid ? lockedByUid !== user?.uid : true)
-) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
-        {agencyId && (
-          <OptimizedImage
-            pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-            alt={`${agency.name || 'Agency'} logo`}
-            loading="eager"
-            cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
-            onLoad={() => setLogoReady(true)}
-            className="mb-2 max-h-16 w-auto"
-          />
-        )}
-        <h1 className="text-2xl font-bold">{lockedBy} is currently reviewing this group.</h1>
-        <p className="text-lg">Please wait until they've finished before hopping in.</p>
-        <div className="flex space-x-2">
-        <button onClick={() => setStarted(false)} className="btn-secondary">
-          Back
-        </button>
-        <button
-          onClick={() => setShowGallery(true)}
-          className="btn-primary flex items-center"
-        >
-          <FiGrid className="mr-1" /> See Gallery
-        </button>
-      </div>
-        {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
-    </div>
-  );
-}
 
   if (!started) {
     return (
@@ -1361,7 +1285,7 @@ if (
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+    <div className="flex flex-col md:flex-row items-start justify-center min-h-screen space-y-4 md:space-y-0 md:space-x-4">
       {showStreakModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-sm space-y-4 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
@@ -1748,6 +1672,7 @@ if (
           </div>
         </div>
       )}
+      <FeedbackPanel entries={historyEntries} />
     </div>
   );
 });
