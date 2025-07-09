@@ -975,11 +975,13 @@ useEffect(() => {
     try {
       for (const asset of recipeAssets) {
         const url = asset.adUrl || asset.firebaseUrl;
+        const copyChanged =
+          responseType === 'edit' && editCopy.trim() !== origCopy.trim();
         const respObj = {
           adUrl: url,
           response: responseType,
           comment: responseType === 'edit' ? comment : '',
-          copyEdit: responseType === 'edit' ? editCopy : '',
+          copyEdit: copyChanged ? editCopy : '',
           pass: responses[url] ? 'revisit' : 'initial',
           ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
           ...(asset.groupName ? { groupName: asset.groupName } : {}),
@@ -1001,7 +1003,7 @@ useEffect(() => {
           const updateData = {
             status: newStatus,
             comment: responseType === 'edit' ? comment : '',
-            copyEdit: responseType === 'edit' ? editCopy : '',
+            copyEdit: copyChanged ? editCopy : '',
             lastUpdatedBy: user.uid,
             lastUpdatedAt: serverTimestamp(),
             ...(responseType === 'approve' ? { isResolved: true } : {}),
@@ -1018,7 +1020,7 @@ useEffect(() => {
                 updatedBy: name,
                 updatedAt: serverTimestamp(),
                 ...(responseType === 'edit' && comment ? { comment } : {}),
-                ...(responseType === 'edit' && editCopy ? { copyEdit: editCopy } : {}),
+                ...(responseType === 'edit' && copyChanged ? { copyEdit: editCopy } : {}),
               },
             ).catch((err) => {
               if (err?.code === 'already-exists') {
@@ -1036,7 +1038,7 @@ useEffect(() => {
                     ...a,
                     status: newStatus,
                     comment: responseType === 'edit' ? comment : '',
-                    copyEdit: responseType === 'edit' ? editCopy : '',
+                    copyEdit: copyChanged ? editCopy : '',
                     ...(responseType === 'approve'
                       ? { isResolved: true }
                       : responseType === 'edit'
@@ -1053,7 +1055,7 @@ useEffect(() => {
                     ...a,
                     status: newStatus,
                     comment: responseType === 'edit' ? comment : '',
-                    copyEdit: responseType === 'edit' ? editCopy : '',
+                    copyEdit: copyChanged ? editCopy : '',
                     ...(responseType === 'approve'
                       ? { isResolved: true }
                       : responseType === 'edit'
