@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import AdGroupDetail from './AdGroupDetail';
@@ -160,4 +160,45 @@ test('opens metadata modal for recipe id "1"', async () => {
 
   await screen.findByText('Metadata for Recipe 1');
   expect(screen.getByLabelText('Copy')).toBeInTheDocument();
+});
+
+test('updates version display when asset changes', async () => {
+  let snapshotCb;
+  onSnapshot.mockImplementation((col, cb) => {
+    snapshotCb = cb;
+    cb({
+      docs: [
+        {
+          id: 'asset1',
+          data: () => ({ filename: 'ad_V1.png', version: 1, status: 'pending' }),
+        },
+      ],
+    });
+    return jest.fn();
+  });
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>,
+  );
+
+  let row = await screen.findByText('ad_V1.png');
+  let versionCell = row.closest('tr').querySelector('td:nth-child(2)');
+  expect(versionCell).toHaveTextContent('1');
+
+  await act(async () => {
+    snapshotCb({
+      docs: [
+        {
+          id: 'asset1',
+          data: () => ({ filename: 'ad_V2.png', version: 2, status: 'pending' }),
+        },
+      ],
+    });
+  });
+
+  row = await screen.findByText('ad_V2.png');
+  versionCell = row.closest('tr').querySelector('td:nth-child(2)');
+  expect(versionCell).toHaveTextContent('2');
 });

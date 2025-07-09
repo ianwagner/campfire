@@ -836,11 +836,19 @@ const AdGroupDetail = () => {
         brandName || group?.brandCode,
         group?.name || id,
       );
-      await updateDoc(doc(db, "adGroups", id, "assets", assetId), {
+      const info = parseAdFilename(file.name);
+      const asset = assets.find((a) => a.id === assetId);
+      const currentVersion = asset?.version || 1;
+      const update = {
         filename: file.name,
         firebaseUrl: url,
         uploadedAt: serverTimestamp(),
-      });
+        version: info.version || currentVersion,
+      };
+      if (info.version && info.version > currentVersion) {
+        update.parentAdId = asset?.parentAdId || assetId;
+      }
+      await updateDoc(doc(db, "adGroups", id, "assets", assetId), update);
     } catch (err) {
       console.error("Failed to upload version", err);
     } finally {
