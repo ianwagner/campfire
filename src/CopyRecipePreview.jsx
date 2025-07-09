@@ -3,6 +3,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import TagInput from './components/TagInput.jsx';
 import { FiEdit2, FiTrash, FiCheck } from 'react-icons/fi';
+import selectRandomOption from './utils/selectRandomOption.js';
 
 const CopyRecipePreview = ({
   onSave = null,
@@ -96,8 +97,22 @@ const CopyRecipePreview = ({
               name: p.name,
               values: {
                 name: p.name,
-                description: p.description || '',
-                benefits: p.benefits || '',
+                description: Array.isArray(p.description)
+                  ? p.description
+                  : typeof p.description === 'string'
+                  ? p.description
+                      .split(/[;\n]+/)
+                      .map((d) => d.trim())
+                      .filter(Boolean)
+                  : [],
+                benefits: Array.isArray(p.benefits)
+                  ? p.benefits
+                  : typeof p.benefits === 'string'
+                  ? p.benefits
+                      .split(/[;\n]+/)
+                      .map((d) => d.trim())
+                      .filter(Boolean)
+                  : [],
               },
             }))
           );
@@ -121,8 +136,10 @@ const CopyRecipePreview = ({
     prompt = prompt.replace(/{{brand\.offering}}/g, brand.offering || '');
     const prod = brandProducts.find((p) => p.id === selectedProduct) || {};
     prompt = prompt.replace(/{{product\.name}}/g, prod.values?.name || '');
-    prompt = prompt.replace(/{{product\.description}}/g, prod.values?.description || '');
-    prompt = prompt.replace(/{{product\.benefits}}/g, prod.values?.benefits || '');
+    const desc = selectRandomOption(prod.values?.description);
+    const ben = selectRandomOption(prod.values?.benefits);
+    prompt = prompt.replace(/{{product\.description}}/g, desc);
+    prompt = prompt.replace(/{{product\.benefits}}/g, ben);
     (type?.writeInFields || []).forEach((f) => {
       const val = formData[f.key] || '';
       const regex = new RegExp(`{{${f.key}}}`, 'g');
