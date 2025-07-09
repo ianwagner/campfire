@@ -109,6 +109,7 @@ const Review = forwardRef(
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
   const [groupStatus, setGroupStatus] = useState(null);
+  const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState([]);
   // refs to track latest values for cleanup on unmount
   const currentIndexRef = useRef(currentIndex);
@@ -215,7 +216,7 @@ const Review = forwardRef(
   }, [showCopyModal]);
 
 useEffect(() => {
-  if (!started || !groupId || reviewAds.length === 0) return;
+  if (!started || !groupId || reviewAds.length === 0 || initialStatus === 'reviewed') return;
 
   updateDoc(doc(db, 'adGroups', groupId), {
     status: 'in review',
@@ -223,27 +224,34 @@ useEffect(() => {
   })
     .then(() => setGroupStatus('in review'))
     .catch((err) => console.error('Failed to update group status', err));
-}, [started, groupId, reviewAds.length, currentIndex]);
+}, [started, groupId, reviewAds.length, currentIndex, initialStatus]);
 
 
 useEffect(() => {
-  if (!started || !groupId) return;
+  if (!started || !groupId || initialStatus === 'reviewed') return;
   updateDoc(doc(db, 'adGroups', groupId), {
     reviewProgress: currentIndex,
   }).catch((err) => console.error('Failed to save progress', err));
-}, [currentIndex, started, groupId]);
+}, [currentIndex, started, groupId, initialStatus]);
 
   const releaseLock = useCallback(() => {
     if (!started || !groupId) return;
     const idx = currentIndexRef.current;
     const len = reviewLengthRef.current;
-    const status = idx >= len ? 'reviewed' : 'review pending';
-    const progress = idx >= len ? null : idx;
+    let status;
+    let progress;
+    if (initialStatus === 'reviewed') {
+      status = 'reviewed';
+      progress = null;
+    } else {
+      status = idx >= len ? 'reviewed' : 'review pending';
+      progress = idx >= len ? null : idx;
+    }
     updateDoc(doc(db, 'adGroups', groupId), {
       status,
       reviewProgress: progress,
     }).catch(() => {});
-  }, [groupId, started]);
+  }, [groupId, started, initialStatus]);
 
   useEffect(() => {
     if (!started || !groupId) return;
@@ -345,18 +353,19 @@ useEffect(() => {
             const assetsSnap = await getDocs(
               collection(db, 'adGroups', groupId, 'assets')
             );
-            list = assetsSnap.docs
-              .map((assetDoc) => ({
-                ...assetDoc.data(),
-                assetId: assetDoc.id,
-                adGroupId: groupId,
+              list = assetsSnap.docs
+                .map((assetDoc) => ({
+                  ...assetDoc.data(),
+                  assetId: assetDoc.id,
+                  adGroupId: groupId,
                 groupName: groupSnap.data().name,
                 firebaseUrl: assetDoc.data().firebaseUrl,
                 ...(groupSnap.data().brandCode
                   ? { brandCode: groupSnap.data().brandCode }
                   : {}),
-              }));
+                }));
           }
+          setInitialStatus(status);
         } else {
           const q = query(
             collectionGroup(db, 'assets'),
