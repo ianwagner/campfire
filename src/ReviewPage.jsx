@@ -19,7 +19,6 @@ import { FiGrid, FiType } from "react-icons/fi";
 const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const { groupId } = useParams();
   const { search } = useLocation();
-  const forceSplash = new URLSearchParams(search).get('done') === '1';
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const [reviewerName, setReviewerName] = useState("");
   const [tempName, setTempName] = useState("");
@@ -268,7 +267,6 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         userRole={currentUser?.isAnonymous ? null : userRole}
         brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
-        forceSplash={forceSplash}
       />
     </div>
   );
