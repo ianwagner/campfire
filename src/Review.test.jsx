@@ -335,7 +335,7 @@ test('approving a revision resolves all related docs', async () => {
   expect(paths).toContain('adGroups/group1/assets/orig1');
 });
 
-test('version badge toggles previous revision', async () => {
+test('version badge cycles through revisions', async () => {
   const assetSnapshot = {
     docs: [
       {
@@ -383,11 +383,27 @@ test('version badge toggles previous revision', async () => {
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
-  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'v3.png'));
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'v3.png')
+  );
 
   fireEvent.click(screen.getByText('V3'));
 
-  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png'));
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png')
+  );
+
+  fireEvent.click(screen.getByText('V2'));
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'v1.png')
+  );
+
+  fireEvent.click(screen.getByText('V1'));
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'v3.png')
+  );
 });
 
 test('shows group summary after reviewing ads', async () => {
