@@ -235,7 +235,7 @@ useEffect(() => {
 }, [currentIndex, started, groupId, initialStatus]);
 
   const releaseLock = useCallback(() => {
-    if (!started || !groupId) return;
+    if (!groupId) return;
     const idx = currentIndexRef.current;
     const len = reviewLengthRef.current;
     let status;
@@ -251,7 +251,7 @@ useEffect(() => {
       status,
       reviewProgress: progress,
     }).catch(() => {});
-  }, [groupId, started, initialStatus]);
+  }, [groupId, initialStatus]);
 
   useEffect(() => {
     if (!groupId) return;
