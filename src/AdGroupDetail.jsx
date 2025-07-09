@@ -579,7 +579,6 @@ const AdGroupDetail = () => {
   };
 
   const deleteHistoryEntry = async (assetId, entryId) => {
-    if (!window.confirm("Delete this history entry?")) return;
     try {
       await deleteDoc(doc(db, "adGroups", id, "assets", assetId, "history", entryId));
       setHistoryRecipe((prev) =>
