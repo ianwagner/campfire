@@ -195,6 +195,51 @@ test('request edit creates new version doc', async () => {
   );
 });
 
+test('revision inherits root parentId when requesting another edit', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'rev2',
+        data: () => ({
+          firebaseUrl: 'url2',
+          filename: 'f1.png',
+          version: 2,
+          parentAdId: 'asset1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'url2'));
+
+  fireEvent.click(screen.getByLabelText('Request Edit'));
+  fireEvent.change(screen.getByPlaceholderText('Add comments...'), {
+    target: { value: 'fix' },
+  });
+  fireEvent.click(screen.getByText('Submit'));
+
+  await waitFor(() => expect(addDoc).toHaveBeenCalled());
+
+  const call = addDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][1] === 'adGroups');
+  expect(call).toBeTruthy();
+  expect(call[1]).toEqual(
+    expect.objectContaining({ parentAdId: 'asset1', version: 3, status: 'pending', isResolved: false })
+  );
+});
+
 test('request edit advances to next ad', async () => {
   const assetSnapshot = {
     docs: [

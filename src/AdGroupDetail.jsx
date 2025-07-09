@@ -690,7 +690,7 @@ const AdGroupDetail = () => {
             (a) => a.filename.replace(/_V\d+\.[^/.]+$/, "") === base,
           );
           if (prev) {
-            parentId = prev.id;
+            parentId = prev.parentAdId || prev.id;
             try {
               await updateDoc(doc(db, "adGroups", id, "assets", prev.id), {
                 status: "archived",
