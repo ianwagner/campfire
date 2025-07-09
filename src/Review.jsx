@@ -1363,7 +1363,8 @@ useEffect(() => {
           </div>
         </div>
       )}
-        <div className="relative flex flex-col items-center w-fit mx-auto">
+        <div className="relative flex flex-col md:flex-row items-start w-fit mx-auto md:gap-4">
+          <div className="flex flex-col items-center">
           {agencyId && (
             <OptimizedImage
               pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
@@ -1662,19 +1663,20 @@ useEffect(() => {
             <p className="text-sm mb-2">
               These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
             </p>
-            <CopyRecipePreview
-              onSave={saveCopyCards}
-              initialResults={copyCards}
-              showOnlyResults
-              hideBrandSelect
-              onCopiesChange={setModalCopies}
-            />
-          </div>
+          <CopyRecipePreview
+            onSave={saveCopyCards}
+            initialResults={copyCards}
+            showOnlyResults
+            hideBrandSelect
+            onCopiesChange={setModalCopies}
+          />
         </div>
+      </div>
       )}
+      </div>
       <FeedbackPanel
         entries={historyEntries}
-        className="mt-4 md:mt-0 md:absolute md:right-4 md:top-0"
+        className="mt-4 md:mt-0"
       />
     </div>
   );
