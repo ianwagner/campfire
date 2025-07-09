@@ -2147,11 +2147,15 @@ const AdGroupDetail = () => {
                   {a.comment && (
                     <div className="text-sm italic">Note: {a.comment}</div>
                   )}
-                  {a.copyEdit && (
-                    <div className="text-sm italic">
-                      Edit Request: {renderCopyEditDiff(historyRecipe.recipeCode, a.copyEdit) || a.copyEdit}
-                    </div>
-                  )}
+                  {(() => {
+                    const diff = renderCopyEditDiff(
+                      historyRecipe.recipeCode,
+                      a.copyEdit,
+                    );
+                    return diff ? (
+                      <div className="text-sm italic">Edit Request: {diff}</div>
+                    ) : null;
+                  })()}
                 </div>
                 {isAdmin && (
                   <button
@@ -2190,11 +2194,15 @@ const AdGroupDetail = () => {
                   {a.comment && (
                     <div className="text-sm italic">Note: {a.comment}</div>
                   )}
-                  {a.copyEdit && (
-                    <div className="text-sm italic">
-                      Edit Request: {renderCopyEditDiff(historyAsset.recipeCode, a.copyEdit) || a.copyEdit}
-                    </div>
-                  )}
+                  {(() => {
+                    const diff = renderCopyEditDiff(
+                      historyAsset.recipeCode,
+                      a.copyEdit,
+                    );
+                    return diff ? (
+                      <div className="text-sm italic">Edit Request: {diff}</div>
+                    ) : null;
+                  })()}
                 </div>
                 {isAdmin && (
                   <button
