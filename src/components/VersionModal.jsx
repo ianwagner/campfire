@@ -10,14 +10,22 @@ const VersionModal = ({ data, view = 'current', onViewChange, onClose }) => {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
       <div className="bg-white p-4 rounded shadow max-w-md text-center">
-        <div className="mb-2 space-x-2">
-          <Button onClick={() => onViewChange('current')} variant="secondary" className="px-2 py-1">
-            V{data.current.version || 1}
-          </Button>
-          <Button onClick={() => onViewChange('previous')} variant="secondary" className="px-2 py-1">
-            V{data.previous.version || 1} (replaced)
-          </Button>
-        </div>
+          <div className="mb-2 space-x-2">
+            <Button
+              onClick={() => onViewChange('current')}
+              variant={view === 'current' ? 'primary' : 'secondary'}
+              className="px-2 py-1"
+            >
+              V{data.current.version || 1}
+            </Button>
+            <Button
+              onClick={() => onViewChange('previous')}
+              variant={view === 'previous' ? 'primary' : 'secondary'}
+              className="px-2 py-1"
+            >
+              V{data.previous.version || 1} (replaced)
+            </Button>
+          </div>
         {isVideoUrl(url) ? (
           <VideoPlayer src={url} className="max-w-full max-h-[70vh] mx-auto" />
         ) : (
