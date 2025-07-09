@@ -1477,7 +1477,7 @@ useEffect(() => {
               Approve
             </button>
           </div>
-          {currentIndex < reviewAds.length - 1 && (
+          {currentIndex < reviewAds.length - 1 ? (
             <button
               aria-label="Next"
               onClick={() =>
@@ -1486,6 +1486,14 @@ useEffect(() => {
               className="btn-arrow"
             >
               &gt;
+            </button>
+          ) : (
+            <button
+              aria-label="End Review"
+              onClick={() => setCurrentIndex(reviewAds.length)}
+              className="btn-arrow"
+            >
+              End
             </button>
           )}
         </div>
