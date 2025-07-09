@@ -335,7 +335,7 @@ test('approving a revision resolves all related docs', async () => {
   expect(paths).toContain('adGroups/group1/assets/orig1');
 });
 
-test('version modal shows previous revision', async () => {
+test('version badge toggles previous revision', async () => {
   const assetSnapshot = {
     docs: [
       {
@@ -387,7 +387,7 @@ test('version modal shows previous revision', async () => {
 
   fireEvent.click(screen.getByText('V3'));
 
-  expect(await screen.findByText('V2 (replaced)')).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png'));
 });
 
 test('shows group summary after reviewing ads', async () => {
