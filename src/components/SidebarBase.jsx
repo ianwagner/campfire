@@ -61,7 +61,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
         <div className="space-y-2">
           <div className="relative mx-auto mt-4 mb-4 h-16 flex items-center justify-center">
             {!logoReady && (
-              <div className="absolute inset-0 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="loading-ring w-6 h-6" />
               </div>
             )}
@@ -113,7 +113,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
             <div className="space-y-2 mt-8">
               <div className="relative mx-auto mt-4 mb-4 h-16 flex items-center justify-center">
                 {!logoReady && (
-                  <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="loading-ring w-6 h-6" />
                   </div>
                 )}

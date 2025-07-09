@@ -10,7 +10,7 @@ const AdThumb = ({ ad }) => {
   return (
     <div className="relative flex-shrink-0 flex items-center justify-center w-[125px] h-auto">
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="loading-ring w-6 h-6" />
         </div>
       )}
