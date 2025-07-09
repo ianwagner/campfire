@@ -335,6 +335,61 @@ test('approving a revision resolves all related docs', async () => {
   expect(paths).toContain('adGroups/group1/assets/orig1');
 });
 
+test('version modal shows previous revision', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'orig',
+        data: () => ({
+          firebaseUrl: 'v1.png',
+          version: 1,
+          status: 'approved',
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'rev2',
+        data: () => ({
+          firebaseUrl: 'v2.png',
+          version: 2,
+          parentAdId: 'orig',
+          status: 'approved',
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'rev3',
+        data: () => ({
+          firebaseUrl: 'v3.png',
+          version: 3,
+          parentAdId: 'orig',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'v3.png'));
+
+  fireEvent.click(screen.getByText('V3'));
+
+  expect(await screen.findByText('V2 (replaced)')).toBeInTheDocument();
+});
+
 test('shows group summary after reviewing ads', async () => {
   const assetSnapshot = {
     docs: [
