@@ -1520,7 +1520,7 @@ useEffect(() => {
       </div>
 
       {!showSizes && (showSecondView ? (
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4 mt-4">
           {currentIndex > 0 && (
             <button
               aria-label="Previous"
@@ -1596,7 +1596,7 @@ useEffect(() => {
         </div>
       ) : (
         <>
-          <div className="flex space-x-4">
+          <div className="flex space-x-4 mt-4">
             <button
               onClick={() => submitResponse('reject')}
               className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
