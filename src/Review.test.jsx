@@ -335,7 +335,7 @@ test('approving a revision resolves all related docs', async () => {
   expect(paths).toContain('adGroups/group1/assets/orig1');
 });
 
-test('version badge cycles through revisions', async () => {
+test('version selector changes revisions', async () => {
   const assetSnapshot = {
     docs: [
       {
@@ -388,18 +388,21 @@ test('version badge cycles through revisions', async () => {
   );
 
   fireEvent.click(screen.getByText('V3'));
+  fireEvent.click(screen.getByRole('button', { name: 'V2' }));
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png')
   );
 
   fireEvent.click(screen.getByText('V2'));
+  fireEvent.click(screen.getByRole('button', { name: 'V1' }));
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'v1.png')
   );
 
   fireEvent.click(screen.getByText('V1'));
+  fireEvent.click(screen.getByRole('button', { name: 'V3' }));
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'v3.png')

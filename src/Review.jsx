@@ -106,6 +106,7 @@ const Review = forwardRef(
   const [allHeroAds, setAllHeroAds] = useState([]); // hero list for all ads
   const [versionMode, setVersionMode] = useState(false); // reviewing new versions
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
+  const [showVersionMenu, setShowVersionMenu] = useState(false);
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
@@ -1518,14 +1519,41 @@ useEffect(() => {
   )}
 </div>
             {versions.length > 1 && (
-              <span
-                onClick={() =>
-                  setVersionIndex((i) => (i + 1) % versions.length)
-                }
-                className="version-badge cursor-pointer"
-              >
-                V{getVersion(displayAd)}
-              </span>
+              versions.length === 2 ? (
+                <span
+                  onClick={() =>
+                    setVersionIndex((i) => (i + 1) % versions.length)
+                  }
+                  className="version-badge cursor-pointer"
+                >
+                  V{getVersion(displayAd)}
+                </span>
+              ) : (
+                <div className="relative">
+                  <span
+                    onClick={() => setShowVersionMenu((o) => !o)}
+                    className="version-badge cursor-pointer select-none"
+                  >
+                    V{getVersion(displayAd)}
+                  </span>
+                  {showVersionMenu && (
+                    <div className="absolute left-0 top-full mt-1 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
+                      {versions.map((v, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setVersionIndex(idx);
+                            setShowVersionMenu(false);
+                          }}
+                          className="block w-full text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                        >
+                          V{getVersion(v)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
             )}
               {otherSizes.map((a, idx) => (
                 isVideoUrl(a.firebaseUrl) ? (
