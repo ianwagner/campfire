@@ -1,11 +1,9 @@
 import React from 'react';
 import StatusBadge from './StatusBadge.jsx';
 
-const FeedbackPanel = ({ entries = [], className = '' }) => {
+const FeedbackPanel = ({ entries = [] }) => {
   return (
-    <aside
-      className={`w-full md:w-60 md:ml-4 mt-4 md:mt-0 max-h-[70vh] overflow-y-auto ${className}`.trim()}
-    >
+    <aside className="w-full md:w-60 md:ml-4 mt-4 md:mt-0 max-h-[70vh] overflow-y-auto">
       <h3 className="font-semibold mb-2">Feedback</h3>
       {entries.length === 0 ? (
         <p className="text-sm text-gray-500">No feedback yet.</p>
