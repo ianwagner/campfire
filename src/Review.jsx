@@ -1524,73 +1524,29 @@ useEffect(() => {
               &lt;
             </button>
           )}
-          <div className="text-center space-y-2">
-            <span
-              className={`status-badge text-lg status-${
-                selectedResponse === 'edit'
-                  ? 'edit_requested'
-                  : selectedResponse === 'reject'
-                  ? 'rejected'
-                  : 'approved'
-              }`}
+          <div className="flex space-x-4 pt-2">
+            <button
+              onClick={() => submitResponse('reject')}
+              className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
+              disabled={submitting}
             >
-              {statusMap[selectedResponse]}
-            </span>
-            {selectedResponse === 'edit' && currentAd.comment && (
-              <p className="text-sm">{currentAd.comment}</p>
-            )}
-            {selectedResponse === 'edit' &&
-              currentAd.copyEdit &&
-              currentAd.originalCopy &&
-              currentAd.copyEdit !== currentAd.originalCopy && (
-                <p className="text-sm">
-                  copy edit:{' '}
-                  {diffWords(
-                    currentAd.originalCopy,
-                    currentAd.copyEdit,
-                  ).map((part, idx, arr) => {
-                    const space = idx < arr.length - 1 ? ' ' : '';
-                    if (part.type === 'same') return part.text + space;
-                    if (part.type === 'removed')
-                      return (
-                        <span key={idx} className="text-red-600 line-through">
-                          {part.text}
-                          {space}
-                        </span>
-                      );
-                    return (
-                      <span key={idx} className="text-green-600 italic">
-                        {part.text}
-                        {space}
-                      </span>
-                    );
-                  })}
-                </p>
-              )}
-            <div className="flex space-x-4 pt-2">
-              <button
-                onClick={() => submitResponse('reject')}
-                className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
-                disabled={submitting}
-              >
-                Reject
-              </button>
-              <button
-                onClick={openEditRequest}
-                className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
-                disabled={submitting}
-                aria-label="Request Edit"
-              >
-                <FiEdit />
-              </button>
-              <button
-                onClick={() => submitResponse('approve')}
-                className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
-                disabled={submitting}
-              >
-                Approve
-              </button>
-            </div>
+              Reject
+            </button>
+            <button
+              onClick={openEditRequest}
+              className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
+              disabled={submitting}
+              aria-label="Request Edit"
+            >
+              <FiEdit />
+            </button>
+            <button
+              onClick={() => submitResponse('approve')}
+              className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
+              disabled={submitting}
+            >
+              Approve
+            </button>
           </div>
           {currentIndex < reviewAds.length - 1 && (
             <button
