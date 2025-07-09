@@ -843,6 +843,7 @@ useEffect(() => {
 
     const recipeAssets = currentRecipeGroup?.assets || [currentAd];
     const updates = [];
+    const addedResponses = {};
     const newStatus =
       responseType === 'approve'
         ? 'approved'
@@ -995,6 +996,7 @@ useEffect(() => {
             );
           }
         }
+        addedResponses[url] = respObj;
         setResponses((prev) => ({ ...prev, [url]: respObj }));
       }
 
@@ -1033,15 +1035,21 @@ useEffect(() => {
       setShowEditModal(false);
       setSubmitting(false);
 
+      const nextIndex = currentIndex + 1;
       if (!advancedRef.current) {
-        setCurrentIndex((i) => {
-          const next = i + 1;
-          console.log('Index updated:', next);
-          return next;
-        });
+        setCurrentIndex(nextIndex);
         advancedRef.current = true;
       }
       setAnimating(null);
+
+      if (nextIndex >= reviewAds.length) {
+        const allResponses = { ...responses, ...addedResponses };
+        const approved = Object.values(allResponses).filter(
+          (r) => r.response === 'approve'
+        ).length;
+        setSummaryCount(approved);
+        setStarted(false);
+      }
     }
   };
 
