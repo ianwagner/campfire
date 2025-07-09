@@ -290,7 +290,7 @@ test('approving a revision resolves all related docs', async () => {
   expect(paths).toContain('adGroups/group1/assets/orig1');
 });
 
-test('shows summary message after reviewing ads', async () => {
+test('shows group summary after reviewing ads', async () => {
   const assetSnapshot = {
     docs: [
       {
@@ -340,6 +340,9 @@ test('shows summary message after reviewing ads', async () => {
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await waitFor(() => screen.getByText("You've approved 2 ads."));
+
+  expect(screen.getByText('Group 1')).toBeInTheDocument();
+  expect(screen.getByText('2')).toBeInTheDocument();
 });
 
 test('filters ads by last login and still shows summary', async () => {

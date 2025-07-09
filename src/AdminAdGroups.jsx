@@ -355,7 +355,11 @@ const AdminAdGroups = () => {
                             <span className="text-[14px]">Details</span>
                           </Link>
                           <Link
-                            to={`/review/${g.id}`}
+                            to={
+                              g.status === 'reviewed'
+                                ? `/review/${g.id}?done=1`
+                                : `/review/${g.id}`
+                            }
                             className="btn-action ml-2"
                             aria-label="Review"
                           >
