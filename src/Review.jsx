@@ -666,6 +666,7 @@ useEffect(() => {
   const closeVersionModal = () => setVersionModal(null);
 
   useEffect(() => {
+    setHistoryEntries({});
     if (!currentAd?.adGroupId || !currentAd?.assetId) return;
     const assetRef = doc(db, 'adGroups', currentAd.adGroupId, 'assets', currentAd.assetId);
     const unsubDoc = onSnapshot(assetRef, (snap) => {
@@ -697,10 +698,11 @@ useEffect(() => {
       });
     });
 
-    return () => {
-      unsubDoc();
-      unsubs.forEach((u) => u());
-    };
+      return () => {
+        unsubDoc();
+        unsubs.forEach((u) => u());
+        setHistoryEntries({});
+      };
   }, [currentAd?.adGroupId, currentAd?.assetId, allAds]);
 
   const handleTouchStart = (e) => {
