@@ -1474,7 +1474,12 @@ useEffect(() => {
   )}
 </div>
             {currentAd && (currentAd.version || 1) > 1 && (
-              <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
+              <span
+                onClick={() => openVersionModal((currentAd.version || 1) - 1)}
+                className="version-badge cursor-pointer"
+              >
+                V{currentAd.version || 1}
+              </span>
             )}
               {otherSizes.map((a, idx) => (
                 isVideoUrl(a.firebaseUrl) ? (
