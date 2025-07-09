@@ -1564,6 +1564,30 @@ useEffect(() => {
                   })}
                 </p>
               )}
+            <div className="flex space-x-4 pt-2">
+              <button
+                onClick={() => submitResponse('reject')}
+                className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
+                disabled={submitting}
+              >
+                Reject
+              </button>
+              <button
+                onClick={openEditRequest}
+                className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
+                disabled={submitting}
+                aria-label="Request Edit"
+              >
+                <FiEdit />
+              </button>
+              <button
+                onClick={() => submitResponse('approve')}
+                className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
+                disabled={submitting}
+              >
+                Approve
+              </button>
+            </div>
           </div>
           {currentIndex < reviewAds.length - 1 && (
             <button
@@ -1578,46 +1602,44 @@ useEffect(() => {
           )}
         </div>
       ) : (
-        <>
-          <div className="flex space-x-4">
-            <button
-              onClick={() => submitResponse('reject')}
-              className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
-              disabled={submitting}
-            >
-              Reject
-            </button>
-            <button
-              onClick={openEditRequest}
-              className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
-              disabled={submitting}
-              aria-label="Request Edit"
-            >
-              <FiEdit />
-            </button>
-            <button
-              onClick={() => submitResponse('approve')}
-              className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
-              disabled={submitting}
-            >
-              Approve
-            </button>
-          </div>
-          {showEditModal && (
-            <EditRequestModal
-              comment={comment}
-              onCommentChange={setComment}
-              editCopy={editCopy}
-              onEditCopyChange={setEditCopy}
-              origCopy={origCopy}
-              canSubmit={canSubmitEdit}
-              onCancel={() => setShowEditModal(false)}
-              onSubmit={() => submitResponse('edit')}
-              submitting={submitting}
-            />
-          )}
-        </>
+        <div className="flex space-x-4">
+          <button
+            onClick={() => submitResponse('reject')}
+            className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
+            disabled={submitting}
+          >
+            Reject
+          </button>
+          <button
+            onClick={openEditRequest}
+            className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
+            disabled={submitting}
+            aria-label="Request Edit"
+          >
+            <FiEdit />
+          </button>
+          <button
+            onClick={() => submitResponse('approve')}
+            className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
+            disabled={submitting}
+          >
+            Approve
+          </button>
+        </div>
       ))}
+      {showEditModal && (
+        <EditRequestModal
+          comment={comment}
+          onCommentChange={setComment}
+          editCopy={editCopy}
+          onEditCopyChange={setEditCopy}
+          origCopy={origCopy}
+          canSubmit={canSubmitEdit}
+          onCancel={() => setShowEditModal(false)}
+          onSubmit={() => submitResponse('edit')}
+          submitting={submitting}
+        />
+      )}
       {versionModal && (
         <VersionModal
           data={versionModal}
