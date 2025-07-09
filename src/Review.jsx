@@ -63,6 +63,7 @@ const Review = forwardRef(
       groupId = null,
       reviewerName = '',
       agencyId = null,
+      forceSplash = false,
     },
     ref,
   ) => {
@@ -87,7 +88,7 @@ const Review = forwardRef(
   const [allAds, setAllAds] = useState([]); // includes all non-pending versions
   const [versionModal, setVersionModal] = useState(null); // {current, previous}
   const [versionView, setVersionView] = useState('current');
-  const [reviewComplete, setReviewComplete] = useState(false);
+  const [finalGallery, setFinalGallery] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
@@ -214,7 +215,7 @@ const Review = forwardRef(
   }, [showCopyModal]);
 
 useEffect(() => {
-  if (!started || !groupId || reviewAds.length === 0) return;
+  if (!started || !groupId || reviewAds.length === 0 || forceSplash) return;
 
   updateDoc(doc(db, 'adGroups', groupId), {
     status: 'in review',
@@ -222,18 +223,18 @@ useEffect(() => {
   })
     .then(() => setGroupStatus('in review'))
     .catch((err) => console.error('Failed to update group status', err));
-}, [started, groupId, reviewAds.length, currentIndex]);
+}, [started, groupId, reviewAds.length, currentIndex, forceSplash]);
 
 
 useEffect(() => {
-  if (!started || !groupId) return;
+  if (!started || !groupId || forceSplash) return;
   updateDoc(doc(db, 'adGroups', groupId), {
     reviewProgress: currentIndex,
   }).catch((err) => console.error('Failed to save progress', err));
-}, [currentIndex, started, groupId]);
+}, [currentIndex, started, groupId, forceSplash]);
 
   const releaseLock = useCallback(() => {
-    if (!started || !groupId) return;
+    if (!started || !groupId || forceSplash) return;
     const idx = currentIndexRef.current;
     const len = reviewLengthRef.current;
     const status = idx >= len ? 'reviewed' : 'review pending';
@@ -242,19 +243,17 @@ useEffect(() => {
       status,
       reviewProgress: progress,
     }).catch(() => {});
-  }, [groupId, started]);
+  }, [groupId, forceSplash, started]);
 
   useEffect(() => {
-    if (!started || !groupId) return;
+    if (!started || !groupId || forceSplash) return;
     if (currentIndex >= reviewAds.length && reviewAds.length > 0) {
       updateDoc(doc(db, 'adGroups', groupId), {
         status: 'reviewed',
         reviewProgress: null,
       }).catch((err) => console.error('Failed to update status', err));
-      setStarted(false);
-      setReviewComplete(true);
     }
-  }, [currentIndex, reviewAds.length, groupId, started]);
+  }, [currentIndex, reviewAds.length, groupId, forceSplash, started]);
 
   useEffect(() => {
     if (!started) return;
@@ -476,7 +475,13 @@ useEffect(() => {
           return rA.localeCompare(rB);
         });
         setReviewAds(heroList);
-        setCurrentIndex(startIndex < heroList.length ? startIndex : 0);
+        setCurrentIndex(
+          forceSplash
+            ? heroList.length
+            : startIndex < heroList.length
+            ? startIndex
+            : 0
+        );
         setPendingOnly(
           heroList.length === 0 && nonPending.length === 0 && hasPendingAds
         );
@@ -1047,7 +1052,6 @@ useEffect(() => {
 
 
   if (!started) {
-    const approvedCount = Object.values(responses).filter((r) => r.response === 'approve').length;
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
         {timedOut && (
@@ -1063,21 +1067,11 @@ useEffect(() => {
             className="mb-2 max-h-16 w-auto"
           />
         )}
-        <h1 className="text-2xl font-bold">
-          {reviewComplete ? 'Thank you for your feedback!' : 'Your ads are ready!'}
-        </h1>
-        {reviewComplete && (
-          <h2 className="text-xl">
-            You've approved{' '}
-            <span style={{ color: 'var(--approved-color)' }}>{approvedCount}</span>{' '}
-            ads.
-          </h2>
-        )}
+        <h1 className="text-2xl font-bold">Your ads are ready!</h1>
         <div className="flex flex-col items-center space-y-3">
           <button
             onClick={() => {
               setTimedOut(false);
-              setCurrentIndex(0);
               setStarted(true);
             }}
             className="btn-primary px-6 py-3 text-lg"
@@ -1164,7 +1158,93 @@ useEffect(() => {
     );
   }
 
+  if (currentIndex >= reviewAds.length) {
+    if (groupId) {
+      localStorage.setItem(
+        `lastViewed-${groupId}`,
+        new Date().toISOString()
+      );
+    }
+    const allResponses = Object.values(responses);
+    const approvedCount = allResponses.filter((r) => r.response === 'approve').length;
+    const approvedAds = ads.filter((a) => {
+      const url = a.adUrl || a.firebaseUrl;
+      return responses[url]?.response === 'approve';
+    });
+    const approvedMap = {};
+    const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
+    approvedAds.forEach((a) => {
+      const info = parseAdFilename(a.filename || '');
+      const recipe = a.recipeCode || info.recipeCode || 'unknown';
+      const aspect = a.aspectRatio || info.aspectRatio || '';
+      const item = { ...a, recipeCode: recipe, aspectRatio: aspect };
+      if (!approvedMap[recipe]) approvedMap[recipe] = [];
+      approvedMap[recipe].push(item);
+    });
+    const approvedGroups = Object.entries(approvedMap).map(([recipeCode, list]) => {
+      list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
+      return { recipeCode, assets: list };
+    });
+    const heroGroups = approvedGroups.map((g) => {
+      const hero =
+        g.assets.find((a) => a.aspectRatio === '9x16') ||
+        g.assets.find((a) => a.aspectRatio === '3x5') ||
+        g.assets[0];
+      return { recipeCode: g.recipeCode, hero, assets: g.assets };
+    });
 
+
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+          {agencyId && (
+            <OptimizedImage
+              pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+              alt={`${agency.name || 'Agency'} logo`}
+              loading="eager"
+              cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+              onLoad={() => setLogoReady(true)}
+              className="mb-2 max-h-16 w-auto"
+            />
+          )}
+        <h1 className="text-2xl font-bold">Thank you for your feedback!</h1>
+        <h2 className="text-xl">
+          You've approved{' '}
+          <span style={{ color: 'var(--approved-color)' }}>{approvedCount}</span>{' '}
+          ads.
+        </h2>
+        <div className="flex flex-wrap justify-center gap-2 w-full max-w-6xl mx-auto">
+            {(finalGallery ? heroGroups : heroGroups.slice(0, 3)).map((g) => {
+              const showSet = finalGallery ? g.assets : [g.hero];
+              return showSet.map((a, idx) => (
+                isVideoUrl(a.firebaseUrl) ? (
+                  <VideoPlayer
+                    key={`${g.recipeCode}-${idx}`}
+                    src={a.firebaseUrl}
+                    className="w-24 h-24 object-contain"
+                  />
+                ) : (
+                  <OptimizedImage
+                    key={`${g.recipeCode}-${idx}`}
+                    pngUrl={a.firebaseUrl}
+                    webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
+                    alt={a.filename}
+                    cacheKey={a.firebaseUrl}
+                    className="w-24 h-24 object-contain"
+                  />
+                )
+              ));
+            })}
+        </div>
+        {/* table and rejected button removed */}
+        <button
+          onClick={() => setFinalGallery((p) => !p)}
+          className="btn-secondary"
+        >
+          {finalGallery ? 'Close Gallery' : 'View Gallery'}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen space-y-4">
