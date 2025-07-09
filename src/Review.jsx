@@ -602,7 +602,12 @@ useEffect(() => {
 
   const openVersionModal = () => {
     if (!currentAd || !currentAd.parentAdId) return;
-    const prev = allAds.find((a) => a.assetId === currentAd.parentAdId);
+    const siblings = allAds.filter(
+      (a) => a.parentAdId === currentAd.parentAdId || a.assetId === currentAd.parentAdId,
+    );
+    const prev = siblings
+      .filter((a) => (a.version || 1) < (currentAd.version || 1))
+      .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
     if (!prev) return;
     setVersionModal({ current: currentAd, previous: prev });
     setVersionView('current');
