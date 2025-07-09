@@ -51,6 +51,9 @@ import { applyAccentColor } from './utils/theme';
 const getVersion = (ad) =>
   ad.version || parseAdFilename(ad.filename || '').version || 1;
 
+const stripVersion = (filename = '') =>
+  filename.replace(/_V\d+/i, '').replace(/\.[^/.]+$/, '');
+
 const isSafari =
   typeof navigator !== 'undefined' &&
   /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -200,7 +203,7 @@ const Review = forwardRef(
     // Deduplicate by root id while keeping highest version of each asset
     const latestMap = {};
     list.forEach((a) => {
-      const root = a.parentAdId || a.assetId;
+      const root = a.parentAdId || stripVersion(a.filename);
       if (!latestMap[root] || getVersion(latestMap[root]) < getVersion(a)) {
         latestMap[root] = a;
       }
@@ -232,7 +235,7 @@ const Review = forwardRef(
   const getLatestAds = useCallback((list) => {
     const map = {};
     list.forEach((a) => {
-      const root = a.parentAdId || a.assetId;
+      const root = a.parentAdId || stripVersion(a.filename);
       if (!map[root] || getVersion(map[root]) < getVersion(a)) {
         map[root] = a;
       }
@@ -482,7 +485,7 @@ useEffect(() => {
         // keep highest version per ad for the review list
         const versionMap = {};
         list.forEach((a) => {
-          const root = a.parentAdId || a.assetId;
+          const root = a.parentAdId || stripVersion(a.filename);
           if (!versionMap[root] || getVersion(versionMap[root]) < getVersion(a)) {
             versionMap[root] = a;
           }
@@ -631,10 +634,13 @@ useEffect(() => {
   const currentAd = reviewAds[currentIndex];
   const previousAd = useMemo(() => {
     if (!currentAd) return null;
-    const rootId = currentAd.parentAdId || currentAd.assetId;
-    const siblings = allAds.filter(
-      (a) => a.parentAdId === rootId || a.assetId === rootId,
-    );
+    const rootId = currentAd.parentAdId || stripVersion(currentAd.filename);
+    const siblings = allAds.filter((a) => {
+      if (currentAd.parentAdId) {
+        return a.parentAdId === rootId || a.assetId === rootId;
+      }
+      return stripVersion(a.filename) === rootId;
+    });
     return (
       siblings
         .filter((a) => getVersion(a) < getVersion(currentAd))
@@ -679,11 +685,14 @@ useEffect(() => {
 
 
   const openVersionModal = (ver) => {
-    if (!currentAd || !currentAd.parentAdId) return;
-    const rootId = currentAd.parentAdId || currentAd.assetId;
-    const siblings = allAds.filter(
-      (a) => a.parentAdId === rootId || a.assetId === rootId,
-    );
+    if (!currentAd) return;
+    const rootId = currentAd.parentAdId || stripVersion(currentAd.filename);
+    const siblings = allAds.filter((a) => {
+      if (currentAd.parentAdId) {
+        return a.parentAdId === rootId || a.assetId === rootId;
+      }
+      return stripVersion(a.filename) === rootId;
+    });
     let prev;
     if (ver) {
       prev = siblings.find((a) => getVersion(a) === ver);
@@ -710,10 +719,13 @@ useEffect(() => {
       setReviewAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
     });
 
-    const rootId = currentAd.parentAdId || currentAd.assetId;
-    const related = allAds.filter(
-      (a) => a.assetId === rootId || a.parentAdId === rootId,
-    );
+    const rootId = currentAd.parentAdId || stripVersion(currentAd.filename);
+    const related = allAds.filter((a) => {
+      if (currentAd.parentAdId) {
+        return a.assetId === rootId || a.parentAdId === rootId;
+      }
+      return stripVersion(a.filename) === rootId;
+    });
     const versions = {};
     [...related, displayAd].forEach((a) => {
       versions[a.assetId] = a;
@@ -1507,7 +1519,7 @@ useEffect(() => {
     />
   )}
 </div>
-            {currentAd && getVersion(currentAd) > 1 && previousAd && (
+            {currentAd && previousAd && (
               <span
                 onClick={() => setShowPrevVersion((p) => !p)}
                 className="version-badge cursor-pointer"
