@@ -334,13 +334,15 @@ useEffect(() => {
       try {
         let list = [];
         let startIndex = 0;
+        let status = 'pending';
         if (groupId) {
-          const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
-          if (groupSnap.exists()) {
-            const data = groupSnap.data();
-            if (typeof data.reviewProgress === 'number') {
-              startIndex = data.reviewProgress;
-            }
+            const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
+            if (groupSnap.exists()) {
+              const data = groupSnap.data();
+              status = data.status || 'pending';
+              if (typeof data.reviewProgress === 'number') {
+                startIndex = data.reviewProgress;
+              }
             const assetsSnap = await getDocs(
               collection(db, 'adGroups', groupId, 'assets')
             );
@@ -419,7 +421,8 @@ useEffect(() => {
         setHasPending(hasPendingAds);
 
         const readyAds = nonPending.filter((a) => a.status === 'ready');
-        list = readyAds;
+        const reviewSource = readyAds.length > 0 ? readyAds : nonPending;
+        list = reviewSource;
 
         const key = groupId ? `lastViewed-${groupId}` : null;
         const stored = key ? localStorage.getItem(key) : null;
@@ -487,7 +490,7 @@ useEffect(() => {
         });
         setReviewAds(heroList);
         setCurrentIndex(
-          forceSplash
+          forceSplash || status === 'reviewed'
             ? heroList.length
             : startIndex < heroList.length
             ? startIndex
