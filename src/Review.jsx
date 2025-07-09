@@ -1605,7 +1605,7 @@ useEffect(() => {
         </div>
       </div>
 
-      {!showSizes && (
+      {!showSizes && (showSecondView ? (
         <div className="flex items-center space-x-4">
           {currentIndex > 0 && (
             <button
@@ -1662,7 +1662,32 @@ useEffect(() => {
             </button>
           )}
         </div>
-      )}
+      ) : (
+        <div className="flex space-x-4">
+          <button
+            onClick={() => submitResponse('reject')}
+            className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
+            disabled={submitting}
+          >
+            Reject
+          </button>
+          <button
+            onClick={openEditRequest}
+            className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
+            disabled={submitting}
+            aria-label="Request Edit"
+          >
+            <FiEdit />
+          </button>
+          <button
+            onClick={() => submitResponse('approve')}
+            className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
+            disabled={submitting}
+          >
+            Approve
+          </button>
+        </div>
+      ))}
       {showEditModal && (
         <EditRequestModal
           comment={comment}
