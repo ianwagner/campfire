@@ -8,8 +8,9 @@ const VideoPlayer = ({ mp4Url, webmUrl, src, poster = '', ...props }) => {
   const webmSrc = sanitizeSrc(isHosted(webmUrl) ? webmUrl : webmUrl);
   const posterSrc = sanitizeSrc(poster);
 
+  const key = mp4Src || webmSrc || src || posterSrc;
   return (
-    <video controls poster={posterSrc} {...props}>
+    <video key={key} controls poster={posterSrc} {...props}>
       {webmSrc && <source src={webmSrc} type="video/webm" />}
       {mp4Src && <source src={mp4Src} type="video/mp4" />}
     </video>
