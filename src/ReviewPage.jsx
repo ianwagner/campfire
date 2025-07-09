@@ -237,7 +237,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
 
   return (
     <div className="min-h-screen relative">
-      <div className="absolute top-2 right-2 flex gap-2">
+      <div className="absolute top-2 right-2 flex gap-2 z-40">
         {currentUser?.isAnonymous && <ThemeToggle />}
         {copyCount > 0 && (
           <button
