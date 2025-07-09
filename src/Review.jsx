@@ -110,7 +110,7 @@ const Review = forwardRef(
   const logoUrlRef = useRef(null);
   const [groupStatus, setGroupStatus] = useState(null);
   const [initialStatus, setInitialStatus] = useState(null);
-  const [historyEntries, setHistoryEntries] = useState([]);
+  const [historyEntries, setHistoryEntries] = useState({});
   // refs to track latest values for cleanup on unmount
   const currentIndexRef = useRef(currentIndex);
   const reviewLengthRef = useRef(reviewAds.length);
@@ -634,15 +634,34 @@ useEffect(() => {
       setAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
       setReviewAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
     });
-    const q = query(collection(assetRef, 'history'), orderBy('updatedAt', 'asc'));
-    const unsubHist = onSnapshot(q, (snap) => {
-      setHistoryEntries(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+
+    const rootId = currentAd.parentAdId || currentAd.assetId;
+    const related = allAds.filter(
+      (a) => a.assetId === rootId || a.parentAdId === rootId,
+    );
+    const versions = {};
+    [...related, currentAd].forEach((a) => {
+      versions[a.assetId] = a;
     });
+
+    const unsubs = Object.values(versions).map((ad) => {
+      const q = query(
+        collection(doc(db, 'adGroups', ad.adGroupId, 'assets', ad.assetId), 'history'),
+        orderBy('updatedAt', 'asc'),
+      );
+      return onSnapshot(q, (snap) => {
+        setHistoryEntries((prev) => ({
+          ...prev,
+          [ad.version || 1]: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        }));
+      });
+    });
+
     return () => {
       unsubDoc();
-      unsubHist();
+      unsubs.forEach((u) => u());
     };
-  }, [currentAd?.adGroupId, currentAd?.assetId]);
+  }, [currentAd?.adGroupId, currentAd?.assetId, allAds]);
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
