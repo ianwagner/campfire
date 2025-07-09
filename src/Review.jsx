@@ -754,6 +754,8 @@ useEffect(() => {
     // allow swiping even while submitting a previous response
     if (showSizes || showEditModal || showNoteInput || showStreakModal)
       return;
+    // don't intercept touches meant for the video controls
+    if (e.target.closest('video')) return;
     const touch = e.touches[0];
     debugLog('Touch start', touch);
     touchStartX.current = touch.clientX;
