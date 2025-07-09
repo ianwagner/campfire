@@ -479,7 +479,7 @@ useEffect(() => {
           a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
 
         const map = {};
-        filtered.forEach((a) => {
+        list.forEach((a) => {
           const r = getRecipe(a);
           if (!map[r]) map[r] = [];
           map[r].push(a);
