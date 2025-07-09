@@ -5,9 +5,10 @@ import useUserRole from './useUserRole';
 import { uploadBrandAsset } from './uploadBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
+import TagInput from './components/TagInput.jsx';
 
 const emptyImage = { url: '', file: null };
-const emptyProduct = { name: '', description: '', benefits: '', images: [{ ...emptyImage }] };
+const emptyProduct = { name: '', description: [], benefits: [], images: [{ ...emptyImage }] };
 
 const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const user = auth.currentUser;
@@ -37,8 +38,22 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
               Array.isArray(data.products) && data.products.length
                 ? data.products.map((p) => ({
                     name: p.name || '',
-                    description: p.description || '',
-                    benefits: p.benefits || '',
+                    description: Array.isArray(p.description)
+                      ? p.description
+                      : typeof p.description === 'string'
+                      ? p.description
+                          .split(/[;\n]+/)
+                          .map((d) => d.trim())
+                          .filter(Boolean)
+                      : [],
+                    benefits: Array.isArray(p.benefits)
+                      ? p.benefits
+                      : typeof p.benefits === 'string'
+                      ? p.benefits
+                          .split(/[;\n]+/)
+                          .map((d) => d.trim())
+                          .filter(Boolean)
+                      : [],
                     images: Array.isArray(p.images) && p.images.length
                       ? p.images.map((u) => ({ url: u, file: null }))
                       : [{ ...emptyImage }],
@@ -58,8 +73,22 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
               Array.isArray(data.products) && data.products.length
                 ? data.products.map((p) => ({
                     name: p.name || '',
-                    description: p.description || '',
-                    benefits: p.benefits || '',
+                    description: Array.isArray(p.description)
+                      ? p.description
+                      : typeof p.description === 'string'
+                      ? p.description
+                          .split(/[;\n]+/)
+                          .map((d) => d.trim())
+                          .filter(Boolean)
+                      : [],
+                    benefits: Array.isArray(p.benefits)
+                      ? p.benefits
+                      : typeof p.benefits === 'string'
+                      ? p.benefits
+                          .split(/[;\n]+/)
+                          .map((d) => d.trim())
+                          .filter(Boolean)
+                      : [],
                     images: Array.isArray(p.images) && p.images.length
                       ? p.images.map((u) => ({ url: u, file: null }))
                       : [{ ...emptyImage }],
@@ -123,8 +152,12 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
         }
         productData.push({
           name: prod.name.trim(),
-          description: prod.description.trim(),
-          benefits: prod.benefits.trim(),
+          description: prod.description
+            .map((d) => d.trim())
+            .filter(Boolean),
+          benefits: prod.benefits
+            .map((b) => b.trim())
+            .filter(Boolean),
           images: imgs,
         });
       }
@@ -155,17 +188,17 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
               />
             </FormField>
             <FormField label="Description">
-              <textarea
+              <TagInput
+                id={`desc-${pIdx}`}
                 value={prod.description}
-                onChange={(e) => updateProduct(pIdx, { description: e.target.value })}
-                className="w-full p-2 border rounded"
+                onChange={(arr) => updateProduct(pIdx, { description: arr })}
               />
             </FormField>
             <FormField label="Benefits">
-              <textarea
+              <TagInput
+                id={`benefits-${pIdx}`}
                 value={prod.benefits}
-                onChange={(e) => updateProduct(pIdx, { benefits: e.target.value })}
-                className="w-full p-2 border rounded"
+                onChange={(arr) => updateProduct(pIdx, { benefits: arr })}
               />
             </FormField>
             <FormField label="Images">

@@ -141,7 +141,25 @@ const RecipePreview = ({
               id: `product-${idx}`,
               componentKey: 'product',
               name: p.name,
-              values: { name: p.name, description: p.description || '', benefits: p.benefits || '' },
+              values: {
+                name: p.name,
+                description: Array.isArray(p.description)
+                  ? p.description
+                  : typeof p.description === 'string'
+                  ? p.description
+                      .split(/[;\n]+/)
+                      .map((d) => d.trim())
+                      .filter(Boolean)
+                  : [],
+                benefits: Array.isArray(p.benefits)
+                  ? p.benefits
+                  : typeof p.benefits === 'string'
+                  ? p.benefits
+                      .split(/[;\n]+/)
+                      .map((d) => d.trim())
+                      .filter(Boolean)
+                  : [],
+              },
               relationships: { brandCode },
             }))
           );
@@ -186,8 +204,8 @@ const RecipePreview = ({
           selectionMode: 'checklist',
           attributes: [
             { label: 'Name', key: 'name', inputType: 'text' },
-            { label: 'Description', key: 'description', inputType: 'text' },
-            { label: 'Benefits', key: 'benefits', inputType: 'text' },
+            { label: 'Description', key: 'description', inputType: 'list' },
+            { label: 'Benefits', key: 'benefits', inputType: 'list' },
           ],
         });
         setComponents(list);
