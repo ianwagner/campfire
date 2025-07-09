@@ -179,8 +179,9 @@ Admin and client accounts must enroll a second factor. After signing in,
 the app checks `multiFactor.enrolledFactors` for the user and redirects to
 `/mfa-settings` if no factors are present. The enrollment screen sends an SMS
 verification code and completes `multiFactor().enroll()` once confirmed.
-Phone numbers entered on this screen are automatically formatted as E.164,
-so typing `15555551234` will result in `+15555551234` in the field.
+Phone numbers entered on this screen are sanitized to the E.164 format.
+Users should include their own country code, e.g. typing `+441234567890`
+will remain `+441234567890` in the field.
 
 ## Running Tests
 

@@ -50,11 +50,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
   const formatPhoneNumber = (value: string) => {
     const digits = value.replace(/\D/g, '');
     if (!digits) return '';
-    let e164 = digits;
-    if (digits[0] !== '1' && digits.length === 10) {
-      e164 = '1' + digits;
-    }
-    return '+' + e164;
+    return '+' + digits;
   };
 
   if (!user || !['admin', 'client', 'agency', 'designer'].includes(role)) {

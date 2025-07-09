@@ -38,11 +38,11 @@ test('resends verification email when button clicked', () => {
   expect(sendEmailVerification).toHaveBeenCalled();
 });
 
-test('formats phone number input to E.164', () => {
+test('formats phone number input to E.164 without adding country code', () => {
   render(<ManageMfa user={{ emailVerified: true } as any} role="admin" />);
   const input = screen.getByLabelText(/Phone Number/i) as HTMLInputElement;
-  fireEvent.change(input, { target: { value: '15551234567' } });
-  expect(input.value).toBe('+15551234567');
+  fireEvent.change(input, { target: { value: '5551234567' } });
+  expect(input.value).toBe('+5551234567');
 });
 
 test('shows message when recent login required', async () => {
