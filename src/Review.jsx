@@ -1072,6 +1072,8 @@ useEffect(() => {
           <button
             onClick={() => {
               setTimedOut(false);
+              setCurrentIndex(0);
+              setFinalGallery(false);
               setStarted(true);
             }}
             className="btn-primary px-6 py-3 text-lg"
@@ -1241,6 +1243,15 @@ useEffect(() => {
           className="btn-secondary"
         >
           {finalGallery ? 'Close Gallery' : 'View Gallery'}
+        </button>
+        <button
+          onClick={() => {
+            setCurrentIndex(0);
+            setFinalGallery(false);
+          }}
+          className="btn-primary px-6 py-3"
+        >
+          <FiCheck className="mr-2" /> Review Ads
         </button>
       </div>
     );
