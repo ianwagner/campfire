@@ -1285,7 +1285,7 @@ useEffect(() => {
   }
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen space-y-4">
+    <div className="flex flex-col md:flex-row items-start justify-center min-h-screen space-y-4 md:space-y-0 md:space-x-4">
       {showStreakModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded shadow max-w-sm space-y-4 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
@@ -1517,6 +1517,7 @@ useEffect(() => {
           </div>
         </div>
       </div>
+
       {!showSizes && (showSecondView ? (
         <div className="flex items-center space-x-4">
           {currentIndex > 0 && (
@@ -1631,7 +1632,7 @@ useEffect(() => {
               submitting={submitting}
             />
           )}
-
+        </>
       ))}
       {versionModal && (
         <VersionModal
@@ -1671,7 +1672,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-      <FeedbackPanel entries={historyEntries} className="md:absolute md:left-full md:top-0" />
+      <FeedbackPanel entries={historyEntries} />
     </div>
   );
 });
