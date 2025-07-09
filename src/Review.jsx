@@ -48,6 +48,9 @@ import useDebugTrace from './utils/useDebugTrace';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
 
+const getVersion = (ad) =>
+  ad.version || parseAdFilename(ad.filename || '').version || 1;
+
 const isSafari =
   typeof navigator !== 'undefined' &&
   /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -198,7 +201,7 @@ const Review = forwardRef(
     const latestMap = {};
     list.forEach((a) => {
       const root = a.parentAdId || a.assetId;
-      if (!latestMap[root] || (latestMap[root].version || 1) < (a.version || 1)) {
+      if (!latestMap[root] || getVersion(latestMap[root]) < getVersion(a)) {
         latestMap[root] = a;
       }
     });
@@ -211,7 +214,7 @@ const Review = forwardRef(
     });
     const heroes = Object.values(map).map((ls) => {
       // Newer versions first so latest is chosen when aspect ratios match
-      ls.sort((a, b) => (b.version || 1) - (a.version || 1));
+      ls.sort((a, b) => getVersion(b) - getVersion(a));
       for (const asp of prefOrder) {
         const f = ls.find((x) => getAspect(x) === asp);
         if (f) return f;
@@ -230,7 +233,7 @@ const Review = forwardRef(
     const map = {};
     list.forEach((a) => {
       const root = a.parentAdId || a.assetId;
-      if (!map[root] || (map[root].version || 1) < (a.version || 1)) {
+      if (!map[root] || getVersion(map[root]) < getVersion(a)) {
         map[root] = a;
       }
     });
@@ -416,16 +419,21 @@ useEffect(() => {
               collection(db, 'adGroups', groupId, 'assets')
             );
               list = assetsSnap.docs
-                .map((assetDoc) => ({
-                  ...assetDoc.data(),
-                  assetId: assetDoc.id,
-                  adGroupId: groupId,
-                groupName: groupSnap.data().name,
-                firebaseUrl: assetDoc.data().firebaseUrl,
-                ...(groupSnap.data().brandCode
-                  ? { brandCode: groupSnap.data().brandCode }
-                  : {}),
-                }));
+                .map((assetDoc) => {
+                  const data = assetDoc.data();
+                  const info = parseAdFilename(data.filename || '');
+                  return {
+                    ...data,
+                    version: data.version ?? info.version ?? 1,
+                    assetId: assetDoc.id,
+                    adGroupId: groupId,
+                    groupName: groupSnap.data().name,
+                    firebaseUrl: data.firebaseUrl,
+                    ...(groupSnap.data().brandCode
+                      ? { brandCode: groupSnap.data().brandCode }
+                      : {}),
+                  };
+                });
           }
           setInitialStatus(status);
         } else {
@@ -445,8 +453,10 @@ useEffect(() => {
                 const gSnap = await getDoc(doc(db, 'adGroups', adGroupId));
                 groupCache[adGroupId] = gSnap.exists() ? gSnap.data().name : '';
               }
+              const info = parseAdFilename(data.filename || '');
               return {
                 ...data,
+                version: data.version ?? info.version ?? 1,
                 assetId: d.id,
                 adGroupId,
                 groupName: groupCache[adGroupId],
@@ -473,7 +483,7 @@ useEffect(() => {
         const versionMap = {};
         list.forEach((a) => {
           const root = a.parentAdId || a.assetId;
-          if (!versionMap[root] || (versionMap[root].version || 1) < (a.version || 1)) {
+          if (!versionMap[root] || getVersion(versionMap[root]) < getVersion(a)) {
             versionMap[root] = a;
           }
         });
@@ -491,7 +501,7 @@ useEffect(() => {
         setHasPending(hasPendingAds);
 
         const readyAds = nonPending.filter((a) => a.status === 'ready');
-        const readyVersions = readyAds.filter((a) => (a.version || 1) > 1);
+        const readyVersions = readyAds.filter((a) => getVersion(a) > 1);
         const reviewSource = readyAds.length > 0 ? readyAds : nonPending;
         list = reviewSource;
 
@@ -627,8 +637,8 @@ useEffect(() => {
     );
     return (
       siblings
-        .filter((a) => (a.version || 1) < (currentAd.version || 1))
-        .sort((a, b) => (b.version || 1) - (a.version || 1))[0] || null
+        .filter((a) => getVersion(a) < getVersion(currentAd))
+        .sort((a, b) => getVersion(b) - getVersion(a))[0] || null
     );
   }, [currentAd, allAds]);
 
@@ -658,9 +668,9 @@ useEffect(() => {
   const selectedResponse = responses[adUrl]?.response ?? statusResponse;
   const showSecondView = !!selectedResponse;
   const panelEntries = useMemo(() => {
-    const ver = displayAd?.version || 1;
+    const ver = displayAd ? getVersion(displayAd) : 1;
     return { [ver]: historyEntries[ver] || [] };
-  }, [displayAd?.version, historyEntries]);
+  }, [displayAd?.assetId, displayAd?.filename, displayAd?.version, historyEntries]);
   // show next step as soon as a decision is made
   const progress =
     reviewAds.length > 0
@@ -676,15 +686,15 @@ useEffect(() => {
     );
     let prev;
     if (ver) {
-      prev = siblings.find((a) => (a.version || 1) === ver);
+      prev = siblings.find((a) => getVersion(a) === ver);
     } else {
       prev = siblings
-        .filter((a) => (a.version || 1) < (currentAd.version || 1))
-        .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
+        .filter((a) => getVersion(a) < getVersion(currentAd))
+        .sort((a, b) => getVersion(b) - getVersion(a))[0];
     }
     if (!prev) return;
     setVersionModal({ current: currentAd, previous: prev });
-    setVersionView(ver && ver !== (currentAd.version || 1) ? 'previous' : 'current');
+    setVersionView(ver && ver !== getVersion(currentAd) ? 'previous' : 'current');
   };
 
   const closeVersionModal = () => setVersionModal(null);
@@ -717,7 +727,7 @@ useEffect(() => {
       return onSnapshot(q, (snap) => {
         setHistoryEntries((prev) => ({
           ...prev,
-          [ad.version || 1]: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+          [getVersion(ad)]: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
         }));
       });
     });
@@ -1215,7 +1225,7 @@ useEffect(() => {
               setSummaryCount(null);
               const latest = getLatestAds(ads.filter((a) => a.status !== 'pending'));
               const readyList = latest.filter((a) => a.status === 'ready');
-              const readyVers = readyList.filter((a) => (a.version || 1) > 1);
+              const readyVers = readyList.filter((a) => getVersion(a) > 1);
               const allList = buildHeroList(latest);
               const versionList = buildHeroList(readyVers);
               setAllHeroAds(allList);
@@ -1497,12 +1507,12 @@ useEffect(() => {
     />
   )}
 </div>
-            {currentAd && (currentAd.version || 1) > 1 && previousAd && (
+            {currentAd && getVersion(currentAd) > 1 && previousAd && (
               <span
                 onClick={() => setShowPrevVersion((p) => !p)}
                 className="version-badge cursor-pointer"
               >
-                V{displayAd.version || 1}
+                V{getVersion(displayAd)}
               </span>
             )}
               {otherSizes.map((a, idx) => (
