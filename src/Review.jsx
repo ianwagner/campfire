@@ -254,14 +254,14 @@ useEffect(() => {
   }, [groupId, started, initialStatus]);
 
   useEffect(() => {
-    if (!started || !groupId) return;
+    if (!groupId) return;
     if (currentIndex >= reviewAds.length && reviewAds.length > 0) {
       updateDoc(doc(db, 'adGroups', groupId), {
         status: 'reviewed',
         reviewProgress: null,
       }).catch((err) => console.error('Failed to update status', err));
     }
-  }, [currentIndex, reviewAds.length, groupId, started]);
+  }, [currentIndex, reviewAds.length, groupId]);
 
   useEffect(() => {
     if (currentIndex >= reviewAds.length && reviewAds.length > 0) {
