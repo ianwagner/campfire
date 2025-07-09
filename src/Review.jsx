@@ -96,6 +96,7 @@ const Review = forwardRef(
   const [modalCopies, setModalCopies] = useState([]);
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
+  const [summaryCount, setSummaryCount] = useState(null);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -254,6 +255,16 @@ useEffect(() => {
       }).catch((err) => console.error('Failed to update status', err));
     }
   }, [currentIndex, reviewAds.length, groupId, forceSplash, started]);
+
+  useEffect(() => {
+    if (currentIndex >= reviewAds.length && reviewAds.length > 0) {
+      const approvedCount = Object.values(responses).filter(
+        (r) => r.response === 'approve'
+      ).length;
+      setSummaryCount(approvedCount);
+      setStarted(false);
+    }
+  }, [currentIndex, reviewAds.length, responses]);
 
   useEffect(() => {
     if (!started) return;
@@ -1067,11 +1078,26 @@ useEffect(() => {
             className="mb-2 max-h-16 w-auto"
           />
         )}
-        <h1 className="text-2xl font-bold">Your ads are ready!</h1>
+        {summaryCount === null ? (
+          <h1 className="text-2xl font-bold">Your ads are ready!</h1>
+        ) : (
+          <>
+            <h1 className="text-2xl font-bold">Thank you for your feedback!</h1>
+            <h2 className="text-xl">
+              You've approved{' '}
+              <span style={{ color: 'var(--approved-color)' }}>{summaryCount}</span>{' '}
+              ads.
+            </h2>
+          </>
+        )}
         <div className="flex flex-col items-center space-y-3">
           <button
             onClick={() => {
               setTimedOut(false);
+              setShowGallery(false);
+              setShowCopyModal(false);
+              setSummaryCount(null);
+              setCurrentIndex(0);
               setStarted(true);
             }}
             className="btn-primary px-6 py-3 text-lg"
