@@ -518,7 +518,7 @@
 }
 
 .size-thumb {
-  @apply absolute top-0 left-0 object-contain transition-transform duration-500 ease-in-out;
+  @apply absolute top-0 left-0 object-contain transition-transform duration-500 ease-in-out pointer-events-none;
 }
 
 .ad-aspect {
