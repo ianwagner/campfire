@@ -255,7 +255,7 @@ useEffect(() => {
 
   useEffect(() => {
     if (!groupId) return;
-    if (currentIndex >= reviewAds.length && reviewAds.length > 0) {
+    if (currentIndex >= reviewAds.length) {
       updateDoc(doc(db, 'adGroups', groupId), {
         status: 'reviewed',
         reviewProgress: null,
@@ -264,7 +264,7 @@ useEffect(() => {
   }, [currentIndex, reviewAds.length, groupId]);
 
   useEffect(() => {
-    if (currentIndex >= reviewAds.length && reviewAds.length > 0) {
+    if (currentIndex >= reviewAds.length) {
       const approvedCount = Object.values(responses).filter(
         (r) => r.response === 'approve'
       ).length;
