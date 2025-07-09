@@ -560,7 +560,16 @@ useEffect(() => {
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
     currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
-  const selectedResponse = responses[adUrl]?.response;
+  const statusResponse = useMemo(() => {
+    if (!currentAd) return null;
+    const { status } = currentAd;
+    if (status === 'approved') return 'approve';
+    if (status === 'rejected') return 'reject';
+    if (status === 'edit_requested') return 'edit';
+    return null;
+  }, [currentAd]);
+
+  const selectedResponse = responses[adUrl]?.response ?? statusResponse;
   const showSecondView = !!selectedResponse;
   // show next step as soon as a decision is made
   const progress =
