@@ -1,7 +1,7 @@
 import React from 'react';
 import StatusBadge from './StatusBadge.jsx';
 
-const FeedbackPanel = ({ entries = [], className = '' }) => {
+const FeedbackPanel = ({ entries = [], className = '', onVersionClick }) => {
   const isGrouped = !Array.isArray(entries) && entries && typeof entries === 'object';
   const versions = isGrouped ? Object.keys(entries).sort((a, b) => (parseInt(a, 10) - parseInt(b, 10))) : [];
   const lists = isGrouped ? entries : { 1: Array.isArray(entries) ? entries : [] };
@@ -44,12 +44,27 @@ const FeedbackPanel = ({ entries = [], className = '' }) => {
       ) : hasMultiple ? (
         versions.map((v) => (
           <div key={v} className="mb-4 last:mb-0">
-            <h4 className="font-semibold mb-1">V{v}</h4>
+            <h4
+              className="font-semibold mb-1 cursor-pointer"
+              onClick={() => onVersionClick && onVersionClick(parseInt(v, 10))}
+            >
+              V{v} History
+            </h4>
             {renderList(lists[v] || [])}
           </div>
         ))
       ) : (
-        renderList(lists[versions[0] || 1] || [])
+        <div>
+          <h4
+            className="font-semibold mb-1 cursor-pointer"
+            onClick={() =>
+              onVersionClick && onVersionClick(parseInt(versions[0] || 1, 10))
+            }
+          >
+            V{versions[0] || 1} History
+          </h4>
+          {renderList(lists[versions[0] || 1] || [])}
+        </div>
       )}
     </aside>
   );

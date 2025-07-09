@@ -96,6 +96,8 @@ const Review = forwardRef(
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
   const [summaryCount, setSummaryCount] = useState(null);
+  const [allHeroAds, setAllHeroAds] = useState([]); // hero list for all ads
+  const [versionMode, setVersionMode] = useState(false); // reviewing new versions
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -184,6 +186,44 @@ const Review = forwardRef(
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= 640 : false
   );
+
+  const buildHeroList = useCallback((list) => {
+    const prefOrder = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
+    const getRecipe = (a) =>
+      a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
+    const getAspect = (a) =>
+      a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
+    const map = {};
+    list.forEach((a) => {
+      const r = getRecipe(a);
+      if (!map[r]) map[r] = [];
+      map[r].push(a);
+    });
+    const heroes = Object.values(map).map((ls) => {
+      for (const asp of prefOrder) {
+        const f = ls.find((x) => getAspect(x) === asp);
+        if (f) return f;
+      }
+      return ls[0];
+    });
+    heroes.sort((a, b) => {
+      const rA = getRecipe(a);
+      const rB = getRecipe(b);
+      return rA.localeCompare(rB);
+    });
+    return heroes;
+  }, []);
+
+  const getLatestAds = useCallback((list) => {
+    const map = {};
+    list.forEach((a) => {
+      const root = a.parentAdId || a.assetId;
+      if (!map[root] || (map[root].version || 1) < (a.version || 1)) {
+        map[root] = a;
+      }
+    });
+    return Object.values(map);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -439,6 +479,7 @@ useEffect(() => {
         setHasPending(hasPendingAds);
 
         const readyAds = nonPending.filter((a) => a.status === 'ready');
+        const readyVersions = readyAds.filter((a) => (a.version || 1) > 1);
         const reviewSource = readyAds.length > 0 ? readyAds : nonPending;
         list = reviewSource;
 
@@ -481,41 +522,23 @@ useEffect(() => {
           setResponses(initial);
         }
 
-        // build hero list from all ready ads so hero assets always appear
-        const prefOrder = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
-        const getRecipe = (a) =>
-          a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
-        const getAspect = (a) =>
-          a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
-
-        const map = {};
-        list.forEach((a) => {
-          const r = getRecipe(a);
-          if (!map[r]) map[r] = [];
-          map[r].push(a);
-        });
-        const heroList = Object.values(map).map((list) => {
-          for (const asp of prefOrder) {
-            const found = list.find((x) => getAspect(x) === asp);
-            if (found) return found;
-          }
-          return list[0];
-        });
-        heroList.sort((a, b) => {
-          const rA = getRecipe(a);
-          const rB = getRecipe(b);
-          return rA.localeCompare(rB);
-        });
-        setReviewAds(heroList);
+        const allList = buildHeroList(nonPending);
+        const versionList = buildHeroList(readyVersions);
+        setAllHeroAds(allList);
+        const target = versionList.length > 0 ? versionList : allList;
+        setVersionMode(versionList.length > 0);
+        setReviewAds(target);
         setCurrentIndex(
           status === 'reviewed'
-            ? heroList.length
-            : startIndex < heroList.length
+            ? target.length
+            : versionList.length > 0
+            ? 0
+            : startIndex < target.length
             ? startIndex
             : 0
         );
         setPendingOnly(
-          heroList.length === 0 && nonPending.length === 0 && hasPendingAds
+          target.length === 0 && nonPending.length === 0 && hasPendingAds
         );
       } catch (err) {
         console.error('Failed to load ads', err);
@@ -610,17 +633,23 @@ useEffect(() => {
       : 0;
 
 
-  const openVersionModal = () => {
+  const openVersionModal = (ver) => {
     if (!currentAd || !currentAd.parentAdId) return;
+    const rootId = currentAd.parentAdId || currentAd.assetId;
     const siblings = allAds.filter(
-      (a) => a.parentAdId === currentAd.parentAdId || a.assetId === currentAd.parentAdId,
+      (a) => a.parentAdId === rootId || a.assetId === rootId,
     );
-    const prev = siblings
-      .filter((a) => (a.version || 1) < (currentAd.version || 1))
-      .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
+    let prev;
+    if (ver) {
+      prev = siblings.find((a) => (a.version || 1) === ver);
+    } else {
+      prev = siblings
+        .filter((a) => (a.version || 1) < (currentAd.version || 1))
+        .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
+    }
     if (!prev) return;
     setVersionModal({ current: currentAd, previous: prev });
-    setVersionView('current');
+    setVersionView(ver && ver !== (currentAd.version || 1) ? 'previous' : 'current');
   };
 
   const closeVersionModal = () => setVersionModal(null);
@@ -1147,6 +1176,15 @@ useEffect(() => {
               setShowGallery(false);
               setShowCopyModal(false);
               setSummaryCount(null);
+              const latest = getLatestAds(ads.filter((a) => a.status !== 'pending'));
+              const readyList = latest.filter((a) => a.status === 'ready');
+              const readyVers = readyList.filter((a) => (a.version || 1) > 1);
+              const allList = buildHeroList(latest);
+              const versionList = buildHeroList(readyVers);
+              setAllHeroAds(allList);
+              const target = versionList.length > 0 ? versionList : allList;
+              setVersionMode(versionList.length > 0);
+              setReviewAds(target);
               setCurrentIndex(0);
               setStarted(true);
             }}
@@ -1608,6 +1646,7 @@ useEffect(() => {
       </div>
       <FeedbackPanel
         entries={historyEntries}
+        onVersionClick={openVersionModal}
         className="mt-4 md:mt-0 w-full md:w-60 max-h-[70vh] overflow-y-auto"
       />
     </div>
