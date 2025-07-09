@@ -193,13 +193,24 @@ const Review = forwardRef(
       a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
     const getAspect = (a) =>
       a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
-    const map = {};
+    // Deduplicate by root id while keeping highest version of each asset
+    const latestMap = {};
     list.forEach((a) => {
+      const root = a.parentAdId || a.assetId;
+      if (!latestMap[root] || (latestMap[root].version || 1) < (a.version || 1)) {
+        latestMap[root] = a;
+      }
+    });
+
+    const map = {};
+    Object.values(latestMap).forEach((a) => {
       const r = getRecipe(a);
       if (!map[r]) map[r] = [];
       map[r].push(a);
     });
     const heroes = Object.values(map).map((ls) => {
+      // Newer versions first so latest is chosen when aspect ratios match
+      ls.sort((a, b) => (b.version || 1) - (a.version || 1));
       for (const asp of prefOrder) {
         const f = ls.find((x) => getAspect(x) === asp);
         if (f) return f;

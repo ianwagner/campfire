@@ -1,6 +1,10 @@
 import pickHeroAsset from './pickHeroAsset';
 
-const make = (aspectRatio, filename) => ({ aspectRatio, filename: filename || `ad_${aspectRatio}.png` });
+const make = (aspectRatio, version = 1, filename) => ({
+  aspectRatio,
+  version,
+  filename: filename || `ad_${aspectRatio}_V${version}.png`,
+});
 
 test('prefers 9x16 over others', () => {
   const list = [make('3x5'), make('9x16')];
@@ -24,4 +28,10 @@ test('prefers asset with no aspect ratio', () => {
   const list = [make('9x16'), { filename: 'LGND_CM01_001_V1.png' }];
   const hero = pickHeroAsset(list);
   expect(hero.filename).toBe('LGND_CM01_001_V1.png');
+});
+
+test('picks newest version when aspect ratios match', () => {
+  const list = [make('9x16', 1), make('9x16', 3), make('9x16', 2)];
+  const hero = pickHeroAsset(list);
+  expect(hero.version).toBe(3);
 });
