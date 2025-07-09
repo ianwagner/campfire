@@ -1377,7 +1377,7 @@ useEffect(() => {
   ) : (
     <OptimizedImage
       pngUrl={adUrl}
-      webpUrl={adUrl.replace(/\.png$/, '.webp')}
+      webpUrl={adUrl ? adUrl.replace(/\.png$/, '.webp') : undefined}
       alt="Ad"
       loading="eager"
       cacheKey={adUrl}
@@ -1417,7 +1417,7 @@ useEffect(() => {
                   <OptimizedImage
                     key={idx}
                     pngUrl={a.firebaseUrl}
-                    webpUrl={a.firebaseUrl.replace(/\.png$/, '.webp')}
+                    webpUrl={a.firebaseUrl ? a.firebaseUrl.replace(/\.png$/, '.webp') : undefined}
                     alt={a.filename}
                     cacheKey={a.firebaseUrl}
                     style={
