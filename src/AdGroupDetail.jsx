@@ -1386,7 +1386,25 @@ const AdGroupDetail = () => {
                       <td className="text-center">{a.version || 1}</td>
                       <td className="text-center">
                         <div className="flex flex-col items-center">
-                          <StatusBadge status={a.status} />
+                          {isAdmin ? (
+                            <select
+                              className={`status-select status-${a.status}`}
+                              value={a.status}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                updateAssetStatus(a.id, e.target.value);
+                              }}
+                            >
+                              <option value="pending">pending</option>
+                              <option value="ready">ready</option>
+                              <option value="approved">approved</option>
+                              <option value="rejected">rejected</option>
+                              <option value="edit_requested">edit_requested</option>
+                              <option value="archived">archived</option>
+                            </select>
+                          ) : (
+                            <StatusBadge status={a.status} />
+                          )}
                           {a.status === "edit_requested" && a.comment && (
                             <span className="italic text-xs">{a.comment}</span>
                           )}
