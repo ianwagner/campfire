@@ -124,6 +124,18 @@ const Review = forwardRef(
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
 
+  const getApprovedRecipeCount = useCallback(() => {
+    const set = new Set();
+    ads.forEach((a) => {
+      if (a.status === 'approved') {
+        const info = parseAdFilename(a.filename || '');
+        const recipe = a.recipeCode || info.recipeCode || 'unknown';
+        set.add(recipe);
+      }
+    });
+    return set.size;
+  }, [ads]);
+
 
   useImperativeHandle(ref, () => ({
     openGallery: () => setShowGallery(true),
@@ -265,13 +277,11 @@ useEffect(() => {
 
   useEffect(() => {
     if (currentIndex >= reviewAds.length) {
-      const approvedCount = Object.values(responses).filter(
-        (r) => r.response === 'approve'
-      ).length;
-      setSummaryCount(approvedCount);
+      const approved = getApprovedRecipeCount();
+      setSummaryCount(approved);
       setStarted(false);
     }
-  }, [currentIndex, reviewAds.length, responses]);
+  }, [currentIndex, reviewAds.length, getApprovedRecipeCount]);
 
   useEffect(() => {
     if (!started) return;
@@ -1048,10 +1058,7 @@ useEffect(() => {
       setAnimating(null);
 
       if (nextIndex >= reviewAds.length) {
-        const allResponses = { ...responses, ...addedResponses };
-        const approved = Object.values(allResponses).filter(
-          (r) => r.response === 'approve'
-        ).length;
+        const approved = getApprovedRecipeCount();
         setSummaryCount(approved);
         setStarted(false);
       }
