@@ -85,12 +85,10 @@ const Review = forwardRef(
   const [logoReady, setLogoReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
-  const [editing, setEditing] = useState(false);
   const [allAds, setAllAds] = useState([]); // includes all non-pending versions
   const [versionModal, setVersionModal] = useState(null); // {current, previous}
   const [versionView, setVersionView] = useState('current');
   const [finalGallery, setFinalGallery] = useState(false);
-  const [secondPass, setSecondPass] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
@@ -307,9 +305,6 @@ useEffect(() => {
     });
   }, [ads]);
 
-  useEffect(() => {
-    setEditing(false);
-  }, [currentIndex]);
 
   useEffect(() => {
     setFadeIn(true);
@@ -490,11 +485,6 @@ useEffect(() => {
         setPendingOnly(
           heroList.length === 0 && nonPending.length === 0 && hasPendingAds
         );
-        const completeKey = groupId ? `reviewComplete-${groupId}` : null;
-        const completeFlag = completeKey ? localStorage.getItem(completeKey) : null;
-        setSecondPass(
-          heroList.length === 0 && nonPending.length > 0 || completeFlag === 'true'
-        );
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
@@ -571,7 +561,7 @@ useEffect(() => {
   const groupName =
     currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
   const selectedResponse = responses[adUrl]?.response;
-  const showSecondView = secondPass && selectedResponse && !editing;
+  const showSecondView = !!selectedResponse;
   // show next step as soon as a decision is made
   const progress =
     reviewAds.length > 0
@@ -610,7 +600,7 @@ useEffect(() => {
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
-    if (showSizes || editing || showEditModal || showNoteInput || showStreakModal)
+    if (showSizes || showEditModal || showNoteInput || showStreakModal)
       return;
     const touch = e.touches[0];
     debugLog('Touch start', touch);
@@ -1011,7 +1001,6 @@ useEffect(() => {
       setOrigCopy('');
       setShowEditModal(false);
       setSubmitting(false);
-      setEditing(false);
 
       if (!advancedRef.current) {
         setCurrentIndex((i) => {
@@ -1166,9 +1155,6 @@ useEffect(() => {
         `lastViewed-${groupId}`,
         new Date().toISOString()
       );
-      if (localStorage.getItem(`reviewComplete-${groupId}`) !== 'true') {
-        localStorage.setItem(`reviewComplete-${groupId}`, 'false');
-      }
     }
     const allResponses = Object.values(responses);
     const approvedCount = allResponses.filter((r) => r.response === 'approve').length;
@@ -1198,33 +1184,6 @@ useEffect(() => {
       return { recipeCode: g.recipeCode, hero, assets: g.assets };
     });
 
-    const handleReviewAll = () => {
-      const heroMap = {};
-      ads.forEach((a) => {
-        const info = parseAdFilename(a.filename || '');
-        const recipe = a.recipeCode || info.recipeCode || 'unknown';
-        if (!heroMap[recipe]) heroMap[recipe] = [];
-        heroMap[recipe].push(a);
-      });
-      const prefOrder = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
-      const heroList = Object.values(heroMap).map((list) => {
-        for (const asp of prefOrder) {
-          const f = list.find((x) =>
-            (x.aspectRatio || parseAdFilename(x.filename || '').aspectRatio || '') === asp
-          );
-          if (f) return f;
-        }
-        return list[0];
-      });
-      heroList.sort((a, b) => {
-        const rA = a.recipeCode || parseAdFilename(a.filename || '').recipeCode || '';
-        const rB = b.recipeCode || parseAdFilename(b.filename || '').recipeCode || '';
-        return rA.localeCompare(rB);
-      });
-      setReviewAds(heroList);
-      setCurrentIndex(0);
-      setSecondPass(true);
-    };
 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
@@ -1268,12 +1227,6 @@ useEffect(() => {
             })}
         </div>
         {/* table and rejected button removed */}
-        <button
-          onClick={handleReviewAll}
-          className="btn-secondary"
-        >
-          Change Feedback
-        </button>
         <button
           onClick={() => setFinalGallery((p) => !p)}
           className="btn-secondary"
@@ -1576,12 +1529,6 @@ useEffect(() => {
                   })}
                 </p>
               )}
-            <button
-              onClick={() => setEditing(true)}
-              className="btn-secondary"
-            >
-              Change
-            </button>
           </div>
           {currentIndex < reviewAds.length - 1 && (
             <button
