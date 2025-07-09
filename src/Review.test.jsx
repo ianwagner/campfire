@@ -739,3 +739,49 @@ test('shows alert when locking fails due to permissions', async () => {
   );
 });
 
+test('opening reviewed group status unchanged on exit', async () => {
+  const groupDoc = {
+    exists: () => true,
+    data: () => ({ name: 'Group 1', status: 'reviewed', brandCode: 'BR1' }),
+  };
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'approved',
+          isResolved: true,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  getDoc.mockResolvedValue(groupDoc);
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      return Promise.resolve(assetSnapshot);
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  const { unmount } = render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+  );
+
+  fireEvent.click(screen.getByText('Review Ads'));
+  unmount();
+
+  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+  expect(updateDoc).toHaveBeenCalledTimes(1);
+  expect(updateDoc).toHaveBeenCalledWith('adGroups/group1', {
+    status: 'reviewed',
+    reviewProgress: null,
+  });
+});
+
