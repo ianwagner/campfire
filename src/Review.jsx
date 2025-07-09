@@ -93,7 +93,7 @@ const Review = forwardRef(
   const [allAds, setAllAds] = useState([]); // includes all non-pending versions
   const [versionModal, setVersionModal] = useState(null); // {current, previous}
   const [versionView, setVersionView] = useState('current');
-  const [showPrevVersion, setShowPrevVersion] = useState(false);
+  const [versionIndex, setVersionIndex] = useState(0); // index into versions array
   const [finalGallery, setFinalGallery] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
@@ -632,26 +632,24 @@ useEffect(() => {
   }, [agencyId, agency.logoUrl]);
 
   const currentAd = reviewAds[currentIndex];
-  const previousAd = useMemo(() => {
-    if (!currentAd) return null;
+  const versions = useMemo(() => {
+    if (!currentAd) return [];
     const rootId = currentAd.parentAdId || stripVersion(currentAd.filename);
-    const siblings = allAds.filter((a) => {
+    const related = allAds.filter((a) => {
       if (currentAd.parentAdId) {
         return a.parentAdId === rootId || a.assetId === rootId;
       }
       return stripVersion(a.filename) === rootId;
     });
-    return (
-      siblings
-        .filter((a) => getVersion(a) < getVersion(currentAd))
-        .sort((a, b) => getVersion(b) - getVersion(a))[0] || null
-    );
+    const all = [currentAd, ...related.filter((a) => a.assetId !== currentAd.assetId)];
+    all.sort((a, b) => getVersion(b) - getVersion(a));
+    return all;
   }, [currentAd, allAds]);
 
-  const displayAd = showPrevVersion && previousAd ? previousAd : currentAd;
+  const displayAd = versions[versionIndex] || currentAd;
 
   useEffect(() => {
-    setShowPrevVersion(false);
+    setVersionIndex(0);
   }, [currentAd?.assetId]);
 
   const adUrl =
@@ -1519,9 +1517,11 @@ useEffect(() => {
     />
   )}
 </div>
-            {currentAd && previousAd && (
+            {versions.length > 1 && (
               <span
-                onClick={() => setShowPrevVersion((p) => !p)}
+                onClick={() =>
+                  setVersionIndex((i) => (i + 1) % versions.length)
+                }
                 className="version-badge cursor-pointer"
               >
                 V{getVersion(displayAd)}
