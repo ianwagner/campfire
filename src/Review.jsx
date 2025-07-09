@@ -1363,6 +1363,7 @@ useEffect(() => {
           </div>
         </div>
       )}
+      <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
         <div className="relative flex flex-col items-center w-fit mx-auto">
           {agencyId && (
             <OptimizedImage
@@ -1674,8 +1675,9 @@ useEffect(() => {
       )}
       <FeedbackPanel
         entries={historyEntries}
-        className="mt-4 md:mt-0 md:absolute md:right-4 md:top-0"
+        className="mt-4 md:mt-0 w-full md:w-60 max-h-[70vh] overflow-y-auto"
       />
+    </div>
     </div>
   );
 });
