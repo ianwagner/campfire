@@ -58,6 +58,7 @@ import diffWords from "./utils/diffWords";
 import Modal from "./components/Modal.jsx";
 import IconButton from "./components/IconButton.jsx";
 import TabButton from "./components/TabButton.jsx";
+import stripVersion from "./utils/stripVersion";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -685,10 +686,8 @@ const AdGroupDetail = () => {
         const info = parseAdFilename(file.name);
         let parentId = null;
         if (info.version && info.version > 1) {
-          const base = file.name.replace(/_V\d+\.[^/.]+$/, "");
-          const prev = assets.find(
-            (a) => a.filename.replace(/_V\d+\.[^/.]+$/, "") === base,
-          );
+          const base = stripVersion(file.name);
+          const prev = assets.find((a) => stripVersion(a.filename) === base);
           if (prev) {
             parentId = prev.parentAdId || prev.id;
             try {
