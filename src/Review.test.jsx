@@ -863,3 +863,28 @@ test('updates group status after finishing review', async () => {
   expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
 });
 
+test('updates status and shows summary when no ads available', async () => {
+  const groupDoc = {
+    exists: () => true,
+    data: () => ({ name: 'Group 1', status: 'pending' }),
+  };
+  const assetSnapshot = { docs: [] };
+
+  getDoc.mockResolvedValue(groupDoc);
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      return Promise.resolve(assetSnapshot);
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+
+  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+  const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
+  expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
+
+  expect(await screen.findByText(/Thank you for your feedback/i)).toBeInTheDocument();
+});
+
