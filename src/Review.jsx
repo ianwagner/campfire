@@ -87,7 +87,6 @@ const Review = forwardRef(
   const [allAds, setAllAds] = useState([]); // includes all non-pending versions
   const [versionModal, setVersionModal] = useState(null); // {current, previous}
   const [versionView, setVersionView] = useState('current');
-  const [showPrevVersion, setShowPrevVersion] = useState(false);
   const [finalGallery, setFinalGallery] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
@@ -619,29 +618,10 @@ useEffect(() => {
   }, [agencyId, agency.logoUrl]);
 
   const currentAd = reviewAds[currentIndex];
-  const previousAd = useMemo(() => {
-    if (!currentAd) return null;
-    const rootId = displayAd.parentAdId || displayAd.assetId;
-    const siblings = allAds.filter(
-      (a) => a.parentAdId === rootId || a.assetId === rootId,
-    );
-    return (
-      siblings
-        .filter((a) => (a.version || 1) < (currentAd.version || 1))
-        .sort((a, b) => (b.version || 1) - (a.version || 1))[0] || null
-    );
-  }, [currentAd, allAds]);
-
-  const displayAd = showPrevVersion && previousAd ? previousAd : currentAd;
-
-  useEffect(() => {
-    setShowPrevVersion(false);
-  }, [currentAd?.assetId]);
-
   const adUrl =
-    displayAd && typeof displayAd === 'object'
-      ? displayAd.adUrl || displayAd.firebaseUrl
-      : displayAd;
+    currentAd && typeof currentAd === 'object'
+      ? currentAd.adUrl || currentAd.firebaseUrl
+      : currentAd;
   const brandCode =
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
@@ -657,10 +637,6 @@ useEffect(() => {
 
   const selectedResponse = responses[adUrl]?.response ?? statusResponse;
   const showSecondView = !!selectedResponse;
-  const panelEntries = useMemo(() => {
-    const ver = displayAd?.version || 1;
-    return { [ver]: historyEntries[ver] || [] };
-  }, [displayAd?.version, historyEntries]);
   // show next step as soon as a decision is made
   const progress =
     reviewAds.length > 0
@@ -691,8 +667,8 @@ useEffect(() => {
 
   useEffect(() => {
     setHistoryEntries({});
-    if (!displayAd?.adGroupId || !displayAd?.assetId) return;
-    const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAd.assetId);
+    if (!currentAd?.adGroupId || !currentAd?.assetId) return;
+    const assetRef = doc(db, 'adGroups', currentAd.adGroupId, 'assets', currentAd.assetId);
     const unsubDoc = onSnapshot(assetRef, (snap) => {
       if (!snap.exists()) return;
       const data = { assetId: snap.id, ...snap.data() };
@@ -705,7 +681,7 @@ useEffect(() => {
       (a) => a.assetId === rootId || a.parentAdId === rootId,
     );
     const versions = {};
-    [...related, displayAd].forEach((a) => {
+    [...related, currentAd].forEach((a) => {
       versions[a.assetId] = a;
     });
 
@@ -727,7 +703,7 @@ useEffect(() => {
         unsubs.forEach((u) => u());
         setHistoryEntries({});
       };
-  }, [displayAd?.adGroupId, displayAd?.assetId, allAds]);
+  }, [currentAd?.adGroupId, currentAd?.assetId, allAds]);
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
@@ -1497,13 +1473,8 @@ useEffect(() => {
     />
   )}
 </div>
-            {currentAd && (currentAd.version || 1) > 1 && previousAd && (
-              <span
-                onClick={() => setShowPrevVersion((p) => !p)}
-                className="version-badge cursor-pointer"
-              >
-                V{displayAd.version || 1}
-              </span>
+            {currentAd && (currentAd.version || 1) > 1 && (
+              <span onClick={openVersionModal} className="version-badge cursor-pointer">V{currentAd.version || 1}</span>
             )}
               {otherSizes.map((a, idx) => (
                 isVideoUrl(a.firebaseUrl) ? (
@@ -1687,7 +1658,7 @@ useEffect(() => {
       )}
       </div>
       <FeedbackPanel
-        entries={panelEntries}
+        entries={historyEntries}
         onVersionClick={openVersionModal}
         className="mt-4 md:mt-0 w-full md:w-60 max-h-[70vh] overflow-y-auto"
       />
