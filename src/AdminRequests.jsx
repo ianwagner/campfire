@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where } from 'firebase/firestore';
 import { FiPlus, FiList, FiColumns, FiArchive } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +20,7 @@ const emptyForm = {
   agencyId: '',
   toneOfVoice: '',
   offering: '',
+  designerId: '',
 };
 
 const AdminRequests = () => {
@@ -29,6 +30,7 @@ const AdminRequests = () => {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [brands, setBrands] = useState([]);
+  const [designers, setDesigners] = useState([]);
   const [view, setView] = useState('kanban');
   const [dragId, setDragId] = useState(null);
   const navigate = useNavigate();
@@ -58,8 +60,25 @@ const AdminRequests = () => {
       }
     };
 
+    const fetchDesigners = async () => {
+      try {
+        const q = query(collection(db, 'users'), where('role', '==', 'designer'));
+        const snap = await getDocs(q);
+        setDesigners(
+          snap.docs.map((d) => ({
+            id: d.id,
+            name: d.data().fullName || d.data().email || d.id,
+          }))
+        );
+      } catch (err) {
+        console.error('Failed to fetch designers', err);
+        setDesigners([]);
+      }
+    };
+
     fetchData();
     fetchBrands();
+    fetchDesigners();
   }, []);
 
   const resetForm = () => {
@@ -86,6 +105,7 @@ const AdminRequests = () => {
       agencyId: req.agencyId || '',
       toneOfVoice: req.toneOfVoice || '',
       offering: req.offering || '',
+      designerId: req.designerId || '',
     });
     setShowModal(true);
   };
@@ -103,6 +123,7 @@ const AdminRequests = () => {
       agencyId: form.agencyId,
       toneOfVoice: form.toneOfVoice,
       offering: form.offering,
+      designerId: form.designerId,
       status: editId ? (requests.find((r) => r.id === editId)?.status || 'new') : 'new',
     };
     try {
@@ -203,6 +224,7 @@ const AdminRequests = () => {
           password: '',
           dueDate: req.dueDate || null,
           clientNote: '',
+          designerId: req.designerId || null,
         });
         await updateDoc(doc(db, 'requests', req.id), { status: 'done' });
         setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, status: 'done' } : r)));
@@ -538,6 +560,19 @@ const AdminRequests = () => {
                   onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
                   className="w-full p-2 border rounded"
                 />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Designer</label>
+                <select
+                  value={form.designerId}
+                  onChange={(e) => setForm((f) => ({ ...f, designerId: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select designer</option>
+                  {designers.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block mb-1 text-sm font-medium">Number of Ads</label>
