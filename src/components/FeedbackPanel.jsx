@@ -1,7 +1,13 @@
 import React from 'react';
 import StatusBadge from './StatusBadge.jsx';
+import diffWords from '../utils/diffWords';
 
-const FeedbackPanel = ({ entries = [], className = '', onVersionClick }) => {
+const FeedbackPanel = ({
+  entries = [],
+  className = '',
+  onVersionClick,
+  origCopy = '',
+}) => {
   const isGrouped = !Array.isArray(entries) && entries && typeof entries === 'object';
   const versions = isGrouped ? Object.keys(entries).sort((a, b) => (parseInt(a, 10) - parseInt(b, 10))) : [];
   const lists = isGrouped ? entries : { 1: Array.isArray(entries) ? entries : [] };
@@ -30,7 +36,32 @@ const FeedbackPanel = ({ entries = [], className = '', onVersionClick }) => {
             </div>
             <StatusBadge status={e.status} className="mt-1" />
             {e.comment && <p className="italic">{e.comment}</p>}
-            {e.copyEdit && <p className="italic">Copy edit: {e.copyEdit}</p>}
+            {e.copyEdit && (
+              <p className="italic">
+                Copy edit:{' '}
+                {(() => {
+                  if (!origCopy) return e.copyEdit;
+                  const diff = diffWords(origCopy, e.copyEdit);
+                  return diff.map((part, idx) => {
+                    const space = idx < diff.length - 1 ? ' ' : '';
+                    if (part.type === 'same') return part.text + space;
+                    if (part.type === 'removed')
+                      return (
+                        <span key={idx} className="text-red-600 line-through">
+                          {part.text}
+                          {space}
+                        </span>
+                      );
+                    return (
+                      <span key={idx} className="text-green-600 italic">
+                        {part.text}
+                        {space}
+                      </span>
+                    );
+                  });
+                })()}
+              </p>
+            )}
           </li>
         ))}
     </ul>
