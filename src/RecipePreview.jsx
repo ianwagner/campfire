@@ -8,6 +8,7 @@ import {
   FiEdit2,
   FiTrash,
   FiX,
+  FiPlus,
 } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import { auth } from './firebase/config';
@@ -840,7 +841,16 @@ const RecipePreview = ({
     const row = { ...arr[rowIdx] };
     const comps = { ...row.components };
     const list = Array.isArray(comps[key]) ? comps[key].slice() : [];
-    list[assetIdx] = { needAsset: true };
+    const baseKey = key.replace(/\.assets$/, '');
+    const required =
+      parseInt(row.components[`${baseKey}.assetNo`], 10) ||
+      parseInt(row.components[`${baseKey}.assetCount`], 10) ||
+      0;
+    if (assetIdx >= required) {
+      list.splice(assetIdx, 1);
+    } else {
+      list[assetIdx] = { needAsset: true };
+    }
     comps[key] = list;
     row.components = comps;
     arr[rowIdx] = row;
@@ -848,7 +858,30 @@ const RecipePreview = ({
     if (editing === rowIdx) {
       const ec = { ...editComponents };
       const elist = Array.isArray(ec[key]) ? ec[key].slice() : [];
-      elist[assetIdx] = list[assetIdx];
+      if (assetIdx >= required) {
+        elist.splice(assetIdx, 1);
+      } else {
+        elist[assetIdx] = list[assetIdx];
+      }
+      ec[key] = elist;
+      setEditComponents(ec);
+    }
+  };
+
+  const handleAddAsset = (rowIdx, key) => {
+    const arr = [...results];
+    const row = { ...arr[rowIdx] };
+    const comps = { ...row.components };
+    const list = Array.isArray(comps[key]) ? comps[key].slice() : [];
+    list.push({ needAsset: true });
+    comps[key] = list;
+    row.components = comps;
+    arr[rowIdx] = row;
+    setResults(arr);
+    if (editing === rowIdx) {
+      const ec = { ...editComponents };
+      const elist = Array.isArray(ec[key]) ? ec[key].slice() : [];
+      elist.push({ needAsset: true });
       ec[key] = elist;
       setEditComponents(ec);
     }
@@ -910,6 +943,16 @@ const RecipePreview = ({
         )
       ) : (
         '-'
+      )}
+      {userRole === 'admin' && editing === rowIdx && (
+        <button
+          type="button"
+          onClick={() => handleAddAsset(rowIdx, key)}
+          className="btn-secondary px-1.5 py-0.5 text-xs flex items-center"
+          aria-label="Add Asset"
+        >
+          <FiPlus />
+        </button>
       )}
     </div>
   );
