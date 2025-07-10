@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where } from 'firebase/firestore';
-import { FiPlus, FiList, FiColumns, FiArchive } from 'react-icons/fi';
+import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import { useNavigate } from 'react-router-dom';
 import Table from './components/common/Table';
 import Modal from './components/Modal.jsx';
 import TabButton from './components/TabButton.jsx';
 import RequestCard from './components/RequestCard.jsx';
+import Calendar from './components/Calendar.jsx';
 
 const emptyForm = {
   type: 'newAds',
@@ -255,6 +256,9 @@ const AdminRequests = () => {
           <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
             <FiColumns />
           </TabButton>
+          <TabButton active={view === 'dashboard'} onClick={() => setView('dashboard')} aria-label="Dashboard view">
+            <FiCalendar />
+          </TabButton>
         </div>
       </div>
       {view === 'table' ? (
@@ -470,7 +474,7 @@ const AdminRequests = () => {
             )}
           </div>
         </>
-      ) : (
+      ) : view === 'kanban' ? (
         <div className="overflow-x-auto mt-[0.8rem]">
           <div className="min-w-max flex gap-4">
           {['new', 'pending', 'ready', 'done'].map((status) => (
@@ -509,6 +513,8 @@ const AdminRequests = () => {
           ))}
           </div>
         </div>
+      ) : (
+        <Calendar requests={requests} />
       )}
 
       {showModal && (
