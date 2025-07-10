@@ -118,6 +118,8 @@ const AdGroupDetail = () => {
   const [notesInput, setNotesInput] = useState("");
   const [briefDrag, setBriefDrag] = useState(false);
   const [responses, setResponses] = useState([]);
+  const [designers, setDesigners] = useState([]);
+  const [designerName, setDesignerName] = useState('');
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
@@ -308,6 +310,53 @@ const AdGroupDetail = () => {
     };
     loadBrand();
   }, [group?.brandCode]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const fetchDesigners = async () => {
+      try {
+        const q = query(collection(db, 'users'), where('role', '==', 'designer'));
+        const snap = await getDocs(q);
+        setDesigners(
+          snap.docs.map((d) => ({
+            id: d.id,
+            name: d.data().fullName || d.data().email || d.id,
+          }))
+        );
+      } catch (err) {
+        console.error('Failed to fetch designers', err);
+        setDesigners([]);
+      }
+    };
+    fetchDesigners();
+  }, [isAdmin]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadDesigner = async () => {
+      if (!group?.designerId) {
+        setDesignerName('');
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, 'users', group.designerId));
+        if (!cancelled) {
+          setDesignerName(
+            snap.exists()
+              ? snap.data().fullName || snap.data().email || snap.id
+              : group.designerId
+          );
+        }
+      } catch (err) {
+        console.error('Failed to fetch designer name', err);
+        if (!cancelled) setDesignerName(group.designerId);
+      }
+    };
+    loadDesigner();
+    return () => {
+      cancelled = true;
+    };
+  }, [group?.designerId]);
 
   useEffect(() => {
     if (group) {
@@ -1613,8 +1662,34 @@ const AdGroupDetail = () => {
               ? group.dueDate.toDate().toLocaleDateString()
               : "N/A"}
           </span>
-        )}
-      </p>
+          )}
+          <span className="hidden sm:inline">|</span>
+          Designer:
+          {isAdmin ? (
+            <select
+              value={group.designerId || ''}
+              onChange={async (e) => {
+                const value = e.target.value || null;
+                try {
+                  await updateDoc(doc(db, 'adGroups', id), { designerId: value });
+                  setGroup((p) => ({ ...p, designerId: value }));
+                } catch (err) {
+                  console.error('Failed to update designer', err);
+                }
+              }}
+              className="border p-1 rounded"
+            >
+              <option value="">Unassigned</option>
+              {designers.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span>{designerName || 'Unassigned'}</span>
+          )}
+        </p>
       {group.status === "archived" && (
         <p className="text-red-500 text-sm mb-2">
           This ad group is archived and read-only.
