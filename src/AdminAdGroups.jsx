@@ -258,7 +258,7 @@ const AdminAdGroups = () => {
               </TabButton>
             </div>
             <div className="flex items-center gap-2">
-              {view === 'table' ? (
+              {view === 'kanban' ? (
                 <select
                   value={designerFilter}
                   onChange={(e) => setDesignerFilter(e.target.value)}
