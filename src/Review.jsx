@@ -121,6 +121,7 @@ const Review = forwardRef(
   const [groupStatus, setGroupStatus] = useState(null);
   const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState({});
+  const [recipeCopyMap, setRecipeCopyMap] = useState({});
   // refs to track latest values for cleanup on unmount
   const currentIndexRef = useRef(currentIndex);
   const reviewLengthRef = useRef(reviewAds.length);
@@ -749,6 +750,26 @@ useEffect(() => {
         setHistoryEntries({});
       };
   }, [displayAd?.adGroupId, displayAd?.assetId, allAds]);
+
+  useEffect(() => {
+    const recipeCode =
+      displayAd?.recipeCode ||
+      parseAdFilename(displayAd?.filename || '').recipeCode ||
+      '';
+    if (!displayAd?.adGroupId || !recipeCode) return;
+    if (recipeCopyMap[recipeCode]) return;
+    let cancelled = false;
+    getDoc(doc(db, 'adGroups', displayAd.adGroupId, 'recipes', recipeCode))
+      .then((snap) => {
+        if (cancelled) return;
+        const text = snap.exists() ? snap.data().copy || '' : '';
+        setRecipeCopyMap((prev) => ({ ...prev, [recipeCode]: text }));
+      })
+      .catch((err) => console.error('Failed to load recipe copy', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [displayAd?.adGroupId, displayAd?.recipeCode, displayAd?.filename]);
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
@@ -1743,6 +1764,7 @@ useEffect(() => {
       <FeedbackPanel
         entries={panelEntries}
         onVersionClick={openVersionModal}
+        origCopy={recipeCopyMap[currentRecipe] || ''}
         className="mt-4 md:mt-0 w-full md:w-60 max-h-[70vh] overflow-y-auto"
       />
     </div>
