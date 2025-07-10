@@ -174,11 +174,11 @@ const AgencyAdGroups = () => {
                         </Link>
                         <Link
                           to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
-                          className="flex items-center ml-2 text-gray-700 underline"
+                          className="btn-action ml-2"
                           aria-label="Review"
                         >
                           <FiCheckCircle />
-                          <span className="ml-1 text-[14px]">Review</span>
+                          <span className="text-[14px]">Review</span>
                         </Link>
                         <button
                           onClick={() => handleShare(g.id, agencyId)}
