@@ -39,3 +39,8 @@ test('returns pending otherwise', () => {
   const status = computeGroupStatus([{ status: 'pending' }], 'pending');
   expect(status).toBe('pending');
 });
+
+test('returns override when provided', () => {
+  const status = computeGroupStatus([{ status: 'ready' }], 'pending', 'briefed');
+  expect(status).toBe('briefed');
+});

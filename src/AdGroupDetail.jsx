@@ -392,8 +392,12 @@ const AdGroupDetail = () => {
             ? { thumbnailUrl: summary.thumbnail }
             : {}),
       };
-      const newStatus = computeGroupStatus(assets, group.status);
-      if (newStatus !== group.status) {
+      const newStatus = computeGroupStatus(
+        assets,
+        group.status,
+        group.statusOverride || null,
+      );
+      if (!group.statusOverride && newStatus !== group.status) {
         update.status = newStatus;
       }
       updateDoc(doc(db, "adGroups", id), update).catch((err) =>

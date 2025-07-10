@@ -16,8 +16,9 @@ import {
   FiThumbsUp,
   FiThumbsDown,
   FiEdit,
+  FiX,
 } from 'react-icons/fi';
-import { collection, getDocs, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, updateDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { db } from './firebase/config';
 import deleteGroup from './utils/deleteGroup';
 import Table from './components/common/Table';
@@ -42,6 +43,8 @@ const AdminAdGroups = () => {
   const [shareInfo, setShareInfo] = useState(null);
   const [renameId, setRenameId] = useState(null);
   const [renameName, setRenameName] = useState('');
+  const [statusId, setStatusId] = useState(null);
+  const [statusValue, setStatusValue] = useState('pending');
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('status');
@@ -203,6 +206,41 @@ const AdminAdGroups = () => {
     }
   };
 
+  const startStatusEdit = (group) => {
+    setStatusId(group.id);
+    setStatusValue(group.statusOverride || group.status || 'pending');
+  };
+
+  const cancelStatusEdit = () => setStatusId(null);
+
+  const handleStatusSave = async (groupId) => {
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), {
+        status: statusValue,
+        statusOverride: statusValue,
+      });
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId ? { ...g, status: statusValue, statusOverride: statusValue } : g,
+        ),
+      );
+      setStatusId(null);
+    } catch (err) {
+      console.error('Failed to update status', err);
+    }
+  };
+
+  const clearStatusOverride = async (groupId) => {
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), { statusOverride: deleteField() });
+      setGroups((prev) =>
+        prev.map((g) => (g.id === groupId ? { ...g, statusOverride: undefined } : g)),
+      );
+    } catch (err) {
+      console.error('Failed to clear override', err);
+    }
+  };
+
   const statusOrder = {
     pending: 1,
     briefed: 2,
@@ -345,7 +383,23 @@ const AdminAdGroups = () => {
                   <td>{g.brandCode}</td>
                   <td className="text-center">{g.recipeCount}</td>
                   <td className="text-center">
-                    <StatusBadge status={g.status} />
+                    {statusId === g.id ? (
+                      <select
+                        value={statusValue}
+                        onChange={(e) => setStatusValue(e.target.value)}
+                        className="p-1 border rounded"
+                      >
+                        <option value="pending">pending</option>
+                        <option value="briefed">briefed</option>
+                        <option value="ready">ready</option>
+                        <option value="review pending">review pending</option>
+                        <option value="in review">in review</option>
+                        <option value="reviewed">reviewed</option>
+                        <option value="archived">archived</option>
+                      </select>
+                    ) : (
+                      <StatusBadge status={g.status} />
+                    )}
                   </td>
                   <td className="text-center text-approve">{g.counts.approved}</td>
                   <td className="text-center text-reject">{g.counts.rejected}</td>
@@ -378,6 +432,18 @@ const AdminAdGroups = () => {
                             onClick={cancelRename}
                             className="btn-action"
                           >
+                            Cancel
+                          </button>
+                        </>
+                      ) : statusId === g.id ? (
+                        <>
+                          <button
+                            onClick={() => handleStatusSave(g.id)}
+                            className="btn-action mr-2"
+                          >
+                            Save
+                          </button>
+                          <button onClick={cancelStatusEdit} className="btn-action">
                             Cancel
                           </button>
                         </>
@@ -415,6 +481,22 @@ const AdminAdGroups = () => {
                             <FiEdit2 />
                             <span className="text-[14px]">Rename</span>
                           </button>
+                          <button
+                            onClick={() => startStatusEdit(g)}
+                            className="btn-action ml-2"
+                            aria-label="Override Status"
+                          >
+                            <FiEdit />
+                          </button>
+                          {g.statusOverride && (
+                            <button
+                              onClick={() => clearStatusOverride(g.id)}
+                              className="btn-action ml-2"
+                              aria-label="Clear Override"
+                            >
+                              <FiX />
+                            </button>
+                          )}
                           {g.status === 'archived' ? (
                             <button
                               onClick={() => handleRestoreGroup(g.id)}
