@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { functions, db } from './firebase/config';
+import syncAssetLibrary from "./utils/syncAssetLibrary";
 import LoadingOverlay from './LoadingOverlay';
 
 const TaggerModal = ({ onClose, brandCode = '' }) => {
@@ -23,7 +24,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
     setResults((p) => p.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
   };
 
-  const saveToLibrary = () => {
+  const saveToLibrary = async () => {
     try {
       const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
       const raw = localStorage.getItem(key);
@@ -34,6 +35,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
         ...r,
       }));
       localStorage.setItem(key, JSON.stringify([...arr, ...newRows]));
+      await syncAssetLibrary(brandCode, [...arr, ...newRows]);
       localStorage.removeItem('pendingTaggerJobId');
       localStorage.removeItem('pendingTaggerJobBrand');
       onClose();
