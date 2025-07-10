@@ -9,7 +9,7 @@ const ThemeToggle = ({ className = '' }) => {
       type="button"
       aria-label="Toggle dark mode"
       onClick={toggleTheme}
-      className={`p-2 rounded ${className}`}
+      className={`p-2 rounded hover:bg-[var(--accent-color-10)] focus:outline-none active:bg-[var(--accent-color-10)] ${className}`}
     >
       {resolvedTheme === 'dark' ? <FiMoon /> : <FiSun />}
     </button>
