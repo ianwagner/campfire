@@ -7,9 +7,11 @@ import {
   FiPackage,
   FiAlertOctagon,
   FiZap,
-  FiMoreVertical,
+  FiMoreHorizontal,
+  FiCalendar,
 } from 'react-icons/fi';
 import StatusBadge from './StatusBadge.jsx';
+import IconButton from './IconButton.jsx';
 
 const typeIcons = {
   newAds: FiFilePlus,
@@ -54,20 +56,21 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
             </p>
           )}
           {request.dueDate && (
-            <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
+            <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0 flex items-center gap-1">
+              <FiCalendar className="text-gray-600 dark:text-gray-300" />
               {request.dueDate.toDate().toLocaleDateString()}
             </p>
           )}
         </div>
         <div className="flex items-start gap-1">
           <StatusBadge status={request.status} className="flex-shrink-0" />
-          <button
+          <IconButton
             onClick={() => setMenuOpen((o) => !o)}
-            className="btn-action ml-auto"
+            className="ml-auto bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
             aria-label="Menu"
           >
-            <FiMoreVertical />
-          </button>
+            <FiMoreHorizontal />
+          </IconButton>
           {menuOpen && (
             <div className="absolute right-0 top-6 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
               <button
