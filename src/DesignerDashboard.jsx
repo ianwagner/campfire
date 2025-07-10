@@ -54,7 +54,15 @@ const DesignerDashboard = () => {
       try {
         const results = new Map();
         let q;
-        if (brandCodes && brandCodes.length > 0) {
+        if (role === 'designer') {
+          q = query(
+            collection(db, 'adGroups'),
+            where('designerId', '==', auth.currentUser?.uid || ''),
+            where('status', 'not-in', ['archived'])
+          );
+          const snap = await getDocs(q);
+          snap.docs.forEach((d) => results.set(d.id, d));
+        } else if (brandCodes && brandCodes.length > 0) {
           q = query(collection(db, 'adGroups'), where('brandCode', 'in', brandCodes));
           const snap = await getDocs(q);
           snap.docs.forEach((d) => results.set(d.id, d));
@@ -67,14 +75,6 @@ const DesignerDashboard = () => {
           const snap = await getDocs(q);
           snap.docs.forEach((d) => results.set(d.id, d));
         }
-
-        const designerQuery = query(
-          collection(db, 'adGroups'),
-          where('designerId', '==', auth.currentUser?.uid || ''),
-          where('status', 'not-in', ['archived'])
-        );
-        const designerSnap = await getDocs(designerQuery);
-        designerSnap.docs.forEach((d) => results.set(d.id, d));
 
         const snapDocs = Array.from(results.values());
         const list = await Promise.all(
