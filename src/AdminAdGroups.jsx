@@ -45,8 +45,6 @@ const AdminAdGroups = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('status');
-  const [designers, setDesigners] = useState([]);
-  const [designerFilter, setDesignerFilter] = useState('');
   const [view, setView] = useState('kanban');
 
   const handleShare = async (id) => {
@@ -123,25 +121,6 @@ const AdminAdGroups = () => {
 
     fetchGroups();
   }, [showArchived]);
-
-  useEffect(() => {
-    const fetchDesigners = async () => {
-      try {
-        const q = query(collection(db, 'users'), where('role', '==', 'designer'));
-        const snap = await getDocs(q);
-        setDesigners(
-          snap.docs.map((d) => ({
-            id: d.id,
-            name: d.data().fullName || d.data().email || d.id,
-          }))
-        );
-      } catch (err) {
-        console.error('Failed to fetch designers', err);
-        setDesigners([]);
-      }
-    };
-    fetchDesigners();
-  }, []);
 
   const handleDeleteGroup = async (groupId, brandCode, groupName) => {
     if (!window.confirm('Delete this group?')) return;
@@ -228,7 +207,6 @@ const AdminAdGroups = () => {
         g.name?.toLowerCase().includes(term) ||
         g.brandCode?.toLowerCase().includes(term),
     )
-    .filter((g) => !designerFilter || g.designerId === designerFilter)
     .sort((a, b) => {
       if (sortField === 'name') return (a.name || '').localeCompare(b.name || '');
       if (sortField === 'brand') return (a.brandCode || '').localeCompare(b.brandCode || '');
@@ -258,39 +236,24 @@ const AdminAdGroups = () => {
               </TabButton>
             </div>
             <div className="flex items-center gap-2">
-              {view === 'table' ? (
-                <select
-                  value={designerFilter}
-                  onChange={(e) => setDesignerFilter(e.target.value)}
-                  className="p-1 border rounded"
-                >
-                  <option value="">All designers</option>
-                  {designers.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              ) : (
-                <>
-                  <select
-                    value={sortField}
-                    onChange={(e) => setSortField(e.target.value)}
-                    className="p-1 border rounded"
-                  >
-                    <option value="status">Status</option>
-                    <option value="brand">Brand</option>
-                    <option value="name">Group Name</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setShowArchived((p) => !p)}
-                    aria-pressed={showArchived}
-                    className="btn-secondary flex items-center gap-1 text-sm"
-                  >
-                    <FiArchive />
-                    {showArchived ? 'Hide archived' : 'Show archived'}
-                  </button>
-                </>
-              )}
+              <select
+                value={sortField}
+                onChange={(e) => setSortField(e.target.value)}
+                className="p-1 border rounded"
+              >
+                <option value="status">Status</option>
+                <option value="brand">Brand</option>
+                <option value="name">Group Name</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowArchived((p) => !p)}
+                aria-pressed={showArchived}
+                className="btn-secondary flex items-center gap-1 text-sm"
+              >
+                <FiArchive />
+                {showArchived ? 'Hide archived' : 'Show archived'}
+              </button>
               <input
                 type="text"
                 placeholder="Filter"
