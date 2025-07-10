@@ -52,22 +52,33 @@ const DesignerDashboard = () => {
     const fetchGroups = async () => {
       setLoading(true);
       try {
+        const results = new Map();
         let q;
         if (brandCodes && brandCodes.length > 0) {
-          q = query(
-            collection(db, 'adGroups'),
-            where('brandCode', 'in', brandCodes)
-          );
+          q = query(collection(db, 'adGroups'), where('brandCode', 'in', brandCodes));
+          const snap = await getDocs(q);
+          snap.docs.forEach((d) => results.set(d.id, d));
         } else {
           q = query(
             collection(db, 'adGroups'),
             where('uploadedBy', '==', auth.currentUser?.uid || ''),
             where('status', 'not-in', ['archived'])
           );
+          const snap = await getDocs(q);
+          snap.docs.forEach((d) => results.set(d.id, d));
         }
-        const snap = await getDocs(q);
+
+        const designerQuery = query(
+          collection(db, 'adGroups'),
+          where('designerId', '==', auth.currentUser?.uid || ''),
+          where('status', 'not-in', ['archived'])
+        );
+        const designerSnap = await getDocs(designerQuery);
+        designerSnap.docs.forEach((d) => results.set(d.id, d));
+
+        const snapDocs = Array.from(results.values());
         const list = await Promise.all(
-          snap.docs.map(async (d) => {
+          snapDocs.map(async (d) => {
             const data = d.data();
             let recipeCount = data.recipeCount;
             let assetCount = 0;
