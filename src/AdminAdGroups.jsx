@@ -77,9 +77,7 @@ const AdminAdGroups = () => {
         let q = base;
         const conditions = [];
         if (!showArchived) conditions.push(where('status', 'not-in', ['archived']));
-        if (isManager && brandCodes.length > 0) {
-          conditions.push(where('brandCode', 'in', brandCodes));
-        }
+        // Managers should see all ad groups, so no brand filtering
         if (conditions.length > 0) q = query(base, ...conditions);
         const snap = await getDocs(q);
         const list = await Promise.all(
@@ -131,7 +129,7 @@ const AdminAdGroups = () => {
     };
 
     fetchGroups();
-  }, [showArchived, isManager, brandCodes]);
+  }, [showArchived]);
 
   useEffect(() => {
     const fetchDesigners = async () => {
