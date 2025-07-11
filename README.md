@@ -103,8 +103,6 @@ form. The form calls `createUserWithEmailAndPassword` and then writes a user
 document to Firestore. Both operations are wrapped in a `try/catch` block. If
 either step fails the error message is shown so the admin can correct the input
 and retry.
-Selecting **Manager** when creating or editing an account assigns the manager role.
-Managers can view admin pages but cannot delete brands, ad groups, or products.
 
 
 ## Setting Admin Custom Claims

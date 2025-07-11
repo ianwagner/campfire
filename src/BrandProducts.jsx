@@ -12,8 +12,7 @@ const emptyProduct = { name: '', description: [], benefits: [], images: [{ ...em
 
 const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const user = auth.currentUser;
-  const { role: userRole, brandCodes } = useUserRole(user?.uid);
-  const isManager = userRole === 'manager';
+  const { brandCodes } = useUserRole(user?.uid);
   const [brandId, setBrandId] = useState(propId);
   const [brandCode, setBrandCode] = useState(propCode || brandCodes[0] || '');
   const [products, setProducts] = useState([{ ...emptyProduct }]);
@@ -131,10 +130,6 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
   };
 
   const removeProduct = (idx) => {
-    if (isManager) {
-      window.alert('Managers cannot delete products');
-      return;
-    }
     setProducts((prev) => prev.filter((_, i) => i !== idx));
   };
 
@@ -222,11 +217,9 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
                 Add Image
               </button>
             </FormField>
-            {!isManager && (
-              <button type="button" onClick={() => removeProduct(pIdx)} className="btn-action btn-delete mt-1">
-                Delete Product
-              </button>
-            )}
+            <button type="button" onClick={() => removeProduct(pIdx)} className="btn-action btn-delete mt-1">
+              Delete Product
+            </button>
           </div>
         ))}
         <button type="button" onClick={() => setProducts((p) => [...p, { ...emptyProduct }])} className="btn-action">
