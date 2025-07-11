@@ -134,7 +134,9 @@ const App = () => {
   const defaultPath = signedIn
     ? role === 'agency'
       ? `/agency/dashboard?agencyId=${agencyId}`
-      : `/dashboard/${role}`
+      : role === 'admin'
+        ? '/admin/ad-groups'
+        : `/dashboard/${role}`
     : '/login';
   if (signedIn && !role) {
     return (
