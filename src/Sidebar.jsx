@@ -1,21 +1,32 @@
 import SidebarBase from './components/SidebarBase';
 import useAgencyTheme from './useAgencyTheme';
 
-const tabs = [
+const defaultTabs = [
   { label: 'Campfire', path: '/dashboard/client' },
   { label: 'Request', path: '/request' },
   { label: 'Brand Profile', path: '/brand-profile' },
   { label: 'Account Settings', path: '/account-settings' },
 ];
 
-const Sidebar = ({ agencyId }) => {
-  const { agency } = useAgencyTheme(agencyId);
+const managerTabs = [
+  { label: 'Campfire', path: '/dashboard/client' },
+  { label: 'Tickets', path: '/admin/tickets' },
+  { label: 'Ad Groups', path: '/admin/ad-groups' },
+  { label: 'Brands', path: '/admin/brands' },
+  { label: 'Account Settings', path: '/account-settings' },
+];
+
+const Sidebar = ({ agencyId, role }) => {
+  const isManager = role === 'manager';
+  const { agency } = useAgencyTheme(isManager ? null : agencyId);
+  const tabs = isManager ? managerTabs : defaultTabs;
+
   return (
     <SidebarBase
       tabs={tabs}
-      logoUrl={agencyId ? agency.logoUrl : undefined}
-      logoAlt={agencyId ? `${agency.name} logo` : undefined}
-      applySiteAccent={!agencyId}
+      logoUrl={isManager ? undefined : agencyId ? agency.logoUrl : undefined}
+      logoAlt={isManager ? undefined : agencyId ? `${agency.name} logo` : undefined}
+      applySiteAccent={isManager || !agencyId}
     />
   );
 };
