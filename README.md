@@ -115,6 +115,17 @@ node setAdminClaim.js <uid>
 
 The script loads your service account credentials from the `GOOGLE_APPLICATION_CREDENTIALS` environment variable (it also reads variables from `.env` if present). Once executed, the specified user will have `{ admin: true }` in their custom claims. You can verify this in the Firebase console or by fetching the user record with the Admin SDK.
 
+## Setting Manager Custom Claims
+
+Managers require a custom claim similar to admins. After creating the Firebase account run the `setManagerClaim.js` helper with the UID:
+
+```bash
+node setManagerClaim.js <uid>
+```
+
+This adds `{ manager: true }` to the user's custom claims. Because security rules rely on these claims, avoid storing the manager role only in Firestore user profiles.
+Managers should also complete multi-factor authentication just like other roles to reduce account takeover risk.
+
 ## Admin Brand Management
 
 Similarly, `/admin/brands` lists all brands with inline edit and delete
