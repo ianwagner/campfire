@@ -9,7 +9,6 @@ const defaultTabs = [
 ];
 
 const managerTabs = [
-  { label: 'Campfire', path: '/dashboard/client' },
   { label: 'Tickets', path: '/admin/tickets' },
   { label: 'Ad Groups', path: '/admin/ad-groups' },
   { label: 'Brands', path: '/admin/brands' },

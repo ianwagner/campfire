@@ -1709,7 +1709,7 @@ const AdGroupDetail = () => {
             <FiFileText size={18} />
             Brief
           </TabButton>
-        {isAdmin && (
+        {(isAdmin || isManager) && (
           <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
             <FiType size={18} />
             Platform Copy
@@ -2189,7 +2189,7 @@ const AdGroupDetail = () => {
         </div>
       )}
 
-      {isAdmin && tab === 'copy' && (
+      {(isAdmin || isManager) && tab === 'copy' && (
         <div className="my-4">
           {copyCards.length > 0 ? (
             <CopyRecipePreview

@@ -38,7 +38,7 @@ const AdminAdGroups = () => {
   const [viewNote, setViewNote] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
   const user = auth.currentUser;
-  const { role } = useUserRole(user?.uid);
+  const { role, brandCodes } = useUserRole(user?.uid);
   const isAdmin = role === 'admin';
   const isManager = role === 'manager';
 
@@ -74,7 +74,13 @@ const AdminAdGroups = () => {
       setLoading(true);
       try {
         const base = collection(db, 'adGroups');
-        const q = showArchived ? base : query(base, where('status', 'not-in', ['archived']));
+        let q = base;
+        const conditions = [];
+        if (!showArchived) conditions.push(where('status', 'not-in', ['archived']));
+        if (isManager && brandCodes.length > 0) {
+          conditions.push(where('brandCode', 'in', brandCodes));
+        }
+        if (conditions.length > 0) q = query(base, ...conditions);
         const snap = await getDocs(q);
         const list = await Promise.all(
           snap.docs.map(async (d) => {
@@ -125,7 +131,7 @@ const AdminAdGroups = () => {
     };
 
     fetchGroups();
-  }, [showArchived]);
+  }, [showArchived, isManager, brandCodes]);
 
   useEffect(() => {
     const fetchDesigners = async () => {
