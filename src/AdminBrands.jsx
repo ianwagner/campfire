@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiEdit2, FiTrash } from 'react-icons/fi';
 import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { db, auth } from './firebase/config';
+import useUserRole from './useUserRole';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 
@@ -11,6 +12,9 @@ const AdminBrands = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('code');
+  const user = auth.currentUser;
+  const { role } = useUserRole(user?.uid);
+  const isManager = role === 'manager';
 
   useEffect(() => {
     const fetchBrands = async () => {
@@ -31,6 +35,10 @@ const AdminBrands = () => {
   }, []);
 
   const handleDelete = async (id) => {
+    if (isManager) {
+      window.alert('Managers cannot delete brands');
+      return;
+    }
     if (!window.confirm('Delete this brand?')) return;
     try {
       await deleteDoc(doc(db, 'brands', id));
@@ -104,13 +112,15 @@ const AdminBrands = () => {
                       <IconButton as="a" href={`/admin/brands/${brand.id}`} aria-label="Edit">
                         <FiEdit2 />
                       </IconButton>
-                      <IconButton
-                        onClick={() => handleDelete(brand.id)}
-                        className="btn-delete"
-                        aria-label="Delete"
-                      >
-                        <FiTrash />
-                      </IconButton>
+                      {!isManager && (
+                        <IconButton
+                          onClick={() => handleDelete(brand.id)}
+                          className="btn-delete"
+                          aria-label="Delete"
+                        >
+                          <FiTrash />
+                        </IconButton>
+                      )}
                     </div>
                   </td>
                 </tr>
