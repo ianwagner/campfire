@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiPlus, FiEdit2, FiTrash, FiArchive } from 'react-icons/fi';
-import { collection, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { FiPlus, FiEdit2, FiTrash, FiArchive, FiRotateCcw } from 'react-icons/fi';
+import { collection, getDocs, deleteDoc, doc, updateDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import createArchiveTicket from './utils/createArchiveTicket';
@@ -13,6 +13,7 @@ const AdminBrands = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('code');
+  const [showArchived, setShowArchived] = useState(false);
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
   const isAdmin = role === 'admin';
@@ -22,7 +23,9 @@ const AdminBrands = () => {
     const fetchBrands = async () => {
       setLoading(true);
       try {
-        const snap = await getDocs(collection(db, 'brands'));
+        const base = collection(db, 'brands');
+        const q = !showArchived ? query(base, where('archived', '!=', true)) : base;
+        const snap = await getDocs(q);
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setBrands(list);
       } catch (err) {
@@ -34,7 +37,7 @@ const AdminBrands = () => {
     };
 
     fetchBrands();
-  }, []);
+  }, [showArchived]);
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this brand?')) return;
@@ -63,11 +66,26 @@ const AdminBrands = () => {
     }
   };
 
+  const handleRestore = async (id) => {
+    try {
+      await updateDoc(doc(db, 'brands', id), {
+        archived: false,
+        archivedAt: null,
+        archivedBy: null,
+      });
+      setBrands((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, archived: false } : b))
+      );
+    } catch (err) {
+      console.error('Failed to restore brand', err);
+    }
+  };
+
   const term = filter.toLowerCase();
   const displayBrands = brands
     .filter(
       (b) =>
-        !b.archived &&
+        (showArchived || !b.archived) &&
         (!term ||
           b.code?.toLowerCase().includes(term) ||
           b.name?.toLowerCase().includes(term))
@@ -86,19 +104,28 @@ const AdminBrands = () => {
             Create Brand
           </Link>
           <div className="flex items-center gap-2">
-            <select
-              value={sortField}
-              onChange={(e) => setSortField(e.target.value)}
-              className="p-1 border rounded"
-            >
-              <option value="code">Code</option>
-              <option value="name">Name</option>
-            </select>
-            <input
-              type="text"
-              placeholder="Filter"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+          <select
+            value={sortField}
+            onChange={(e) => setSortField(e.target.value)}
+            className="p-1 border rounded"
+          >
+            <option value="code">Code</option>
+            <option value="name">Name</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setShowArchived((p) => !p)}
+            aria-pressed={showArchived}
+            className="btn-secondary flex items-center gap-1 text-sm"
+          >
+            <FiArchive />
+            {showArchived ? 'Hide archived' : 'Show archived'}
+          </button>
+          <input
+            type="text"
+            placeholder="Filter"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
               className="p-1 border rounded"
             />
           </div>
@@ -129,13 +156,23 @@ const AdminBrands = () => {
                         <FiEdit2 />
                       </IconButton>
                       {(isAdmin || isManager) && (
-                        <IconButton
-                          onClick={() => handleArchive(brand.id)}
-                          className="btn-action"
-                          aria-label="Archive"
-                        >
-                          <FiArchive />
-                        </IconButton>
+                        brand.archived ? (
+                          <IconButton
+                            onClick={() => handleRestore(brand.id)}
+                            className="btn-action"
+                            aria-label="Restore"
+                          >
+                            <FiRotateCcw />
+                          </IconButton>
+                        ) : (
+                          <IconButton
+                            onClick={() => handleArchive(brand.id)}
+                            className="btn-action"
+                            aria-label="Archive"
+                          >
+                            <FiArchive />
+                          </IconButton>
+                        )
                       )}
                       {isAdmin && (
                         <IconButton
