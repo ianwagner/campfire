@@ -7,7 +7,7 @@ import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 
 const emptyLogo = { url: '', file: null };
-const emptyFont = { type: 'google', value: '', file: null };
+const emptyFont = { type: 'google', value: '', name: '', file: null };
 
 const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const user = auth.currentUser;
@@ -51,7 +51,12 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             );
             setFonts(
               Array.isArray(data.fonts) && data.fonts.length
-                ? data.fonts.map((f) => ({ type: f.type || 'google', value: f.value || '', file: null }))
+                ? data.fonts.map((f) => ({
+                    type: f.type || 'google',
+                    value: f.value || '',
+                    name: f.name || '',
+                    file: null,
+                  }))
                 : [{ ...emptyFont }]
             );
           }
@@ -76,7 +81,12 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             );
             setFonts(
               Array.isArray(data.fonts) && data.fonts.length
-                ? data.fonts.map((f) => ({ type: f.type || 'google', value: f.value || '', file: null }))
+                ? data.fonts.map((f) => ({
+                    type: f.type || 'google',
+                    value: f.value || '',
+                    name: f.name || '',
+                    file: null,
+                  }))
                 : [{ ...emptyFont }]
             );
           }
@@ -109,11 +119,14 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
       }
       const fontData = [];
       for (const f of fonts) {
-        if (f.type === 'custom' && f.file) {
-          const url = await uploadBrandAsset(f.file, brandCode, 'fonts');
-          fontData.push({ type: 'custom', value: url });
-        } else if (f.type === 'custom' && f.value) {
-          fontData.push({ type: 'custom', value: f.value });
+        if (f.type === 'custom') {
+          let url = f.value;
+          if (f.file) {
+            url = await uploadBrandAsset(f.file, brandCode, 'fonts');
+          }
+          if (url) {
+            fontData.push({ type: 'custom', value: url, name: f.name || '' });
+          }
         } else if (f.type === 'google' && f.value) {
           fontData.push({ type: 'google', value: f.value });
         }
@@ -239,18 +252,27 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
                   className="w-full p-2 border rounded"
                 />
               ) : (
-                <input
-                  type="file"
-                  onChange={(e) =>
-                    updateFont(idx, {
-                      file: e.target.files[0],
-                      value: e.target.files[0]
-                        ? URL.createObjectURL(e.target.files[0])
-                        : font.value,
-                    })
-                  }
-                  className="w-full p-2 border rounded"
-                />
+                <>
+                  <input
+                    type="text"
+                    value={font.name}
+                    placeholder="Font Name"
+                    onChange={(e) => updateFont(idx, { name: e.target.value })}
+                    className="w-full p-2 border rounded"
+                  />
+                  <input
+                    type="file"
+                    onChange={(e) =>
+                      updateFont(idx, {
+                        file: e.target.files[0],
+                        value: e.target.files[0]
+                          ? URL.createObjectURL(e.target.files[0])
+                          : font.value,
+                      })
+                    }
+                    className="w-full p-2 border rounded"
+                  />
+                </>
               )}
               {font.type === 'custom' && font.value && !font.file && (
                 <a href={font.value} target="_blank" rel="noopener noreferrer" className="text-sm underline block">
