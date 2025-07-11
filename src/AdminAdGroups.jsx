@@ -19,6 +19,7 @@ import {
 } from 'react-icons/fi';
 import { collection, getDocs, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
+import createArchiveTicket from './utils/createArchiveTicket';
 import deleteGroup from './utils/deleteGroup';
 import Table from './components/common/Table';
 import CreateAdGroup from './CreateAdGroup';
@@ -38,6 +39,8 @@ const AdminAdGroups = () => {
   const [showArchived, setShowArchived] = useState(false);
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
+  const isAdmin = role === 'admin';
+  const isManager = role === 'manager';
 
   const [shareInfo, setShareInfo] = useState(null);
   const [renameId, setRenameId] = useState(null);
@@ -164,6 +167,7 @@ const AdminAdGroups = () => {
       setGroups((prev) =>
         prev.map((g) => (g.id === groupId ? { ...g, status: 'archived' } : g))
       );
+      await createArchiveTicket({ target: 'adGroup', groupId });
     } catch (err) {
       console.error('Failed to archive group', err);
     }
@@ -420,6 +424,7 @@ const AdminAdGroups = () => {
                               onClick={() => handleRestoreGroup(g.id)}
                               className="btn-action ml-2"
                               aria-label="Restore"
+                              disabled={!isAdmin && !isManager}
                             >
                               <FiRotateCcw />
                               <span className="text-[14px]">Restore</span>
@@ -429,18 +434,21 @@ const AdminAdGroups = () => {
                               onClick={() => handleArchiveGroup(g.id)}
                               className="btn-action ml-2"
                               aria-label="Archive"
+                              disabled={!isAdmin && !isManager}
                             >
                               <FiArchive />
                               <span className="text-[14px]">Archive</span>
                             </button>
                           )}
-                          <button
-                            onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                            className="btn-action ml-2 btn-delete"
-                            aria-label="Delete"
-                          >
-                            <FiTrash />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
+                              className="btn-action ml-2 btn-delete"
+                              aria-label="Delete"
+                            >
+                              <FiTrash />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>

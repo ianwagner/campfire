@@ -2,17 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
+import createArchiveTicket from './utils/createArchiveTicket';
 import { uploadBrandAsset } from './uploadBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import TagInput from './components/TagInput.jsx';
 
 const emptyImage = { url: '', file: null };
-const emptyProduct = { name: '', description: [], benefits: [], images: [{ ...emptyImage }] };
+const emptyProduct = { name: '', description: [], benefits: [], images: [{ ...emptyImage }], archived: false };
 
 const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const user = auth.currentUser;
-  const { brandCodes } = useUserRole(user?.uid);
+  const { brandCodes, role } = useUserRole(user?.uid);
+  const isManager = role === 'manager';
+  const isAdmin = role === 'admin';
   const [brandId, setBrandId] = useState(propId);
   const [brandCode, setBrandCode] = useState(propCode || brandCodes[0] || '');
   const [products, setProducts] = useState([{ ...emptyProduct }]);
@@ -57,6 +60,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
                     images: Array.isArray(p.images) && p.images.length
                       ? p.images.map((u) => ({ url: u, file: null }))
                       : [{ ...emptyImage }],
+                    archived: !!p.archived,
                   }))
                 : [{ ...emptyProduct }]
             );
@@ -92,6 +96,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
                     images: Array.isArray(p.images) && p.images.length
                       ? p.images.map((u) => ({ url: u, file: null }))
                       : [{ ...emptyImage }],
+                    archived: !!p.archived,
                   }))
                 : [{ ...emptyProduct }]
             );
@@ -130,7 +135,14 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
   };
 
   const removeProduct = (idx) => {
-    setProducts((prev) => prev.filter((_, i) => i !== idx));
+    if (isManager && !isAdmin) {
+      setProducts((prev) =>
+        prev.map((p, i) => (i === idx ? { ...p, archived: true } : p))
+      );
+      createArchiveTicket({ target: 'product', brandId, index: idx });
+    } else {
+      setProducts((prev) => prev.filter((_, i) => i !== idx));
+    }
   };
 
   const handleSave = async (e) => {
@@ -141,6 +153,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
     try {
       const productData = [];
       for (const prod of products) {
+        if (prod.archived) continue;
         const imgs = [];
         for (const img of prod.images) {
           if (img.file) {
@@ -159,11 +172,12 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
             .map((b) => b.trim())
             .filter(Boolean),
           images: imgs,
+          archived: !!prod.archived,
         });
       }
       await setDoc(doc(db, 'brands', brandId), { products: productData }, { merge: true });
       setProducts(
-        productData.map((p) => ({ ...p, images: p.images.map((u) => ({ url: u, file: null })) }))
+        productData.map((p) => ({ ...p, archived: false, images: p.images.map((u) => ({ url: u, file: null })) }))
       );
       setMessage('Products saved');
     } catch (err) {
@@ -177,8 +191,10 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
   return (
     <PageWrapper title="Products">
       <form onSubmit={handleSave} className="space-y-4">
-        {products.map((prod, pIdx) => (
-          <div key={pIdx} className="border p-3 rounded space-y-2">
+        {products
+          .filter((p) => !p.archived)
+          .map((prod, pIdx) => (
+            <div key={pIdx} className="border p-3 rounded space-y-2">
             <FormField label="Name">
               <input
                 type="text"
@@ -218,7 +234,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
               </button>
             </FormField>
             <button type="button" onClick={() => removeProduct(pIdx)} className="btn-action btn-delete mt-1">
-              Delete Product
+              {isManager && !isAdmin ? 'Archive Product' : 'Delete Product'}
             </button>
           </div>
         ))}

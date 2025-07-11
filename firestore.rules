@@ -29,7 +29,9 @@ service cloud.firestore {
 
     match /brands/{brandId} {
       allow read: if true;
-      allow write: if isAdmin() || isManager();
+      allow update: if isAdmin() || isManager();
+      allow delete: if isAdmin();
+      allow create: if isAdmin();
     }
 
     match /recipeTypes/{docId} {
@@ -55,7 +57,8 @@ service cloud.firestore {
       allow read: if isAdmin() || userData().role != 'designer' ||
         (request.auth != null && userData().role == 'designer' && resource.data.designerId == request.auth.uid);
       allow create: if request.auth != null;
-      allow update, delete: if isAdmin() || isManager() || (request.auth != null && resource.data.uploadedBy == request.auth.uid);
+      allow update: if isAdmin() || isManager() || (request.auth != null && resource.data.uploadedBy == request.auth.uid);
+      allow delete: if isAdmin();
 
       match /{document=**} {
         allow read: if isAdmin() || userData().role != 'designer' ||
