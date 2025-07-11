@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import AdGroupCard from './components/AdGroupCard.jsx';
 import parseAdFilename from './utils/parseAdFilename';
+import getUserName from './utils/getUserName';
 import {
   collection,
   getDocs,
+  getDoc,
   query,
   where,
   updateDoc,
@@ -80,7 +82,7 @@ const DesignerDashboard = () => {
         const list = await Promise.all(
           snapDocs.map(async (d) => {
             const data = d.data();
-            let recipeCount = data.recipeCount;
+            let recipeCount = 0;
             let assetCount = 0;
             let readyCount = 0;
             const set = new Set();
@@ -92,16 +94,18 @@ const DesignerDashboard = () => {
               assetSnap.docs.forEach((adDoc) => {
                 const adData = adDoc.data();
                 if (adData.status === 'ready') readyCount += 1;
-                if (recipeCount === undefined) {
-                  const info = parseAdFilename(adData.filename || '');
-                  if (info.recipeCode) set.add(info.recipeCode);
-                }
+                const code =
+                  adData.recipeCode || parseAdFilename(adData.filename || '').recipeCode;
+                if (code) set.add(code);
               });
-              if (recipeCount === undefined) recipeCount = set.size;
+              recipeCount = set.size;
             } catch (err) {
               console.error('Failed to load assets', err);
-              if (recipeCount === undefined) recipeCount = 0;
+              recipeCount = 0;
             }
+
+            const designerName = data.designerId ? await getUserName(data.designerId) : '';
+
             return {
               id: d.id,
               ...data,
@@ -113,6 +117,7 @@ const DesignerDashboard = () => {
                 rejected: data.rejectedCount || 0,
                 edit: data.editCount || 0,
               },
+              designerName,
             };
           })
         );

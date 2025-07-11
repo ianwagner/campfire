@@ -7,8 +7,9 @@ import {
   FiThumbsUp,
   FiThumbsDown,
   FiEdit,
+  FiCalendar,
 } from 'react-icons/fi';
-import StatusBadge from './StatusBadge.jsx';
+
 
 const AdGroupCard = ({ group }) => (
   <Link
@@ -23,8 +24,18 @@ const AdGroupCard = ({ group }) => (
         <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
           {group.brandCode}
         </p>
+        {group.designerName && (
+          <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
+            {group.designerName}
+          </p>
+        )}
       </div>
-      <StatusBadge status={group.status} className="flex-shrink-0" />
+      {group.dueDate && (
+        <p className="text-[12px] text-black dark:text-[var(--dark-text)] flex items-center gap-1" data-testid="due-date">
+          <FiCalendar className="text-gray-600 dark:text-gray-300" />
+          {group.dueDate.toDate ? group.dueDate.toDate().toLocaleDateString() : new Date(group.dueDate).toLocaleDateString()}
+        </p>
+      )}
     </div>
     <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2">
       <div className="grid grid-cols-6 text-center text-sm">

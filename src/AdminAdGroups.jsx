@@ -17,7 +17,7 @@ import {
   FiThumbsDown,
   FiEdit,
 } from 'react-icons/fi';
-import { collection, getDocs, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, getDoc, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
 import createArchiveTicket from './utils/createArchiveTicket';
 import deleteGroup from './utils/deleteGroup';
@@ -28,6 +28,7 @@ import TabButton from './components/TabButton.jsx';
 import { auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import parseAdFilename from './utils/parseAdFilename';
+import getUserName from './utils/getUserName';
 import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
@@ -83,7 +84,7 @@ const AdminAdGroups = () => {
         const list = await Promise.all(
           snap.docs.map(async (d) => {
             const data = d.data();
-            let recipeCount = data.recipeCount;
+            let recipeCount = 0;
             let assetCount = 0;
             let readyCount = 0;
             const set = new Set();
@@ -95,16 +96,18 @@ const AdminAdGroups = () => {
               assetSnap.docs.forEach((adDoc) => {
                 const adData = adDoc.data();
                 if (adData.status === 'ready') readyCount += 1;
-                if (recipeCount === undefined) {
-                  const info = parseAdFilename(adData.filename || '');
-                  if (info.recipeCode) set.add(info.recipeCode);
-                }
+                const code =
+                  adData.recipeCode || parseAdFilename(adData.filename || '').recipeCode;
+                if (code) set.add(code);
               });
-              if (recipeCount === undefined) recipeCount = set.size;
+              recipeCount = set.size;
             } catch (err) {
               console.error('Failed to load assets', err);
-              if (recipeCount === undefined) recipeCount = 0;
+              recipeCount = 0;
             }
+
+            const designerName = data.designerId ? await getUserName(data.designerId) : '';
+
             return {
               id: d.id,
               ...data,
@@ -116,6 +119,7 @@ const AdminAdGroups = () => {
                 rejected: data.rejectedCount || 0,
                 edit: data.editCount || 0,
               },
+              designerName,
             };
           })
         );
