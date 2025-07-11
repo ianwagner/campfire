@@ -136,7 +136,9 @@ const App = () => {
       ? `/agency/dashboard?agencyId=${agencyId}`
       : role === 'admin'
         ? '/admin/ad-groups'
-        : `/dashboard/${role}`
+        : role === 'manager'
+          ? '/admin/tickets'
+          : `/dashboard/${role}`
     : '/login';
   if (signedIn && !role) {
     return (
