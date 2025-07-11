@@ -314,7 +314,7 @@ const AdGroupDetail = () => {
   }, [group?.brandCode]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin && !isManager) return;
     const fetchDesigners = async () => {
       try {
         const q = query(collection(db, 'users'), where('role', '==', 'designer'));
@@ -331,7 +331,7 @@ const AdGroupDetail = () => {
       }
     };
     fetchDesigners();
-  }, [isAdmin]);
+  }, [isAdmin, isManager]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1668,7 +1668,7 @@ const AdGroupDetail = () => {
           )}
           <span className="hidden sm:inline">|</span>
           Designer:
-          {isAdmin ? (
+          {isAdmin || isManager ? (
             <select
               value={group.designerId || ''}
               onChange={async (e) => {
