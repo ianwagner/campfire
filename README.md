@@ -122,9 +122,10 @@ Managers require a custom claim similar to admins. After creating the Firebase a
 ```bash
 node setManagerClaim.js <uid>
 ```
-
 This adds `{ manager: true }` to the user's custom claims. Because security rules rely on these claims, avoid storing the manager role only in Firestore user profiles.
 Managers should also complete multi-factor authentication just like other roles to reduce account takeover risk.
+
+The repository now includes a Cloud Function that monitors the `users` collection. Whenever a user document has `role` (or `userType`) set to `manager`, the function automatically updates the account's custom claims to include `{ manager: true }`. Removing the role will clear the claim.
 
 ## Admin Brand Management
 
