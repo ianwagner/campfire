@@ -56,3 +56,17 @@ test('redirects agency to enroll page when no factors', () => {
 
   expect(navigate).toHaveBeenCalledWith('/mfa-settings', { replace: true });
 });
+
+test('redirects manager to enroll page when no factors', () => {
+  const { multiFactor } = require('firebase/auth');
+  navigate.mockClear();
+  multiFactor.mockReturnValue({ enrolledFactors: [] });
+
+  render(
+    <RequireMfa user={{}} role="manager">
+      <div>child</div>
+    </RequireMfa>
+  );
+
+  expect(navigate).toHaveBeenCalledWith('/mfa-settings', { replace: true });
+});

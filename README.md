@@ -187,7 +187,7 @@ offer a **Forgot password?** link. Selecting it triggers
 `sendPasswordResetEmail` so the user can regain access. A confirmation message
 displays once the email is sent.
 
-Admin and client accounts must enroll a second factor. After signing in,
+Admin, client, and manager accounts must enroll a second factor. After signing in,
 the app checks `multiFactor.enrolledFactors` for the user and redirects to
 `/mfa-settings` if no factors are present. The enrollment screen sends an SMS
 verification code and completes `multiFactor().enroll()` once confirmed.
