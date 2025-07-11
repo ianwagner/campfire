@@ -232,4 +232,37 @@ export const notifyAccountCreated = onDocumentCreated('users/{id}', async (event
   return null;
 });
 
+async function syncManagerClaim(uid, role, previousRole) {
+  const beforeManager = previousRole === 'manager';
+  const afterManager = role === 'manager';
+  if (beforeManager === afterManager) return null;
+  try {
+    const user = await admin.auth().getUser(uid);
+    const claims = user.customClaims || {};
+    if (afterManager) {
+      claims.manager = true;
+    } else {
+      delete claims.manager;
+    }
+    await admin.auth().setCustomUserClaims(uid, claims);
+  } catch (err) {
+    console.error('Failed to sync manager claim', err);
+  }
+  return null;
+}
+
+export const applyManagerClaimOnCreate = onDocumentCreated('users/{id}', async (event) => {
+  const data = event.data.data() || {};
+  const role = data.role || data.userType || null;
+  return syncManagerClaim(event.params.id, role, null);
+});
+
+export const applyManagerClaimOnUpdate = onDocumentUpdated('users/{id}', async (event) => {
+  const before = event.data.before.data() || {};
+  const after = event.data.after.data() || {};
+  const beforeRole = before.role || before.userType || null;
+  const afterRole = after.role || after.userType || null;
+  return syncManagerClaim(event.params.id, afterRole, beforeRole);
+});
+
 export { tagger, generateThumbnailsForAssets, generateTagsForAssets, listDriveFiles };
