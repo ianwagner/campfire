@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiPlus, FiEdit2, FiTrash } from 'react-icons/fi';
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { FiPlus, FiEdit2, FiTrash, FiArchive } from 'react-icons/fi';
+import { collection, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from './firebase/config';
+import useUserRole from './useUserRole';
+import createArchiveTicket from './utils/createArchiveTicket';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 
@@ -11,6 +13,10 @@ const AdminBrands = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('code');
+  const user = auth.currentUser;
+  const { role } = useUserRole(user?.uid);
+  const isAdmin = role === 'admin';
+  const isManager = role === 'manager';
 
   useEffect(() => {
     const fetchBrands = async () => {
@@ -40,13 +46,31 @@ const AdminBrands = () => {
     }
   };
 
+  const handleArchive = async (id) => {
+    if (!window.confirm('Archive this brand?')) return;
+    try {
+      await updateDoc(doc(db, 'brands', id), {
+        archived: true,
+        archivedAt: serverTimestamp(),
+        archivedBy: auth.currentUser?.uid || null,
+      });
+      setBrands((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, archived: true } : b))
+      );
+      await createArchiveTicket({ target: 'brand', brandId: id });
+    } catch (err) {
+      console.error('Failed to archive brand', err);
+    }
+  };
+
   const term = filter.toLowerCase();
   const displayBrands = brands
     .filter(
       (b) =>
-        !term ||
-        b.code?.toLowerCase().includes(term) ||
-        b.name?.toLowerCase().includes(term)
+        !b.archived &&
+        (!term ||
+          b.code?.toLowerCase().includes(term) ||
+          b.name?.toLowerCase().includes(term))
     )
     .sort((a, b) => {
       if (sortField === 'name') return (a.name || '').localeCompare(b.name || '');
@@ -104,13 +128,24 @@ const AdminBrands = () => {
                       <IconButton as="a" href={`/admin/brands/${brand.id}`} aria-label="Edit">
                         <FiEdit2 />
                       </IconButton>
-                      <IconButton
-                        onClick={() => handleDelete(brand.id)}
-                        className="btn-delete"
-                        aria-label="Delete"
-                      >
-                        <FiTrash />
-                      </IconButton>
+                      {(isAdmin || isManager) && (
+                        <IconButton
+                          onClick={() => handleArchive(brand.id)}
+                          className="btn-action"
+                          aria-label="Archive"
+                        >
+                          <FiArchive />
+                        </IconButton>
+                      )}
+                      {isAdmin && (
+                        <IconButton
+                          onClick={() => handleDelete(brand.id)}
+                          className="btn-delete"
+                          aria-label="Delete"
+                        >
+                          <FiTrash />
+                        </IconButton>
+                      )}
                     </div>
                   </td>
                 </tr>

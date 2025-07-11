@@ -46,6 +46,7 @@ import {
 import { deleteObject, ref } from "firebase/storage";
 import { auth, db, storage } from "./firebase/config";
 import useUserRole from "./useUserRole";
+import createArchiveTicket from "./utils/createArchiveTicket";
 import { uploadFile } from "./uploadFile";
 import ShareLinkModal from "./components/ShareLinkModal.jsx";
 import parseAdFilename from "./utils/parseAdFilename";
@@ -125,6 +126,7 @@ const AdGroupDetail = () => {
   const location = useLocation();
   const isDesigner = userRole === "designer";
   const isAdmin = userRole === "admin";
+  const isManager = userRole === "manager";
   const usesTabs = isAdmin || isDesigner;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
@@ -678,6 +680,7 @@ const AdGroupDetail = () => {
         archivedBy: auth.currentUser?.uid || null,
       });
       setGroup((p) => ({ ...p, status: "archived" }));
+      await createArchiveTicket({ target: 'adGroup', groupId: id });
     } catch (err) {
       console.error("Failed to archive group", err);
     }
@@ -1796,7 +1799,7 @@ const AdGroupDetail = () => {
                     >
                       <FiShare2 size={20} />
                     </IconButton>
-                    {isAdmin && (
+                    {(isAdmin || isManager) && (
                       <>
                         <IconButton
                           onClick={() => setExportModal(true)}
