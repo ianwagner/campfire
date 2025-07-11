@@ -279,6 +279,15 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
                   Current file
                 </a>
               )}
+              <button
+                type="button"
+                onClick={() =>
+                  setFonts((p) => p.filter((_, i) => i !== idx))
+                }
+                className="btn-action btn-delete"
+              >
+                Delete
+              </button>
             </div>
           ))}
           <button
