@@ -73,7 +73,7 @@ const BrandAssets = ({ brandCode, onClose, inline = false }) => {
                     f.value
                   ) : (
                     <a href={f.value} target="_blank" rel="noopener noreferrer" className="underline">
-                      Custom Font {idx + 1}
+                      {f.name || `Custom Font ${idx + 1}`}
                     </a>
                   )}
                 </li>
