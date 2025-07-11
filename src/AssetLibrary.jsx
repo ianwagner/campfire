@@ -3,6 +3,7 @@ import { FiTrash } from 'react-icons/fi';
 import Table from './components/common/Table';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase/config';
+import syncAssetLibrary from "./utils/syncAssetLibrary";
 import { splitCsvLine } from './utils/csv.js';
 
 const emptyAsset = {
@@ -168,10 +169,11 @@ const AssetLibrary = ({ brandCode = '' }) => {
     setLoading(false);
   };
 
-  const saveAssets = () => {
+  const saveAssets = async () => {
     try {
       const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
       localStorage.setItem(key, JSON.stringify(assets));
+      await syncAssetLibrary(brandCode, assets);
       alert('Assets saved');
     } catch (err) {
       console.error('Failed to save assets', err);

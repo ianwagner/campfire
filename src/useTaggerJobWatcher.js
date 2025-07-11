@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
+import syncAssetLibrary from "./utils/syncAssetLibrary";
 
-const saveResults = (brandCode, results) => {
+const saveResults = async (brandCode, results) => {
   try {
     const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
     const raw = localStorage.getItem(key);
@@ -13,6 +14,7 @@ const saveResults = (brandCode, results) => {
       ...r,
     }));
     localStorage.setItem(key, JSON.stringify([...arr, ...newRows]));
+    await syncAssetLibrary(brandCode, [...arr, ...newRows]);
   } catch (err) {
     console.error('Failed to save tagger results', err);
   }
