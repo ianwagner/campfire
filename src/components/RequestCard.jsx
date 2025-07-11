@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   FiEdit2,
   FiTrash,
@@ -10,7 +10,6 @@ import {
   FiMoreHorizontal,
   FiCalendar,
 } from 'react-icons/fi';
-import StatusBadge from './StatusBadge.jsx';
 import IconButton from './IconButton.jsx';
 
 const typeIcons = {
@@ -29,41 +28,40 @@ const typeColors = {
 
 const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+  const [isDraggable, setIsDraggable] = useState(!isTouch);
+  const longPressRef = useRef(null);
   const Icon = typeIcons[request.type];
   const color = typeColors[request.type] || 'text-gray-600 dark:text-gray-300';
 
   return (
     <div
       className="bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded-lg shadow-md p-3 space-y-1 w-[220px] sm:w-[300px]"
-      draggable
+      draggable={isDraggable}
       onDragStart={() => onDragStart(request.id)}
+      onDragEnd={() => isTouch && setIsDraggable(false)}
+      onTouchStart={() => {
+        if (isTouch) {
+          longPressRef.current = setTimeout(() => setIsDraggable(true), 300);
+        }
+      }}
+      onTouchEnd={() => {
+        if (isTouch) {
+          clearTimeout(longPressRef.current);
+          setIsDraggable(false);
+        }
+      }}
+      onTouchMove={() => {
+        if (isTouch) {
+          clearTimeout(longPressRef.current);
+        }
+      }}
     >
-      <div className="flex items-start justify-between relative">
-        <div>
+      <div className="relative space-y-1">
+        <div className="flex items-start justify-between">
           {Icon && (
-            <div className={`text-lg mb-1 ${color}`}>
-              {React.createElement(Icon)}
-            </div>
+            <div className={`text-lg ${color}`}>{React.createElement(Icon)}</div>
           )}
-          {request.title && (
-            <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
-              {request.title}
-            </p>
-          )}
-          {request.brandCode && (
-            <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
-              {request.brandCode}
-            </p>
-          )}
-          {request.dueDate && (
-            <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0 flex items-center gap-1">
-              <FiCalendar className="text-gray-600 dark:text-gray-300" />
-              {request.dueDate.toDate().toLocaleDateString()}
-            </p>
-          )}
-        </div>
-        <div className="flex items-start gap-1">
-          <StatusBadge status={request.status} className="flex-shrink-0" />
           <IconButton
             onClick={() => setMenuOpen((o) => !o)}
             className="ml-auto bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
@@ -103,6 +101,25 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
             </div>
           )}
         </div>
+        {request.title && (
+          <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
+            {request.title}
+          </p>
+        )}
+        {request.brandCode && (
+          <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
+            {request.brandCode}
+          </p>
+        )}
+        {request.dueDate && (
+          <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0 flex items-center gap-1">
+            <FiCalendar className="text-gray-600 dark:text-gray-300" />
+            {request.dueDate.toDate().toLocaleDateString()}
+          </p>
+        )}
+        {request.priority && (
+          <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">Priority: {request.priority}</p>
+        )}
       </div>
       {request.details && (
         <p className="text-sm text-black dark:text-[var(--dark-text)]">
