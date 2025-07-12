@@ -39,24 +39,25 @@ const AdGroupCard = ({
 
   return (
     <div className="relative bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow-md w-full">
-      <IconButton
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setMenuOpen((o) => !o);
-        }}
-        className="absolute top-1 right-1 bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
-        aria-label="Menu"
-      >
-        <FiMoreHorizontal />
-      </IconButton>
-      {menuOpen && (
-        <div className="absolute right-1 top-7 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
-          <Link
-            to={`/ad-group/${group.id}`}
-            onClick={() => setMenuOpen(false)}
-            className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-          >
+      <div className="absolute top-1 right-1 flex flex-col items-end">
+        <IconButton
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setMenuOpen((o) => !o);
+          }}
+          className="bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+          aria-label="Menu"
+        >
+          <FiMoreHorizontal />
+        </IconButton>
+        {menuOpen && (
+          <div className="absolute right-0 top-7 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm text-black dark:text-[var(--dark-text)]">
+            <Link
+              to={`/ad-group/${group.id}`}
+              onClick={() => setMenuOpen(false)}
+              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+            >
             <FiEye /> View Details
           </Link>
           {onReview && (
@@ -108,25 +109,28 @@ const AdGroupCard = ({
             </button>
           )}
         </div>
-      )}
+        )}
+      </div>
       <Link to={`/ad-group/${group.id}`} className="block">
-        <div className="flex items-start px-3 py-2">
-          <div className="flex-1 min-w-0">
-            <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0 line-clamp-2">
-              {group.name}
-            </p>
-            <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
-              {group.brandCode}
-            </p>
-            {group.designerName && (
-              <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
-                {group.designerName}
+        <div className="px-3 py-2">
+          <div className="flex items-start">
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0 line-clamp-2">
+                {group.name}
               </p>
-            )}
+              <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
+                {group.brandCode}
+              </p>
+              {group.designerName && (
+                <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
+                  {group.designerName}
+                </p>
+              )}
+            </div>
           </div>
           {group.dueDate && (
             <p
-              className="text-[12px] text-black dark:text-[var(--dark-text)] flex items-center gap-1"
+              className="mt-1 text-[12px] text-black dark:text-[var(--dark-text)] flex items-center gap-1"
               data-testid="due-date"
             >
               <FiCalendar className="text-gray-600 dark:text-gray-300" />
