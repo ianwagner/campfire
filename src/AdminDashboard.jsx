@@ -24,11 +24,10 @@ function AdminDashboard() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const start = new Date(`${range.start}-01`);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(`${range.end}-01`);
-        end.setMonth(end.getMonth() + 1, 0);
-        end.setHours(23, 59, 59, 999);
+        const [sYear, sMonth] = range.start.split('-').map(Number);
+        const [eYear, eMonth] = range.end.split('-').map(Number);
+        const start = new Date(Date.UTC(sYear, sMonth - 1, 1));
+        const end = new Date(Date.UTC(eYear, eMonth, 0, 23, 59, 59, 999));
         const snap = await getDocs(collection(db, 'brands'));
         const brands = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const results = [];
