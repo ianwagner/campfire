@@ -4,8 +4,16 @@ import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
+import IconButton from './components/IconButton.jsx';
+import { FiRefreshCw } from 'react-icons/fi';
 
-const emptyContract = { startDate: '', endDate: '', stills: '', videos: '' };
+const emptyContract = {
+  startDate: '',
+  endDate: '',
+  stills: '',
+  videos: '',
+  renews: false,
+};
 
 const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const user = auth.currentUser;
@@ -36,6 +44,7 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
                     endDate: c.endDate || '',
                     stills: c.stills || '',
                     videos: c.videos || '',
+                    renews: c.renews || false,
                   }))
                 : [{ ...emptyContract }]
             );
@@ -55,6 +64,7 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
                     endDate: c.endDate || '',
                     stills: c.stills || '',
                     videos: c.videos || '',
+                    renews: c.renews || false,
                   }))
                 : [{ ...emptyContract }]
             );
@@ -129,9 +139,27 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
                 className="w-full p-2 border rounded"
               />
             </FormField>
-            <button type="button" onClick={() => removeContract(idx)} className="btn-action">
-              Delete
-            </button>
+            <div className="flex items-center justify-between">
+              <IconButton
+                type="button"
+                onClick={() =>
+                  updateContract(idx, { renews: !c.renews })
+                }
+                aria-label="Toggle renews"
+                title="Renews monthly"
+              >
+                <FiRefreshCw
+                  className={c.renews ? 'text-green-600' : 'text-gray-600'}
+                />
+              </IconButton>
+              <button
+                type="button"
+                onClick={() => removeContract(idx)}
+                className="btn-action"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         ))}
         <button type="button" onClick={addContract} className="btn-action">

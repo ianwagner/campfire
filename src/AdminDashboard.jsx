@@ -27,16 +27,21 @@ function AdminDashboard() {
         const results = [];
         for (const brand of brands) {
           const contracts = Array.isArray(brand.contracts) ? brand.contracts : [];
-          const contractInRange = contracts.filter((c) => {
-            if (!c.startDate) return false;
-            const sd = new Date(c.startDate);
-            return sd >= start && sd <= end;
-          });
-          if (contractInRange.length === 0) continue;
-          const contracted = contractInRange.reduce(
-            (s, c) => s + Number(c.stills || 0) + Number(c.videos || 0),
-            0,
-          );
+          let contracted = 0;
+          for (const c of contracts) {
+            if (!c.startDate) continue;
+            const stills = Number(c.stills || 0);
+            const videos = Number(c.videos || 0);
+            let sd = new Date(c.startDate);
+            const ed = c.endDate ? new Date(c.endDate) : null;
+            while (sd <= end && (!ed || sd <= ed)) {
+              if (sd >= start && sd <= end)
+                contracted += stills + videos;
+              if (!c.renews) break;
+              sd = new Date(sd.getFullYear(), sd.getMonth() + 1, sd.getDate());
+            }
+          }
+          if (contracted === 0) continue;
           const q = query(
             collection(db, 'adGroups'),
             where('brandCode', '==', brand.code || brand.codeId || ''),
