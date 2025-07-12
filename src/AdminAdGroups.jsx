@@ -306,15 +306,14 @@ const AdminAdGroups = () => {
                     <option value="brand">Brand</option>
                     <option value="name">Group Name</option>
                   </select>
-                  <button
+                  <TabButton
                     type="button"
+                    active={showArchived}
                     onClick={() => setShowArchived((p) => !p)}
-                    aria-pressed={showArchived}
-                    className="btn-secondary flex items-center gap-1 text-sm"
+                    aria-label={showArchived ? 'Hide archived' : 'Show archived'}
                   >
                     <FiArchive />
-                    {showArchived ? 'Hide archived' : 'Show archived'}
-                  </button>
+                  </TabButton>
                 </>
               )}
               <input
