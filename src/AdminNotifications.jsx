@@ -340,7 +340,7 @@ const AdminNotifications = () => {
                           : ''}
                       </td>
                       <td>
-                        <IconButton onClick={() => deleteNotification(n.id)} className="btn-delete" aria-label="Delete">
+                        <IconButton onClick={() => deleteNotification(n.id)} aria-label="Delete">
                           <FiTrash />
                         </IconButton>
                       </td>
@@ -458,7 +458,7 @@ const AdminNotifications = () => {
                       <button onClick={() => toggleRule(r.id, r.active)} className="underline mr-2">
                         {r.active ? 'Disable' : 'Enable'}
                       </button>
-                      <IconButton onClick={() => deleteRule(r.id)} className="btn-delete" aria-label="Delete">
+                      <IconButton onClick={() => deleteRule(r.id)} aria-label="Delete">
                         <FiTrash />
                       </IconButton>
                     </div>
