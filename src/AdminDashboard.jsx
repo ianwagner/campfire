@@ -6,13 +6,14 @@ import { db } from './firebase/config';
 import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
 import DateRangeSelector from './components/DateRangeSelector.jsx';
+import getMonthString from './utils/getMonthString.js';
 
 function AdminDashboard() {
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonth = getMonthString();
   const lastMonth = (() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
-    return d.toISOString().slice(0, 7);
+    return getMonthString(d);
   })();
   const [range, setRange] = useState({ start: lastMonth, end: thisMonth });
   const [rows, setRows] = useState([]);
