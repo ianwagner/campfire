@@ -4,6 +4,7 @@ import '@testing-library/jest-dom';
 import Login from './Login';
 
 jest.mock('./firebase/config', () => ({ auth: {} }));
+jest.mock('./useSiteSettings', () => () => ({ settings: {}, loading: false }));
 
 const signInWithEmailAndPassword = jest.fn(() =>
   Promise.reject({ code: 'auth/wrong-password' })

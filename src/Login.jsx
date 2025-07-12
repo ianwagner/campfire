@@ -10,6 +10,8 @@ import {
 import { auth } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import debugLog from './utils/debugLog';
+import useSiteSettings from './useSiteSettings';
+import { DEFAULT_LOGO_URL } from './constants';
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -22,6 +24,7 @@ const Login = ({ onLogin }) => {
   const [verifying, setVerifying] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const { settings } = useSiteSettings(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -94,10 +97,21 @@ const Login = ({ onLogin }) => {
     }
   };
 
+  const logoSrc = settings.campfireLogoUrl || settings.logoUrl || DEFAULT_LOGO_URL;
+
   return (
     <div className="flex flex-col justify-center items-center min-h-screen bg-gray-100 dark:bg-[var(--dark-bg)]">
-      {/* Campfire logo removed per request */}
-      <div className="mb-4 text-xl font-semibold">CAMPFIRE</div>
+      {logoSrc ? (
+        <OptimizedImage
+          pngUrl={logoSrc}
+          alt="Campfire logo"
+          loading="eager"
+          cacheKey={logoSrc}
+          className="mb-4 max-h-16 w-auto"
+        />
+      ) : (
+        <div className="mb-4 text-xl font-semibold">CAMPFIRE</div>
+      )}
       {!mfaResolver ? (
         <form onSubmit={handleSubmit} className="bg-white dark:bg-[var(--dark-sidebar-bg)] p-6 rounded shadow-md w-80">
           <h1 className="text-2xl mb-4 text-center">Login</h1>
