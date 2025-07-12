@@ -4,6 +4,8 @@ import {
   FiEye,
   FiTrash,
   FiLink,
+  FiCheckCircle,
+  FiMoreHorizontal,
 } from 'react-icons/fi';
 import {
   collection,
@@ -24,6 +26,7 @@ import ShareLinkModal from './components/ShareLinkModal.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 import Table from './components/common/Table';
 import AdGroupCard from './components/AdGroupCard.jsx';
+import IconButton from './components/IconButton.jsx';
 
 const AgencyAdGroups = () => {
   const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
@@ -43,6 +46,7 @@ const AgencyAdGroups = () => {
   };
 
   const [shareInfo, setShareInfo] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(null);
 
   const handleShare = async (id, agency) => {
     let url = `${window.location.origin}/review/${id}${agency ? `?agency=${agency}` : ''}`;
@@ -146,7 +150,12 @@ const AgencyAdGroups = () => {
         <>
           <div className="sm:hidden space-y-4">
             {groups.map((g) => (
-              <AdGroupCard key={g.id} group={g} />
+              <AdGroupCard
+                key={g.id}
+                group={g}
+                onShare={() => handleShare(g.id, agencyId)}
+                onDelete={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
+              />
             ))}
           </div>
           <div className="hidden sm:block">
@@ -156,6 +165,8 @@ const AgencyAdGroups = () => {
                   <th>Group Name</th>
                   <th>Brand</th>
                   <th>Status</th>
+                  <th>Designer</th>
+                  <th>Due Date</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -164,42 +175,61 @@ const AgencyAdGroups = () => {
                   <tr key={g.id}>
                     <td>{g.name}</td>
                     <td>{g.brandCode}</td>
-                    <td>
+                  <td>
                       <StatusBadge status={g.status} />
                     </td>
-                    <td className="text-center">
-                      <div className="flex items-center justify-center">
-                        <Link
-                          to={`/ad-group/${g.id}`}
-                          className="flex items-center text-gray-700 underline"
-                          aria-label="View Details"
+                  <td>{g.designerName || '-'}</td>
+                  <td>
+                    {g.dueDate
+                      ? g.dueDate.toDate
+                        ? g.dueDate.toDate().toLocaleDateString()
+                        : new Date(g.dueDate).toLocaleDateString()
+                      : '-'}
+                  </td>
+                  <td className="text-center">
+                      <div className="relative flex items-center justify-center">
+                        <IconButton
+                          onClick={() => setMenuOpen(menuOpen === g.id ? null : g.id)}
+                          aria-label="Menu"
                         >
-                          <FiEye />
-                          <span className="ml-1 text-[14px]">Details</span>
-                        </Link>
-                        <Link
-                          to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
-                          className="btn-action ml-2"
-                          aria-label="Review"
-                        >
-                          <FiCheckCircle />
-                          <span className="text-[14px]">Review</span>
-                        </Link>
-                        <button
-                          onClick={() => handleShare(g.id, agencyId)}
-                          className="flex items-center ml-2 text-gray-700 underline"
-                          aria-label="Share Link"
-                        >
-                          <FiLink />
-                          <span className="ml-1 text-[14px]">Share</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                          className="flex items-center ml-2 underline btn-delete"
-                          aria-label="Delete"
-                        >
-                          <FiTrash />
-                        </button>
+                          <FiMoreHorizontal />
+                        </IconButton>
+                        {menuOpen === g.id && (
+                          <div className="absolute right-0 top-6 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
+                            <Link
+                              to={`/ad-group/${g.id}`}
+                              onClick={() => setMenuOpen(null)}
+                              className="block px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                            >
+                              <FiEye /> Details
+                            </Link>
+                            <Link
+                              to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
+                              onClick={() => setMenuOpen(null)}
+                              className="block px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                            >
+                              <FiCheckCircle /> Review
+                            </Link>
+                            <button
+                              onClick={() => {
+                                setMenuOpen(null);
+                                handleShare(g.id, agencyId);
+                              }}
+                              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                            >
+                              <FiLink /> Share
+                            </button>
+                            <button
+                              onClick={() => {
+                                setMenuOpen(null);
+                                handleDeleteGroup(g.id, g.brandCode, g.name);
+                              }}
+                              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1 text-red-600"
+                            >
+                              <FiTrash /> Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
