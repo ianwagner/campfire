@@ -252,10 +252,8 @@ overrides are no longer needed:
 All button styles are defined in [src/global.css](src/global.css). Use these
 classes for consistent actions:
 
-- `.btn-primary` – solid accent background with white text
-- `.btn-secondary` – accent outline with accent text
-- `.btn-tertiary` – soft accent background
-- `.btn-neutral` – gray outline with neutral text
+- `.btn-primary` – main action buttons (submit, save)
+- `.btn-secondary` – secondary or neutral actions
 - `.btn-action` – compact icon buttons
 - `.btn-approve`, `.btn-reject`, `.btn-edit`, `.btn-delete` – specialized
   review or destructive actions
@@ -271,7 +269,6 @@ variables so you can tweak the palette:
 :root {
   --accent-color: #ea580c;
   --accent-color-10: rgba(234, 88, 12, 0.1);
-  --accent-color-30: rgba(234, 88, 12, 0.3);
   --dark-bg: #0d1116;
   --dark-text: #f3f4f6;
   --dark-sidebar-bg: #1f2937;
