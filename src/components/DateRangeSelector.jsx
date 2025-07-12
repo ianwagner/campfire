@@ -1,8 +1,9 @@
 import React from 'react';
+import getMonthString from '../utils/getMonthString.js';
 
 const DateRangeSelector = ({ startDate, endDate, onChange }) => {
   const setThisMonth = () => {
-    const month = new Date().toISOString().slice(0, 7);
+    const month = getMonthString();
     onChange({ start: month, end: month });
   };
 
