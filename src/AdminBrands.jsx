@@ -120,7 +120,7 @@ const AdminBrands = () => {
             <FiPlus />
             Create Brand
           </Link>
-          <div className="grid grid-cols-2 gap-2 flex-1 order-last md:order-none sm:flex sm:justify-center sm:space-x-2 sm:gap-0">
+          <div className="flex flex-wrap gap-2 flex-1 order-last md:order-none justify-center">
             <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
               <FiList />
             </TabButton>

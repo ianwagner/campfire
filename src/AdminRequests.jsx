@@ -252,7 +252,7 @@ const AdminRequests = () => {
         <button onClick={openCreate} className="btn-primary flex items-center gap-1">
           <FiPlus /> Add Ticket
         </button>
-        <div className="grid grid-cols-2 gap-2 items-center sm:flex sm:gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
             <FiList />
           </TabButton>

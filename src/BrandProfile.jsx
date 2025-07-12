@@ -40,7 +40,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Brand Profile</h1>
-      <div className="grid grid-cols-2 gap-2 mb-4 sm:flex sm:space-x-4">
+      <div className="flex flex-wrap gap-2 mb-4">
         <TabButton active={tab === 'setup'} onClick={() => setTab('setup')}>
           <FiSettings /> <span>Brand Setup</span>
         </TabButton>
