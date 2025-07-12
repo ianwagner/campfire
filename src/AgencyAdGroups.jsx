@@ -169,37 +169,35 @@ const AgencyAdGroups = () => {
                     </td>
                     <td className="text-center">
                       <div className="flex items-center justify-center">
-                        <Link
+                        <IconButton
+                          as={Link}
                           to={`/ad-group/${g.id}`}
-                          className="flex items-center text-gray-700 underline"
                           aria-label="View Details"
                         >
                           <FiEye />
-                          <span className="ml-1 text-[14px]">Details</span>
-                        </Link>
-                        <Link
+                        </IconButton>
+                        <IconButton
+                          as={Link}
                           to={`/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`}
-                          className="btn-action ml-2"
+                          className="ml-2"
                           aria-label="Review"
                         >
                           <FiCheckCircle />
-                          <span className="text-[14px]">Review</span>
-                        </Link>
-                        <button
+                        </IconButton>
+                        <IconButton
                           onClick={() => handleShare(g.id, agencyId)}
-                          className="flex items-center ml-2 text-gray-700 underline"
+                          className="ml-2"
                           aria-label="Share Link"
                         >
                           <FiLink />
-                          <span className="ml-1 text-[14px]">Share</span>
-                        </button>
-                        <button
+                        </IconButton>
+                        <IconButton
                           onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                          className="flex items-center ml-2 underline btn-delete"
+                          className="ml-2 btn-delete"
                           aria-label="Delete"
                         >
                           <FiTrash />
-                        </button>
+                        </IconButton>
                       </div>
                     </td>
                   </tr>

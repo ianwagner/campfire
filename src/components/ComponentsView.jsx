@@ -4,6 +4,7 @@ import { FiEdit2, FiTrash } from 'react-icons/fi';
 import TagInput from './TagInput.jsx';
 import Table from './common/Table';
 import { db } from '../firebase/config';
+import IconButton from './IconButton.jsx';
 import Button from './Button.jsx';
 
 const ComponentsView = () => {
@@ -119,23 +120,20 @@ const ComponentsView = () => {
                   <td>{c.attributes ? c.attributes.length : 0}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center">
-                      <Button
-                        variant="action"
+                      <IconButton
                         onClick={() => startEdit(c)}
                         className="mr-2"
                         aria-label="Edit"
                       >
                         <FiEdit2 />
-                        <span className="ml-1">Edit</span>
-                      </Button>
-                      <Button
-                        variant="action"
+                      </IconButton>
+                      <IconButton
                         onClick={() => handleDelete(c.id)}
                         className="btn-delete"
                         aria-label="Delete"
                       >
                         <FiTrash />
-                      </Button>
+                      </IconButton>
                     </div>
                   </td>
                 </tr>

@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase
 import { FiEdit2, FiTrash } from 'react-icons/fi';
 import TagInput from './TagInput.jsx';
 import Table from './common/Table';
+import IconButton from './IconButton.jsx';
 import Button from './Button.jsx';
 import { splitCsvLine } from '../utils/csv.js';
 import { db } from '../firebase/config';
@@ -227,23 +228,20 @@ const InstancesView = () => {
                   <td>{i.relationships?.brandCode || ''}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center">
-                      <Button
-                        variant="action"
+                      <IconButton
                         onClick={() => startEdit(i)}
                         className="mr-2"
                         aria-label="Edit"
                       >
                         <FiEdit2 />
-                        <span className="ml-1">Edit</span>
-                      </Button>
-                      <Button
-                        variant="action"
+                      </IconButton>
+                      <IconButton
                         onClick={() => handleDelete(i.id)}
                         className="btn-delete"
                         aria-label="Delete"
                       >
                         <FiTrash />
-                      </Button>
+                      </IconButton>
                     </div>
                   </td>
                 </tr>

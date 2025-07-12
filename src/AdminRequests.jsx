@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where } from 'firebase/firestore';
-import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar } from 'react-icons/fi';
+import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import { useNavigate } from 'react-router-dom';
 import Table from './components/common/Table';
+import IconButton from './components/IconButton.jsx';
 import Modal from './components/Modal.jsx';
 import TabButton from './components/TabButton.jsx';
 import RequestCard from './components/RequestCard.jsx';
@@ -304,12 +305,15 @@ const AdminRequests = () => {
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
-                          <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
-                          <button onClick={() => handleDelete(req.id)} className="btn-action">Delete</button>
-                          <button onClick={() => handleArchive(req.id)} className="btn-action ml-2" aria-label="Archive">
+                          <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
+                            <FiEdit2 />
+                          </IconButton>
+                          <IconButton onClick={() => handleDelete(req.id)} aria-label="Delete">
+                            <FiTrash />
+                          </IconButton>
+                          <IconButton onClick={() => handleArchive(req.id)} className="ml-2" aria-label="Archive">
                             <FiArchive />
-                            <span className="text-[14px]">Archive</span>
-                          </button>
+                          </IconButton>
                         </div>
                       </td>
                     </tr>
@@ -357,12 +361,15 @@ const AdminRequests = () => {
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
-                          <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
-                          <button onClick={() => handleDelete(req.id)} className="btn-action">Delete</button>
-                          <button onClick={() => handleArchive(req.id)} className="btn-action ml-2" aria-label="Archive">
+                          <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
+                            <FiEdit2 />
+                          </IconButton>
+                          <IconButton onClick={() => handleDelete(req.id)} aria-label="Delete">
+                            <FiTrash />
+                          </IconButton>
+                          <IconButton onClick={() => handleArchive(req.id)} className="ml-2" aria-label="Archive">
                             <FiArchive />
-                            <span className="text-[14px]">Archive</span>
-                          </button>
+                          </IconButton>
                         </div>
                       </td>
                     </tr>
@@ -410,12 +417,15 @@ const AdminRequests = () => {
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
-                          <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
-                          <button onClick={() => handleDelete(req.id)} className="btn-action">Delete</button>
-                          <button onClick={() => handleArchive(req.id)} className="btn-action ml-2" aria-label="Archive">
+                          <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
+                            <FiEdit2 />
+                          </IconButton>
+                          <IconButton onClick={() => handleDelete(req.id)} aria-label="Delete">
+                            <FiTrash />
+                          </IconButton>
+                          <IconButton onClick={() => handleArchive(req.id)} className="ml-2" aria-label="Archive">
                             <FiArchive />
-                            <span className="text-[14px]">Archive</span>
-                          </button>
+                          </IconButton>
                         </div>
                       </td>
                     </tr>
@@ -461,12 +471,15 @@ const AdminRequests = () => {
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
-                          <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
-                          <button onClick={() => handleDelete(req.id)} className="btn-action">Delete</button>
-                          <button onClick={() => handleArchive(req.id)} className="btn-action ml-2" aria-label="Archive">
+                          <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
+                            <FiEdit2 />
+                          </IconButton>
+                          <IconButton onClick={() => handleDelete(req.id)} aria-label="Delete">
+                            <FiTrash />
+                          </IconButton>
+                          <IconButton onClick={() => handleArchive(req.id)} className="ml-2" aria-label="Archive">
                             <FiArchive />
-                            <span className="text-[14px]">Archive</span>
-                          </button>
+                          </IconButton>
                         </div>
                       </td>
                     </tr>

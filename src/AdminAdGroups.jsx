@@ -396,58 +396,53 @@ const AdminAdGroups = () => {
                         </>
                       ) : (
                         <>
-                          <Link
+                          <IconButton
+                            as={Link}
                             to={`/ad-group/${g.id}`}
-                            className="btn-action"
                             aria-label="View Details"
                           >
                             <FiEye />
-                            <span className="text-[14px]">Details</span>
-                          </Link>
-                          <Link
+                          </IconButton>
+                          <IconButton
+                            as={Link}
                             to={`/review/${g.id}`}
-                            className="btn-action ml-2"
+                            className="ml-2"
                             aria-label="Review"
                           >
                             <FiCheckCircle />
-                            <span className="text-[14px]">Review</span>
-                          </Link>
-                          <button
+                          </IconButton>
+                          <IconButton
                             onClick={() => handleShare(g.id)}
-                            className="btn-action ml-2"
+                            className="ml-2"
                             aria-label="Share Link"
                           >
                             <FiLink />
-                            <span className="text-[14px]">Share</span>
-                          </button>
-                          <button
+                          </IconButton>
+                          <IconButton
                             onClick={() => startRename(g)}
-                            className="btn-action ml-2"
+                            className="ml-2"
                             aria-label="Rename"
                           >
                             <FiEdit2 />
-                            <span className="text-[14px]">Rename</span>
-                          </button>
+                          </IconButton>
                           {g.status === 'archived' ? (
-                            <button
+                            <IconButton
                               onClick={() => handleRestoreGroup(g.id)}
-                              className="btn-action ml-2"
+                              className="ml-2"
                               aria-label="Restore"
                               disabled={!isAdmin && !isManager}
                             >
                               <FiRotateCcw />
-                              <span className="text-[14px]">Restore</span>
-                            </button>
+                            </IconButton>
                           ) : (
-                            <button
+                            <IconButton
                               onClick={() => handleArchiveGroup(g.id)}
-                              className="btn-action ml-2"
+                              className="ml-2"
                               aria-label="Archive"
                               disabled={!isAdmin && !isManager}
                             >
                               <FiArchive />
-                              <span className="text-[14px]">Archive</span>
-                            </button>
+                            </IconButton>
                           )}
                           {isAdmin && (
                             <IconButton
