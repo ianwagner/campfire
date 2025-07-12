@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { FiThumbsDown, FiThumbsUp, FiEdit } from 'react-icons/fi';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import parseAdFilename from './utils/parseAdFilename.js';
 import { db } from './firebase/config';
 import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
 import DateRangeSelector from './components/DateRangeSelector.jsx';
 
 function AdminDashboard() {
-  const today = new Date().toISOString().split('T')[0];
+  const thisMonth = new Date().toISOString().slice(0, 7);
   const lastMonth = (() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
-    return d.toISOString().split('T')[0];
+    return d.toISOString().slice(0, 7);
   })();
-  const [range, setRange] = useState({ start: lastMonth, end: today });
+  const [range, setRange] = useState({ start: lastMonth, end: thisMonth });
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -21,8 +22,9 @@ function AdminDashboard() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const start = new Date(range.start);
-        const end = new Date(range.end);
+        const start = new Date(`${range.start}-01`);
+        const end = new Date(`${range.end}-01`);
+        end.setMonth(end.getMonth() + 1, 0);
         const snap = await getDocs(collection(db, 'brands'));
         const brands = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const results = [];
@@ -50,19 +52,32 @@ function AdminDashboard() {
             where('dueDate', '<=', Timestamp.fromDate(end)),
           );
           const gSnap = await getDocs(q);
-          let delivered = 0;
-          let reviewed = 0;
-          let rejected = 0;
-          let approved = 0;
-          gSnap.docs.forEach((g) => {
-            const data = g.data() || {};
-            const approvedCount = data.approvedCount || 0;
-            const rejectedCount = data.rejectedCount || 0;
-            delivered += approvedCount + rejectedCount;
-            reviewed += data.reviewedCount || 0;
-            rejected += rejectedCount;
-            approved += approvedCount;
-          });
+          const reviewedSet = new Set();
+          const approvedSet = new Set();
+          const rejectedSet = new Set();
+
+          for (const g of gSnap.docs) {
+            const assetsSnap = await getDocs(
+              collection(db, 'adGroups', g.id, 'assets')
+            );
+            assetsSnap.docs.forEach((ad) => {
+              const data = ad.data() || {};
+              const info = parseAdFilename(data.filename || '');
+              const recipe = data.recipeCode || info.recipeCode || '';
+              if (!recipe) return;
+              if (data.status !== 'ready') reviewedSet.add(recipe);
+              if (data.status === 'approved') approvedSet.add(recipe);
+              if (data.status === 'rejected') rejectedSet.add(recipe);
+            });
+          }
+
+          const delivered = new Set([
+            ...approvedSet,
+            ...rejectedSet,
+          ]).size;
+          const reviewed = reviewedSet.size;
+          const rejected = rejectedSet.size;
+          const approved = approvedSet.size;
           const needed = contracted > approved ? contracted - approved : 0;
           const status =
             approved < contracted
