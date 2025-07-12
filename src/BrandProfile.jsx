@@ -9,7 +9,8 @@ import ReviewLibrary from './ReviewLibrary.jsx';
 import BrandProducts from './BrandProducts.jsx';
 import TaggerModal from './TaggerModal.jsx';
 import TabButton from './components/TabButton.jsx';
-import { FiSettings, FiFolder, FiStar, FiShoppingCart } from 'react-icons/fi';
+import { FiSettings, FiFolder, FiStar, FiShoppingCart, FiMessageCircle } from 'react-icons/fi';
+import BrandTone from './BrandTone.jsx';
 
 const BrandProfile = ({ brandId: propId = null }) => {
   const { id } = useParams();
@@ -46,6 +47,9 @@ const BrandProfile = ({ brandId: propId = null }) => {
         <TabButton active={tab === 'library'} onClick={() => setTab('library')}>
           <FiFolder /> <span>Asset Library</span>
         </TabButton>
+        <TabButton active={tab === 'tone'} onClick={() => setTab('tone')}>
+          <FiMessageCircle /> <span>Tone of Voice</span>
+        </TabButton>
         <TabButton active={tab === 'reviews'} onClick={() => setTab('reviews')}>
           <FiStar /> <span>Customer Reviews</span>
         </TabButton>
@@ -54,6 +58,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
         </TabButton>
       </div>
       {tab === 'setup' && <BrandSetup brandId={brandId} />}
+      {tab === 'tone' && <BrandTone brandId={brandId} brandCode={brandCode} />}
       {tab === 'library' && (
         <>
           <div className="mb-4">

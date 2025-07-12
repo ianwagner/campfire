@@ -18,7 +18,6 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const [logos, setLogos] = useState([ { ...emptyLogo } ]);
   const [palette, setPalette] = useState(['#000000']);
   const [fonts, setFonts] = useState([ { ...emptyFont } ]);
-  const [toneOfVoice, setToneOfVoice] = useState('');
   const [offering, setOffering] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -38,7 +37,6 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             setBrandId(propId);
             const data = snap.data();
             setBrandCode(data.code || propCode);
-            setToneOfVoice(data.toneOfVoice || '');
             setOffering(data.offering || '');
             setGuidelines({ url: data.guidelinesUrl || '', file: null });
             setLogos(
@@ -68,7 +66,6 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             setBrandId(docData.id);
             const data = docData.data();
             setBrandCode(data.code || brandCode);
-            setToneOfVoice(data.toneOfVoice || '');
             setOffering(data.offering || '');
             setGuidelines({ url: data.guidelinesUrl || '', file: null });
             setLogos(
@@ -133,7 +130,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
       }
       await setDoc(
         doc(db, 'brands', brandId),
-        { guidelinesUrl, logos: logoUrls, palette, fonts: fontData, toneOfVoice, offering },
+        { guidelinesUrl, logos: logoUrls, palette, fonts: fontData, offering },
         { merge: true }
       );
       setGuidelines({ url: guidelinesUrl, file: null });
@@ -158,14 +155,6 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   return (
     <PageWrapper title="Brand Setup">
       <form onSubmit={handleSave} className="space-y-4 max-w-md">
-        <FormField label="Tone of Voice">
-          <input
-            type="text"
-            value={toneOfVoice}
-            onChange={(e) => setToneOfVoice(e.target.value)}
-            className="w-full p-2 border rounded"
-          />
-        </FormField>
         <FormField label="Offering">
           <input
             type="text"
