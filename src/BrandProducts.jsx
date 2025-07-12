@@ -190,7 +190,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
 
   return (
     <PageWrapper title="Products">
-      <form onSubmit={handleSave} className="space-y-4">
+      <form onSubmit={handleSave} className="space-y-4 max-w-md">
         {products
           .filter((p) => !p.archived)
           .map((prod, pIdx) => (
