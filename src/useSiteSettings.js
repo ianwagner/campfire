@@ -16,6 +16,7 @@ try {
 const defaultSettings = {
   logoUrl: '',
   iconUrl: '',
+  campfireLogoUrl: '',
   accentColor: storedAccent || DEFAULT_ACCENT_COLOR,
 };
 

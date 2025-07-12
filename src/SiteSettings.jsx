@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react';
 import useSiteSettings from './useSiteSettings';
 import { uploadLogo } from './uploadLogo';
 import { uploadIcon } from './uploadIcon';
+import { uploadCampfireLogo } from './uploadCampfireLogo';
 import OptimizedImage from './components/OptimizedImage.jsx';
 
 const SiteSettings = () => {
   const { settings, saveSettings } = useSiteSettings();
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState(null);
+  const [campfireLogoUrl, setCampfireLogoUrl] = useState('');
+  const [campfireLogoFile, setCampfireLogoFile] = useState(null);
   const [iconUrl, setIconUrl] = useState('');
   const [iconFile, setIconFile] = useState(null);
   const [accentColor, setAccentColor] = useState('#ea580c');
@@ -17,6 +20,8 @@ const SiteSettings = () => {
   useEffect(() => {
     setLogoUrl(settings.logoUrl || '');
     setLogoFile(null);
+    setCampfireLogoUrl(settings.campfireLogoUrl || '');
+    setCampfireLogoFile(null);
     setIconUrl(settings.iconUrl || '');
     setIconFile(null);
     setAccentColor(settings.accentColor || '#ea580c');
@@ -29,6 +34,16 @@ const SiteSettings = () => {
       setLogoUrl(URL.createObjectURL(file));
     } else {
       setLogoUrl(settings.logoUrl || '');
+    }
+  };
+
+  const handleCampfireLogoChange = (e) => {
+    const file = e.target.files[0];
+    setCampfireLogoFile(file || null);
+    if (file) {
+      setCampfireLogoUrl(URL.createObjectURL(file));
+    } else {
+      setCampfireLogoUrl(settings.campfireLogoUrl || '');
     }
   };
 
@@ -52,14 +67,26 @@ const SiteSettings = () => {
         logo = await uploadLogo(logoFile);
       }
 
+      let campfireLogo = campfireLogoUrl;
+      if (campfireLogoFile) {
+        campfireLogo = await uploadCampfireLogo(campfireLogoFile);
+      }
+
       let icon = iconUrl;
       if (iconFile) {
         icon = await uploadIcon(iconFile);
       }
 
-      await saveSettings({ logoUrl: logo, iconUrl: icon, accentColor });
+      await saveSettings({
+        logoUrl: logo,
+        iconUrl: icon,
+        accentColor,
+        campfireLogoUrl: campfireLogo,
+      });
       setLogoUrl(logo);
       setLogoFile(null);
+      setCampfireLogoUrl(campfireLogo);
+      setCampfireLogoFile(null);
       setIconUrl(icon);
       setIconFile(null);
       setMessage('Settings saved');
@@ -87,6 +114,23 @@ const SiteSettings = () => {
               <OptimizedImage
                 pngUrl={logoUrl}
                 alt="Logo preview"
+                loading="eager"
+                className="mt-2 max-h-16 w-auto"
+              />
+            )}
+          </div>
+          <div>
+            <label className="block mb-1 text-sm font-medium">Campfire Logo</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleCampfireLogoChange}
+              className="w-full p-2 border rounded"
+            />
+            {campfireLogoUrl && (
+              <OptimizedImage
+                pngUrl={campfireLogoUrl}
+                alt="Campfire logo preview"
                 loading="eager"
                 className="mt-2 max-h-16 w-auto"
               />
