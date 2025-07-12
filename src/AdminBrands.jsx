@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { FiPlus, FiEdit2, FiTrash, FiArchive, FiRotateCcw } from 'react-icons/fi';
 import { collection, getDocs, deleteDoc, doc, updateDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import createArchiveTicket from './utils/createArchiveTicket';
+import useAgencies from './useAgencies';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 
@@ -18,6 +19,11 @@ const AdminBrands = () => {
   const { role } = useUserRole(user?.uid);
   const isAdmin = role === 'admin';
   const isManager = role === 'manager';
+  const { agencies } = useAgencies();
+  const agencyMap = useMemo(
+    () => Object.fromEntries(agencies.map((a) => [a.id, a.name])),
+    [agencies]
+  );
 
   useEffect(() => {
     const fetchBrands = async () => {
@@ -140,7 +146,7 @@ const AdminBrands = () => {
               <tr>
                 <th>Code</th>
                 <th>Name</th>
-                <th>Agency ID</th>
+                <th>Agency</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -149,7 +155,7 @@ const AdminBrands = () => {
                 <tr key={brand.id}>
                   <td>{brand.code}</td>
                   <td>{brand.name}</td>
-                  <td>{brand.agencyId || ''}</td>
+                  <td>{agencyMap[brand.agencyId] || brand.agencyId}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
                       <IconButton as="a" href={`/admin/brands/${brand.id}`} aria-label="Edit">
