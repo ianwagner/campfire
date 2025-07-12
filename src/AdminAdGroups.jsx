@@ -47,7 +47,6 @@ const AdminAdGroups = () => {
   const [shareInfo, setShareInfo] = useState(null);
   const [renameId, setRenameId] = useState(null);
   const [renameName, setRenameName] = useState('');
-  const [menuOpen, setMenuOpen] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('status');
@@ -322,14 +321,7 @@ const AdminAdGroups = () => {
           <>
           <div className="sm:hidden space-y-4">
             {displayGroups.map((g) => (
-              <AdGroupCard
-                key={g.id}
-                group={g}
-                onShare={() => handleShare(g.id)}
-                onArchive={() => handleArchiveGroup(g.id)}
-                onRestore={() => handleRestoreGroup(g.id)}
-                onDelete={isAdmin ? () => handleDeleteGroup(g.id, g.brandCode, g.name) : undefined}
-              />
+              <AdGroupCard key={g.id} group={g} />
             ))}
           </div>
           {view === 'table' ? (
@@ -344,8 +336,6 @@ const AdminAdGroups = () => {
                 <th className="text-center"><FiThumbsUp aria-label="Approved" /></th>
                 <th className="text-center"><FiThumbsDown aria-label="Rejected" /></th>
                 <th className="text-center"><FiEdit aria-label="Edit Requested" /></th>
-                <th>Designer</th>
-                <th>Due Date</th>
                 <th>Note</th>
                 <th>Actions</th>
               </tr>
@@ -373,14 +363,6 @@ const AdminAdGroups = () => {
                   <td className="text-center text-approve">{g.counts.approved}</td>
                   <td className="text-center text-reject">{g.counts.rejected}</td>
                   <td className="text-center text-edit">{g.counts.edit}</td>
-                  <td>{g.designerName || '-'}</td>
-                  <td>
-                    {g.dueDate
-                      ? g.dueDate.toDate
-                        ? g.dueDate.toDate().toLocaleDateString()
-                        : new Date(g.dueDate).toLocaleDateString()
-                      : '-'}
-                  </td>
                   <td className="text-center">
                     {g.clientNote ? (
                       <button
@@ -396,7 +378,7 @@ const AdminAdGroups = () => {
                     )}
                   </td>
                   <td className="text-center">
-                    <div className="relative flex items-center justify-center">
+                    <div className="flex items-center justify-center">
                       {renameId === g.id ? (
                         <>
                           <button
@@ -405,89 +387,76 @@ const AdminAdGroups = () => {
                           >
                             Save
                           </button>
-                          <button onClick={cancelRename} className="btn-action">
+                          <button
+                            onClick={cancelRename}
+                            className="btn-action"
+                          >
                             Cancel
                           </button>
                         </>
                       ) : (
                         <>
-                          <IconButton
-                            onClick={() =>
-                              setMenuOpen(menuOpen === g.id ? null : g.id)
-                            }
-                            aria-label="Menu"
+                          <Link
+                            to={`/ad-group/${g.id}`}
+                            className="btn-action"
+                            aria-label="View Details"
                           >
-                            <FiMoreHorizontal />
-                          </IconButton>
-                          {menuOpen === g.id && (
-                            <div className="absolute right-0 top-6 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
-                              <Link
-                                to={`/ad-group/${g.id}`}
-                                onClick={() => setMenuOpen(null)}
-                                className="block px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-                              >
-                                <FiEye /> Details
-                              </Link>
-                              <Link
-                                to={`/review/${g.id}`}
-                                onClick={() => setMenuOpen(null)}
-                                className="block px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-                              >
-                                <FiCheckCircle /> Review
-                              </Link>
-                              <button
-                                onClick={() => {
-                                  setMenuOpen(null);
-                                  handleShare(g.id);
-                                }}
-                                className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-                              >
-                                <FiLink /> Share
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setMenuOpen(null);
-                                  startRename(g);
-                                }}
-                                className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-                              >
-                                <FiEdit2 /> Rename
-                              </button>
-                              {g.status === 'archived' ? (
-                                <button
-                                  onClick={() => {
-                                    setMenuOpen(null);
-                                    handleRestoreGroup(g.id);
-                                  }}
-                                  disabled={!isAdmin && !isManager}
-                                  className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-                                >
-                                  <FiRotateCcw /> Restore
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setMenuOpen(null);
-                                    handleArchiveGroup(g.id);
-                                  }}
-                                  disabled={!isAdmin && !isManager}
-                                  className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-                                >
-                                  <FiArchive /> Archive
-                                </button>
-                              )}
-                              {isAdmin && (
-                                <button
-                                  onClick={() => {
-                                    setMenuOpen(null);
-                                    handleDeleteGroup(g.id, g.brandCode, g.name);
-                                  }}
-                                  className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1 text-red-600"
-                                >
-                                  <FiTrash /> Delete
-                                </button>
-                              )}
-                            </div>
+                            <FiEye />
+                            <span className="text-[14px]">Details</span>
+                          </Link>
+                          <Link
+                            to={`/review/${g.id}`}
+                            className="btn-action ml-2"
+                            aria-label="Review"
+                          >
+                            <FiCheckCircle />
+                            <span className="text-[14px]">Review</span>
+                          </Link>
+                          <button
+                            onClick={() => handleShare(g.id)}
+                            className="btn-action ml-2"
+                            aria-label="Share Link"
+                          >
+                            <FiLink />
+                            <span className="text-[14px]">Share</span>
+                          </button>
+                          <button
+                            onClick={() => startRename(g)}
+                            className="btn-action ml-2"
+                            aria-label="Rename"
+                          >
+                            <FiEdit2 />
+                            <span className="text-[14px]">Rename</span>
+                          </button>
+                          {g.status === 'archived' ? (
+                            <button
+                              onClick={() => handleRestoreGroup(g.id)}
+                              className="btn-action ml-2"
+                              aria-label="Restore"
+                              disabled={!isAdmin && !isManager}
+                            >
+                              <FiRotateCcw />
+                              <span className="text-[14px]">Restore</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleArchiveGroup(g.id)}
+                              className="btn-action ml-2"
+                              aria-label="Archive"
+                              disabled={!isAdmin && !isManager}
+                            >
+                              <FiArchive />
+                              <span className="text-[14px]">Archive</span>
+                            </button>
+                          )}
+                          {isAdmin && (
+                            <IconButton
+                              onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
+                              className="ml-2"
+                              aria-label="Delete"
+                            >
+                              <FiTrash />
+                            </IconButton>
                           )}
                         </>
                       )}
@@ -511,14 +480,7 @@ const AdminAdGroups = () => {
                       {displayGroups
                         .filter((g) => col.statuses.includes(g.status))
                         .map((g) => (
-                          <AdGroupCard
-                            key={g.id}
-                            group={g}
-                            onShare={() => handleShare(g.id)}
-                            onArchive={() => handleArchiveGroup(g.id)}
-                            onRestore={() => handleRestoreGroup(g.id)}
-                            onDelete={isAdmin ? () => handleDeleteGroup(g.id, g.brandCode, g.name) : undefined}
-                          />
+                          <AdGroupCard key={g.id} group={g} />
                         ))}
                     </div>
                   </div>
