@@ -9,8 +9,9 @@ import ReviewLibrary from './ReviewLibrary.jsx';
 import BrandProducts from './BrandProducts.jsx';
 import TaggerModal from './TaggerModal.jsx';
 import TabButton from './components/TabButton.jsx';
-import { FiSettings, FiFolder, FiStar, FiShoppingCart, FiMessageCircle } from 'react-icons/fi';
+import { FiSettings, FiFolder, FiStar, FiShoppingCart, FiMessageCircle, FiFileText } from 'react-icons/fi';
 import BrandTone from './BrandTone.jsx';
+import BrandContracts from './BrandContracts.jsx';
 
 const BrandProfile = ({ brandId: propId = null }) => {
   const { id } = useParams();
@@ -56,6 +57,9 @@ const BrandProfile = ({ brandId: propId = null }) => {
         <TabButton active={tab === 'products'} onClick={() => setTab('products')}>
           <FiShoppingCart /> <span>Products</span>
         </TabButton>
+        <TabButton active={tab === 'contracts'} onClick={() => setTab('contracts')}>
+          <FiFileText /> <span>Contracts</span>
+        </TabButton>
       </div>
       {tab === 'setup' && <BrandSetup brandId={brandId} />}
       {tab === 'tone' && <BrandTone brandId={brandId} brandCode={brandCode} />}
@@ -75,6 +79,9 @@ const BrandProfile = ({ brandId: propId = null }) => {
       )}
       {tab === 'reviews' && <ReviewLibrary brandCode={brandCode} />}
       {tab === 'products' && <BrandProducts brandId={brandId} brandCode={brandCode} />}
+      {tab === 'contracts' && (
+        <BrandContracts brandId={brandId} brandCode={brandCode} />
+      )}
       {taggerOpen && (
         <TaggerModal brandCode={brandCode} onClose={() => setTaggerOpen(false)} />
       )}
