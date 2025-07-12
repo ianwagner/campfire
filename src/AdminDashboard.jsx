@@ -56,9 +56,10 @@ function AdminDashboard() {
             where('dueDate', '<=', Timestamp.fromDate(end)),
           );
           const gSnap = await getDocs(q);
-          const reviewedSet = new Set();
+          const briefedSet = new Set();
           const approvedSet = new Set();
           const rejectedSet = new Set();
+          const deliveredSet = new Set();
 
           for (const g of gSnap.docs) {
             const assetsSnap = await getDocs(
@@ -72,17 +73,20 @@ function AdminDashboard() {
               const groupCode =
                 data.adGroupCode || info.adGroupCode || g.id;
               const key = `${groupCode}-${recipe}`;
-              if (data.status !== 'ready') reviewedSet.add(key);
+              if (data.status === 'briefed') briefedSet.add(key);
+              if (
+                ['ready', 'approved', 'rejected', 'edit_requested'].includes(
+                  data.status
+                )
+              )
+                deliveredSet.add(key);
               if (data.status === 'approved') approvedSet.add(key);
               if (data.status === 'rejected') rejectedSet.add(key);
             });
           }
 
-          const delivered = new Set([
-            ...approvedSet,
-            ...rejectedSet,
-          ]).size;
-          const reviewed = reviewedSet.size;
+          const briefed = briefedSet.size;
+          const delivered = deliveredSet.size;
           const rejected = rejectedSet.size;
           const approved = approvedSet.size;
           const needed = contracted > approved ? contracted - approved : 0;
@@ -97,8 +101,8 @@ function AdminDashboard() {
             code: brand.code,
             name: brand.name,
             contracted,
+            briefed,
             delivered,
-            reviewed,
             rejected,
             approved,
             needed,
@@ -135,9 +139,9 @@ function AdminDashboard() {
           <thead>
             <tr>
               <th>Brand</th>
+              <th>Briefed</th>
               <th>Contracted</th>
               <th>Delivered</th>
-              <th>Reviewed</th>
               <th>Rejected</th>
               <th>Approved</th>
               <th>Needed</th>
@@ -148,9 +152,9 @@ function AdminDashboard() {
             {rows.map((r) => (
               <tr key={r.id}>
                 <td>{r.code || r.name}</td>
+                <td className="text-center">{r.briefed}</td>
                 <td className="text-center">{r.contracted}</td>
                 <td className="text-center">{r.delivered}</td>
-                <td className="text-center">{r.reviewed}</td>
                 <td className="text-center">{r.rejected}</td>
                 <td className="text-center">{r.approved}</td>
                 <td className="text-center">{r.needed}</td>
