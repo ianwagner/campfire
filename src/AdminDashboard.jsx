@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FiThumbsDown, FiThumbsUp, FiEdit } from 'react-icons/fi';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
 import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
@@ -46,6 +46,8 @@ function AdminDashboard() {
           const q = query(
             collection(db, 'adGroups'),
             where('brandCode', '==', brand.code || brand.codeId || ''),
+            where('dueDate', '>=', Timestamp.fromDate(start)),
+            where('dueDate', '<=', Timestamp.fromDate(end)),
           );
           const gSnap = await getDocs(q);
           let delivered = 0;
