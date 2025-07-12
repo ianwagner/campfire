@@ -18,6 +18,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = React.useState(false);
+  const [openGroups, setOpenGroups] = React.useState({});
   const { settings } = useSiteSettings(applySiteAccent);
   const [logoReady, setLogoReady] = React.useState(false);
   const logoSrc = logoUrl || settings.logoUrl || DEFAULT_LOGO_URL;
@@ -35,10 +36,57 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
     signOut(auth).catch((err) => console.error('Failed to sign out', err));
   };
 
+  const toggleGroup = (label) =>
+    setOpenGroups((g) => ({ ...g, [label]: !g[label] }));
+
   const menuItems = (
     <>
       {tabs.map((tab) => {
         const currentPath = location.pathname + location.search;
+        if (tab.children) {
+          const activeChild = tab.children.some((c) => currentPath.startsWith(c.path));
+          const isOpen = openGroups[tab.label] || activeChild;
+          const parentClasses =
+            (activeChild
+              ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
+              : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
+            'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center justify-between';
+          return (
+            <div key={tab.label} className="space-y-1">
+              <button onClick={() => toggleGroup(tab.label)} className={parentClasses}>
+                <span>{tab.label}</span>
+                <span
+                  className={`transition-transform duration-300 ${isOpen ? 'rotate-90' : ''}`}
+                >
+                  ▶
+                </span>
+              </button>
+              <div
+                className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96' : 'max-h-0'}`}
+              >
+                <div className="mt-1 space-y-1 pl-3">
+                  {tab.children.map((child) => {
+                    const isActive = child.path && currentPath.startsWith(child.path);
+                    const childClasses =
+                      (isActive
+                        ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
+                      'rounded-lg w-full text-left text-sm px-3 py-2 transition-colors duration-200';
+                    return (
+                      <button
+                        key={child.label}
+                        onClick={() => handleClick(child)}
+                        className={childClasses}
+                      >
+                        {child.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        }
         const isActive = tab.path && currentPath.startsWith(tab.path);
         const classes =
           (isActive

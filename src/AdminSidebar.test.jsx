@@ -40,6 +40,7 @@ test('navigates to ad recipes page when Ad Recipes clicked', () => {
       <AdminSidebar />
     </MemoryRouter>
   );
+  fireEvent.click(screen.getByText('Settings'));
   fireEvent.click(screen.getByText('Ad Recipes'));
   expect(navigate).toHaveBeenCalledWith('/admin/ad-recipes');
 });
@@ -50,6 +51,7 @@ test('renders Site Settings tab', () => {
       <AdminSidebar />
     </MemoryRouter>
   );
+  fireEvent.click(screen.getByText('Settings'));
   expect(screen.getByText('Site Settings')).toBeInTheDocument();
 });
 
@@ -59,6 +61,7 @@ test('renders Account Settings tab', () => {
       <AdminSidebar />
     </MemoryRouter>
   );
+  fireEvent.click(screen.getByText('Settings'));
   expect(screen.getByText('Account Settings')).toBeInTheDocument();
 });
 
@@ -68,16 +71,17 @@ test('renders Ad Recipes tab', () => {
       <AdminSidebar />
     </MemoryRouter>
   );
+  fireEvent.click(screen.getByText('Settings'));
   expect(screen.getByText('Ad Recipes')).toBeInTheDocument();
 });
 
-test('renders Requests tab', () => {
+test('renders Tickets tab', () => {
   render(
     <MemoryRouter>
       <AdminSidebar />
     </MemoryRouter>
   );
-  expect(screen.getByText('Requests')).toBeInTheDocument();
+  expect(screen.getByText('Tickets')).toBeInTheDocument();
 });
 
 test('renders Agencies tab', () => {
@@ -87,4 +91,13 @@ test('renders Agencies tab', () => {
     </MemoryRouter>
   );
   expect(screen.getByText('Agencies')).toBeInTheDocument();
+});
+
+test('renders Settings parent tab', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  expect(screen.getByText('Settings')).toBeInTheDocument();
 });
