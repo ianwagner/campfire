@@ -1,6 +1,7 @@
 import SidebarBase from './components/SidebarBase';
 
 const tabs = [
+  { label: 'Dashboard', path: '/admin/dashboard' },
   { label: 'Tickets', path: '/admin/tickets' },
   { label: 'Ad Groups', path: '/admin/ad-groups' },
   { label: 'Accounts', path: '/admin/accounts' },
