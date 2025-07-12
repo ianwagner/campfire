@@ -275,7 +275,7 @@ const AdminAdGroups = () => {
               <FiPlus />
               Create Ad Group
             </button>
-            <div className="hidden sm:flex flex-1 justify-center gap-2 order-last md:order-none">
+            <div className="grid grid-cols-2 gap-2 flex-1 order-last md:order-none sm:flex sm:justify-center sm:space-x-2 sm:gap-0">
               <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
                 <FiList />
               </TabButton>
