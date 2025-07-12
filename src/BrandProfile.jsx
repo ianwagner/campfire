@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { useParams, Link } from 'react-router-dom';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 import useUserRole from './useUserRole';
 import BrandSetup from './BrandSetup';
@@ -19,6 +19,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
   const user = auth.currentUser;
   const { brandCodes } = useUserRole(user?.uid);
   const [brandCode, setBrandCode] = useState('');
+  const [brandName, setBrandName] = useState('');
   const [tab, setTab] = useState('setup');
   const [taggerOpen, setTaggerOpen] = useState(false);
 
@@ -27,12 +28,29 @@ const BrandProfile = ({ brandId: propId = null }) => {
       if (brandId) {
         try {
           const snap = await getDoc(doc(db, 'brands', brandId));
-          if (snap.exists()) setBrandCode(snap.data().code || '');
+          if (snap.exists()) {
+            const data = snap.data();
+            setBrandCode(data.code || '');
+            setBrandName(data.name || '');
+          }
         } catch (err) {
           console.error('Failed to load brand', err);
         }
       } else if (brandCodes.length > 0) {
-        setBrandCode(brandCodes[0]);
+        const code = brandCodes[0];
+        setBrandCode(code);
+        try {
+          const q = query(collection(db, 'brands'), where('code', '==', code));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            setBrandName(snap.docs[0].data().name || code);
+          } else {
+            setBrandName(code);
+          }
+        } catch (err) {
+          console.error('Failed to load brand by code', err);
+          setBrandName(code);
+        }
       }
     };
     load();
@@ -40,7 +58,14 @@ const BrandProfile = ({ brandId: propId = null }) => {
 
   return (
     <div className="min-h-screen p-4">
-      <h1 className="text-2xl mb-4">Brand Profile</h1>
+      <div className="flex items-center mb-2">
+        {id && (
+          <Link to="/admin/brands" className="btn-arrow mr-2" aria-label="Back">
+            &lt;
+          </Link>
+        )}
+        <h1 className="text-2xl">{brandName || 'Brand Profile'}</h1>
+      </div>
       <div className="flex flex-wrap gap-2 mb-4">
         <TabButton active={tab === 'setup'} onClick={() => setTab('setup')}>
           <FiSettings /> <span>Brand Setup</span>
