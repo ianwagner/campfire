@@ -10,7 +10,7 @@ export const VIEWS = {
 };
 
 const AdminRecipeTabs = ({ view, setView }) => (
-  <div className="flex space-x-4 mb-4">
+  <div className="grid grid-cols-2 gap-2 mb-4 sm:flex sm:space-x-4">
     <TabButton active={view === VIEWS.TYPES} onClick={() => setView(VIEWS.TYPES)}>
       <FiList /> <span>Recipe Types</span>
     </TabButton>

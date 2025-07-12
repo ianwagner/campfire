@@ -212,7 +212,7 @@ const AdminNotifications = () => {
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Notifications</h1>
-      <div className="flex space-x-4 mb-4">
+      <div className="grid grid-cols-2 gap-2 mb-4 sm:flex sm:space-x-4">
         <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
           <FiBell /> <span>All Notifications</span>
         </TabButton>
