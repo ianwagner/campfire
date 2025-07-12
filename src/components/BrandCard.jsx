@@ -12,7 +12,7 @@ const BrandCard = ({ brand }) => {
           className="w-full h-32 object-contain border-b border-gray-200 dark:border-gray-600 p-2 bg-white dark:bg-[var(--dark-sidebar-hover)]"
         />
       )}
-      <p className="p-2 font-medium">{brand.code}</p>
+      <p className="p-2 font-medium text-accent mb-0">{brand.code}</p>
     </div>
   );
 };
