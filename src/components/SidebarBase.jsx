@@ -50,28 +50,23 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
             (activeChild
               ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
               : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
-            'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center justify-between';
+            'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200';
           return (
             <div key={tab.label} className="space-y-1">
               <button onClick={() => toggleGroup(tab.label)} className={parentClasses}>
-                <span>{tab.label}</span>
-                <span
-                  className={`transition-transform duration-300 ${isOpen ? 'rotate-90' : ''}`}
-                >
-                  ▶
-                </span>
+                {tab.label}
               </button>
               <div
                 className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96' : 'max-h-0'}`}
               >
-                <div className="mt-1 space-y-1 pl-3">
+                <div className="mt-1 space-y-1">
                   {tab.children.map((child) => {
                     const isActive = child.path && currentPath.startsWith(child.path);
                     const childClasses =
                       (isActive
                         ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
                         : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
-                      'rounded-lg w-full text-left text-sm px-3 py-2 transition-colors duration-200';
+                      'rounded-lg w-full text-center text-sm px-3 py-2 transition-colors duration-200';
                     return (
                       <button
                         key={child.label}
