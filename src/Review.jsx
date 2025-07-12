@@ -1089,33 +1089,36 @@ useEffect(() => {
             )
           );
 
-          const prevStatus = asset.status;
-          const newState = newStatus;
-          let incReviewed = 0;
-          let incApproved = 0;
-          let incRejected = 0;
-          let incEdit = 0;
-          if (prevStatus === 'ready') {
-            incReviewed += 1;
-          }
-          if (prevStatus !== newState) {
-            if (prevStatus === 'approved') incApproved -= 1;
-            if (prevStatus === 'rejected') incRejected -= 1;
-            if (prevStatus === 'edit_requested') incEdit -= 1;
-            if (newState === 'approved') incApproved += 1;
-            if (newState === 'rejected') incRejected += 1;
-            if (newState === 'edit_requested') incEdit += 1;
-          }
-
           const groupRef = doc(db, 'adGroups', asset.adGroupId);
           const gSnap = await getDoc(groupRef);
+          const groupAds = ads.map((a) =>
+            a.assetId === asset.assetId ? { ...a, status: newState } : a
+          );
+          const sets = {
+            reviewed: new Set(),
+            approved: new Set(),
+            rejected: new Set(),
+            edit: new Set(),
+          };
+          groupAds.forEach((a) => {
+            const info = parseAdFilename(a.filename || '');
+            const recipe = a.recipeCode || info.recipeCode || '';
+            if (!recipe) return;
+            if (a.status !== 'ready') sets.reviewed.add(recipe);
+            if (a.status === 'approved') sets.approved.add(recipe);
+            if (a.status === 'rejected') sets.rejected.add(recipe);
+            if (a.status === 'edit_requested') sets.edit.add(recipe);
+          });
+
           const updateObj = {
-            ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
-            ...(incApproved ? { approvedCount: increment(incApproved) } : {}),
-            ...(incRejected ? { rejectedCount: increment(incRejected) } : {}),
-            ...(incEdit ? { editCount: increment(incEdit) } : {}),
+            reviewedCount: sets.reviewed.size,
+            approvedCount: sets.approved.size,
+            rejectedCount: sets.rejected.size,
+            editCount: sets.edit.size,
             lastUpdated: serverTimestamp(),
-            ...(gSnap.exists() && !gSnap.data().thumbnailUrl ? { thumbnailUrl: asset.firebaseUrl } : {}),
+            ...(gSnap.exists() && !gSnap.data().thumbnailUrl
+              ? { thumbnailUrl: asset.firebaseUrl }
+              : {}),
           };
           // avoid changing the overall ad group status mid-review
           updates.push(updateDoc(groupRef, updateObj));

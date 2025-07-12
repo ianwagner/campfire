@@ -193,21 +193,30 @@ const AdGroupDetail = () => {
   }, [copyCards, modalCopies]);
 
   const summarize = (list) => {
-    let reviewed = 0;
-    let approved = 0;
-    let edit = 0;
-    let rejected = 0;
+    const reviewed = new Set();
+    const approved = new Set();
+    const edit = new Set();
+    const rejected = new Set();
     let thumbnail = "";
     list.forEach((a) => {
       if (!thumbnail && (a.thumbnailUrl || a.firebaseUrl)) {
         thumbnail = a.thumbnailUrl || a.firebaseUrl;
       }
-      if (a.status !== "ready") reviewed += 1;
-      if (a.status === "approved") approved += 1;
-      if (a.status === "edit_requested") edit += 1;
-      if (a.status === "rejected") rejected += 1;
+      const info = parseAdFilename(a.filename || "");
+      const recipe = a.recipeCode || info.recipeCode || "";
+      if (!recipe) return;
+      if (a.status !== "ready") reviewed.add(recipe);
+      if (a.status === "approved") approved.add(recipe);
+      if (a.status === "edit_requested") edit.add(recipe);
+      if (a.status === "rejected") rejected.add(recipe);
     });
-    return { reviewed, approved, edit, rejected, thumbnail };
+    return {
+      reviewed: reviewed.size,
+      approved: approved.size,
+      edit: edit.size,
+      rejected: rejected.size,
+      thumbnail,
+    };
   };
 
   useEffect(() => {

@@ -28,8 +28,20 @@ test('computes summary for groups missing data', async () => {
   };
   const assetSnap = {
     docs: [
-      { data: () => ({ firebaseUrl: 'url1', status: 'approved' }) },
-      { data: () => ({ firebaseUrl: 'url2', status: 'rejected' }) },
+      {
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'approved',
+          filename: 'B1_G1_R1.png',
+        }),
+      },
+      {
+        data: () => ({
+          firebaseUrl: 'url2',
+          status: 'rejected',
+          filename: 'B1_G1_R2.png',
+        }),
+      },
     ],
   };
   getDocs.mockImplementation((args) => {

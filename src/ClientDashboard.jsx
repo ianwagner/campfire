@@ -138,10 +138,10 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                 collection(db, 'adGroups', d.id, 'assets')
               );
               const summary = {
-                reviewed: 0,
-                approved: 0,
-                edit: 0,
-                rejected: 0,
+                reviewed: new Set(),
+                approved: new Set(),
+                edit: new Set(),
+                rejected: new Set(),
                 thumbnail: '',
               };
               assetSnap.docs.forEach((adDoc) => {
@@ -149,26 +149,29 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                 if (!summary.thumbnail && (ad.thumbnailUrl || ad.firebaseUrl)) {
                   summary.thumbnail = ad.thumbnailUrl || ad.firebaseUrl;
                 }
-                if (ad.status !== 'ready') summary.reviewed += 1;
-                if (ad.status === 'approved') summary.approved += 1;
-                if (ad.status === 'edit_requested') summary.edit += 1;
-                if (ad.status === 'rejected') summary.rejected += 1;
+                const info = parseAdFilename(ad.filename || '');
+                const recipe = ad.recipeCode || info.recipeCode || '';
+                if (!recipe) return;
+                if (ad.status !== 'ready') summary.reviewed.add(recipe);
+                if (ad.status === 'approved') summary.approved.add(recipe);
+                if (ad.status === 'edit_requested') summary.edit.add(recipe);
+                if (ad.status === 'rejected') summary.rejected.add(recipe);
               });
 
               group.thumbnail = group.thumbnail || summary.thumbnail;
               group.counts = {
-                reviewed: summary.reviewed,
-                approved: summary.approved,
-                edit: summary.edit,
-                rejected: summary.rejected,
+                reviewed: summary.reviewed.size,
+                approved: summary.approved.size,
+                edit: summary.edit.size,
+                rejected: summary.rejected.size,
               };
 
               try {
                 const update = {
-                  reviewedCount: summary.reviewed,
-                  approvedCount: summary.approved,
-                  editCount: summary.edit,
-                  rejectedCount: summary.rejected,
+                  reviewedCount: summary.reviewed.size,
+                  approvedCount: summary.approved.size,
+                  editCount: summary.edit.size,
+                  rejectedCount: summary.rejected.size,
                   ...(data.thumbnailUrl ? {} : summary.thumbnail ? { thumbnailUrl: summary.thumbnail } : {}),
                 };
                 await updateDoc(doc(db, 'adGroups', d.id), update);
