@@ -3,8 +3,6 @@ import React from "react";
 const variantClasses = {
   primary: "btn-primary",
   secondary: "btn-secondary",
-  tertiary: "btn-tertiary",
-  neutral: "btn-neutral",
   action: "btn-action",
   logout: "btn-logout",
   arrow: "btn-arrow",
