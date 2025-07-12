@@ -38,10 +38,11 @@ function AdminDashboard() {
             let sd = new Date(c.startDate);
             const ed = c.endDate ? new Date(c.endDate) : null;
             while (sd <= end && (!ed || sd <= ed)) {
-              if (sd >= start && sd <= end)
+              if (sd >= start && sd <= end) {
                 contracted += stills + videos;
+              }
               if (!c.renews) break;
-              sd = new Date(sd.getFullYear(), sd.getMonth() + 1, sd.getDate());
+              sd.setMonth(sd.getMonth() + 1);
             }
           }
           if (contracted === 0) continue;

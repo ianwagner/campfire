@@ -60,6 +60,7 @@ import Modal from "./components/Modal.jsx";
 import IconButton from "./components/IconButton.jsx";
 import TabButton from "./components/TabButton.jsx";
 import stripVersion from "./utils/stripVersion";
+import summarizeByRecipe from "./utils/summarizeByRecipe";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -192,23 +193,7 @@ const AdGroupDetail = () => {
     );
   }, [copyCards, modalCopies]);
 
-  const summarize = (list) => {
-    let reviewed = 0;
-    let approved = 0;
-    let edit = 0;
-    let rejected = 0;
-    let thumbnail = "";
-    list.forEach((a) => {
-      if (!thumbnail && (a.thumbnailUrl || a.firebaseUrl)) {
-        thumbnail = a.thumbnailUrl || a.firebaseUrl;
-      }
-      if (a.status !== "ready") reviewed += 1;
-      if (a.status === "approved") approved += 1;
-      if (a.status === "edit_requested") edit += 1;
-      if (a.status === "rejected") rejected += 1;
-    });
-    return { reviewed, approved, edit, rejected, thumbnail };
-  };
+  const summarize = (list) => summarizeByRecipe(list);
 
   useEffect(() => {
     const load = async () => {
