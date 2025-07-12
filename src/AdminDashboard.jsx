@@ -56,9 +56,8 @@ function AdminDashboard() {
             where('dueDate', '<=', Timestamp.fromDate(end)),
           );
           const gSnap = await getDocs(q);
-          const briefedSet = new Set();
+          const recipeSet = new Set();
           const approvedSet = new Set();
-          const rejectedSet = new Set();
           const deliveredSet = new Set();
 
           for (const g of gSnap.docs) {
@@ -73,7 +72,7 @@ function AdminDashboard() {
               const groupCode =
                 data.adGroupCode || info.adGroupCode || g.id;
               const key = `${groupCode}-${recipe}`;
-              if (data.status === 'briefed') briefedSet.add(key);
+              recipeSet.add(key);
               if (
                 ['ready', 'approved', 'rejected', 'edit_requested'].includes(
                   data.status
@@ -81,13 +80,11 @@ function AdminDashboard() {
               )
                 deliveredSet.add(key);
               if (data.status === 'approved') approvedSet.add(key);
-              if (data.status === 'rejected') rejectedSet.add(key);
             });
           }
 
-          const briefed = briefedSet.size;
+          const briefed = recipeSet.size;
           const delivered = deliveredSet.size;
-          const rejected = rejectedSet.size;
           const approved = approvedSet.size;
           const needed = contracted > approved ? contracted - approved : 0;
           const status =
@@ -103,7 +100,6 @@ function AdminDashboard() {
             contracted,
             briefed,
             delivered,
-            rejected,
             approved,
             needed,
             status,
@@ -139,10 +135,9 @@ function AdminDashboard() {
           <thead>
             <tr>
               <th>Brand</th>
-              <th>Briefed</th>
               <th>Contracted</th>
+              <th>Briefed</th>
               <th>Delivered</th>
-              <th>Rejected</th>
               <th>Approved</th>
               <th>Needed</th>
               <th>Status</th>
@@ -152,10 +147,9 @@ function AdminDashboard() {
             {rows.map((r) => (
               <tr key={r.id}>
                 <td>{r.code || r.name}</td>
-                <td className="text-center">{r.briefed}</td>
                 <td className="text-center">{r.contracted}</td>
+                <td className="text-center">{r.briefed}</td>
                 <td className="text-center">{r.delivered}</td>
-                <td className="text-center">{r.rejected}</td>
                 <td className="text-center">{r.approved}</td>
                 <td className="text-center">{r.needed}</td>
                 <td className="text-center">
