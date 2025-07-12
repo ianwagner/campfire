@@ -5,6 +5,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase/config';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
+import { safeGetItem, safeSetItem } from './utils/safeLocalStorage.js';
 import syncAssetLibrary from "./utils/syncAssetLibrary";
 import { splitCsvLine } from './utils/csv.js';
 
@@ -38,7 +39,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
 
     const load = async () => {
       const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
-      const stored = localStorage.getItem(key);
+      const stored = safeGetItem(key);
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
@@ -195,7 +196,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const saveAssets = async () => {
     try {
       const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
-      localStorage.setItem(key, JSON.stringify(assets));
+      safeSetItem(key, JSON.stringify(assets));
       await syncAssetLibrary(brandCode, assets);
       alert('Assets saved');
     } catch (err) {
