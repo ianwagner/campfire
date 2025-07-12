@@ -1,6 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { FiPlus, FiEdit2, FiTrash, FiArchive, FiRotateCcw } from 'react-icons/fi';
+import {
+  FiPlus,
+  FiEdit2,
+  FiTrash,
+  FiArchive,
+  FiRotateCcw,
+  FiList,
+  FiGrid,
+} from 'react-icons/fi';
 import { collection, getDocs, deleteDoc, doc, updateDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
@@ -8,6 +16,8 @@ import createArchiveTicket from './utils/createArchiveTicket';
 import useAgencies from './useAgencies';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
+import TabButton from './components/TabButton.jsx';
+import BrandCard from './components/BrandCard.jsx';
 
 const AdminBrands = () => {
   const [brands, setBrands] = useState([]);
@@ -15,6 +25,7 @@ const AdminBrands = () => {
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('code');
   const [showArchived, setShowArchived] = useState(false);
+  const [view, setView] = useState('cards');
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
   const isAdmin = role === 'admin';
@@ -109,6 +120,14 @@ const AdminBrands = () => {
             <FiPlus />
             Create Brand
           </Link>
+          <div className="grid grid-cols-2 gap-2 flex-1 order-last md:order-none sm:flex sm:justify-center sm:space-x-2 sm:gap-0">
+            <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
+              <FiList />
+            </TabButton>
+            <TabButton active={view === 'cards'} onClick={() => setView('cards')} aria-label="Card view">
+              <FiGrid />
+            </TabButton>
+          </div>
           <div className="flex items-center gap-2">
           <select
             value={sortField}
@@ -140,7 +159,7 @@ const AdminBrands = () => {
           <p>Loading brands...</p>
         ) : brands.length === 0 ? (
           <p>No brands found.</p>
-        ) : (
+        ) : view === 'list' ? (
           <Table>
             <thead>
               <tr>
@@ -192,6 +211,14 @@ const AdminBrands = () => {
               ))}
             </tbody>
           </Table>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {displayBrands.map((brand) => (
+              <Link key={brand.id} to={`/admin/brands/${brand.id}`}>
+                <BrandCard brand={brand} />
+              </Link>
+            ))}
+          </div>
         )}
       </div>
     );
