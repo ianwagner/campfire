@@ -158,7 +158,12 @@ const DesignerDashboard = () => {
           <>
             <div className="sm:hidden space-y-4">
               {groups.map((g) => (
-                <AdGroupCard key={g.id} group={g} />
+                <AdGroupCard
+                  key={g.id}
+                  group={g}
+                  onReview={() => (window.location.href = `/review/${g.id}`)}
+                  onShare={() => handleShare(g.id)}
+                />
               ))}
             </div>
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
@@ -173,7 +178,12 @@ const DesignerDashboard = () => {
                       {groups
                         .filter((g) => col.statuses.includes(g.status))
                         .map((g) => (
-                          <AdGroupCard key={g.id} group={g} />
+                          <AdGroupCard
+                            key={g.id}
+                            group={g}
+                            onReview={() => (window.location.href = `/review/${g.id}`)}
+                            onShare={() => handleShare(g.id)}
+                          />
                         ))}
                     </div>
                   </div>
