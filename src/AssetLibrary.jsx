@@ -3,6 +3,8 @@ import { FiTrash } from 'react-icons/fi';
 import Table from './components/common/Table';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase/config';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from './firebase/config';
 import syncAssetLibrary from "./utils/syncAssetLibrary";
 import { splitCsvLine } from './utils/csv.js';
 
@@ -32,22 +34,43 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const dragField = useRef(null);
 
   useEffect(() => {
-    const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) setAssets(parsed);
-      } catch (err) {
-        console.error('Failed to parse stored assets', err);
+    let cancelled = false;
+
+    const load = async () => {
+      const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && !cancelled) setAssets(parsed);
+          if (Array.isArray(parsed)) return;
+        } catch (err) {
+          console.error('Failed to parse stored assets', err);
+        }
       }
-    }
+
+      try {
+        let q = collection(db, 'adAssets');
+        if (brandCode) q = query(q, where('brandCode', '==', brandCode));
+        const snap = await getDocs(q);
+        if (!cancelled) {
+          setAssets(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        }
+      } catch (err) {
+        console.error('Failed to load asset library', err);
+      }
+    };
+
+    load();
     const up = () => {
       dragValue.current = null;
       dragField.current = null;
     };
     window.addEventListener('mouseup', up);
-    return () => window.removeEventListener('mouseup', up);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('mouseup', up);
+    };
   }, [brandCode]);
 
   const addRow = () => {
