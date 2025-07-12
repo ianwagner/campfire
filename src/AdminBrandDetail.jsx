@@ -318,7 +318,7 @@ const AdminBrandDetail = () => {
                 onClick={() =>
                   setFonts((p) => p.filter((_, i) => i !== idx))
                 }
-                className="btn-action btn-delete"
+                className="btn-action"
               >
                 Delete
               </button>
@@ -345,7 +345,7 @@ const AdminBrandDetail = () => {
               <button
                 type="button"
                 onClick={() => setNotes((p) => p.filter((_, i) => i !== idx))}
-                className="btn-action btn-delete"
+                className="btn-action"
               >
                 Delete
               </button>

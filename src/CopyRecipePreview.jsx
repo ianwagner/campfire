@@ -329,7 +329,7 @@ const CopyRecipePreview = ({
               type="button"
               onClick={() => setConfirmDelete(c.id)}
               aria-label="Delete"
-              className="absolute top-1 right-1 text-sm btn-delete"
+              className="absolute top-1 right-1 text-sm"
             >
               <FiTrash />
             </button>

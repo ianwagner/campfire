@@ -112,9 +112,9 @@
   .btn-secondary {
     @apply btn bg-gray-300 text-gray-700 no-underline hover:brightness-105 dark:bg-[var(--dark-sidebar-hover)] dark:text-white;
   }
-  .btn-action {
-    @apply btn btn-secondary px-1.5 py-0.5 text-xs gap-1;
-  }
+.btn-action {
+  @apply inline-flex items-center gap-1 px-1.5 py-0.5 text-xs rounded text-gray-600 dark:text-gray-300 hover:bg-[var(--accent-color-10)] hover:text-gray-900 dark:hover:text-white;
+}
   .btn-logout {
     @apply text-sm text-gray-500 hover:text-black underline;
   }

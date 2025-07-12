@@ -13,8 +13,8 @@ const hasText = (children) => {
 const IconButton = ({ as: Component = "button", className = "", children, ...props }) => {
   const containsText = hasText(children);
   const baseClasses = containsText
-    ? "btn-secondary px-2 py-0.5 flex items-center gap-1"
-    : "p-2 rounded flex items-center justify-center hover:bg-[var(--accent-color-10)] focus:outline-none active:bg-[var(--accent-color-10)]";
+    ? "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300 hover:bg-[var(--accent-color-10)] hover:text-gray-900 dark:hover:text-white focus:outline-none active:bg-[var(--accent-color-10)]"
+    : "p-2 rounded flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-[var(--accent-color-10)] hover:text-gray-900 dark:hover:text-white focus:outline-none active:bg-[var(--accent-color-10)]";
 
   return (
     <Component className={`${baseClasses} ${className}`.trim()} {...props}>
