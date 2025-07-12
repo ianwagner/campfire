@@ -146,7 +146,13 @@ const AgencyAdGroups = () => {
         <>
           <div className="sm:hidden space-y-4">
             {groups.map((g) => (
-              <AdGroupCard key={g.id} group={g} />
+              <AdGroupCard
+                key={g.id}
+                group={g}
+                onReview={() => (window.location.href = `/review/${g.id}${agencyId ? `?agency=${agencyId}` : ''}`)}
+                onShare={() => handleShare(g.id, agencyId)}
+                onDelete={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
+              />
             ))}
           </div>
           <div className="hidden sm:block">

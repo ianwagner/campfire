@@ -216,6 +216,19 @@ const AdminAdGroups = () => {
     }
   };
 
+  const promptRename = async (group) => {
+    const newName = window.prompt('New group name', group.name || '');
+    if (!newName) return;
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    try {
+      await updateDoc(doc(db, 'adGroups', group.id), { name: trimmed });
+      setGroups((prev) => prev.map((g) => (g.id === group.id ? { ...g, name: trimmed } : g)));
+    } catch (err) {
+      console.error('Failed to rename group', err);
+    }
+  };
+
   const statusOrder = {
     pending: 1,
     briefed: 2,
@@ -321,7 +334,24 @@ const AdminAdGroups = () => {
           <>
           <div className="sm:hidden space-y-4">
             {displayGroups.map((g) => (
-              <AdGroupCard key={g.id} group={g} />
+              <AdGroupCard
+                key={g.id}
+                group={g}
+                onReview={() => (window.location.href = `/review/${g.id}`)}
+                onShare={() => handleShare(g.id)}
+                onRename={() => promptRename(g)}
+                onArchive={
+                  g.status !== 'archived' && (isAdmin || isManager)
+                    ? () => handleArchiveGroup(g.id)
+                    : undefined
+                }
+                onRestore={
+                  g.status === 'archived' && (isAdmin || isManager)
+                    ? () => handleRestoreGroup(g.id)
+                    : undefined
+                }
+                onDelete={isAdmin ? () => handleDeleteGroup(g.id, g.brandCode, g.name) : undefined}
+              />
             ))}
           </div>
           {view === 'table' ? (
