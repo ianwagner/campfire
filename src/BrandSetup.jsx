@@ -284,7 +284,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
                 onClick={() =>
                   setFonts((p) => p.filter((_, i) => i !== idx))
                 }
-                className="btn-action btn-delete"
+                className="btn-action"
               >
                 Delete
               </button>

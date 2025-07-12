@@ -233,7 +233,6 @@ const AdminAccounts = () => {
                         </IconButton>
                         <IconButton
                           onClick={() => handleDelete(acct.id)}
-                          className="btn-delete"
                           aria-label="Delete"
                         >
                           <FiTrash />

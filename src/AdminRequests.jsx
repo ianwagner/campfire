@@ -305,7 +305,7 @@ const AdminRequests = () => {
                       <td className="text-center">
                         <div className="flex items-center justify-center">
                           <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
-                          <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                          <button onClick={() => handleDelete(req.id)} className="btn-action">Delete</button>
                           <button onClick={() => handleArchive(req.id)} className="btn-action ml-2" aria-label="Archive">
                             <FiArchive />
                             <span className="text-[14px]">Archive</span>
@@ -358,7 +358,7 @@ const AdminRequests = () => {
                       <td className="text-center">
                         <div className="flex items-center justify-center">
                           <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
-                          <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                          <button onClick={() => handleDelete(req.id)} className="btn-action">Delete</button>
                           <button onClick={() => handleArchive(req.id)} className="btn-action ml-2" aria-label="Archive">
                             <FiArchive />
                             <span className="text-[14px]">Archive</span>
@@ -411,7 +411,7 @@ const AdminRequests = () => {
                       <td className="text-center">
                         <div className="flex items-center justify-center">
                           <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
-                          <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                          <button onClick={() => handleDelete(req.id)} className="btn-action">Delete</button>
                           <button onClick={() => handleArchive(req.id)} className="btn-action ml-2" aria-label="Archive">
                             <FiArchive />
                             <span className="text-[14px]">Archive</span>
@@ -462,7 +462,7 @@ const AdminRequests = () => {
                       <td className="text-center">
                         <div className="flex items-center justify-center">
                           <button onClick={() => startEdit(req)} className="btn-action mr-2">Edit</button>
-                          <button onClick={() => handleDelete(req.id)} className="btn-action btn-delete">Delete</button>
+                          <button onClick={() => handleDelete(req.id)} className="btn-action">Delete</button>
                           <button onClick={() => handleArchive(req.id)} className="btn-action ml-2" aria-label="Archive">
                             <FiArchive />
                             <span className="text-[14px]">Archive</span>

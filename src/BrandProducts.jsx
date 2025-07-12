@@ -233,7 +233,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
                 Add Image
               </button>
             </FormField>
-            <button type="button" onClick={() => removeProduct(pIdx)} className="btn-action btn-delete mt-1">
+            <button type="button" onClick={() => removeProduct(pIdx)} className="btn-action mt-1">
               {isManager && !isAdmin ? 'Archive Product' : 'Delete Product'}
             </button>
           </div>

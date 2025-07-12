@@ -32,6 +32,7 @@ import getUserName from './utils/getUserName';
 import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
+import IconButton from './components/IconButton.jsx';
 
 const AdminAdGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -449,13 +450,13 @@ const AdminAdGroups = () => {
                             </button>
                           )}
                           {isAdmin && (
-                            <button
+                            <IconButton
                               onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                              className="btn-action ml-2 btn-delete"
+                              className="ml-2"
                               aria-label="Delete"
                             >
                               <FiTrash />
-                            </button>
+                            </IconButton>
                           )}
                         </>
                       )}

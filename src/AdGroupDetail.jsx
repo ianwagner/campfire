@@ -1481,16 +1481,15 @@ const AdGroupDetail = () => {
                           >
                             <FiClock />
                           </IconButton>
-                          <button
+                          <IconButton
                             onClick={(e) => {
                               e.stopPropagation();
                               deleteAsset(a);
                             }}
-                            className="btn-delete"
                             aria-label="Delete"
                           >
                             <FiTrash />
-                          </button>
+                          </IconButton>
                         </div>
                       </td>
                     </tr>
@@ -1604,16 +1603,15 @@ const AdGroupDetail = () => {
                 <span className="ml-1">Metadata</span>
               </IconButton>
             )}
-            <button
+            <IconButton
               onClick={(e) => {
                 e.stopPropagation();
                 deleteRecipe(g.recipeCode);
               }}
-              className="btn-delete text-xs"
-              aria-label="Delete"
+              className="text-xs" aria-label="Delete"
             >
               <FiTrash />
-            </button>
+            </IconButton>
           </div>
         </td>
       </tr>
@@ -2261,13 +2259,12 @@ const AdGroupDetail = () => {
                   })()}
                 </div>
                 {isAdmin && (
-                  <button
+                  <IconButton
                     onClick={() => deleteHistoryEntry(a.assetId, a.id)}
-                    className="btn-delete"
                     aria-label="Delete"
                   >
                     <FiTrash />
-                  </button>
+                  </IconButton>
                 )}
               </li>
             ))}
@@ -2308,13 +2305,12 @@ const AdGroupDetail = () => {
                   })()}
                 </div>
                 {isAdmin && (
-                  <button
+                  <IconButton
                     onClick={() => deleteHistoryEntry(historyAsset.assetId, a.id)}
-                    className="btn-delete"
                     aria-label="Delete"
                   >
                     <FiTrash />
-                  </button>
+                  </IconButton>
                 )}
               </li>
             ))}

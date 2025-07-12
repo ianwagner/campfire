@@ -165,7 +165,6 @@ const AdminBrands = () => {
                         brand.archived ? (
                           <IconButton
                             onClick={() => handleRestore(brand.id)}
-                            className="btn-action"
                             aria-label="Restore"
                           >
                             <FiRotateCcw />
@@ -173,7 +172,6 @@ const AdminBrands = () => {
                         ) : (
                           <IconButton
                             onClick={() => handleArchive(brand.id)}
-                            className="btn-action"
                             aria-label="Archive"
                           >
                             <FiArchive />
@@ -183,7 +181,6 @@ const AdminBrands = () => {
                       {isAdmin && (
                         <IconButton
                           onClick={() => handleDelete(brand.id)}
-                          className="btn-delete"
                           aria-label="Delete"
                         >
                           <FiTrash />
