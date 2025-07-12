@@ -20,6 +20,7 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
     const fetchData = async () => {
       setLoading(true);
       try {
@@ -105,15 +106,18 @@ function AdminDashboard() {
             status,
           });
         }
-        setRows(results);
+        if (active) setRows(results);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
-        setRows([]);
+        if (active) setRows([]);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchData();
+    return () => {
+      active = false;
+    };
   }, [range.start, range.end]);
 
   return (
