@@ -5,6 +5,7 @@ const tabs = [
   { label: 'Ad Groups', path: '/admin/ad-groups' },
   { label: 'Accounts', path: '/admin/accounts' },
   { label: 'Brands', path: '/admin/brands' },
+  { label: 'Agencies', path: '/admin/agencies' },
   { label: 'Ad Recipes', path: '/admin/ad-recipes' },
   { label: 'Copy Recipes', path: '/admin/copy-recipes' },
   { label: 'Notifications', path: '/admin/notifications' },

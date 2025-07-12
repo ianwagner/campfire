@@ -79,3 +79,12 @@ test('renders Requests tab', () => {
   );
   expect(screen.getByText('Requests')).toBeInTheDocument();
 });
+
+test('renders Agencies tab', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  expect(screen.getByText('Agencies')).toBeInTheDocument();
+});
