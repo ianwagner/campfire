@@ -12,6 +12,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
+import BrandCard from './components/BrandCard.jsx';
 
 const AgencyBrands = () => {
   const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
@@ -115,6 +116,10 @@ const AgencyBrands = () => {
     }
   };
 
+  const sortedBrands = [...brands].sort((a, b) =>
+    (a.code || '').localeCompare(b.code || '')
+  );
+
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Brands</h1>
@@ -166,6 +171,7 @@ const AgencyBrands = () => {
       ) : brands.length === 0 ? (
         <p>No brands found.</p>
       ) : (
+        <>
         <div className="overflow-x-auto table-container">
         <table className="ad-table min-w-max">
           <thead>
@@ -252,6 +258,12 @@ const AgencyBrands = () => {
           </tbody>
         </table>
         </div>
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 mt-6">
+          {sortedBrands.map((b) => (
+            <BrandCard key={b.id} brand={b} />
+          ))}
+        </div>
+        </>
       )}
     </div>
   );
