@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
+import useAgencies from './useAgencies';
 
 const AdminBrandForm = () => {
   const [code, setCode] = useState('');
@@ -10,6 +11,7 @@ const AdminBrandForm = () => {
   const [offering, setOffering] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const { agencies } = useAgencies();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,12 +66,18 @@ const AdminBrandForm = () => {
         </div>
         <div>
           <label className="block mb-1 text-sm font-medium">Agency ID</label>
-          <input
-            type="text"
+          <select
             value={agencyId}
             onChange={(e) => setAgencyId(e.target.value)}
             className="w-full p-2 border rounded"
-          />
+          >
+            <option value="">Select agency</option>
+            {agencies.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block mb-1 text-sm font-medium">Tone of Voice</label>

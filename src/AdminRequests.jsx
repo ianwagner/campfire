@@ -8,6 +8,7 @@ import Modal from './components/Modal.jsx';
 import TabButton from './components/TabButton.jsx';
 import RequestCard from './components/RequestCard.jsx';
 import Calendar from './components/Calendar.jsx';
+import useAgencies from './useAgencies';
 
 const emptyForm = {
   type: 'newAds',
@@ -35,6 +36,7 @@ const AdminRequests = () => {
   const [view, setView] = useState('kanban');
   const [dragId, setDragId] = useState(null);
   const navigate = useNavigate();
+  const { agencies } = useAgencies();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -624,12 +626,18 @@ const AdminRequests = () => {
               </div>
               <div>
                 <label className="block mb-1 text-sm font-medium">Agency ID</label>
-                <input
-                  type="text"
+                <select
                   value={form.agencyId}
                   onChange={(e) => setForm((f) => ({ ...f, agencyId: e.target.value }))}
                   className="w-full p-2 border rounded"
-                />
+                >
+                  <option value="">Select agency</option>
+                  {agencies.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block mb-1 text-sm font-medium">Tone of Voice</label>
