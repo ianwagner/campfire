@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 import parseAdFilename from './utils/parseAdFilename.js';
+import summarizeByRecipe from './utils/summarizeByRecipe.js';
 import { db } from './firebase/config';
 import {
   collection,
@@ -126,43 +127,29 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
             }
             group.hasReady = hasReady;
 
+            const assetSnap = await getDocs(
+              collection(db, 'adGroups', d.id, 'assets')
+            );
+            const summary = summarizeByRecipe(
+              assetSnap.docs.map((adDoc) => adDoc.data())
+            );
+
+            group.thumbnail = group.thumbnail || summary.thumbnail;
+            group.counts = {
+              reviewed: summary.reviewed,
+              approved: summary.approved,
+              edit: summary.edit,
+              rejected: summary.rejected,
+            };
+
             const needsSummary =
               !data.thumbnailUrl ||
-              data.reviewedCount === undefined ||
-              data.approvedCount === undefined ||
-              data.editCount === undefined ||
-              data.rejectedCount === undefined;
+              data.reviewedCount !== summary.reviewed ||
+              data.approvedCount !== summary.approved ||
+              data.editCount !== summary.edit ||
+              data.rejectedCount !== summary.rejected;
 
             if (needsSummary) {
-              const assetSnap = await getDocs(
-                collection(db, 'adGroups', d.id, 'assets')
-              );
-              const summary = {
-                reviewed: 0,
-                approved: 0,
-                edit: 0,
-                rejected: 0,
-                thumbnail: '',
-              };
-              assetSnap.docs.forEach((adDoc) => {
-                const ad = adDoc.data();
-                if (!summary.thumbnail && (ad.thumbnailUrl || ad.firebaseUrl)) {
-                  summary.thumbnail = ad.thumbnailUrl || ad.firebaseUrl;
-                }
-                if (ad.status !== 'ready') summary.reviewed += 1;
-                if (ad.status === 'approved') summary.approved += 1;
-                if (ad.status === 'edit_requested') summary.edit += 1;
-                if (ad.status === 'rejected') summary.rejected += 1;
-              });
-
-              group.thumbnail = group.thumbnail || summary.thumbnail;
-              group.counts = {
-                reviewed: summary.reviewed,
-                approved: summary.approved,
-                edit: summary.edit,
-                rejected: summary.rejected,
-              };
-
               try {
                 const update = {
                   reviewedCount: summary.reviewed,
