@@ -1613,7 +1613,7 @@ const AdGroupDetail = () => {
         <Link to={backPath} className="btn-arrow mr-2" aria-label="Back">
           &lt;
         </Link>
-        <h1 className="text-2xl">{group.name}</h1>
+        <h1 className="text-2xl mb-0">{group.name}</h1>
       </div>
       <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
         Brand: {group.brandCode}

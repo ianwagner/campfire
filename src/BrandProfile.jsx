@@ -64,7 +64,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
             &lt;
           </Link>
         )}
-        <h1 className="text-2xl">{brandName || 'Brand Profile'}</h1>
+        <h1 className="text-2xl mb-0">{brandName || 'Brand Profile'}</h1>
       </div>
       <div className="flex flex-wrap gap-2 mb-4">
         <TabButton active={tab === 'setup'} onClick={() => setTab('setup')}>
