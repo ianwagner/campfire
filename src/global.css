@@ -5,7 +5,8 @@
 @layer base {
   :root {
     --accent-color: #ea580c;
-    --accent-color-10: rgba(234, 88, 12, 0.2);
+    --accent-color-10: rgba(234, 88, 12, 0.1);
+    --accent-color-30: rgba(234, 88, 12, 0.3);
     /* loading spinner should stay the default color */
     --spinner-color: #ea580c;
     --dark-bg: #0d1116;
@@ -110,7 +111,26 @@
     color: #ffffff;
   }
   .btn-secondary {
-    @apply btn bg-gray-300 text-gray-700 no-underline hover:brightness-105 dark:bg-[var(--dark-sidebar-hover)] dark:text-white;
+    @apply btn border hover:brightness-105;
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    background-color: transparent;
+  }
+
+  .btn-tertiary {
+    @apply btn hover:brightness-105 text-[var(--accent-color)] bg-[var(--accent-color-10)] dark:bg-[var(--accent-color-30)];
+  }
+
+  .btn-neutral {
+    @apply btn border;
+    border-color: #D1D5DB;
+    background-color: #F7F7F7;
+    color: #4B5563;
+  }
+  html.dark .btn-neutral {
+    border-color: #717171;
+    background-color: #3E3E3E;
+    color: #F7F7F7;
   }
 .btn-action {
   @apply inline-flex items-center gap-1 px-1.5 py-0.5 text-xs rounded text-gray-600 dark:text-gray-300 hover:bg-[var(--accent-color-10)] hover:text-gray-900 dark:hover:text-white;
@@ -123,6 +143,15 @@
     background-color: var(--accent-color-10);
     color: var(--accent-color);
     border-radius: 20%;
+  }
+
+  .btn:disabled {
+    border-color: #D1D5DB;
+    color: #D1D5DB;
+  }
+  html.dark .btn:disabled {
+    border-color: #717171;
+    color: #717171;
   }
   .btn-approve {
     @apply text-lg transition-transform duration-150 active:scale-95 hover:scale-105;

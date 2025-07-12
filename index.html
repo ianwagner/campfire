@@ -81,7 +81,11 @@
         document.documentElement.style.setProperty('--accent-color', accent);
         document.documentElement.style.setProperty(
           '--accent-color-10',
-          hexToRgba(accent)
+          hexToRgba(accent, 0.1)
+        );
+        document.documentElement.style.setProperty(
+          '--accent-color-30',
+          hexToRgba(accent, 0.3)
         );
       }
       document.fonts.ready.finally(() => {
