@@ -4,6 +4,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { functions, db } from './firebase/config';
 import syncAssetLibrary from "./utils/syncAssetLibrary";
 import LoadingOverlay from './LoadingOverlay';
+import { safeGetItem, safeSetItem, safeRemoveItem } from './utils/safeLocalStorage.js';
 
 const TaggerModal = ({ onClose, brandCode = '' }) => {
   const [driveFolderUrl, setDriveFolderUrl] = useState('');
@@ -14,9 +15,9 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
   const [jobId, setJobId] = useState('');
 
   useEffect(() => {
-    localStorage.setItem('taggerModalOpen', 'true');
+    safeSetItem('taggerModalOpen', 'true');
     return () => {
-      localStorage.removeItem('taggerModalOpen');
+      safeRemoveItem('taggerModalOpen');
     };
   }, []);
 
@@ -27,17 +28,17 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
   const saveToLibrary = async () => {
     try {
       const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
-      const raw = localStorage.getItem(key);
+      const raw = safeGetItem(key);
       const existing = raw ? JSON.parse(raw) : [];
       const arr = Array.isArray(existing) ? existing : [];
       const newRows = results.map((r) => ({
         id: Math.random().toString(36).slice(2),
         ...r,
       }));
-      localStorage.setItem(key, JSON.stringify([...arr, ...newRows]));
+      safeSetItem(key, JSON.stringify([...arr, ...newRows]));
       await syncAssetLibrary(brandCode, [...arr, ...newRows]);
-      localStorage.removeItem('pendingTaggerJobId');
-      localStorage.removeItem('pendingTaggerJobBrand');
+      safeRemoveItem('pendingTaggerJobId');
+      safeRemoveItem('pendingTaggerJobBrand');
       onClose();
     } catch (err) {
       console.error('Failed to save assets', err);
@@ -80,8 +81,8 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
       if (res.data?.jobId) {
         setJobId(res.data.jobId);
         try {
-          localStorage.setItem('pendingTaggerJobId', res.data.jobId);
-          if (brandCode) localStorage.setItem('pendingTaggerJobBrand', brandCode);
+          safeSetItem('pendingTaggerJobId', res.data.jobId);
+          if (brandCode) safeSetItem('pendingTaggerJobBrand', brandCode);
         } catch (err) {
           // ignore
         }

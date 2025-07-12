@@ -20,6 +20,7 @@ import selectRandomOption from './utils/selectRandomOption.js';
 import parseContextTags from './utils/parseContextTags.js';
 import { splitCsvLine } from './utils/csv.js';
 import debugLog from './utils/debugLog';
+import { safeGetItem } from './utils/safeLocalStorage.js';
 import AssetPickerModal from './components/AssetPickerModal.jsx';
 
 const similarityScore = (a, b) => {
@@ -101,7 +102,7 @@ const RecipePreview = ({
   useEffect(() => {
     try {
       const key = brandCode ? `reviews_${brandCode}` : 'reviews';
-      const raw = localStorage.getItem(key);
+      const raw = safeGetItem(key);
       if (!raw) {
         setReviewRows([]);
         return;
@@ -305,7 +306,7 @@ const RecipePreview = ({
   const loadAssetLibrary = async () => {
     try {
       const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
-      const raw = localStorage.getItem(key);
+      const raw = safeGetItem(key);
       let rows = [];
       if (raw) {
         try {
