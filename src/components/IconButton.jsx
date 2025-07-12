@@ -14,7 +14,7 @@ const IconButton = ({ as: Component = "button", className = "", children, ...pro
   const containsText = hasText(children);
   const baseClasses = containsText
     ? "btn-secondary px-2 py-0.5 flex items-center gap-1"
-    : "p-2 rounded flex items-center justify-center hover:bg-[var(--accent-color-10)] focus:outline-none active:bg-[var(--accent-color-10)]";
+    : "icon-btn";
 
   return (
     <Component className={`${baseClasses} ${className}`.trim()} {...props}>
