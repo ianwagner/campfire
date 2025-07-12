@@ -36,10 +36,13 @@ function AdminDashboard() {
             if (!c.startDate) continue;
             const stills = Number(c.stills || 0);
             const videos = Number(c.videos || 0);
-            const sd = new Date(c.startDate);
-            const ed = c.endDate ? new Date(c.endDate) : sd;
-            if (sd <= end && ed >= start) {
-              contracted += stills + videos;
+            let sd = new Date(c.startDate);
+            const ed = c.endDate ? new Date(c.endDate) : null;
+            while (sd <= end && (!ed || sd <= ed)) {
+              if (sd >= start && sd <= end)
+                contracted += stills + videos;
+              if (!c.renews) break;
+              sd = new Date(sd.getFullYear(), sd.getMonth() + 1, sd.getDate());
             }
           }
           if (contracted === 0) continue;
@@ -116,13 +119,13 @@ function AdminDashboard() {
       {loading ? (
         <p>Loading...</p>
       ) : rows.length === 0 ? (
-        <p>No recipes found.</p>
+        <p>No contracts found.</p>
       ) : (
         <Table>
           <thead>
             <tr>
               <th>Brand</th>
-              <th>Recipes</th>
+              <th>Contracted</th>
               <th>Delivered</th>
               <th>Reviewed</th>
               <th>Rejected</th>
