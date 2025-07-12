@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
+import { applyFavicon } from './utils/favicon';
 import debugLog from './utils/debugLog';
 
 // Guard against browsers where localStorage may be unavailable (e.g. privacy
@@ -81,6 +82,12 @@ const useSiteSettings = (applyAccent = true) => {
       }
     }
   }, [settings.accentColor]);
+
+  useEffect(() => {
+    if (settings.iconUrl) {
+      applyFavicon(settings.iconUrl);
+    }
+  }, [settings.iconUrl]);
 
   const saveSettings = async (newSettings) => {
     debugLog('Saving site settings');
