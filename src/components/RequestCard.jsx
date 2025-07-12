@@ -64,7 +64,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
           )}
           <IconButton
             onClick={() => setMenuOpen((o) => !o)}
-            className="ml-auto"
+            className="ml-auto bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
             aria-label="Menu"
           >
             <FiMoreHorizontal />

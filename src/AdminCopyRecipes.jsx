@@ -205,6 +205,7 @@ const resetForm = () => {
                       </IconButton>
                       <IconButton
                         onClick={() => handleDelete(t.id)}
+                        className="btn-delete"
                         aria-label="Delete"
                       >
                         <FiTrash />
