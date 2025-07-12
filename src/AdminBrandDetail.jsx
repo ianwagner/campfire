@@ -5,6 +5,7 @@ import { db } from './firebase/config';
 import { uploadBrandAsset } from './uploadBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
+import useAgencies from './useAgencies';
 
 const emptyLogo = { url: '', file: null };
 const emptyFont = { type: 'google', value: '', name: '', file: null };
@@ -23,6 +24,7 @@ const AdminBrandDetail = () => {
   const [notes, setNotes] = useState(['']);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const { agencies } = useAgencies();
 
   useEffect(() => {
     const load = async () => {
@@ -161,12 +163,18 @@ const AdminBrandDetail = () => {
           />
         </FormField>
         <FormField label="Agency ID">
-          <input
-            type="text"
+          <select
             value={agencyId}
             onChange={(e) => setAgencyId(e.target.value)}
             className="w-full p-2 border rounded"
-          />
+          >
+            <option value="">Select agency</option>
+            {agencies.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
         </FormField>
         <FormField label="Tone of Voice">
           <input
