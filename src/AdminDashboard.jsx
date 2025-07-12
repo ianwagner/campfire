@@ -66,9 +66,12 @@ function AdminDashboard() {
               const info = parseAdFilename(data.filename || '');
               const recipe = data.recipeCode || info.recipeCode || '';
               if (!recipe) return;
-              if (data.status !== 'ready') reviewedSet.add(recipe);
-              if (data.status === 'approved') approvedSet.add(recipe);
-              if (data.status === 'rejected') rejectedSet.add(recipe);
+              const groupCode =
+                data.adGroupCode || info.adGroupCode || g.id;
+              const key = `${groupCode}-${recipe}`;
+              if (data.status !== 'ready') reviewedSet.add(key);
+              if (data.status === 'approved') approvedSet.add(key);
+              if (data.status === 'rejected') rejectedSet.add(key);
             });
           }
 
