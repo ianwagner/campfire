@@ -7,9 +7,14 @@ Google Sheet into Firestore.
 
 ### Setup
 
-1. Install dependencies (Firebase Admin SDK and Google APIs):
+1. Install dependencies (Firebase Admin SDK, Cloud Storage, and Google APIs):
    ```bash
    npm install
+   ```
+   If you plan to run the functions locally make sure the `functions` directory
+   also has its packages installed:
+   ```bash
+   (cd functions && npm install)
    ```
 2. Provide a Firebase service account key and set the environment variable
    `GOOGLE_APPLICATION_CREDENTIALS` to its path. The storage bucket can be
