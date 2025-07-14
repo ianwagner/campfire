@@ -51,7 +51,8 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
       const data = snap.data();
       if (!data) return;
       if (data.status === 'complete') {
-        setResults(Array.isArray(data.results) ? data.results : []);
+        const newResults = Array.isArray(data.results) ? data.results : [];
+        setResults((prev) => [...prev, ...newResults]);
         setLoading(false);
       } else if (data.status === 'error') {
         setError(data.error || 'Failed to tag assets');
@@ -69,7 +70,6 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
     }
     setLoading(true);
     setError('');
-    setResults([]);
     setJobId('');
     try {
       const payload = {
