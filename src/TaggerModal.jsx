@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, collection, getDocs, query, where } from 'firebase/firestore';
 import { functions, db } from './firebase/config';
 import syncAssetLibrary from "./utils/syncAssetLibrary";
 import LoadingOverlay from './LoadingOverlay';
@@ -31,12 +31,32 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
       const raw = safeGetItem(key);
       const existing = raw ? JSON.parse(raw) : [];
       const arr = Array.isArray(existing) ? existing : [];
-      const newRows = results.map((r) => ({
-        id: Math.random().toString(36).slice(2),
-        ...r,
-      }));
-      safeSetItem(key, JSON.stringify([...arr, ...newRows]));
-      await syncAssetLibrary(brandCode, [...arr, ...newRows]);
+
+      // fetch existing assets from Firestore so we don't create duplicates
+      let q = collection(db, 'adAssets');
+      if (brandCode) q = query(q, where('brandCode', '==', brandCode));
+      const snap = await getDocs(q);
+      const firebaseAssets = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      const arrByUrl = Object.fromEntries(arr.filter(a => a.url).map(a => [a.url, a]));
+      const firebaseByUrl = Object.fromEntries(firebaseAssets.filter(a => a.url).map(a => [a.url, a]));
+
+      for (const r of results) {
+        if (arrByUrl[r.url]) {
+          continue; // already in local library
+        }
+        if (firebaseByUrl[r.url]) {
+          arr.push(firebaseByUrl[r.url]);
+          arrByUrl[r.url] = firebaseByUrl[r.url];
+        } else {
+          const newRow = { id: Math.random().toString(36).slice(2), ...r };
+          arr.push(newRow);
+          arrByUrl[r.url] = newRow;
+        }
+      }
+
+      safeSetItem(key, JSON.stringify(arr));
+      await syncAssetLibrary(brandCode, arr);
       safeRemoveItem('pendingTaggerJobId');
       safeRemoveItem('pendingTaggerJobBrand');
       onClose();
