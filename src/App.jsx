@@ -19,6 +19,7 @@ import ClientDashboard from "./ClientDashboard";
 import AdminAdGroups from "./AdminAdGroups";
 import EditorAdGroups from "./EditorAdGroups";
 import AdminRequests from "./AdminRequests";
+import EditorRequests from "./EditorRequests";
 import AdminDashboard from "./AdminDashboard";
 import AgencyDashboard from "./AgencyDashboard";
 import Request from "./Request";
@@ -140,9 +141,11 @@ const App = () => {
       ? `/agency/dashboard?agencyId=${agencyId}`
       : role === 'admin'
         ? '/admin/ad-groups'
-        : ['manager', 'editor'].includes(role)
+        : role === 'manager'
           ? '/admin/tickets'
-          : `/dashboard/${role}`
+          : role === 'editor'
+            ? '/editor/tickets'
+            : `/dashboard/${role}`
     : '/login';
   if (signedIn && !role) {
     return (
@@ -325,11 +328,27 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole={["admin", "manager", "editor"]}
+                    requiredRole={["admin", "manager"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
                     <AdminRequests />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/editor/tickets"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="editor"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <EditorRequests />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
