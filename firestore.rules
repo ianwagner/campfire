@@ -15,7 +15,7 @@ service cloud.firestore {
     }
 
     function isEditor() {
-      return request.auth != null && request.auth.token.editor == true;
+      return request.auth != null && userData().role == 'editor';
     }
 
     function userData() {
