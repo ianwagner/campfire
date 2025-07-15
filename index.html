@@ -33,7 +33,7 @@
       const safeGet = (k) => {
         try {
           return localStorage.getItem(k);
-        } catch {
+        } catch (e) {
           return null;
         }
       };

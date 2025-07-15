@@ -11,7 +11,7 @@ import debugLog from './utils/debugLog';
 let storedAccent = null;
 try {
   storedAccent = localStorage.getItem('accentColor');
-} catch {
+} catch (e) {
   storedAccent = null;
 }
 const defaultSettings = {
@@ -46,7 +46,7 @@ const useSiteSettings = (applyAccent = true) => {
             applyAccentColor(color);
             try {
               localStorage.setItem('accentColor', color);
-            } catch {
+            } catch (e) {
               /* ignore */
             }
           }
@@ -56,7 +56,7 @@ const useSiteSettings = (applyAccent = true) => {
             applyAccentColor(defaultSettings.accentColor);
             try {
               localStorage.setItem('accentColor', defaultSettings.accentColor);
-            } catch {
+            } catch (e) {
               /* ignore */
             }
           }
@@ -77,7 +77,7 @@ const useSiteSettings = (applyAccent = true) => {
       applyAccentColor(settings.accentColor);
       try {
         localStorage.setItem('accentColor', settings.accentColor);
-      } catch {
+      } catch (e) {
         /* ignore */
       }
     }
@@ -97,7 +97,7 @@ const useSiteSettings = (applyAccent = true) => {
     if (newSettings.accentColor) {
       try {
         localStorage.setItem('accentColor', newSettings.accentColor);
-      } catch {
+      } catch (e) {
         /* ignore */
       }
     }
