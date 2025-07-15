@@ -127,7 +127,7 @@ const AdGroupDetail = () => {
   const location = useLocation();
   const isDesigner = userRole === "designer";
   const isAdmin = userRole === "admin";
-  const isManager = userRole === "manager";
+  const isManager = userRole === "manager" || userRole === "editor";
   const usesTabs = isAdmin || isDesigner;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;

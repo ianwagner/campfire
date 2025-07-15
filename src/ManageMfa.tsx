@@ -53,7 +53,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
     return '+' + digits;
   };
 
-  if (!user || !['admin', 'client', 'agency', 'designer', 'manager'].includes(role)) {
+  if (!user || !['admin', 'client', 'agency', 'designer', 'manager', 'editor'].includes(role)) {
     return <p className="p-4">MFA enrollment not allowed for this account.</p>;
   }
 

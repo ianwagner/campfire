@@ -138,7 +138,7 @@ const App = () => {
       ? `/agency/dashboard?agencyId=${agencyId}`
       : role === 'admin'
         ? '/admin/ad-groups'
-        : role === 'manager'
+        : ['manager', 'editor'].includes(role)
           ? '/admin/tickets'
           : `/dashboard/${role}`
     : '/login';
@@ -323,7 +323,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole={["admin", "manager"]}
+                    requiredRole={["admin", "manager", "editor"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
@@ -339,7 +339,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole={["admin", "manager"]}
+                    requiredRole={["admin", "manager", "editor"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
@@ -489,7 +489,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole={["client", "manager"]}
+                    requiredRole={["client", "manager", "editor"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
@@ -521,7 +521,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole={["designer", "admin", "agency", "client", "manager"]}
+                    requiredRole={["designer", "admin", "agency", "client", "manager", "editor"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
@@ -537,7 +537,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole={["admin", "manager"]}
+                    requiredRole={["admin", "manager", "editor"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
@@ -649,7 +649,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole={["admin", "manager"]}
+                    requiredRole={["admin", "manager", "editor"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
