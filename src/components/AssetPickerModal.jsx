@@ -31,7 +31,7 @@ const AssetPickerModal = ({ brandCode: propBrandCode = '', onSelect, onClose }) 
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && !cancelled) {
               setAssets(parsed);
-              return;
+              if (parsed.length > 0) return;
             }
           } catch (err) {
             console.error('Failed to parse stored assets', err);
