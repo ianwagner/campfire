@@ -17,6 +17,7 @@ import AdGroupDetail from "./AdGroupDetail";
 import DesignerDashboard from "./DesignerDashboard";
 import ClientDashboard from "./ClientDashboard";
 import AdminAdGroups from "./AdminAdGroups";
+import EditorAdGroups from "./EditorAdGroups";
 import AdminRequests from "./AdminRequests";
 import AdminDashboard from "./AdminDashboard";
 import AgencyDashboard from "./AgencyDashboard";
@@ -34,6 +35,7 @@ import useUserRole from "./useUserRole";
 import useAdminClaim from "./useAdminClaim";
 import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
+import EditorBrands from "./EditorBrands";
 import AdminAgencies from "./AdminAgencies";
 import AdminRecipeSetup from "./AdminRecipeSetup";
 import AdminCopyRecipes from "./AdminCopyRecipes";
@@ -351,6 +353,22 @@ const App = () => {
               }
             />
             <Route
+              path="/editor/ad-groups"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="editor"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <EditorAdGroups />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
               path="/admin/agencies"
               element={
                 user ? (
@@ -542,6 +560,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminBrands />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/editor/brands"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="editor"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <EditorBrands />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
