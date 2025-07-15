@@ -27,7 +27,7 @@ const emptyForm = {
   editorId: '',
 };
 
-const AdminRequests = ({ filterEditorId } = {}) => {
+const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -103,7 +103,7 @@ const AdminRequests = ({ filterEditorId } = {}) => {
     fetchData();
     fetchBrands();
     fetchDesigners();
-    fetchEditors();
+    if (canAssignEditor) fetchEditors();
   }, []);
 
   const resetForm = () => {
@@ -113,6 +113,9 @@ const AdminRequests = ({ filterEditorId } = {}) => {
 
   const openCreate = () => {
     resetForm();
+    if (!canAssignEditor) {
+      setForm((f) => ({ ...f, editorId: filterEditorId || auth.currentUser?.uid || '' }));
+    }
     setShowModal(true);
   };
 
@@ -150,7 +153,9 @@ const AdminRequests = ({ filterEditorId } = {}) => {
       toneOfVoice: form.toneOfVoice,
       offering: form.offering,
       designerId: form.designerId,
-      editorId: form.editorId,
+      editorId: canAssignEditor
+        ? form.editorId
+        : filterEditorId || auth.currentUser?.uid || form.editorId,
       status: editId ? (requests.find((r) => r.id === editId)?.status || 'new') : 'new',
     };
     try {
@@ -573,19 +578,21 @@ const AdminRequests = ({ filterEditorId } = {}) => {
             <option value="feature">Feature</option>
           </select>
         </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Editor</label>
-          <select
-            value={form.editorId}
-            onChange={(e) => setForm((f) => ({ ...f, editorId: e.target.value }))}
-            className="w-full p-2 border rounded"
-          >
-            <option value="">Select editor</option>
-            {editors.map((e) => (
-              <option key={e.id} value={e.id}>{e.name}</option>
-            ))}
-          </select>
-        </div>
+        {canAssignEditor && (
+          <div>
+            <label className="block mb-1 text-sm font-medium">Editor</label>
+            <select
+              value={form.editorId}
+              onChange={(e) => setForm((f) => ({ ...f, editorId: e.target.value }))}
+              className="w-full p-2 border rounded"
+            >
+              <option value="">Select editor</option>
+              {editors.map((e) => (
+                <option key={e.id} value={e.id}>{e.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {form.type === 'newAds' && (
             <>
               <div>

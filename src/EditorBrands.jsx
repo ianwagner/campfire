@@ -34,11 +34,26 @@ const EditorBrands = () => {
       setLoading(true);
       try {
         const base = collection(db, 'brands');
-        const conditions = [where('code', 'in', brandCodes)];
-        if (!showArchived) conditions.push(where('archived', '!=', true));
-        const q = query(base, ...conditions);
-        const snap = await getDocs(q);
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const chunks = [];
+        for (let i = 0; i < brandCodes.length; i += 10) {
+          chunks.push(brandCodes.slice(i, i + 10));
+        }
+        const docs = [];
+        for (const chunk of chunks) {
+          const conditions = [where('code', 'in', chunk)];
+          if (!showArchived) conditions.push(where('archived', '!=', true));
+          const q = query(base, ...conditions);
+          const snap = await getDocs(q);
+          docs.push(...snap.docs);
+        }
+        const seen = new Set();
+        const list = docs
+          .filter((d) => {
+            if (seen.has(d.id)) return false;
+            seen.add(d.id);
+            return true;
+          })
+          .map((d) => ({ id: d.id, ...d.data() }));
         setBrands(list);
       } catch (err) {
         console.error('Failed to fetch brands', err);
@@ -125,7 +140,7 @@ const EditorBrands = () => {
                   <td>{agencyMap[brand.agencyId] || brand.agencyId}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <IconButton as={Link} to={`/admin/brands/${brand.id}`} aria-label="Edit">
+                      <IconButton as={Link} to={`/editor/brands/${brand.id}`} aria-label="Edit">
                         Edit
                       </IconButton>
                     </div>
@@ -137,7 +152,7 @@ const EditorBrands = () => {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {displayBrands.map((brand) => (
-              <Link key={brand.id} to={`/admin/brands/${brand.id}`}>
+              <Link key={brand.id} to={`/editor/brands/${brand.id}`}>
                 <BrandCard brand={brand} />
               </Link>
             ))}

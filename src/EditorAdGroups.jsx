@@ -70,12 +70,26 @@ const EditorAdGroups = () => {
       setLoading(true);
       try {
         const base = collection(db, 'adGroups');
-        const conditions = [where('brandCode', 'in', brandCodes)];
-        if (!showArchived) conditions.push(where('status', 'not-in', ['archived']));
-        const q = query(base, ...conditions);
-        const snap = await getDocs(q);
+        const chunks = [];
+        for (let i = 0; i < brandCodes.length; i += 10) {
+          chunks.push(brandCodes.slice(i, i + 10));
+        }
+        const docs = [];
+        for (const chunk of chunks) {
+          const conditions = [where('brandCode', 'in', chunk)];
+          if (!showArchived) conditions.push(where('status', 'not-in', ['archived']));
+          const q = query(base, ...conditions);
+          const snap = await getDocs(q);
+          docs.push(...snap.docs);
+        }
+        const seen = new Set();
         const list = await Promise.all(
-          snap.docs.map(async (d) => {
+          docs.filter((d) => {
+              if (seen.has(d.id)) return false;
+              seen.add(d.id);
+              return true;
+            })
+            .map(async (d) => {
             const data = d.data();
             let recipeCount = 0;
             let assetCount = 0;

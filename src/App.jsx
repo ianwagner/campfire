@@ -713,6 +713,22 @@ const App = () => {
                 )
               }
             />
+            <Route
+              path="/editor/brands/:id"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="editor"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <BrandProfile />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>
