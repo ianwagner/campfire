@@ -25,6 +25,9 @@ const AdminBrandForm = () => {
         agencyId: agencyId.trim(),
         toneOfVoice: toneOfVoice.trim(),
         offering: offering.trim(),
+        archived: false,
+        archivedAt: null,
+        archivedBy: null,
         createdAt: serverTimestamp(),
       });
       setCode('');

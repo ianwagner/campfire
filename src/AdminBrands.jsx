@@ -41,8 +41,7 @@ const AdminBrands = () => {
       setLoading(true);
       try {
         const base = collection(db, 'brands');
-        const q = !showArchived ? query(base, where('archived', '!=', true)) : base;
-        const snap = await getDocs(q);
+        const snap = await getDocs(base);
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setBrands(list);
       } catch (err) {

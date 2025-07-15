@@ -52,6 +52,9 @@ const AgencyBrands = () => {
         agencyId,
         toneOfVoice: form.toneOfVoice.trim(),
         offering: form.offering.trim(),
+        archived: false,
+        archivedAt: null,
+        archivedBy: null,
         createdAt: serverTimestamp(),
       });
       setBrands((prev) => [
@@ -63,6 +66,9 @@ const AgencyBrands = () => {
           agencyId,
           toneOfVoice: form.toneOfVoice.trim(),
           offering: form.offering.trim(),
+          archived: false,
+          archivedAt: null,
+          archivedBy: null,
         },
       ]);
       setForm({ code: '', name: '', toneOfVoice: '', offering: '' });
