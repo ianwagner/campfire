@@ -11,6 +11,7 @@ import {
   FiCalendar,
 } from 'react-icons/fi';
 import IconButton from './IconButton.jsx';
+import formatDetails from "../utils/formatDetails";
 
 const typeIcons = {
   newAds: FiFilePlus,
@@ -122,9 +123,10 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
         )}
       </div>
       {request.details && (
-        <p className="text-sm text-black dark:text-[var(--dark-text)]">
-          {request.details}
-        </p>
+        <div
+          className="text-sm text-black dark:text-[var(--dark-text)]"
+          dangerouslySetInnerHTML={{ __html: formatDetails(request.details) }}
+        />
       )}
       <div className="flex items-center justify-between text-sm">
         {request.type === 'newAds' && <span># Ads: {request.numAds}</span>}
