@@ -251,10 +251,35 @@ async function syncManagerClaim(uid, role, previousRole) {
   return null;
 }
 
+async function syncEditorClaim(uid, role, previousRole) {
+  const beforeEditor = previousRole === 'editor';
+  const afterEditor = role === 'editor';
+  if (beforeEditor === afterEditor) return null;
+  try {
+    const user = await admin.auth().getUser(uid);
+    const claims = user.customClaims || {};
+    if (afterEditor) {
+      claims.editor = true;
+    } else {
+      delete claims.editor;
+    }
+    await admin.auth().setCustomUserClaims(uid, claims);
+  } catch (err) {
+    console.error('Failed to sync editor claim', err);
+  }
+  return null;
+}
+
 export const applyManagerClaimOnCreate = onDocumentCreated('users/{id}', async (event) => {
   const data = event.data.data() || {};
   const role = data.role || data.userType || null;
   return syncManagerClaim(event.params.id, role, null);
+});
+
+export const applyEditorClaimOnCreate = onDocumentCreated('users/{id}', async (event) => {
+  const data = event.data.data() || {};
+  const role = data.role || data.userType || null;
+  return syncEditorClaim(event.params.id, role, null);
 });
 
 export const applyManagerClaimOnUpdate = onDocumentUpdated('users/{id}', async (event) => {
@@ -263,6 +288,14 @@ export const applyManagerClaimOnUpdate = onDocumentUpdated('users/{id}', async (
   const beforeRole = before.role || before.userType || null;
   const afterRole = after.role || after.userType || null;
   return syncManagerClaim(event.params.id, afterRole, beforeRole);
+});
+
+export const applyEditorClaimOnUpdate = onDocumentUpdated('users/{id}', async (event) => {
+  const before = event.data.before.data() || {};
+  const after = event.data.after.data() || {};
+  const beforeRole = before.role || before.userType || null;
+  const afterRole = after.role || after.userType || null;
+  return syncEditorClaim(event.params.id, afterRole, beforeRole);
 });
 
 export { tagger, generateThumbnailsForAssets, generateTagsForAssets, listDriveFiles };

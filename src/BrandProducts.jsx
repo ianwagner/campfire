@@ -14,7 +14,7 @@ const emptyProduct = { name: '', description: [], benefits: [], images: [{ ...em
 const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const user = auth.currentUser;
   const { brandCodes, role } = useUserRole(user?.uid);
-  const isManager = role === 'manager';
+  const isManager = role === 'manager' || role === 'editor';
   const isAdmin = role === 'admin';
   const [brandId, setBrandId] = useState(propId);
   const [brandCode, setBrandCode] = useState(propCode || brandCodes[0] || '');

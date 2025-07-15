@@ -16,7 +16,7 @@ const managerTabs = [
 ];
 
 const Sidebar = ({ agencyId, role }) => {
-  const isManager = role === 'manager';
+  const isManager = role === 'manager' || role === 'editor';
   const { agency } = useAgencyTheme(isManager ? null : agencyId);
   const tabs = isManager ? managerTabs : defaultTabs;
 

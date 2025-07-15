@@ -29,7 +29,7 @@ const AdminBrands = () => {
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
   const isAdmin = role === 'admin';
-  const isManager = role === 'manager';
+  const isManager = role === 'manager' || role === 'editor';
   const { agencies } = useAgencies();
   const agencyMap = useMemo(
     () => Object.fromEntries(agencies.map((a) => [a.id, a.name])),

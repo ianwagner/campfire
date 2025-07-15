@@ -42,7 +42,7 @@ const AdminAdGroups = () => {
   const user = auth.currentUser;
   const { role, brandCodes } = useUserRole(user?.uid);
   const isAdmin = role === 'admin';
-  const isManager = role === 'manager';
+  const isManager = role === 'manager' || role === 'editor';
 
   const [shareInfo, setShareInfo] = useState(null);
   const [renameId, setRenameId] = useState(null);

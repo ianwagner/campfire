@@ -132,6 +132,15 @@ Managers should also complete multi-factor authentication just like other roles 
 
 The repository now includes a Cloud Function that monitors the `users` collection. Whenever a user document has `role` (or `userType`) set to `manager`, the function automatically updates the account's custom claims to include `{ manager: true }`. Removing the role will clear the claim.
 
+## Setting Editor Custom Claims
+
+Editors also need a custom claim. After creating the Firebase account run the `setEditorClaim.js` helper with the UID:
+
+```bash
+node setEditorClaim.js <uid>
+```
+This adds `{ editor: true }` to the user's custom claims. A Cloud Function keeps the claim in sync whenever a user document's role is `editor`.
+
 ## Admin Brand Management
 
 Similarly, `/admin/brands` lists all brands with inline edit and delete
@@ -192,7 +201,7 @@ offer a **Forgot password?** link. Selecting it triggers
 `sendPasswordResetEmail` so the user can regain access. A confirmation message
 displays once the email is sent.
 
-Admin, client, and manager accounts must enroll a second factor. After signing in,
+Admin, client, manager, and editor accounts must enroll a second factor. After signing in,
 the app checks `multiFactor.enrolledFactors` for the user and redirects to
 `/mfa-settings` if no factors are present. The enrollment screen sends an SMS
 verification code and completes `multiFactor().enroll()` once confirmed.
