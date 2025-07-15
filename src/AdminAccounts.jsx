@@ -176,6 +176,7 @@ const AdminAccounts = () => {
                         <option value="client">Client</option>
                         <option value="designer">Designer</option>
                         <option value="manager">Manager</option>
+                        <option value="editor">Editor</option>
                         <option value="admin">Admin</option>
                       </select>
                     ) : (

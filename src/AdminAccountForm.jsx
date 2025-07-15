@@ -91,6 +91,7 @@ const AdminAccountForm = () => {
               <option value="client">Client</option>
               <option value="designer">Designer</option>
               <option value="manager">Manager</option>
+              <option value="editor">Editor</option>
             </select>
           </div>
           <div>
