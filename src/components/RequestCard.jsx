@@ -124,7 +124,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
       </div>
       {request.details && (
         <div
-          className="text-sm text-black dark:text-[var(--dark-text)]"
+          className="text-sm text-black dark:text-[var(--dark-text)] break-all"
           dangerouslySetInnerHTML={{ __html: formatDetails(request.details) }}
         />
       )}

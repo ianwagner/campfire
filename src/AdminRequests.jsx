@@ -219,6 +219,27 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
 
   const allowDrop = (e) => e.preventDefault();
 
+  const handleBulletList = (e) => {
+    if (e.key === ' ' && e.target.selectionStart >= 2) {
+      const val = e.target.value;
+      const pos = e.target.selectionStart;
+      if (
+        val.slice(pos - 2, pos) === '- ' &&
+        (pos === 2 || val[pos - 3] === '\n')
+      ) {
+        e.preventDefault();
+        const before = val.slice(0, pos - 2);
+        const after = val.slice(pos);
+        const bullet = '\u2022 ';
+        const newVal = before + bullet + after;
+        setForm((f) => ({ ...f, details: newVal }));
+        setTimeout(() => {
+          e.target.selectionStart = e.target.selectionEnd = before.length + bullet.length;
+        }, 0);
+      }
+    }
+  };
+
   const handleCreateGroup = async (req) => {
     if (req.type === 'newBrand') {
       try {
@@ -323,7 +344,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds}</td>
-                      <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
+                      <td className="break-all" dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
                         <select
                           value={req.status}
@@ -379,7 +400,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds}</td>
-                      <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
+                      <td className="break-all" dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
                         <select
                           value={req.status}
@@ -435,7 +456,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds}</td>
-                      <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
+                      <td className="break-all" dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
                         <select
                           value={req.status}
@@ -489,7 +510,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds}</td>
-                      <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
+                      <td className="break-all" dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
                         <select
                           value={req.status}
@@ -658,6 +679,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                 <textarea
                   value={form.details}
                   onChange={(e) => setForm((f) => ({ ...f, details: e.target.value }))}
+                  onKeyDown={handleBulletList}
                   className="w-full p-2 border rounded"
                   rows={3}
                 />
@@ -737,6 +759,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                 <textarea
                   value={form.details}
                   onChange={(e) => setForm((f) => ({ ...f, details: e.target.value }))}
+                  onKeyDown={handleBulletList}
                   className="w-full p-2 border rounded"
                   rows={3}
                 />
