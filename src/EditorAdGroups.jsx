@@ -76,11 +76,12 @@ const EditorAdGroups = () => {
         }
         const docs = [];
         for (const chunk of chunks) {
-          const conditions = [where('brandCode', 'in', chunk)];
-          if (!showArchived) conditions.push(where('status', 'not-in', ['archived']));
-          const q = query(base, ...conditions);
+          const q = query(base, where('brandCode', 'in', chunk));
           const snap = await getDocs(q);
-          docs.push(...snap.docs);
+          const docList = showArchived
+            ? snap.docs
+            : snap.docs.filter((d) => d.data()?.status !== 'archived');
+          docs.push(...docList);
         }
         const seen = new Set();
         const list = await Promise.all(
