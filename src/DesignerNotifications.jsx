@@ -27,7 +27,7 @@ const DesignerNotifications = ({ brandCodes = [] }) => {
         let dismissed = [];
         try {
           dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
-        } catch {
+        } catch (e) {
           dismissed = [];
         }
         const list = snap.docs
@@ -38,13 +38,13 @@ const DesignerNotifications = ({ brandCodes = [] }) => {
         let readIds = [];
         try {
           readIds = JSON.parse(localStorage.getItem(READ_KEY) || '[]');
-        } catch {
+        } catch (e) {
           readIds = [];
         }
         const all = new Set([...readIds, ...list.map((n) => n.id)]);
         try {
           localStorage.setItem(READ_KEY, JSON.stringify(Array.from(all)));
-        } catch {
+        } catch (e) {
           /* ignore */
         }
       } catch (err) {
@@ -61,13 +61,13 @@ const DesignerNotifications = ({ brandCodes = [] }) => {
     let dismissed = [];
     try {
       dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
-    } catch {
+    } catch (e) {
       dismissed = [];
     }
     if (!dismissed.includes(id)) dismissed.push(id);
     try {
       localStorage.setItem(DISMISS_KEY, JSON.stringify(dismissed));
-    } catch {
+    } catch (e) {
       /* ignore */
     }
     setNotes((n) => n.filter((note) => note.id !== id));
@@ -77,13 +77,13 @@ const DesignerNotifications = ({ brandCodes = [] }) => {
     let dismissed = [];
     try {
       dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
-    } catch {
+    } catch (e) {
       dismissed = [];
     }
     const toAdd = notes.map((n) => n.id).filter((id) => !dismissed.includes(id));
     try {
       localStorage.setItem(DISMISS_KEY, JSON.stringify([...dismissed, ...toAdd]));
-    } catch {
+    } catch (e) {
       /* ignore */
     }
     setNotes([]);
@@ -92,7 +92,7 @@ const DesignerNotifications = ({ brandCodes = [] }) => {
   let readIds = [];
   try {
     readIds = JSON.parse(localStorage.getItem(READ_KEY) || '[]');
-  } catch {
+  } catch (e) {
     readIds = [];
   }
 

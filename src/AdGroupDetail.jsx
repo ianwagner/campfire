@@ -516,7 +516,7 @@ const AdGroupDetail = () => {
             userMap[uid] = snap.exists()
               ? snap.data().fullName || snap.data().email || uid
               : uid;
-          } catch {
+          } catch (e) {
             userMap[uid] = uid;
           }
         }),
@@ -564,7 +564,7 @@ const AdGroupDetail = () => {
             userMap[uid] = snap.exists()
               ? snap.data().fullName || snap.data().email || uid
               : uid;
-          } catch {
+          } catch (e) {
             userMap[uid] = uid;
           }
         }),

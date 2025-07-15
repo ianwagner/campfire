@@ -1,7 +1,7 @@
 export function safeGetItem(key) {
   try {
     return localStorage.getItem(key);
-  } catch {
+  } catch (e) {
     return null;
   }
 }
@@ -9,7 +9,7 @@ export function safeGetItem(key) {
 export function safeSetItem(key, value) {
   try {
     localStorage.setItem(key, value);
-  } catch {
+  } catch (e) {
     // ignore
   }
 }
@@ -17,7 +17,7 @@ export function safeSetItem(key, value) {
 export function safeRemoveItem(key) {
   try {
     localStorage.removeItem(key);
-  } catch {
+  } catch (e) {
     // ignore
   }
 }

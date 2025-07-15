@@ -11,7 +11,7 @@ const getStoredAgency = (id) => {
   try {
     const raw = localStorage.getItem(`agencyTheme-${id}`);
     return raw ? JSON.parse(raw) : null;
-  } catch {
+  } catch (e) {
     return null;
   }
 };
@@ -48,14 +48,14 @@ const useAgencyTheme = (agencyId) => {
               `agencyTheme-${agencyId}`,
               JSON.stringify({ logoUrl: updated.logoUrl, themeColor: color })
             );
-          } catch {
+          } catch (e) {
             /* ignore */
           }
         } else {
           setAgency(defaultAgency);
           try {
             localStorage.removeItem(`agencyTheme-${agencyId}`);
-          } catch {
+          } catch (e) {
             /* ignore */
           }
         }
@@ -65,7 +65,7 @@ const useAgencyTheme = (agencyId) => {
         if (agencyId) {
           try {
             localStorage.removeItem(`agencyTheme-${agencyId}`);
-          } catch {
+          } catch (e) {
             /* ignore */
           }
         }
@@ -89,7 +89,7 @@ const useAgencyTheme = (agencyId) => {
           `agencyTheme-${agencyId}`,
           JSON.stringify({ logoUrl: updated.logoUrl, themeColor: color })
         );
-      } catch {
+      } catch (e) {
         /* ignore */
       }
       return updated;
