@@ -40,9 +40,7 @@ const EditorBrands = () => {
         }
         const docs = [];
         for (const chunk of chunks) {
-          const conditions = [where('code', 'in', chunk)];
-          if (!showArchived) conditions.push(where('archived', '!=', true));
-          const q = query(base, ...conditions);
+          const q = query(base, where('code', 'in', chunk));
           const snap = await getDocs(q);
           docs.push(...snap.docs);
         }

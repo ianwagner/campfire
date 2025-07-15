@@ -227,6 +227,9 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
           agencyId: req.agencyId || '',
           toneOfVoice: req.toneOfVoice || '',
           offering: req.offering || '',
+          archived: false,
+          archivedAt: null,
+          archivedBy: null,
           createdAt: serverTimestamp(),
         });
         await updateDoc(doc(db, 'requests', req.id), { status: 'done' });
