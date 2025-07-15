@@ -16,7 +16,7 @@ const managerTabs = [
 ];
 
 const editorTabs = [
-  { label: 'Tickets', path: '/admin/tickets' },
+  { label: 'Tickets', path: '/editor/tickets' },
   { label: 'Ad Groups', path: '/editor/ad-groups' },
   { label: 'Brands', path: '/editor/brands' },
   { label: 'Account Settings', path: '/account-settings' },
