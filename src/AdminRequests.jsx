@@ -344,7 +344,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds}</td>
-                      <td className="break-all" dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
+                      <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
                         <select
                           value={req.status}
@@ -400,7 +400,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds}</td>
-                      <td className="break-all" dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
+                      <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
                         <select
                           value={req.status}
@@ -456,7 +456,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds}</td>
-                      <td className="break-all" dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
+                      <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
                         <select
                           value={req.status}
@@ -510,7 +510,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds}</td>
-                      <td className="break-all" dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
+                      <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
                         <select
                           value={req.status}
