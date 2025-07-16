@@ -179,7 +179,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
           </div>
         </>
       )}
-      <p className="text-xs text-blue-600 text-right mt-1">{expanded ? 'Show less' : 'Show more'}</p>
+      <p className="text-xs text-gray-500 text-right mt-1">{expanded ? 'Show less' : 'Show more'}</p>
     </div>
   );
 };
