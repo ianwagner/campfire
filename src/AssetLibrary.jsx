@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FiTrash } from 'react-icons/fi';
+import { FiTrash, FiLink, FiImage } from 'react-icons/fi';
 import Table from './components/common/Table';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase/config';
@@ -24,6 +24,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [assets, setAssets] = useState([]);
   const [selected, setSelected] = useState({});
   const [filter, setFilter] = useState('');
+  const [sortField, setSortField] = useState('name');
   const [csvColumns, setCsvColumns] = useState([]);
   const [csvRows, setCsvRows] = useState([]);
   const [csvMap, setCsvMap] = useState({});
@@ -258,15 +259,22 @@ const AssetLibrary = ({ brandCode = '' }) => {
     setCsvMap({});
   };
 
-  const filtered = assets.filter((a) => {
-    const term = filter.toLowerCase();
-    return (
-      !term ||
-      a.name.toLowerCase().includes(term) ||
-      a.product.toLowerCase().includes(term) ||
-      a.campaign.toLowerCase().includes(term)
-    );
-  });
+  const filtered = assets
+    .filter((a) => {
+      const term = filter.toLowerCase();
+      return (
+        !term ||
+        a.name.toLowerCase().includes(term) ||
+        a.product.toLowerCase().includes(term) ||
+        a.campaign.toLowerCase().includes(term)
+      );
+    })
+    .sort((a, b) => {
+      if (sortField === 'type') return (a.type || '').localeCompare(b.type || '');
+      if (sortField === 'product') return (a.product || '').localeCompare(b.product || '');
+      if (sortField === 'campaign') return (a.campaign || '').localeCompare(b.campaign || '');
+      return (a.name || '').localeCompare(b.name || '');
+    });
 
   return (
     <div>
@@ -275,6 +283,16 @@ const AssetLibrary = ({ brandCode = '' }) => {
           Add Row
         </button>
         <input type="file" accept=".csv" onChange={handleCsv} />
+        <select
+          value={sortField}
+          onChange={(e) => setSortField(e.target.value)}
+          className="p-1 border rounded"
+        >
+          <option value="name">Name</option>
+          <option value="type">Type</option>
+          <option value="product">Product</option>
+          <option value="campaign">Folder Name</option>
+        </select>
         <input
           type="text"
           placeholder="Filter"
@@ -287,7 +305,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
         <div className="mb-4 space-y-2">
           {['name', 'url', 'thumbnailUrl', 'type', 'description', 'product', 'campaign'].map((key) => (
             <div key={key}>
-              <label className="block text-sm mb-1 capitalize">{key} Column</label>
+              <label className="block text-sm mb-1 capitalize">{key === 'campaign' ? 'Folder Name' : key} Column</label>
               <select
                 className="p-1 border rounded w-full"
                 value={csvMap[key] ?? ''}
@@ -326,7 +344,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
           />
           <input
             className="p-1 border rounded"
-            placeholder="Campaign"
+            placeholder="Folder Name"
             value={bulkValues.campaign}
             onChange={(e) => setBulkValues({ ...bulkValues, campaign: e.target.value })}
           />
@@ -345,7 +363,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
               <th>Type</th>
               <th>Description</th>
               <th>Product</th>
-              <th>Campaign</th>
+              <th>Folder Name</th>
               <th></th>
             </tr>
           </thead>
@@ -359,41 +377,37 @@ const AssetLibrary = ({ brandCode = '' }) => {
                     onChange={(e) => handleCheckChange(e, idx, a.id)}
                   />
                 </td>
-                <td>
-                  <input
-                    className="w-full p-1 border rounded"
-                    value={a.name}
-                    onMouseDown={handleInputDown('name', a.name)}
-                    onMouseOver={handleInputOver(a.id)}
-                    onChange={(e) => updateRow(a.id, 'name', e.target.value)}
-                  />
+                <td title={a.name}>{a.name.length > 10 ? `${a.name.slice(0, 10)}...` : a.name}</td>
+                <td className="text-center">
+                  {a.url && (
+                    <button
+                      type="button"
+                      onClick={() => window.open(a.url, '_blank')}
+                      className="p-2 text-xl rounded inline-flex items-center justify-center hover:bg-[var(--accent-color-10)] text-accent"
+                      aria-label="Open link"
+                    >
+                      <FiLink />
+                    </button>
+                  )}
                 </td>
-                <td>
-                  <input
-                    className="w-full p-1 border rounded"
-                    value={a.url}
-                    onMouseDown={handleInputDown('url', a.url)}
-                    onMouseOver={handleInputOver(a.id)}
-                    onChange={(e) => updateRow(a.id, 'url', e.target.value)}
-                  />
-                </td>
-                <td>
-                  <span className="relative inline-block group w-full">
-                    <input
-                      className="w-full p-1 border rounded"
-                      value={a.thumbnailUrl}
-                      onMouseDown={handleInputDown('thumbnailUrl', a.thumbnailUrl)}
-                      onMouseOver={handleInputOver(a.id)}
-                      onChange={(e) => updateRow(a.id, 'thumbnailUrl', e.target.value)}
-                    />
-                    {a.thumbnailUrl && (
+                <td className="text-center">
+                  {a.thumbnailUrl && (
+                    <span className="relative inline-block group">
+                      <button
+                        type="button"
+                        onClick={() => window.open(a.thumbnailUrl, '_blank')}
+                        className="p-2 text-xl rounded inline-flex items-center justify-center bg-[var(--accent-color-10)] text-accent"
+                        aria-label="Preview image"
+                      >
+                        <FiImage />
+                      </button>
                       <img
                         src={a.thumbnailUrl}
                         alt="preview"
                         className="hidden group-hover:block absolute left-full ml-2 top-1/2 -translate-y-1/2 min-w-[100px] w-auto h-auto border shadow-lg z-10"
                       />
-                    )}
-                  </span>
+                    </span>
+                  )}
                 </td>
                 <td>
                   <input

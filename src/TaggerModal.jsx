@@ -148,7 +148,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
               />
             </div>
             <div>
-              <label className="block mb-1 text-sm">Campaign Name</label>
+              <label className="block mb-1 text-sm">Folder Name</label>
               <input
                 type="text"
                 value={campaign}
@@ -164,9 +164,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
               <button type="button" onClick={handleAddRows} className="btn-primary px-3 py-1" disabled={loading}>
                 Add Rows from Drive
               </button>
-              <button type="submit" className="btn-primary px-3 py-1" disabled={loading}>
-                Start Tagging
-              </button>
+              
             </div>
           </form>
         ) : (
@@ -183,7 +181,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
                 />
               </div>
               <div>
-                <label className="block mb-1 text-sm">Campaign Name</label>
+                <label className="block mb-1 text-sm">Folder Name</label>
                 <input
                   type="text"
                   value={campaign}
@@ -206,7 +204,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
                     <th>Type</th>
                     <th>Description</th>
                     <th>Product</th>
-                    <th>Campaign</th>
+                    <th>Folder Name</th>
                   </tr>
                 </thead>
                 <tbody>
