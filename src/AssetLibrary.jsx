@@ -19,7 +19,6 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 
 import syncAssetLibrary from "./utils/syncAssetLibrary";
-import { splitCsvLine } from './utils/csv.js';
 
 const emptyAsset = {
   id: '',
@@ -37,14 +36,12 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [selected, setSelected] = useState({});
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('name');
-  const [csvColumns, setCsvColumns] = useState([]);
-  const [csvRows, setCsvRows] = useState([]);
-  const [csvMap, setCsvMap] = useState({});
   const [bulkValues, setBulkValues] = useState({ type: '', product: '', campaign: '' });
   const [loading, setLoading] = useState(false);
   const [showTagger, setShowTagger] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const fileInputRef = useRef(null);
+  const [dirty, setDirty] = useState(false);
 
   const lastIdx = useRef(null);
   const dragValue = useRef(null);
@@ -60,6 +57,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
         const snap = await getDocs(q);
         if (!cancelled) {
           setAssets(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+          setDirty(false);
         }
       } catch (err) {
         console.error('Failed to load asset library', err);
@@ -81,16 +79,19 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const addRow = () => {
     const id = Math.random().toString(36).slice(2);
     setAssets((p) => [...p, { ...emptyAsset, id }]);
+    setDirty(true);
   };
 
   const updateRow = (id, field, value) => {
     setAssets((p) => p.map((a) => (a.id === id ? { ...a, [field]: value } : a)));
+    setDirty(true);
   };
 
   const deleteSelected = () => {
     const ids = Object.keys(selected).filter((k) => selected[k]);
     setAssets((p) => p.filter((a) => !ids.includes(a.id)));
     setSelected({});
+    setDirty(true);
   };
 
   const deleteRow = (id) => {
@@ -100,6 +101,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
       delete next[id];
       return next;
     });
+    setDirty(true);
   };
 
   const bulkEdit = () => {
@@ -112,6 +114,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
       )
     );
     setBulkValues({ type: '', product: '', campaign: '' });
+    setDirty(true);
   };
 
   const createThumbnails = async () => {
@@ -129,6 +132,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
           return match && match.thumbnailUrl ? { ...a, thumbnailUrl: match.thumbnailUrl } : a;
         })
       );
+      setDirty(true);
     } catch (err) {
       console.error('Failed to generate thumbnails', err);
     }
@@ -154,6 +158,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
       }
     }
     setLoading(false);
+    setDirty(true);
   };
 
   const tagRow = async (row) => {
@@ -169,6 +174,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
               : a
           )
         );
+        setDirty(true);
       }
     } catch (err) {
       console.error('Failed to tag asset', err);
@@ -184,6 +190,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
       await tagRow(row);
     }
     setLoading(false);
+    setDirty(true);
   };
 
   const tagMissing = async () => {
@@ -195,12 +202,14 @@ const AssetLibrary = ({ brandCode = '' }) => {
       await tagRow(row);
     }
     setLoading(false);
+    setDirty(true);
   };
 
   const saveAssets = async () => {
     try {
       await syncAssetLibrary(brandCode, assets);
       alert('Assets saved');
+      setDirty(false);
     } catch (err) {
       console.error('Failed to save assets', err);
     }
@@ -239,23 +248,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
     }
   };
 
-  const handleCsv = async (e) => {
-    const f = e.target.files?.[0];
-    setCsvColumns([]);
-    setCsvRows([]);
-    setCsvMap({});
-    if (!f) return;
-    const text = await f.text();
-    const lines = text.trim().split(/\r?\n/);
-    if (lines.length < 2) return;
-    const headers = splitCsvLine(lines[0]).map((h) => h.trim());
-    const rows = [];
-    for (let i = 1; i < lines.length; i += 1) {
-      if (lines[i]) rows.push(splitCsvLine(lines[i]).map((p) => p.trim()));
-    }
-    setCsvColumns(headers);
-    setCsvRows(rows);
-  };
 
   const handleFolderUpload = async (files) => {
     if (!files || files.length === 0) return;
@@ -278,25 +270,10 @@ const AssetLibrary = ({ brandCode = '' }) => {
       }
     }
     setAssets((p) => [...p, ...newAssets]);
+    setDirty(true);
     setLoading(false);
   };
 
-  const addCsvRows = () => {
-    const newAssets = csvRows.map((row) => ({
-      id: Math.random().toString(36).slice(2),
-      name: row[csvMap.name] || '',
-      url: row[csvMap.url] || '',
-      thumbnailUrl: row[csvMap.thumbnailUrl] || '',
-      type: row[csvMap.type] || '',
-      description: row[csvMap.description] || '',
-      product: row[csvMap.product] || '',
-      campaign: row[csvMap.campaign] || '',
-    }));
-    setAssets((p) => [...p, ...newAssets]);
-    setCsvColumns([]);
-    setCsvRows([]);
-    setCsvMap({});
-  };
 
   const filtered = assets
     .filter((a) => {
@@ -338,16 +315,33 @@ const AssetLibrary = ({ brandCode = '' }) => {
           />
         </div>
         <div className="flex flex-wrap gap-2 items-center relative">
-          <IconButton onClick={saveAssets} aria-label="Save">
-            <FiSave />
-          </IconButton>
-          <div className="relative">
+          <span className="relative group">
+            <IconButton
+              onClick={saveAssets}
+              aria-label="Save"
+              disabled={!dirty}
+              className={`text-xl ${dirty ? 'bg-[var(--accent-color-10)] text-accent' : ''}`}
+            >
+              <FiSave />
+            </IconButton>
+            <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+              Save
+            </div>
+          </span>
+          <div className="border-l h-6 mx-2" />
+          <span className="relative group">
             <IconButton
               onClick={() => setShowAddMenu((p) => !p)}
               aria-label="Add Folder"
+              className="text-xl"
             >
               <FiFolderPlus />
             </IconButton>
+            <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+              Upload Folder
+            </div>
+          </span>
+          <div className="relative">
             {showAddMenu && (
               <div className="absolute right-0 mt-1 bg-white border rounded shadow z-10 dark:bg-[var(--dark-sidebar-bg)]">
                 <button
@@ -384,61 +378,69 @@ const AssetLibrary = ({ brandCode = '' }) => {
               }}
             />
           </div>
-          <IconButton onClick={addRow} aria-label="Add Row">
-            <FiPlus />
-          </IconButton>
-          <IconButton onClick={createMissingThumbnails} aria-label="Create Missing Thumbnails" disabled={loading}>
-            <FiImage />
-          </IconButton>
-          <IconButton onClick={tagMissing} aria-label="Tag Missing" disabled={loading}>
-            <FiTag />
-          </IconButton>
+          <div className="border-l h-6 mx-2" />
+          <span className="relative group">
+            <IconButton onClick={addRow} aria-label="Add Row" className="text-xl">
+              <FiPlus />
+            </IconButton>
+            <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+              Add Row
+            </div>
+          </span>
+          <span className="relative group">
+            <IconButton onClick={createMissingThumbnails} aria-label="Create Missing Thumbnails" disabled={loading} className="text-xl">
+              <FiImage />
+            </IconButton>
+            <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+              Thumbnails
+            </div>
+          </span>
+          <span className="relative group">
+            <IconButton onClick={tagMissing} aria-label="Tag Missing" disabled={loading} className="text-xl">
+              <FiTag />
+            </IconButton>
+            <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+              Auto Tag
+            </div>
+          </span>
         </div>
       </div>
-      <input type="file" accept=".csv" onChange={handleCsv} className="mb-2" />
-      {csvColumns.length > 0 && (
-        <div className="mb-4 space-y-2">
-          {['name', 'url', 'thumbnailUrl', 'type', 'description', 'product', 'campaign'].map((key) => (
-            <div key={key}>
-              <label className="block text-sm mb-1 capitalize">{key === 'campaign' ? 'Folder Name' : key} Column</label>
-              <select
-                className="p-1 border rounded w-full"
-                value={csvMap[key] ?? ''}
-                onChange={(e) => setCsvMap({ ...csvMap, [key]: e.target.value })}
+        {Object.keys(selected).some((k) => selected[k]) && (
+          <div className="mb-2 flex flex-wrap gap-2 items-end">
+            <span className="relative group">
+              <IconButton onClick={deleteSelected} aria-label="Delete Selected" className="btn-delete text-xl">
+                <FiTrash />
+              </IconButton>
+              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                Delete
+              </div>
+            </span>
+            <span className="relative group">
+              <IconButton
+                onClick={createThumbnails}
+                aria-label="Create Thumbnails"
+                disabled={loading}
+                className="text-xl"
               >
-                <option value="">Ignore</option>
-                {csvColumns.map((c, idx) => (
-                  <option key={idx} value={idx}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
-          <button type="button" className="btn-primary" onClick={addCsvRows}>
-            Add Rows
-          </button>
-        </div>
-      )}
-      {Object.keys(selected).some((k) => selected[k]) && (
-        <div className="mb-2 flex flex-wrap gap-2 items-end">
-          <IconButton onClick={deleteSelected} aria-label="Delete Selected" className="btn-delete">
-            <FiTrash />
-          </IconButton>
-          <IconButton
-            onClick={createThumbnails}
-            aria-label="Create Thumbnails"
-            disabled={loading}
-          >
-            <FiImage />
-          </IconButton>
-          <IconButton
-            onClick={tagSelected}
-            aria-label="Tag Selected"
-            disabled={loading}
-          >
-            <FiTag />
-          </IconButton>
+                <FiImage />
+              </IconButton>
+              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                Thumbnails
+              </div>
+            </span>
+            <span className="relative group">
+              <IconButton
+                onClick={tagSelected}
+                aria-label="Tag Selected"
+                disabled={loading}
+                className="text-xl"
+              >
+                <FiTag />
+              </IconButton>
+              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                Auto Tag
+              </div>
+            </span>
           <input
             className="p-1 border rounded"
             placeholder="Type"
