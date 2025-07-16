@@ -48,12 +48,21 @@ export const generateThumbnailsForAssets = onCallFn({ timeoutSeconds: 60, memory
       const tmp = path.join(os.tmpdir(), fileId);
       const dl = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'arraybuffer' });
       await fs.writeFile(tmp, Buffer.from(dl.data));
+      let inputTmp = tmp;
+      const meta = await sharp(tmp).metadata().catch(() => ({}));
+      if (meta.format === 'tiff') {
+        const pngTmp = path.join(os.tmpdir(), `${fileId}.png`);
+        await sharp(tmp).toFormat('png').toFile(pngTmp);
+        await fs.unlink(tmp).catch(() => {});
+        inputTmp = pngTmp;
+      }
       const thumbTmp = path.join(os.tmpdir(), `${fileId}.webp`);
-      await sharp(tmp).resize({ width: 300 }).toFormat('webp').toFile(thumbTmp);
+      await sharp(inputTmp).resize({ width: 300 }).toFormat('webp').toFile(thumbTmp);
       const dest = `thumbnails/${name}.webp`;
       await bucket.upload(thumbTmp, { destination: dest, contentType: 'image/webp', resumable: false });
       await bucket.file(dest).makePublic();
       result.thumbnailUrl = `https://storage.googleapis.com/${bucket.name}/${dest}`;
+      if (inputTmp !== tmp) await fs.unlink(inputTmp).catch(() => {});
       await fs.unlink(tmp).catch(() => {});
       await fs.unlink(thumbTmp).catch(() => {});
     } catch (err) {
