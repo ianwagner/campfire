@@ -1,6 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FiTrash, FiLink, FiImage } from 'react-icons/fi';
+import {
+  FiTrash,
+  FiLink,
+  FiImage,
+  FiSave,
+  FiPlus,
+  FiFolderPlus,
+  FiTag,
+  FiUpload,
+} from 'react-icons/fi';
 import Table from './components/common/Table';
+import IconButton from './components/IconButton.jsx';
+import { uploadBrandAsset } from './uploadBrandAsset';
+import TaggerModal from './TaggerModal.jsx';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase/config';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -30,6 +42,9 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [csvMap, setCsvMap] = useState({});
   const [bulkValues, setBulkValues] = useState({ type: '', product: '', campaign: '' });
   const [loading, setLoading] = useState(false);
+  const [showTagger, setShowTagger] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const fileInputRef = useRef(null);
 
   const lastIdx = useRef(null);
   const dragValue = useRef(null);
@@ -242,6 +257,30 @@ const AssetLibrary = ({ brandCode = '' }) => {
     setCsvRows(rows);
   };
 
+  const handleFolderUpload = async (files) => {
+    if (!files || files.length === 0) return;
+    setLoading(true);
+    const newAssets = [];
+    for (const file of files) {
+      try {
+        const url = await uploadBrandAsset(file, brandCode, 'library');
+        newAssets.push({
+          ...emptyAsset,
+          id: Math.random().toString(36).slice(2),
+          name: file.name,
+          url,
+          campaign: file.webkitRelativePath
+            ? file.webkitRelativePath.split('/')[0]
+            : '',
+        });
+      } catch (err) {
+        console.error('Upload failed', err);
+      }
+    }
+    setAssets((p) => [...p, ...newAssets]);
+    setLoading(false);
+  };
+
   const addCsvRows = () => {
     const newAssets = csvRows.map((row) => ({
       id: Math.random().toString(36).slice(2),
@@ -278,29 +317,85 @@ const AssetLibrary = ({ brandCode = '' }) => {
 
   return (
     <div>
-      <div className="mb-4 flex flex-col sm:flex-row gap-2">
-        <button type="button" className="btn-secondary" onClick={addRow}>
-          Add Row
-        </button>
-        <input type="file" accept=".csv" onChange={handleCsv} />
-        <select
-          value={sortField}
-          onChange={(e) => setSortField(e.target.value)}
-          className="p-1 border rounded"
-        >
-          <option value="name">Name</option>
-          <option value="type">Type</option>
-          <option value="product">Product</option>
-          <option value="campaign">Folder Name</option>
-        </select>
-        <input
-          type="text"
-          placeholder="Filter"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="p-1 border rounded sm:ml-auto"
-        />
+      <div className="mb-4 flex items-start justify-between flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          <select
+            value={sortField}
+            onChange={(e) => setSortField(e.target.value)}
+            className="p-1 border rounded"
+          >
+            <option value="name">Name</option>
+            <option value="type">Type</option>
+            <option value="product">Product</option>
+            <option value="campaign">Folder Name</option>
+          </select>
+          <input
+            type="text"
+            placeholder="Filter"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="p-1 border rounded"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2 items-center relative">
+          <IconButton onClick={saveAssets} aria-label="Save">
+            <FiSave />
+          </IconButton>
+          <div className="relative">
+            <IconButton
+              onClick={() => setShowAddMenu((p) => !p)}
+              aria-label="Add Folder"
+            >
+              <FiFolderPlus />
+            </IconButton>
+            {showAddMenu && (
+              <div className="absolute right-0 mt-1 bg-white border rounded shadow z-10 dark:bg-[var(--dark-sidebar-bg)]">
+                <button
+                  type="button"
+                  className="btn-action w-full text-left"
+                  onClick={() => {
+                    setShowAddMenu(false);
+                    setShowTagger(true);
+                  }}
+                >
+                  <FiLink /> Drive
+                </button>
+                <button
+                  type="button"
+                  className="btn-action w-full text-left"
+                  onClick={() => {
+                    setShowAddMenu(false);
+                    fileInputRef.current?.click();
+                  }}
+                >
+                  <FiUpload /> Upload
+                </button>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              webkitdirectory="true"
+              className="hidden"
+              onChange={(e) => {
+                handleFolderUpload(e.target.files);
+                e.target.value = null;
+              }}
+            />
+          </div>
+          <IconButton onClick={addRow} aria-label="Add Row">
+            <FiPlus />
+          </IconButton>
+          <IconButton onClick={createMissingThumbnails} aria-label="Create Missing Thumbnails" disabled={loading}>
+            <FiImage />
+          </IconButton>
+          <IconButton onClick={tagMissing} aria-label="Tag Missing" disabled={loading}>
+            <FiTag />
+          </IconButton>
+        </div>
       </div>
+      <input type="file" accept=".csv" onChange={handleCsv} className="mb-2" />
       {csvColumns.length > 0 && (
         <div className="mb-4 space-y-2">
           {['name', 'url', 'thumbnailUrl', 'type', 'description', 'product', 'campaign'].map((key) => (
@@ -327,9 +422,23 @@ const AssetLibrary = ({ brandCode = '' }) => {
       )}
       {Object.keys(selected).some((k) => selected[k]) && (
         <div className="mb-2 flex flex-wrap gap-2 items-end">
-          <button type="button" className="btn-delete" onClick={deleteSelected}>
-            Delete Selected
-          </button>
+          <IconButton onClick={deleteSelected} aria-label="Delete Selected" className="btn-delete">
+            <FiTrash />
+          </IconButton>
+          <IconButton
+            onClick={createThumbnails}
+            aria-label="Create Thumbnails"
+            disabled={loading}
+          >
+            <FiImage />
+          </IconButton>
+          <IconButton
+            onClick={tagSelected}
+            aria-label="Tag Selected"
+            disabled={loading}
+          >
+            <FiTag />
+          </IconButton>
           <input
             className="p-1 border rounded"
             placeholder="Type"
@@ -459,43 +568,9 @@ const AssetLibrary = ({ brandCode = '' }) => {
             ))}
           </tbody>
         </Table>
-      <div className="mt-4 flex gap-2 items-center">
-        <button type="button" className="btn-primary" onClick={saveAssets}>
-          Save
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={loading || !Object.keys(selected).some((k) => selected[k])}
-          onClick={createThumbnails}
-        >
-          {loading ? 'Processing...' : 'Create Thumbnails'}
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={loading}
-          onClick={createMissingThumbnails}
-        >
-          {loading ? 'Processing...' : 'Create Missing Thumbnails'}
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={loading || !Object.keys(selected).some((k) => selected[k])}
-          onClick={tagSelected}
-        >
-          {loading ? 'Processing...' : 'Tag Selected'}
-        </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          disabled={loading}
-          onClick={tagMissing}
-        >
-          {loading ? 'Processing...' : 'Tag Missing'}
-        </button>
-      </div>
+      {showTagger && (
+        <TaggerModal brandCode={brandCode} onClose={() => setShowTagger(false)} />
+      )}
     </div>
   );
 };

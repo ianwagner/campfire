@@ -7,7 +7,6 @@ import BrandSetup from './BrandSetup';
 import AssetLibrary from './AssetLibrary.jsx';
 import ReviewLibrary from './ReviewLibrary.jsx';
 import BrandProducts from './BrandProducts.jsx';
-import TaggerModal from './TaggerModal.jsx';
 import TabButton from './components/TabButton.jsx';
 import { FiSettings, FiFolder, FiStar, FiShoppingCart, FiMessageCircle, FiFileText } from 'react-icons/fi';
 import BrandTone from './BrandTone.jsx';
@@ -21,7 +20,6 @@ const BrandProfile = ({ brandId: propId = null }) => {
   const [brandCode, setBrandCode] = useState('');
   const [brandName, setBrandName] = useState('');
   const [tab, setTab] = useState('setup');
-  const [taggerOpen, setTaggerOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -88,27 +86,11 @@ const BrandProfile = ({ brandId: propId = null }) => {
       </div>
       {tab === 'setup' && <BrandSetup brandId={brandId} />}
       {tab === 'tone' && <BrandTone brandId={brandId} brandCode={brandCode} />}
-      {tab === 'library' && (
-        <>
-          <div className="mb-4">
-            <button
-              type="button"
-              onClick={() => setTaggerOpen(true)}
-              className="btn-secondary px-3 py-1"
-            >
-              Tag Drive Folder
-            </button>
-          </div>
-          <AssetLibrary brandCode={brandCode} />
-        </>
-      )}
+      {tab === 'library' && <AssetLibrary brandCode={brandCode} />}
       {tab === 'reviews' && <ReviewLibrary brandCode={brandCode} />}
       {tab === 'products' && <BrandProducts brandId={brandId} brandCode={brandCode} />}
       {tab === 'contracts' && (
         <BrandContracts brandId={brandId} brandCode={brandCode} />
-      )}
-      {taggerOpen && (
-        <TaggerModal brandCode={brandCode} onClose={() => setTaggerOpen(false)} />
       )}
     </div>
   );
