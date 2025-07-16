@@ -21,7 +21,7 @@ const db = admin.firestore();
 export const processUpload = onObjectFinalized(async (event) => {
   const object = event.data;
   const { bucket, name, contentType } = object;
-  if (!contentType || !contentType.startsWith('image/png')) {
+  if (!contentType || (!contentType.startsWith('image/png') && !contentType.startsWith('image/tiff'))) {
     return null;
   }
 
@@ -38,18 +38,28 @@ export const processUpload = onObjectFinalized(async (event) => {
   await bucketRef.file(name).download({ destination: temp });
 
   const base = path.basename(name, path.extname(name));
+  let inputTmp = temp;
+  const meta = await sharp(temp).metadata().catch(() => ({}));
+  if (meta.format === 'tiff') {
+    const pngTmp = path.join(os.tmpdir(), `${base}.png`);
+    await sharp(temp).toFormat('png').toFile(pngTmp);
+    await fs.unlink(temp).catch(() => {});
+    inputTmp = pngTmp;
+  }
+
   const dir = path.dirname(name);
   const webpLocal = path.join(os.tmpdir(), base + '.webp');
   const thumbLocal = path.join(os.tmpdir(), base + '_thumb.webp');
 
-  await sharp(temp).toFormat('webp').toFile(webpLocal);
-  await sharp(temp).resize({ width: 300 }).toFormat('webp').toFile(thumbLocal);
+  await sharp(inputTmp).toFormat('webp').toFile(webpLocal);
+  await sharp(inputTmp).resize({ width: 300 }).toFormat('webp').toFile(thumbLocal);
 
   const webpDest = path.join(dir, base + '.webp');
   const thumbDest = path.join(dir, base + '_thumb.webp');
   await bucketRef.upload(webpLocal, { destination: webpDest, contentType: 'image/webp' });
   await bucketRef.upload(thumbLocal, { destination: thumbDest, contentType: 'image/webp' });
 
+  if (inputTmp !== temp) await fs.unlink(inputTmp).catch(() => {});
   await fs.unlink(temp).catch(() => {});
   await fs.unlink(webpLocal).catch(() => {});
   await fs.unlink(thumbLocal).catch(() => {});
