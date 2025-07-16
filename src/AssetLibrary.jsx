@@ -337,7 +337,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
               onClick={saveAssets}
               aria-label="Save"
               disabled={!dirty}
-              className={`text-xl ${dirty ? 'text-accent' : ''}`}
+              className={`text-xl ${dirty ? 'bg-[var(--accent-color-10)] text-accent' : ''}`}
             >
               <FiSave />
             </IconButton>
