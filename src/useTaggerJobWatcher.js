@@ -2,36 +2,25 @@ import { useEffect } from 'react';
 import { doc, onSnapshot, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import syncAssetLibrary from "./utils/syncAssetLibrary";
-import { safeGetItem, safeSetItem, safeRemoveItem } from './utils/safeLocalStorage.js';
+import { safeGetItem, safeRemoveItem } from './utils/safeLocalStorage.js';
 
 const saveResults = async (brandCode, results) => {
   try {
-    const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
-    const raw = safeGetItem(key);
-    const existing = raw ? JSON.parse(raw) : [];
-    const arr = Array.isArray(existing) ? existing : [];
-
     let q = collection(db, 'adAssets');
     if (brandCode) q = query(q, where('brandCode', '==', brandCode));
     const snap = await getDocs(q);
     const firebaseAssets = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    const arrByUrl = Object.fromEntries(arr.filter(a => a.url).map(a => [a.url, a]));
-    const firebaseByUrl = Object.fromEntries(firebaseAssets.filter(a => a.url).map(a => [a.url, a]));
+    const arrByUrl = Object.fromEntries(firebaseAssets.filter(a => a.url).map(a => [a.url, a]));
+    const arr = [...firebaseAssets];
 
     for (const r of (Array.isArray(results) ? results : [])) {
       if (arrByUrl[r.url]) continue;
-      if (firebaseByUrl[r.url]) {
-        arr.push(firebaseByUrl[r.url]);
-        arrByUrl[r.url] = firebaseByUrl[r.url];
-      } else {
-        const newRow = { id: Math.random().toString(36).slice(2), ...r };
-        arr.push(newRow);
-        arrByUrl[r.url] = newRow;
-      }
+      const newRow = { id: Math.random().toString(36).slice(2), ...r };
+      arr.push(newRow);
+      arrByUrl[r.url] = newRow;
     }
 
-    safeSetItem(key, JSON.stringify(arr));
     await syncAssetLibrary(brandCode, arr);
   } catch (err) {
     console.error('Failed to save tagger results', err);

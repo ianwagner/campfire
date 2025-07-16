@@ -5,7 +5,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase/config';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
-import { safeGetItem, safeSetItem } from './utils/safeLocalStorage.js';
+
 import syncAssetLibrary from "./utils/syncAssetLibrary";
 import { splitCsvLine } from './utils/csv.js';
 
@@ -38,18 +38,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
     let cancelled = false;
 
     const load = async () => {
-      const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
-      const stored = safeGetItem(key);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && !cancelled) setAssets(parsed);
-          if (Array.isArray(parsed) && parsed.length > 0) return;
-        } catch (err) {
-          console.error('Failed to parse stored assets', err);
-        }
-      }
-
       try {
         let q = collection(db, 'adAssets');
         if (brandCode) q = query(q, where('brandCode', '==', brandCode));
@@ -195,8 +183,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
 
   const saveAssets = async () => {
     try {
-      const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
-      safeSetItem(key, JSON.stringify(assets));
       await syncAssetLibrary(brandCode, assets);
       alert('Assets saved');
     } catch (err) {

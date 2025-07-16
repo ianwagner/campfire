@@ -334,8 +334,7 @@ the **Use Library** button in the recipe generator and the stored rows will be
 loaded with all columns mapped automatically.
 
 Saving the library writes the assets to Firestore so they are available from any
-browser or device. Unsaved changes remain in `localStorage` until you press the
-Save button.
+browser or device.
 
 ## Notification Automation
 
