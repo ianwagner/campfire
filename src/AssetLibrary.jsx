@@ -42,6 +42,9 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const fileInputRef = useRef(null);
   const [dirty, setDirty] = useState(false);
+  const PAGE_SIZE = 25;
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
 
   const lastIdx = useRef(null);
   const dragValue = useRef(null);
@@ -75,6 +78,15 @@ const AssetLibrary = ({ brandCode = '' }) => {
       window.removeEventListener('mouseup', up);
     };
   }, [brandCode]);
+
+  useEffect(() => {
+    setPage(0);
+    setRowsPerPage(PAGE_SIZE);
+  }, [filter, assets]);
+
+  useEffect(() => {
+    setRowsPerPage(PAGE_SIZE);
+  }, [page]);
 
   const addRow = () => {
     const id = Math.random().toString(36).slice(2);
@@ -292,6 +304,11 @@ const AssetLibrary = ({ brandCode = '' }) => {
       return (a.name || '').localeCompare(b.name || '');
     });
 
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const startIdx = page * PAGE_SIZE;
+  const visible = filtered.slice(startIdx, startIdx + rowsPerPage);
+  const canShowMore = startIdx + rowsPerPage < Math.min(filtered.length, (page + 1) * PAGE_SIZE);
+
   return (
     <div>
       <div className="mb-4 flex items-start justify-between flex-wrap gap-2">
@@ -320,7 +337,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
               onClick={saveAssets}
               aria-label="Save"
               disabled={!dirty}
-              className={`text-xl ${dirty ? 'bg-[var(--accent-color-10)] text-accent' : ''}`}
+              className={`text-xl ${dirty ? 'text-accent' : ''}`}
             >
               <FiSave />
             </IconButton>
@@ -378,7 +395,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
               }}
             />
           </div>
-          <div className="border-l h-6 mx-2" />
           <span className="relative group">
             <IconButton onClick={addRow} aria-label="Add Row" className="text-xl">
               <FiPlus />
@@ -387,6 +403,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
               Add Row
             </div>
           </span>
+          <div className="border-l h-6 mx-2" />
           <span className="relative group">
             <IconButton onClick={createMissingThumbnails} aria-label="Create Missing Thumbnails" disabled={loading} className="text-xl">
               <FiImage />
@@ -479,13 +496,13 @@ const AssetLibrary = ({ brandCode = '' }) => {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((a, idx) => (
+            {visible.map((a, idx) => (
               <tr key={a.id}>
                 <td className="text-center">
                   <input
                     type="checkbox"
                     checked={selected[a.id] || false}
-                    onChange={(e) => handleCheckChange(e, idx, a.id)}
+                    onChange={(e) => handleCheckChange(e, startIdx + idx, a.id)}
                   />
                 </td>
                 <td title={a.name}>{a.name.length > 10 ? `${a.name.slice(0, 10)}...` : a.name}</td>
@@ -570,6 +587,40 @@ const AssetLibrary = ({ brandCode = '' }) => {
             ))}
           </tbody>
         </Table>
+        <div className="flex items-center justify-between mt-2">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            className="btn-secondary px-2 py-1"
+            disabled={page === 0}
+          >
+            &lt;
+          </button>
+          <span className="text-sm">
+            {page + 1} / {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            className="btn-secondary px-2 py-1"
+            disabled={page >= totalPages - 1}
+          >
+            &gt;
+          </button>
+        </div>
+        {canShowMore && (
+          <div className="mt-2 text-center">
+            <button
+              type="button"
+              onClick={() =>
+                setRowsPerPage((s) => Math.min(s + PAGE_SIZE, filtered.length - startIdx))
+              }
+              className="btn-secondary px-3 py-1"
+            >
+              Show 25 More
+            </button>
+          </div>
+        )}
       {showTagger && (
         <TaggerModal brandCode={brandCode} onClose={() => setShowTagger(false)} />
       )}
