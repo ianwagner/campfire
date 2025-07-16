@@ -162,6 +162,12 @@ const AdGroupDetail = () => {
       case "admin":
         base = "/admin/ad-groups";
         break;
+      case "manager":
+        base = "/admin/ad-groups";
+        break;
+      case "editor":
+        base = "/editor/ad-groups";
+        break;
       case "agency":
         base = "/agency/ad-groups";
         break;
