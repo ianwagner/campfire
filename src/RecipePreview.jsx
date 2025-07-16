@@ -305,23 +305,11 @@ const RecipePreview = ({
 
   const loadAssetLibrary = async () => {
     try {
-      const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
-      const raw = safeGetItem(key);
       let rows = [];
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) rows = parsed;
-        } catch (err) {
-          console.error('Failed to parse stored asset library', err);
-        }
-      }
-      if (rows.length === 0) {
-        let q = collection(db, 'adAssets');
-        if (brandCode) q = query(q, where('brandCode', '==', brandCode));
-        const snap = await getDocs(q);
-        rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      }
+      let q = collection(db, 'adAssets');
+      if (brandCode) q = query(q, where('brandCode', '==', brandCode));
+      const snap = await getDocs(q);
+      rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       if (rows.length === 0) return;
       setAssetRows(rows);
       setAssetFilter('');

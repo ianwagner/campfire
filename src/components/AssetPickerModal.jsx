@@ -5,7 +5,6 @@ import { auth, db } from '../firebase/config';
 import useUserRole from '../useUserRole';
 import { normalizeAssetType } from '../RecipePreview.jsx';
 import Button from './Button.jsx';
-import { safeGetItem } from '../utils/safeLocalStorage.js';
 
 const AssetPickerModal = ({ brandCode: propBrandCode = '', onSelect, onClose }) => {
   const user = auth.currentUser;
@@ -24,20 +23,6 @@ const AssetPickerModal = ({ brandCode: propBrandCode = '', onSelect, onClose }) 
 
     const load = async () => {
       try {
-        const key = brandCode ? `assetLibrary_${brandCode}` : 'assetLibrary';
-        const stored = safeGetItem(key);
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && !cancelled) {
-              setAssets(parsed);
-              if (parsed.length > 0) return;
-            }
-          } catch (err) {
-            console.error('Failed to parse stored assets', err);
-          }
-        }
-
         let q = collection(db, 'adAssets');
         if (brandCode) {
           q = query(q, where('brandCode', '==', brandCode));
