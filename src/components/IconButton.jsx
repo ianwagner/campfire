@@ -10,17 +10,17 @@ const hasText = (children) => {
   });
 };
 
-const IconButton = ({ as: Component = "button", className = "", children, ...props }) => {
+const IconButton = React.forwardRef(({ as: Component = "button", className = "", children, ...props }, ref) => {
   const containsText = hasText(children);
   const baseClasses = containsText
     ? "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300 hover:bg-[var(--accent-color-10)] hover:text-gray-900 dark:hover:text-white focus:outline-none active:bg-[var(--accent-color-10)]"
     : "p-2 rounded flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-[var(--accent-color-10)] hover:text-gray-900 dark:hover:text-white focus:outline-none active:bg-[var(--accent-color-10)]";
 
   return (
-    <Component className={`${baseClasses} ${className}`.trim()} {...props}>
+    <Component ref={ref} className={`${baseClasses} ${className}`.trim()} {...props}>
       {children}
     </Component>
   );
-};
+});
 
 export default IconButton;

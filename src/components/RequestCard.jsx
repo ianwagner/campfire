@@ -29,18 +29,40 @@ const typeColors = {
 
 const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   const [isDraggable, setIsDraggable] = useState(!isTouch);
   const longPressRef = useRef(null);
+  const menuRef = useRef(null);
+  const menuBtnRef = useRef(null);
   const Icon = typeIcons[request.type];
   const color = typeColors[request.type] || 'text-gray-600 dark:text-gray-300';
 
+  const handleClick = (e) => {
+    if (
+      menuRef.current?.contains(e.target) ||
+      menuBtnRef.current?.contains(e.target) ||
+      dragging
+    ) {
+      return;
+    }
+    setExpanded((exp) => !exp);
+  };
+
   return (
     <div
+      data-testid="request-card"
       className="bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded-lg shadow-md p-3 space-y-1 w-[220px] sm:w-[300px]"
       draggable={isDraggable}
-      onDragStart={() => onDragStart(request.id)}
-      onDragEnd={() => isTouch && setIsDraggable(false)}
+      onDragStart={() => {
+        setDragging(true);
+        onDragStart(request.id);
+      }}
+      onDragEnd={() => {
+        setDragging(false);
+        if (isTouch) setIsDraggable(false);
+      }}
       onTouchStart={() => {
         if (isTouch) {
           longPressRef.current = setTimeout(() => setIsDraggable(true), 300);
@@ -57,6 +79,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
           clearTimeout(longPressRef.current);
         }
       }}
+      onClick={handleClick}
     >
       <div className="relative space-y-1">
         <div className="flex items-start justify-between">
@@ -64,6 +87,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
             <div className={`text-lg ${color}`}>{React.createElement(Icon)}</div>
           )}
           <IconButton
+            ref={menuBtnRef}
             onClick={() => setMenuOpen((o) => !o)}
             className="ml-auto bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
             aria-label="Menu"
@@ -71,7 +95,10 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
             <FiMoreHorizontal />
           </IconButton>
           {menuOpen && (
-            <div className="absolute right-0 top-6 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
+            <div
+              ref={menuRef}
+              className="absolute right-0 top-6 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm"
+            >
               <button
                 onClick={() => {
                   setMenuOpen(false);
@@ -107,12 +134,12 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
             {request.title}
           </p>
         )}
-        {request.brandCode && (
+        {expanded && request.brandCode && (
           <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
             {request.brandCode}
           </p>
         )}
-        {request.dueDate && (
+        {expanded && request.dueDate && (
           <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0 flex items-center gap-1">
             <FiCalendar className="text-gray-600 dark:text-gray-300" />
             {request.dueDate.toDate().toLocaleDateString()}
@@ -122,32 +149,37 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
           <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">Priority: {request.priority}</p>
         )}
       </div>
-      {request.details && (
+      {expanded && request.details && (
         <div
           className="text-sm text-black dark:text-[var(--dark-text)]"
           dangerouslySetInnerHTML={{ __html: formatDetails(request.details) }}
         />
       )}
-      <div className="flex items-center justify-between text-sm">
-        {request.type === 'newAds' && <span># Ads: {request.numAds}</span>}
-      </div>
-      <div className="text-right">
-        {request.type === 'bug' || request.type === 'feature' ? null : (
-          request.status === 'done' ? (
-            <span className="text-sm text-gray-500">
-              {request.type === 'newBrand' ? 'Brand Created' : 'Ad Group Created'}
-            </span>
-          ) : (
-            <button
-              onClick={() => onCreateGroup(request)}
-              className={`btn-primary mt-2 text-sm ${request.status !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={request.status !== 'ready'}
-            >
-              {request.type === 'newBrand' ? 'Create Brand' : 'Create Ad Group'}
-            </button>
-          )
-        )}
-      </div>
+      {expanded && (
+        <>
+          <div className="flex items-center justify-between text-sm">
+            {request.type === 'newAds' && <span># Ads: {request.numAds}</span>}
+          </div>
+          <div className="text-right">
+            {request.type === 'bug' || request.type === 'feature' ? null : (
+              request.status === 'done' ? (
+                <span className="text-sm text-gray-500">
+                  {request.type === 'newBrand' ? 'Brand Created' : 'Ad Group Created'}
+                </span>
+              ) : (
+                <button
+                  onClick={() => onCreateGroup(request)}
+                  className={`btn-primary mt-2 text-sm ${request.status !== 'ready' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={request.status !== 'ready'}
+                >
+                  {request.type === 'newBrand' ? 'Create Brand' : 'Create Ad Group'}
+                </button>
+              )
+            )}
+          </div>
+        </>
+      )}
+      <p className="text-xs text-blue-600 text-right mt-1">{expanded ? 'Show less' : 'Show more'}</p>
     </div>
   );
 };
