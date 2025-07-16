@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RequestCard from './RequestCard.jsx';
 
@@ -17,6 +17,7 @@ test('create button disabled when status not ready', () => {
       onDragStart={noop}
     />
   );
+  fireEvent.click(screen.getByTestId('request-card'));
   const btn = screen.getByText('Create Ad Group');
   expect(btn).toBeDisabled();
 });
@@ -33,6 +34,7 @@ test('shows created text when status done', () => {
       onDragStart={noop}
     />
   );
+  fireEvent.click(screen.getByTestId('request-card'));
   expect(screen.getByText('Ad Group Created')).toBeInTheDocument();
 });
 
