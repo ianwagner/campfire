@@ -1,4 +1,4 @@
-// ✅ Step 1: Set Firebase config from Vercel-injected env vars
+// ✅ 1. Set Firebase config from env
 window.FIREBASE_CONFIG = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -6,10 +6,10 @@ window.FIREBASE_CONFIG = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY, 
+  vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
 };
 
-// ✅ Step 2: Import firebase-init *after* the config is set
+// ✅ 2. Import Firebase init *after* config is set
 import('./firebase-init.js').then(async ({ messaging }) => {
   const { getToken } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging.js');
 
@@ -30,7 +30,7 @@ import('./firebase-init.js').then(async ({ messaging }) => {
     try {
       console.log('📬 Getting FCM token...');
       const token = await getToken(messaging, {
-        vapidKey: window.FIREBASE_CONFIG?.vapidKey,
+        vapidKey: window.FIREBASE_CONFIG.vapidKey,
         serviceWorkerRegistration: registration,
       });
 
