@@ -91,6 +91,15 @@
   </head>
   <body class="pre-theme">
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module">
+      import('/src/main.jsx').catch(async (err) => {
+        console.error('App failed to load:', err);
+        if ('caches' in window) {
+          const names = await caches.keys();
+          await Promise.all(names.map((n) => caches.delete(n)));
+        }
+        location.reload();
+      });
+    </script>
   </body>
 </html>
