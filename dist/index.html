@@ -94,7 +94,16 @@
         removeLoading();
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-B8nwRjbw.js"></script>
+    <script type="module">
+      import('/assets/index-B8nwRjbw.js').catch(async (err) => {
+        console.error('App failed to load:', err);
+        if ('caches' in window) {
+          const names = await caches.keys();
+          await Promise.all(names.map((n) => caches.delete(n)));
+        }
+        location.reload();
+      });
+    </script>
     <link rel="stylesheet" crossorigin href="/assets/index-D_XvNzWm.css">
   </head>
   <body class="pre-theme">
