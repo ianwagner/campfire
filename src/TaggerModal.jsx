@@ -40,7 +40,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
         if (arrByUrl[r.url]) {
           continue; // already in library
         }
-        const newRow = { id: Math.random().toString(36).slice(2), ...r };
+        const newRow = { id: Math.random().toString(36).slice(2), createdAt: Date.now(), ...r };
         arr.push(newRow);
         arrByUrl[r.url] = newRow;
       }
