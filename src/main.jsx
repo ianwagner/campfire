@@ -4,6 +4,32 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 
+// ----- Self-heal stale CSS -----
+(() => {
+  const reloadKey = 'css-self-healed';
+  if (sessionStorage.getItem(reloadKey)) return;
+
+  const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+  Promise.all(
+    links.map((link) =>
+      fetch(link.href, { method: 'HEAD' })
+        .then((res) => ({
+          status: res.status,
+          type: res.headers.get('content-type') || '',
+        }))
+        .catch(() => ({ status: 404, type: '' }))
+    )
+  ).then((results) => {
+    const broken = results.some(
+      (r) => r.status === 404 || r.type.startsWith('text/html')
+    );
+    if (broken) {
+      sessionStorage.setItem(reloadKey, 'true');
+      location.reload();
+    }
+  });
+})();
+
 // Set Firebase config from environment variables so it can be read by
 // firebase-init.js which expects `window.FIREBASE_CONFIG` to already exist.
 window.FIREBASE_CONFIG = {
