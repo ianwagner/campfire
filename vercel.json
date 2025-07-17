@@ -1,22 +1,9 @@
 {
   "routes": [
-    {
-      "handle": "filesystem"
-    },
+    { "handle": "filesystem" },
     {
       "src": "/((?!.*\\.(?:js|css|png|jpg|jpeg|svg|ico|json|txt|woff2|ttf|map)).*)",
       "dest": "/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/index.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache"
-        }
-      ]
     }
   ]
 }
