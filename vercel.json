@@ -2,6 +2,9 @@
   "routes": [
     { "handle": "filesystem" },
     { "src": "/firebase-messaging-sw.js", "dest": "/firebase-messaging-sw.js" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    {
+      "src": "/((?!.*\\.(?:js|css|png|jpg|jpeg|svg|ico|json|txt|woff2|ttf)).*)",
+      "dest": "/index.html"
+    }
   ]
 }
