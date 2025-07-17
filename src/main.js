@@ -1,4 +1,11 @@
-// ✅ 1. Set Firebase config from env
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App';
+import './global.css';
+
+// Set Firebase config from environment variables so it can be read by
+// firebase-init.js which expects `window.FIREBASE_CONFIG` to already exist.
 window.FIREBASE_CONFIG = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -9,7 +16,56 @@ window.FIREBASE_CONFIG = {
   vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
 };
 
-// ✅ 2. Import Firebase init *after* config is set
+// ----- React bootstrap -----
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
+);
+
+// Development helper from the previous index.jsx file
+if (import.meta.env.DEV) {
+  const warnIfBase64Bg = (el) => {
+    if (el && el.style) {
+      const bg = el.style.backgroundImage || '';
+      if (
+        bg.startsWith('url("data:image') ||
+        bg.startsWith("url('data:image") ||
+        bg.startsWith('data:image')
+      ) {
+        // eslint-disable-next-line no-console
+        console.warn('Base64 background image detected:', el);
+      }
+    }
+  };
+
+  const observer = new MutationObserver((records) => {
+    records.forEach((rec) => {
+      if (rec.type === 'attributes' && rec.attributeName === 'style') {
+        warnIfBase64Bg(rec.target);
+      }
+      rec.addedNodes.forEach((node) => warnIfBase64Bg(node));
+    });
+  });
+
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['style'],
+    childList: true,
+    subtree: true,
+  });
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* registration failed */
+    });
+  });
+}
+
+// Load Firebase Messaging after the config is set
 import('./firebase-init.js').then(async ({ messaging }) => {
   const { getToken } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging.js');
 
