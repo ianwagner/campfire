@@ -84,9 +84,15 @@
           hexToRgba(accent)
         );
       }
-      document.fonts.ready.finally(() => {
+      const removeLoading = () => {
         document.documentElement.classList.remove('loading');
-      });
+      };
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.finally(removeLoading);
+        setTimeout(removeLoading, 3000);
+      } else {
+        removeLoading();
+      }
     </script>
     <script type="module">
       window.FIREBASE_CONFIG = {
