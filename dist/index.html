@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Campfire</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap"
+      as="style"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
+      <link rel="manifest" href="/manifest.json" />
+      <meta name="theme-color" content="#ffffff" />
+      <link
+        rel="apple-touch-icon"
+        href="https://firebasestorage.googleapis.com/v0/b/tak-campfire-main/o/Campfire%2Fsite-logo%2Fapp-icon.png?alt=media&token=5949fabb-92b1-47cd-8933-760408fb2ef6"
+      />
+    <script>
+      document.documentElement.classList.add('loading');
+      const params = new URLSearchParams(window.location.search);
+      const agencyId = window.location.pathname.startsWith('/agency/')
+        ? params.get('agencyId')
+        : null;
+      const safeGet = (k) => {
+        try {
+          return localStorage.getItem(k);
+        } catch (e) {
+          return null;
+        }
+      };
+      const accent = (() => {
+        if (agencyId) {
+          try {
+            const stored = safeGet(`agencyTheme-${agencyId}`);
+            if (stored) {
+              const { themeColor } = JSON.parse(stored);
+              if (themeColor) return themeColor;
+            }
+          } catch (e) {
+            /* ignore parse errors */
+          }
+        }
+        return safeGet('accentColor');
+      })();
+      const themePref = safeGet("theme") || "system";
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      const setThemeColor = (dark) => {
+        if (!themeMeta) return;
+        const bg = dark
+          ? getComputedStyle(document.documentElement).getPropertyValue('--dark-bg').trim() || '#0d1116'
+          : '#ffffff';
+        themeMeta.setAttribute('content', bg);
+      };
+      const applyTheme = (p) => {
+        const dark =
+          p === "dark" ||
+          (p === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+        setThemeColor(dark);
+      };
+      applyTheme(themePref);
+      if (accent) {
+        const hexToRgba = (hex, alpha = 0.1) => {
+          let h = hex.replace('#', '');
+          if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+          const int = parseInt(h, 16);
+          const r = (int >> 16) & 255;
+          const g = (int >> 8) & 255;
+          const b = int & 255;
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        };
+        document.documentElement.style.setProperty('--accent-color', accent);
+        document.documentElement.style.setProperty(
+          '--accent-color-10',
+          hexToRgba(accent)
+        );
+      }
+      const removeLoading = () => {
+        document.documentElement.classList.remove('loading');
+      };
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.finally(removeLoading);
+        setTimeout(removeLoading, 3000);
+      } else {
+        removeLoading();
+      }
+    </script>
+    <script type="module" crossorigin src="/assets/index-B8nwRjbw.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D_XvNzWm.css">
+  </head>
+  <body class="pre-theme">
+    <div id="root"></div>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
