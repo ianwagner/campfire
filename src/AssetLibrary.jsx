@@ -15,7 +15,7 @@ import { uploadBrandAsset } from './uploadBrandAsset';
 import TaggerModal from './TaggerModal.jsx';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase/config';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
 
 import syncAssetLibrary from "./utils/syncAssetLibrary";
@@ -29,13 +29,14 @@ const emptyAsset = {
   product: '',
   campaign: '',
   thumbnailUrl: '',
+  createdAt: null,
 };
 
 const AssetLibrary = ({ brandCode = '' }) => {
   const [assets, setAssets] = useState([]);
   const [selected, setSelected] = useState({});
   const [filter, setFilter] = useState('');
-  const [sortField, setSortField] = useState('name');
+  const [sortField, setSortField] = useState('createdAt');
   const [bulkValues, setBulkValues] = useState({ type: '', product: '', campaign: '' });
   const [loading, setLoading] = useState(false);
   const [showTagger, setShowTagger] = useState(false);
@@ -90,7 +91,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
 
   const addRow = () => {
     const id = Math.random().toString(36).slice(2);
-    setAssets((p) => [...p, { ...emptyAsset, id }]);
+    setAssets((p) => [...p, { ...emptyAsset, id, createdAt: Date.now() }]);
     setDirty(true);
   };
 
@@ -271,6 +272,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
         newAssets.push({
           ...emptyAsset,
           id: Math.random().toString(36).slice(2),
+          createdAt: Date.now(),
           name: file.name,
           url,
           campaign: file.webkitRelativePath
@@ -298,6 +300,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
       );
     })
     .sort((a, b) => {
+      if (sortField === 'createdAt') return (b.createdAt || 0) - (a.createdAt || 0);
       if (sortField === 'type') return (a.type || '').localeCompare(b.type || '');
       if (sortField === 'product') return (a.product || '').localeCompare(b.product || '');
       if (sortField === 'campaign') return (a.campaign || '').localeCompare(b.campaign || '');
@@ -318,6 +321,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
             onChange={(e) => setSortField(e.target.value)}
             className="p-1 border rounded"
           >
+            <option value="createdAt">Date Added</option>
             <option value="name">Name</option>
             <option value="type">Type</option>
             <option value="product">Product</option>
