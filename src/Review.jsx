@@ -1219,7 +1219,7 @@ useEffect(() => {
     }
   };
 
-  if (loading || !logoReady || (started && !firstAdLoaded)) {
+  if (!logoReady || (started && !firstAdLoaded)) {
     return <LoadingOverlay />;
   }
 
@@ -1271,7 +1271,10 @@ useEffect(() => {
               setCurrentIndex(0);
               setStarted(true);
             }}
-            className="btn-primary px-6 py-3 text-lg"
+            disabled={loading || ads.length === 0}
+            className={`btn-primary px-6 py-3 text-lg ${
+              loading || ads.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           >
             <FiCheck className="mr-2" /> Review Ads
           </button>
