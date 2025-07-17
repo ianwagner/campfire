@@ -94,21 +94,10 @@
         removeLoading();
       }
     </script>
-    <script type="module">
-      window.FIREBASE_CONFIG = {
-        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-        appId: import.meta.env.VITE_FIREBASE_APP_ID,
-        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-      };
-    </script>
   </head>
   <body class="pre-theme">
     <div id="root"></div>
     <script type="module" src="/src/index.jsx"></script>
-    <script type="module" src="/main.js"></script>
+    <script type="module" src="/src/main.js"></script>
   </body>
 </html>
