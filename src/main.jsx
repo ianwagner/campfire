@@ -1,8 +1,8 @@
 import React from 'react';
+import './global.css';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
-import './global.css';
 
 // Set Firebase config from environment variables so it can be read by
 // firebase-init.js which expects `window.FIREBASE_CONFIG` to already exist.
