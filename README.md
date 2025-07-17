@@ -56,9 +56,11 @@ These values correspond to your Firebase project's configuration. Vite will load
 them automatically when running `npm run dev` or `npm run build`.
 
 Because the messaging demo scripts in `public/` are served without bundling,
-`index.html` exposes these variables on `window.FIREBASE_CONFIG`. Ensure your
-`.env` file is populated so the service worker and `public/main.js` receive a
-valid API key.
+`index.html` exposes these variables on `window.FIREBASE_CONFIG`. If you open the
+file directly without running Vite the variables won't be substituted, so the
+page falls back to a public demo Firebase project. Populate your `.env` file when
+running the real application so the service worker and `public/main.js` receive
+a valid API key.
 
 The `sync.js` utility also reads `GOOGLE_APPLICATION_CREDENTIALS` and
 `FIREBASE_STORAGE_BUCKET` from the environment. If you use a `.env` file, include
