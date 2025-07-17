@@ -63,6 +63,37 @@ test('loads ads from subcollections', async () => {
   );
 });
 
+test('Review Ads button disabled until ads load', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  const btn = screen.getByRole('button', { name: /Review Ads/i });
+  expect(btn).toBeDisabled();
+
+  await waitFor(() => expect(btn).not.toBeDisabled());
+});
+
 test('submitResponse updates asset status', async () => {
   const assetSnapshot = {
     docs: [
