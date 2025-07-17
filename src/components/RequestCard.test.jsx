@@ -5,6 +5,22 @@ import RequestCard from './RequestCard.jsx';
 
 const noop = () => {};
 
+test('shows create button when status ready without expanding', () => {
+  const req = { id: '1', status: 'ready', brandCode: 'B', numAds: 1 };
+  render(
+    <RequestCard
+      request={req}
+      onEdit={noop}
+      onDelete={noop}
+      onArchive={noop}
+      onCreateGroup={noop}
+      onDragStart={noop}
+    />
+  );
+  const btn = screen.getByText('Create Ad Group');
+  expect(btn).toBeEnabled();
+});
+
 test('create button disabled when status not ready', () => {
   const req = { id: '1', status: 'pending', brandCode: 'B', numAds: 1 };
   render(

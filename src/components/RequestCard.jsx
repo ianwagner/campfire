@@ -53,7 +53,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
   return (
     <div
       data-testid="request-card"
-      className="bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded-lg shadow-md p-3 space-y-1 w-[220px] sm:w-[300px]"
+      className={`bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded-lg shadow-md p-3 space-y-1 w-[220px] sm:w-[300px] ${request.status === 'done' ? 'opacity-50' : ''}`}
       draggable={isDraggable}
       onDragStart={() => {
         setDragging(true);
@@ -155,10 +155,10 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
           dangerouslySetInnerHTML={{ __html: formatDetails(request.details) }}
         />
       )}
-      {expanded && (
+      {(expanded || request.status === 'ready' || request.status === 'done') && (
         <>
           <div className="flex items-center justify-between text-sm">
-            {request.type === 'newAds' && <span># Ads: {request.numAds}</span>}
+            {expanded && request.type === 'newAds' && <span># Ads: {request.numAds}</span>}
           </div>
           <div className="text-right">
             {request.type === 'bug' || request.type === 'feature' ? null : (

@@ -49,7 +49,9 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
         const base = collection(db, 'requests');
         const q = filterEditorId ? query(base, where('editorId', '==', filterEditorId)) : base;
         const snap = await getDocs(q);
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const list = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
         setRequests(list);
       } catch (err) {
         console.error('Failed to fetch requests', err);
