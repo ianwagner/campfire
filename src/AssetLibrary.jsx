@@ -16,6 +16,7 @@ import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 import TabButton from './components/TabButton.jsx';
 import SortButton from './components/SortButton.jsx';
+import PageToolbar from './components/PageToolbar.jsx';
 import { uploadBrandAsset } from './uploadBrandAsset';
 import TaggerModal from './TaggerModal.jsx';
 import { httpsCallable } from 'firebase/functions';
@@ -356,42 +357,43 @@ const AssetLibrary = ({ brandCode = '' }) => {
 
   return (
     <div>
-      <div className="mb-4 flex items-start justify-between flex-wrap gap-2">
-        <div className="flex flex-wrap gap-2 items-center">
-          <input
-            type="text"
-            placeholder="Filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="p-1 border rounded"
-          />
-          <SortButton
-            value={sortField}
-            onChange={setSortField}
-            options={[
-              { value: 'createdAt', label: 'Date Added' },
-              { value: 'name', label: 'Name' },
-              { value: 'type', label: 'Type' },
-              { value: 'product', label: 'Product' },
-              { value: 'campaign', label: 'Folder Name' },
-            ]}
-          />
-          <div className="border-l h-6 mx-2" />
-        </div>
-        <div className="flex flex-wrap gap-2 flex-1 order-last md:order-none justify-center">
-          <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
-            <FiList />
-          </TabButton>
-          <TabButton active={view === 'gallery'} onClick={() => setView('gallery')} aria-label="Gallery view">
-            <FiGrid />
-          </TabButton>
-        </div>
-        <div className="flex flex-wrap gap-2 items-center relative">
-          <span className="relative group">
-            <IconButton
-              onClick={saveAssets}
-              aria-label="Save"
-              disabled={!dirty}
+      <PageToolbar
+        left={(
+          <>
+            <input
+              type="text"
+              placeholder="Filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="p-1 border rounded"
+            />
+            <SortButton
+              value={sortField}
+              onChange={setSortField}
+              options={[
+                { value: 'createdAt', label: 'Date Added' },
+                { value: 'name', label: 'Name' },
+                { value: 'type', label: 'Type' },
+                { value: 'product', label: 'Product' },
+                { value: 'campaign', label: 'Folder Name' },
+              ]}
+            />
+            <div className="border-l h-6 mx-2" />
+            <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
+              <FiList />
+            </TabButton>
+            <TabButton active={view === 'gallery'} onClick={() => setView('gallery')} aria-label="Gallery view">
+              <FiGrid />
+            </TabButton>
+          </>
+        )}
+        right={(
+          <div className="flex flex-wrap gap-2 items-center relative">
+            <span className="relative group">
+              <IconButton
+                onClick={saveAssets}
+                aria-label="Save"
+                disabled={!dirty}
               className={`text-xl ${dirty ? 'bg-[var(--accent-color-10)] text-accent' : ''}`}
             >
               <FiSave />
@@ -467,16 +469,17 @@ const AssetLibrary = ({ brandCode = '' }) => {
               Thumbnails
             </div>
           </span>
-          <span className="relative group">
-            <IconButton onClick={tagMissing} aria-label="Tag Missing" disabled={loading} className="text-xl">
-              <FiTag />
-            </IconButton>
-            <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-              Auto Tag
-            </div>
-          </span>
-        </div>
-      </div>
+            <span className="relative group">
+              <IconButton onClick={tagMissing} aria-label="Tag Missing" disabled={loading} className="text-xl">
+                <FiTag />
+              </IconButton>
+              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                Auto Tag
+              </div>
+            </span>
+          </div>
+        )}
+      />
       {view === 'list' ? (
         <>
         {Object.keys(selected).some((k) => selected[k]) && (
