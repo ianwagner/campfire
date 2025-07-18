@@ -29,6 +29,7 @@ import Table from './components/common/Table';
 import AdGroupCard from './components/AdGroupCard.jsx';
 import TabButton from './components/TabButton.jsx';
 import IconButton from './components/IconButton.jsx';
+import SortButton from './components/SortButton.jsx';
 
 const EditorAdGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -189,15 +190,14 @@ const EditorAdGroups = () => {
       <h1 className="text-2xl mb-4">Ad Groups</h1>
       <div className="mb-8">
           <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-            <div className="flex flex-wrap gap-2 flex-1 order-last md:order-none justify-center">
-              <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
-                <FiList />
-              </TabButton>
-              <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
-                <FiColumns />
-              </TabButton>
-            </div>
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                placeholder="Filter"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="p-1 border rounded"
+              />
               {view === 'kanban' ? (
                 <select
                   value={designerFilter}
@@ -211,15 +211,15 @@ const EditorAdGroups = () => {
                 </select>
               ) : (
                 <>
-                  <select
+                  <SortButton
                     value={sortField}
-                    onChange={(e) => setSortField(e.target.value)}
-                    className="p-1 border rounded"
-                  >
-                    <option value="status">Status</option>
-                    <option value="brand">Brand</option>
-                    <option value="name">Group Name</option>
-                  </select>
+                    onChange={setSortField}
+                    options={[
+                      { value: 'status', label: 'Status' },
+                      { value: 'brand', label: 'Brand' },
+                      { value: 'name', label: 'Group Name' },
+                    ]}
+                  />
                   <TabButton
                     type="button"
                     active={showArchived}
@@ -230,13 +230,13 @@ const EditorAdGroups = () => {
                   </TabButton>
                 </>
               )}
-              <input
-                type="text"
-                placeholder="Filter"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="p-1 border rounded"
-              />
+              <div className="border-l h-6 mx-2" />
+              <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
+                Table
+              </TabButton>
+              <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
+                Kanban
+              </TabButton>
             </div>
           </div>
         {loading ? (

@@ -15,6 +15,7 @@ import {
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 import TabButton from './components/TabButton.jsx';
+import SortButton from './components/SortButton.jsx';
 import { uploadBrandAsset } from './uploadBrandAsset';
 import TaggerModal from './TaggerModal.jsx';
 import { httpsCallable } from 'firebase/functions';
@@ -349,17 +350,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
     <div>
       <div className="mb-4 flex items-start justify-between flex-wrap gap-2">
         <div className="flex flex-wrap gap-2 items-center">
-          <select
-            value={sortField}
-            onChange={(e) => setSortField(e.target.value)}
-            className="p-1 border rounded"
-          >
-            <option value="createdAt">Date Added</option>
-            <option value="name">Name</option>
-            <option value="type">Type</option>
-            <option value="product">Product</option>
-            <option value="campaign">Folder Name</option>
-          </select>
           <input
             type="text"
             placeholder="Filter"
@@ -367,6 +357,18 @@ const AssetLibrary = ({ brandCode = '' }) => {
             onChange={(e) => setFilter(e.target.value)}
             className="p-1 border rounded"
           />
+          <SortButton
+            value={sortField}
+            onChange={setSortField}
+            options={[
+              { value: 'createdAt', label: 'Date Added' },
+              { value: 'name', label: 'Name' },
+              { value: 'type', label: 'Type' },
+              { value: 'product', label: 'Product' },
+              { value: 'campaign', label: 'Folder Name' },
+            ]}
+          />
+          <div className="border-l h-6 mx-2" />
         </div>
         <div className="flex flex-wrap gap-2 flex-1 order-last md:order-none justify-center">
           <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">

@@ -7,6 +7,7 @@ import useAgencies from './useAgencies';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 import TabButton from './components/TabButton.jsx';
+import SortButton from './components/SortButton.jsx';
 import BrandCard from './components/BrandCard.jsx';
 
 const EditorBrands = () => {
@@ -82,38 +83,37 @@ const EditorBrands = () => {
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Brands</h1>
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <div className="flex flex-wrap gap-2 flex-1 order-last md:order-none justify-center">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              placeholder="Filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="p-1 border rounded"
+            />
+            <SortButton
+              value={sortField}
+              onChange={setSortField}
+              options={[
+                { value: 'code', label: 'Code' },
+                { value: 'name', label: 'Name' },
+              ]}
+            />
+            <TabButton
+              type="button"
+              active={showArchived}
+              onClick={() => setShowArchived((p) => !p)}
+              aria-label={showArchived ? 'Hide archived' : 'Show archived'}
+            >
+              Archive
+            </TabButton>
+            <div className="border-l h-6 mx-2" />
             <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
               List
             </TabButton>
             <TabButton active={view === 'cards'} onClick={() => setView('cards')} aria-label="Card view">
               Cards
             </TabButton>
-          </div>
-          <div className="flex items-center gap-2">
-          <select
-            value={sortField}
-            onChange={(e) => setSortField(e.target.value)}
-            className="p-1 border rounded"
-          >
-            <option value="code">Code</option>
-            <option value="name">Name</option>
-          </select>
-          <TabButton
-            type="button"
-            active={showArchived}
-            onClick={() => setShowArchived((p) => !p)}
-            aria-label={showArchived ? 'Hide archived' : 'Show archived'}
-          >
-            Archive
-          </TabButton>
-          <input
-            type="text"
-            placeholder="Filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-              className="p-1 border rounded"
-            />
           </div>
         </div>
         {loading ? (

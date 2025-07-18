@@ -13,6 +13,7 @@ import {
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 import TabButton from './components/TabButton.jsx';
+import SortButton from './components/SortButton.jsx';
 import {
   FiPlus,
   FiEdit2,
@@ -224,23 +225,7 @@ const AdminNotifications = () => {
       {tab === 'all' && (
         <>
           <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-            <button
-              onClick={() => setShowCreate(true)}
-              className="btn-primary flex items-center gap-1"
-            >
-              <FiPlus />
-              Create Notification
-            </button>
-            <div className="flex items-center gap-2">
-              <select
-                value={sortField}
-                onChange={(e) => setSortField(e.target.value)}
-                className="p-1 border rounded"
-              >
-                <option value="created">Created</option>
-                <option value="title">Title</option>
-                <option value="audience">Audience</option>
-              </select>
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="text"
                 placeholder="Filter"
@@ -248,7 +233,19 @@ const AdminNotifications = () => {
                 onChange={(e) => setFilter(e.target.value)}
                 className="p-1 border rounded"
               />
+              <SortButton
+                value={sortField}
+                onChange={setSortField}
+                options={[
+                  { value: 'created', label: 'Created' },
+                  { value: 'title', label: 'Title' },
+                  { value: 'audience', label: 'Audience' },
+                ]}
+              />
             </div>
+            <IconButton onClick={() => setShowCreate(true)} aria-label="Create Notification">
+              <FiPlus />
+            </IconButton>
           </div>
 
           {showCreate && (
