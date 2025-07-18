@@ -10,6 +10,7 @@ import {
   FiUpload,
   FiList,
   FiGrid,
+  FiDownload,
 } from 'react-icons/fi';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
