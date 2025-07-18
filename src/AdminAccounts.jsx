@@ -9,6 +9,8 @@ import TagInput from './components/TagInput.jsx';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 import SortButton from './components/SortButton.jsx';
+import PageToolbar from './components/PageToolbar.jsx';
+import CreateButton from './components/CreateButton.jsx';
 import Button from './components/Button.jsx';
 
 const AdminAccounts = () => {
@@ -122,29 +124,29 @@ const AdminAccounts = () => {
   return (
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Accounts</h1>
-        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="text"
-              placeholder="Filter"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="p-1 border rounded"
-            />
-            <SortButton
-              value={sortField}
-              onChange={setSortField}
-              options={[
-                { value: 'name', label: 'Name' },
-                { value: 'email', label: 'Email' },
-                { value: 'role', label: 'Role' },
-              ]}
-            />
-          </div>
-          <IconButton onClick={() => (window.location.href = '/admin/accounts/new')} aria-label="Create Account">
-            <FiPlus />
-          </IconButton>
-        </div>
+        <PageToolbar
+          left={(
+            <>
+              <input
+                type="text"
+                placeholder="Filter"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="p-1 border rounded"
+              />
+              <SortButton
+                value={sortField}
+                onChange={setSortField}
+                options={[
+                  { value: 'name', label: 'Name' },
+                  { value: 'email', label: 'Email' },
+                  { value: 'role', label: 'Role' },
+                ]}
+              />
+            </>
+          )}
+          right={<CreateButton onClick={() => (window.location.href = '/admin/accounts/new')} ariaLabel="Create Account" />}
+        />
         {loading ? (
           <p>Loading accounts...</p>
         ) : accounts.length === 0 ? (

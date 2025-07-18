@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where } from 'firebase/firestore';
 import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash } from 'react-icons/fi';
+import PageToolbar from './components/PageToolbar.jsx';
+import CreateButton from './components/CreateButton.jsx';
 import { db, auth } from './firebase/config';
 import { useNavigate } from 'react-router-dom';
 import Table from './components/common/Table';
@@ -304,22 +306,22 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Tickets</h1>
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <button onClick={openCreate} className="btn-primary flex items-center gap-1">
-          <FiPlus /> Add Ticket
-        </button>
-        <div className="flex flex-wrap gap-2 items-center">
-          <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
-            <FiList />
-          </TabButton>
-          <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
-            <FiColumns />
-          </TabButton>
-          <TabButton active={view === 'dashboard'} onClick={() => setView('dashboard')} aria-label="Dashboard view">
-            <FiCalendar />
-          </TabButton>
-        </div>
-      </div>
+      <PageToolbar
+        left={(
+          <>
+            <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
+              <FiList />
+            </TabButton>
+            <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
+              <FiColumns />
+            </TabButton>
+            <TabButton active={view === 'dashboard'} onClick={() => setView('dashboard')} aria-label="Dashboard view">
+              <FiCalendar />
+            </TabButton>
+          </>
+        )}
+        right={<CreateButton onClick={openCreate} ariaLabel="Add Ticket" />}
+      />
       {view === 'table' ? (
         <>
           <div className="mb-8">
