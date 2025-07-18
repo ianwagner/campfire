@@ -4,11 +4,18 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import useAgencies from './useAgencies';
+import {
+  FiEdit2,
+  FiArchive,
+  FiList,
+  FiGrid,
+} from 'react-icons/fi';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 import TabButton from './components/TabButton.jsx';
 import SortButton from './components/SortButton.jsx';
 import BrandCard from './components/BrandCard.jsx';
+import PageToolbar from './components/PageToolbar.jsx';
 
 const EditorBrands = () => {
   const [brands, setBrands] = useState([]);
@@ -80,42 +87,44 @@ const EditorBrands = () => {
     });
 
   return (
-    <div className="min-h-screen p-4">
+      <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Brands</h1>
-        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="text"
-              placeholder="Filter"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="p-1 border rounded"
-            />
-            <SortButton
-              value={sortField}
-              onChange={setSortField}
-              options={[
-                { value: 'code', label: 'Code' },
-                { value: 'name', label: 'Name' },
-              ]}
-            />
-            <TabButton
-              type="button"
-              active={showArchived}
-              onClick={() => setShowArchived((p) => !p)}
-              aria-label={showArchived ? 'Hide archived' : 'Show archived'}
-            >
-              Archive
-            </TabButton>
-            <div className="border-l h-6 mx-2" />
-            <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
-              List
-            </TabButton>
-            <TabButton active={view === 'cards'} onClick={() => setView('cards')} aria-label="Card view">
-              Cards
-            </TabButton>
-          </div>
-        </div>
+        <PageToolbar
+          left={(
+            <>
+              <input
+                type="text"
+                placeholder="Filter"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="p-1 border rounded"
+              />
+              <SortButton
+                value={sortField}
+                onChange={setSortField}
+                options={[
+                  { value: 'code', label: 'Code' },
+                  { value: 'name', label: 'Name' },
+                ]}
+              />
+              <TabButton
+                type="button"
+                active={showArchived}
+                onClick={() => setShowArchived((p) => !p)}
+                aria-label={showArchived ? 'Hide archived' : 'Show archived'}
+              >
+                <FiArchive />
+              </TabButton>
+              <div className="border-l h-6 mx-2" />
+              <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
+                <FiList />
+              </TabButton>
+              <TabButton active={view === 'cards'} onClick={() => setView('cards')} aria-label="Card view">
+                <FiGrid />
+              </TabButton>
+            </>
+          )}
+        />
         {loading ? (
           <p>Loading brands...</p>
         ) : brands.length === 0 ? (
@@ -139,7 +148,7 @@ const EditorBrands = () => {
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
                       <IconButton as={Link} to={`/editor/brands/${brand.id}`} aria-label="Edit">
-                        Edit
+                        <FiEdit2 />
                       </IconButton>
                     </div>
                   </td>

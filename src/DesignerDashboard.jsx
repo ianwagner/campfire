@@ -27,10 +27,10 @@ const DesignerDashboard = () => {
   const [shareInfo, setShareInfo] = useState(null);
 
   const kanbanColumns = [
-    { label: 'NEW', status: 'new' },
-    { label: 'DESIGNED', status: 'designed' },
-    { label: 'EDIT REQUEST', status: 'edit request' },
-    { label: 'DONE', status: 'done' },
+    { label: 'New', status: 'new' },
+    { label: 'Designed', status: 'designed' },
+    { label: 'Edit Request', status: 'edit request' },
+    { label: 'Done', status: 'done' },
   ];
 
   const handleShare = async (id) => {
