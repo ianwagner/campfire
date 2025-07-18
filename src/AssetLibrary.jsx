@@ -53,24 +53,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
 
-  const filtered = assets
-    .filter((a) => {
-      const term = filter.toLowerCase();
-      return (
-        !term ||
-        (a.name || '').toLowerCase().includes(term) ||
-        (a.product || '').toLowerCase().includes(term) ||
-        (a.campaign || '').toLowerCase().includes(term)
-      );
-    })
-    .sort((a, b) => {
-      if (sortField === 'createdAt') return (b.createdAt || 0) - (a.createdAt || 0);
-      if (sortField === 'type') return (a.type || '').localeCompare(b.type || '');
-      if (sortField === 'product') return (a.product || '').localeCompare(b.product || '');
-      if (sortField === 'campaign') return (a.campaign || '').localeCompare(b.campaign || '');
-      return (a.name || '').localeCompare(b.name || '');
-    });
-
   const lastIdx = useRef(null);
   const dragValue = useRef(null);
   const dragField = useRef(null);
@@ -340,6 +322,24 @@ const AssetLibrary = ({ brandCode = '' }) => {
     setLoading(false);
   };
 
+
+  const filtered = assets
+    .filter((a) => {
+      const term = filter.toLowerCase();
+      return (
+        !term ||
+        (a.name || '').toLowerCase().includes(term) ||
+        (a.product || '').toLowerCase().includes(term) ||
+        (a.campaign || '').toLowerCase().includes(term)
+      );
+    })
+    .sort((a, b) => {
+      if (sortField === 'createdAt') return (b.createdAt || 0) - (a.createdAt || 0);
+      if (sortField === 'type') return (a.type || '').localeCompare(b.type || '');
+      if (sortField === 'product') return (a.product || '').localeCompare(b.product || '');
+      if (sortField === 'campaign') return (a.campaign || '').localeCompare(b.campaign || '');
+      return (a.name || '').localeCompare(b.name || '');
+    });
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
   const startIdx = page * PAGE_SIZE;
