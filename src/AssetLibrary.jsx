@@ -294,9 +294,9 @@ const AssetLibrary = ({ brandCode = '' }) => {
       const term = filter.toLowerCase();
       return (
         !term ||
-        a.name.toLowerCase().includes(term) ||
-        a.product.toLowerCase().includes(term) ||
-        a.campaign.toLowerCase().includes(term)
+        (a.name || '').toLowerCase().includes(term) ||
+        (a.product || '').toLowerCase().includes(term) ||
+        (a.campaign || '').toLowerCase().includes(term)
       );
     })
     .sort((a, b) => {
