@@ -512,6 +512,16 @@
   margin-bottom: 0.25rem;
 }
 
+.asset-gallery {
+  column-count: 6;
+  column-gap: 0.5rem;
+}
+
+.asset-gallery-item {
+  break-inside: avoid;
+  margin-bottom: 0.5rem;
+}
+
 .size-container {
   position: relative;
   @apply transition-transform duration-500 ease-in-out;

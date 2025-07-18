@@ -8,9 +8,12 @@ import {
   FiFolderPlus,
   FiTag,
   FiUpload,
+  FiList,
+  FiGrid,
 } from 'react-icons/fi';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
+import TabButton from './components/TabButton.jsx';
 import { uploadBrandAsset } from './uploadBrandAsset';
 import TaggerModal from './TaggerModal.jsx';
 import { httpsCallable } from 'firebase/functions';
@@ -43,6 +46,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const fileInputRef = useRef(null);
   const [dirty, setDirty] = useState(false);
+  const [view, setView] = useState('list');
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
@@ -335,6 +339,14 @@ const AssetLibrary = ({ brandCode = '' }) => {
             className="p-1 border rounded"
           />
         </div>
+        <div className="flex flex-wrap gap-2 flex-1 order-last md:order-none justify-center">
+          <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
+            <FiList />
+          </TabButton>
+          <TabButton active={view === 'gallery'} onClick={() => setView('gallery')} aria-label="Gallery view">
+            <FiGrid />
+          </TabButton>
+        </div>
         <div className="flex flex-wrap gap-2 items-center relative">
           <span className="relative group">
             <IconButton
@@ -426,6 +438,8 @@ const AssetLibrary = ({ brandCode = '' }) => {
           </span>
         </div>
       </div>
+      {view === 'list' ? (
+        <>
         {Object.keys(selected).some((k) => selected[k]) && (
           <div className="mb-2 flex flex-wrap gap-2 items-end">
             <span className="relative group">
@@ -484,8 +498,8 @@ const AssetLibrary = ({ brandCode = '' }) => {
             Apply To Selected
           </button>
         </div>
-      )}
-      <Table>
+        )}
+        <Table>
           <thead>
             <tr>
               <th></th>
@@ -625,6 +639,22 @@ const AssetLibrary = ({ brandCode = '' }) => {
             </button>
           </div>
         )}
+        </>
+      ) : (
+        <div className="asset-gallery mt-4">
+          {filtered.map((a) => (
+            <div key={a.id} className="asset-gallery-item">
+              {(a.thumbnailUrl || a.url) && (
+                <img
+                  src={a.thumbnailUrl || a.url}
+                  alt={a.name}
+                  className="w-full h-auto object-contain"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       {showTagger && (
         <TaggerModal brandCode={brandCode} onClose={() => setShowTagger(false)} />
       )}
