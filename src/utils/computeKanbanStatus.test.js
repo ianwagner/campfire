@@ -20,6 +20,11 @@ test('returns done when all approved or rejected', () => {
   expect(status).toBe('done');
 });
 
+test('returns done when counts exceed asset total', () => {
+  const status = computeKanbanStatus({ assetCount: 2, counts: { approved: 1, archived: 1, rejected: 1 } });
+  expect(status).toBe('done');
+});
+
 test('returns designed otherwise', () => {
   const status = computeKanbanStatus({ assetCount: 2, counts: { approved: 1, rejected: 0, edit: 0 } });
   expect(status).toBe('designed');
