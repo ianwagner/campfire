@@ -67,17 +67,22 @@ const BrandAssets = ({ brandCode, onClose, inline = false }) => {
           <div className="mb-3">
             <p className="font-medium text-sm mb-1">Typefaces</p>
             <ul className="list-disc list-inside space-y-1">
-              {brand.fonts.map((f, idx) => (
-                <li key={idx} className="text-sm">
-                  {f.type === "google" ? (
-                    f.value
-                  ) : (
-                    <a href={f.value} target="_blank" rel="noopener noreferrer" className="underline">
-                      {f.name || `Custom Font ${idx + 1}`}
-                    </a>
-                  )}
-                </li>
-              ))}
+              {brand.fonts.map((f, idx) => {
+                if (!f || typeof f !== 'object') return null;
+                const { type, value, name } = f;
+                if (!value) return null;
+                return (
+                  <li key={idx} className="text-sm">
+                    {type === 'google' ? (
+                      value
+                    ) : (
+                      <a href={value} target="_blank" rel="noopener noreferrer" className="underline">
+                        {name || `Custom Font ${idx + 1}`}
+                      </a>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
