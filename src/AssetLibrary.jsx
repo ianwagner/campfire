@@ -77,6 +77,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const galleryRef = useRef(null);
 
   const updateSpans = () => {
+    if (typeof window === 'undefined') return;
     const gallery = galleryRef.current;
     if (!gallery) return;
     const rowHeight = parseInt(
@@ -117,10 +118,14 @@ const AssetLibrary = ({ brandCode = '' }) => {
       dragValue.current = null;
       dragField.current = null;
     };
-    window.addEventListener('mouseup', up);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('mouseup', up);
+    }
     return () => {
       cancelled = true;
-      window.removeEventListener('mouseup', up);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('mouseup', up);
+      }
     };
   }, [brandCode]);
 
@@ -136,9 +141,12 @@ const AssetLibrary = ({ brandCode = '' }) => {
   useEffect(() => {
     if (view === 'gallery') {
       updateSpans();
-      window.addEventListener('resize', updateSpans);
-      return () => window.removeEventListener('resize', updateSpans);
+      if (typeof window !== 'undefined') {
+        window.addEventListener('resize', updateSpans);
+        return () => window.removeEventListener('resize', updateSpans);
+      }
     }
+    return undefined;
   }, [view, filtered]);
 
   const addRow = () => {
