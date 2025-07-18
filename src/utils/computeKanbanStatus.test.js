@@ -1,0 +1,21 @@
+import computeKanbanStatus from './computeKanbanStatus';
+
+test('returns new when no assets', () => {
+  const status = computeKanbanStatus({ assetCount: 0, counts: {} });
+  expect(status).toBe('new');
+});
+
+test('returns edit request when any edits present', () => {
+  const status = computeKanbanStatus({ assetCount: 2, counts: { edit: 1 } });
+  expect(status).toBe('edit request');
+});
+
+test('returns done when all approved or rejected', () => {
+  const status = computeKanbanStatus({ assetCount: 3, counts: { approved: 2, rejected: 1 } });
+  expect(status).toBe('done');
+});
+
+test('returns designed otherwise', () => {
+  const status = computeKanbanStatus({ assetCount: 2, counts: { approved: 1, rejected: 0, edit: 0 } });
+  expect(status).toBe('designed');
+});
