@@ -122,6 +122,7 @@ const AdGroupDetail = () => {
   const [responses, setResponses] = useState([]);
   const [designers, setDesigners] = useState([]);
   const [designerName, setDesignerName] = useState('');
+  const [revisionModal, setRevisionModal] = useState(null);
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
@@ -599,6 +600,74 @@ const AdGroupDetail = () => {
     setViewRecipe({ recipeCode, assets: list });
   };
 
+  const openRevision = async (recipeCode) => {
+    try {
+      const groupAssets = assets.filter((a) => {
+        const info = parseAdFilename(a.filename || "");
+        return (info.recipeCode || "unknown") === recipeCode;
+      });
+      const hasV2 = groupAssets.some(
+        (a) => (a.version || parseAdFilename(a.filename || "").version || 1) > 1,
+      );
+      if (!hasV2) return;
+
+      const history = [];
+      const uids = new Set();
+      for (const asset of groupAssets) {
+        const snap = await getDocs(
+          query(
+            collection(db, "adGroups", id, "assets", asset.id, "history"),
+            orderBy("updatedAt", "desc"),
+          ),
+        );
+        snap.docs.forEach((d) => {
+          const h = d.data() || {};
+          if (h.updatedBy) uids.add(h.updatedBy);
+          history.push({
+            id: d.id,
+            assetId: asset.id,
+            lastUpdatedAt: h.updatedAt,
+            email: h.updatedBy || "N/A",
+            status: h.status,
+            comment: h.comment || "",
+            copyEdit: h.copyEdit || "",
+          });
+        });
+      }
+
+      const userMap = {};
+      await Promise.all(
+        Array.from(uids).map(async (uid) => {
+          try {
+            const snap = await getDoc(doc(db, "users", uid));
+            userMap[uid] = snap.exists()
+              ? snap.data().fullName || snap.data().email || uid
+              : uid;
+          } catch (e) {
+            userMap[uid] = uid;
+          }
+        }),
+      );
+
+      history.forEach((obj) => {
+        if (userMap[obj.email]) obj.email = userMap[obj.email];
+      });
+      history.sort((a, b) => {
+        const t = (x) => x?.toMillis?.() ?? (typeof x === "number" ? x : 0);
+        return t(b.lastUpdatedAt) - t(a.lastUpdatedAt);
+      });
+
+      setRevisionModal({
+        recipeCode,
+        assets: groupAssets,
+        history,
+        copy: recipesMeta[recipeCode]?.copy || "",
+      });
+    } catch (err) {
+      console.error("Failed to open revision modal", err);
+    }
+  };
+
   useEffect(() => {
     if (metadataRecipe) {
       const rawId = String(metadataRecipe.id);
@@ -619,6 +688,7 @@ const AdGroupDetail = () => {
     setHistoryAsset(null);
     setViewRecipe(null);
     setMetadataRecipe(null);
+    setRevisionModal(null);
   };
 
   const deleteHistoryEntry = async (assetId, entryId) => {
@@ -926,6 +996,31 @@ const AdGroupDetail = () => {
       setMetadataRecipe(null);
     } catch (err) {
       console.error("Failed to save metadata", err);
+    }
+  };
+
+  const saveRevisionReady = async () => {
+    if (!revisionModal) return;
+    try {
+      await setDoc(
+        doc(db, "adGroups", id, "recipes", revisionModal.recipeCode),
+        { copy: revisionModal.copy },
+        { merge: true },
+      );
+      setRecipesMeta((prev) => ({
+        ...prev,
+        [revisionModal.recipeCode]: {
+          ...(prev[revisionModal.recipeCode] || { id: revisionModal.recipeCode }),
+          copy: revisionModal.copy,
+        },
+      }));
+      const updateList = revisionModal.assets.filter(
+        (a) => (a.version || parseAdFilename(a.filename || "").version || 1) > 1,
+      );
+      await Promise.all(updateList.map((a) => updateAssetStatus(a.id, "ready")));
+      setRevisionModal(null);
+    } catch (err) {
+      console.error("Failed to complete revision", err);
     }
   };
 
@@ -1472,6 +1567,18 @@ const AdGroupDetail = () => {
                           >
                             <FiClock />
                           </IconButton>
+                          {((a.version || parseAdFilename(a.filename || '').version || 1) > 1) && (
+                            <IconButton
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openRevision(g.recipeCode);
+                              }}
+                              aria-label="See Revision"
+                              className="px-1.5 text-xs"
+                            >
+                              See Revision
+                            </IconButton>
+                          )}
                           <IconButton
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2215,6 +2322,65 @@ const AdGroupDetail = () => {
           <button onClick={closeModals} className="mt-2 btn-primary px-3 py-1">
             Close
           </button>
+        </Modal>
+      )}
+
+      {revisionModal && (
+        <Modal sizeClass="max-w-3xl">
+          <h3 className="mb-2 font-semibold">Recipe {revisionModal.recipeCode} Revision</h3>
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 overflow-auto max-h-[25rem]">
+              {revisionModal.assets.map((a) => (
+                <OptimizedImage
+                  key={a.id}
+                  pngUrl={a.thumbnailUrl || a.firebaseUrl}
+                  alt={a.filename}
+                  className="w-full object-contain max-h-[25rem]"
+                />
+              ))}
+            </div>
+            <div className="w-full md:w-60 overflow-auto max-h-[25rem]">
+              <ul className="space-y-2">
+                {revisionModal.history.map((h, idx) => (
+                  <li key={idx} className="border-b pb-1 last:border-none text-sm">
+                    <div className="flex justify-between items-baseline">
+                      <span className="font-medium">{h.email}</span>
+                      {h.lastUpdatedAt && (
+                        <span className="text-xs text-gray-500">
+                          {h.lastUpdatedAt.toDate
+                            ? h.lastUpdatedAt.toDate().toLocaleString()
+                            : new Date(h.lastUpdatedAt).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                    <StatusBadge status={h.status} className="mt-1" />
+                    {h.comment && <p className="italic">{h.comment}</p>}
+                    {h.copyEdit && (
+                      <p className="italic">
+                        Edit: {renderCopyEditDiff(revisionModal.recipeCode, h.copyEdit)}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <label className="block text-sm mt-2">
+            Copy
+            <textarea
+              className="mt-1 w-full border rounded p-1 text-black dark:text-black"
+              value={revisionModal.copy}
+              onChange={(e) =>
+                setRevisionModal({ ...revisionModal, copy: e.target.value })
+              }
+            />
+          </label>
+          <div className="mt-3 flex justify-end gap-2">
+            <IconButton onClick={closeModals}>Close</IconButton>
+            <button onClick={saveRevisionReady} className="btn-primary px-3 py-1">
+              Ready
+            </button>
+          </div>
         </Modal>
       )}
 
