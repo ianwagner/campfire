@@ -491,7 +491,7 @@ const AdminAdGroups = () => {
               <div className="min-w-max flex gap-4">
                 {kanbanColumns.map((col) => (
                   <div key={col.label} className="flex-shrink-0 w-[240px] sm:w-[320px]">
-                    <h3 className="mb-2">{col.label}</h3>
+                    <h2 className="text-xl mb-2 capitalize">{col.label}</h2>
                     <div
                       className="bg-[#F7F7F7] dark:bg-[var(--dark-bg)] border border-gray-300 dark:border-gray-600 rounded-t-[1rem] rounded-b-[1rem] flex flex-col items-center gap-4 p-[0.6rem] overflow-y-auto"
                       style={{ maxHeight: 'calc(100vh - 13rem)' }}
