@@ -643,7 +643,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
       ) : (
         <div className="asset-gallery mt-4">
           {filtered.map((a) => (
-            <div key={a.id} className="asset-gallery-item">
+            <div key={a.id} className="asset-gallery-item group">
               {(a.thumbnailUrl || a.url) && (
                 <img
                   src={a.thumbnailUrl || a.url}
@@ -651,6 +651,21 @@ const AssetLibrary = ({ brandCode = '' }) => {
                   className="w-full h-auto object-contain"
                 />
               )}
+              <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex flex-col items-center justify-center gap-1 text-white text-xs">
+                {a.url && (
+                  <a href={a.url} download className="btn-secondary px-1 py-0.5 flex items-center gap-1">
+                    <FiDownload /> <span>Download</span>
+                  </a>
+                )}
+                {a.url && (
+                  <button type="button" onClick={() => window.open(a.url, '_blank')} className="btn-secondary px-1 py-0.5 flex items-center gap-1">
+                    <FiLink /> <span>Link</span>
+                  </button>
+                )}
+                <button type="button" onClick={() => deleteRow(a.id)} className="btn-delete px-1 py-0.5 flex items-center gap-1">
+                  <FiTrash /> <span>Delete</span>
+                </button>
+              </div>
             </div>
           ))}
         </div>
