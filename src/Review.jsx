@@ -985,7 +985,9 @@ useEffect(() => {
     setAnimating(responseType);
     setSubmitting(true);
 
-    const recipeAssets = currentRecipeGroup?.assets || [currentAd];
+    const recipeAssets =
+      currentRecipeGroup?.assets.filter((a) => a.status !== 'archived') ||
+      [currentAd];
     const updates = [];
     const addedResponses = {};
     const newStatus =

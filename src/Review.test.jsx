@@ -366,6 +366,57 @@ test('approving a revision resolves all related docs', async () => {
   expect(paths).toContain('adGroups/group1/assets/orig1');
 });
 
+test('approving a revision does not change archived versions', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'orig1',
+        data: () => ({
+          firebaseUrl: 'v1.png',
+          version: 1,
+          status: 'archived',
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'rev2',
+        data: () => ({
+          firebaseUrl: 'v2.png',
+          version: 2,
+          parentAdId: 'orig1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  const relatedSnapshot = { docs: [] };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets')
+      return Promise.resolve(relatedSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png'));
+
+  fireEvent.click(screen.getByText('Approve'));
+
+  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+
+  const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1/assets/orig1');
+  expect(call[1].status).toBeUndefined();
+});
+
 test('version selector changes revisions', async () => {
   const assetSnapshot = {
     docs: [
