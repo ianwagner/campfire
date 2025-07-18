@@ -32,3 +32,10 @@ test('uses highest priority status per recipe', () => {
   expect(summary.edit).toBe(0);
   expect(summary.reviewed).toBe(1);
 });
+
+test('counts archived ads', () => {
+  const list = [make('archived', '001'), make('approved', '002')];
+  const summary = summarizeByRecipe(list);
+  expect(summary.archived).toBe(1);
+  expect(summary.approved).toBe(1);
+});

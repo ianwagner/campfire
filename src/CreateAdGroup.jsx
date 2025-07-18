@@ -61,6 +61,7 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
         approvedCount: 0,
         editCount: 0,
         rejectedCount: 0,
+        archivedCount: 0,
         thumbnailUrl: "",
         lastUpdated: serverTimestamp(),
         visibility: "private",

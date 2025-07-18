@@ -387,6 +387,7 @@ const AdGroupDetail = () => {
         approved: group.approvedCount || 0,
         edit: group.editCount || 0,
         rejected: group.rejectedCount || 0,
+        archived: group.archivedCount || 0,
       };
     }
   }, [group]);
@@ -400,6 +401,7 @@ const AdGroupDetail = () => {
       summary.approved !== prev.approved ||
       summary.edit !== prev.edit ||
       summary.rejected !== prev.rejected ||
+      summary.archived !== prev.archived ||
       (!group.thumbnailUrl && summary.thumbnail);
     if (changed) {
       const update = {
@@ -407,6 +409,7 @@ const AdGroupDetail = () => {
         approvedCount: summary.approved,
         editCount: summary.edit,
         rejectedCount: summary.rejected,
+        archivedCount: summary.archived,
         lastUpdated: serverTimestamp(),
         ...(group.thumbnailUrl
           ? {}

@@ -88,6 +88,10 @@ const AgencyAdGroups = () => {
             let recipeCount = 0;
             let assetCount = 0;
             let readyCount = 0;
+            let approvedCount = 0;
+            let archivedCount = 0;
+            let rejectedCount = 0;
+            let editCount = 0;
             const set = new Set();
             try {
               const assetSnap = await getDocs(
@@ -97,6 +101,10 @@ const AgencyAdGroups = () => {
               assetSnap.docs.forEach((adDoc) => {
                 const adData = adDoc.data();
                 if (adData.status === 'ready') readyCount += 1;
+                if (adData.status === 'approved') approvedCount += 1;
+                if (adData.status === 'archived') archivedCount += 1;
+                if (adData.status === 'rejected') rejectedCount += 1;
+                if (adData.status === 'edit_requested') editCount += 1;
                 const code =
                   adData.recipeCode || parseAdFilename(adData.filename || '').recipeCode;
                 if (code) set.add(code);
@@ -116,9 +124,10 @@ const AgencyAdGroups = () => {
               assetCount,
               readyCount,
               counts: {
-                approved: data.approvedCount || 0,
-                rejected: data.rejectedCount || 0,
-                edit: data.editCount || 0,
+                approved: approvedCount,
+                archived: archivedCount,
+                rejected: rejectedCount,
+                edit: editCount,
               },
               designerName,
             };
