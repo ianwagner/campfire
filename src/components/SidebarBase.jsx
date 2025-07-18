@@ -6,6 +6,8 @@ import useSiteSettings from '../useSiteSettings';
 import debugLog from '../utils/debugLog';
 import { DEFAULT_LOGO_URL } from '../constants';
 import OptimizedImage from './OptimizedImage.jsx';
+import AnimatedLogo from './AnimatedLogo.jsx';
+import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
 /**
  * Common sidebar layout.
@@ -18,6 +20,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(false);
   const [openGroups, setOpenGroups] = React.useState({});
   const { settings } = useSiteSettings(applySiteAccent);
   const [logoReady, setLogoReady] = React.useState(false);
@@ -43,6 +46,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
     <>
       {tabs.map((tab) => {
         const currentPath = location.pathname + location.search;
+        const Icon = tab.icon;
         if (tab.children) {
           const activeChild = tab.children.some((c) => currentPath.startsWith(c.path));
           const isOpen = openGroups[tab.label] || activeChild;
@@ -50,11 +54,12 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
             (activeChild
               ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
               : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
-            'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200';
+            'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-2 justify-center';
           return (
             <div key={tab.label} className="space-y-1">
               <button onClick={() => toggleGroup(tab.label)} className={parentClasses}>
-                {tab.label}
+                {Icon && <Icon />}
+                {!collapsed && tab.label}
               </button>
               <div
                 className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96' : 'max-h-0'}`}
@@ -66,14 +71,15 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
                       (isActive
                         ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
                         : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
-                      'rounded-lg w-full text-center text-sm px-3 py-2 transition-colors duration-200';
+                      'rounded-lg w-full text-center text-sm px-3 py-2 transition-colors duration-200 flex items-center gap-2 justify-center';
                     return (
                       <button
                         key={child.label}
                         onClick={() => handleClick(child)}
                         className={childClasses}
                       >
-                        {child.label}
+                        {child.icon && <child.icon />}
+                        {!collapsed && child.label}
                       </button>
                     );
                   })}
@@ -87,10 +93,11 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
           (isActive
             ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
             : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
-          'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200';
+          'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-2 justify-center';
         return (
           <button key={tab.label} onClick={() => handleClick(tab)} className={classes}>
-            {tab.label}
+            {Icon && <Icon />}
+            {!collapsed && tab.label}
           </button>
         );
       })}
@@ -100,24 +107,25 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
   return (
     <>
       {/* Desktop sidebar */}
-      <div className="hidden md:flex fixed top-0 left-0 w-[250px] border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] p-4 flex-col h-screen justify-between">
-        <div className="space-y-2">
-          <div className="relative mx-auto mt-4 mb-4 h-16 flex items-center justify-center">
+      <div
+        className={`hidden md:flex fixed top-0 left-0 ${collapsed ? 'w-16' : 'w-[250px]'} border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] p-4 flex-col h-screen justify-between`}
+      >
+        <div className="space-y-2 items-center">
+          <div className="relative mx-auto mt-4 mb-4 flex items-center justify-center h-16">
             {!logoReady && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="loading-ring w-6 h-6" />
               </div>
             )}
-            <OptimizedImage
-              pngUrl={logoSrc}
-              alt={logoAlt || 'Logo'}
-              loading="eager"
-              cacheKey={logoSrc}
-              className={`max-h-full w-auto ${logoReady ? '' : 'opacity-0'}`}
-              onLoad={() => setLogoReady(true)}
-              onError={() => setLogoReady(true)}
-            />
+            <AnimatedLogo condensed={collapsed} />
           </div>
+          <button
+            aria-label="Toggle sidebar"
+            onClick={() => setCollapsed((c) => !c)}
+            className="mx-auto mb-2 text-xl"
+          >
+            {collapsed ? <FiChevronRight /> : <FiChevronLeft />}
+          </button>
           {menuItems}
         </div>
         <div className="flex flex-col items-center space-y-1">
