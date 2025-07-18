@@ -8,6 +8,7 @@ import debugLog from './utils/debugLog';
 import TagInput from './components/TagInput.jsx';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
+import SortButton from './components/SortButton.jsx';
 import Button from './components/Button.jsx';
 
 const AdminAccounts = () => {
@@ -122,20 +123,7 @@ const AdminAccounts = () => {
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Accounts</h1>
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <Link to="/admin/accounts/new" className="btn-primary flex items-center gap-1">
-            <FiPlus />
-            Create Account
-          </Link>
-          <div className="flex items-center gap-2">
-            <select
-              value={sortField}
-              onChange={(e) => setSortField(e.target.value)}
-              className="p-1 border rounded"
-            >
-              <option value="name">Name</option>
-              <option value="email">Email</option>
-              <option value="role">Role</option>
-            </select>
+          <div className="flex flex-wrap items-center gap-2">
             <input
               type="text"
               placeholder="Filter"
@@ -143,7 +131,19 @@ const AdminAccounts = () => {
               onChange={(e) => setFilter(e.target.value)}
               className="p-1 border rounded"
             />
+            <SortButton
+              value={sortField}
+              onChange={setSortField}
+              options={[
+                { value: 'name', label: 'Name' },
+                { value: 'email', label: 'Email' },
+                { value: 'role', label: 'Role' },
+              ]}
+            />
           </div>
+          <IconButton onClick={() => (window.location.href = '/admin/accounts/new')} aria-label="Create Account">
+            <FiPlus />
+          </IconButton>
         </div>
         {loading ? (
           <p>Loading accounts...</p>

@@ -15,6 +15,7 @@ import CopyRecipePreview from './CopyRecipePreview.jsx';
 import TabButton from './components/TabButton.jsx';
 import Modal from './components/Modal.jsx';
 import IconButton from './components/IconButton.jsx';
+import SortButton from './components/SortButton.jsx';
 import Button from './components/Button.jsx';
 
 const VIEWS = {
@@ -150,26 +151,26 @@ const resetForm = () => {
   return (
     <div>
       <div className="flex justify-between mb-2">
-        <div>
+        <div className="flex items-center gap-2">
           <input
             type="text"
             placeholder="Filter"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="p-1 border rounded mr-2"
-          />
-          <select
-            value={sortAsc ? 'asc' : 'desc'}
-            onChange={(e) => setSortAsc(e.target.value === 'asc')}
             className="p-1 border rounded"
-          >
-            <option value="asc">Sort A-Z</option>
-            <option value="desc">Sort Z-A</option>
-          </select>
+          />
+          <SortButton
+            value={sortAsc ? 'asc' : 'desc'}
+            onChange={(val) => setSortAsc(val === 'asc')}
+            options={[
+              { value: 'asc', label: 'Sort A-Z' },
+              { value: 'desc', label: 'Sort Z-A' },
+            ]}
+          />
         </div>
-        <Button variant="primary" onClick={openCreate} className="flex items-center gap-1">
-          <FiPlus /> Create Recipe Type
-        </Button>
+        <IconButton onClick={openCreate} aria-label="Create Recipe Type">
+          <FiPlus />
+        </IconButton>
       </div>
       {filteredTypes.length === 0 ? (
         <p>No recipe types found.</p>
