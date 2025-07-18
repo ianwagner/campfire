@@ -8,6 +8,6 @@ export default function computeKanbanStatus(group) {
 
   if (assetCount === 0) return 'new';
   if (edit > 0) return 'edit request';
-  if (approved + archived + rejected === assetCount) return 'done';
+  if (approved + archived + rejected >= assetCount) return 'done';
   return 'designed';
 }
