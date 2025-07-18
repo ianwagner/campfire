@@ -79,6 +79,34 @@ const PlaceholderIcon = ({ ext }) => {
   );
 };
 
+const ExpandableText = ({ value, maxLength = 40, isLink = false }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (value == null) return null;
+  const str = String(value);
+  const tooLong = str.length > maxLength;
+  const display = expanded || !tooLong ? str : str.slice(0, maxLength) + "...";
+  const handleClick = () => {
+    if (tooLong) setExpanded((p) => !p);
+  };
+  return isLink ? (
+    <a
+      href={str}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="text-blue-600 hover:underline"
+    >
+      <span onClick={handleClick} className="cursor-pointer">
+        {display}
+      </span>
+    </a>
+  ) : (
+    <span onClick={handleClick} className={tooLong ? "cursor-pointer" : ""}>
+      {display}
+    </span>
+  );
+};
+
 const normalizeId = (value) =>
   String(value ?? "")
     .trim()
@@ -1688,27 +1716,25 @@ const AdGroupDetail = () => {
                 See Revision
               </IconButton>
             )}
-            {userRole === "admin" && (
-              <IconButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const rawId = g.recipeCode;
-                  const normId = normalizeId(rawId);
-                  setMetadataRecipe(
-                    recipesMeta[rawId] ||
-                      recipesMeta[String(rawId).toLowerCase()] ||
-                      recipesMeta[normId] || {
-                        id: rawId,
-                      },
-                  );
-                }}
-                aria-label="Metadata"
-                className="px-1.5 text-xs mr-2"
-              >
-                <FiBookOpen />
-                <span className="ml-1">Metadata</span>
-              </IconButton>
-            )}
+            <IconButton
+              onClick={(e) => {
+                e.stopPropagation();
+                const rawId = g.recipeCode;
+                const normId = normalizeId(rawId);
+                setMetadataRecipe(
+                  recipesMeta[rawId] ||
+                    recipesMeta[String(rawId).toLowerCase()] ||
+                    recipesMeta[normId] || {
+                      id: rawId,
+                    },
+                );
+              }}
+              aria-label="Metadata"
+              className="px-1.5 text-xs mr-2"
+            >
+              <FiBookOpen />
+              <span className="ml-1">Metadata</span>
+            </IconButton>
             <IconButton
               onClick={(e) => {
                 e.stopPropagation();
@@ -2494,19 +2520,28 @@ const AdGroupDetail = () => {
       )}
 
       {metadataRecipe && (
-        <Modal sizeClass="max-w-sm">
+        <Modal sizeClass="max-w-lg">
           <h3 className="mb-2 font-semibold">Metadata for Recipe {metadataRecipe.id}</h3>
           <div className="space-y-2">
             {metadataRecipe.components && (
               <div className="text-sm">
-                {Object.entries(metadataRecipe.components).map(([k, v]) => (
-                  <div key={k}>
-                    <span className="font-semibold mr-1">{k}:</span>
-                    {typeof v === "object" && v !== null
+                {Object.entries(metadataRecipe.components).map(([k, v]) => {
+                  const raw =
+                    typeof v === "object" && v !== null
                       ? JSON.stringify(v)
-                      : String(v)}
-                  </div>
-                ))}
+                      : String(v);
+                  const isLink = /^https?:/i.test(raw);
+                  return (
+                    <div key={k}>
+                      <span className="font-semibold mr-1">{k}:</span>
+                      <ExpandableText
+                        value={raw}
+                        maxLength={isLink ? 20 : 40}
+                        isLink={isLink}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             )}
             <label className="block text-sm">
