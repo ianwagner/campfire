@@ -93,6 +93,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
               counts: {
                 reviewed: data.reviewedCount || 0,
                 approved: data.approvedCount || 0,
+                archived: data.archivedCount || 0,
                 edit: data.editCount || 0,
                 rejected: data.rejectedCount || 0,
               },
@@ -138,6 +139,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
             group.counts = {
               reviewed: summary.reviewed,
               approved: summary.approved,
+              archived: summary.archived,
               edit: summary.edit,
               rejected: summary.rejected,
             };
@@ -146,6 +148,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
               !data.thumbnailUrl ||
               data.reviewedCount !== summary.reviewed ||
               data.approvedCount !== summary.approved ||
+              data.archivedCount !== summary.archived ||
               data.editCount !== summary.edit ||
               data.rejectedCount !== summary.rejected;
 
@@ -154,6 +157,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                 const update = {
                   reviewedCount: summary.reviewed,
                   approvedCount: summary.approved,
+                  archivedCount: summary.archived,
                   editCount: summary.edit,
                   rejectedCount: summary.rejected,
                   ...(data.thumbnailUrl ? {} : summary.thumbnail ? { thumbnailUrl: summary.thumbnail } : {}),

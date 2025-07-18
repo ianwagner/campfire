@@ -11,7 +11,7 @@ function getPriority(status = '') {
 }
 
 export default function summarizeByRecipe(list = []) {
-  const summary = { reviewed: 0, approved: 0, edit: 0, rejected: 0, thumbnail: '' };
+  const summary = { reviewed: 0, approved: 0, edit: 0, rejected: 0, archived: 0, thumbnail: '' };
   const map = {};
   list.forEach((a) => {
     if (!summary.thumbnail && (a.thumbnailUrl || a.firebaseUrl)) {
@@ -24,12 +24,14 @@ export default function summarizeByRecipe(list = []) {
     if (!prev || getPriority(a.status) > getPriority(prev)) {
       map[recipe] = a.status;
     }
+    if (a.status === 'archived') summary.archived += 1;
   });
   Object.values(map).forEach((status) => {
     if (status !== 'ready') summary.reviewed += 1;
     if (status === 'approved') summary.approved += 1;
     if (status === 'edit_requested') summary.edit += 1;
     if (status === 'rejected') summary.rejected += 1;
+    if (status === 'archived') summary.archived += 1;
   });
   return summary;
 }

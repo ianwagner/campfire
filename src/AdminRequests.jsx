@@ -277,6 +277,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
           approvedCount: 0,
           editCount: 0,
           rejectedCount: 0,
+          archivedCount: 0,
           thumbnailUrl: '',
           lastUpdated: serverTimestamp(),
           visibility: 'private',
