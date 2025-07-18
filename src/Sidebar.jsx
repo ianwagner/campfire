@@ -1,25 +1,34 @@
 import SidebarBase from './components/SidebarBase';
 import useAgencyTheme from './useAgencyTheme';
+import {
+  FiHome,
+  FiFileText,
+  FiUser,
+  FiSettings,
+  FiList,
+  FiGrid,
+  FiBriefcase,
+} from 'react-icons/fi';
 
 const defaultTabs = [
-  { label: 'Campfire', path: '/dashboard/client' },
-  { label: 'Request', path: '/request' },
-  { label: 'Brand Profile', path: '/brand-profile' },
-  { label: 'Account Settings', path: '/account-settings' },
+  { label: 'Campfire', path: '/dashboard/client', icon: FiHome },
+  { label: 'Request', path: '/request', icon: FiFileText },
+  { label: 'Brand Profile', path: '/brand-profile', icon: FiUser },
+  { label: 'Account Settings', path: '/account-settings', icon: FiSettings },
 ];
 
 const managerTabs = [
-  { label: 'Tickets', path: '/admin/tickets' },
-  { label: 'Ad Groups', path: '/admin/ad-groups' },
-  { label: 'Brands', path: '/admin/brands' },
-  { label: 'Account Settings', path: '/account-settings' },
+  { label: 'Tickets', path: '/admin/tickets', icon: FiList },
+  { label: 'Ad Groups', path: '/admin/ad-groups', icon: FiGrid },
+  { label: 'Brands', path: '/admin/brands', icon: FiBriefcase },
+  { label: 'Account Settings', path: '/account-settings', icon: FiSettings },
 ];
 
 const editorTabs = [
-  { label: 'Tickets', path: '/editor/tickets' },
-  { label: 'Ad Groups', path: '/editor/ad-groups' },
-  { label: 'Brands', path: '/editor/brands' },
-  { label: 'Account Settings', path: '/account-settings' },
+  { label: 'Tickets', path: '/editor/tickets', icon: FiList },
+  { label: 'Ad Groups', path: '/editor/ad-groups', icon: FiGrid },
+  { label: 'Brands', path: '/editor/brands', icon: FiBriefcase },
+  { label: 'Account Settings', path: '/account-settings', icon: FiSettings },
 ];
 
 const Sidebar = ({ agencyId, role }) => {
