@@ -10,8 +10,13 @@ test('returns edit request when any edits present', () => {
   expect(status).toBe('edit request');
 });
 
+test('returns done when all approved, archived, or rejected', () => {
+  const status = computeKanbanStatus({ assetCount: 3, counts: { approved: 1, archived: 1, rejected: 1 } });
+  expect(status).toBe('done');
+});
+
 test('returns done when all approved or rejected', () => {
-  const status = computeKanbanStatus({ assetCount: 3, counts: { approved: 2, rejected: 1 } });
+  const status = computeKanbanStatus({ assetCount: 2, counts: { approved: 1, rejected: 1 } });
   expect(status).toBe('done');
 });
 
