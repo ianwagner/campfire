@@ -1043,7 +1043,9 @@ useEffect(() => {
                 updatedBy: name,
                 updatedAt: serverTimestamp(),
                 ...(responseType === 'edit' && comment ? { comment } : {}),
-                ...(responseType === 'edit' && copyChanged ? { copyEdit: editCopy } : {}),
+                ...(responseType === 'edit' && copyChanged
+                  ? { copyEdit: editCopy, origCopy }
+                  : {}),
               },
             ).catch((err) => {
               if (err?.code === 'already-exists') {

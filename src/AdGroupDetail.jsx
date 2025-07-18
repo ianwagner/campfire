@@ -134,8 +134,8 @@ const AdGroupDetail = () => {
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
   const showStats = usesTabs ? tab === "stats" : !showTable;
 
-  const renderCopyEditDiff = (recipeCode, edit) => {
-    const orig = recipesMeta[recipeCode]?.copy || "";
+  const renderCopyEditDiff = (recipeCode, edit, origOverride) => {
+    const orig = origOverride ?? (recipesMeta[recipeCode]?.copy || "");
     if (!edit || edit === orig) return null;
     const diff = diffWords(orig, edit);
     return diff.map((p, i) => {
@@ -511,6 +511,7 @@ const AdGroupDetail = () => {
             status: h.status,
             comment: h.comment || "",
             copyEdit: h.copyEdit || "",
+            origCopy: h.origCopy || "",
           });
         });
       }
@@ -560,6 +561,7 @@ const AdGroupDetail = () => {
           status: data.status,
           comment: data.comment || "",
           copyEdit: data.copyEdit || "",
+          origCopy: data.origCopy || "",
         });
       });
 
@@ -631,6 +633,7 @@ const AdGroupDetail = () => {
             status: h.status,
             comment: h.comment || "",
             copyEdit: h.copyEdit || "",
+            origCopy: h.origCopy || "",
           });
         });
       }
@@ -2363,7 +2366,11 @@ const AdGroupDetail = () => {
                     {h.comment && <p className="italic">{h.comment}</p>}
                     {h.copyEdit && (
                       <p className="italic">
-                        Edit: {renderCopyEditDiff(revisionModal.recipeCode, h.copyEdit)}
+                        Edit: {renderCopyEditDiff(
+                          revisionModal.recipeCode,
+                          h.copyEdit,
+                          h.origCopy,
+                        )}
                       </p>
                     )}
                   </li>
@@ -2415,6 +2422,7 @@ const AdGroupDetail = () => {
                     const diff = renderCopyEditDiff(
                       historyRecipe.recipeCode,
                       a.copyEdit,
+                      a.origCopy,
                     );
                     return diff ? (
                       <div className="text-sm italic">Edit Request: {diff}</div>
@@ -2461,6 +2469,7 @@ const AdGroupDetail = () => {
                     const diff = renderCopyEditDiff(
                       historyAsset.recipeCode,
                       a.copyEdit,
+                      a.origCopy,
                     );
                     return diff ? (
                       <div className="text-sm italic">Edit Request: {diff}</div>
