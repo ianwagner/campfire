@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FiFilter } from 'react-icons/fi';
+import { FiSliders } from 'react-icons/fi';
 import TabButton from './TabButton.jsx';
 
 const SortButton = ({ value, onChange, options }) => {
@@ -35,7 +35,7 @@ const SortButton = ({ value, onChange, options }) => {
         onClick={() => setOpen((o) => !o)}
         aria-label="Sort"
       >
-        <FiFilter />
+        <FiSliders />
       </TabButton>
       {open && (
         <div

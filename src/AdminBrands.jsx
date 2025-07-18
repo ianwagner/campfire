@@ -18,6 +18,8 @@ import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 import TabButton from './components/TabButton.jsx';
 import SortButton from './components/SortButton.jsx';
+import PageToolbar from './components/PageToolbar.jsx';
+import CreateButton from './components/CreateButton.jsx';
 import BrandCard from './components/BrandCard.jsx';
 
 const AdminBrands = () => {
@@ -115,43 +117,43 @@ const AdminBrands = () => {
   return (
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Brands</h1>
-        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="text"
-              placeholder="Filter"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="p-1 border rounded"
-            />
-            <SortButton
-              value={sortField}
-              onChange={setSortField}
-              options={[
-                { value: 'code', label: 'Code' },
-                { value: 'name', label: 'Name' },
-              ]}
-            />
-            <TabButton
-              type="button"
-              active={showArchived}
-              onClick={() => setShowArchived((p) => !p)}
-              aria-label={showArchived ? 'Hide archived' : 'Show archived'}
-            >
-              <FiArchive />
-            </TabButton>
-            <div className="border-l h-6 mx-2" />
-            <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
-              <FiList />
-            </TabButton>
-            <TabButton active={view === 'cards'} onClick={() => setView('cards')} aria-label="Card view">
-              <FiGrid />
-            </TabButton>
-          </div>
-          <IconButton onClick={() => (window.location.href = '/admin/brands/new')} aria-label="Create Brand">
-            <FiPlus />
-          </IconButton>
-        </div>
+        <PageToolbar
+          left={(
+            <>
+              <input
+                type="text"
+                placeholder="Filter"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="p-1 border rounded"
+              />
+              <SortButton
+                value={sortField}
+                onChange={setSortField}
+                options={[
+                  { value: 'code', label: 'Code' },
+                  { value: 'name', label: 'Name' },
+                ]}
+              />
+              <TabButton
+                type="button"
+                active={showArchived}
+                onClick={() => setShowArchived((p) => !p)}
+                aria-label={showArchived ? 'Hide archived' : 'Show archived'}
+              >
+                <FiArchive />
+              </TabButton>
+              <div className="border-l h-6 mx-2" />
+              <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
+                <FiList />
+              </TabButton>
+              <TabButton active={view === 'cards'} onClick={() => setView('cards')} aria-label="Card view">
+                <FiGrid />
+              </TabButton>
+            </>
+          )}
+          right={<CreateButton onClick={() => (window.location.href = '/admin/brands/new')} ariaLabel="Create Brand" />}
+        />
         {loading ? (
           <p>Loading brands...</p>
         ) : brands.length === 0 ? (

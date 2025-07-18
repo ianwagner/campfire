@@ -35,6 +35,8 @@ import ShareLinkModal from './components/ShareLinkModal.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 import IconButton from './components/IconButton.jsx';
 import SortButton from './components/SortButton.jsx';
+import PageToolbar from './components/PageToolbar.jsx';
+import CreateButton from './components/CreateButton.jsx';
 
 const AdminAdGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -267,8 +269,9 @@ const AdminAdGroups = () => {
       <h1 className="text-2xl mb-4">Admin Ad Groups</h1>
 
       <div className="mb-8">
-          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-            <div className="flex flex-wrap items-center gap-2">
+        <PageToolbar
+          left={(
+            <>
               <input
                 type="text"
                 placeholder="Filter"
@@ -315,11 +318,10 @@ const AdminAdGroups = () => {
               <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
                 <FiColumns />
               </TabButton>
-            </div>
-            <IconButton onClick={() => setShowCreate(true)} aria-label="Create Ad Group">
-              <FiPlus />
-            </IconButton>
-          </div>
+            </>
+          )}
+          right={<CreateButton onClick={() => setShowCreate(true)} ariaLabel="Create Ad Group" />}
+        />
         {loading ? (
           <p>Loading groups...</p>
         ) : displayGroups.length === 0 ? (
