@@ -7,6 +7,7 @@ import {
   FiColumns,
   FiFileText,
   FiCheckCircle,
+  FiArchive,
 } from 'react-icons/fi';
 import {
   collection,
@@ -30,6 +31,7 @@ import AdGroupCard from './components/AdGroupCard.jsx';
 import TabButton from './components/TabButton.jsx';
 import IconButton from './components/IconButton.jsx';
 import SortButton from './components/SortButton.jsx';
+import PageToolbar from './components/PageToolbar.jsx';
 
 const EditorAdGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -189,8 +191,9 @@ const EditorAdGroups = () => {
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Ad Groups</h1>
       <div className="mb-8">
-          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <div className="flex flex-wrap items-center gap-2">
+        <PageToolbar
+          left={(
+            <>
               <input
                 type="text"
                 placeholder="Filter"
@@ -226,19 +229,20 @@ const EditorAdGroups = () => {
                     onClick={() => setShowArchived((p) => !p)}
                     aria-label={showArchived ? 'Hide archived' : 'Show archived'}
                   >
-                    Archive
+                    <FiArchive />
                   </TabButton>
                 </>
               )}
               <div className="border-l h-6 mx-2" />
               <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
-                Table
+                <FiList />
               </TabButton>
               <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
-                Kanban
+                <FiColumns />
               </TabButton>
-            </div>
-          </div>
+            </>
+          )}
+        />
         {loading ? (
           <p>Loading groups...</p>
         ) : displayGroups.length === 0 ? (
