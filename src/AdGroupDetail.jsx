@@ -1313,17 +1313,12 @@ const AdGroupDetail = () => {
 
   const computeExportGroups = () => {
     const approved = assets.filter((a) => a.status === "approved");
-    const map = {};
-    approved.forEach((a) => {
+    return approved.map((a) => {
       const info = parseAdFilename(a.filename || "");
       const recipe = a.recipeCode || info.recipeCode;
       const meta = recipesMeta[recipe] || {};
-      const keyParts = groupBy.map((k) => sanitize(meta[k]));
-      const key = keyParts.join("|");
-      if (!map[key]) map[key] = [];
-      map[key].push({ asset: a, meta });
+      return [{ asset: a, meta }];
     });
-    return Object.values(map);
   };
 
   useEffect(() => {
@@ -1431,17 +1426,17 @@ const AdGroupDetail = () => {
     try {
       const groups = computeExportGroups();
       const files = [];
+      const base = `${sanitize(group?.brandCode)}_${sanitize(group?.name)}`;
+      const root = `${base}_`;
       for (const list of groups) {
         if (list.length === 0) continue;
-        const firstMeta = list[0].meta;
-        const folder =
-          groupBy.map((k) => sanitize(firstMeta[k])).join("-") || "group";
-        const selected = list.slice(0, maxAds);
-        for (const { asset } of selected) {
-          const resp = await fetch(asset.firebaseUrl);
-          const buf = await resp.arrayBuffer();
-          files.push({ path: `${folder}/${asset.filename}`, data: buf });
-        }
+        const { asset } = list[0];
+        const info = parseAdFilename(asset.filename || "");
+        const recipe = asset.recipeCode || info.recipeCode || "";
+        const folder = `${root}${recipe}`;
+        const resp = await fetch(asset.firebaseUrl);
+        const buf = await resp.arrayBuffer();
+        files.push({ path: `${folder}/${asset.filename}`, data: buf });
       }
       if (files.length === 0) {
         window.alert("No approved ads found");
@@ -1451,7 +1446,7 @@ const AdGroupDetail = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${group?.name || "export"}.zip`;
+      a.download = `${base}.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
