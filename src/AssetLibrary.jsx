@@ -55,6 +55,26 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const lastIdx = useRef(null);
   const dragValue = useRef(null);
   const dragField = useRef(null);
+  const galleryRef = useRef(null);
+
+  const updateSpans = () => {
+    const gallery = galleryRef.current;
+    if (!gallery) return;
+    const rowHeight = parseInt(
+      window.getComputedStyle(gallery).getPropertyValue('grid-auto-rows')
+    );
+    const rowGap = parseInt(
+      window.getComputedStyle(gallery).getPropertyValue('row-gap')
+    );
+    Array.from(gallery.children).forEach((child) => {
+      const img = child.querySelector('img');
+      if (img) {
+        const h = img.getBoundingClientRect().height;
+        const span = Math.ceil((h + rowGap) / (rowHeight + rowGap));
+        child.style.gridRowEnd = `span ${span}`;
+      }
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +113,14 @@ const AssetLibrary = ({ brandCode = '' }) => {
   useEffect(() => {
     setRowsPerPage(PAGE_SIZE);
   }, [page]);
+
+  useEffect(() => {
+    if (view === 'gallery') {
+      updateSpans();
+      window.addEventListener('resize', updateSpans);
+      return () => window.removeEventListener('resize', updateSpans);
+    }
+  }, [view, filtered]);
 
   const addRow = () => {
     const id = Math.random().toString(36).slice(2);
@@ -642,7 +670,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
         )}
         </>
       ) : (
-        <div className="asset-gallery mt-4">
+        <div className="asset-gallery mt-4" ref={galleryRef}>
           {filtered.map((a) => (
             <div key={a.id} className="asset-gallery-item group">
               {(a.thumbnailUrl || a.url) && (
@@ -650,6 +678,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
                   src={a.thumbnailUrl || a.url}
                   alt={a.name}
                   className="w-full h-auto object-contain"
+                  onLoad={updateSpans}
                 />
               )}
               <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex flex-col items-center justify-center gap-1 text-white text-xs">
