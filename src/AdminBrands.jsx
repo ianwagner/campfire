@@ -152,7 +152,6 @@ const AdminBrands = () => {
             <FiPlus />
           </IconButton>
         </div>
-        </div>
         {loading ? (
           <p>Loading brands...</p>
         ) : brands.length === 0 ? (
