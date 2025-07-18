@@ -241,10 +241,10 @@ const AdminAdGroups = () => {
   };
 
   const kanbanColumns = [
-    { label: 'NEW', status: 'new' },
-    { label: 'DESIGNED', status: 'designed' },
-    { label: 'EDIT REQUEST', status: 'edit request' },
-    { label: 'DONE', status: 'done' },
+    { label: 'New', status: 'new' },
+    { label: 'Designed', status: 'designed' },
+    { label: 'Edit Request', status: 'edit request' },
+    { label: 'Done', status: 'done' },
   ];
   const term = filter.toLowerCase();
   const displayGroups = groups
@@ -266,23 +266,7 @@ const AdminAdGroups = () => {
       <h1 className="text-2xl mb-4">Admin Ad Groups</h1>
 
       <div className="mb-8">
-        <h2 className="text-xl mb-2">All Ad Groups</h2>
           <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-            <button
-              onClick={() => setShowCreate(true)}
-              className="btn-primary flex items-center gap-1"
-            >
-              <FiPlus />
-              Create Ad Group
-            </button>
-            <div className="flex flex-wrap gap-2 flex-1 order-last md:order-none justify-center">
-              <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
-                <FiList />
-              </TabButton>
-              <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
-                <FiColumns />
-              </TabButton>
-            </div>
             <div className="flex items-center gap-2">
               {view === 'kanban' ? (
                 <select
@@ -324,6 +308,17 @@ const AdminAdGroups = () => {
                 className="p-1 border rounded"
               />
             </div>
+            <div className="flex flex-wrap gap-2 flex-1 order-last md:order-none justify-center">
+              <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
+                <FiList />
+              </TabButton>
+              <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
+                <FiColumns />
+              </TabButton>
+            </div>
+            <IconButton onClick={() => setShowCreate(true)} aria-label="Create Ad Group">
+              <FiPlus />
+            </IconButton>
           </div>
         {loading ? (
           <p>Loading groups...</p>
