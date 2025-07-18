@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AdGroupCard from './components/AdGroupCard.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import getUserName from './utils/getUserName';
+import computeKanbanStatus from './utils/computeKanbanStatus';
 import {
   collection,
   getDocs,
@@ -26,11 +27,10 @@ const DesignerDashboard = () => {
   const [shareInfo, setShareInfo] = useState(null);
 
   const kanbanColumns = [
-    { label: 'Pending', statuses: ['pending'] },
-    { label: 'Briefed', statuses: ['briefed'] },
-    { label: 'Designed', statuses: ['ready'] },
-    { label: 'In Review/Review Pending', statuses: ['in review', 'review pending'] },
-    { label: 'Reviewed', statuses: ['reviewed'] },
+    { label: 'NEW', status: 'new' },
+    { label: 'DESIGNED', status: 'designed' },
+    { label: 'EDIT REQUEST', status: 'edit request' },
+    { label: 'DONE', status: 'done' },
   ];
 
   const handleShare = async (id) => {
@@ -176,7 +176,7 @@ const DesignerDashboard = () => {
                       style={{ maxHeight: 'calc(100vh - 13rem)' }}
                     >
                       {groups
-                        .filter((g) => col.statuses.includes(g.status))
+                        .filter((g) => computeKanbanStatus(g) === col.status)
                         .map((g) => (
                           <AdGroupCard
                             key={g.id}

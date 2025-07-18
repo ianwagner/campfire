@@ -22,6 +22,7 @@ import useUserRole from './useUserRole';
 import parseAdFilename from './utils/parseAdFilename';
 import getUserName from './utils/getUserName';
 import generatePassword from './utils/generatePassword';
+import computeKanbanStatus from './utils/computeKanbanStatus';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 import Table from './components/common/Table';
@@ -331,15 +332,15 @@ const EditorAdGroups = () => {
           ) : (
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
               <div className="min-w-max flex gap-4">
-                {['pending','briefed','ready','in review','reviewed'].map((status) => (
+                {['new', 'designed', 'edit request', 'done'].map((status) => (
                   <div key={status} className="flex-shrink-0 w-[240px] sm:w-[320px]">
-                    <h3 className="mb-2">{status}</h3>
+                    <h3 className="mb-2">{status.toUpperCase()}</h3>
                     <div
                       className="bg-[#F7F7F7] dark:bg-[var(--dark-bg)] border border-gray-300 dark:border-gray-600 rounded-t-[1rem] rounded-b-[1rem] flex flex-col items-center gap-4 p-[0.6rem] overflow-y-auto"
                       style={{ maxHeight: 'calc(100vh - 13rem)' }}
                     >
                       {displayGroups
-                        .filter((g) => g.status === status)
+                        .filter((g) => computeKanbanStatus(g) === status)
                         .map((g) => (
                           <AdGroupCard key={g.id} group={g} />
                         ))}
