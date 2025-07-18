@@ -513,14 +513,13 @@
 }
 
 .asset-gallery {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 0.5rem;
+  column-count: 6;
+  column-gap: 0.5rem;
 }
 
 .asset-gallery-item {
-  position: relative;
-  overflow: hidden;
+  break-inside: avoid;
+  margin-bottom: 0.5rem;
 }
 
 .size-container {
