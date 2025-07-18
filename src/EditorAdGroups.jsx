@@ -188,7 +188,6 @@ const EditorAdGroups = () => {
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Ad Groups</h1>
       <div className="mb-8">
-        <h2 className="text-xl mb-2">All Ad Groups</h2>
           <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
             <div className="flex flex-wrap gap-2 flex-1 order-last md:order-none justify-center">
               <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
@@ -332,15 +331,20 @@ const EditorAdGroups = () => {
           ) : (
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
               <div className="min-w-max flex gap-4">
-                {['new', 'designed', 'edit request', 'done'].map((status) => (
-                  <div key={status} className="flex-shrink-0 w-[240px] sm:w-[320px]">
-                    <h3 className="mb-2">{status.toUpperCase()}</h3>
+                {[
+                  { label: 'New', status: 'new' },
+                  { label: 'Designed', status: 'designed' },
+                  { label: 'Edit Request', status: 'edit request' },
+                  { label: 'Done', status: 'done' },
+                ].map((col) => (
+                  <div key={col.status} className="flex-shrink-0 w-[240px] sm:w-[320px]">
+                    <h3 className="mb-2">{col.label}</h3>
                     <div
                       className="bg-[#F7F7F7] dark:bg-[var(--dark-bg)] border border-gray-300 dark:border-gray-600 rounded-t-[1rem] rounded-b-[1rem] flex flex-col items-center gap-4 p-[0.6rem] overflow-y-auto"
                       style={{ maxHeight: 'calc(100vh - 13rem)' }}
                     >
                       {displayGroups
-                        .filter((g) => computeKanbanStatus(g) === status)
+                        .filter((g) => computeKanbanStatus(g) === col.status)
                         .map((g) => (
                           <AdGroupCard key={g.id} group={g} />
                         ))}
