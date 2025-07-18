@@ -1502,8 +1502,13 @@ const AdGroupDetail = () => {
     }
   };
 
-  const renderRecipeRow = (g) => (
-    <tbody key={g.recipeCode} className="table-row-group">
+  const renderRecipeRow = (g) => {
+    const hasRevision = g.assets.some(
+      (a) => (a.version || parseAdFilename(a.filename || "").version || 1) > 1,
+    );
+
+    return (
+      <tbody key={g.recipeCode} className="table-row-group">
       <tr
         onClick={() => toggleRecipe(g.recipeCode)}
         className="cursor-pointer recipe-row"
@@ -1567,18 +1572,6 @@ const AdGroupDetail = () => {
                           >
                             <FiClock />
                           </IconButton>
-                          {((a.version || parseAdFilename(a.filename || '').version || 1) > 1) && (
-                            <IconButton
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openRevision(g.recipeCode);
-                              }}
-                              aria-label="See Revision"
-                              className="px-1.5 text-xs"
-                            >
-                              See Revision
-                            </IconButton>
-                          )}
                           <IconButton
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1680,6 +1673,18 @@ const AdGroupDetail = () => {
               <FiClock />
               <span className="ml-1">History</span>
             </IconButton>
+            {hasRevision && (
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openRevision(g.recipeCode);
+                }}
+                aria-label="See Revision"
+                className="px-1.5 text-xs mr-2"
+              >
+                See Revision
+              </IconButton>
+            )}
             {userRole === "admin" && (
               <IconButton
                 onClick={(e) => {
@@ -1715,6 +1720,7 @@ const AdGroupDetail = () => {
       </tr>
     </tbody>
   );
+  };
 
   if (!group) {
     return <LoadingOverlay />;
