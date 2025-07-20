@@ -25,6 +25,7 @@ import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
 import BrandAssets from "./BrandAssets.jsx";
+import HoverPreview from "./components/HoverPreview.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
 import {
   doc,
@@ -1677,28 +1678,30 @@ const AdGroupDetail = () => {
         </td>
         <td className="text-center">
           <div className="flex items-center justify-center">
-            <div className="relative group mr-2">
+            <HoverPreview
+              className="mr-2"
+              preview={
+                <div className="grid grid-cols-2 gap-2">
+                  {g.assets.map((a) => {
+                    const ext = fileExt(a.filename || "");
+                    return /^(svg|png|jpe?g|gif|webp)$/i.test(ext) ? (
+                      <OptimizedImage
+                        key={a.id}
+                        pngUrl={a.thumbnailUrl || a.firebaseUrl}
+                        alt={a.filename}
+                        className="w-full object-contain max-h-[25rem]"
+                      />
+                    ) : (
+                      <PlaceholderIcon key={a.id} ext={ext} />
+                    );
+                  })}
+                </div>
+              }
+            >
               <IconButton aria-label="View" className="px-1.5 text-xs">
                 <FiEye />
               </IconButton>
-                <div className="hidden group-hover:block absolute left-full ml-2 top-1/2 -translate-y-1/2 border shadow z-50 p-2 max-h-[90vh] overflow-auto w-auto bg-white dark:bg-[var(--dark-sidebar-bg)]">
-                  <div className="grid grid-cols-2 gap-2">
-                    {g.assets.map((a) => {
-                      const ext = fileExt(a.filename || "");
-                      return /^(svg|png|jpe?g|gif|webp)$/i.test(ext) ? (
-                        <OptimizedImage
-                          key={a.id}
-                          pngUrl={a.thumbnailUrl || a.firebaseUrl}
-                          alt={a.filename}
-                          className="w-full object-contain"
-                        />
-                      ) : (
-                        <PlaceholderIcon key={a.id} ext={ext} />
-                      );
-                    })}
-                  </div>
-                </div>
-            </div>
+            </HoverPreview>
             <IconButton
               onClick={(e) => {
                 e.stopPropagation();
