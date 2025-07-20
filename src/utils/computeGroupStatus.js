@@ -1,10 +1,14 @@
-export default function computeGroupStatus(assets = [], currentStatus = 'pending') {
-  if (currentStatus === 'archived') return 'archived';
+export default function computeGroupStatus(
+  assets = [],
+  currentStatus = 'pending',
+) {
+  const active = assets.filter((a) => a.status !== 'archived');
+  if (active.length === 0) return 'archived';
   if (currentStatus === 'in review') return 'in review';
-  if (assets.some((a) => a.status === 'ready')) return 'ready';
+  if (active.some((a) => a.status === 'ready')) return 'ready';
   if (
-    assets.length > 0 &&
-    assets.every((a) => a.status !== 'ready' && a.status !== 'pending')
+    active.length > 0 &&
+    active.every((a) => a.status !== 'ready' && a.status !== 'pending')
   ) {
     return 'reviewed';
   }

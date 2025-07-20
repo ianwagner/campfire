@@ -5,8 +5,8 @@ test('returns in review when currentStatus is in review', () => {
   expect(status).toBe('in review');
 });
 
-test('returns archived when currentStatus is archived', () => {
-  const status = computeGroupStatus([{ status: 'ready' }], 'archived');
+test('returns archived when all ads archived', () => {
+  const status = computeGroupStatus([{ status: 'archived' }], 'archived');
   expect(status).toBe('archived');
 });
 
@@ -17,6 +17,14 @@ test('returns ready when any ad is ready', () => {
 
 test('returns ready when status is briefed but an ad is ready', () => {
   const status = computeGroupStatus([{ status: 'ready' }], 'briefed');
+  expect(status).toBe('ready');
+});
+
+test('uses status of non-archived ads', () => {
+  const status = computeGroupStatus(
+    [{ status: 'archived' }, { status: 'ready' }],
+    'archived',
+  );
   expect(status).toBe('ready');
 });
 
