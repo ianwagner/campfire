@@ -1681,18 +1681,23 @@ const AdGroupDetail = () => {
               <IconButton aria-label="View" className="px-1.5 text-xs">
                 <FiEye />
               </IconButton>
-              <div className="hidden group-hover:block absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-white border shadow z-10 p-2 max-h-80 overflow-auto">
-                <div className="grid grid-cols-2 gap-2">
-                  {g.assets.map((a) => (
-                    <OptimizedImage
-                      key={a.id}
-                      pngUrl={a.thumbnailUrl || a.firebaseUrl}
-                      alt={a.filename}
-                      className="w-full object-contain max-h-40"
-                    />
-                  ))}
+                <div className="hidden group-hover:block absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-white border shadow z-10 p-2 max-h-80 overflow-auto">
+                  <div className="grid grid-cols-2 gap-2">
+                    {g.assets.map((a) => {
+                      const ext = fileExt(a.filename || "");
+                      return /^(svg|png|jpe?g|gif|webp)$/i.test(ext) ? (
+                        <OptimizedImage
+                          key={a.id}
+                          pngUrl={a.thumbnailUrl || a.firebaseUrl}
+                          alt={a.filename}
+                          className="w-full object-contain max-h-40"
+                        />
+                      ) : (
+                        <PlaceholderIcon key={a.id} ext={ext} />
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
             </div>
             <IconButton
               onClick={(e) => {
