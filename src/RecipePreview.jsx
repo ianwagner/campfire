@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import {
   FiImage,
@@ -79,6 +79,8 @@ const RecipePreview = ({
   const [formData, setFormData] = useState({});
   const [selectedInstances, setSelectedInstances] = useState({});
   const [results, setResults] = useState([]);
+  const originalResultsRef = useRef([]);
+  const [dirty, setDirty] = useState(false);
   const [generateCount, setGenerateCount] = useState(1);
   const [saving, setSaving] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState({});
@@ -232,7 +234,9 @@ const RecipePreview = ({
 
   useEffect(() => {
     if (initialResults && Array.isArray(initialResults)) {
-      setResults(initialResults.map((r, idx) => ({ recipeNo: idx + 1, ...r })));
+      const mapped = initialResults.map((r, idx) => ({ recipeNo: idx + 1, ...r }));
+      setResults(mapped);
+      originalResultsRef.current = mapped;
       if (initialResults[0]?.type) {
         setSelectedType(initialResults[0].type);
       }
@@ -247,6 +251,16 @@ const RecipePreview = ({
       setBrandCode(initialBrandCode);
     }
   }, [initialBrandCode]);
+
+  useEffect(() => {
+    if (originalResultsRef.current.length === 0) {
+      setDirty(results.length > 0);
+    } else {
+      setDirty(
+        JSON.stringify(originalResultsRef.current) !== JSON.stringify(results),
+      );
+    }
+  }, [results]);
 
   const handleAssetCsvChange = async (e) => {
     const f = e.target.files?.[0];
@@ -902,6 +916,8 @@ const RecipePreview = ({
     setSaving(true);
     try {
       await onSave(results);
+      originalResultsRef.current = results;
+      setDirty(false);
     } finally {
       setSaving(false);
     }
@@ -1396,7 +1412,7 @@ const RecipePreview = ({
           right={
             <>
               {results.length > 0 && userRole !== 'designer' && onSave && (
-                <SaveButton onClick={handleSave} canSave={results.length > 0} loading={saving} />
+                <SaveButton onClick={handleSave} canSave={dirty} loading={saving} />
               )}
               {userRole !== 'designer' && onRecipesClick && (
                 <IconButton
