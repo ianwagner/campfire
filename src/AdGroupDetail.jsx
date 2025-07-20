@@ -1674,7 +1674,7 @@ const AdGroupDetail = () => {
               <IconButton aria-label="View" className="px-1.5 text-xs">
                 <FiEye />
               </IconButton>
-                <div className="hidden group-hover:block absolute left-full ml-2 top-1/2 -translate-y-1/2 border shadow z-50 p-2 h-80 overflow-auto w-fit bg-white dark:bg-[var(--dark-sidebar-bg)]">
+                <div className="hidden group-hover:block absolute left-full ml-2 top-1/2 -translate-y-1/2 border shadow z-50 p-2 h-80 overflow-auto w-auto bg-white dark:bg-[var(--dark-sidebar-bg)]">
                   <div className="grid grid-cols-2 gap-2">
                     {g.assets.map((a) => {
                       const ext = fileExt(a.filename || "");
