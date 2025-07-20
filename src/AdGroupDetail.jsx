@@ -148,7 +148,6 @@ const AdGroupDetail = () => {
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState("");
   const [briefDrag, setBriefDrag] = useState(false);
-  const [responses, setResponses] = useState([]);
   const [designers, setDesigners] = useState([]);
   const [designerName, setDesignerName] = useState('');
   const [revisionModal, setRevisionModal] = useState(null);
@@ -253,20 +252,9 @@ const AdGroupDetail = () => {
         setBriefAssets(list);
       },
     );
-    const unsubResp = onSnapshot(
-      query(
-        collection(db, "adGroups", id, "responses"),
-        orderBy("timestamp", "desc"),
-      ),
-      (snap) => {
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setResponses(list);
-      },
-    );
     return () => {
       unsub();
       unsubBrief();
-      unsubResp();
     };
   }, [id]);
 
@@ -2064,35 +2052,6 @@ const AdGroupDetail = () => {
         )}
       </div>
 
-      {tab === "ads" && responses.length > 0 && (
-        <div className="my-4">
-          <h4 className="font-medium mb-1">Responses</h4>
-          <ul className="space-y-2">
-            {responses.map((r) => (
-              <li
-                key={r.id}
-                className="border p-2 rounded bg-white shadow dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
-              >
-                <div className="text-sm font-medium capitalize">
-                  {r.response}
-                </div>
-                {r.comment && <div className="text-sm italic">{r.comment}</div>}
-                {r.copyEdit && (
-                  <div className="text-sm italic">copy edit: {r.copyEdit}</div>
-                )}
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {r.timestamp
-                    ? r.timestamp.toDate
-                      ? r.timestamp.toDate().toLocaleString()
-                      : new Date(r.timestamp).toLocaleString()
-                    : ""}{" "}
-                  - {r.reviewerName || r.userEmail || r.userId || ""}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {recipesTableVisible && (
         <div className="my-4">
