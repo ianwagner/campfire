@@ -162,6 +162,17 @@ const AdGroupDetail = () => {
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
   const showStats = usesTabs ? tab === "stats" : !showTable;
+  const revisionApproved = useMemo(
+    () =>
+      revisionModal
+        ? revisionModal.assets.some((a) => {
+            const version =
+              a.version || parseAdFilename(a.filename || "").version || 1;
+            return version >= 2 && a.status === "approved";
+          })
+        : false,
+    [revisionModal],
+  );
 
   const renderCopyEditDiff = (recipeCode, edit, origOverride) => {
     const orig = origOverride ?? (recipesMeta[recipeCode]?.copy || "");
@@ -2372,17 +2383,24 @@ const AdGroupDetail = () => {
                       V{version}
                     </div>
                     {version >= 2 && (
-                      <label className="absolute top-1 right-1 bg-white bg-opacity-70 text-xs px-1 rounded cursor-pointer">
-                        Replace
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={(e) => {
-                            replaceAdAsset(a, e.target.files[0]);
-                            e.target.value = null;
-                          }}
-                        />
-                      </label>
+                      isDesigner && a.status === "approved" ? (
+                        <span className="absolute top-1 right-1 bg-white bg-opacity-70 text-xs px-1 rounded opacity-50 cursor-not-allowed">
+                          Replace
+                        </span>
+                      ) : (
+                        <label className="absolute top-1 right-1 bg-white bg-opacity-70 text-xs px-1 rounded cursor-pointer">
+                          Replace
+                          <input
+                            type="file"
+                            className="hidden"
+                            disabled={isDesigner && a.status === "approved"}
+                            onChange={(e) => {
+                              replaceAdAsset(a, e.target.files[0]);
+                              e.target.value = null;
+                            }}
+                          />
+                        </label>
+                      )
                     )}
                     <OptimizedImage
                       pngUrl={a.thumbnailUrl || a.firebaseUrl}
@@ -2428,6 +2446,7 @@ const AdGroupDetail = () => {
             <textarea
               className="mt-1 w-full border rounded p-1 text-black dark:text-black"
               value={revisionModal.copy}
+              readOnly={isDesigner}
               onChange={(e) =>
                 setRevisionModal({ ...revisionModal, copy: e.target.value })
               }
@@ -2435,9 +2454,18 @@ const AdGroupDetail = () => {
           </label>
           <div className="mt-3 flex justify-end gap-2">
             <IconButton onClick={closeModals}>Close</IconButton>
-            <button onClick={saveRevisionReady} className="btn-primary px-3 py-1">
-              Ready
-            </button>
+            {isDesigner && revisionApproved ? (
+              <button
+                className="btn-primary px-3 py-1 opacity-50 cursor-not-allowed"
+                disabled
+              >
+                Version Approved
+              </button>
+            ) : (
+              <button onClick={saveRevisionReady} className="btn-primary px-3 py-1">
+                Ready
+              </button>
+            )}
           </div>
         </Modal>
       )}
