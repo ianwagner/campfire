@@ -34,10 +34,21 @@ const BrandAssets = ({ brandCode, onClose, inline = false }) => {
       )}
       <h3 className="mb-3 font-semibold text-lg">Brand Assets</h3>
         {brand.guidelinesUrl && (
-          <div className="mb-3">
-            <a href={brand.guidelinesUrl} target="_blank" rel="noopener noreferrer" className="underline">
-              Brand Guidelines
+          <div className="mb-3 space-y-2">
+            <a
+              href={brand.guidelinesUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline block"
+            >
+              Open Brand Guidelines
             </a>
+            <iframe
+              src={brand.guidelinesUrl}
+              title="Brand Guidelines"
+              className="w-full border rounded"
+              style={{ height: "500px" }}
+            />
           </div>
         )}
         {Array.isArray(brand.logos) && brand.logos.length > 0 && (
