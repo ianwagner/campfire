@@ -762,7 +762,8 @@ useEffect(() => {
     getDoc(doc(db, 'adGroups', displayAd.adGroupId, 'recipes', recipeCode))
       .then((snap) => {
         if (cancelled) return;
-        const text = snap.exists() ? snap.data().copy || '' : '';
+        const data = snap.exists() ? snap.data() : null;
+        const text = data ? data.latestCopy || data.copy || '' : '';
         setRecipeCopyMap((prev) => ({ ...prev, [recipeCode]: text }));
       })
       .catch((err) => console.error('Failed to load recipe copy', err));
@@ -922,7 +923,8 @@ useEffect(() => {
       const snap = await getDoc(
         doc(db, 'adGroups', currentAd.adGroupId, 'recipes', recipeId)
       );
-      const text = snap.exists() ? snap.data().copy || '' : '';
+      const data = snap.exists() ? snap.data() : null;
+      const text = data ? data.latestCopy || data.copy || '' : '';
       setEditCopy(text);
       setOrigCopy(text);
       setReviewAds((prev) =>

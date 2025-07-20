@@ -271,6 +271,7 @@ const AdGroupDetail = () => {
             ...meta,
             components: docData.components || {},
             copy: docData.copy || "",
+            latestCopy: docData.latestCopy || "",
             assets: docData.assets || [],
             type: docData.type || "",
             selected: docData.selected || false,
@@ -684,7 +685,10 @@ const AdGroupDetail = () => {
         recipeCode,
         assets: groupAssets,
         history,
-        copy: recipesMeta[recipeCode]?.copy || "",
+        copy:
+          recipesMeta[recipeCode]?.latestCopy ||
+          recipesMeta[recipeCode]?.copy ||
+          "",
       });
     } catch (err) {
       console.error("Failed to open revision modal", err);
@@ -1026,20 +1030,22 @@ const AdGroupDetail = () => {
     try {
       await setDoc(
         doc(db, "adGroups", id, "recipes", revisionModal.recipeCode),
-        { copy: revisionModal.copy },
+        { latestCopy: revisionModal.copy },
         { merge: true },
       );
       setRecipesMeta((prev) => ({
         ...prev,
         [revisionModal.recipeCode]: {
           ...(prev[revisionModal.recipeCode] || { id: revisionModal.recipeCode }),
-          copy: revisionModal.copy,
+          latestCopy: revisionModal.copy,
         },
       }));
       const updateList = revisionModal.assets.filter(
         (a) => (a.version || parseAdFilename(a.filename || "").version || 1) > 1,
       );
-      await Promise.all(updateList.map((a) => updateAssetStatus(a.id, "ready")));
+      await Promise.all(
+        updateList.map((a) => updateAssetStatus(a.id, "ready", true)),
+      );
       setRevisionModal(null);
     } catch (err) {
       console.error("Failed to complete revision", err);
@@ -1132,10 +1138,11 @@ const AdGroupDetail = () => {
     }
   };
 
-  const updateAssetStatus = async (assetId, status) => {
+  const updateAssetStatus = async (assetId, status, clearCopyEdit = false) => {
     try {
       await updateDoc(doc(db, "adGroups", id, "assets", assetId), {
         status,
+        ...(clearCopyEdit ? { copyEdit: "" } : {}),
       });
       const asset = assets.find((a) => a.id === assetId);
       if (status === "ready" && asset?.parentAdId) {

@@ -25,6 +25,7 @@ Each ad asset (stored under `adGroups/{groupId}/assets/{assetId}`) includes the 
 * `version` – sequential version number starting at 1.
 * `parentAdId` – reference to the original ad asset for tracking revisions.
 * `isResolved` – when true, this ad (and its versions) no longer appear in the review queue.
+* `latestCopy` – current copy text after edits are implemented. The original copy remains stored in the recipe document.
 
 
 Newly uploaded ads start in the `pending` state so they are immediately visible to reviewers.
