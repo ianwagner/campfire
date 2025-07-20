@@ -819,7 +819,7 @@ const AdGroupDetail = () => {
         const url = await uploadFile(
           file,
           id,
-          brandName || group?.brandCode,
+          group?.brandCode,
           group?.name || id,
         );
         const info = parseAdFilename(file.name);
@@ -870,7 +870,7 @@ const AdGroupDetail = () => {
         const url = await uploadFile(
           file,
           id,
-          brandName || group?.brandCode,
+          group?.brandCode,
           group?.name || id,
         );
         await addDoc(collection(db, "adGroups", id, "groupAssets"), {
@@ -896,7 +896,7 @@ const AdGroupDetail = () => {
           const fileRef = ref(
             storage,
             asset.firebaseUrl ||
-              `Campfire/Brands/${brandName || group?.brandCode}/Adgroups/${
+              `Campfire/Brands/${group?.brandCode}/Adgroups/${
                 group?.name || id
               }/${asset.filename}`,
           );
@@ -928,7 +928,7 @@ const AdGroupDetail = () => {
       const url = await uploadFile(
         file,
         id,
-        brandName || group?.brandCode,
+        group?.brandCode,
         group?.name || id,
       );
       await updateDoc(doc(db, "adGroups", id, "groupAssets", asset.id), {
@@ -971,7 +971,7 @@ const AdGroupDetail = () => {
       const url = await uploadFile(
         file,
         id,
-        brandName || group?.brandCode,
+        group?.brandCode,
         group?.name || id,
       );
       const info = parseAdFilename(file.name);
@@ -1473,7 +1473,7 @@ const AdGroupDetail = () => {
           const fileRef = ref(
             storage,
             asset.firebaseUrl ||
-              `Campfire/Brands/${brandName || group?.brandCode}/Adgroups/${
+              `Campfire/Brands/${group?.brandCode}/Adgroups/${
                 group?.name || id
               }/${asset.filename}`,
           );
@@ -1507,7 +1507,7 @@ const AdGroupDetail = () => {
               const fileRef = ref(
                 storage,
                 a.firebaseUrl ||
-                  `Campfire/Brands/${brandName || group?.brandCode}/Adgroups/${
+                  `Campfire/Brands/${group?.brandCode}/Adgroups/${
                     group?.name || id
                   }/${a.filename}`,
               );
