@@ -1058,6 +1058,9 @@ const AdGroupDetail = () => {
     }
   };
 
+  const createFile = (blob, name, opts) =>
+    typeof File === 'function' ? new File([blob], name, opts) : new Blob([blob], opts);
+
   const uploadRevision = async (asset, file) => {
     if (!file) return;
     if (group?.status !== "in review" && group?.status !== "pending") {
@@ -1077,7 +1080,7 @@ const AdGroupDetail = () => {
         const ext = extIdx >= 0 ? file.name.slice(extIdx) : "";
         const base = file.name.slice(0, extIdx);
         newName = `${base}_V2${ext}`;
-        newFile = new File([file], newName, { type: file.type });
+        newFile = createFile(file, newName, { type: file.type });
       }
       const url = await uploadFile(
         newFile,
