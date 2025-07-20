@@ -592,7 +592,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
                       <img
                         src={a.thumbnailUrl}
                         alt="preview"
-                        className="hidden group-hover:block absolute left-full ml-2 top-1/2 -translate-y-1/2 min-w-[100px] w-auto h-auto border shadow-lg z-10"
+                        className="hidden group-hover:block absolute left-full ml-2 top-1/2 -translate-y-1/2 min-w-[100px] w-auto h-80 object-contain border shadow-lg z-10 bg-white dark:bg-[var(--dark-sidebar-bg)]"
                       />
                     </span>
                   )}
