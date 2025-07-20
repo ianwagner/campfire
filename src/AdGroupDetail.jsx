@@ -20,6 +20,7 @@ import {
   FiPenTool,
   FiType,
   FiCopy,
+  FiPlus,
 } from "react-icons/fi";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
@@ -657,7 +658,8 @@ const AdGroupDetail = () => {
       const hasV2 = groupAssets.some(
         (a) => (a.version || parseAdFilename(a.filename || "").version || 1) > 1,
       );
-      if (!hasV2) return;
+      const hasEdit = groupAssets.some((a) => a.status === "edit_requested");
+      if (!hasV2 && !hasEdit) return;
 
       const history = [];
       const uids = new Set();
@@ -1048,6 +1050,61 @@ const AdGroupDetail = () => {
       await updateDoc(doc(db, "adGroups", id, "assets", assetId), update);
     } catch (err) {
       console.error("Failed to upload version", err);
+    } finally {
+      setVersionUploading(null);
+    }
+  };
+
+  const uploadRevision = async (asset, file) => {
+    if (!file) return;
+    if (group?.status !== "in review" && group?.status !== "pending") {
+      try {
+        await updateDoc(doc(db, "adGroups", id), { status: "pending" });
+        setGroup((p) => ({ ...p, status: "pending" }));
+      } catch (err) {
+        console.error("Failed to update group status", err);
+      }
+    }
+    setVersionUploading(asset.id);
+    try {
+      let newFile = file;
+      let newName = file.name;
+      if (!/_v2/i.test(file.name)) {
+        const extIdx = file.name.lastIndexOf(".");
+        const ext = extIdx >= 0 ? file.name.slice(extIdx) : "";
+        const base = file.name.slice(0, extIdx);
+        newName = `${base}_V2${ext}`;
+        newFile = new File([file], newName, { type: file.type });
+      }
+      const url = await uploadFile(
+        newFile,
+        id,
+        group?.brandCode,
+        group?.name || id,
+      );
+      const info = parseAdFilename(newName);
+      await addDoc(collection(db, "adGroups", id, "assets"), {
+        adGroupId: id,
+        brandCode: info.brandCode || group?.brandCode || "",
+        adGroupCode: info.adGroupCode || "",
+        recipeCode: info.recipeCode || "",
+        aspectRatio: info.aspectRatio || "",
+        filename: newName,
+        firebaseUrl: url,
+        uploadedAt: serverTimestamp(),
+        status: "pending",
+        comment: null,
+        lastUpdatedBy: null,
+        lastUpdatedAt: serverTimestamp(),
+        version: info.version || 2,
+        parentAdId: asset.parentAdId || asset.id,
+        isResolved: false,
+      });
+      await updateDoc(doc(db, "adGroups", id, "assets", asset.id), {
+        status: "archived",
+      });
+    } catch (err) {
+      console.error("Failed to upload revision", err);
     } finally {
       setVersionUploading(null);
     }
@@ -1587,7 +1644,9 @@ const AdGroupDetail = () => {
 
   const renderRecipeRow = (g) => {
     const hasRevision = g.assets.some(
-      (a) => (a.version || parseAdFilename(a.filename || "").version || 1) > 1,
+      (a) =>
+        (a.version || parseAdFilename(a.filename || "").version || 1) > 1 ||
+        a.status === "edit_requested",
     );
 
     return (
@@ -2393,13 +2452,20 @@ const AdGroupDetail = () => {
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-auto max-h-[25rem]">
               {revisionModal.assets.map((a) => {
                 const version = a.version || parseAdFilename(a.filename || '').version || 1;
+                const base = stripVersion(a.filename);
+                const hasNext = revisionModal.assets.some(
+                  (b) =>
+                    stripVersion(b.filename) === base &&
+                    (b.version || parseAdFilename(b.filename || '').version || 1) > version,
+                );
                 return (
-                  <div key={a.id} className="relative">
-                    <div className="absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded">
-                      V{version}
-                    </div>
-                    {version >= 2 && (
-                      isDesigner && a.status === "approved" ? (
+                  <React.Fragment key={a.id}>
+                    <div className="relative">
+                      <div className="absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded">
+                        V{version}
+                      </div>
+                      {version >= 2 && (
+                        isDesigner && a.status === "approved" ? (
                         <span className="absolute top-1 right-1 bg-white bg-opacity-70 text-xs px-1 rounded opacity-50 cursor-not-allowed">
                           Replace
                         </span>
@@ -2424,6 +2490,23 @@ const AdGroupDetail = () => {
                       className="w-full object-contain max-h-[25rem]"
                     />
                   </div>
+                  {version === 1 && !hasNext && (
+                    <div className="relative flex items-center justify-center bg-gray-200 text-gray-600 h-40">
+                      <label className="cursor-pointer flex flex-col items-center">
+                        <FiPlus size={20} />
+                        <span className="text-sm">Upload Revision</span>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            uploadRevision(a, e.target.files[0]);
+                            e.target.value = null;
+                          }}
+                        />
+                      </label>
+                    </div>
+                  )}
+                  </React.Fragment>
                 );
               })}
             </div>
