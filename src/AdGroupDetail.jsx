@@ -19,6 +19,7 @@ import {
   FiFile,
   FiPenTool,
   FiType,
+  FiCopy,
 } from "react-icons/fi";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
@@ -1681,10 +1682,7 @@ const AdGroupDetail = () => {
         <td className="text-center">
           <div className="flex items-center justify-center">
             <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                openView(g.recipeCode);
-              }}
+              onMouseEnter={() => openView(g.recipeCode)}
               aria-label="View"
               className="px-1.5 text-xs mr-2"
             >
@@ -1702,18 +1700,20 @@ const AdGroupDetail = () => {
               <FiClock />
               <span className="ml-1">History</span>
             </IconButton>
-            {hasRevision && (
-              <IconButton
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openRevision(g.recipeCode);
-                }}
-                aria-label="See Revision"
-                className="px-1.5 text-xs mr-2"
-              >
-                See Revision
-              </IconButton>
-            )}
+            <IconButton
+              onClick={(e) => {
+                e.stopPropagation();
+                if (hasRevision) openRevision(g.recipeCode);
+              }}
+              disabled={!hasRevision}
+              aria-label="See Revisions"
+              className={`px-1.5 text-xs mr-2 ${
+                hasRevision ? '' : 'opacity-50 cursor-not-allowed'
+              }`}
+            >
+              <FiCopy />
+              <span className="ml-1">See Revisions</span>
+            </IconButton>
             <IconButton
               onClick={(e) => {
                 e.stopPropagation();
