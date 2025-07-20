@@ -2158,7 +2158,7 @@ const AdGroupDetail = () => {
             >
               {showTable ? "Hide Table" : "Show All Ads"}
             </IconButton>
-            {savedRecipes.length > 0 && (
+            {Array.isArray(savedRecipes) && savedRecipes.length > 0 && (
               <IconButton
                 onClick={() => setShowRecipesTable((p) => !p)}
                 className="ml-2"
@@ -2251,7 +2251,7 @@ const AdGroupDetail = () => {
               </IconButton>
             </div>
           )}
-          {briefAssets.length > 0 && (
+          {Array.isArray(briefAssets) && briefAssets.length > 0 && (
             <>
               <h4 className="font-medium mb-1">Brief Assets:</h4>
                 <div
@@ -2387,7 +2387,7 @@ const AdGroupDetail = () => {
               </div>
             </>
           )}
-          {userRole === "admin" && briefAssets.length === 0 && (
+          {userRole === "admin" && Array.isArray(briefAssets) && briefAssets.length === 0 && (
             <div className="mb-4">
               <input
                 id="brief-upload"
@@ -2404,7 +2404,7 @@ const AdGroupDetail = () => {
               </IconButton>
             </div>
           )}
-          {savedRecipes.length > 0 && (
+          {Array.isArray(savedRecipes) && savedRecipes.length > 0 && (
             <RecipePreview
               onSave={saveRecipes}
               initialResults={savedRecipes}
@@ -2413,7 +2413,7 @@ const AdGroupDetail = () => {
               onRecipesClick={() => setShowRecipes(true)}
             />
           )}
-          {userRole === "admin" && savedRecipes.length === 0 && (
+          {userRole === "admin" && Array.isArray(savedRecipes) && savedRecipes.length === 0 && (
             <div className="mt-4">
               <IconButton onClick={() => setShowRecipes(true)}>
                 <FaMagic /> Recipes
