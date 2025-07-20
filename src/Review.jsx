@@ -1489,7 +1489,7 @@ useEffect(() => {
             onClick={() => setShowSizes((p) => !p)}
             className="text-xs text-gray-500 mb-2 px-2 py-0.5 rounded-full transition-colors hover:bg-gray-200"
           >
-            {currentRecipeGroup.assets.length} sizes
+            see versions
           </button>
         )}
         <div className="flex justify-center relative">
