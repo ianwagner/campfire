@@ -91,17 +91,30 @@ const RecipePreview = ({
   const [assetUsage, setAssetUsage] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
   const [reviewRows, setReviewRows] = useState([]);
-  const dirty = useMemo(
-    () => JSON.stringify(results) !== JSON.stringify(savedResults),
-    [results, savedResults]
-  );
+  const dirty = useMemo(() => {
+    const copyChanged =
+      editing !== null && editCopy !== (results[editing]?.copy || '');
+    return (
+      copyChanged || JSON.stringify(results) !== JSON.stringify(savedResults)
+    );
+  }, [results, savedResults, editing, editCopy]);
 
   const handleSave = async () => {
     if (!onSave) return;
+    const arr = [...results];
+    if (editing !== null) {
+      arr[editing] = {
+        ...arr[editing],
+        copy: editCopy,
+        components: { ...editComponents },
+      };
+      setResults(arr);
+      setEditing(null);
+    }
     setSaving(true);
     try {
-      await onSave(results);
-      setSavedResults(results);
+      await onSave(arr);
+      setSavedResults(arr);
     } finally {
       setSaving(false);
     }
