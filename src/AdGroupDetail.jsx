@@ -1462,7 +1462,7 @@ const AdGroupDetail = () => {
     return (c ^ 0xffffffff) >>> 0;
   };
 
-  const makeZip = async (files) => {
+  async function makeZip(files) {
     const encoder = new TextEncoder();
     const localParts = [];
     const centralParts = [];
@@ -1534,7 +1534,7 @@ const AdGroupDetail = () => {
     }
     zip.set(end, ptr);
     return new Blob([zip], { type: "application/zip" });
-  };
+  }
 
   const handleExport = async () => {
     setExporting(true);
