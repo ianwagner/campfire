@@ -109,6 +109,19 @@ const ExpandableText = ({ value, maxLength = 40, isLink = false }) => {
   );
 };
 
+const sortRevisionAssets = (list = []) => {
+  const order = { "": 0, "3x5": 1, "9x16": 2, "1x1": 3 };
+  const getAspect = (a) =>
+    a.aspectRatio || parseAdFilename(a.filename || "").aspectRatio || "";
+  const getVersion = (a) =>
+    a.version || parseAdFilename(a.filename || "").version || 1;
+  return [...list].sort((a, b) => {
+    const diff = (order[getAspect(a)] ?? 99) - (order[getAspect(b)] ?? 99);
+    if (diff !== 0) return diff;
+    return getVersion(a) - getVersion(b);
+  });
+};
+
 const normalizeId = (value) =>
   String(value ?? "")
     .trim()
@@ -695,7 +708,7 @@ const AdGroupDetail = () => {
 
       setRevisionModal({
         recipeCode,
-        assets: groupAssets,
+        assets: sortRevisionAssets(groupAssets),
         history,
         copy:
           recipesMeta[recipeCode]?.latestCopy ||
@@ -728,7 +741,10 @@ const AdGroupDetail = () => {
       const info = parseAdFilename(a.filename || "");
       return (info.recipeCode || "unknown") === revisionModal.recipeCode;
     });
-    setRevisionModal((prev) => ({ ...prev, assets: groupAssets }));
+    setRevisionModal((prev) => ({
+      ...prev,
+      assets: sortRevisionAssets(groupAssets),
+    }));
   }, [assets]);
 
   const closeModals = () => {
