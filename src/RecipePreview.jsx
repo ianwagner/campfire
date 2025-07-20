@@ -938,6 +938,7 @@ const RecipePreview = ({
               )}
               <HoverPreview
                 placement="left"
+                offset={50}
                 preview={
                   <img
                     src={a.thumbnailUrl || a.adUrl || a.firebaseUrl}

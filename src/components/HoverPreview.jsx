@@ -1,13 +1,22 @@
 import React from 'react';
 
-const HoverPreview = ({ preview, placement = 'right', className = '', children }) => {
-  const posClass =
-    placement === 'left' ? 'right-full mr-2' : 'left-full ml-2';
+const HoverPreview = ({
+  preview,
+  placement = 'right',
+  className = '',
+  children,
+  offset = 8,
+}) => {
+  const style =
+    placement === 'left'
+      ? { right: `calc(100% + ${offset}px)` }
+      : { left: `calc(100% + ${offset}px)` };
   return (
     <span className={`relative inline-block group ${className}`.trim()}>
       {children}
       <div
-        className={`hidden group-hover:block absolute ${posClass} top-1/2 -translate-y-1/2 p-1 border shadow-lg z-10 bg-white dark:bg-[var(--dark-sidebar-bg)]`}
+        className="hidden group-hover:block absolute top-1/2 -translate-y-1/2 p-1 border shadow-lg z-10 bg-white dark:bg-[var(--dark-sidebar-bg)]"
+        style={style}
       >
         <div className="min-w-[15rem] max-w-[25rem] min-h-[15rem] max-h-[25rem] flex items-center justify-center overflow-auto">
           {preview}
