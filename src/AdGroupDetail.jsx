@@ -20,6 +20,8 @@ import {
   FiPenTool,
   FiType,
   FiCopy,
+  FiCheckSquare,
+  FiSquare,
 } from "react-icons/fi";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
@@ -1533,6 +1535,7 @@ const AdGroupDetail = () => {
   };
 
   const renderRecipeRow = (g) => {
+    const selected = recipesMeta[g.recipeCode]?.selected || false;
     const hasRevision = g.assets.some(
       (a) => (a.version || parseAdFilename(a.filename || "").version || 1) > 1,
     );
@@ -1541,7 +1544,9 @@ const AdGroupDetail = () => {
       <tbody key={g.recipeCode} className="table-row-group">
       <tr
         onClick={() => toggleRecipe(g.recipeCode)}
-        className="cursor-pointer recipe-row"
+        className={`cursor-pointer recipe-row ${
+          isDesigner && selected ? 'designer-selected' : ''
+        }`}
       >
         <td colSpan="2" className="font-semibold relative">
           Recipe {g.recipeCode}
@@ -1681,67 +1686,83 @@ const AdGroupDetail = () => {
         </td>
         <td className="text-center">
           <div className="flex items-center justify-center">
-            <IconButton
-              onMouseEnter={() => openView(g.recipeCode)}
-              aria-label="View"
-              className="px-1.5 text-xs mr-2"
-            >
-              <FiEye />
-              <span className="ml-1">View</span>
-            </IconButton>
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                openHistory(g.recipeCode);
-              }}
-              aria-label="History"
-              className="px-1.5 text-xs mr-2"
-            >
-              <FiClock />
-              <span className="ml-1">History</span>
-            </IconButton>
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                if (hasRevision) openRevision(g.recipeCode);
-              }}
-              disabled={!hasRevision}
-              aria-label="See Revisions"
-              className={`px-1.5 text-xs mr-2 ${
-                hasRevision ? '' : 'opacity-50 cursor-not-allowed'
-              }`}
-            >
-              <FiCopy />
-              <span className="ml-1">See Revisions</span>
-            </IconButton>
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                const rawId = g.recipeCode;
-                const normId = normalizeId(rawId);
-                setMetadataRecipe(
-                  recipesMeta[rawId] ||
-                    recipesMeta[String(rawId).toLowerCase()] ||
-                    recipesMeta[normId] || {
-                      id: rawId,
-                    },
-                );
-              }}
-              aria-label="Metadata"
-              className="px-1.5 text-xs mr-2"
-            >
-              <FiBookOpen />
-              <span className="ml-1">Metadata</span>
-            </IconButton>
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                deleteRecipe(g.recipeCode);
-              }}
-              className="text-xs" aria-label="Delete"
-            >
-              <FiTrash />
-            </IconButton>
+            {isDesigner ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleRecipeSelect(g.recipeCode, !selected);
+                }}
+                aria-label="Toggle Select"
+                className="px-1.5 text-xs mr-2"
+              >
+                {selected ? <FiCheckSquare /> : <FiSquare />}
+              </button>
+            ) : (
+              <>
+                <IconButton
+                  onMouseEnter={() => openView(g.recipeCode)}
+                  aria-label="View"
+                  className="px-1.5 text-xs mr-2"
+                >
+                  <FiEye />
+                  <span className="ml-1">View</span>
+                </IconButton>
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openHistory(g.recipeCode);
+                  }}
+                  aria-label="History"
+                  className="px-1.5 text-xs mr-2"
+                >
+                  <FiClock />
+                  <span className="ml-1">History</span>
+                </IconButton>
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (hasRevision) openRevision(g.recipeCode);
+                  }}
+                  disabled={!hasRevision}
+                  aria-label="See Revisions"
+                  className={`px-1.5 text-xs mr-2 ${
+                    hasRevision ? '' : 'opacity-50 cursor-not-allowed'
+                  }`}
+                >
+                  <FiCopy />
+                  <span className="ml-1">See Revisions</span>
+                </IconButton>
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rawId = g.recipeCode;
+                    const normId = normalizeId(rawId);
+                    setMetadataRecipe(
+                      recipesMeta[rawId] ||
+                        recipesMeta[String(rawId).toLowerCase()] ||
+                        recipesMeta[normId] || {
+                          id: rawId,
+                        },
+                    );
+                  }}
+                  aria-label="Metadata"
+                  className="px-1.5 text-xs mr-2"
+                >
+                  <FiBookOpen />
+                  <span className="ml-1">Metadata</span>
+                </IconButton>
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteRecipe(g.recipeCode);
+                  }}
+                  className="text-xs" aria-label="Delete"
+                >
+                  <FiTrash />
+                </IconButton>
+              </>
+            )}
           </div>
         </td>
       </tr>
