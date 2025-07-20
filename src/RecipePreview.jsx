@@ -9,6 +9,8 @@ import {
   FiTrash,
   FiX,
   FiPlus,
+  FiSave,
+  FiColumns,
 } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import { auth } from './firebase/config';
@@ -23,6 +25,9 @@ import debugLog from './utils/debugLog';
 import { safeGetItem } from './utils/safeLocalStorage.js';
 import AssetPickerModal from './components/AssetPickerModal.jsx';
 import HoverPreview from './components/HoverPreview.jsx';
+import PageToolbar from './components/PageToolbar.jsx';
+import IconButton from './components/IconButton.jsx';
+import TabButton from './components/TabButton.jsx';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -1367,39 +1372,37 @@ const RecipePreview = ({
       </form>
       )}
       <div className="overflow-x-auto table-container mt-6">
-        <div className="relative inline-block mb-2">
-          {results.length > 0 && (
+        <PageToolbar
+          left={
+            results.length > 0 ? (
+              <TabButton onClick={() => setShowColumnMenu(true)} aria-label="Columns">
+                <FiColumns />
+              </TabButton>
+            ) : null
+          }
+          right={
             <>
-              <button
-                type="button"
-                className="btn-secondary px-2 py-0.5"
-                onClick={() => setShowColumnMenu(true)}
-              >
-                Columns
-              </button>
-              {userRole !== 'designer' && (
-                <button
-                  type="button"
-                  className="btn-secondary ml-2 px-2 py-0.5"
-                  onClick={addRecipeRow}
+              {results.length > 0 && userRole !== 'designer' && onSave && (
+                <IconButton onClick={() => onSave(results)} aria-label="Save Recipes">
+                  <FiSave />
+                </IconButton>
+              )}
+              {userRole !== 'designer' && onRecipesClick && (
+                <IconButton
+                  onClick={onRecipesClick}
+                  aria-label={results.length > 0 ? 'Replace Recipes' : 'Recipes'}
                 >
-                  Add Recipe Row
-                </button>
+                  <FaMagic />
+                </IconButton>
+              )}
+              {results.length > 0 && userRole !== 'designer' && (
+                <IconButton onClick={addRecipeRow} aria-label="Add Recipe Row">
+                  <FiPlus />
+                </IconButton>
               )}
             </>
-          )}
-          {userRole !== 'designer' && onRecipesClick && (
-            <button
-              type="button"
-              className={`btn-secondary px-2 py-0.5 flex items-center gap-1 ${
-                results.length > 0 ? 'ml-2' : ''
-              }`}
-              onClick={onRecipesClick}
-            >
-              <FaMagic /> {results.length > 0 ? 'Replace Recipes' : 'Recipes'}
-            </button>
-          )}
-        </div>
+          }
+        />
         {results.length > 0 && showColumnMenu && (
           <div
             className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
@@ -1605,17 +1608,6 @@ const RecipePreview = ({
               ))}
             </tbody>
           </table>
-      )}
-      {results.length > 0 && userRole !== 'designer' && (
-        <div className="mt-4 text-right">
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => onSave && onSave(results)}
-          >
-            Save Recipes
-          </button>
-        </div>
       )}
       {assetPicker && (
         <AssetPickerModal
