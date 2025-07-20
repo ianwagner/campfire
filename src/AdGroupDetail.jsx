@@ -127,7 +127,6 @@ const AdGroupDetail = () => {
   const [showTable, setShowTable] = useState(false);
   const [historyRecipe, setHistoryRecipe] = useState(null);
   const [historyAsset, setHistoryAsset] = useState(null);
-  const [viewRecipe, setViewRecipe] = useState(null);
   const [recipesMeta, setRecipesMeta] = useState({});
   const [metadataRecipe, setMetadataRecipe] = useState(null);
   const [metadataForm, setMetadataForm] = useState({
@@ -629,13 +628,6 @@ const AdGroupDetail = () => {
     }
   };
 
-  const openView = (recipeCode) => {
-    const list = assets.filter((a) => {
-      const info = parseAdFilename(a.filename || "");
-      return (info.recipeCode || "unknown") === recipeCode;
-    });
-    setViewRecipe({ recipeCode, assets: list });
-  };
 
   const openRevision = async (recipeCode) => {
     try {
@@ -724,7 +716,6 @@ const AdGroupDetail = () => {
   const closeModals = () => {
     setHistoryRecipe(null);
     setHistoryAsset(null);
-    setViewRecipe(null);
     setMetadataRecipe(null);
     setRevisionModal(null);
   };
@@ -1686,14 +1677,23 @@ const AdGroupDetail = () => {
         </td>
         <td className="text-center">
           <div className="flex items-center justify-center">
-            <IconButton
-              onMouseEnter={() => openView(g.recipeCode)}
-              aria-label="View"
-              className="px-1.5 text-xs mr-2"
-            >
-              <FiEye />
-              <span className="ml-1">View</span>
-            </IconButton>
+            <div className="relative group mr-2">
+              <IconButton aria-label="View" className="px-1.5 text-xs">
+                <FiEye />
+              </IconButton>
+              <div className="hidden group-hover:block absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-white border shadow z-10 p-2 max-h-80 overflow-auto">
+                <div className="grid grid-cols-2 gap-2">
+                  {g.assets.map((a) => (
+                    <OptimizedImage
+                      key={a.id}
+                      pngUrl={a.thumbnailUrl || a.firebaseUrl}
+                      alt={a.filename}
+                      className="w-full object-contain max-h-40"
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
             <IconButton
               onClick={(e) => {
                 e.stopPropagation();
@@ -2348,24 +2348,6 @@ const AdGroupDetail = () => {
         </div>
       )}
 
-      {viewRecipe && (
-        <Modal sizeClass="max-w-md">
-          <h3 className="mb-2 font-semibold">Recipe {viewRecipe.recipeCode}</h3>
-          <div className="grid grid-cols-2 gap-2 max-h-[60vh] overflow-auto">
-            {viewRecipe.assets.map((a) => (
-              <OptimizedImage
-                key={a.id}
-                pngUrl={a.thumbnailUrl || a.firebaseUrl}
-                alt={a.filename}
-                className="w-full object-contain max-h-40"
-              />
-            ))}
-          </div>
-          <button onClick={closeModals} className="mt-2 btn-primary px-3 py-1">
-            Close
-          </button>
-        </Modal>
-      )}
 
       {revisionModal && (
         <Modal sizeClass="max-w-3xl">
