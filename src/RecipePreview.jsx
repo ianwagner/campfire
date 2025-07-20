@@ -192,7 +192,19 @@ const RecipePreview = ({
     const fetchData = async () => {
       try {
         const typeSnap = await getDocs(collection(db, 'recipeTypes'));
-        setTypes(typeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setTypes(
+          typeSnap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              ...data,
+              enableAssetLibrary:
+                data.enableAssetLibrary !== undefined
+                  ? data.enableAssetLibrary
+                  : data.enableAssetCsv,
+            };
+          }),
+        );
         const compSnap = await getDocs(collection(db, 'componentTypes'));
         const list = compSnap.docs.map((d) => {
           const data = d.data();
@@ -369,7 +381,7 @@ const RecipePreview = ({
   };
 
   useEffect(() => {
-    if (brandCode) {
+    if (brandCode && (currentType?.enableAssetLibrary || currentType?.enableAssetCsv)) {
       loadAssetLibrary();
     } else {
       setAssetRows([]);
@@ -377,7 +389,7 @@ const RecipePreview = ({
       setAssetMap({});
       setAssetUsage({});
     }
-  }, [brandCode]);
+  }, [brandCode, currentType]);
 
   const generateOnce = async (baseValues = null, brand = brandCode) => {
     if (!currentType) return null;
@@ -1024,7 +1036,7 @@ const RecipePreview = ({
 
   const currentType = types.find((t) => t.id === selectedType);
   useEffect(() => {
-    if (!currentType?.enableAssetCsv) {
+    if (!currentType?.enableAssetLibrary && !currentType?.enableAssetCsv) {
       setAssetRows([]);
       setAssetHeaders([]);
       setAssetMap({});
@@ -1144,33 +1156,20 @@ const RecipePreview = ({
             </select>
           </div>
         )}
-        {currentType?.enableAssetCsv && (
+        {(currentType?.enableAssetLibrary || currentType?.enableAssetCsv) && (
           <div className="space-y-2">
-            <div>
-              <label className="block text-sm mb-1">Asset Source</label>
-              <div className="flex items-center gap-2">
-                <input type="file" accept=".csv" onChange={handleAssetCsvChange} />
-                <button
-                  type="button"
-                  className="btn-secondary px-2 py-0.5"
-                  onClick={loadAssetLibrary}
-                >
-                  Use Library
-                </button>
+            {assetRows.length > 0 && (
+              <div>
+                <p className="text-xs">{assetRows.length} assets loaded</p>
+                <input
+                  type="text"
+                  placeholder="Filter"
+                  value={assetFilter}
+                  onChange={(e) => setAssetFilter(e.target.value)}
+                  className="p-1 border rounded text-xs mt-1"
+                />
               </div>
-              {assetRows.length > 0 && (
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-xs">{assetRows.length} rows loaded</p>
-                  <input
-                    type="text"
-                    placeholder="Filter"
-                    value={assetFilter}
-                    onChange={(e) => setAssetFilter(e.target.value)}
-                    className="p-1 border rounded text-xs"
-                  />
-                </div>
-              )}
-            </div>
+            )}
             {assetHeaders.length > 0 && (
               <div className="space-y-1">
                 {currentType.assetMatchFields?.map((f) => (
