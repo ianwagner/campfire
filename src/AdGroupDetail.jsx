@@ -65,6 +65,7 @@ import TabButton from "./components/TabButton.jsx";
 import stripVersion from "./utils/stripVersion";
 import summarizeByRecipe from "./utils/summarizeByRecipe";
 import makeZip from "./utils/makeZip";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -1795,7 +1796,8 @@ const AdGroupDetail = () => {
   }
 
   return (
-    <div className="min-h-screen p-4 ">
+    <ErrorBoundary>
+      <div className="min-h-screen p-4 ">
       <div className="flex items-center mb-2">
         <Link to={backPath} className="btn-arrow mr-2" aria-label="Back">
           &lt;
@@ -2783,7 +2785,8 @@ const AdGroupDetail = () => {
                 onClose={() => setShowBrandAssets(false)}
               />
             )}
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 
