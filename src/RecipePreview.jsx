@@ -22,6 +22,7 @@ import { splitCsvLine } from './utils/csv.js';
 import debugLog from './utils/debugLog';
 import { safeGetItem } from './utils/safeLocalStorage.js';
 import AssetPickerModal from './components/AssetPickerModal.jsx';
+import HoverPreview from './components/HoverPreview.jsx';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -935,10 +936,15 @@ const RecipePreview = ({
                   <FiX />
                 </button>
               )}
-              <img
-                src={a.thumbnailUrl || a.adUrl || a.firebaseUrl}
-                alt="preview"
-                className="hidden group-hover:block absolute left-[-8rem] top-1/2 -translate-y-1/2 min-w-[100px] w-auto h-80 object-contain border shadow-lg z-10 bg-white dark:bg-[var(--dark-sidebar-bg)]"
+              <HoverPreview
+                placement="left"
+                preview={
+                  <img
+                    src={a.thumbnailUrl || a.adUrl || a.firebaseUrl}
+                    alt="preview"
+                    className="object-contain max-h-[25rem] w-auto"
+                  />
+                }
               />
             </span>
           )

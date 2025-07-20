@@ -17,6 +17,7 @@ import IconButton from './components/IconButton.jsx';
 import TabButton from './components/TabButton.jsx';
 import SortButton from './components/SortButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
+import HoverPreview from './components/HoverPreview.jsx';
 import { uploadBrandAsset } from './uploadBrandAsset';
 import TaggerModal from './TaggerModal.jsx';
 import { httpsCallable } from 'firebase/functions';
@@ -580,7 +581,15 @@ const AssetLibrary = ({ brandCode = '' }) => {
                 </td>
                 <td className="text-center">
                   {a.thumbnailUrl && (
-                    <span className="relative inline-block group">
+                    <HoverPreview
+                      preview={
+                        <img
+                          src={a.thumbnailUrl}
+                          alt="preview"
+                          className="object-contain max-h-[25rem] w-auto"
+                        />
+                      }
+                    >
                       <button
                         type="button"
                         onClick={() => window.open(a.thumbnailUrl, '_blank')}
@@ -589,12 +598,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
                       >
                         <FiImage />
                       </button>
-                      <img
-                        src={a.thumbnailUrl}
-                        alt="preview"
-                        className="hidden group-hover:block absolute left-full ml-2 top-1/2 -translate-y-1/2 min-w-[100px] w-auto h-80 object-contain border shadow-lg z-10 bg-white dark:bg-[var(--dark-sidebar-bg)]"
-                      />
-                    </span>
+                    </HoverPreview>
                   )}
                 </td>
                 <td>
