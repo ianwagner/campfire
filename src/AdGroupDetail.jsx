@@ -1681,7 +1681,7 @@ const AdGroupDetail = () => {
               <IconButton aria-label="View" className="px-1.5 text-xs">
                 <FiEye />
               </IconButton>
-              <div className="hidden group-hover:block absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-white border shadow z-10 p-2 max-h-80 overflow-auto">
+              <div className="hidden group-hover:block absolute right-full mr-2 top-1/2 -translate-y-1/2 bg-white border shadow z-10 p-2 max-h-80 overflow-auto">
                 <div className="grid grid-cols-2 gap-2">
                   {g.assets.map((a) => (
                     <OptimizedImage
