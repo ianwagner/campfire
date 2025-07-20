@@ -1003,6 +1003,7 @@ const AdGroupDetail = () => {
   };
 
   const downloadBriefAll = async () => {
+    if (!Array.isArray(briefAssets)) return;
     const files = [];
     for (const asset of briefAssets) {
       try {
