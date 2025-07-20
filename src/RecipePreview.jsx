@@ -20,6 +20,7 @@ import TagInput from './components/TagInput.jsx';
 import { db } from './firebase/config';
 import selectRandomOption from './utils/selectRandomOption.js';
 import parseContextTags from './utils/parseContextTags.js';
+import { splitCsvLine } from './utils/csv.js';
 import debugLog from './utils/debugLog';
 import { safeGetItem } from './utils/safeLocalStorage.js';
 import AssetPickerModal from './components/AssetPickerModal.jsx';
@@ -261,6 +262,68 @@ const RecipePreview = ({
     }
   }, [results]);
 
+  const handleAssetCsvChange = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) {
+      setAssetRows([]);
+      setAssetHeaders([]);
+      setAssetMap({});
+      setAssetUsage({});
+      return;
+    }
+    const text = await f.text();
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length === 0) {
+      setAssetRows([]);
+      setAssetHeaders([]);
+      setAssetMap({});
+      setAssetUsage({});
+      return;
+    }
+    const headers = splitCsvLine(lines[0]).map((h) => h.trim());
+    const rows = [];
+    for (let i = 1; i < lines.length; i += 1) {
+      if (!lines[i]) continue;
+      const parts = splitCsvLine(lines[i]).map((p) => p.trim());
+      const obj = {};
+      headers.forEach((h, idx) => {
+        obj[h] = parts[idx] || '';
+      });
+      rows.push(obj);
+    }
+    setAssetRows(rows);
+    setAssetHeaders(headers);
+    setAssetFilter('');
+    const map = {};
+    (currentType?.assetMatchFields || []).forEach((fKey) => {
+      map[fKey] = { header: headers.includes(fKey) ? fKey : '', score: 10 };
+    });
+    const urlHeader = headers.find((h) => /url/i.test(h));
+    if (urlHeader) {
+      map.imageUrl = { header: urlHeader, score: 10 };
+    }
+    const nameHeader = headers.find((h) => /(name|file)/i.test(h));
+    if (nameHeader) {
+      map.imageName = { header: nameHeader, score: 10 };
+    }
+    const contextHeader = headers.find((h) => /context/i.test(h));
+    if (contextHeader) {
+      map.context = { header: contextHeader };
+    }
+    const typeHeader = headers.find((h) => /asset.?type/i.test(h) || /^type$/i.test(h));
+    if (typeHeader) {
+      map.assetType = { header: typeHeader };
+    }
+    setAssetMap(map);
+    const idField = map.imageName?.header || map.imageUrl?.header || '';
+    const usage = {};
+    rows.forEach((r) => {
+      const id = r[idField] || r.imageUrl || r.imageName || '';
+      if (id) usage[id] = 0;
+    });
+    setAssetUsage(usage);
+    debugLog('Asset CSV loaded', { headers, rowsSample: rows.slice(0, 2), map });
+  };
 
   const loadAssetLibrary = async () => {
     try {
@@ -306,7 +369,7 @@ const RecipePreview = ({
   };
 
   useEffect(() => {
-    if (currentType?.enableAssetCsv && brandCode) {
+    if (brandCode) {
       loadAssetLibrary();
     } else {
       setAssetRows([]);
@@ -314,7 +377,7 @@ const RecipePreview = ({
       setAssetMap({});
       setAssetUsage({});
     }
-  }, [brandCode, currentType]);
+  }, [brandCode]);
 
   const generateOnce = async (baseValues = null, brand = brandCode) => {
     if (!currentType) return null;
@@ -1083,10 +1146,20 @@ const RecipePreview = ({
         )}
         {currentType?.enableAssetCsv && (
           <div className="space-y-2">
-            {assetRows.length > 0 && (
-              <div>
-                <label className="block text-sm mb-1">Asset Library</label>
-                <div className="flex items-center gap-2">
+            <div>
+              <label className="block text-sm mb-1">Asset Source</label>
+              <div className="flex items-center gap-2">
+                <input type="file" accept=".csv" onChange={handleAssetCsvChange} />
+                <button
+                  type="button"
+                  className="btn-secondary px-2 py-0.5"
+                  onClick={loadAssetLibrary}
+                >
+                  Use Library
+                </button>
+              </div>
+              {assetRows.length > 0 && (
+                <div className="flex items-center gap-2 mt-1">
                   <p className="text-xs">{assetRows.length} rows loaded</p>
                   <input
                     type="text"
@@ -1096,8 +1169,8 @@ const RecipePreview = ({
                     className="p-1 border rounded text-xs"
                   />
                 </div>
-              </div>
-            )}
+              )}
+            </div>
             {assetHeaders.length > 0 && (
               <div className="space-y-1">
                 {currentType.assetMatchFields?.map((f) => (
