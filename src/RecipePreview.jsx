@@ -28,6 +28,7 @@ import HoverPreview from './components/HoverPreview.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import IconButton from './components/IconButton.jsx';
 import SaveButton from './components/SaveButton.jsx';
+import useUnsavedChanges from './useUnsavedChanges.js';
 import TabButton from './components/TabButton.jsx';
 
 const similarityScore = (a, b) => {
@@ -79,6 +80,7 @@ const RecipePreview = ({
   const [formData, setFormData] = useState({});
   const [selectedInstances, setSelectedInstances] = useState({});
   const [results, setResults] = useState([]);
+  const [savedResults, setSavedResults] = useState([]);
   const [generateCount, setGenerateCount] = useState(1);
   const [saving, setSaving] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState({});
@@ -89,6 +91,23 @@ const RecipePreview = ({
   const [assetUsage, setAssetUsage] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
   const [reviewRows, setReviewRows] = useState([]);
+  const dirty = useMemo(
+    () => JSON.stringify(results) !== JSON.stringify(savedResults),
+    [results, savedResults]
+  );
+
+  const handleSave = async () => {
+    if (!onSave) return;
+    setSaving(true);
+    try {
+      await onSave(results);
+      setSavedResults(results);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useUnsavedChanges(dirty, () => handleSave());
 
   // Reset visible columns when the selected recipe type changes so defaults
   // for the new type can be applied in the column initialization effect below.
@@ -232,7 +251,9 @@ const RecipePreview = ({
 
   useEffect(() => {
     if (initialResults && Array.isArray(initialResults)) {
-      setResults(initialResults.map((r, idx) => ({ recipeNo: idx + 1, ...r })));
+      const normalized = initialResults.map((r, idx) => ({ recipeNo: idx + 1, ...r }));
+      setResults(normalized);
+      setSavedResults(normalized);
       if (initialResults[0]?.type) {
         setSelectedType(initialResults[0].type);
       }
@@ -897,15 +918,6 @@ const RecipePreview = ({
     }
   };
 
-  const handleSave = async () => {
-    if (!onSave) return;
-    setSaving(true);
-    try {
-      await onSave(results);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const renderAssetList = (list = [], rowIdx = null, key = '') => (
     <div className="flex justify-center gap-1">
@@ -1396,7 +1408,7 @@ const RecipePreview = ({
           right={
             <>
               {results.length > 0 && userRole !== 'designer' && onSave && (
-                <SaveButton onClick={handleSave} canSave={results.length > 0} loading={saving} />
+                <SaveButton onClick={handleSave} canSave={dirty} loading={saving} />
               )}
               {userRole !== 'designer' && onRecipesClick && (
                 <IconButton
