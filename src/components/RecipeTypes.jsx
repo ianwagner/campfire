@@ -21,7 +21,7 @@ const RecipeTypes = () => {
   const [assetPrompt, setAssetPrompt] = useState('');
   const [componentOrder, setComponentOrder] = useState([]);
   const [fields, setFields] = useState([{ label: '', key: '', inputType: 'text' }]);
-  const [enableAssetLibrary, setEnableAssetLibrary] = useState(false);
+  const [enableAssetCsv, setEnableAssetCsv] = useState(false);
   const [assetFields, setAssetFields] = useState([]);
   const [defaultColumns, setDefaultColumns] = useState([]);
   const [editId, setEditId] = useState(null);
@@ -47,7 +47,7 @@ const RecipeTypes = () => {
     setAssetPrompt('');
     setComponentOrder([]);
     setFields([{ label: '', key: '', inputType: 'text' }]);
-    setEnableAssetLibrary(false);
+    setEnableAssetCsv(false);
     setAssetFields([]);
     setDefaultColumns([]);
   };
@@ -74,7 +74,7 @@ const RecipeTypes = () => {
           name: name.trim(),
           gptPrompt: prompt,
           assetPrompt: assetPrompt,
-          enableAssetLibrary,
+          enableAssetCsv,
           assetMatchFields: assetFields,
           components: order,
           writeInFields: writeFields,
@@ -88,7 +88,7 @@ const RecipeTypes = () => {
                   name: name.trim(),
                   gptPrompt: prompt,
                   assetPrompt: assetPrompt,
-                  enableAssetLibrary,
+                  enableAssetCsv,
                   assetMatchFields: assetFields,
                   components: order,
                   writeInFields: writeFields,
@@ -102,7 +102,7 @@ const RecipeTypes = () => {
           name: name.trim(),
           gptPrompt: prompt,
           assetPrompt: assetPrompt,
-          enableAssetLibrary,
+          enableAssetCsv,
           assetMatchFields: assetFields,
           components: order,
           writeInFields: writeFields,
@@ -115,7 +115,7 @@ const RecipeTypes = () => {
             name: name.trim(),
             gptPrompt: prompt,
             assetPrompt: assetPrompt,
-            enableAssetLibrary,
+            enableAssetCsv,
             assetMatchFields: assetFields,
             components: order,
             writeInFields: writeFields,
@@ -135,7 +135,7 @@ const RecipeTypes = () => {
     setName(t.name);
     setPrompt(t.gptPrompt || '');
     setAssetPrompt(t.assetPrompt || '');
-    setEnableAssetLibrary(!!(t.enableAssetLibrary ?? t.enableAssetCsv));
+    setEnableAssetCsv(!!t.enableAssetCsv);
     setAssetFields(t.assetMatchFields || []);
     setComponentOrder(t.components || []);
     setDefaultColumns(t.defaultColumns || []);
@@ -315,12 +315,12 @@ const RecipeTypes = () => {
             <input
               type="checkbox"
               className="mr-1"
-              checked={enableAssetLibrary}
-              onChange={(e) => setEnableAssetLibrary(e.target.checked)}
+              checked={enableAssetCsv}
+              onChange={(e) => setEnableAssetCsv(e.target.checked)}
             />
-            Enable Asset Library
+            Enable Asset CSV
           </label>
-          {enableAssetLibrary && (
+          {enableAssetCsv && (
             <div className="mt-2">
               <label className="block text-sm mb-1">Asset Match Fields</label>
               <TagInput
