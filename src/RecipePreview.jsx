@@ -29,6 +29,7 @@ import PageToolbar from './components/PageToolbar.jsx';
 import IconButton from './components/IconButton.jsx';
 import SaveButton from './components/SaveButton.jsx';
 import TabButton from './components/TabButton.jsx';
+import normalizeAssetType from './utils/normalizeAssetType.js';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -45,20 +46,6 @@ const similarityScore = (a, b) => {
   return Math.round((intersection / union.size) * 9) + 1;
 };
 
-export const normalizeAssetType = (t) => {
-  if (!t) return '';
-  const type = t.toString().trim().toLowerCase();
-  if (!type) return '';
-  const imageKeywords = ['still', 'image', 'static', 'img', 'picture', 'photo'];
-  const videoKeywords = ['motion', 'video', 'animated', 'gif'];
-  if (imageKeywords.some((k) => type.includes(k))) {
-    return 'image';
-  }
-  if (videoKeywords.some((k) => type.includes(k))) {
-    return 'video';
-  }
-  return type;
-};
 
 const RecipePreview = ({
   onSave = null,

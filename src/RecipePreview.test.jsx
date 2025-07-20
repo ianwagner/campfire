@@ -1,7 +1,8 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import RecipePreview, { normalizeAssetType } from './RecipePreview.jsx';
+import RecipePreview from './RecipePreview.jsx';
+import normalizeAssetType from './utils/normalizeAssetType.js';
 
 jest.mock('./firebase/config', () => ({ db: {} }));
 
