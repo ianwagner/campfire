@@ -20,6 +20,7 @@ import {
   FiPenTool,
   FiType,
   FiCopy,
+  FiPlus,
 } from "react-icons/fi";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
@@ -152,6 +153,7 @@ const AdGroupDetail = () => {
   const [designers, setDesigners] = useState([]);
   const [designerName, setDesignerName] = useState('');
   const [revisionModal, setRevisionModal] = useState(null);
+  let hasApprovedV2 = false;
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
@@ -633,7 +635,8 @@ const AdGroupDetail = () => {
       const hasV2 = groupAssets.some(
         (a) => (a.version || parseAdFilename(a.filename || "").version || 1) > 1,
       );
-      if (!hasV2) return;
+      const hasEditReq = groupAssets.some((a) => a.status === "edit_requested");
+      if (!hasV2 && !hasEditReq) return;
 
       const history = [];
       const uids = new Set();
@@ -682,9 +685,17 @@ const AdGroupDetail = () => {
         return t(b.lastUpdatedAt) - t(a.lastUpdatedAt);
       });
 
+      const sorted = [...groupAssets].sort(
+        (a, b) =>
+          (a.version || parseAdFilename(a.filename || "").version || 1) -
+          (b.version || parseAdFilename(b.filename || "").version || 1),
+      );
+      if (!hasV2 && hasEditReq) {
+        sorted.push({ id: "placeholder", placeholder: true });
+      }
       setRevisionModal({
         recipeCode,
-        assets: groupAssets,
+        assets: sorted,
         history,
         copy:
           recipesMeta[recipeCode]?.latestCopy ||
@@ -990,6 +1001,82 @@ const AdGroupDetail = () => {
       await updateDoc(doc(db, "adGroups", id, "assets", assetId), update);
     } catch (err) {
       console.error("Failed to upload version", err);
+    } finally {
+      setVersionUploading(null);
+    }
+  };
+
+  const uploadRevision = async (origAsset, file) => {
+    if (!file) return;
+    setVersionUploading(origAsset.id);
+    try {
+      let fname = file.name;
+      if (!/_V\d+/i.test(fname)) {
+        const ext = fname.replace(/.*(\.[^.]*)$/, '$1');
+        const base = fname.replace(/\.[^/.]+$/, '');
+        const nextVer = (origAsset.version || 1) + 1;
+        fname = `${base}_V${nextVer}${ext}`;
+        file = new File([file], fname, { type: file.type });
+      }
+      const url = await uploadFile(
+        file,
+        id,
+        group?.brandCode,
+        group?.name || id,
+      );
+      const info = parseAdFilename(fname);
+      const parentId = origAsset.parentAdId || origAsset.id;
+      const rcode = info.recipeCode || parseAdFilename(origAsset.filename || '').recipeCode || '';
+      const docRef = await addDoc(collection(db, 'adGroups', id, 'assets'), {
+        adGroupId: id,
+        brandCode: info.brandCode || group?.brandCode || '',
+        adGroupCode: info.adGroupCode || '',
+        recipeCode: info.recipeCode || '',
+        aspectRatio: info.aspectRatio || '',
+        filename: fname,
+        firebaseUrl: url,
+        uploadedAt: serverTimestamp(),
+        status: 'pending',
+        comment: null,
+        lastUpdatedBy: null,
+        lastUpdatedAt: serverTimestamp(),
+        version: info.version || (origAsset.version || 1) + 1,
+        parentAdId: parentId,
+        isResolved: false,
+      });
+      await updateAssetStatus(origAsset.id, 'archived');
+      const newAsset = {
+        id: docRef.id,
+        adGroupId: id,
+        brandCode: info.brandCode || group?.brandCode || '',
+        adGroupCode: info.adGroupCode || '',
+        recipeCode: info.recipeCode || '',
+        aspectRatio: info.aspectRatio || '',
+        filename: fname,
+        firebaseUrl: url,
+        uploadedAt: new Date(),
+        status: 'pending',
+        comment: null,
+        lastUpdatedBy: null,
+        lastUpdatedAt: new Date(),
+        version: info.version || (origAsset.version || 1) + 1,
+        parentAdId: parentId,
+        isResolved: false,
+      };
+      setAssets((prev) => [
+        ...prev.map((a) => (a.id === origAsset.id ? { ...a, status: 'archived' } : a)),
+        newAsset,
+      ]);
+      setRevisionModal((prev) =>
+        prev && prev.recipeCode === rcode
+          ? {
+              ...prev,
+              assets: [...prev.assets.filter((a) => a.id !== 'placeholder'), newAsset],
+            }
+          : prev,
+      );
+    } catch (err) {
+      console.error('Failed to upload revision', err);
     } finally {
       setVersionUploading(null);
     }
@@ -1529,7 +1616,9 @@ const AdGroupDetail = () => {
 
   const renderRecipeRow = (g) => {
     const hasRevision = g.assets.some(
-      (a) => (a.version || parseAdFilename(a.filename || "").version || 1) > 1,
+      (a) =>
+        (a.version || parseAdFilename(a.filename || "").version || 1) > 1 ||
+        a.status === "edit_requested",
     );
 
     return (
@@ -2330,16 +2419,66 @@ const AdGroupDetail = () => {
 
       {revisionModal && (
         <Modal sizeClass="max-w-3xl">
+          {(() => {
+            hasApprovedV2 = revisionModal.assets.some(
+              (x) =>
+                (x.version || parseAdFilename(x.filename || '').version || 1) > 1 &&
+                x.status === 'approved',
+            );
+            return null;
+          })()}
           <h3 className="mb-2 font-semibold">Recipe {revisionModal.recipeCode} Revision</h3>
           <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 overflow-auto max-h-[25rem]">
-              {revisionModal.assets.map((a) => (
-                <OptimizedImage
-                  key={a.id}
-                  pngUrl={a.thumbnailUrl || a.firebaseUrl}
-                  alt={a.filename}
-                  className="w-full object-contain max-h-[25rem]"
-                />
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-auto max-h-[25rem]">
+              {revisionModal.assets.map((a, idx) => (
+                a.placeholder ? (
+                  <div
+                    key={"ph" + idx}
+                    className="w-full h-40 flex flex-col items-center justify-center bg-gray-200 text-gray-600 cursor-pointer"
+                    onClick={() => document.getElementById('rev-upload').click()}
+                  >
+                    <FiPlus className="text-2xl" />
+                    <span>Upload Revision</span>
+                    <input
+                      id="rev-upload"
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        uploadRevision(revisionModal.assets[0], e.target.files[0]);
+                        e.target.value = null;
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div key={a.id} className="relative">
+                    <span className="absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded">
+                      V{a.version || parseAdFilename(a.filename || '').version || 1}
+                    </span>
+                    {((a.version || parseAdFilename(a.filename || '').version || 1) > 1) && (isDesigner || isManager) && a.status !== 'approved' && (
+                      <label className="absolute top-1 right-1 bg-white bg-opacity-80 text-xs px-1 rounded cursor-pointer">
+                        Replace
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            uploadRevision(a, e.target.files[0]);
+                            e.target.value = null;
+                          }}
+                        />
+                      </label>
+                    )}
+                    {((a.version || parseAdFilename(a.filename || '').version || 1) > 1) && isDesigner && a.status === 'approved' && (
+                      <span className="absolute top-1 right-1 bg-gray-300 text-xs px-1 rounded opacity-70">
+                        Replace
+                      </span>
+                    )}
+                    <OptimizedImage
+                      pngUrl={a.thumbnailUrl || a.firebaseUrl}
+                      alt={a.filename}
+                      className="w-full object-contain max-h-[25rem]"
+                    />
+                  </div>
+                )
               ))}
             </div>
             <div className="w-full md:w-60 overflow-auto max-h-[25rem]">
@@ -2380,13 +2519,20 @@ const AdGroupDetail = () => {
               onChange={(e) =>
                 setRevisionModal({ ...revisionModal, copy: e.target.value })
               }
+              disabled={isDesigner}
             />
           </label>
           <div className="mt-3 flex justify-end gap-2">
             <IconButton onClick={closeModals}>Close</IconButton>
-            <button onClick={saveRevisionReady} className="btn-primary px-3 py-1">
-              Ready
-            </button>
+            {isDesigner && hasApprovedV2 ? (
+              <button className="btn-primary px-3 py-1 opacity-60 cursor-not-allowed" disabled>
+                Version Approved
+              </button>
+            ) : (
+              <button onClick={saveRevisionReady} className="btn-primary px-3 py-1">
+                Ready
+              </button>
+            )}
           </div>
         </Modal>
       )}
