@@ -711,6 +711,15 @@ const AdGroupDetail = () => {
     }
   }, [metadataRecipe, recipesMeta]);
 
+  useEffect(() => {
+    if (!revisionModal) return;
+    const groupAssets = assets.filter((a) => {
+      const info = parseAdFilename(a.filename || "");
+      return (info.recipeCode || "unknown") === revisionModal.recipeCode;
+    });
+    setRevisionModal((prev) => ({ ...prev, assets: groupAssets }));
+  }, [assets]);
+
   const closeModals = () => {
     setHistoryRecipe(null);
     setHistoryAsset(null);
@@ -939,6 +948,28 @@ const AdGroupDetail = () => {
       });
     } catch (err) {
       console.error("Failed to replace asset", err);
+    }
+  };
+
+  const replaceAdAsset = async (asset, file) => {
+    if (!file) return;
+    setVersionUploading(asset.id);
+    try {
+      const url = await uploadFile(
+        file,
+        id,
+        group?.brandCode,
+        group?.name || id,
+      );
+      await updateDoc(doc(db, "adGroups", id, "assets", asset.id), {
+        filename: file.name,
+        firebaseUrl: url,
+        uploadedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error("Failed to replace asset", err);
+    } finally {
+      setVersionUploading(null);
     }
   };
 
@@ -2332,15 +2363,35 @@ const AdGroupDetail = () => {
         <Modal sizeClass="max-w-3xl">
           <h3 className="mb-2 font-semibold">Recipe {revisionModal.recipeCode} Revision</h3>
           <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 overflow-auto max-h-[25rem]">
-              {revisionModal.assets.map((a) => (
-                <OptimizedImage
-                  key={a.id}
-                  pngUrl={a.thumbnailUrl || a.firebaseUrl}
-                  alt={a.filename}
-                  className="w-full object-contain max-h-[25rem]"
-                />
-              ))}
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-auto max-h-[25rem]">
+              {revisionModal.assets.map((a) => {
+                const version = a.version || parseAdFilename(a.filename || '').version || 1;
+                return (
+                  <div key={a.id} className="relative">
+                    <div className="absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded">
+                      V{version}
+                    </div>
+                    {version >= 2 && userRole === 'admin' && (
+                      <label className="absolute top-1 right-1 bg-white bg-opacity-70 text-xs px-1 rounded cursor-pointer">
+                        Replace
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            replaceAdAsset(a, e.target.files[0]);
+                            e.target.value = null;
+                          }}
+                        />
+                      </label>
+                    )}
+                    <OptimizedImage
+                      pngUrl={a.thumbnailUrl || a.firebaseUrl}
+                      alt={a.filename}
+                      className="w-full object-contain max-h-[25rem]"
+                    />
+                  </div>
+                );
+              })}
             </div>
             <div className="w-full md:w-60 overflow-auto max-h-[25rem]">
               <ul className="space-y-2">
