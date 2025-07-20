@@ -2371,7 +2371,7 @@ const AdGroupDetail = () => {
                     <div className="absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded">
                       V{version}
                     </div>
-                    {version >= 2 && (isAdmin || isDesigner) && (
+                    {version >= 2 && (
                       <label className="absolute top-1 right-1 bg-white bg-opacity-70 text-xs px-1 rounded cursor-pointer">
                         Replace
                         <input
