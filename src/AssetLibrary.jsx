@@ -53,6 +53,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState('list');
+  const [products, setProducts] = useState([]);
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
@@ -131,6 +132,30 @@ const AssetLibrary = ({ brandCode = '' }) => {
         window.removeEventListener('mouseup', up);
       }
     };
+  }, [brandCode]);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      if (!brandCode) {
+        setProducts([]);
+        return;
+      }
+      try {
+        const q = query(collection(db, 'brands'), where('code', '==', brandCode));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          const prods = Array.isArray(data.products) ? data.products : [];
+          setProducts(prods.map((p) => p.name).filter(Boolean));
+        } else {
+          setProducts([]);
+        }
+      } catch (err) {
+        console.error('Failed to load products', err);
+        setProducts([]);
+      }
+    };
+    loadProducts();
   }, [brandCode]);
 
   useEffect(() => {
@@ -524,12 +549,18 @@ const AssetLibrary = ({ brandCode = '' }) => {
             value={bulkValues.type}
             onChange={(e) => setBulkValues({ ...bulkValues, type: e.target.value })}
           />
-          <input
+          <select
             className="p-1 border rounded"
-            placeholder="Product"
             value={bulkValues.product}
             onChange={(e) => setBulkValues({ ...bulkValues, product: e.target.value })}
-          />
+          >
+            <option value="">Product</option>
+            {products.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
           <input
             className="p-1 border rounded"
             placeholder="Folder Name"
@@ -619,13 +650,20 @@ const AssetLibrary = ({ brandCode = '' }) => {
                   />
                 </td>
                 <td>
-                  <input
+                  <select
                     className="w-full p-1 border rounded"
                     value={a.product}
                     onMouseDown={handleInputDown('product', a.product)}
                     onMouseOver={handleInputOver(a.id)}
                     onChange={(e) => updateRow(a.id, 'product', e.target.value)}
-                  />
+                  >
+                    <option value="">None</option>
+                    {products.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
                 </td>
                 <td>
                   <input
