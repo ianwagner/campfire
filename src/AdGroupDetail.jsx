@@ -1605,15 +1605,17 @@ const AdGroupDetail = () => {
                           >
                             <FiClock />
                           </IconButton>
-                          <IconButton
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteAsset(a);
-                            }}
-                            aria-label="Delete"
-                          >
-                            <FiTrash />
-                          </IconButton>
+                          {!isDesigner && (
+                            <IconButton
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteAsset(a);
+                              }}
+                              aria-label="Delete"
+                            >
+                              <FiTrash />
+                            </IconButton>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1717,34 +1719,38 @@ const AdGroupDetail = () => {
               <FiCopy />
               <span className="ml-1">See Revisions</span>
             </IconButton>
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                const rawId = g.recipeCode;
-                const normId = normalizeId(rawId);
-                setMetadataRecipe(
-                  recipesMeta[rawId] ||
-                    recipesMeta[String(rawId).toLowerCase()] ||
-                    recipesMeta[normId] || {
-                      id: rawId,
-                    },
-                );
-              }}
-              aria-label="Metadata"
-              className="px-1.5 text-xs mr-2"
-            >
-              <FiBookOpen />
-              <span className="ml-1">Metadata</span>
-            </IconButton>
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                deleteRecipe(g.recipeCode);
-              }}
-              className="text-xs" aria-label="Delete"
-            >
-              <FiTrash />
-            </IconButton>
+            {!isDesigner && (
+              <>
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rawId = g.recipeCode;
+                    const normId = normalizeId(rawId);
+                    setMetadataRecipe(
+                      recipesMeta[rawId] ||
+                        recipesMeta[String(rawId).toLowerCase()] ||
+                        recipesMeta[normId] || {
+                          id: rawId,
+                        },
+                    );
+                  }}
+                  aria-label="Metadata"
+                  className="px-1.5 text-xs mr-2"
+                >
+                  <FiBookOpen />
+                  <span className="ml-1">Metadata</span>
+                </IconButton>
+                <IconButton
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteRecipe(g.recipeCode);
+                  }}
+                  className="text-xs" aria-label="Delete"
+                >
+                  <FiTrash />
+                </IconButton>
+              </>
+            )}
           </div>
         </td>
       </tr>
