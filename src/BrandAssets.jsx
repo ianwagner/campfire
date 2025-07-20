@@ -4,7 +4,7 @@ import { db } from "./firebase/config";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 import Modal from "./components/Modal.jsx";
 
-const BrandAssets = ({ brandCode, onClose, inline = false }) => {
+const BrandAssets = ({ brandCode, onClose, inline = false, hideGuidelines = false }) => {
   const [brand, setBrand] = useState(null);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ const BrandAssets = ({ brandCode, onClose, inline = false }) => {
         </button>
       )}
       <h3 className="mb-3 font-semibold text-lg">Brand Assets</h3>
-        {brand.guidelinesUrl && (
+        {!hideGuidelines && brand.guidelinesUrl && (
           <div className="mb-3 space-y-2">
             <a
               href={brand.guidelinesUrl}
