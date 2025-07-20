@@ -489,8 +489,11 @@ const AdGroupDetail = () => {
   }, [assets]);
 
   function getRecipeStatus(list) {
-    const unique = Array.from(new Set(list.map((a) => a.status)));
-    return unique.length === 1 ? unique[0] : "mixed";
+    const active = list.filter((a) => a.status !== "archived");
+    const unique = Array.from(new Set(active.map((a) => a.status)));
+    if (unique.length === 1) return unique[0];
+    if (unique.length === 0) return "archived";
+    return "mixed";
   }
 
   const specialGroups = useMemo(
