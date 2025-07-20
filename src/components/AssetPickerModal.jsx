@@ -3,7 +3,7 @@ import { FiImage, FiVideo } from 'react-icons/fi';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import useUserRole from '../useUserRole';
-import { normalizeAssetType } from '../RecipePreview.jsx';
+import normalizeAssetType from '../utils/normalizeAssetType.js';
 import Button from './Button.jsx';
 
 const AssetPickerModal = ({
