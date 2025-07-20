@@ -27,6 +27,7 @@ import AssetPickerModal from './components/AssetPickerModal.jsx';
 import HoverPreview from './components/HoverPreview.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import IconButton from './components/IconButton.jsx';
+import SaveButton from './components/SaveButton.jsx';
 import TabButton from './components/TabButton.jsx';
 
 const similarityScore = (a, b) => {
@@ -79,6 +80,7 @@ const RecipePreview = ({
   const [selectedInstances, setSelectedInstances] = useState({});
   const [results, setResults] = useState([]);
   const [generateCount, setGenerateCount] = useState(1);
+  const [saving, setSaving] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState({});
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const [assetRows, setAssetRows] = useState([]);
@@ -895,6 +897,16 @@ const RecipePreview = ({
     }
   };
 
+  const handleSave = async () => {
+    if (!onSave) return;
+    setSaving(true);
+    try {
+      await onSave(results);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const renderAssetList = (list = [], rowIdx = null, key = '') => (
     <div className="flex justify-center gap-1">
       {list && list.length > 0 ? (
@@ -1384,9 +1396,7 @@ const RecipePreview = ({
           right={
             <>
               {results.length > 0 && userRole !== 'designer' && onSave && (
-                <IconButton onClick={() => onSave(results)} aria-label="Save Recipes">
-                  <FiSave />
-                </IconButton>
+                <SaveButton onClick={handleSave} canSave={results.length > 0} loading={saving} />
               )}
               {userRole !== 'designer' && onRecipesClick && (
                 <IconButton
