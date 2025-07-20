@@ -796,7 +796,7 @@ const RecipePreview = ({
   const [editing, setEditing] = useState(null);
   const [editCopy, setEditCopy] = useState('');
   const [editComponents, setEditComponents] = useState({});
-  const [assetPicker, setAssetPicker] = useState(null); // { rowIdx, key, assetIdx }
+  const [assetPicker, setAssetPicker] = useState(null); // { rowIdx, key, assetIdx, product }
 
   const handleEditRow = (idx) => {
     if (editing === idx) {
@@ -931,7 +931,14 @@ const RecipePreview = ({
             <button
               key={`na-${i}`}
               type="button"
-              onClick={() => setAssetPicker({ rowIdx, key, assetIdx: i })}
+              onClick={() =>
+                setAssetPicker({
+                  rowIdx,
+                  key,
+                  assetIdx: i,
+                  product: results[rowIdx]?.components['product.name'] || '',
+                })
+              }
               className="text-red-500 text-xs underline"
             >
               Need asset
@@ -942,7 +949,13 @@ const RecipePreview = ({
                 type="button"
                 onClick={() =>
                   userRole === 'admin' && editing === rowIdx
-                    ? setAssetPicker({ rowIdx, key, assetIdx: i })
+                    ? setAssetPicker({
+                        rowIdx,
+                        key,
+                        assetIdx: i,
+                        product:
+                          results[rowIdx]?.components['product.name'] || '',
+                      })
                     : window.open(a.adUrl || a.firebaseUrl, '_blank')
                 }
                 aria-label="Asset"
@@ -1639,6 +1652,7 @@ const RecipePreview = ({
       {assetPicker && (
         <AssetPickerModal
           brandCode={brandCode}
+          initialFilter={assetPicker?.product}
           onSelect={handleAssetSelect}
           onClose={() => setAssetPicker(null)}
         />

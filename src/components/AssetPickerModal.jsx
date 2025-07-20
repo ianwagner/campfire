@@ -6,12 +6,21 @@ import useUserRole from '../useUserRole';
 import { normalizeAssetType } from '../RecipePreview.jsx';
 import Button from './Button.jsx';
 
-const AssetPickerModal = ({ brandCode: propBrandCode = '', onSelect, onClose }) => {
+const AssetPickerModal = ({
+  brandCode: propBrandCode = '',
+  initialFilter = '',
+  onSelect,
+  onClose,
+}) => {
   const user = auth.currentUser;
   const { brandCodes } = useUserRole(user?.uid);
   const [assets, setAssets] = useState([]);
-  const [filter, setFilter] = useState('');
+  const [filter, setFilter] = useState(initialFilter);
   const [brandCode, setBrandCode] = useState(propBrandCode || brandCodes[0] || '');
+
+  useEffect(() => {
+    setFilter(initialFilter);
+  }, [initialFilter]);
 
   useEffect(() => {
     if (propBrandCode) setBrandCode(propBrandCode);
@@ -74,6 +83,14 @@ const AssetPickerModal = ({ brandCode: propBrandCode = '', onSelect, onClose }) 
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
+          <Button
+            type="button"
+            variant="secondary"
+            className="px-1.5 py-0.5 text-xs"
+            onClick={() => setFilter('')}
+          >
+            Clear
+          </Button>
           <Button type="button" variant="secondary" className="px-2 py-1" onClick={onClose}>
             Close
           </Button>
