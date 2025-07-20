@@ -118,6 +118,7 @@ const AdGroupDetail = () => {
   const { id } = useParams();
   const [group, setGroup] = useState(null);
   const [brandName, setBrandName] = useState("");
+  const [brandGuidelines, setBrandGuidelines] = useState("");
   const [assets, setAssets] = useState([]);
   const [briefAssets, setBriefAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -321,13 +322,17 @@ const AdGroupDetail = () => {
         );
         const snap = await getDocs(q);
         if (!snap.empty) {
-          setBrandName(snap.docs[0].data().name || group.brandCode);
+          const data = snap.docs[0].data();
+          setBrandName(data.name || group.brandCode);
+          setBrandGuidelines(data.guidelinesUrl || "");
         } else {
           setBrandName(group.brandCode);
+          setBrandGuidelines("");
         }
       } catch (err) {
         console.error("Failed to fetch brand name", err);
         setBrandName(group.brandCode);
+        setBrandGuidelines("");
       }
     };
     loadBrand();
@@ -2695,15 +2700,35 @@ const AdGroupDetail = () => {
       )}
 
       {usesTabs
-        ? tab === "assets" && (
-            <BrandAssets brandCode={group?.brandCode} inline />
-          )
-        : showBrandAssets && (
-            <BrandAssets
-              brandCode={group?.brandCode}
-              onClose={() => setShowBrandAssets(false)}
-            />
-          )}
+        ?
+            tab === "assets" && (
+              <div className="flex flex-col sm:flex-row gap-4">
+                <BrandAssets brandCode={group?.brandCode} inline hideGuidelines />
+                {brandGuidelines && (
+                  <div className="flex-1">
+                    <div
+                      className="mb-4 bg-white p-4 rounded shadow w-full h-full overflow-auto relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                      style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
+                    >
+                      <h3 className="mb-3 font-semibold text-lg">Brand Guidelines</h3>
+                      <iframe
+                        src={brandGuidelines}
+                        title="Brand Guidelines"
+                        className="w-full border rounded"
+                        style={{ height: '500px' }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+        :
+            showBrandAssets && (
+              <BrandAssets
+                brandCode={group?.brandCode}
+                onClose={() => setShowBrandAssets(false)}
+              />
+            )}
     </div>
   );
 };
