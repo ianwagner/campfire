@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import SaveButton from './components/SaveButton.jsx';
+import useUnsavedChanges from './useUnsavedChanges.js';
 import { splitCsvLine } from './utils/csv.js';
 import Table from './components/common/Table';
 
@@ -9,6 +11,8 @@ const ReviewLibrary = ({ brandCode = '' }) => {
   const [csvColumns, setCsvColumns] = useState([]);
   const [csvRows, setCsvRows] = useState([]);
   const [csvMap, setCsvMap] = useState({});
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const key = brandCode ? `reviews_${brandCode}` : 'reviews';
@@ -18,6 +22,7 @@ const ReviewLibrary = ({ brandCode = '' }) => {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
           setReviews(parsed.map((r) => ({ ...emptyReview, ...r })));
+          setDirty(false);
         }
       } catch (err) {
         console.error('Failed to parse stored reviews', err);
@@ -28,23 +33,29 @@ const ReviewLibrary = ({ brandCode = '' }) => {
   const addRow = () => {
     const id = Math.random().toString(36).slice(2);
     setReviews((p) => [...p, { ...emptyReview, id }]);
+    setDirty(true);
   };
 
   const updateRow = (id, field, value) => {
     setReviews((p) => p.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+    setDirty(true);
   };
 
   const deleteRow = (id) => {
     setReviews((p) => p.filter((r) => r.id !== id));
+    setDirty(true);
   };
 
   const saveReviews = () => {
     try {
+      setSaving(true);
       const key = brandCode ? `reviews_${brandCode}` : 'reviews';
       localStorage.setItem(key, JSON.stringify(reviews));
-      alert('Reviews saved');
+      setDirty(false);
     } catch (err) {
       console.error('Failed to save reviews', err);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -91,10 +102,13 @@ const ReviewLibrary = ({ brandCode = '' }) => {
           : '',
     }));
     setReviews((p) => [...p, ...newReviews]);
+    setDirty(true);
     setCsvColumns([]);
     setCsvRows([]);
     setCsvMap({});
   };
+
+  useUnsavedChanges(dirty, saveReviews);
 
   return (
     <div>
@@ -103,9 +117,7 @@ const ReviewLibrary = ({ brandCode = '' }) => {
           Add Row
         </button>
         <input type="file" accept=".csv" onChange={handleCsv} />
-        <button type="button" className="btn-primary" onClick={saveReviews}>
-          Save Reviews
-        </button>
+        <SaveButton onClick={saveReviews} canSave={dirty} loading={saving} />
       </div>
       {csvColumns.length > 0 && (
         <div className="mb-4 space-y-2">

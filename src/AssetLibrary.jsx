@@ -3,7 +3,6 @@ import {
   FiTrash,
   FiLink,
   FiImage,
-  FiSave,
   FiPlus,
   FiFolderPlus,
   FiTag,
@@ -14,6 +13,7 @@ import {
 } from 'react-icons/fi';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
+import SaveButton from './components/SaveButton.jsx';
 import TabButton from './components/TabButton.jsx';
 import SortButton from './components/SortButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
@@ -26,6 +26,7 @@ import { collection, getDocs, query, where, serverTimestamp } from 'firebase/fir
 import { db } from './firebase/config';
 
 import syncAssetLibrary from "./utils/syncAssetLibrary";
+import useUnsavedChanges from './useUnsavedChanges.js';
 
 const emptyAsset = {
   id: '',
@@ -50,6 +51,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const fileInputRef = useRef(null);
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [view, setView] = useState('list');
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(0);
@@ -282,11 +284,13 @@ const AssetLibrary = ({ brandCode = '' }) => {
 
   const saveAssets = async () => {
     try {
+      setSaving(true);
       await syncAssetLibrary(brandCode, assets);
-      alert('Assets saved');
       setDirty(false);
     } catch (err) {
       console.error('Failed to save assets', err);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -356,6 +360,8 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const visible = filtered.slice(startIdx, startIdx + rowsPerPage);
   const canShowMore = startIdx + rowsPerPage < Math.min(filtered.length, (page + 1) * PAGE_SIZE);
 
+  useUnsavedChanges(dirty, saveAssets);
+
   return (
     <div>
       <PageToolbar
@@ -391,18 +397,11 @@ const AssetLibrary = ({ brandCode = '' }) => {
         right={(
           <div className="flex flex-wrap gap-2 items-center relative">
             <span className="relative group">
-              <IconButton
-                onClick={saveAssets}
-                aria-label="Save"
-                disabled={!dirty}
-              className={`text-xl ${dirty ? 'bg-[var(--accent-color-10)] text-accent' : ''}`}
-            >
-              <FiSave />
-            </IconButton>
-            <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-              Save
-            </div>
-          </span>
+              <SaveButton onClick={saveAssets} canSave={dirty} loading={saving} />
+              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                Save
+              </div>
+            </span>
           <div className="border-l h-6 mx-2" />
           <span className="relative group">
             <IconButton
