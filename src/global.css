@@ -250,6 +250,9 @@
   .ad-table tbody tr.designer-selected {
     background-color: var(--accent-color-10);
   }
+  html.dark .ad-table tbody tr.designer-selected {
+    background-color: var(--accent-color-10);
+  }
   .asset-row {
     font-size: 12px;
     background-color: #ffffff;
