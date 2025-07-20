@@ -4,7 +4,7 @@ import { app } from "./firebase/config";
 const storage = getStorage(app);
 
 // Uploads an asset to Firebase Storage using a readable folder structure.
-// Brand and group names are included so the folder path mirrors the UI hierarchy.
+// Brand code and group name are included so the folder path mirrors the UI hierarchy.
 function sanitizeSegment(str) {
   return (str || '')
     .replace(/\//g, '-')
@@ -12,8 +12,8 @@ function sanitizeSegment(str) {
     .trim();
 }
 
-export async function uploadFile(file, adGroupId, brandName, groupName) {
-  const brandSegment = sanitizeSegment(brandName);
+export async function uploadFile(file, adGroupId, brandCode, groupName) {
+  const brandSegment = sanitizeSegment(brandCode);
   const groupSegment = sanitizeSegment(groupName);
   const filePath = `Campfire/Brands/${brandSegment}/Adgroups/${groupSegment}/${file.name}`;
   const fileRef = ref(storage, filePath);
