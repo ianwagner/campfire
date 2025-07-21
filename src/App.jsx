@@ -147,13 +147,6 @@ const App = () => {
             ? '/editor/tickets'
             : `/dashboard/${role}`
     : '/login';
-
-  React.useEffect(() => {
-    document.documentElement.style.setProperty(
-      '--sidebar-width',
-      signedIn ? '250px' : '0px'
-    );
-  }, [signedIn]);
   if (signedIn && !role) {
     return (
       <div className="flex items-center justify-center min-h-screen text-center">
@@ -172,9 +165,9 @@ const App = () => {
             <RoleSidebar role={role} isAdmin={isAdmin} agencyId={agencyId} />
           )}
           <div
-            id="app-main"
-            className="flex flex-col flex-grow box-border min-w-0 max-w-full"
-            style={signedIn ? { paddingLeft: 'var(--sidebar-width)' } : {}}
+            className={`flex flex-col flex-grow box-border min-w-0 max-w-full ${
+              signedIn ? 'md:pl-[250px]' : ''
+            }`}
           >
             <div className="flex-grow page-transition" key={location.pathname}>
               <Routes location={location}>
