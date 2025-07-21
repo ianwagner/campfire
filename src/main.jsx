@@ -4,17 +4,6 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 
-// Set Firebase config from environment variables so it can be read by
-// firebase-init.js which expects `window.FIREBASE_CONFIG` to already exist.
-window.FIREBASE_CONFIG = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-};
 
 // ----- React bootstrap -----
 const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -65,9 +54,9 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Load Firebase Messaging after the config is set
+// Lazily load Firebase Messaging so the main bundle stays small
 import('./firebase-init.js').then(async ({ messaging }) => {
-  const { getToken } = await import('https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging.js');
+  const { getToken } = await import('firebase/messaging');
 
   async function initMessaging() {
     console.log('🔔 Requesting notification permission...');
@@ -86,7 +75,7 @@ import('./firebase-init.js').then(async ({ messaging }) => {
     try {
       console.log('📬 Getting FCM token...');
       const token = await getToken(messaging, {
-        vapidKey: window.FIREBASE_CONFIG.vapidKey,
+        vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
         serviceWorkerRegistration: registration,
       });
 
