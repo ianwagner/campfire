@@ -86,11 +86,11 @@ function AdminDashboard() {
           const briefed = recipeSet.size;
           const delivered = deliveredSet.size;
           const approved = approvedSet.size;
-          const needed = contracted > approved ? contracted - approved : 0;
+          const needed = contracted > delivered ? contracted - delivered : 0;
           const status =
-            approved < contracted
+            delivered < contracted
               ? 'under'
-              : approved > contracted
+              : delivered > contracted
                 ? 'over'
                 : 'complete';
           results.push({
