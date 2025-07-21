@@ -37,12 +37,6 @@ const tabs = [
 
 const AdminSidebar = () => {
   const [collapsed, setCollapsed] = React.useState(false);
-  React.useEffect(() => {
-    document.documentElement.style.setProperty(
-      '--sidebar-width',
-      collapsed ? '4rem' : '250px'
-    );
-  }, [collapsed]);
   return (
     <SidebarBase
       tabs={tabs}
