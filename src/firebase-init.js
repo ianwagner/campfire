@@ -1,15 +1,6 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
-import { getMessaging } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-messaging.js';
+import { getMessaging } from 'firebase/messaging';
+import { app } from './firebase/config';
 
-console.log('Initializing Firebase for messaging...');
-
-const firebaseConfig = window.FIREBASE_CONFIG;
-if (!firebaseConfig || !firebaseConfig.apiKey) {
-  throw new Error('Missing Firebase configuration.');
-}
-
-const app = initializeApp(firebaseConfig);
-
-console.log('Firebase initialized');
+console.log('Initializing Firebase messaging...');
 
 export const messaging = getMessaging(app);
