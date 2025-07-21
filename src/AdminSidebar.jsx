@@ -1,4 +1,6 @@
+import React from 'react';
 import SidebarBase from './components/SidebarBase';
+import Logo from './components/Logo.jsx';
 import {
   FiHome,
   FiList,
@@ -33,6 +35,16 @@ const tabs = [
   },
 ];
 
-const AdminSidebar = () => <SidebarBase tabs={tabs} />;
+const AdminSidebar = () => {
+  const [collapsed, setCollapsed] = React.useState(false);
+  return (
+    <SidebarBase
+      tabs={tabs}
+      collapsed={collapsed}
+      onToggleCollapse={() => setCollapsed((c) => !c)}
+      LogoComponent={Logo}
+    />
+  );
+};
 
 export default AdminSidebar;

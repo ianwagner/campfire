@@ -6,6 +6,7 @@ import useSiteSettings from '../useSiteSettings';
 import debugLog from '../utils/debugLog';
 import { DEFAULT_LOGO_URL } from '../constants';
 import OptimizedImage from './OptimizedImage.jsx';
+import { FiChevronsLeft, FiChevronsRight } from 'react-icons/fi';
 
 /**
  * Common sidebar layout.
@@ -14,7 +15,15 @@ import OptimizedImage from './OptimizedImage.jsx';
  * @param {boolean} [props.applySiteAccent=true] When false the sidebar will not
  * apply the global site accent color. This allows callers to control theming.
  */
-const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) => {
+const SidebarBase = ({
+  tabs = [],
+  logoUrl,
+  logoAlt,
+  applySiteAccent = true,
+  collapsed = false,
+  onToggleCollapse,
+  LogoComponent,
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = React.useState(false);
@@ -44,7 +53,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
       {tabs.map((tab) => {
         const ParentIcon = tab.icon;
         const currentPath = location.pathname + location.search;
-        if (tab.children) {
+        if (tab.children && !collapsed) {
           const activeChild = tab.children.some((c) => currentPath.startsWith(c.path));
           const isOpen = openGroups[tab.label] || activeChild;
           const parentClasses =
@@ -56,7 +65,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
             <div key={tab.label} className="space-y-1">
               <button onClick={() => toggleGroup(tab.label)} className={parentClasses}>
                 {ParentIcon && <ParentIcon className="text-lg" aria-hidden="true" />}
-                {tab.label}
+                {!collapsed && tab.label}
               </button>
               <div
                 className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96' : 'max-h-0'}`}
@@ -77,7 +86,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
                         className={childClasses}
                       >
                         {ChildIcon && <ChildIcon className="text-lg" aria-hidden="true" />}
-                        {child.label}
+                        {!collapsed && child.label}
                       </button>
                     );
                   })}
@@ -86,17 +95,31 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
             </div>
           );
         }
-        const isActive = tab.path && currentPath.startsWith(tab.path);
-        const classes =
-          (isActive
-            ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
-            : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
-          'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-1 justify-center';
+
+        const isActive =
+          (tab.children && collapsed
+            ? tab.children.some((c) => currentPath.startsWith(c.path))
+            : tab.path && currentPath.startsWith(tab.path));
+
+        const classes = collapsed
+          ? (isActive
+              ? 'text-accent bg-accent-10 '
+              : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 ') +
+            'rounded-xl w-full p-3 transition-colors duration-200 flex items-center justify-center'
+          : (isActive
+              ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
+              : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
+            'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-1 justify-center';
         const Icon = tab.icon;
         return (
-          <button key={tab.label} onClick={() => handleClick(tab)} className={classes}>
+          <button
+            key={tab.label}
+            onClick={() => handleClick(tab)}
+            className={classes}
+            title={collapsed ? tab.label : undefined}
+          >
             {Icon && <Icon className="text-lg" aria-hidden="true" />}
-            {tab.label}
+            {!collapsed && tab.label}
           </button>
         );
       })}
@@ -106,7 +129,9 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
   return (
     <>
       {/* Desktop sidebar */}
-      <div className="hidden md:flex fixed top-0 left-0 w-[250px] border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] p-4 flex-col h-screen justify-between">
+      <div
+        className={`hidden md:flex fixed top-0 left-0 ${collapsed ? 'w-16' : 'w-[250px]'} border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] p-4 flex-col h-screen justify-between`}
+      >
         <div className="space-y-2">
           <div className="relative mx-auto mt-4 mb-4 h-16 flex items-center justify-center">
             {!logoReady && (
@@ -114,17 +139,35 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
                 <div className="loading-ring w-6 h-6" />
               </div>
             )}
-            <OptimizedImage
-              pngUrl={logoSrc}
-              alt={logoAlt || 'Logo'}
-              loading="eager"
-              cacheKey={logoSrc}
-              className={`max-h-full w-auto ${logoReady ? '' : 'opacity-0'}`}
-              onLoad={() => setLogoReady(true)}
-              onError={() => setLogoReady(true)}
-            />
+            {LogoComponent ? (
+              <LogoComponent isOpen={!collapsed} />
+            ) : (
+              <OptimizedImage
+                pngUrl={logoSrc}
+                alt={logoAlt || 'Logo'}
+                loading="eager"
+                cacheKey={logoSrc}
+                className={`max-h-full w-auto ${logoReady ? '' : 'opacity-0'}`}
+                onLoad={() => setLogoReady(true)}
+                onError={() => setLogoReady(true)}
+              />
+            )}
           </div>
           {menuItems}
+          {onToggleCollapse && (
+            <button
+              type="button"
+              aria-label="Toggle sidebar"
+              onClick={onToggleCollapse}
+              className="mx-auto my-2 text-xl"
+            >
+              {collapsed ? (
+                <FiChevronsRight aria-hidden="true" />
+              ) : (
+                <FiChevronsLeft aria-hidden="true" />
+              )}
+            </button>
+          )}
         </div>
         <div className="flex flex-col items-center space-y-1">
           <button
@@ -166,15 +209,19 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
                     <div className="loading-ring w-6 h-6" />
                   </div>
                 )}
-                <OptimizedImage
-                  pngUrl={logoSrc}
-                  alt={logoAlt || 'Logo'}
-                  loading="eager"
-                  cacheKey={logoSrc}
-                  className={`max-h-full w-auto ${logoReady ? '' : 'opacity-0'}`}
-                  onLoad={() => setLogoReady(true)}
-                  onError={() => setLogoReady(true)}
-                />
+                {LogoComponent ? (
+                  <LogoComponent isOpen={!collapsed} />
+                ) : (
+                  <OptimizedImage
+                    pngUrl={logoSrc}
+                    alt={logoAlt || 'Logo'}
+                    loading="eager"
+                    cacheKey={logoSrc}
+                    className={`max-h-full w-auto ${logoReady ? '' : 'opacity-0'}`}
+                    onLoad={() => setLogoReady(true)}
+                    onError={() => setLogoReady(true)}
+                  />
+                )}
               </div>
               {menuItems}
             </div>
