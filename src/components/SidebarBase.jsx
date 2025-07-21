@@ -148,7 +148,7 @@ const SidebarBase = ({
     <>
       {/* Desktop sidebar */}
       <div
-        className={`hidden md:flex fixed top-0 left-0 ${collapsed ? 'w-16' : 'w-[250px]'} border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] p-4 flex-col h-screen justify-between transition-all duration-300`}
+        className={`hidden md:flex fixed top-0 left-0 ${collapsed ? 'w-16 p-2' : 'w-[250px] p-4'} border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] flex-col h-screen justify-between transition-all duration-300`}
       >
         <div className="space-y-2">
           <div className="relative mx-auto mt-4 mb-4 h-16 flex-shrink-0 flex items-center justify-center">
