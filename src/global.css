@@ -682,6 +682,12 @@ html.dark .full-screen-spinner {
   position: relative;
   width: 300px;
   height: 80px;
+  overflow: hidden;
+}
+
+.logo-inner {
+  position: absolute;
+  inset: 0;
 }
 
 .logo-wrapper svg[id^='letter-'] {
