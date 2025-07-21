@@ -13,7 +13,7 @@ jest.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/current' }),
 }));
 
-test('admin sidebar has md width class', () => {
+test('admin sidebar toggles width when collapse button clicked', () => {
   const { container } = render(
     <MemoryRouter>
       <AdminSidebar />
@@ -22,6 +22,8 @@ test('admin sidebar has md width class', () => {
   const sidebarDiv = container.querySelector('.border-r');
   expect(sidebarDiv).toHaveClass('w-[250px]');
   expect(sidebarDiv).toHaveClass('md:flex');
+  fireEvent.click(screen.getByLabelText('Toggle sidebar'));
+  expect(sidebarDiv).toHaveClass('w-16');
 });
 
 test('navigates to brands page when Brands clicked', () => {
