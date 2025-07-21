@@ -32,6 +32,12 @@ const SidebarBase = ({
   const [logoReady, setLogoReady] = React.useState(false);
   const logoSrc = logoUrl || settings.logoUrl || DEFAULT_LOGO_URL;
 
+  React.useEffect(() => {
+    if (LogoComponent) {
+      setLogoReady(true);
+    }
+  }, [LogoComponent]);
+
   const handleClick = (tab) => {
     debugLog('Navigate to', tab.path);
     if (tab.path) {
