@@ -56,6 +56,8 @@ import parseAdFilename from "./utils/parseAdFilename";
 import StatusBadge from "./components/StatusBadge.jsx";
 import LoadingOverlay from "./LoadingOverlay";
 import OptimizedImage from "./components/OptimizedImage.jsx";
+import VideoPlayer from "./components/VideoPlayer.jsx";
+import isVideoUrl from "./utils/isVideoUrl";
 import pickHeroAsset from "./utils/pickHeroAsset";
 import computeGroupStatus from "./utils/computeGroupStatus";
 import diffWords from "./utils/diffWords";
@@ -2472,11 +2474,19 @@ const AdGroupDetail = () => {
                         Replace
                       </span>
                     )}
-                    <OptimizedImage
-                      pngUrl={a.thumbnailUrl || a.firebaseUrl}
-                      alt={a.filename}
-                      className="w-full object-contain max-h-[25rem]"
-                    />
+                    {isVideoUrl(a.firebaseUrl) ? (
+                      <VideoPlayer
+                        src={a.firebaseUrl}
+                        poster={a.thumbnailUrl}
+                        className="w-full object-contain max-h-[25rem]"
+                      />
+                    ) : (
+                      <OptimizedImage
+                        pngUrl={a.thumbnailUrl || a.firebaseUrl}
+                        alt={a.filename}
+                        className="w-full object-contain max-h-[25rem]"
+                      />
+                    )}
                   </div>
                 )
               ))}
