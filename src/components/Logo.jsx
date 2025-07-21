@@ -62,7 +62,7 @@ const Logo = ({ isOpen }) => {
   }, [isOpen]);
 
   return (
-    <div class="logo-wrapper">
+    <div className="logo-wrapper" ref={wrapperRef}>
   <svg viewBox="0 -13 140 50" style="position: absolute;">
     <rect fill="#FF710B" height="24" rx="12" width="140"/>
   </svg>
