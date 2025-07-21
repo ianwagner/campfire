@@ -6,7 +6,7 @@ import useSiteSettings from '../useSiteSettings';
 import debugLog from '../utils/debugLog';
 import { DEFAULT_LOGO_URL } from '../constants';
 import OptimizedImage from './OptimizedImage.jsx';
-import { FiChevronsLeft, FiChevronsRight } from 'react-icons/fi';
+import { FiChevronsLeft, FiChevronsRight, FiLogOut } from 'react-icons/fi';
 
 /**
  * Common sidebar layout.
@@ -71,7 +71,11 @@ const SidebarBase = ({
             <div key={tab.label} className="space-y-1">
               <button onClick={() => toggleGroup(tab.label)} className={parentClasses}>
                 {ParentIcon && <ParentIcon className="text-lg" aria-hidden="true" />}
-                {!collapsed && tab.label}
+                <span
+                  className={`transition-all duration-300 overflow-hidden ${collapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}
+                >
+                  {tab.label}
+                </span>
               </button>
               <div
                 className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96' : 'max-h-0'}`}
@@ -92,7 +96,11 @@ const SidebarBase = ({
                         className={childClasses}
                       >
                         {ChildIcon && <ChildIcon className="text-lg" aria-hidden="true" />}
-                        {!collapsed && child.label}
+                        <span
+                          className={`transition-all duration-300 overflow-hidden ${collapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}
+                        >
+                          {child.label}
+                        </span>
                       </button>
                     );
                   })}
@@ -125,7 +133,11 @@ const SidebarBase = ({
             title={collapsed ? tab.label : undefined}
           >
             {Icon && <Icon className="text-lg" aria-hidden="true" />}
-            {!collapsed && tab.label}
+            <span
+              className={`transition-all duration-300 overflow-hidden ${collapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}
+            >
+              {tab.label}
+            </span>
           </button>
         );
       })}
@@ -136,10 +148,10 @@ const SidebarBase = ({
     <>
       {/* Desktop sidebar */}
       <div
-        className={`hidden md:flex fixed top-0 left-0 ${collapsed ? 'w-16' : 'w-[250px]'} border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] p-4 flex-col h-screen justify-between`}
+        className={`hidden md:flex fixed top-0 left-0 ${collapsed ? 'w-16' : 'w-[250px]'} border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] p-4 flex-col h-screen justify-between transition-all duration-300`}
       >
         <div className="space-y-2">
-          <div className="relative mx-auto mt-4 mb-4 h-16 flex items-center justify-center">
+          <div className="relative mx-auto mt-4 mb-4 h-16 w-16 flex-shrink-0 flex items-center justify-center">
             {!logoReady && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="loading-ring w-6 h-6" />
@@ -178,9 +190,10 @@ const SidebarBase = ({
         <div className="flex flex-col items-center space-y-1">
           <button
             onClick={handleLogout}
-            className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl"
+            className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-center gap-1"
           >
-            Log Out
+            <FiLogOut className="text-lg" aria-hidden="true" />
+            <span className={`transition-all duration-300 overflow-hidden ${collapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Log Out</span>
           </button>
           <footer className="text-xs text-gray-400 dark:text-gray-500 text-center">
             © 2025 Studio Tak. All rights reserved.
@@ -234,9 +247,10 @@ const SidebarBase = ({
             <div className="flex flex-col items-center space-y-1">
               <button
                 onClick={handleLogout}
-                className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl"
+                className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-center gap-1"
               >
-                Log Out
+                <FiLogOut className="text-lg" aria-hidden="true" />
+                <span className={`transition-all duration-300 overflow-hidden ${collapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Log Out</span>
               </button>
               <footer className="text-xs text-gray-400 dark:text-gray-500 text-center">
                 © 2025 Studio Tak. All rights reserved.
