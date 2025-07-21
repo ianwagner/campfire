@@ -676,3 +676,16 @@ html.dark .full-screen-spinner {
     opacity: 1;
   }
 }
+
+/* Logo animation layout */
+.logo-wrapper {
+  position: relative;
+  width: 300px;
+  height: 80px;
+}
+
+.logo-wrapper svg[id^='letter-'] {
+  position: absolute;
+  transform-box: fill-box;
+  transform-origin: center;
+}
