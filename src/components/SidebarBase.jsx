@@ -42,6 +42,7 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
   const menuItems = (
     <>
       {tabs.map((tab) => {
+        const ParentIcon = tab.icon;
         const currentPath = location.pathname + location.search;
         if (tab.children) {
           const activeChild = tab.children.some((c) => currentPath.startsWith(c.path));
@@ -50,10 +51,11 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
             (activeChild
               ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
               : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
-            'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200';
+            'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-1 justify-center';
           return (
             <div key={tab.label} className="space-y-1">
               <button onClick={() => toggleGroup(tab.label)} className={parentClasses}>
+                {ParentIcon && <ParentIcon className="text-lg" aria-hidden="true" />}
                 {tab.label}
               </button>
               <div
@@ -61,18 +63,20 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
               >
                 <div className="mt-1 space-y-1">
                   {tab.children.map((child) => {
+                    const ChildIcon = child.icon;
                     const isActive = child.path && currentPath.startsWith(child.path);
                     const childClasses =
                       (isActive
                         ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
                         : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
-                      'rounded-lg w-full text-center text-sm px-3 py-2 transition-colors duration-200';
+                      'rounded-lg w-full text-center text-sm px-3 py-2 transition-colors duration-200 flex items-center gap-1 justify-center';
                     return (
                       <button
                         key={child.label}
                         onClick={() => handleClick(child)}
                         className={childClasses}
                       >
+                        {ChildIcon && <ChildIcon className="text-lg" aria-hidden="true" />}
                         {child.label}
                       </button>
                     );
@@ -87,9 +91,11 @@ const SidebarBase = ({ tabs = [], logoUrl, logoAlt, applySiteAccent = true }) =>
           (isActive
             ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
             : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
-          'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200';
+          'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-1 justify-center';
+        const Icon = tab.icon;
         return (
           <button key={tab.label} onClick={() => handleClick(tab)} className={classes}>
+            {Icon && <Icon className="text-lg" aria-hidden="true" />}
             {tab.label}
           </button>
         );
