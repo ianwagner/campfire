@@ -7,6 +7,7 @@ import { db, auth } from './firebase/config';
 import { useNavigate } from 'react-router-dom';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
+import SortButton from './components/SortButton.jsx';
 import Modal from './components/Modal.jsx';
 import TabButton from './components/TabButton.jsx';
 import RequestCard from './components/RequestCard.jsx';
@@ -41,6 +42,8 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
   const [editors, setEditors] = useState([]);
   const [view, setView] = useState('kanban');
   const [dragId, setDragId] = useState(null);
+  const [filter, setFilter] = useState('');
+  const [sortField, setSortField] = useState('createdAt');
   const navigate = useNavigate();
   const { agencies } = useAgencies();
 
@@ -298,10 +301,31 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
     }
   };
 
-  const newReq = requests.filter((r) => r.status === 'new');
-  const pending = requests.filter((r) => r.status === 'pending');
-  const ready = requests.filter((r) => r.status === 'ready');
-  const done = requests.filter((r) => r.status === 'done');
+  const term = filter.toLowerCase();
+  const filteredRequests = requests
+    .filter(
+      (r) =>
+        !term ||
+        r.brandCode?.toLowerCase().includes(term) ||
+        r.title?.toLowerCase().includes(term)
+    )
+    .sort((a, b) => {
+      if (sortField === 'brand') return (a.brandCode || '').localeCompare(b.brandCode || '');
+      if (sortField === 'dueDate') {
+        const ad = a.dueDate ? (a.dueDate.toDate ? a.dueDate.toDate() : new Date(a.dueDate)) : null;
+        const bd = b.dueDate ? (b.dueDate.toDate ? b.dueDate.toDate() : new Date(b.dueDate)) : null;
+        if (!ad && !bd) return 0;
+        if (!ad) return 1;
+        if (!bd) return -1;
+        return ad - bd;
+      }
+      return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
+    });
+
+  const newReq = filteredRequests.filter((r) => r.status === 'new');
+  const pending = filteredRequests.filter((r) => r.status === 'pending');
+  const ready = filteredRequests.filter((r) => r.status === 'ready');
+  const done = filteredRequests.filter((r) => r.status === 'done');
   const grouped = { new: newReq, pending, ready, done };
 
   return (
@@ -310,6 +334,23 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
       <PageToolbar
         left={(
           <>
+            <input
+              type="text"
+              placeholder="Filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="p-1 border rounded"
+            />
+            <SortButton
+              value={sortField}
+              onChange={setSortField}
+              options={[
+                { value: 'createdAt', label: 'Date Created' },
+                { value: 'dueDate', label: 'Due Date' },
+                { value: 'brand', label: 'Brand' },
+              ]}
+            />
+            <div className="border-l h-6 mx-2" />
             <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
               <FiList />
             </TabButton>
@@ -588,7 +629,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
           </div>
         </div>
       ) : (
-        <Calendar requests={requests} />
+        <Calendar requests={filteredRequests} />
       )}
 
       {showModal && (
