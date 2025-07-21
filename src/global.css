@@ -40,6 +40,7 @@
     --pending-color: #666666;
     --pending-color-10: rgba(102, 102, 102, 0.2);
     --rejected-color: var(--reject-color);
+    --sidebar-width: 250px;
     /* table layout variables */
     --table-border-color: #e5e7eb; /* gray-200 */
     --table-head-bg: #f3f4f6; /* gray-100 */
@@ -62,6 +63,16 @@
     font-family: var(--font-primary);
     font-size: var(--font-size-base);
     overflow-x: hidden;
+  }
+
+  #app-main {
+    padding-left: var(--sidebar-width);
+  }
+
+  @media (max-width: 767px) {
+    #app-main {
+      padding-left: 0;
+    }
   }
 
   /* Ensure flex layouts don't overflow their containers */
