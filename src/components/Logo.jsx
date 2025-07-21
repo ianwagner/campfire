@@ -64,7 +64,7 @@ const Logo = ({ isOpen }) => {
   return (
 <div ref={wrapperRef} className="logo-wrapper">
   <svg style={{ position: 'absolute' }} viewBox="0 -13 140 50">
-    <rect fill="#FF710B" height="24" rx="12" width="140" />
+    <rect fill="#FF710B" height="80" rx="12" width="300" />
   </svg>
 
   {/* 9 letter SVGs follow */}
