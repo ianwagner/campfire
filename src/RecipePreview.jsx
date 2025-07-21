@@ -78,6 +78,9 @@ const RecipePreview = ({
   const [assetFilter, setAssetFilter] = useState('');
   const [reviewRows, setReviewRows] = useState([]);
 
+  const currentType = types.find((t) => t.id === selectedType);
+
+
   // Reset visible columns when the selected recipe type changes so defaults
   // for the new type can be applied in the column initialization effect below.
   useEffect(() => {
@@ -946,7 +949,6 @@ const RecipePreview = ({
     }
   };
 
-  const currentType = types.find((t) => t.id === selectedType);
   useEffect(() => {
     if (!currentType?.enableAssetCsv) {
       setAssetRows([]);
