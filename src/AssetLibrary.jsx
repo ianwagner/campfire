@@ -14,6 +14,7 @@ import {
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 import SaveButton from './components/SaveButton.jsx';
+import LoadingIconButton from './components/LoadingIconButton.jsx';
 import TabButton from './components/TabButton.jsx';
 import SortButton from './components/SortButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
@@ -57,6 +58,10 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const PAGE_SIZE = 25;
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
+  const [thumbMissingLoading, setThumbMissingLoading] = useState(false);
+  const [tagMissingLoading, setTagMissingLoading] = useState(false);
+  const [thumbSelectedLoading, setThumbSelectedLoading] = useState(false);
+  const [tagSelectedLoading, setTagSelectedLoading] = useState(false);
 
   const filtered = assets
     .filter((a) => {
@@ -223,6 +228,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
     const rows = assets.filter((a) => selected[a.id]);
     if (rows.length === 0) return;
     setLoading(true);
+    setThumbSelectedLoading(true);
     try {
       const callable = httpsCallable(functions, 'generateThumbnailsForAssets', { timeout: 60000 });
       const payload = rows.map((r) => ({ url: r.url, name: r.name }));
@@ -239,12 +245,14 @@ const AssetLibrary = ({ brandCode = '' }) => {
       console.error('Failed to generate thumbnails', err);
     }
     setLoading(false);
+    setThumbSelectedLoading(false);
   };
 
   const createMissingThumbnails = async () => {
     const rows = assets.filter((a) => !a.thumbnailUrl && a.url);
     if (rows.length === 0) return;
     setLoading(true);
+    setThumbMissingLoading(true);
     const callable = httpsCallable(functions, 'generateThumbnailsForAssets', { timeout: 60000 });
     for (const row of rows) {
       try {
@@ -260,6 +268,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
       }
     }
     setLoading(false);
+    setThumbMissingLoading(false);
     setDirty(true);
   };
 
@@ -287,11 +296,13 @@ const AssetLibrary = ({ brandCode = '' }) => {
     const rows = assets.filter((a) => selected[a.id] && a.url);
     if (rows.length === 0) return;
     setLoading(true);
+    setTagSelectedLoading(true);
     for (const row of rows) {
       // eslint-disable-next-line no-await-in-loop
       await tagRow(row);
     }
     setLoading(false);
+    setTagSelectedLoading(false);
     setDirty(true);
   };
 
@@ -299,11 +310,13 @@ const AssetLibrary = ({ brandCode = '' }) => {
     const rows = assets.filter((a) => (!a.type || !a.description) && a.url);
     if (rows.length === 0) return;
     setLoading(true);
+    setTagMissingLoading(true);
     for (const row of rows) {
       // eslint-disable-next-line no-await-in-loop
       await tagRow(row);
     }
     setLoading(false);
+    setTagMissingLoading(false);
     setDirty(true);
   };
 
@@ -487,17 +500,27 @@ const AssetLibrary = ({ brandCode = '' }) => {
           </span>
           <div className="border-l h-6 mx-2" />
           <span className="relative group">
-            <IconButton onClick={createMissingThumbnails} aria-label="Create Missing Thumbnails" disabled={loading} className="text-xl">
-              <FiImage />
-            </IconButton>
+            <LoadingIconButton
+              onClick={createMissingThumbnails}
+              aria-label="Create Missing Thumbnails"
+              disabled={loading}
+              loading={thumbMissingLoading}
+              icon={FiImage}
+              className="text-xl"
+            />
             <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
               Thumbnails
             </div>
           </span>
             <span className="relative group">
-              <IconButton onClick={tagMissing} aria-label="Tag Missing" disabled={loading} className="text-xl">
-                <FiTag />
-              </IconButton>
+              <LoadingIconButton
+                onClick={tagMissing}
+                aria-label="Tag Missing"
+                disabled={loading}
+                loading={tagMissingLoading}
+                icon={FiTag}
+                className="text-xl"
+              />
               <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
                 Auto Tag
               </div>
@@ -518,27 +541,27 @@ const AssetLibrary = ({ brandCode = '' }) => {
               </div>
             </span>
             <span className="relative group">
-              <IconButton
+              <LoadingIconButton
                 onClick={createThumbnails}
                 aria-label="Create Thumbnails"
                 disabled={loading}
+                loading={thumbSelectedLoading}
+                icon={FiImage}
                 className="text-xl"
-              >
-                <FiImage />
-              </IconButton>
+              />
               <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
                 Thumbnails
               </div>
             </span>
             <span className="relative group">
-              <IconButton
+              <LoadingIconButton
                 onClick={tagSelected}
                 aria-label="Tag Selected"
                 disabled={loading}
+                loading={tagSelectedLoading}
+                icon={FiTag}
                 className="text-xl"
-              >
-                <FiTag />
-              </IconButton>
+              />
               <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
                 Auto Tag
               </div>
