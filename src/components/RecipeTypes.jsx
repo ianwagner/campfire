@@ -318,7 +318,7 @@ const RecipeTypes = () => {
               checked={enableAssetCsv}
               onChange={(e) => setEnableAssetCsv(e.target.checked)}
             />
-            Enable Asset CSV
+            Enable Asset Library
           </label>
           {enableAssetCsv && (
             <div className="mt-2">
