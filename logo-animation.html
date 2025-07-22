@@ -68,9 +68,14 @@
     function toggle() {
       isCondensed.value = !isCondensed.value;
 
-      const letters = Array.from(document.querySelectorAll("svg[id^='letter-']")).reverse();
+        const letters = Array.from(document.querySelectorAll("svg[id^='letter-']")).reverse();
 
-    const baseYOffset = 28;
+        // Adjust viewBox for condensed/open states so letters scale with the background rect
+        letters.forEach(letter => {
+          letter.setAttribute('viewBox', isCondensed.value ? '0 0 50 24' : '0 0 140 24');
+        });
+
+      const baseYOffset = 28;
 
 gsap.to(letters, {
   x: (i) => isCondensed.value ? condensedTargets[i].x : 0,
