@@ -20,7 +20,7 @@ const Logo = ({ isOpen }) => {
       { x: -84, y: 60 },
     ];
 
-    const baseYOffset = 28;
+    const baseYOffset = 20;
 
     // Animate letters
     gsap.to(letters, {
@@ -65,7 +65,7 @@ const Logo = ({ isOpen }) => {
     <div className="logo-wrapper">
       <div ref={wrapperRef} className="logo-inner">
         <svg style={{ position: 'absolute' }} viewBox="0 -13 140 50">
-          <rect fill="#FF710B" height="80" rx="12" width="300" />
+          <rect fill="#FF710B" height="24" rx="12" width="140" />
         </svg>
 
   {/* 9 letter SVGs follow */}
