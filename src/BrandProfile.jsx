@@ -8,9 +8,18 @@ import AssetLibrary from './AssetLibrary.jsx';
 import ReviewLibrary from './ReviewLibrary.jsx';
 import BrandProducts from './BrandProducts.jsx';
 import TabButton from './components/TabButton.jsx';
-import { FiSettings, FiFolder, FiStar, FiShoppingCart, FiMessageCircle, FiFileText } from 'react-icons/fi';
+import {
+  FiSettings,
+  FiFolder,
+  FiStar,
+  FiShoppingCart,
+  FiMessageCircle,
+  FiFileText,
+  FiFeather,
+} from 'react-icons/fi';
 import BrandTone from './BrandTone.jsx';
 import BrandContracts from './BrandContracts.jsx';
+import BrandAIArtStyle from './BrandAIArtStyle.jsx';
 
 const BrandProfile = ({ brandId: propId = null }) => {
   const { id } = useParams();
@@ -74,6 +83,9 @@ const BrandProfile = ({ brandId: propId = null }) => {
         <TabButton active={tab === 'tone'} onClick={() => setTab('tone')}>
           <FiMessageCircle /> <span>Tone of Voice</span>
         </TabButton>
+        <TabButton active={tab === 'ai'} onClick={() => setTab('ai')}>
+          <FiFeather /> <span>AI Art Style</span>
+        </TabButton>
         <TabButton active={tab === 'reviews'} onClick={() => setTab('reviews')}>
           <FiStar /> <span>Customer Reviews</span>
         </TabButton>
@@ -86,6 +98,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
       </div>
       {tab === 'setup' && <BrandSetup brandId={brandId} />}
       {tab === 'tone' && <BrandTone brandId={brandId} brandCode={brandCode} />}
+      {tab === 'ai' && <BrandAIArtStyle />}
       {tab === 'library' && <AssetLibrary brandCode={brandCode} />}
       {tab === 'reviews' && <ReviewLibrary brandCode={brandCode} />}
       {tab === 'products' && <BrandProducts brandId={brandId} brandCode={brandCode} />}
