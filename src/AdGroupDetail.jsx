@@ -1890,6 +1890,15 @@ const AdGroupDetail = () => {
               try {
                 await updateDoc(doc(db, "adGroups", id), { dueDate: date });
                 setGroup((p) => ({ ...p, dueDate: date }));
+                if (group.requestId) {
+                  try {
+                    await updateDoc(doc(db, 'requests', group.requestId), {
+                      dueDate: date,
+                    });
+                  } catch (err) {
+                    console.error('Failed to sync ticket due date', err);
+                  }
+                }
               } catch (err) {
                 console.error("Failed to update due date", err);
               }
