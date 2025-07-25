@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
-import { FiFilePlus, FiPackage, FiAlertOctagon, FiZap } from 'react-icons/fi';
+import { FiFilePlus, FiPackage, FiAlertOctagon, FiZap, FiCheck } from 'react-icons/fi';
 import getUserName from '../utils/getUserName';
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -18,6 +18,7 @@ const Calendar = forwardRef(
       showWeekends = false,
       onDragStart,
       onDateChange,
+      onCardClick,
     },
     ref,
   ) => {
@@ -141,10 +142,14 @@ const Calendar = forwardRef(
                     return (
                       <div
                         key={t.id}
-                        className="border rounded p-1 flex items-start gap-1 text-[10px] bg-white dark:bg-[var(--dark-sidebar-bg)]"
+                        className="relative border rounded p-1 flex items-start gap-1 text-[10px] bg-white dark:bg-[var(--dark-sidebar-bg)] cursor-pointer"
                         draggable
                         onDragStart={() => onDragStart && onDragStart(t.id)}
+                        onClick={() => onCardClick && onCardClick(t)}
                       >
+                        {t.adGroupId && (
+                          <FiCheck className="absolute top-0.5 right-0.5 text-[var(--accent-color)]" />
+                        )}
                         {Icon && <Icon className="flex-shrink-0" />}
                         <div className="min-w-0">
                           <div className="font-semibold truncate">{t.title || 'Ticket'}</div>

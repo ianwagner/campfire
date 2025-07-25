@@ -189,6 +189,16 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
       if (editId) {
         await updateDoc(doc(db, 'requests', editId), data);
         setRequests((prev) => prev.map((r) => (r.id === editId ? { ...r, ...data } : r)));
+        const linked = requests.find((r) => r.id === editId);
+        if (linked?.adGroupId) {
+          try {
+            await updateDoc(doc(db, 'adGroups', linked.adGroupId), {
+              dueDate: data.dueDate,
+            });
+          } catch (err) {
+            console.error('Failed to sync ad group due date', err);
+          }
+        }
       } else {
         const docRef = await addDoc(collection(db, 'requests'), data);
         setRequests((prev) => [...prev, { id: docRef.id, ...data }]);
@@ -256,6 +266,16 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
           r.id === dragId ? { ...r, dueDate: Timestamp.fromDate(date) } : r
         )
       );
+      const linked = requests.find((r) => r.id === dragId);
+      if (linked?.adGroupId) {
+        try {
+          await updateDoc(doc(db, 'adGroups', linked.adGroupId), {
+            dueDate: Timestamp.fromDate(date),
+          });
+        } catch (err) {
+          console.error('Failed to sync ad group due date', err);
+        }
+      }
     } catch (err) {
       console.error('Failed to update due date', err);
     }
@@ -327,9 +347,17 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
           clientNote: '',
           designerId: req.designerId || null,
           editorId: req.editorId || null,
+          requestId: req.id,
         });
-        await updateDoc(doc(db, 'requests', req.id), { status: 'done' });
-        setRequests((prev) => prev.map((r) => (r.id === req.id ? { ...r, status: 'done' } : r)));
+        await updateDoc(doc(db, 'requests', req.id), {
+          status: 'done',
+          adGroupId: docRef.id,
+        });
+        setRequests((prev) =>
+          prev.map((r) =>
+            r.id === req.id ? { ...r, status: 'done', adGroupId: docRef.id } : r
+          )
+        );
         navigate(`/ad-group/${docRef.id}`);
       } catch (err) {
         console.error('Failed to create group', err);
@@ -709,6 +737,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
             showWeekends={showWeekends}
             onDragStart={handleDragStart}
             onDateChange={handleCalendarDrop}
+            onCardClick={startEdit}
           />
         </div>
       )}
