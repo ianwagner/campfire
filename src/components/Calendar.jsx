@@ -1,12 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  FiFilePlus,
-  FiPackage,
-  FiAlertOctagon,
-  FiZap,
-  FiMoreHorizontal,
-} from 'react-icons/fi';
-import IconButton from './IconButton.jsx';
+import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
+import { FiFilePlus, FiPackage, FiAlertOctagon, FiZap } from 'react-icons/fi';
 import getUserName from '../utils/getUserName';
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -18,16 +11,20 @@ const typeIcons = {
   feature: FiZap,
 };
 
-const Calendar = ({ requests }) => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-
-  const [showWeekends, setShowWeekends] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuBtnRef = useRef(null);
-  const menuRef = useRef(null);
-  const [names, setNames] = useState({});
+const Calendar = forwardRef(
+  (
+    {
+      requests,
+      showWeekends = false,
+      onDragStart,
+      onDateChange,
+    },
+    ref,
+  ) => {
+    const now = new Date();
+    const [names, setNames] = useState({});
+    const todayRef = useRef(null);
+    const containerRef = useRef(null);
 
   useEffect(() => {
     const ids = new Set();
@@ -45,41 +42,18 @@ const Calendar = ({ requests }) => {
   }, [requests]);
 
   useEffect(() => {
-    const handleClick = (e) => {
-      if (
-        menuBtnRef.current?.contains(e.target) ||
-        menuRef.current?.contains(e.target)
-      ) {
-        return;
-      }
-      setMenuOpen(false);
-    };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
+    if (todayRef.current && containerRef.current) {
+      todayRef.current.scrollIntoView({ block: 'center' });
+    }
   }, []);
 
-  const start = new Date(year, month, 1);
-  const end = new Date(year, month + 1, 0);
-  const startDay = start.getDay();
-  const daysInMonth = end.getDate();
-
-  const cells = [];
-  if (showWeekends) {
-    for (let i = 0; i < startDay; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) {
-      cells.push(new Date(year, month, d));
-    }
-    while (cells.length % 7 !== 0) cells.push(null);
-  } else {
-    const firstOffset = startDay === 0 ? 0 : startDay - 1;
-    for (let i = 0; i < firstOffset; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(year, month, d);
-      if (date.getDay() === 0 || date.getDay() === 6) continue;
-      cells.push(date);
-    }
-    while (cells.length % 5 !== 0) cells.push(null);
-  }
+  useImperativeHandle(ref, () => ({
+    goToToday: () => {
+      if (todayRef.current) {
+        todayRef.current.scrollIntoView({ block: 'center' });
+      }
+    },
+  }));
 
   const ticketsByDate = {};
   requests.forEach((r) => {
@@ -96,89 +70,105 @@ const Calendar = ({ requests }) => {
 
   const gridCols = showWeekends ? 7 : 5;
 
-  return (
-    <div>
-      <div className="flex justify-end mb-1">
-        <IconButton
-          ref={menuBtnRef}
-          onClick={() => setMenuOpen((o) => !o)}
-          className="bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
-          aria-label="Menu"
+  const months = [];
+  for (let i = -3; i <= 3; i++) {
+    months.push(new Date(now.getFullYear(), now.getMonth() + i, 1));
+  }
+
+  const allowDrop = (e) => e.preventDefault();
+
+  const renderMonth = (base, idx) => {
+    const year = base.getFullYear();
+    const month = base.getMonth();
+
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month + 1, 0);
+    const startDay = start.getDay();
+    const daysInMonth = end.getDate();
+
+    const cells = [];
+    if (showWeekends) {
+      for (let i = 0; i < startDay; i++) cells.push(null);
+      for (let d = 1; d <= daysInMonth; d++) {
+        cells.push(new Date(year, month, d));
+      }
+      while (cells.length % 7 !== 0) cells.push(null);
+    } else {
+      const firstOffset = startDay === 0 ? 0 : startDay - 1;
+      for (let i = 0; i < firstOffset; i++) cells.push(null);
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = new Date(year, month, d);
+        if (date.getDay() === 0 || date.getDay() === 6) continue;
+        cells.push(date);
+      }
+      while (cells.length % 5 !== 0) cells.push(null);
+    }
+
+    return (
+      <div key={idx} className="mb-6">
+        <h2 className="text-lg font-bold mb-2">
+          {base.toLocaleString('default', { month: 'long', year: 'numeric' })}
+        </h2>
+        <div
+          className="grid gap-1 text-center text-sm font-semibold mb-2"
+          style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
         >
-          <FiMoreHorizontal />
-        </IconButton>
-        {menuOpen && (
-          <div
-            ref={menuRef}
-            className="absolute right-0 mt-6 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm"
-          >
-            <button
-              onClick={() => {
-                setShowWeekends((p) => !p);
-                setMenuOpen(false);
-              }}
-              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
-            >
-              {showWeekends ? 'Hide weekends' : 'See weekends'}
-            </button>
-          </div>
-        )}
-      </div>
-      <div
-        className="grid gap-1 text-center text-sm font-semibold mb-2"
-        style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
-      >
-        {visibleDayNames.map((d) => (
-          <div key={d}>{d}</div>
-        ))}
-      </div>
-      <div
-        className="grid gap-1"
-        style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
-      >
-        {cells.map((date, i) => {
-          if (!date) return <div key={i} className="h-20 border" />;
-          const key = date.toISOString().slice(0, 10);
-          const tickets = ticketsByDate[key] || [];
-          return (
-            <div key={i} className="h-20 border p-1 text-xs overflow-hidden">
-              <div className="mb-1 font-bold">{date.getDate()}</div>
-              <div className="space-y-1">
-                {tickets.map((t) => {
-                  const Icon = typeIcons[t.type];
-                  return (
-                    <div
-                      key={t.id}
-                      className="border rounded p-1 flex items-start gap-1 text-[10px] bg-white dark:bg-[var(--dark-sidebar-bg)]"
-                    >
-                      {Icon && (
-                        <Icon className="flex-shrink-0" />
-                      )}
-                      <div className="min-w-0">
-                        <div className="font-semibold truncate">
-                          {t.title || t.brandCode || 'Ticket'}
+          {visibleDayNames.map((d) => (
+            <div key={d}>{d}</div>
+          ))}
+        </div>
+        <div
+          className="grid gap-1 auto-rows-min"
+          style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
+        >
+          {cells.map((date, i) => {
+            if (!date) return <div key={i} className="min-h-20 border" />;
+            const key = date.toISOString().slice(0, 10);
+            const tickets = ticketsByDate[key] || [];
+            const isToday = date.toDateString() === now.toDateString();
+            return (
+              <div
+                ref={isToday ? todayRef : null}
+                key={i}
+                className={`border p-1 text-xs overflow-hidden ${isToday ? 'bg-[var(--accent-color-10)]' : ''}`}
+                onDragOver={allowDrop}
+                onDrop={() => onDateChange && onDateChange(date)}
+              >
+                <div className="mb-1 font-bold">{date.getDate()}</div>
+                <div className="space-y-1">
+                  {tickets.map((t) => {
+                    const Icon = typeIcons[t.type];
+                    return (
+                      <div
+                        key={t.id}
+                        className="border rounded p-1 flex items-start gap-1 text-[10px] bg-white dark:bg-[var(--dark-sidebar-bg)]"
+                        draggable
+                        onDragStart={() => onDragStart && onDragStart(t.id)}
+                      >
+                        {Icon && <Icon className="flex-shrink-0" />}
+                        <div className="min-w-0">
+                          <div className="font-semibold truncate">{t.title || 'Ticket'}</div>
+                          {t.brandCode && <div className="truncate">{t.brandCode}</div>}
+                          {t.editorId && <div className="truncate">{names[t.editorId] || t.editorId}</div>}
+                          {t.designerId && <div className="truncate">{names[t.designerId] || t.designerId}</div>}
                         </div>
-                        {t.editorId && (
-                          <div className="truncate">
-                            {names[t.editorId] || t.editorId}
-                          </div>
-                        )}
-                        {t.designerId && (
-                          <div className="truncate">
-                            {names[t.designerId] || t.designerId}
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
+    );
+  };
+
+  return (
+    <div ref={containerRef} className="overflow-y-auto">
+      {months.map((m, idx) => renderMonth(m, idx))}
     </div>
   );
-};
+});
 
 export default Calendar;

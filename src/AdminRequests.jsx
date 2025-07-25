@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where } from 'firebase/firestore';
-import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash } from 'react-icons/fi';
+import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal } from 'react-icons/fi';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
 import { db, auth } from './firebase/config';
@@ -44,6 +44,11 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
   const [dragId, setDragId] = useState(null);
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('createdAt');
+  const [showWeekends, setShowWeekends] = useState(false);
+  const [calendarMenuOpen, setCalendarMenuOpen] = useState(false);
+  const menuBtnRef = useRef(null);
+  const menuRef = useRef(null);
+  const calendarRef = useRef(null);
   const navigate = useNavigate();
   const { agencies } = useAgencies();
 
@@ -112,6 +117,20 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
     fetchBrands();
     fetchDesigners();
     if (canAssignEditor) fetchEditors();
+  }, []);
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (
+        menuBtnRef.current?.contains(e.target) ||
+        menuRef.current?.contains(e.target)
+      ) {
+        return;
+      }
+      setCalendarMenuOpen(false);
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
   }, []);
 
   const resetForm = () => {
@@ -225,6 +244,23 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
   };
 
   const allowDrop = (e) => e.preventDefault();
+
+  const handleCalendarDrop = async (date) => {
+    if (!dragId) return;
+    try {
+      await updateDoc(doc(db, 'requests', dragId), {
+        dueDate: Timestamp.fromDate(date),
+      });
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === dragId ? { ...r, dueDate: Timestamp.fromDate(date) } : r
+        )
+      );
+    } catch (err) {
+      console.error('Failed to update due date', err);
+    }
+    setDragId(null);
+  };
 
   const handleBulletList = (e) => {
     if (e.key === ' ' && e.target.selectionStart >= 2) {
@@ -350,6 +386,43 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                 { value: 'brand', label: 'Brand' },
               ]}
             />
+            {view === 'dashboard' && (
+              <div className="relative">
+                <IconButton
+                  ref={menuBtnRef}
+                  onClick={() => setCalendarMenuOpen((o) => !o)}
+                  className="bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                  aria-label="Menu"
+                >
+                  <FiMoreHorizontal />
+                </IconButton>
+                {calendarMenuOpen && (
+                  <div
+                    ref={menuRef}
+                    className="absolute left-0 mt-6 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm"
+                  >
+                    <button
+                      onClick={() => {
+                        setShowWeekends((p) => !p);
+                        setCalendarMenuOpen(false);
+                      }}
+                      className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                    >
+                      {showWeekends ? 'Hide weekends' : 'See weekends'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        calendarRef.current?.goToToday();
+                        setCalendarMenuOpen(false);
+                      }}
+                      className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                    >
+                      Go to today
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="border-l h-6 mx-2" />
             <TabButton active={view === 'table'} onClick={() => setView('table')} aria-label="Table view">
               <FiList />
@@ -629,7 +702,15 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
           </div>
         </div>
       ) : (
-        <Calendar requests={filteredRequests} />
+        <div className="overflow-y-auto mt-2" style={{ maxHeight: 'calc(100vh - 13rem)' }}>
+          <Calendar
+            ref={calendarRef}
+            requests={filteredRequests}
+            showWeekends={showWeekends}
+            onDragStart={handleDragStart}
+            onDateChange={handleCalendarDrop}
+          />
+        </div>
       )}
 
       {showModal && (

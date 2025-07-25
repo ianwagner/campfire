@@ -134,7 +134,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
             {request.title}
           </p>
         )}
-        {expanded && request.brandCode && (
+        {request.brandCode && (
           <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
             {request.brandCode}
           </p>
