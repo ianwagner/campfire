@@ -23,6 +23,7 @@ const RecipeTypes = () => {
   const [fields, setFields] = useState([{ label: '', key: '', inputType: 'text' }]);
   const [enableAssetCsv, setEnableAssetCsv] = useState(false);
   const [assetFields, setAssetFields] = useState([]);
+  const [assetFilterFields, setAssetFilterFields] = useState([]);
   const [defaultColumns, setDefaultColumns] = useState([]);
   const [editId, setEditId] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -49,6 +50,7 @@ const RecipeTypes = () => {
     setFields([{ label: '', key: '', inputType: 'text' }]);
     setEnableAssetCsv(false);
     setAssetFields([]);
+    setAssetFilterFields([]);
     setDefaultColumns([]);
   };
 
@@ -76,6 +78,7 @@ const RecipeTypes = () => {
           assetPrompt: assetPrompt,
           enableAssetCsv,
           assetMatchFields: assetFields,
+          assetFilterFields,
           components: order,
           writeInFields: writeFields,
           defaultColumns: defaultCols,
@@ -90,6 +93,7 @@ const RecipeTypes = () => {
                   assetPrompt: assetPrompt,
                   enableAssetCsv,
                   assetMatchFields: assetFields,
+                  assetFilterFields,
                   components: order,
                   writeInFields: writeFields,
                   defaultColumns: defaultCols,
@@ -104,6 +108,7 @@ const RecipeTypes = () => {
           assetPrompt: assetPrompt,
           enableAssetCsv,
           assetMatchFields: assetFields,
+          assetFilterFields,
           components: order,
           writeInFields: writeFields,
           defaultColumns: defaultCols,
@@ -117,6 +122,7 @@ const RecipeTypes = () => {
             assetPrompt: assetPrompt,
             enableAssetCsv,
             assetMatchFields: assetFields,
+            assetFilterFields,
             components: order,
             writeInFields: writeFields,
             defaultColumns: defaultCols,
@@ -137,6 +143,7 @@ const RecipeTypes = () => {
     setAssetPrompt(t.assetPrompt || '');
     setEnableAssetCsv(!!t.enableAssetCsv);
     setAssetFields(t.assetMatchFields || []);
+    setAssetFilterFields(t.assetFilterFields || []);
     setComponentOrder(t.components || []);
     setDefaultColumns(t.defaultColumns || []);
     setFields(
@@ -239,6 +246,7 @@ const RecipeTypes = () => {
                 <th>Write-In Fields</th>
                 <th>Asset Prompt</th>
                 <th>Asset Fields</th>
+                <th>Filter Fields</th>
                 <th>Default Columns</th>
                 <th>Actions</th>
               </tr>
@@ -258,16 +266,21 @@ const RecipeTypes = () => {
                       : '-'}
                   </td>
                   <td>{t.assetPrompt || '-'}</td>
-                  <td>
-                    {t.assetMatchFields && t.assetMatchFields.length > 0
-                      ? t.assetMatchFields.join(', ')
-                      : '-'}
-                  </td>
-                  <td>
-                    {t.defaultColumns && t.defaultColumns.length > 0
-                      ? t.defaultColumns.join(', ')
-                      : '-'}
-                  </td>
+                <td>
+                  {t.assetMatchFields && t.assetMatchFields.length > 0
+                    ? t.assetMatchFields.join(', ')
+                    : '-'}
+                </td>
+                <td>
+                  {t.assetFilterFields && t.assetFilterFields.length > 0
+                    ? t.assetFilterFields.join(', ')
+                    : '-'}
+                </td>
+                <td>
+                  {t.defaultColumns && t.defaultColumns.length > 0
+                    ? t.defaultColumns.join(', ')
+                    : '-'}
+                </td>
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
                       <IconButton onClick={() => startEdit(t)} aria-label="Edit">
@@ -327,6 +340,13 @@ const RecipeTypes = () => {
                 id="asset-fields"
                 value={assetFields}
                 onChange={setAssetFields}
+                suggestions={placeholders}
+              />
+              <label className="block text-sm mb-1 mt-2">Asset Filter Fields</label>
+              <TagInput
+                id="asset-filter-fields"
+                value={assetFilterFields}
+                onChange={setAssetFilterFields}
                 suggestions={placeholders}
               />
             </div>
