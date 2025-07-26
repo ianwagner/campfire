@@ -30,7 +30,7 @@ const typeColors = {
   newAIAssets: 'text-orange-500',
 };
 
-const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart }) => {
+const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart, onView }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -48,6 +48,10 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
       menuBtnRef.current?.contains(e.target) ||
       dragging
     ) {
+      return;
+    }
+    if (onView) {
+      onView(request);
       return;
     }
     setExpanded((exp) => !exp);
@@ -183,7 +187,19 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
           </div>
         </>
       )}
-      <p className="text-xs text-gray-500 text-right mt-1">{expanded ? 'Show less' : 'Show more'}</p>
+      <p
+        className="text-xs text-gray-500 text-right mt-1 cursor-pointer"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onView) {
+            onView(request);
+          } else {
+            setExpanded((exp) => !exp);
+          }
+        }}
+      >
+        {expanded ? 'Show less' : 'Show more'}
+      </p>
     </div>
   );
 };

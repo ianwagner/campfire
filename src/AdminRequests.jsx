@@ -11,6 +11,7 @@ import SortButton from './components/SortButton.jsx';
 import Modal from './components/Modal.jsx';
 import TabButton from './components/TabButton.jsx';
 import RequestCard from './components/RequestCard.jsx';
+import RequestViewModal from './components/RequestViewModal.jsx';
 import Calendar from './components/Calendar.jsx';
 import useAgencies from './useAgencies';
 import formatDetails from './utils/formatDetails';
@@ -39,6 +40,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [viewRequest, setViewRequest] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [brands, setBrands] = useState([]);
   const [aiArtStyle, setAiArtStyle] = useState('');
@@ -156,7 +158,12 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
     setShowModal(true);
   };
 
+  const openView = (req) => {
+    setViewRequest(req);
+  };
+
   const startEdit = (req) => {
+    setViewRequest(null);
     setEditId(req.id);
     setForm({
       type: req.type || 'newAds',
@@ -745,6 +752,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                           onArchive={handleArchive}
                           onDragStart={handleDragStart}
                           onCreateGroup={handleCreateGroup}
+                          onView={openView}
                         />
                     ))}
                   </>
@@ -762,7 +770,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
             showWeekends={showWeekends}
             onDragStart={handleDragStart}
             onDateChange={handleCalendarDrop}
-            onCardClick={startEdit}
+            onCardClick={openView}
           />
         </div>
       )}
@@ -857,6 +865,18 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                 />
               </div>
               <div>
+                <label className="block mb-1 text-sm font-medium">Priority</label>
+                <select
+                  value={form.priority}
+                  onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div>
                 <label className="block mb-1 text-sm font-medium">Details</label>
                 <textarea
                   value={form.details}
@@ -898,6 +918,27 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                   onChange={(e) => setForm((f) => ({ ...f, numAssets: e.target.value }))}
                   className="w-full p-2 border rounded"
                 />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Due Date</label>
+                <input
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Priority</label>
+                <select
+                  value={form.priority}
+                  onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
               </div>
               <div>
                 <label className="block mb-1 text-sm font-medium">Inspiration</label>
@@ -973,8 +1014,20 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                   className="w-full p-2 border rounded"
                 />
               </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Priority</label>
+                <select
+                  value={form.priority}
+                  onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
             </>
-          )}
+        )}
 
           {(form.type === 'bug' || form.type === 'feature') && (
             <>
@@ -1022,6 +1075,13 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
             </button>
           </div>
         </Modal>
+      )}
+      {viewRequest && (
+        <RequestViewModal
+          request={viewRequest}
+          onClose={() => setViewRequest(null)}
+          onEdit={startEdit}
+        />
       )}
     </div>
   );
