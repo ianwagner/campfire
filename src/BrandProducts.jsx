@@ -7,6 +7,8 @@ import { uploadBrandAsset } from './uploadBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import TagInput from './components/TagInput.jsx';
+import ProductImportModal from './ProductImportModal.jsx';
+import { GiFairyWand } from 'react-icons/gi';
 
 const emptyImage = { url: '', file: null };
 const emptyProduct = { name: '', description: [], benefits: [], images: [{ ...emptyImage }], archived: false };
@@ -21,6 +23,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
   const [products, setProducts] = useState([{ ...emptyProduct }]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
     if (!propId && !propCode) {
@@ -134,6 +137,10 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
     );
   };
 
+  const addImportedProduct = (prod) => {
+    setProducts((p) => [...p, { ...prod, archived: false }]);
+  };
+
   const removeProduct = (idx) => {
     if (isManager && !isAdmin) {
       setProducts((prev) =>
@@ -238,9 +245,14 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
             </button>
           </div>
         ))}
-        <button type="button" onClick={() => setProducts((p) => [...p, { ...emptyProduct }])} className="btn-action">
-          Add Product
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setProducts((p) => [...p, { ...emptyProduct }])} className="btn-action">
+            Add Product
+          </button>
+          <button type="button" onClick={() => setShowImport(true)} className="btn-action" aria-label="Import from URL">
+            <GiFairyWand />
+          </button>
+        </div>
         {message && <p className="text-sm">{message}</p>}
         <div className="text-right">
           <button type="submit" className="btn-primary" disabled={loading}>
@@ -248,6 +260,13 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
           </button>
         </div>
       </form>
+      {showImport && (
+        <ProductImportModal
+          brandCode={brandCode}
+          onAdd={addImportedProduct}
+          onClose={() => setShowImport(false)}
+        />
+      )}
     </PageWrapper>
   );
 };

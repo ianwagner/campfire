@@ -10,6 +10,8 @@ import { tagger } from './tagger.js';
 import { generateThumbnailsForAssets } from './thumbnails.js';
 import { generateTagsForAssets } from './tagAssets.js';
 import { listDriveFiles } from './listDriveFiles.js';
+import { parsePdp } from './parsePdp.js';
+import { cacheProductImages } from './cacheProductImages.js';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -278,4 +280,11 @@ export const applyManagerClaimOnUpdate = onDocumentUpdated('users/{id}', async (
 });
 
 
-export { tagger, generateThumbnailsForAssets, generateTagsForAssets, listDriveFiles };
+export {
+  tagger,
+  generateThumbnailsForAssets,
+  generateTagsForAssets,
+  listDriveFiles,
+  parsePdp,
+  cacheProductImages,
+};
