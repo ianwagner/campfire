@@ -7,6 +7,7 @@ import {
   FiPackage,
   FiAlertOctagon,
   FiZap,
+  FiImage,
   FiMoreHorizontal,
   FiCalendar,
 } from 'react-icons/fi';
@@ -18,6 +19,7 @@ const typeIcons = {
   newBrand: FiPackage,
   bug: FiAlertOctagon,
   feature: FiZap,
+  newAIAssets: FiImage,
 };
 
 const typeColors = {
@@ -25,6 +27,7 @@ const typeColors = {
   newBrand: 'text-green-600',
   bug: 'text-red-500',
   feature: 'text-purple-500',
+  newAIAssets: 'text-orange-500',
 };
 
 const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart }) => {
@@ -159,9 +162,10 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
         <>
           <div className="flex items-center justify-between text-sm">
             {expanded && request.type === 'newAds' && <span># Ads: {request.numAds}</span>}
+            {expanded && request.type === 'newAIAssets' && <span># Assets: {request.numAssets}</span>}
           </div>
           <div className="text-right">
-            {request.type === 'bug' || request.type === 'feature' ? null : (
+            {request.type === 'newAds' || request.type === 'newBrand' ? (
               request.status === 'done' ? (
                 <span className="text-sm text-gray-500">
                   {request.type === 'newBrand' ? 'Brand Created' : 'Ad Group Created'}
@@ -175,7 +179,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
                   {request.type === 'newBrand' ? 'Create Brand' : 'Create Ad Group'}
                 </button>
               )
-            )}
+            ) : null}
           </div>
         </>
       )}
