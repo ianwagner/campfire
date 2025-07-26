@@ -1,6 +1,8 @@
 import { onCall as onCallFn, HttpsError } from 'firebase-functions/v2/https';
 import OpenAI from 'openai';
-import cheerio from 'cheerio';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const cheerio = require('cheerio');
 import admin from 'firebase-admin';
 
 if (!admin.apps.length) {
