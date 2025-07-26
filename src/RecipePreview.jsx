@@ -252,13 +252,39 @@ const RecipePreview = ({
   }, [results]);
 
 
-  const loadAssetLibrary = async () => {
+  const loadAssetLibrary = async (productName = null) => {
     try {
       let rows = [];
       let q = collection(db, 'adAssets');
       if (brandCode) q = query(q, where('brandCode', '==', brandCode));
-      const snap = await getDocs(q);
-      rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      let snap = null;
+      if (productName) {
+        try {
+          const pq = query(q, where('product', '==', productName));
+          snap = await getDocs(pq);
+        } catch (err) {
+          if (err?.code === 'failed-precondition' || (err.message || '').includes('index')) {
+            // missing index - fallback to client filtering
+            snap = await getDocs(q);
+            rows = snap.docs
+              .map((d) => ({ id: d.id, ...d.data() }))
+              .filter((r) => {
+                const p = r.product;
+                return Array.isArray(p) ? p.includes(productName) : p === productName;
+              });
+          } else {
+            throw err;
+          }
+        }
+      }
+      if (!snap) snap = await getDocs(q);
+      if (rows.length === 0) rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      rows = rows.map((r) => ({
+        ...r,
+        tags: Array.isArray(r.tags) && r.tags.length > 0
+          ? r.tags.map((t) => t.toLowerCase())
+          : parseContextTags(r.description || ''),
+      }));
       if (rows.length === 0) return;
       setAssetRows(rows);
       setAssetFilter('');
@@ -295,16 +321,29 @@ const RecipePreview = ({
     }
   };
 
+  const getSelectedProductName = () => {
+    if (!currentType?.assetFilterFields?.includes('product.name')) return null;
+    const sel = selectedInstances['product'];
+    if (Array.isArray(sel) && sel.length > 0) {
+      const inst = brandProducts.find((p) => p.id === sel[0]);
+      if (inst) return inst.values?.name || inst.name;
+    } else if (typeof sel === 'string' && sel) {
+      const inst = brandProducts.find((p) => p.id === sel);
+      if (inst) return inst.values?.name || inst.name;
+    }
+    return formData['product.name'] || null;
+  };
+
   useEffect(() => {
     if (brandCode && currentType?.enableAssetCsv) {
-      loadAssetLibrary();
+      loadAssetLibrary(getSelectedProductName());
     } else if (!brandCode) {
       setAssetRows([]);
       setAssetHeaders([]);
       setAssetMap({});
       setAssetUsage({});
     }
-  }, [brandCode, currentType]);
+  }, [brandCode, currentType, selectedInstances, formData, brandProducts]);
 
   const generateOnce = async (baseValues = null, brand = brandCode) => {
     if (!currentType) return null;
@@ -441,7 +480,7 @@ const RecipePreview = ({
         parseInt(componentsData['layout.assetCount'], 10) ||
         0;
 
-    const findBestAsset = (usageMap = assetUsage, typeFilter = null) => {
+    const findBestAsset = (usageMap = assetUsage, typeFilter = null, keywords = new Set()) => {
       debugLog('Searching best asset', {
         rows: filteredAssetRows.length,
         map: assetMap,
@@ -475,6 +514,10 @@ const RecipePreview = ({
           if (sim >= (mapping.score || 10)) {
             score += 1;
           }
+        });
+        const tagSet = new Set(Array.isArray(row.tags) ? row.tags.map((t) => t.toLowerCase()) : parseTags(row[assetMap.context?.header || ''] || ''));
+        keywords.forEach((k) => {
+          if (tagSet.has(k)) score += 1;
         });
         debugLog('Asset row', idx, { score, details });
         if (score > bestScore) {
@@ -520,7 +563,11 @@ const RecipePreview = ({
         const rowId = row[idField] || row.imageUrl || row.imageName || '';
         if (!rowId || rowId === mainId) return;
         const ctxField = assetMap.context?.header || '';
-        const rowTags = new Set(parseTags(row[ctxField] || ''));
+        const rowTags = new Set(
+          Array.isArray(row.tags)
+            ? row.tags.map((t) => t.toLowerCase())
+            : parseTags(row[ctxField] || '')
+        );
         let score = 0;
         contextTags.forEach((t) => {
           if (rowTags.has(t)) score += 1;
@@ -549,11 +596,16 @@ const RecipePreview = ({
 
     const parseTags = (str) => parseContextTags(str);
 
-    const selectAssets = (count, typeFilter, usageCopy) => {
+    const keywordSet = new Set(parseTags(prompt));
+    Object.values(componentsData).forEach((v) => {
+      parseTags(v).forEach((t) => keywordSet.add(t));
+    });
+
+    const selectAssets = (count, typeFilter, usageCopy, keywords) => {
       const arr = [];
       let context = '';
       if (count > 0) {
-        const mainMatch = findBestAsset(usageCopy, typeFilter);
+        const mainMatch = findBestAsset(usageCopy, typeFilter, keywords);
         let mainId = '';
         if (mainMatch) {
           const urlField = assetMap.imageUrl?.header || 'imageUrl';
@@ -582,9 +634,19 @@ const RecipePreview = ({
           arr.push({ needAsset: true });
         }
 
-        const contextTags = new Set(parseTags(context));
+        const contextTags = new Set(
+          Array.isArray(mainMatch?.tags)
+            ? mainMatch.tags.map((t) => t.toLowerCase())
+            : parseTags(context)
+        );
         for (let i = 1; i < count; i += 1) {
-          const match = findRelatedAsset(contextTags, mainId, usageCopy, typeFilter);
+          let match = findRelatedAsset(contextTags, mainId, usageCopy, typeFilter);
+          if (!match) {
+            match = findBestAsset(usageCopy, typeFilter, keywords);
+            const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
+            const mid = match ? match[idField] || match.imageUrl || match.imageName || '' : '';
+            if (mid === mainId) match = null;
+          }
           if (match) {
             const urlField = assetMap.imageUrl?.header || 'imageUrl';
             const nameField = assetMap.imageName?.header || 'imageName';
@@ -622,13 +684,13 @@ const RecipePreview = ({
       if (Object.keys(sectionCounts).length > 0) {
         Object.entries(sectionCounts).forEach(([sec, cnt]) => {
           const typeFilter = (componentsData[`${sec}.assetType`] || '').trim();
-          const { assets: arr, context } = selectAssets(cnt, typeFilter, usageCopy);
+          const { assets: arr, context } = selectAssets(cnt, typeFilter, usageCopy, keywordSet);
           if (!csvContext) csvContext = context;
           selectedAssets.push(...arr);
           componentsData[`${sec}.assets`] = arr.slice();
         });
       } else {
-        const { assets: arr, context } = selectAssets(assetCount, null, usageCopy);
+        const { assets: arr, context } = selectAssets(assetCount, null, usageCopy, keywordSet);
         csvContext = context;
         selectedAssets.push(...arr);
       }
