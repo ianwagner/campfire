@@ -21,6 +21,9 @@ const emptyForm = {
   title: '',
   dueDate: '',
   numAds: 1,
+  numAssets: 1,
+  inspiration: '',
+  uploadLink: '',
   details: '',
   priority: 'low',
   name: '',
@@ -38,6 +41,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [brands, setBrands] = useState([]);
+  const [aiArtStyle, setAiArtStyle] = useState('');
   const [designers, setDesigners] = useState([]);
   const [editors, setEditors] = useState([]);
   const [view, setView] = useState('kanban');
@@ -74,7 +78,12 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
     const fetchBrands = async () => {
       try {
         const snap = await getDocs(collection(db, 'brands'));
-        setBrands(snap.docs.map((d) => d.data().code));
+        setBrands(
+          snap.docs.map((d) => ({
+            code: d.data().code,
+            aiArtStyle: d.data().aiArtStyle || '',
+          }))
+        );
       } catch (err) {
         console.error('Failed to fetch brands', err);
         setBrands([]);
@@ -140,6 +149,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
 
   const openCreate = () => {
     resetForm();
+    setAiArtStyle('');
     if (!canAssignEditor) {
       setForm((f) => ({ ...f, editorId: filterEditorId || auth.currentUser?.uid || '' }));
     }
@@ -154,6 +164,9 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
       title: req.title || '',
       dueDate: req.dueDate ? req.dueDate.toDate().toISOString().slice(0,10) : '',
       numAds: req.numAds || 1,
+      numAssets: req.numAssets || 1,
+      inspiration: req.inspiration || '',
+      uploadLink: req.uploadLink || '',
       details: req.details || '',
       priority: req.priority || 'low',
       name: req.name || '',
@@ -163,6 +176,8 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
       designerId: req.designerId || '',
       editorId: req.editorId || '',
     });
+    const b = brands.find((br) => br.code === req.brandCode);
+    setAiArtStyle(b?.aiArtStyle || '');
     setShowModal(true);
   };
 
@@ -173,6 +188,9 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
       title: form.title,
       dueDate: form.dueDate ? Timestamp.fromDate(new Date(form.dueDate)) : null,
       numAds: Number(form.numAds) || 0,
+      numAssets: Number(form.numAssets) || 0,
+      inspiration: form.inspiration,
+      uploadLink: form.uploadLink,
       details: form.details,
       priority: form.priority,
       name: form.name,
@@ -301,6 +319,13 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
         }, 0);
       }
     }
+  };
+
+  const handleBrandChange = (e) => {
+    const code = e.target.value;
+    setForm((f) => ({ ...f, brandCode: code }));
+    const b = brands.find((br) => br.code === code);
+    setAiArtStyle(b?.aiArtStyle || '');
   };
 
   const handleCreateGroup = async (req) => {
@@ -479,7 +504,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                   <tr>
                     <th>Brand</th>
                     <th>Due Date</th>
-                    <th># Ads</th>
+                    <th># Items</th>
                     <th>Details</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -490,7 +515,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                     <tr key={req.id}>
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
-                      <td>{req.numAds}</td>
+                      <td>{req.numAds ?? req.numAssets}</td>
                       <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
                         <select
@@ -535,7 +560,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                   <tr>
                     <th>Brand</th>
                     <th>Due Date</th>
-                    <th># Ads</th>
+                    <th># Items</th>
                     <th>Details</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -546,7 +571,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                     <tr key={req.id}>
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
-                      <td>{req.numAds}</td>
+                      <td>{req.numAds ?? req.numAssets}</td>
                       <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
                         <select
@@ -591,7 +616,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                   <tr>
                     <th>Brand</th>
                     <th>Due Date</th>
-                    <th># Ads</th>
+                    <th># Items</th>
                     <th>Details</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -602,7 +627,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                     <tr key={req.id}>
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
-                      <td>{req.numAds}</td>
+                      <td>{req.numAds ?? req.numAssets}</td>
                       <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
                         <select
@@ -645,7 +670,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                   <tr>
                     <th>Brand</th>
                     <th>Due Date</th>
-                    <th># Ads</th>
+                    <th># Items</th>
                     <th>Details</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -656,7 +681,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                     <tr key={req.id}>
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
-                      <td>{req.numAds}</td>
+                      <td>{req.numAds ?? req.numAssets}</td>
                       <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
                         <select
@@ -754,6 +779,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
             className="w-full p-2 border rounded"
           >
             <option value="newAds">New Ads</option>
+            <option value="newAIAssets">New AI Assets</option>
             <option value="newBrand">New Brand</option>
             <option value="bug">Bug</option>
             <option value="feature">Feature</option>
@@ -780,12 +806,12 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                 <label className="block mb-1 text-sm font-medium">Brand</label>
                 <select
                   value={form.brandCode}
-                  onChange={(e) => setForm((f) => ({ ...f, brandCode: e.target.value }))}
+                  onChange={handleBrandChange}
                   className="w-full p-2 border rounded"
                 >
                   <option value="">Select brand</option>
-                  {brands.map((code) => (
-                    <option key={code} value={code}>{code}</option>
+                  {brands.map((b) => (
+                    <option key={b.code} value={b.code}>{b.code}</option>
                   ))}
                 </select>
               </div>
@@ -838,6 +864,57 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
                   onKeyDown={handleBulletList}
                   className="w-full p-2 border rounded"
                   rows={3}
+                />
+              </div>
+            </>
+        )}
+
+        {form.type === 'newAIAssets' && (
+            <>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Brand</label>
+                <select
+                  value={form.brandCode}
+                  onChange={handleBrandChange}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select brand</option>
+                  {brands.map((b) => (
+                    <option key={b.code} value={b.code}>{b.code}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <button type="button" onClick={async () => aiArtStyle && navigator.clipboard.writeText(aiArtStyle)} className="btn-secondary">
+                  Copy AI Art Style
+                </button>
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Number of Assets</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={form.numAssets}
+                  onChange={(e) => setForm((f) => ({ ...f, numAssets: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Inspiration</label>
+                <textarea
+                  value={form.inspiration}
+                  onChange={(e) => setForm((f) => ({ ...f, inspiration: e.target.value }))}
+                  className="w-full p-2 border rounded"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Upload Link</label>
+                <input
+                  type="text"
+                  value={form.uploadLink}
+                  onChange={(e) => setForm((f) => ({ ...f, uploadLink: e.target.value }))}
+                  className="w-full p-2 border rounded"
                 />
               </div>
             </>

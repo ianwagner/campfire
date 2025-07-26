@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
-import { FiFilePlus, FiPackage, FiAlertOctagon, FiZap, FiCheck } from 'react-icons/fi';
+import { FiFilePlus, FiPackage, FiAlertOctagon, FiZap, FiCheck, FiImage } from 'react-icons/fi';
 import getUserName from '../utils/getUserName';
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -9,6 +9,7 @@ const typeIcons = {
   newBrand: FiPackage,
   bug: FiAlertOctagon,
   feature: FiZap,
+  newAIAssets: FiImage,
 };
 
 const Calendar = forwardRef(
