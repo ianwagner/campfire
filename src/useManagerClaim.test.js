@@ -3,28 +3,28 @@ import useManagerClaim from './useManagerClaim';
 
 jest.mock('./firebase/config', () => ({ auth: {} }));
 
-const onIdTokenChanged = jest.fn();
-const getIdTokenResult = jest.fn();
+const mockOnIdTokenChanged = jest.fn();
+const mockGetIdTokenResult = jest.fn();
 
 jest.mock('firebase/auth', () => ({
-  onIdTokenChanged: (...args) => onIdTokenChanged(...args),
-  getIdTokenResult: (...args) => getIdTokenResult(...args),
+  onIdTokenChanged: (...args) => mockOnIdTokenChanged(...args),
+  getIdTokenResult: (...args) => mockGetIdTokenResult(...args),
 }));
 
 beforeEach(() => {
-  onIdTokenChanged.mockReset();
-  getIdTokenResult.mockReset();
+  mockOnIdTokenChanged.mockReset();
+  mockGetIdTokenResult.mockReset();
 });
 
 test('returns manager true when claim present', async () => {
   let listener;
-  onIdTokenChanged.mockImplementation((auth, cb) => {
+  mockOnIdTokenChanged.mockImplementation((auth, cb) => {
     listener = cb;
     return () => {};
   });
 
   const user = { getIdToken: jest.fn(() => Promise.resolve()), uid: 'u1' };
-  getIdTokenResult.mockResolvedValue({ claims: { manager: true } });
+  mockGetIdTokenResult.mockResolvedValue({ claims: { manager: true } });
 
   const { result, waitForNextUpdate } = renderHook(() => useManagerClaim());
 

@@ -2,9 +2,9 @@ import syncAssetLibrary from './syncAssetLibrary';
 
 jest.mock('../firebase/config', () => ({ db: {} }));
 
-const setDoc = jest.fn(() => Promise.resolve());
-const deleteDoc = jest.fn(() => Promise.resolve());
-const getDocs = jest.fn();
+const mockSetDoc = jest.fn(() => Promise.resolve());
+const mockDeleteDoc = jest.fn(() => Promise.resolve());
+const mockGetDocs = jest.fn();
 const collectionMock = jest.fn(() => 'collection');
 const queryMock = jest.fn(() => 'query');
 const whereMock = jest.fn(() => 'where');
@@ -12,29 +12,29 @@ const docMock = jest.fn((...args) => args.slice(1).join('/'));
 
 jest.mock('firebase/firestore', () => ({
   doc: (...args) => docMock(...args),
-  setDoc: (...args) => setDoc(...args),
-  deleteDoc: (...args) => deleteDoc(...args),
-  getDocs: (...args) => getDocs(...args),
+  setDoc: (...args) => mockSetDoc(...args),
+  deleteDoc: (...args) => mockDeleteDoc(...args),
+  getDocs: (...args) => mockGetDocs(...args),
   collection: (...args) => collectionMock(...args),
   query: (...args) => queryMock(...args),
   where: (...args) => whereMock(...args),
 }));
 
 test('writes each asset with brand code', async () => {
-  getDocs.mockResolvedValueOnce({ docs: [] });
+  mockGetDocs.mockResolvedValueOnce({ docs: [] });
   await syncAssetLibrary('B1', [{ id: 'a1', name: 'Asset' }]);
-  expect(getDocs).toHaveBeenCalled();
+  expect(mockGetDocs).toHaveBeenCalled();
   expect(docMock).toHaveBeenCalledWith({}, 'adAssets', 'a1');
-  expect(setDoc).toHaveBeenCalledWith(
+  expect(mockSetDoc).toHaveBeenCalledWith(
     'adAssets/a1',
     { id: 'a1', name: 'Asset', brandCode: 'B1' },
     { merge: true }
   );
-  expect(deleteDoc).not.toHaveBeenCalled();
+  expect(mockDeleteDoc).not.toHaveBeenCalled();
 });
 
 test('deletes missing assets', async () => {
-  getDocs.mockResolvedValueOnce({ docs: [{ id: 'a1' }] });
+  mockGetDocs.mockResolvedValueOnce({ docs: [{ id: 'a1' }] });
   await syncAssetLibrary('B1', []);
-  expect(deleteDoc).toHaveBeenCalledWith('adAssets/a1');
+  expect(mockDeleteDoc).toHaveBeenCalledWith('adAssets/a1');
 });

@@ -6,11 +6,13 @@ import normalizeAssetType from './utils/normalizeAssetType.js';
 
 jest.mock('./firebase/config', () => ({ db: {} }));
 
-const getDocs = jest.fn();
+const mockGetDocs = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   collection: (...args) => args,
-  getDocs: (...args) => getDocs(...args),
+  getDocs: (...args) => mockGetDocs(...args),
+  query: (...args) => args,
+  where: (...args) => args,
 }));
 
 afterEach(() => {
@@ -29,7 +31,7 @@ const instSnap = {
 const brandSnap = { docs: [{ id: 'b1', data: () => ({ code: 'B1', name: 'Brand1' }) }, { id: 'b2', data: () => ({ code: 'B2', name: 'Brand2' }) }] };
 
 test('filters component instances by selected brand', async () => {
-  getDocs.mockImplementation((args) => {
+mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[1] || args[0][1] : args[1];
     switch (col) {
       case 'recipeTypes':
@@ -47,7 +49,7 @@ test('filters component instances by selected brand', async () => {
 
   render(<RecipePreview />);
 
-  await waitFor(() => expect(getDocs).toHaveBeenCalled());
+  await waitFor(() => expect(mockGetDocs).toHaveBeenCalled());
 
   fireEvent.change(screen.getByLabelText('Recipe Type'), { target: { value: 't1' } });
   fireEvent.change(screen.getByLabelText('Brand'), { target: { value: 'B1' } });
@@ -62,7 +64,7 @@ test('filters component instances by selected brand', async () => {
 });
 
 test('uses provided brandCode when brand select is hidden', async () => {
-  getDocs.mockImplementation((args) => {
+mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[1] || args[0][1] : args[1];
     switch (col) {
       case 'recipeTypes':
@@ -80,7 +82,7 @@ test('uses provided brandCode when brand select is hidden', async () => {
 
   render(<RecipePreview brandCode="B1" hideBrandSelect />);
 
-  await waitFor(() => expect(getDocs).toHaveBeenCalled());
+  await waitFor(() => expect(mockGetDocs).toHaveBeenCalled());
 
   fireEvent.change(screen.getByLabelText('Recipe Type'), { target: { value: 't1' } });
 
