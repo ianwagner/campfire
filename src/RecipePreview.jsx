@@ -98,6 +98,19 @@ const RecipePreview = ({
     );
   }, [assetRows, assetFilter]);
 
+  const selectedProductName = useMemo(() => {
+    if (selectedInstances.product) {
+      const ids = Array.isArray(selectedInstances.product)
+        ? selectedInstances.product
+        : [selectedInstances.product];
+      for (const id of ids) {
+        const inst = allInstances.find((i) => i.id === id);
+        if (inst?.values?.name) return inst.values.name;
+      }
+    }
+    return formData['product.name'] || '';
+  }, [selectedInstances, allInstances, formData]);
+
   useEffect(() => {
     try {
       const key = brandCode ? `reviews_${brandCode}` : 'reviews';
@@ -252,13 +265,40 @@ const RecipePreview = ({
   }, [results]);
 
 
-  const loadAssetLibrary = async () => {
+  const loadAssetLibrary = async (productName = '') => {
     try {
       let rows = [];
       let q = collection(db, 'adAssets');
       if (brandCode) q = query(q, where('brandCode', '==', brandCode));
-      const snap = await getDocs(q);
-      rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const tryQuery = async (qr) => {
+        const snap = await getDocs(qr);
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      };
+
+      if (productName) {
+        try {
+          rows = await tryQuery(query(q, where('product', '==', productName)));
+        } catch (err) {
+          try {
+            rows = await tryQuery(
+              query(q, where('product', 'array-contains', productName)),
+            );
+          } catch (err2) {
+            if (err2.code === 'failed-precondition') {
+              rows = await tryQuery(q);
+              rows = rows.filter((r) =>
+                Array.isArray(r.product)
+                  ? r.product.includes(productName)
+                  : r.product === productName,
+              );
+            } else {
+              throw err2;
+            }
+          }
+        }
+      } else {
+        rows = await tryQuery(q);
+      }
       if (rows.length === 0) return;
       setAssetRows(rows);
       setAssetFilter('');
@@ -297,14 +337,14 @@ const RecipePreview = ({
 
   useEffect(() => {
     if (brandCode && currentType?.enableAssetCsv) {
-      loadAssetLibrary();
+      loadAssetLibrary(selectedProductName);
     } else if (!brandCode) {
       setAssetRows([]);
       setAssetHeaders([]);
       setAssetMap({});
       setAssetUsage({});
     }
-  }, [brandCode, currentType]);
+  }, [brandCode, currentType, selectedProductName]);
 
   const generateOnce = async (baseValues = null, brand = brandCode) => {
     if (!currentType) return null;
