@@ -98,18 +98,6 @@ const RecipePreview = ({
     );
   }, [assetRows, assetFilter]);
 
-  const selectedProductName = useMemo(() => {
-    if (selectedInstances.product) {
-      const ids = Array.isArray(selectedInstances.product)
-        ? selectedInstances.product
-        : [selectedInstances.product];
-      for (const id of ids) {
-        const inst = allInstances.find((i) => i.id === id);
-        if (inst?.values?.name) return inst.values.name;
-      }
-    }
-    return formData['product.name'] || '';
-  }, [selectedInstances, allInstances, formData]);
 
   useEffect(() => {
     try {
@@ -265,7 +253,7 @@ const RecipePreview = ({
   }, [results]);
 
 
-  const loadAssetLibrary = async (productName = '') => {
+  const loadAssetLibrary = async () => {
     try {
       let rows = [];
       let q = collection(db, 'adAssets');
@@ -275,30 +263,7 @@ const RecipePreview = ({
         return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       };
 
-      if (productName) {
-        try {
-          rows = await tryQuery(query(q, where('product', '==', productName)));
-        } catch (err) {
-          try {
-            rows = await tryQuery(
-              query(q, where('product', 'array-contains', productName)),
-            );
-          } catch (err2) {
-            if (err2.code === 'failed-precondition') {
-              rows = await tryQuery(q);
-              rows = rows.filter((r) =>
-                Array.isArray(r.product)
-                  ? r.product.includes(productName)
-                  : r.product === productName,
-              );
-            } else {
-              throw err2;
-            }
-          }
-        }
-      } else {
-        rows = await tryQuery(q);
-      }
+      rows = await tryQuery(q);
       if (rows.length === 0) return;
       setAssetRows(rows);
       setAssetFilter('');
@@ -327,13 +292,13 @@ const RecipePreview = ({
 
   useEffect(() => {
     if (brandCode && currentType?.enableAssetCsv) {
-      loadAssetLibrary(selectedProductName);
+      loadAssetLibrary();
     } else if (!brandCode) {
       setAssetRows([]);
       setAssetMap({});
       setAssetUsage({});
     }
-  }, [brandCode, currentType, selectedProductName]);
+  }, [brandCode, currentType]);
 
   const generateOnce = async (baseValues = null, brand = brandCode) => {
     if (!currentType) return null;
