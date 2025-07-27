@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { signInAnonymously } from "firebase/auth";
 import {
   doc,
@@ -18,6 +18,7 @@ import { FiGrid, FiType } from "react-icons/fi";
 
 const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const { groupId } = useParams();
+  const location = useLocation();
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const [reviewerName, setReviewerName] = useState("");
   const [tempName, setTempName] = useState("");
@@ -48,6 +49,16 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         });
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const view = params.get('view');
+    if (view === 'gallery') {
+      reviewRef.current?.openGallery();
+    } else if (view === 'copy') {
+      reviewRef.current?.openCopy();
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (!groupId) {

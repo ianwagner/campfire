@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { doc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 import useUserRole from './useUserRole';
-import generatePassword from './utils/generatePassword';
-import ShareLinkModal from './components/ShareLinkModal.jsx';
 import AdGroupListView from './components/AdGroupListView.jsx';
 import useAdGroups from './useAdGroups';
 
@@ -11,7 +9,6 @@ const PmAdGroups = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [filter, setFilter] = useState('');
   const [view, setView] = useState('kanban');
-  const [shareInfo, setShareInfo] = useState(null);
   const [codes, setCodes] = useState([]);
 
   const user = auth.currentUser;
@@ -35,20 +32,16 @@ const PmAdGroups = () => {
 
   const { groups, loading } = useAdGroups(codes, showArchived);
 
-  const handleShare = async (id) => {
-    let url = `${window.location.origin}/review/${id}`;
-    const params = new URLSearchParams();
-    if (user?.email) params.set('email', user.email);
-    const str = params.toString();
-    if (str) url += `?${str}`;
+  const handleGallery = (id) => {
+    window.location.href = `/review/${id}?view=gallery`;
+  };
 
-    const password = generatePassword();
-    try {
-      await updateDoc(doc(db, 'adGroups', id), { password });
-    } catch (err) {
-      console.error('Failed to set password', err);
-    }
-    setShareInfo({ url, password });
+  const handleCopy = (id) => {
+    window.location.href = `/review/${id}?view=copy`;
+  };
+
+  const handleDownload = (id) => {
+    window.location.href = `/ad-group/${id}?exportApproved=1`;
   };
 
   return (
@@ -63,15 +56,10 @@ const PmAdGroups = () => {
         onViewChange={setView}
         showArchived={showArchived}
         onToggleArchived={() => setShowArchived((p) => !p)}
-        onShare={handleShare}
+        onGallery={handleGallery}
+        onCopy={handleCopy}
+        onDownload={handleDownload}
       />
-      {shareInfo && (
-        <ShareLinkModal
-          url={shareInfo.url}
-          password={shareInfo.password}
-          onClose={() => setShareInfo(null)}
-        />
-      )}
     </div>
   );
 };
