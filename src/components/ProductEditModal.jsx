@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Modal from './Modal.jsx';
+import ScrollableModal from './ScrollableModal.jsx';
 import FormField from './FormField.jsx';
 import TagInput from './TagInput.jsx';
 import Button from './Button.jsx';
@@ -12,8 +12,17 @@ const ProductEditModal = ({ product, brandCode = '', onSave, onClose }) => {
   const update = (changes) => setLocal((p) => ({ ...p, ...changes }));
 
   return (
-    <Modal sizeClass="max-w-lg w-full">
-      <h3 className="text-lg font-semibold mb-2">Edit Product</h3>
+    <ScrollableModal
+      header={(
+        <>
+          <h3 className="text-lg font-semibold">Edit Product</h3>
+          <button type="button" onClick={onClose} className="btn-secondary">
+            Close
+          </button>
+        </>
+      )}
+      sizeClass="max-w-lg w-full"
+    >
       <FormField label="Name">
         <input
           type="text"
@@ -62,7 +71,7 @@ const ProductEditModal = ({ product, brandCode = '', onSave, onClose }) => {
           onClose={() => setShowGallery(false)}
         />
       )}
-    </Modal>
+    </ScrollableModal>
   );
 };
 

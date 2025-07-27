@@ -8,7 +8,7 @@ import {
   FiImage,
   FiCalendar,
 } from 'react-icons/fi';
-import Modal from './Modal.jsx';
+import ScrollableModal from './ScrollableModal.jsx';
 import IconButton from './IconButton.jsx';
 import formatDetails from '../utils/formatDetails';
 
@@ -42,13 +42,10 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
   const color = typeColors[request.type] || 'text-gray-600 dark:text-gray-300';
   const title = request.title || typeLabels[request.type];
   return (
-    <Modal
-      sizeClass="max-w-none"
-      style={{ minWidth: '700px', maxHeight: '500px', overflow: 'scroll' }}
-    >
-      <div className="flex flex-col h-full">
-        <div className="sticky top-0 bg-white dark:bg-[var(--dark-sidebar-bg)] flex items-start justify-between p-2 z-10">
-          <div className={`flex items-center gap-1 text-lg font-bold ${color}`}> 
+    <ScrollableModal
+      header={(
+        <>
+          <div className={`flex items-center gap-1 text-lg font-bold ${color}`}>
             {Icon && React.createElement(Icon)}
             <span className="text-black dark:text-[var(--dark-text)]">{title}</span>
           </div>
@@ -58,8 +55,10 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
             </IconButton>
             <button onClick={onClose} className="btn-secondary">Close</button>
           </div>
-        </div>
-        <div className="overflow-y-auto flex-1 space-y-2 p-2">
+        </>
+      )}
+    >
+      <>
         {request.brandCode && (
           <p className="font-bold text-black dark:text-[var(--dark-text)] mb-0">Brand: {request.brandCode}</p>
         )}
@@ -117,8 +116,8 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
           />
         )}
         </div>
-      </div>
-    </Modal>
+      </>
+    </ScrollableModal>
   );
 };
 

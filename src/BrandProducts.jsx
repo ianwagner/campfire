@@ -5,11 +5,14 @@ import useUserRole from './useUserRole';
 import createArchiveTicket from './utils/createArchiveTicket';
 import { uploadBrandAsset } from './uploadBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
+import PageToolbar from './components/PageToolbar.jsx';
+import CreateButton from './components/CreateButton.jsx';
+import SaveButton from './components/SaveButton.jsx';
 import ProductImportModal from './ProductImportModal.jsx';
 import ProductCard from './components/ProductCard.jsx';
 import ProductEditModal from './components/ProductEditModal.jsx';
-import Button from './components/Button.jsx';
-import { GiFairyWand } from 'react-icons/gi';
+import IconButton from './components/IconButton.jsx';
+import { FaMagic } from 'react-icons/fa';
 
 const emptyImage = { url: '', file: null };
 const emptyProduct = {
@@ -33,6 +36,8 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
   const [message, setMessage] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [editIdx, setEditIdx] = useState(null);
+  const [filter, setFilter] = useState('');
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!propId && !propCode) {
@@ -75,8 +80,10 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
                     featuredImage: p.featuredImage || '',
                     archived: !!p.archived,
                   }))
-                : [{ ...emptyProduct }]
+              : [{ ...emptyProduct }]
             );
+            setDirty(false);
+            setDirty(false);
           }
         } else if (brandCode) {
           const q = query(collection(db, 'brands'), where('code', '==', brandCode));
@@ -136,20 +143,24 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
           : p
       )
     );
+    setDirty(true);
   };
 
   const updateProduct = (idx, changes) => {
     setProducts((prev) => prev.map((p, i) => (i === idx ? { ...p, ...changes } : p)));
+    setDirty(true);
   };
 
   const addImage = (idx) => {
     setProducts((prev) =>
       prev.map((p, i) => (i === idx ? { ...p, images: [...p.images, { ...emptyImage }] } : p))
     );
+    setDirty(true);
   };
 
   const addImportedProduct = (prod) => {
     setProducts((p) => [...p, { ...prod, archived: false }]);
+    setDirty(true);
   };
 
   const removeProduct = (idx) => {
@@ -161,6 +172,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
     } else {
       setProducts((prev) => prev.filter((_, i) => i !== idx));
     }
+    setDirty(true);
   };
 
   const handleSave = async (e) => {
@@ -202,6 +214,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
           images: p.images.map((u) => ({ url: u, file: null })),
         }))
       );
+      setDirty(false);
       setMessage('Products saved');
     } catch (err) {
       console.error('Failed to save products', err);
@@ -213,30 +226,38 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
 
   return (
     <PageWrapper title="Products">
-      <div className="mb-4 flex items-center gap-2">
-        <Button
-          type="button"
-          variant="action"
-          onClick={() => {
-            setProducts((p) => [...p, { ...emptyProduct }]);
-            setEditIdx(products.length);
-          }}
-        >
-          Add Product
-        </Button>
-        <Button type="button" variant="action" aria-label="Import from URL" onClick={() => setShowImport(true)}>
-          <GiFairyWand />
-        </Button>
-        <div className="ml-auto">
-          <Button onClick={handleSave} variant="primary" disabled={loading}>
-            {loading ? 'Saving...' : 'Save Products'}
-          </Button>
-        </div>
-      </div>
+      <PageToolbar
+        left={(
+          <input
+            type="text"
+            placeholder="Filter"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="p-1 border rounded"
+          />
+        )}
+        right={(
+          <>
+            <IconButton onClick={() => setShowImport(true)} aria-label="Import from URL">
+              <FaMagic />
+            </IconButton>
+            <CreateButton
+              onClick={() => {
+                setProducts((p) => [...p, { ...emptyProduct }]);
+                setEditIdx(products.length);
+                setDirty(true);
+              }}
+              ariaLabel="Add Product"
+            />
+            <div className="border-l h-6 mx-2" />
+            <SaveButton onClick={handleSave} canSave={dirty} loading={loading} />
+          </>
+        )}
+      />
       {message && <p className="text-sm mb-2">{message}</p>}
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {products
-          .filter((p) => !p.archived)
+          .filter((p) => !p.archived && (!filter || p.name.toLowerCase().includes(filter.toLowerCase())))
           .map((prod, idx) => (
             <ProductCard key={idx} product={prod} onClick={() => setEditIdx(idx)} />
           ))}
