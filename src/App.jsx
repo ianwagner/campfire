@@ -48,6 +48,8 @@ import RoleSidebar from "./RoleSidebar";
 import AgencyThemeSettings from "./AgencyThemeSettings";
 import AgencyBrands from "./AgencyBrands";
 import AgencyAdGroups from "./AgencyAdGroups";
+import PmAdGroups from "./PmAdGroups";
+import PmDashboard from "./PmDashboard";
 import useTheme from "./useTheme";
 import debugLog from "./utils/debugLog";
 import useSiteSettings from "./useSiteSettings";
@@ -143,9 +145,11 @@ const App = () => {
         ? '/admin/ad-groups'
         : role === 'manager'
           ? '/admin/tickets'
-          : role === 'editor'
-            ? '/editor/tickets'
-            : `/dashboard/${role}`
+          : role === 'project-manager'
+            ? '/pm/dashboard'
+            : role === 'editor'
+              ? '/editor/tickets'
+              : `/dashboard/${role}`
     : '/login';
   if (signedIn && !role) {
     return (
@@ -324,6 +328,22 @@ const App = () => {
               }
             />
             <Route
+              path="/pm/dashboard"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="project-manager"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <PmDashboard />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
               path="/admin/tickets"
               element={
                 user ? (
@@ -484,6 +504,22 @@ const App = () => {
               }
             />
             <Route
+              path="/pm/ad-groups"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="project-manager"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <PmAdGroups />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
               path="/review/:groupId"
               element={
                 <ReviewRoute />
@@ -526,7 +562,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole={["client", "manager", "editor"]}
+                    requiredRole={["client", "manager", "project-manager", "editor"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >

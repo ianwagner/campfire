@@ -245,8 +245,8 @@ export const notifyAccountCreated = onDocumentCreated('users/{id}', async (event
 });
 
 async function syncManagerClaim(uid, role, previousRole) {
-  const beforeManager = previousRole === 'manager';
-  const afterManager = role === 'manager';
+  const beforeManager = previousRole === 'manager' || previousRole === 'project-manager';
+  const afterManager = role === 'manager' || role === 'project-manager';
   if (beforeManager === afterManager) return null;
   try {
     const user = await admin.auth().getUser(uid);

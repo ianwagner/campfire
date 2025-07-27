@@ -83,6 +83,11 @@ test('allows enrollment for manager role', () => {
   expect(screen.getByLabelText(/Phone Number/i)).toBeInTheDocument();
 });
 
+test('allows enrollment for project manager role', () => {
+  render(<ManageMfa user={{ emailVerified: true } as any} role="project-manager" />);
+  expect(screen.getByLabelText(/Phone Number/i)).toBeInTheDocument();
+});
+
 test('allows enrollment for editor role', () => {
   render(<ManageMfa user={{ emailVerified: true } as any} role="editor" />);
   expect(screen.getByLabelText(/Phone Number/i)).toBeInTheDocument();
