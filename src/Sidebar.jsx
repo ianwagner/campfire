@@ -29,6 +29,7 @@ const pmTabs = [
   { label: 'Dashboard', path: '/pm/dashboard', icon: FiHome },
   { label: 'Tickets', path: '/pm/tickets', icon: FiList },
   { label: 'Ad Groups', path: '/pm/ad-groups', icon: FiGrid },
+  { label: 'Brands', path: '/admin/brands', icon: FiBriefcase },
   { label: 'Account Settings', path: '/account-settings', icon: FiUser },
 ];
 
