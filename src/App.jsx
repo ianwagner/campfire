@@ -166,7 +166,7 @@ const App = () => {
           )}
           <div
             className={`flex flex-col flex-grow box-border min-w-0 max-w-full ${
-              signedIn ? 'md:pl-[250px]' : ''
+              signedIn ? 'md:pl-[var(--sidebar-width)]' : ''
             }`}
           >
             <div className="flex-grow page-transition" key={location.pathname}>

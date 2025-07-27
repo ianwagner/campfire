@@ -35,16 +35,18 @@
     --reject-color: #ff5c5c;
     --reject-color-10: rgba(255, 92, 92, 0.2);
     --edit-color: #ffb700;
-    --edit-color-10: rgba(255, 183, 0, 0.2);
-    --approved-color: var(--approve-color);
-    --pending-color: #666666;
-    --pending-color-10: rgba(102, 102, 102, 0.2);
-    --rejected-color: var(--reject-color);
-    /* table layout variables */
-    --table-border-color: #e5e7eb; /* gray-200 */
-    --table-head-bg: #f3f4f6; /* gray-100 */
-    --table-row-alt-bg: #f9fafb; /* gray-50 */
-    --table-text-color: #6b7280; /* gray-600 */
+  --edit-color-10: rgba(255, 183, 0, 0.2);
+  --approved-color: var(--approve-color);
+  --pending-color: #666666;
+  --pending-color-10: rgba(102, 102, 102, 0.2);
+  --rejected-color: var(--reject-color);
+  /* sidebar width used for responsive layout */
+  --sidebar-width: 250px;
+  /* table layout variables */
+  --table-border-color: #e5e7eb; /* gray-200 */
+  --table-head-bg: #f3f4f6; /* gray-100 */
+  --table-row-alt-bg: #f9fafb; /* gray-50 */
+  --table-text-color: #6b7280; /* gray-600 */
     --space-xs: 0.25rem;
     --space-sm: 0.5rem;
     --space-md: 1rem;
