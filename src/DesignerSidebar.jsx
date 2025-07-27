@@ -1,5 +1,6 @@
 import React from 'react';
 import SidebarBase from './components/SidebarBase';
+import Logo from './components/Logo.jsx';
 import { FiBell, FiGrid, FiUser } from 'react-icons/fi';
 
 const tabs = [
@@ -23,6 +24,7 @@ const DesignerSidebar = () => {
       tabs={tabs}
       collapsed={collapsed}
       onToggleCollapse={() => setCollapsed((c) => !c)}
+      LogoComponent={Logo}
     />
   );
 };
