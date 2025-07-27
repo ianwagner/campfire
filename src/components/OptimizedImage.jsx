@@ -12,11 +12,17 @@ const OptimizedImage = ({
   cacheKey,
   ...props
 }) => {
-  const pngRaw = useCachedImageUrl(cacheKey, pngUrl);
-  const webp = webpUrl || (pngUrl ? pngUrl.replace(/\.png$/, '.webp') : undefined);
+  const png = typeof pngUrl === 'string' ? pngUrl : '';
+  const pngRaw = useCachedImageUrl(cacheKey, png);
+  const webp =
+    typeof webpUrl === 'string'
+      ? webpUrl
+      : png
+      ? png.replace(/\.png$/, '.webp')
+      : undefined;
   const webpRaw = webp ? useCachedImageUrl(`${cacheKey || webp}-webp`, webp) : null;
 
-  const imgSrc = sanitizeSrc(isHosted(pngRaw) ? pngRaw : pngUrl);
+  const imgSrc = sanitizeSrc(isHosted(pngRaw) ? pngRaw : png);
   const webpSrc = sanitizeSrc(isHosted(webpRaw) ? webpRaw : null);
 
   const renderWebp = Boolean(webpSrc);
