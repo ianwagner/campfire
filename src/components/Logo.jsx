@@ -10,15 +10,15 @@ const Logo = ({ isOpen }) => {
   const scaleCondensed = 2.5;
   const wrapperOffset = 0;
   const condensedTargets = [
-    { x: 13, y: 0 },
-    { x: 14, y: 0 },
-    { x: 15, y: 0 },
-    { x: 1,  y: 4.5 },
-    { x: 2,  y: 4.5 },
-    { x: 3,  y: 4.5 },
-    { x: -13, y: 9 },
-    { x: -14, y: 9 },
-    { x: -15, y: 9 },
+    { x: 13, y: 14 },
+    { x: 14, y: 14 },
+    { x: 15, y: 14 },
+    { x: 1,  y: 18 },
+    { x: 2,  y: 18 },
+    { x: 3,  y: 18 },
+    { x: -13, y: 22 },
+    { x: -14, y: 22 },
+    { x: -15, y: 22 },
   ];
 
   const baseYOffset = 0;
