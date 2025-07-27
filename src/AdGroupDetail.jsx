@@ -803,13 +803,9 @@ const AdGroupDetail = () => {
 
   const handleUpload = async (selectedFiles) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
-    if (group?.status !== "in review" && group?.status !== "pending") {
-      try {
-        await updateDoc(doc(db, "adGroups", id), { status: "pending" });
-        setGroup((p) => ({ ...p, status: "pending" }));
-      } catch (err) {
-        console.error("Failed to update group status", err);
-      }
+    if (group?.status === "archived") {
+      window.alert("This ad group is archived and cannot accept new ads.");
+      return;
     }
     const existing = new Set(assets.map((a) => a.filename));
     const used = new Set();
