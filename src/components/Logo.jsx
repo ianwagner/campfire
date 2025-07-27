@@ -9,15 +9,15 @@ const Logo = ({ isOpen }) => {
     const rect = wrapperRef.current.querySelector("svg > rect");
 
     const condensedTargets = [
-      { x: 1, y: 1 },
-      { x: 3, y: 1 },
-      { x: 5, y: 1 },
-      { x: 1,  y: 4 },
-      { x: 3,  y: 4 },
-      { x: 5,  y: 4 },
-      { x: 1, y: 6 },
-      { x: 3, y: 6 },
-      { x: 5, y: 6 },
+      { x: 13, y: 0 },
+      { x: 14, y: 0 },
+      { x: 15, y: 0 },
+      { x: 1,  y: 4.5 },
+      { x: 2,  y: 4.5 },
+      { x: 3,  y: 4.5 },
+      { x: -13, y: 9 },
+      { x: -14, y: 9 },
+      { x: -15, y: 9 },
     ];
 
     const baseYOffset = 20;
