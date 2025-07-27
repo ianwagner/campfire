@@ -481,20 +481,28 @@ const RecipePreview = ({
         parseInt(componentsData['layout.assetCount'], 10) ||
         0;
 
-    const findBestAsset = (usageMap = assetUsage, typeFilter = null) => {
+    const productName = componentsData['product.name'] || '';
+    const rowsForProduct = productName
+      ? filteredAssetRows.filter((r) => {
+          const p = r.product;
+          return Array.isArray(p) ? p.includes(productName) : p === productName;
+        })
+      : filteredAssetRows;
+
+    const findBestAsset = (rowsList, usageMap = assetUsage, typeFilter = null) => {
       debugLog('Searching best asset', {
-        rows: filteredAssetRows.length,
+        rows: rowsList.length,
         map: assetMap,
       });
       let bestScore = 0;
       let bestRows = [];
       const rows = typeFilter && assetMap.assetType?.header
-        ? filteredAssetRows.filter(
+        ? rowsList.filter(
             (r) =>
               normalizeAssetType(r[assetMap.assetType.header]) ===
               normalizeAssetType(typeFilter),
           )
-        : filteredAssetRows;
+        : rowsList;
       rows.forEach((row, idx) => {
         let score = 0;
         const details = {};
@@ -544,17 +552,17 @@ const RecipePreview = ({
       return chosen;
     };
 
-    const findRelatedAsset = (contextTags, mainId, usageMap, typeFilter = null) => {
+    const findRelatedAsset = (rowsList, contextTags, mainId, usageMap, typeFilter = null) => {
       if (!contextTags || contextTags.size === 0) return null;
       let bestScore = 0;
       let bestRows = [];
       const rows = typeFilter && assetMap.assetType?.header
-        ? filteredAssetRows.filter(
+        ? rowsList.filter(
             (r) =>
               normalizeAssetType(r[assetMap.assetType.header]) ===
               normalizeAssetType(typeFilter),
           )
-        : filteredAssetRows;
+        : rowsList;
       rows.forEach((row) => {
         const idField = assetMap.imageName?.header || assetMap.imageUrl?.header || '';
         const rowId = row[idField] || row.imageUrl || row.imageName || '';
@@ -589,11 +597,11 @@ const RecipePreview = ({
 
     const parseTags = (str) => parseContextTags(str);
 
-    const selectAssets = (count, typeFilter, usageCopy) => {
+    const selectAssets = (rowsList, count, typeFilter, usageCopy) => {
       const arr = [];
       let context = '';
       if (count > 0) {
-        const mainMatch = findBestAsset(usageCopy, typeFilter);
+        const mainMatch = findBestAsset(rowsList, usageCopy, typeFilter);
         let mainId = '';
         if (mainMatch) {
           const urlField = assetMap.imageUrl?.header || 'imageUrl';
@@ -624,7 +632,7 @@ const RecipePreview = ({
 
         const contextTags = new Set(parseTags(context));
         for (let i = 1; i < count; i += 1) {
-          const match = findRelatedAsset(contextTags, mainId, usageCopy, typeFilter);
+          const match = findRelatedAsset(rowsList, contextTags, mainId, usageCopy, typeFilter);
           if (match) {
             const urlField = assetMap.imageUrl?.header || 'imageUrl';
             const nameField = assetMap.imageName?.header || 'imageName';
@@ -659,16 +667,16 @@ const RecipePreview = ({
     let csvContext = '';
     if (assetCount > 0) {
       const usageCopy = { ...assetUsage };
-      if (Object.keys(sectionCounts).length > 0) {
-        Object.entries(sectionCounts).forEach(([sec, cnt]) => {
-          const typeFilter = (componentsData[`${sec}.assetType`] || '').trim();
-          const { assets: arr, context } = selectAssets(cnt, typeFilter, usageCopy);
-          if (!csvContext) csvContext = context;
-          selectedAssets.push(...arr);
-          componentsData[`${sec}.assets`] = arr.slice();
-        });
-      } else {
-        const { assets: arr, context } = selectAssets(assetCount, null, usageCopy);
+        if (Object.keys(sectionCounts).length > 0) {
+          Object.entries(sectionCounts).forEach(([sec, cnt]) => {
+            const typeFilter = (componentsData[`${sec}.assetType`] || '').trim();
+            const { assets: arr, context } = selectAssets(rowsForProduct, cnt, typeFilter, usageCopy);
+            if (!csvContext) csvContext = context;
+            selectedAssets.push(...arr);
+            componentsData[`${sec}.assets`] = arr.slice();
+          });
+        } else {
+          const { assets: arr, context } = selectAssets(rowsForProduct, assetCount, null, usageCopy);
         csvContext = context;
         selectedAssets.push(...arr);
       }
