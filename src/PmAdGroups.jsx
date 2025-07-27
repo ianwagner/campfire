@@ -3,6 +3,10 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 import useUserRole from './useUserRole';
 import AdGroupListView from './components/AdGroupListView.jsx';
+import GalleryModal from './components/GalleryModal.jsx';
+import Modal from './components/Modal.jsx';
+import CopyRecipePreview from './CopyRecipePreview.jsx';
+import IconButton from './components/IconButton.jsx';
 import useAdGroups from './useAdGroups';
 
 const PmAdGroups = () => {
@@ -10,6 +14,10 @@ const PmAdGroups = () => {
   const [filter, setFilter] = useState('');
   const [view, setView] = useState('kanban');
   const [codes, setCodes] = useState([]);
+  const [showGallery, setShowGallery] = useState(false);
+  const [galleryAds, setGalleryAds] = useState([]);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyCards, setCopyCards] = useState([]);
 
   const user = auth.currentUser;
   const { agencyId, brandCodes: roleCodes } = useUserRole(user?.uid);
@@ -32,12 +40,26 @@ const PmAdGroups = () => {
 
   const { groups, loading } = useAdGroups(codes, showArchived);
 
-  const handleGallery = (id) => {
-    window.location.href = `/review/${id}?view=gallery`;
+  const handleGallery = async (id) => {
+    try {
+      const snap = await getDocs(collection(db, 'adGroups', id, 'assets'));
+      setGalleryAds(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error('Failed to load assets', err);
+      setGalleryAds([]);
+    }
+    setShowGallery(true);
   };
 
-  const handleCopy = (id) => {
-    window.location.href = `/review/${id}?view=copy`;
+  const handleCopy = async (id) => {
+    try {
+      const snap = await getDocs(collection(db, 'adGroups', id, 'copyCards'));
+      setCopyCards(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error('Failed to load copy', err);
+      setCopyCards([]);
+    }
+    setShowCopyModal(true);
   };
 
   const handleDownload = (id) => {
@@ -60,6 +82,24 @@ const PmAdGroups = () => {
         onCopy={handleCopy}
         onDownload={handleDownload}
       />
+      {showGallery && (
+        <GalleryModal ads={galleryAds} onClose={() => setShowGallery(false)} />
+      )}
+      {showCopyModal && (
+        <Modal sizeClass="max-w-[50rem] w-full max-h-[90vh] flex flex-col">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold">Platform Copy</h2>
+            <IconButton onClick={() => setShowCopyModal(false)}>Close</IconButton>
+          </div>
+          <div className="overflow-auto flex-1">
+            <CopyRecipePreview
+              initialResults={copyCards}
+              showOnlyResults
+              hideBrandSelect
+            />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
