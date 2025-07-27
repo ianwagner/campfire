@@ -67,13 +67,13 @@ test('renders Account Settings tab', () => {
   expect(getByText('Account Settings')).toBeInTheDocument();
 });
 
-test('agency logo container has 90px height', () => {
+test('agency logo container has max-height 90px', () => {
   const { container } = render(
     <MemoryRouter>
       <AgencySidebar agencyId="123" />
     </MemoryRouter>
   );
-  const logoDiv = container.querySelector('.h-\\[90px\\]');
+  const logoDiv = container.querySelector('.max-h-\\[90px\\]');
   expect(logoDiv).toBeInTheDocument();
 });
 
