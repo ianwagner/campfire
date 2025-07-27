@@ -6,7 +6,7 @@ const Modal = ({
   className = '',
   style = {},
 }) => (
-  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4 overflow-auto">
     <div
       className={`bg-white p-4 rounded shadow ${sizeClass} ${className} dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]`}
       style={style}
