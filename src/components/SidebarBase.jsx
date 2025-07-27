@@ -122,10 +122,10 @@ const SidebarBase = ({
         const classes =
           (collapsed
             ? (isActive
-                ? 'text-accent bg-accent-10 '
-                : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 ')
+                ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
+                : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ')
               +
-              'border border-transparent dark:!border-transparent rounded-xl w-full p-3 transition-colors duration-200 flex items-center justify-center overflow-hidden'
+              'rounded-xl w-full p-3 transition-colors duration-200 flex items-center justify-center overflow-hidden'
             : (isActive
                 ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
                 : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ')
@@ -187,7 +187,7 @@ const SidebarBase = ({
               type="button"
               aria-label="Toggle sidebar"
               onClick={onToggleCollapse}
-              className={`my-2 text-xl ${collapsed ? 'mx-auto' : 'w-full text-center'} focus:outline-none`}
+              className="my-2 mx-auto block text-xl focus:outline-none"
             >
               {collapsed ? (
                 <FiChevronRight aria-hidden="true" />
