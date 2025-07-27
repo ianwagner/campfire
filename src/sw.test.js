@@ -1,10 +1,13 @@
 const events = {};
 
-global.self = {
+const swGlobal = {
   addEventListener: (type, cb) => {
     events[type] = cb;
   },
+  skipWaiting: jest.fn(),
 };
+Object.defineProperty(global, 'self', { value: swGlobal, writable: true });
+self = swGlobal; // ensure global variable
 
 const put = jest.fn();
 

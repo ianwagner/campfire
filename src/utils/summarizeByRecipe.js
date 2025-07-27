@@ -31,7 +31,6 @@ export default function summarizeByRecipe(list = []) {
     if (status === 'approved') summary.approved += 1;
     if (status === 'edit_requested') summary.edit += 1;
     if (status === 'rejected') summary.rejected += 1;
-    if (status === 'archived') summary.archived += 1;
   });
   return summary;
 }
