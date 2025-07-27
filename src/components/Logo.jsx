@@ -9,8 +9,8 @@ const Logo = ({ isOpen }) => {
   const openWidth = 240;
   const openHeight = 50;
   const scaleCondensed = 2.5;
-  const condensedTranslateX = -75; // adjust if needed
-  const condensedTranslateY = -10; // adjust if needed
+  const condensedTranslateX = -35; // adjust if needed
+  const condensedTranslateY = -37; // adjust if needed
 
   const condensedTargets = [
     { x: 13, y: 14 },
