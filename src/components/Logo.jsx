@@ -21,6 +21,8 @@ const Logo = ({ isOpen }) => {
     { x: -15, y: 9 },
   ];
 
+  const baseYOffset = 0;
+
   useEffect(() => {
     const letters = Array.from(wrapperRef.current.querySelectorAll("svg[id^='letter-']")).reverse();
 
