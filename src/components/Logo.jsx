@@ -3,73 +3,58 @@ import gsap from 'gsap';
 
 const Logo = ({ isOpen }) => {
   const wrapperRef = useRef(null);
-  const initialized = useRef(false);
 
   useEffect(() => {
     const letters = Array.from(wrapperRef.current.querySelectorAll("svg[id^='letter-']")).reverse();
     const rect = wrapperRef.current.querySelector("svg > rect");
 
     const condensedTargets = [
-      { x: 13, y: 1 },
-      { x: 14, y: 1 },
-      { x: 15, y: 1 },
-      { x: 1,  y: 4 },
-      { x: 2,  y: 4 },
-      { x: 3,  y: 4 },
-      { x: -13, y: 6 },
-      { x: -14, y: 6 },
-      { x: -15, y: 6 },
+      { x: 13, y: 0 },
+      { x: 14, y: 0 },
+      { x: 15, y: 0 },
+      { x: 1,  y: 4.5 },
+      { x: 2,  y: 4.5 },
+      { x: 3,  y: 4.5 },
+      { x: -13, y: 9 },
+      { x: -14, y: 9 },
+      { x: -15, y: 9 },
     ];
 
-    const baseYOffset = 28;
-
-    const openWidth = 140;
-    const openHeight = 24;
-    const condensedSize = 47;
-    const centerX = openWidth / 2;
-    const centerY = openHeight / 2;
-
-    const openAttrs = {
-      width: openWidth,
-      height: openHeight,
-      rx: 12,
-      x: 0,
-      y: 0,
-    };
-    const condensedAttrs = {
-      width: condensedSize,
-      height: condensedSize,
-      rx: 12,
-      x: centerX - condensedSize / 2,
-      y: centerY - condensedSize / 2,
-    };
-
-    if (!initialized.current) {
-      gsap.set(letters, {
-        x: (i) => (isOpen ? 0 : condensedTargets[i].x),
-        y: (i) => (isOpen ? baseYOffset : condensedTargets[i].y),
-        rotation: () => (isOpen ? 0 : gsap.utils.random(-2, 2)),
-      });
-      if (rect) {
-        gsap.set(rect, { attr: isOpen ? openAttrs : condensedAttrs });
-      }
-      initialized.current = true;
-      return;
-    }
+    const baseYOffset = 20;
 
     // Animate letters
     gsap.to(letters, {
-      x: (i) => (isOpen ? 0 : condensedTargets[i].x),
-      y: (i) => (isOpen ? baseYOffset : condensedTargets[i].y),
-      rotation: () => (isOpen ? 0 : gsap.utils.random(-2, 2)),
+      x: (i) => isOpen ? 0 : condensedTargets[i].x,
+      y: (i) => isOpen ? baseYOffset : condensedTargets[i].y,
+      rotation: () => isOpen ? 0 : gsap.utils.random(-2, 2),
       duration: 0.6,
       ease: "power3.inOut",
     });
 
     // Animate background rect
+    const openWidth = 140;
+    const openHeight = 24;
+    const condensedSize = 50;
+    const centerX = openWidth / 2;
+    const centerY = openHeight / 2;
+
     if (rect) {
       gsap.to(rect, {
-        attr: isOpen ? openAttrs : condensedAttrs,
+        attr: isOpen
+          ? {
+              width: openWidth,
+              height: openHeight,
+              rx: 12,
+              x: 0,
+              y: 0,
+            }
+          : {
+              width: condensedSize,
+              height: condensedSize,
+              rx: 12,
+              x: centerX - condensedSize / 2,
+              y: centerY - condensedSize / 2,
+            },
         duration: 0.6,
         ease: "power2.inOut",
       });
