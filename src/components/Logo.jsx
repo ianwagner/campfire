@@ -5,7 +5,10 @@ const Logo = ({ isOpen }) => {
   const wrapperRef = useRef(null);
 
   const condensedSize = 140;
-  const scaleCondensed = condensedSize / 50;
+  // Scale the logo down to roughly 50px when the sidebar is collapsed
+  // rather than enlarging it. The previous ratio inverted the values
+  // causing the logo to render huge when collapsed.
+  const scaleCondensed = 50 / condensedSize;
   const wrapperOffset = 28;
   const condensedTargets = [
     { x: 13, y: 0 },
