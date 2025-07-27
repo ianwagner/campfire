@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 import SortButton from './components/SortButton.jsx';
-import Modal from './components/Modal.jsx';
+import ScrollModal from './components/ScrollModal.jsx';
 import TabButton from './components/TabButton.jsx';
 import RequestCard from './components/RequestCard.jsx';
 import RequestViewModal from './components/RequestViewModal.jsx';
@@ -776,9 +776,10 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
       )}
 
       {showModal && (
-        <Modal>
-          <h2 className="text-xl mb-4">{editId ? 'Edit Ticket' : 'Add Ticket'}</h2>
-          <div className="space-y-4">
+        <ScrollModal
+          header={<h2 className="text-xl p-2 mb-0">{editId ? 'Edit Ticket' : 'Add Ticket'}</h2>}
+        >
+          <div className="space-y-4 p-2">
           <div>
           <label className="block mb-1 text-sm font-medium">Type</label>
           <select
@@ -1074,7 +1075,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
               Cancel
             </button>
           </div>
-        </Modal>
+        </ScrollModal>
       )}
       {viewRequest && (
         <RequestViewModal
