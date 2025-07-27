@@ -8,6 +8,7 @@ import PageWrapper from './components/PageWrapper.jsx';
 import ProductImportModal from './ProductImportModal.jsx';
 import ProductCard from './components/ProductCard.jsx';
 import ProductEditModal from './components/ProductEditModal.jsx';
+import AddProductCard from './components/AddProductCard.jsx';
 import IconButton from './components/IconButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
@@ -257,6 +258,13 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
           .map((prod, idx) => (
             <ProductCard key={idx} product={prod} onClick={() => setEditIdx(idx)} />
           ))}
+        <AddProductCard
+          onAdd={() => {
+            setProducts((p) => [...p, { ...emptyProduct }]);
+            setEditIdx(products.length);
+          }}
+          onImport={() => setShowImport(true)}
+        />
       </div>
       {showImport && (
         <ProductImportModal
