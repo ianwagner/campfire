@@ -56,7 +56,7 @@ const Logo = ({ isOpen }) => {
       width: isOpen ? openWidth : condensedSize,
       height: isOpen ? openHeight : condensedSize,
       borderRadius: isOpen ? 30 : 12,
-      duration: 0.6,
+      duration: 0.3,
       ease: 'power2.inOut',
     });
 
@@ -65,7 +65,7 @@ const Logo = ({ isOpen }) => {
       x: isOpen ? 0 : condensedTranslateX,
       y: isOpen ? 0 : condensedTranslateY,
       transformOrigin: 'top left',
-      duration: 0.6,
+      duration: 0.3,
       ease: 'power2.inOut',
     });
 
@@ -73,7 +73,7 @@ const Logo = ({ isOpen }) => {
       x: (i) => (isOpen ? 0 : condensedTargets[i].x),
       y: (i) => (isOpen ? baseYOffset : condensedTargets[i].y),
       rotation: () => (isOpen ? 0 : gsap.utils.random(-2, 2)),
-      duration: 0.6,
+      duration: 0.3,
       ease: 'power3.inOut',
     });
   }, [isOpen]);

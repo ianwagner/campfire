@@ -70,10 +70,10 @@ const SidebarBase = ({
           return (
             <div key={tab.label} className="space-y-1">
               <button onClick={() => toggleGroup(tab.label)} className={parentClasses + ' focus:outline-none'}>
-                <span className="flex items-center justify-start gap-1">
+                <span className={`flex items-center gap-1 ${collapsed ? 'justify-center' : 'justify-start'}`}>
                   {ParentIcon && <ParentIcon className="text-lg shrink-0" aria-hidden="true" />}
                   <span
-                    className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}
+                    className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[10rem] ml-1'}`}
                   >
                     {tab.label}
                   </span>
@@ -97,10 +97,10 @@ const SidebarBase = ({
                         onClick={() => handleClick(child)}
                         className={childClasses + ' focus:outline-none'}
                       >
-                        <span className="flex items-center justify-start gap-1">
+                        <span className={`flex items-center gap-1 ${collapsed ? 'justify-center' : 'justify-start'}` }>
                           {ChildIcon && <ChildIcon className="text-lg shrink-0" aria-hidden="true" />}
                           <span
-                            className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}
+                            className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[10rem] ml-1'}`}
                           >
                             {child.label}
                           </span>
@@ -125,7 +125,7 @@ const SidebarBase = ({
                 ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
                 : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ')
               +
-              'rounded-xl w-full p-3 transition-colors duration-200 flex items-center justify-center overflow-hidden'
+              'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center justify-center overflow-hidden'
             : (isActive
                 ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
                 : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ')
@@ -140,10 +140,10 @@ const SidebarBase = ({
             className={classes}
             title={collapsed ? tab.label : undefined}
           >
-            <span className="flex items-center justify-start gap-1">
+            <span className={`flex items-center gap-1 ${collapsed ? 'justify-center' : 'justify-start'}` }>
               {Icon && <Icon className="text-lg shrink-0" aria-hidden="true" />}
               <span
-                className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}
+                className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[10rem] ml-1'}`}
               >
                 {tab.label}
               </span>
@@ -202,9 +202,9 @@ const SidebarBase = ({
             onClick={handleLogout}
             className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-center focus:outline-none"
           >
-            <span className="flex items-center justify-start gap-1">
+            <span className={`flex items-center gap-1 ${collapsed ? 'justify-center' : 'justify-start'}` }>
               <FiLogOut className="text-lg shrink-0" aria-hidden="true" />
-              <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}>Log Out</span>
+              <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[10rem] ml-1'}`}>Log Out</span>
             </span>
           </button>
           <footer
@@ -264,9 +264,9 @@ const SidebarBase = ({
                 onClick={handleLogout}
                 className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-center focus:outline-none"
               >
-                <span className="flex items-center justify-start gap-1">
+                <span className={`flex items-center gap-1 ${collapsed ? 'justify-center' : 'justify-start'}` }>
                   <FiLogOut className="text-lg shrink-0" aria-hidden="true" />
-                  <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}>Log Out</span>
+                  <span className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[10rem] ml-1'}`}>Log Out</span>
                 </span>
               </button>
               <footer
