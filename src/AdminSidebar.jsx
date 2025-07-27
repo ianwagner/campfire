@@ -37,6 +37,7 @@ const tabs = [
 
 const AdminSidebar = () => {
   const [collapsed, setCollapsed] = React.useState(false);
+  const [logoOpen, setLogoOpen] = React.useState(true);
 
   React.useEffect(() => {
     const root = document.documentElement;
@@ -45,12 +46,24 @@ const AdminSidebar = () => {
       root.style.setProperty('--sidebar-width', '250px');
     };
   }, [collapsed]);
+
+  const handleToggleCollapse = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      if (next) {
+        setLogoOpen(false);
+      } else {
+        setTimeout(() => setLogoOpen(true), 150);
+      }
+      return next;
+    });
+  };
   return (
     <SidebarBase
       tabs={tabs}
       collapsed={collapsed}
-      onToggleCollapse={() => setCollapsed((c) => !c)}
-      LogoComponent={Logo}
+      onToggleCollapse={handleToggleCollapse}
+      LogoComponent={(props) => <Logo {...props} isOpen={logoOpen} />}
     />
   );
 };
