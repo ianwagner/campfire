@@ -26,6 +26,27 @@ test('admin sidebar toggles width when collapse button clicked', () => {
   expect(sidebarDiv).toHaveClass('w-16');
 });
 
+test('shows short copyright when collapsed', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  fireEvent.click(screen.getByLabelText('Toggle sidebar'));
+  expect(screen.getByText('© 2025')).toBeInTheDocument();
+});
+
+test('shows full copyright when expanded', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  expect(
+    screen.getByText('© 2025 Studio Tak. All rights reserved.')
+  ).toBeInTheDocument();
+});
+
 test('navigates to brands page when Brands clicked', () => {
   render(
     <MemoryRouter>
