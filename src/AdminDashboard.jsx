@@ -30,10 +30,7 @@ function AdminDashboard({ agencyId, brandCodes = [] } = {}) {
         const end = new Date(Date.UTC(eYear, eMonth, 0, 23, 59, 59, 999));
         const base = collection(db, 'brands');
         let brandDocs = [];
-        if (agencyId) {
-          const snap = await getDocs(query(base, where('agencyId', '==', agencyId)));
-          brandDocs = snap.docs;
-        } else if (brandCodes.length > 0) {
+        if (brandCodes.length > 0) {
           const chunks = [];
           for (let i = 0; i < brandCodes.length; i += 10) {
             chunks.push(brandCodes.slice(i, i + 10));
@@ -45,10 +42,15 @@ function AdminDashboard({ agencyId, brandCodes = [] } = {}) {
           }
           const seen = new Set();
           brandDocs = docs.filter((d) => {
+            const data = d.data() || {};
+            if (agencyId && data.agencyId !== agencyId) return false;
             if (seen.has(d.id)) return false;
             seen.add(d.id);
             return true;
           });
+        } else if (agencyId) {
+          const snap = await getDocs(query(base, where('agencyId', '==', agencyId)));
+          brandDocs = snap.docs;
         } else {
           const snap = await getDocs(base);
           brandDocs = snap.docs;
