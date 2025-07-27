@@ -50,6 +50,7 @@ import AgencyBrands from "./AgencyBrands";
 import AgencyAdGroups from "./AgencyAdGroups";
 import PmAdGroups from "./PmAdGroups";
 import PmDashboard from "./PmDashboard";
+import PmRequests from "./PmRequests";
 import useTheme from "./useTheme";
 import debugLog from "./utils/debugLog";
 import useSiteSettings from "./useSiteSettings";
@@ -369,6 +370,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <EditorRequests />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/pm/tickets"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="project-manager"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <PmRequests />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

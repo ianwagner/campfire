@@ -35,7 +35,7 @@ const emptyForm = {
   editorId: '',
 };
 
-const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
+const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true } = {}) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -63,7 +63,9 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
       setLoading(true);
       try {
         const base = collection(db, 'requests');
-        const q = filterEditorId ? query(base, where('editorId', '==', filterEditorId)) : base;
+        let q = base;
+        if (filterEditorId) q = query(q, where('editorId', '==', filterEditorId));
+        if (filterCreatorId) q = query(q, where('createdBy', '==', filterCreatorId));
         const snap = await getDocs(q);
         const list = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -128,7 +130,7 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
     fetchBrands();
     fetchDesigners();
     if (canAssignEditor) fetchEditors();
-  }, []);
+  }, [filterEditorId, filterCreatorId]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -210,6 +212,11 @@ const AdminRequests = ({ filterEditorId, canAssignEditor = true } = {}) => {
         : filterEditorId || auth.currentUser?.uid || form.editorId,
       status: editId ? (requests.find((r) => r.id === editId)?.status || 'new') : 'new',
     };
+    if (!editId) {
+      data.createdAt = serverTimestamp();
+      data.createdBy = auth.currentUser?.uid || null;
+      data.createdByName = auth.currentUser?.displayName || auth.currentUser?.email || '';
+    }
     try {
       if (editId) {
         await updateDoc(doc(db, 'requests', editId), data);
