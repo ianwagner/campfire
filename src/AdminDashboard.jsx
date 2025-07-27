@@ -8,7 +8,7 @@ import Table from './components/common/Table';
 import DateRangeSelector from './components/DateRangeSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
 
-function AdminDashboard({ agencyId, brandCodes = [] } = {}) {
+function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = {}) {
   const thisMonth = getMonthString();
   const lastMonth = (() => {
     const d = new Date();
@@ -23,6 +23,13 @@ function AdminDashboard({ agencyId, brandCodes = [] } = {}) {
     let active = true;
     const fetchData = async () => {
       setLoading(true);
+      if (requireFilters && brandCodes.length === 0 && !agencyId) {
+        if (active) {
+          setRows([]);
+          setLoading(false);
+        }
+        return;
+      }
       try {
         const [sYear, sMonth] = range.start.split('-').map(Number);
         const [eYear, eMonth] = range.end.split('-').map(Number);

@@ -5,6 +5,16 @@ import RequestCard from './RequestCard.jsx';
 
 const noop = () => {};
 
+beforeAll(() => {
+  if (!window.matchMedia) {
+    window.matchMedia = jest.fn().mockReturnValue({
+      matches: false,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    });
+  }
+});
+
 test('shows create button when status ready without expanding', () => {
   const req = { id: '1', status: 'ready', brandCode: 'B', numAds: 1 };
   render(
