@@ -4,6 +4,7 @@ import {
   FiEye,
   FiTrash,
   FiLink,
+  FiCheckCircle,
 } from 'react-icons/fi';
 import {
   collection,
@@ -24,6 +25,7 @@ import ShareLinkModal from './components/ShareLinkModal.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 import Table from './components/common/Table';
 import AdGroupCard from './components/AdGroupCard.jsx';
+import IconButton from './components/IconButton.jsx';
 
 const AgencyAdGroups = ({ agencyId: propAgencyId }) => {
   const paramsId = new URLSearchParams(useLocation().search).get('agencyId');
