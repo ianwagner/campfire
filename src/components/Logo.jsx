@@ -4,23 +4,76 @@ import gsap from 'gsap';
 const Logo = ({ isOpen }) => {
   const wrapperRef = useRef(null);
 
+  const condensedSize = 140;
+  const scaleCondensed = condensedSize / 50;
+  const wrapperOffset = 28;
+  const condensedTargets = [
+    { x: 13, y: 0 },
+    { x: 14, y: 0 },
+    { x: 15, y: 0 },
+    { x: 1,  y: 4.5 },
+    { x: 2,  y: 4.5 },
+    { x: 3,  y: 4.5 },
+    { x: -13, y: 9 },
+    { x: -14, y: 9 },
+    { x: -15, y: 9 },
+  ];
+  const baseYOffset = 20;
+
+  // Set initial state so logo doesn't animate from offscreen on page load
   useEffect(() => {
     const letters = Array.from(wrapperRef.current.querySelectorAll("svg[id^='letter-']")).reverse();
     const rect = wrapperRef.current.querySelector("svg > rect");
 
-    const condensedTargets = [
-      { x: 13, y: 0 },
-      { x: 14, y: 0 },
-      { x: 15, y: 0 },
-      { x: 1,  y: 4.5 },
-      { x: 2,  y: 4.5 },
-      { x: 3,  y: 4.5 },
-      { x: -13, y: 9 },
-      { x: -14, y: 9 },
-      { x: -15, y: 9 },
-    ];
 
-    const baseYOffset = 20;
+    gsap.set(wrapperRef.current, {
+      y: isOpen ? 0 : wrapperOffset,
+      scale: isOpen ? 1 : scaleCondensed,
+    });
+
+    gsap.set(letters, {
+      x: (i) => (isOpen ? 0 : condensedTargets[i].x),
+      y: (i) => (isOpen ? baseYOffset : condensedTargets[i].y),
+      rotation: 0,
+    });
+
+    if (rect) {
+      const openWidth = 140;
+      const openHeight = 24;
+      const centerX = openWidth / 2;
+      const centerY = openHeight / 2;
+
+      gsap.set(rect, {
+        attr: isOpen
+          ? {
+              width: openWidth,
+              height: openHeight,
+              rx: 12,
+              x: 0,
+              y: 0,
+            }
+          : {
+              width: condensedSize,
+              height: condensedSize,
+              rx: 12,
+              x: centerX - condensedSize / 2,
+              y: centerY - condensedSize / 2,
+            },
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const letters = Array.from(wrapperRef.current.querySelectorAll("svg[id^='letter-']")).reverse();
+    const rect = wrapperRef.current.querySelector("svg > rect");
+
+
+    gsap.to(wrapperRef.current, {
+      y: isOpen ? 0 : wrapperOffset,
+      scale: isOpen ? 1 : scaleCondensed,
+      duration: 0.6,
+      ease: "power2.inOut",
+    });
 
     // Animate letters
     gsap.to(letters, {
@@ -34,7 +87,6 @@ const Logo = ({ isOpen }) => {
     // Animate background rect
     const openWidth = 140;
     const openHeight = 24;
-    const condensedSize = 50;
     const centerX = openWidth / 2;
     const centerY = openHeight / 2;
 

@@ -690,6 +690,7 @@ html.dark .full-screen-spinner {
 .logo-inner {
   position: absolute;
   inset: 0;
+  transform-origin: center;
 }
 
 .logo-wrapper svg[id^='letter-'] {
