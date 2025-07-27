@@ -5,8 +5,8 @@ import AdminDashboard from './AdminDashboard';
 
 const PmDashboard = () => {
   const user = auth.currentUser;
-  const { agencyId } = useUserRole(user?.uid);
-  return <AdminDashboard agencyId={agencyId} />;
+  const { agencyId, brandCodes } = useUserRole(user?.uid);
+  return <AdminDashboard agencyId={agencyId} brandCodes={brandCodes} />;
 };
 
 export default PmDashboard;
