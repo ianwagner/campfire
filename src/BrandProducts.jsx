@@ -5,13 +5,21 @@ import useUserRole from './useUserRole';
 import createArchiveTicket from './utils/createArchiveTicket';
 import { uploadBrandAsset } from './uploadBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
-import FormField from './components/FormField.jsx';
-import TagInput from './components/TagInput.jsx';
 import ProductImportModal from './ProductImportModal.jsx';
+import ProductCard from './components/ProductCard.jsx';
+import ProductEditModal from './components/ProductEditModal.jsx';
+import Button from './components/Button.jsx';
 import { GiFairyWand } from 'react-icons/gi';
 
 const emptyImage = { url: '', file: null };
-const emptyProduct = { name: '', description: [], benefits: [], images: [{ ...emptyImage }], archived: false };
+const emptyProduct = {
+  name: '',
+  description: [],
+  benefits: [],
+  images: [{ ...emptyImage }],
+  featuredImage: '',
+  archived: false,
+};
 
 const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const user = auth.currentUser;
@@ -24,6 +32,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [showImport, setShowImport] = useState(false);
+  const [editIdx, setEditIdx] = useState(null);
 
   useEffect(() => {
     if (!propId && !propCode) {
@@ -63,6 +72,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
                     images: Array.isArray(p.images) && p.images.length
                       ? p.images.map((u) => ({ url: u, file: null }))
                       : [{ ...emptyImage }],
+                    featuredImage: p.featuredImage || '',
                     archived: !!p.archived,
                   }))
                 : [{ ...emptyProduct }]
@@ -99,6 +109,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
                     images: Array.isArray(p.images) && p.images.length
                       ? p.images.map((u) => ({ url: u, file: null }))
                       : [{ ...emptyImage }],
+                    featuredImage: p.featuredImage || '',
                     archived: !!p.archived,
                   }))
                 : [{ ...emptyProduct }]
@@ -179,12 +190,17 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
             .map((b) => b.trim())
             .filter(Boolean),
           images: imgs,
+          featuredImage: prod.featuredImage || '',
           archived: !!prod.archived,
         });
       }
       await setDoc(doc(db, 'brands', brandId), { products: productData }, { merge: true });
       setProducts(
-        productData.map((p) => ({ ...p, archived: false, images: p.images.map((u) => ({ url: u, file: null })) }))
+        productData.map((p) => ({
+          ...p,
+          archived: false,
+          images: p.images.map((u) => ({ url: u, file: null })),
+        }))
       );
       setMessage('Products saved');
     } catch (err) {
@@ -197,74 +213,47 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
 
   return (
     <PageWrapper title="Products">
-      <form onSubmit={handleSave} className="space-y-4 max-w-md">
+      <div className="mb-4 flex items-center gap-2">
+        <Button
+          type="button"
+          variant="action"
+          onClick={() => {
+            setProducts((p) => [...p, { ...emptyProduct }]);
+            setEditIdx(products.length);
+          }}
+        >
+          Add Product
+        </Button>
+        <Button type="button" variant="action" aria-label="Import from URL" onClick={() => setShowImport(true)}>
+          <GiFairyWand />
+        </Button>
+        <div className="ml-auto">
+          <Button onClick={handleSave} variant="primary" disabled={loading}>
+            {loading ? 'Saving...' : 'Save Products'}
+          </Button>
+        </div>
+      </div>
+      {message && <p className="text-sm mb-2">{message}</p>}
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {products
           .filter((p) => !p.archived)
-          .map((prod, pIdx) => (
-            <div key={pIdx} className="border p-3 rounded space-y-2">
-            <FormField label="Name">
-              <input
-                type="text"
-                value={prod.name}
-                onChange={(e) => updateProduct(pIdx, { name: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-            </FormField>
-            <FormField label="Description">
-              <TagInput
-                id={`desc-${pIdx}`}
-                value={prod.description}
-                onChange={(arr) => updateProduct(pIdx, { description: arr })}
-              />
-            </FormField>
-            <FormField label="Benefits">
-              <TagInput
-                id={`benefits-${pIdx}`}
-                value={prod.benefits}
-                onChange={(arr) => updateProduct(pIdx, { benefits: arr })}
-              />
-            </FormField>
-            <FormField label="Images">
-              {prod.images.map((img, idx) => (
-                <div key={idx} className="mb-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => updateImage(pIdx, idx, e.target.files[0])}
-                    className="w-full p-2 border rounded"
-                  />
-                  {img.url && <img src={img.url} alt="product" className="mt-1 h-16 w-auto" />}
-                </div>
-              ))}
-              <button type="button" onClick={() => addImage(pIdx)} className="btn-action mt-1">
-                Add Image
-              </button>
-            </FormField>
-            <button type="button" onClick={() => removeProduct(pIdx)} className="btn-action mt-1">
-              {isManager && !isAdmin ? 'Archive Product' : 'Delete Product'}
-            </button>
-          </div>
-        ))}
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setProducts((p) => [...p, { ...emptyProduct }])} className="btn-action">
-            Add Product
-          </button>
-          <button type="button" onClick={() => setShowImport(true)} className="btn-action" aria-label="Import from URL">
-            <GiFairyWand />
-          </button>
-        </div>
-        {message && <p className="text-sm">{message}</p>}
-        <div className="text-right">
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Saving...' : 'Save Products'}
-          </button>
-        </div>
-      </form>
+          .map((prod, idx) => (
+            <ProductCard key={idx} product={prod} onClick={() => setEditIdx(idx)} />
+          ))}
+      </div>
       {showImport && (
         <ProductImportModal
           brandCode={brandCode}
           onAdd={addImportedProduct}
           onClose={() => setShowImport(false)}
+        />
+      )}
+      {editIdx !== null && (
+        <ProductEditModal
+          product={products[editIdx]}
+          brandCode={brandCode}
+          onSave={(p) => updateProduct(editIdx, p)}
+          onClose={() => setEditIdx(null)}
         />
       )}
     </PageWrapper>
