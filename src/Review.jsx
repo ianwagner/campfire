@@ -891,10 +891,10 @@ useEffect(() => {
       )
     : [];
 
-  const currentAspect = (
+  const currentAspect = String(
     currentAd?.aspectRatio ||
-    currentInfo.aspectRatio ||
-    '9x16'
+      currentInfo.aspectRatio ||
+      '9x16'
   ).replace('x', '/');
 
   // Preload upcoming ads to keep transitions smooth
