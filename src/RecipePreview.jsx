@@ -72,7 +72,6 @@ const RecipePreview = ({
   const [visibleColumns, setVisibleColumns] = useState({});
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const [assetRows, setAssetRows] = useState([]);
-  const [assetHeaders, setAssetHeaders] = useState([]);
   const [assetMap, setAssetMap] = useState({});
   const [assetUsage, setAssetUsage] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
@@ -302,19 +301,9 @@ const RecipePreview = ({
       if (rows.length === 0) return;
       setAssetRows(rows);
       setAssetFilter('');
-      const headers = [
-        'name',
-        'url',
-        'thumbnailUrl',
-        'type',
-        'description',
-        'product',
-        'campaign',
-      ];
-      setAssetHeaders(headers);
       const map = {};
       (currentType?.assetMatchFields || []).forEach((fKey) => {
-        map[fKey] = { header: headers.includes(fKey) ? fKey : '', score: 10 };
+        map[fKey] = { header: fKey, score: 10 };
       });
       map.imageUrl = { header: 'url', score: 10 };
       map.imageName = { header: 'name', score: 10 };
@@ -340,7 +329,6 @@ const RecipePreview = ({
       loadAssetLibrary(selectedProductName);
     } else if (!brandCode) {
       setAssetRows([]);
-      setAssetHeaders([]);
       setAssetMap({});
       setAssetUsage({});
     }
@@ -1000,7 +988,6 @@ const RecipePreview = ({
   useEffect(() => {
     if (!currentType?.enableAssetCsv) {
       setAssetRows([]);
-      setAssetHeaders([]);
       setAssetMap({});
     }
   }, [currentType]);
@@ -1135,131 +1122,7 @@ const RecipePreview = ({
                 </div>
               )}
             </div>
-            {assetHeaders.length > 0 && (
-              <div className="space-y-1">
-                {currentType.assetMatchFields?.map((f) => (
-                  <div key={f} className="flex items-center gap-2">
-                    <label className="text-xs w-28">{f}</label>
-                    <select
-                      className="p-1 border rounded flex-1"
-                      value={assetMap[f]?.header || ''}
-                      onChange={(e) =>
-                        setAssetMap({
-                          ...assetMap,
-                          [f]: { ...assetMap[f], header: e.target.value },
-                        })
-                      }
-                    >
-                      <option value="">Select...</option>
-                      {assetHeaders.map((h) => (
-                        <option key={h} value={h}>
-                          {h}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      className="w-16 p-1 border rounded"
-                      value={assetMap[f]?.score || 10}
-                      onChange={(e) =>
-                        setAssetMap({
-                          ...assetMap,
-                          [f]: {
-                            ...assetMap[f],
-                            score: Math.min(
-                              10,
-                              Math.max(1, parseInt(e.target.value, 10) || 10)
-                            ),
-                          },
-                        })
-                      }
-                    />
-                  </div>
-                ))}
-                <div className="flex items-center gap-2">
-                  <label className="text-xs w-28">context</label>
-                  <select
-                    className="p-1 border rounded flex-1"
-                    value={assetMap.context?.header || ''}
-                    onChange={(e) =>
-                      setAssetMap({
-                        ...assetMap,
-                        context: { header: e.target.value },
-                      })
-                    }
-                  >
-                    <option value="">Ignore</option>
-                    {assetHeaders.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs w-28">imageUrl</label>
-                  <select
-                    className="p-1 border rounded flex-1"
-                    value={assetMap.imageUrl?.header || ''}
-                    onChange={(e) =>
-                      setAssetMap({
-                        ...assetMap,
-                        imageUrl: { header: e.target.value, score: 10 },
-                      })
-                    }
-                  >
-                    <option value="">Ignore</option>
-                    {assetHeaders.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs w-28">imageName</label>
-                  <select
-                    className="p-1 border rounded flex-1"
-                    value={assetMap.imageName?.header || ''}
-                    onChange={(e) =>
-                      setAssetMap({
-                        ...assetMap,
-                        imageName: { header: e.target.value, score: 10 },
-                      })
-                    }
-                  >
-                    <option value="">Ignore</option>
-                    {assetHeaders.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs w-28">assetType</label>
-                  <select
-                    className="p-1 border rounded flex-1"
-                    value={assetMap.assetType?.header || ''}
-                    onChange={(e) =>
-                      setAssetMap({
-                        ...assetMap,
-                        assetType: { header: e.target.value },
-                      })
-                    }
-                  >
-                    <option value="">Ignore</option>
-                    {assetHeaders.map((h) => (
-                      <option key={h} value={h}>
-                        {h}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
+
           </div>
         )}
         {currentType && (
