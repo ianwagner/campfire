@@ -333,8 +333,9 @@ case-insensitively and common synonyms map to a canonical type. The words
 Any unrecognized value is simply lowercased.
 
 You can also populate assets directly from the in-app **Asset Library**. Click
-the **Use Library** button in the recipe generator and the stored rows will be
-loaded with all columns mapped automatically.
+the **Use Library** button in the recipe generator and the saved assets will be
+loaded automatically. The asset `description` field provides the context used
+when generating recipes.
 
 Saving the library writes the assets to Firestore so they are available from any
 browser or device.
