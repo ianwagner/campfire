@@ -9,10 +9,43 @@ import { safeSetItem, safeRemoveItem } from './utils/safeLocalStorage.js';
 const TaggerModal = ({ onClose, brandCode = '' }) => {
   const [driveFolderUrl, setDriveFolderUrl] = useState('');
   const [campaign, setCampaign] = useState('');
+  const [product, setProduct] = useState('');
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
   const [error, setError] = useState('');
   const [jobId, setJobId] = useState('');
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      if (!brandCode) {
+        setProducts([]);
+        return;
+      }
+      try {
+        const q = query(collection(db, 'brands'), where('code', '==', brandCode));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          const prods = Array.isArray(data.products) ? data.products : [];
+          const names = prods.map((p) => p.name).filter(Boolean);
+          setProducts(names);
+          if (!product && names.length === 1) setProduct(names[0]);
+        } else {
+          setProducts([]);
+        }
+      } catch (err) {
+        console.error('Failed to load products', err);
+        setProducts([]);
+      }
+    };
+    loadProducts();
+  }, [brandCode]);
+
+  useEffect(() => {
+    if (!product) return;
+    setResults((prev) => prev.map((r) => ({ ...r, product })));
+  }, [product]);
 
   useEffect(() => {
     safeSetItem('taggerModalOpen', 'true');
@@ -60,7 +93,9 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
       const data = snap.data();
       if (!data) return;
       if (data.status === 'complete') {
-        const newResults = Array.isArray(data.results) ? data.results : [];
+        const newResults = Array.isArray(data.results)
+          ? data.results.map((r) => ({ ...r, product }))
+          : [];
         setResults((prev) => [...prev, ...newResults]);
         setLoading(false);
       } else if (data.status === 'error') {
@@ -69,7 +104,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
       }
     });
     return () => unsub();
-  }, [jobId]);
+  }, [jobId, product]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -121,7 +156,9 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
       const payload = { driveFolderUrl: driveFolderUrl.trim(), campaign };
       const callable = httpsCallable(functions, 'listDriveFiles', { timeout: 60000 });
       const res = await callable({ data: payload, ...payload });
-      const rows = Array.isArray(res.data?.results) ? res.data.results : [];
+      const rows = Array.isArray(res.data?.results)
+        ? res.data.results.map((r) => ({ ...r, product }))
+        : [];
       setResults((p) => [...p, ...rows]);
     } catch (err) {
       console.error('Add rows from drive failed', err);
@@ -156,6 +193,21 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
                 className="w-full p-1 border rounded"
               />
             </div>
+            <div>
+              <label className="block mb-1 text-sm">Product</label>
+              <select
+                className="w-full p-1 border rounded"
+                value={product}
+                onChange={(e) => setProduct(e.target.value)}
+              >
+                <option value="">Select</option>
+                {products.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="text-right space-x-2">
               <button type="button" onClick={onClose} className="btn-secondary px-3 py-1">
@@ -188,6 +240,21 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
                   onChange={(e) => setCampaign(e.target.value)}
                   className="w-full p-1 border rounded"
                 />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm">Product</label>
+                <select
+                  className="w-full p-1 border rounded"
+                  value={product}
+                  onChange={(e) => setProduct(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  {products.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="text-right">
                 <button type="submit" className="btn-primary px-3 py-1" disabled={loading}>
