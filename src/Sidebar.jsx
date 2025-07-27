@@ -25,6 +25,12 @@ const managerTabs = [
   { label: 'Account Settings', path: '/account-settings', icon: FiUser },
 ];
 
+const pmTabs = [
+  { label: 'Dashboard', path: '/pm/dashboard', icon: FiHome },
+  { label: 'Ad Groups', path: '/pm/ad-groups', icon: FiGrid },
+  { label: 'Account Settings', path: '/account-settings', icon: FiUser },
+];
+
 const editorTabs = [
   { label: 'Tickets', path: '/editor/tickets', icon: FiList },
   { label: 'Ad Groups', path: '/editor/ad-groups', icon: FiGrid },
@@ -35,6 +41,7 @@ const editorTabs = [
 const Sidebar = ({ agencyId, role }) => {
   const isManager = role === 'manager';
   const isEditor = role === 'editor';
+  const isPm = role === 'project-manager';
   const { agency } = useAgencyTheme(isManager || isEditor ? null : agencyId);
   const showAnimatedLogo = isManager || isEditor || !agencyId;
   const [collapsed, setCollapsed] = React.useState(false);
@@ -45,7 +52,13 @@ const Sidebar = ({ agencyId, role }) => {
       root.style.setProperty('--sidebar-width', '250px');
     };
   }, [collapsed]);
-  const tabs = isManager ? managerTabs : isEditor ? editorTabs : defaultTabs;
+  const tabs = isManager
+    ? managerTabs
+    : isEditor
+      ? editorTabs
+      : isPm
+        ? pmTabs
+        : defaultTabs;
 
   return (
     <SidebarBase

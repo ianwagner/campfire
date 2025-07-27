@@ -25,8 +25,9 @@ import StatusBadge from './components/StatusBadge.jsx';
 import Table from './components/common/Table';
 import AdGroupCard from './components/AdGroupCard.jsx';
 
-const AgencyAdGroups = () => {
-  const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
+const AgencyAdGroups = ({ agencyId: propAgencyId }) => {
+  const paramsId = new URLSearchParams(useLocation().search).get('agencyId');
+  const agencyId = propAgencyId || paramsId;
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const user = auth.currentUser;

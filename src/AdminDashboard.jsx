@@ -8,7 +8,7 @@ import Table from './components/common/Table';
 import DateRangeSelector from './components/DateRangeSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
 
-function AdminDashboard() {
+function AdminDashboard({ agencyId } = {}) {
   const thisMonth = getMonthString();
   const lastMonth = (() => {
     const d = new Date();
@@ -28,7 +28,9 @@ function AdminDashboard() {
         const [eYear, eMonth] = range.end.split('-').map(Number);
         const start = new Date(Date.UTC(sYear, sMonth - 1, 1));
         const end = new Date(Date.UTC(eYear, eMonth, 0, 23, 59, 59, 999));
-        const snap = await getDocs(collection(db, 'brands'));
+        const base = collection(db, 'brands');
+        const bQuery = agencyId ? query(base, where('agencyId', '==', agencyId)) : base;
+        const snap = await getDocs(bQuery);
         const brands = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         const results = [];
         for (const brand of brands) {
@@ -117,7 +119,7 @@ function AdminDashboard() {
     return () => {
       active = false;
     };
-  }, [range.start, range.end]);
+  }, [range.start, range.end, agencyId]);
 
   return (
     <PageWrapper title="Dashboard">
