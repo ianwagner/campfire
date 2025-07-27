@@ -5,8 +5,8 @@ const Logo = ({ isOpen }) => {
   const wrapperRef = useRef(null);
 
   const condensedSize = 147;
-  const openWidth = 140;
-  const openHeight = 24;
+  const openWidth = 240;
+  const openHeight = 40;
   const scaleCondensed = condensedSize / openWidth;
   const wrapperOffset = 28;
   const condensedTargets = [
@@ -65,7 +65,7 @@ const Logo = ({ isOpen }) => {
       style={{
         width: isOpen ? `${openWidth}px` : `${condensedSize}px`,
         height: isOpen ? `${openHeight}px` : `${condensedSize}px`,
-        borderRadius: '12px',
+        borderRadius: '60px',
         backgroundColor: '#FF710B',
         overflow: 'hidden',
         display: 'flex',
