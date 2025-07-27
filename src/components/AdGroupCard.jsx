@@ -12,6 +12,8 @@ import {
   FiEye,
   FiLink,
   FiEdit2,
+  FiDownload,
+  FiType,
   FiArchive,
   FiRotateCcw,
   FiTrash,
@@ -27,6 +29,10 @@ const AdGroupCard = ({
   onArchive,
   onRestore,
   onDelete,
+  onGallery,
+  onCopy,
+  onDownload,
+  triggerClickMenu,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -39,17 +45,19 @@ const AdGroupCard = ({
 
   return (
     <div className="relative bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow-md w-full">
-      <IconButton
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setMenuOpen((o) => !o);
-        }}
-        className="absolute top-1 right-1 bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
-        aria-label="Menu"
-      >
-        <FiMoreHorizontal />
-      </IconButton>
+      {!triggerClickMenu && (
+        <IconButton
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setMenuOpen((o) => !o);
+          }}
+          className="absolute top-1 right-1 bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+          aria-label="Menu"
+        >
+          <FiMoreHorizontal />
+        </IconButton>
+      )}
       {menuOpen && (
         <div className="absolute right-1 top-7 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
           <Link
@@ -73,6 +81,30 @@ const AdGroupCard = ({
               className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
             >
               <FiLink /> Share Link
+            </button>
+          )}
+          {onGallery && (
+            <button
+              onClick={(e) => handleClick(e, onGallery)}
+              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+            >
+              <FiGrid /> See Gallery
+            </button>
+          )}
+          {onCopy && (
+            <button
+              onClick={(e) => handleClick(e, onCopy)}
+              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+            >
+              <FiType /> Platform Copy
+            </button>
+          )}
+          {onDownload && (
+            <button
+              onClick={(e) => handleClick(e, onDownload)}
+              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+            >
+              <FiDownload /> Download Approved
             </button>
           )}
           {onRename && (
@@ -109,7 +141,11 @@ const AdGroupCard = ({
           )}
         </div>
       )}
-      <Link to={`/ad-group/${group.id}`} className="block">
+      <Link
+        to={triggerClickMenu ? '#' : `/ad-group/${group.id}`}
+        onClick={triggerClickMenu ? (e) => { e.preventDefault(); setMenuOpen((o) => !o); } : undefined}
+        className="block"
+      >
         <div className="flex items-start px-3 py-2">
           <div className="flex-1 min-w-0">
             <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0 line-clamp-2">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FiEye, FiLink, FiList, FiColumns, FiCheckCircle, FiArchive } from 'react-icons/fi';
+import { FiGrid, FiType, FiDownload, FiList, FiColumns, FiArchive } from 'react-icons/fi';
 import Table from './common/Table';
 import AdGroupCard from './AdGroupCard.jsx';
 import TabButton from './TabButton.jsx';
@@ -29,6 +29,9 @@ const AdGroupListView = ({
   showArchived,
   onToggleArchived,
   onShare,
+  onGallery,
+  onCopy,
+  onDownload,
 }) => {
   const term = (filter || '').toLowerCase();
   const displayGroups = groups
@@ -83,8 +86,10 @@ const AdGroupListView = ({
               <AdGroupCard
                 key={g.id}
                 group={g}
-                onReview={() => (window.location.href = `/review/${g.id}`)}
-                onShare={onShare ? () => onShare(g.id) : undefined}
+                onGallery={onGallery ? () => onGallery(g.id) : undefined}
+                onCopy={onCopy ? () => onCopy(g.id) : undefined}
+                onDownload={onDownload ? () => onDownload(g.id) : undefined}
+                triggerClickMenu
               />
             ))}
           </div>
@@ -109,26 +114,15 @@ const AdGroupListView = ({
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
-                          <IconButton as={Link} to={`/ad-group/${g.id}`} aria-label="View Details">
-                            <FiEye />
+                          <IconButton onClick={() => onGallery(g.id)} aria-label="See Gallery">
+                            <FiGrid />
                           </IconButton>
-                          <IconButton
-                            as={Link}
-                            to={`/review/${g.id}`}
-                            className="ml-2"
-                            aria-label="Review"
-                          >
-                            <FiCheckCircle />
+                          <IconButton onClick={() => onCopy(g.id)} className="ml-2" aria-label="See Platform Copy">
+                            <FiType />
                           </IconButton>
-                          {onShare && (
-                            <IconButton
-                              onClick={() => onShare(g.id)}
-                              className="ml-2"
-                              aria-label="Share Link"
-                            >
-                              <FiLink />
-                            </IconButton>
-                          )}
+                          <IconButton onClick={() => onDownload(g.id)} className="ml-2" aria-label="Download Approved Assets">
+                            <FiDownload />
+                          </IconButton>
                         </div>
                       </td>
                     </tr>
@@ -154,7 +148,14 @@ const AdGroupListView = ({
                       {displayGroups
                         .filter((g) => computeKanbanStatus(g) === col.status)
                         .map((g) => (
-                          <AdGroupCard key={g.id} group={g} />
+                          <AdGroupCard
+                            key={g.id}
+                            group={g}
+                            onGallery={onGallery ? () => onGallery(g.id) : undefined}
+                            onCopy={onCopy ? () => onCopy(g.id) : undefined}
+                            onDownload={onDownload ? () => onDownload(g.id) : undefined}
+                            triggerClickMenu
+                          />
                         ))}
                     </div>
                   </div>

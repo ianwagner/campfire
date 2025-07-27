@@ -167,6 +167,13 @@ const AdGroupDetail = () => {
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
   const showStats = usesTabs ? tab === "stats" : !showTable;
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('exportApproved')) {
+      setExportModal(true);
+    }
+  }, [location.search]);
+
   const renderCopyEditDiff = (recipeCode, edit, origOverride) => {
     const orig = origOverride ?? (recipesMeta[recipeCode]?.copy || "");
     if (!edit || edit === orig) return null;
