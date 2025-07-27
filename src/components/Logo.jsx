@@ -4,11 +4,10 @@ import gsap from 'gsap';
 const Logo = ({ isOpen }) => {
   const wrapperRef = useRef(null);
 
-  const condensedSize = 140;
-  // Scale the logo down to roughly 50px when the sidebar is collapsed
-  // rather than enlarging it. The previous ratio inverted the values
-  // causing the logo to render huge when collapsed.
-  const scaleCondensed = 50 / condensedSize;
+  const condensedSize = 147;
+  const openWidth = 140;
+  const openHeight = 24;
+  const scaleCondensed = condensedSize / openWidth;
   const wrapperOffset = 28;
   const condensedTargets = [
     { x: 13, y: 0 },
@@ -23,15 +22,13 @@ const Logo = ({ isOpen }) => {
   ];
   const baseYOffset = 20;
 
-  // Set initial state so logo doesn't animate from offscreen on page load
   useEffect(() => {
     const letters = Array.from(wrapperRef.current.querySelectorAll("svg[id^='letter-']")).reverse();
-    const rect = wrapperRef.current.querySelector("svg > rect");
-
 
     gsap.set(wrapperRef.current, {
       y: isOpen ? 0 : wrapperOffset,
       scale: isOpen ? 1 : scaleCondensed,
+      transformOrigin: 'center center',
     });
 
     gsap.set(letters, {
@@ -39,95 +36,53 @@ const Logo = ({ isOpen }) => {
       y: (i) => (isOpen ? baseYOffset : condensedTargets[i].y),
       rotation: 0,
     });
-
-    if (rect) {
-      const openWidth = 140;
-      const openHeight = 24;
-      const centerX = openWidth / 2;
-      const centerY = openHeight / 2;
-
-      gsap.set(rect, {
-        attr: isOpen
-          ? {
-              width: openWidth,
-              height: openHeight,
-              rx: 12,
-              x: 0,
-              y: 0,
-            }
-          : {
-              width: condensedSize,
-              height: condensedSize,
-              rx: 12,
-              x: centerX - condensedSize / 2,
-              y: centerY - condensedSize / 2,
-            },
-      });
-    }
   }, []);
 
   useEffect(() => {
     const letters = Array.from(wrapperRef.current.querySelectorAll("svg[id^='letter-']")).reverse();
-    const rect = wrapperRef.current.querySelector("svg > rect");
-
 
     gsap.to(wrapperRef.current, {
       y: isOpen ? 0 : wrapperOffset,
       scale: isOpen ? 1 : scaleCondensed,
+      transformOrigin: 'center center',
       duration: 0.6,
-      ease: "power2.inOut",
+      ease: 'power2.inOut',
     });
 
-    // Animate letters
     gsap.to(letters, {
-      x: (i) => isOpen ? 0 : condensedTargets[i].x,
-      y: (i) => isOpen ? baseYOffset : condensedTargets[i].y,
-      rotation: () => isOpen ? 0 : gsap.utils.random(-2, 2),
+      x: (i) => (isOpen ? 0 : condensedTargets[i].x),
+      y: (i) => (isOpen ? baseYOffset : condensedTargets[i].y),
+      rotation: () => (isOpen ? 0 : gsap.utils.random(-2, 2)),
       duration: 0.6,
-      ease: "power3.inOut",
+      ease: 'power3.inOut',
     });
-
-    // Animate background rect
-    const openWidth = 140;
-    const openHeight = 24;
-    const centerX = openWidth / 2;
-    const centerY = openHeight / 2;
-
-    if (rect) {
-      gsap.to(rect, {
-        attr: isOpen
-          ? {
-              width: openWidth,
-              height: openHeight,
-              rx: 12,
-              x: 0,
-              y: 0,
-            }
-          : {
-              width: condensedSize,
-              height: condensedSize,
-              rx: 12,
-              x: centerX - condensedSize / 2,
-              y: centerY - condensedSize / 2,
-            },
-        duration: 0.6,
-        ease: "power2.inOut",
-      });
-    }
   }, [isOpen]);
 
   return (
-    <div className="logo-wrapper">
-      <div ref={wrapperRef} className="logo-inner">
-        <svg
-          style={{ position: 'absolute' }}
-          viewBox="0 -13 140 50"
-        >
-          <rect fill="#FF710B" height="24" rx="12" width="140" />
-        </svg>
-
-  {/* 9 letter SVGs follow */}
-  <svg id="letter-0" style={{ overflow: 'visible' }} viewBox="0 0 140 24" xmlns="http://www.w3.org/2000/svg">
+    <div
+      className="logo-wrapper"
+      style={{
+        width: isOpen ? `${openWidth}px` : `${condensedSize}px`,
+        height: isOpen ? `${openHeight}px` : `${condensedSize}px`,
+        borderRadius: '12px',
+        backgroundColor: '#FF710B',
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'width 0.6s ease, height 0.6s ease',
+      }}
+    >
+      <div
+        ref={wrapperRef}
+        className="logo-inner"
+        style={{
+          position: 'relative',
+          width: `${openWidth}px`,
+          height: `${openHeight}px`,
+        }}
+      >
+        <svg id="letter-0" style={{ overflow: 'visible' }} viewBox="0 0 140 24" xmlns="http://www.w3.org/2000/svg">
     <path d="M129.31 16.4499C129.347 16.5059 129.366 16.5666 129.366 16.6319C129.366 16.7159 129.333 16.7906 129.268 16.8559C129.212 16.9119 129.142 16.9399 129.058 16.9399H125.446C125.231 16.9399 125.063 16.8652 124.942 16.7159L122.506 13.7059V16.5619C122.506 16.6646 122.469 16.7532 122.394 16.8279C122.319 16.9026 122.231 16.9399 122.128 16.9399H119.244C119.141 16.9399 119.053 16.9026 118.978 16.8279C118.903 16.7532 118.866 16.6646 118.866 16.5619V7.51789C118.866 7.41523 118.903 7.32656 118.978 7.25189C119.053 7.17723 119.141 7.13989 119.244 7.13989H122.128C122.231 7.13989 122.319 7.17723 122.394 7.25189C122.469 7.32656 122.506 7.41523 122.506 7.51789V10.1499L124.718 7.37789C124.858 7.21923 125.031 7.13989 125.236 7.13989H128.61C128.694 7.13989 128.764 7.17256 128.82 7.23789C128.885 7.29389 128.918 7.36389 128.918 7.44789C128.918 7.52256 128.895 7.58789 128.848 7.64389L125.53 11.6899L129.31 16.4499Z" fill="white" />
   </svg>
   <svg id="letter-1" style={{ overflow: 'visible' }} viewBox="0 0 140 24" xmlns="http://www.w3.org/2000/svg">
@@ -160,3 +115,4 @@ const Logo = ({ isOpen }) => {
 };
 
 export default Logo;
+
