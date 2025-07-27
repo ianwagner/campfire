@@ -165,7 +165,7 @@ const App = () => {
             <RoleSidebar role={role} isAdmin={isAdmin} agencyId={agencyId} />
           )}
           <div
-            className={`flex flex-col flex-grow box-border min-w-0 max-w-full ${
+            className={`flex flex-col flex-grow box-border min-w-0 max-w-full transition-[padding-left] duration-300 ${
               signedIn ? 'md:pl-[var(--sidebar-width)]' : ''
             }`}
           >

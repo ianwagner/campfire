@@ -6,7 +6,7 @@ import useSiteSettings from '../useSiteSettings';
 import debugLog from '../utils/debugLog';
 import { DEFAULT_LOGO_URL } from '../constants';
 import OptimizedImage from './OptimizedImage.jsx';
-import { FiChevronsLeft, FiChevronsRight, FiLogOut } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiLogOut } from 'react-icons/fi';
 
 /**
  * Common sidebar layout.
@@ -177,12 +177,12 @@ const SidebarBase = ({
               type="button"
               aria-label="Toggle sidebar"
               onClick={onToggleCollapse}
-              className="mx-auto my-2 text-xl"
+              className={`my-2 text-xl ${collapsed ? 'mx-auto' : 'w-full text-center'}`}
             >
               {collapsed ? (
-                <FiChevronsRight aria-hidden="true" />
+                <FiChevronRight aria-hidden="true" />
               ) : (
-                <FiChevronsLeft aria-hidden="true" />
+                <FiChevronLeft aria-hidden="true" />
               )}
             </button>
           )}
@@ -196,7 +196,7 @@ const SidebarBase = ({
             <span className={`transition-all duration-300 overflow-hidden ${collapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Log Out</span>
           </button>
           <footer className="text-xs text-gray-400 dark:text-gray-500 text-center">
-            © 2025 Studio Tak. All rights reserved.
+            {collapsed ? '© 2025' : '© 2025 Studio Tak. All rights reserved.'}
           </footer>
         </div>
       </div>
@@ -253,7 +253,7 @@ const SidebarBase = ({
                 <span className={`transition-all duration-300 overflow-hidden ${collapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Log Out</span>
               </button>
               <footer className="text-xs text-gray-400 dark:text-gray-500 text-center">
-                © 2025 Studio Tak. All rights reserved.
+                {collapsed ? '© 2025' : '© 2025 Studio Tak. All rights reserved.'}
               </footer>
             </div>
           </div>
