@@ -11,7 +11,6 @@ import {
   FiPlus,
   FiSave,
   FiColumns,
-  FiCheck,
 } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import { auth } from './firebase/config';
@@ -29,10 +28,6 @@ import PageToolbar from './components/PageToolbar.jsx';
 import IconButton from './components/IconButton.jsx';
 import SaveButton from './components/SaveButton.jsx';
 import TabButton from './components/TabButton.jsx';
-import ProductCard from './components/ProductCard.jsx';
-import ProductEditModal from './components/ProductEditModal.jsx';
-import ProductImportModal from './ProductImportModal.jsx';
-import CreateButton from './components/CreateButton.jsx';
 import normalizeAssetType from './utils/normalizeAssetType.js';
 
 const similarityScore = (a, b) => {
@@ -81,9 +76,6 @@ const RecipePreview = ({
   const [assetUsage, setAssetUsage] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
   const [reviewRows, setReviewRows] = useState([]);
-  const [expandedComponents, setExpandedComponents] = useState({});
-  const [newProduct, setNewProduct] = useState(null);
-  const [showProductImport, setShowProductImport] = useState(false);
 
   const currentType = types.find((t) => t.id === selectedType);
 
@@ -162,7 +154,6 @@ const RecipePreview = ({
               id: `product-${idx}`,
               componentKey: 'product',
               name: p.name,
-              featuredImage: p.featuredImage || '',
               values: {
                 name: p.name,
                 description: Array.isArray(p.description)
@@ -1158,89 +1149,47 @@ const RecipePreview = ({
                         (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
                     )
                   : null;
-              const expanded = expandedComponents[c.key];
-              const showPlaceholder = instOptions.length > 0 && !expanded;
-              const toggle = () => setExpandedComponents((p) => ({ ...p, [c.key]: true }));
               return (
                 <div key={c.id} className="space-y-2">
                   <label className="block text-sm mb-1">{c.label}</label>
-                  {showPlaceholder ? (
-                    <button type="button" onClick={toggle} className="text-sm text-blue-600 underline">
-                      {instOptions.length} Options Loaded
-                    </button>
-                  ) : c.key === 'product' && c.selectionMode === 'checklist' ? (
-                    <>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {instOptions.map((pOpt) => {
-                          const arr = Array.isArray(current) ? current.slice() : [];
-                          const selected = arr.includes(pOpt.id);
-                          return (
-                            <div key={pOpt.id} className="relative">
-                              <ProductCard
-                                product={pOpt}
-                                onClick={() => {
-                                  const idx = arr.indexOf(pOpt.id);
-                                  if (idx >= 0) arr.splice(idx, 1);
-                                  else arr.push(pOpt.id);
-                                  setSelectedInstances({ ...selectedInstances, [c.key]: arr });
-                                }}
-                              />
-                              {selected && (
-                                <FiCheck className="absolute top-1 right-1 bg-white rounded" />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="flex items-center gap-2 mt-2">
-                        <CreateButton aria-label="Add Product" onClick={() => setNewProduct({ name: '', description: [], benefits: [], featuredImage: '' })} />
-                        <IconButton aria-label="Import Product" onClick={() => setShowProductImport(true)}>
-                          <FaMagic />
-                        </IconButton>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {c.selectionMode === 'dropdown' && instOptions.length > 0 && (
-                        <select
-                          className="w-full p-2 border rounded"
-                          value={current}
-                          onChange={(e) =>
-                            setSelectedInstances({ ...selectedInstances, [c.key]: e.target.value })
-                          }
-                        >
-                          <option value="">Custom...</option>
-                          {instOptions.map((i) => (
-                            <option key={i.id} value={i.id}>{i.name}</option>
-                          ))}
-                        </select>
-                      )}
-                      {c.selectionMode === 'checklist' && instOptions.length > 0 && (
-                        <TagChecklist
-                          options={instOptions.map((i) => ({ id: i.id, name: i.name }))}
-                          value={current}
-                          onChange={(arr) => setSelectedInstances({ ...selectedInstances, [c.key]: arr })}
-                          id={`check-${c.id}`}
-                        />
-                      )}
-                      {c.selectionMode === 'random' && instOptions.length > 0 && (
-                        <p className="text-sm italic">Random instance</p>
-                      )}
-                      {((c.selectionMode === 'dropdown' && !inst) || instOptions.length === 0) &&
-                        c.attributes?.map((a) => (
-                          <div key={a.key}>
-                            <label className="block text-xs mb-1">{a.label}</label>
-                            <input
-                              className="w-full p-2 border rounded"
-                              value={formData[`${c.key}.${a.key}`] || ''}
-                              onChange={(e) =>
-                                setFormData({ ...formData, [`${c.key}.${a.key}`]: e.target.value })
-                              }
-                            />
-                          </div>
-                        ))}
-                    </>
+                  {c.selectionMode === 'dropdown' && instOptions.length > 0 && (
+                    <select
+                      className="w-full p-2 border rounded"
+                      value={current}
+                      onChange={(e) =>
+                        setSelectedInstances({ ...selectedInstances, [c.key]: e.target.value })
+                      }
+                    >
+                      <option value="">Custom...</option>
+                      {instOptions.map((i) => (
+                        <option key={i.id} value={i.id}>{i.name}</option>
+                      ))}
+                    </select>
                   )}
+                  {c.selectionMode === 'checklist' && instOptions.length > 0 && (
+                    <TagChecklist
+                      options={instOptions.map((i) => ({ id: i.id, name: i.name }))}
+                      value={current}
+                      onChange={(arr) => setSelectedInstances({ ...selectedInstances, [c.key]: arr })}
+                      id={`check-${c.id}`}
+                    />
+                  )}
+                  {c.selectionMode === 'random' && instOptions.length > 0 && (
+                    <p className="text-sm italic">Random instance</p>
+                  )}
+                  {((c.selectionMode === 'dropdown' && !inst) || instOptions.length === 0) &&
+                    c.attributes?.map((a) => (
+                      <div key={a.key}>
+                        <label className="block text-xs mb-1">{a.label}</label>
+                        <input
+                          className="w-full p-2 border rounded"
+                          value={formData[`${c.key}.${a.key}`] || ''}
+                          onChange={(e) =>
+                            setFormData({ ...formData, [`${c.key}.${a.key}`]: e.target.value })
+                          }
+                        />
+                      </div>
+                    ))}
                 </div>
               );
             })}
@@ -1533,55 +1482,6 @@ const RecipePreview = ({
           initialFilter={assetPicker?.product}
           onSelect={handleAssetSelect}
           onClose={() => setAssetPicker(null)}
-        />
-      )}
-      {newProduct && (
-        <ProductEditModal
-          product={newProduct}
-          brandCode={brandCode}
-          onSave={(p) => {
-            const id = `product-${Date.now()}`;
-            setBrandProducts((prev) => [
-              ...prev,
-              {
-                id,
-                componentKey: 'product',
-                name: p.name,
-                featuredImage: p.featuredImage || '',
-                values: {
-                  name: p.name,
-                  description: p.description,
-                  benefits: p.benefits,
-                },
-                relationships: { brandCode },
-              },
-            ]);
-          }}
-          onClose={() => setNewProduct(null)}
-        />
-      )}
-      {showProductImport && (
-        <ProductImportModal
-          brandCode={brandCode}
-          onAdd={(p) => {
-            const id = `product-${Date.now()}`;
-            setBrandProducts((prev) => [
-              ...prev,
-              {
-                id,
-                componentKey: 'product',
-                name: p.name,
-                featuredImage: p.featuredImage || p.images?.[0]?.url || '',
-                values: {
-                  name: p.name,
-                  description: p.description,
-                  benefits: p.benefits,
-                },
-                relationships: { brandCode },
-              },
-            ]);
-          }}
-          onClose={() => setShowProductImport(false)}
         />
       )}
   </div>
