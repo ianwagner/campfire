@@ -1,5 +1,6 @@
 import React from 'react';
 import SidebarBase from './components/SidebarBase';
+import Logo from './components/Logo.jsx';
 import useAgencyTheme from './useAgencyTheme';
 import {
   FiHome,
@@ -35,6 +36,7 @@ const Sidebar = ({ agencyId, role }) => {
   const isManager = role === 'manager';
   const isEditor = role === 'editor';
   const { agency } = useAgencyTheme(isManager || isEditor ? null : agencyId);
+  const showAnimatedLogo = isManager || isEditor || !agencyId;
   const [collapsed, setCollapsed] = React.useState(false);
   React.useEffect(() => {
     const root = document.documentElement;
@@ -48,11 +50,12 @@ const Sidebar = ({ agencyId, role }) => {
   return (
     <SidebarBase
       tabs={tabs}
-      logoUrl={isManager ? undefined : agencyId ? agency.logoUrl : undefined}
-      logoAlt={isManager ? undefined : agencyId ? `${agency.name} logo` : undefined}
+      logoUrl={showAnimatedLogo ? undefined : agency.logoUrl}
+      logoAlt={showAnimatedLogo ? undefined : `${agency.name} logo`}
       applySiteAccent={isManager || isEditor || !agencyId}
       collapsed={collapsed}
       onToggleCollapse={() => setCollapsed((c) => !c)}
+      LogoComponent={showAnimatedLogo ? Logo : undefined}
     />
   );
 };
