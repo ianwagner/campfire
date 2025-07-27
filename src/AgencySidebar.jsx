@@ -1,9 +1,18 @@
+import React from 'react';
 import SidebarBase from './components/SidebarBase';
 import useAgencyTheme from './useAgencyTheme';
 import { FiHome, FiGrid, FiBriefcase, FiFeather, FiUser } from 'react-icons/fi';
 
 const AgencySidebar = ({ agencyId }) => {
   const { agency } = useAgencyTheme(agencyId);
+  const [collapsed, setCollapsed] = React.useState(false);
+  React.useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--sidebar-width', collapsed ? '4rem' : '250px');
+    return () => {
+      root.style.setProperty('--sidebar-width', '250px');
+    };
+  }, [collapsed]);
   const q = agencyId ? `?agencyId=${agencyId}` : '';
   const tabs = [
     { label: 'Dashboard', path: `/agency/dashboard${q}`, icon: FiHome },
@@ -19,6 +28,8 @@ const AgencySidebar = ({ agencyId }) => {
       logoAlt={`${agency.name} logo`}
       /* prevent site accent from overriding agency theme */
       applySiteAccent={false}
+      collapsed={collapsed}
+      onToggleCollapse={() => setCollapsed((c) => !c)}
     />
   );
 };

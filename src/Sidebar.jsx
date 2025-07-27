@@ -1,3 +1,4 @@
+import React from 'react';
 import SidebarBase from './components/SidebarBase';
 import useAgencyTheme from './useAgencyTheme';
 import {
@@ -34,6 +35,14 @@ const Sidebar = ({ agencyId, role }) => {
   const isManager = role === 'manager';
   const isEditor = role === 'editor';
   const { agency } = useAgencyTheme(isManager || isEditor ? null : agencyId);
+  const [collapsed, setCollapsed] = React.useState(false);
+  React.useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--sidebar-width', collapsed ? '4rem' : '250px');
+    return () => {
+      root.style.setProperty('--sidebar-width', '250px');
+    };
+  }, [collapsed]);
   const tabs = isManager ? managerTabs : isEditor ? editorTabs : defaultTabs;
 
   return (
@@ -42,6 +51,8 @@ const Sidebar = ({ agencyId, role }) => {
       logoUrl={isManager ? undefined : agencyId ? agency.logoUrl : undefined}
       logoAlt={isManager ? undefined : agencyId ? `${agency.name} logo` : undefined}
       applySiteAccent={isManager || isEditor || !agencyId}
+      collapsed={collapsed}
+      onToggleCollapse={() => setCollapsed((c) => !c)}
     />
   );
 };
