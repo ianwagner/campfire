@@ -8,10 +8,10 @@ import PageWrapper from './components/PageWrapper.jsx';
 import ProductImportModal from './ProductImportModal.jsx';
 import ProductCard from './components/ProductCard.jsx';
 import ProductEditModal from './components/ProductEditModal.jsx';
-import Button from './components/Button.jsx';
 import IconButton from './components/IconButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
+import SaveButton from './components/SaveButton.jsx';
 import { FaMagic } from 'react-icons/fa';
 
 const emptyImage = { url: '', file: null };
@@ -216,7 +216,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
   };
 
   return (
-    <PageWrapper title="Products">
+    <PageWrapper>
       <PageToolbar
         left={(
           <input
@@ -239,9 +239,11 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
               }}
               ariaLabel="Add Product"
             />
-            <Button onClick={handleSave} variant="primary" disabled={loading}>
-              {loading ? 'Saving...' : 'Save Products'}
-            </Button>
+            <SaveButton
+              onClick={handleSave}
+              canSave={!loading}
+              loading={loading}
+            />
           </>
         )}
       />

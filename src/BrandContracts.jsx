@@ -5,6 +5,7 @@ import useUserRole from './useUserRole';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import IconButton from './components/IconButton.jsx';
+import SaveButton from './components/SaveButton.jsx';
 import { FiRefreshCw } from 'react-icons/fi';
 
 const emptyContract = {
@@ -101,7 +102,7 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
   };
 
   return (
-    <PageWrapper title="Contracts">
+    <PageWrapper>
       <form onSubmit={handleSave} className="space-y-4 max-w-md">
         {contracts.map((c, idx) => (
           <div key={idx} className="border p-2 rounded space-y-2">
@@ -167,9 +168,7 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
         </button>
         {message && <p className="text-sm">{message}</p>}
         <div className="text-right">
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Saving...' : 'Save Contracts'}
-          </button>
+          <SaveButton type="submit" canSave={!loading} loading={loading} />
         </div>
       </form>
     </PageWrapper>

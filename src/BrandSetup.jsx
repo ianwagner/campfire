@@ -5,6 +5,7 @@ import useUserRole from './useUserRole';
 import { uploadBrandAsset } from './uploadBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
+import SaveButton from './components/SaveButton.jsx';
 
 const emptyLogo = { url: '', file: null };
 const emptyFont = { type: 'google', value: '', name: '', file: null };
@@ -153,7 +154,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   };
 
   return (
-    <PageWrapper title="Brand Setup">
+    <PageWrapper>
       <form onSubmit={handleSave} className="space-y-4 max-w-md">
         <FormField label="Offering">
           <input
@@ -289,9 +290,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
         </FormField>
         {message && <p className="text-sm">{message}</p>}
         <div className="text-right">
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Saving...' : 'Save Assets'}
-          </button>
+          <SaveButton type="submit" canSave={!loading} loading={loading} />
         </div>
       </form>
     </PageWrapper>

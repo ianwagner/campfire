@@ -4,6 +4,7 @@ import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
+import SaveButton from './components/SaveButton.jsx';
 
 const BrandTone = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const user = auth.currentUser;
@@ -95,7 +96,7 @@ const BrandTone = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const preview = `---\nWrite in a tone that is: ${voice}.\nUse phrasing that is: ${phrasing}.\nIncorporate brand-specific words when possible: ${wordBank}.\nAvoid the following language or style: ${noGos}.\nCTAs should follow this style: ${ctaStyle}.\n---`;
 
   return (
-    <PageWrapper title="Tone of Voice">
+    <PageWrapper>
       <form onSubmit={handleSave} className="space-y-4 max-w-md">
         <FormField label="Voice">
           <textarea
@@ -136,9 +137,7 @@ const BrandTone = ({ brandId: propId = null, brandCode: propCode = '' }) => {
         </FormField>
         {message && <p className="text-sm">{message}</p>}
         <div className="text-right">
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Saving...' : 'Save Tone'}
-          </button>
+          <SaveButton type="submit" canSave={!loading} loading={loading} />
         </div>
       </form>
       <div className="mt-6 p-4 border rounded bg-accent-10 text-sm whitespace-pre-wrap">
