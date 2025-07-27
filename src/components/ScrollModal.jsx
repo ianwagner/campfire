@@ -1,7 +1,7 @@
 import React from 'react';
 import Modal from './Modal.jsx';
 
-const ScrollModal = ({ header = null, sizeClass = 'max-w-lg w-full', className = '', style = {}, children }) => (
+const ScrollModal = ({ header = null, sizeClass = 'max-w-xl w-full', className = '', style = {}, children }) => (
   <Modal sizeClass={sizeClass} className={className} style={{ maxHeight: '90vh', ...style }}>
     <div className="flex flex-col h-full">
       {header && (
