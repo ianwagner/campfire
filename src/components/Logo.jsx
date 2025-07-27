@@ -13,15 +13,15 @@ const Logo = ({ isOpen }) => {
   const condensedTranslateY = -37; // adjust if needed
 
   const condensedTargets = [
-    { x: 13, y: 14 },
-    { x: 14, y: 14 },
-    { x: 15, y: 14 },
+    { x: 13, y: 12 },
+    { x: 14, y: 12 },
+    { x: 15, y: 12 },
     { x: 1,  y: 18 },
     { x: 2,  y: 18 },
     { x: 3,  y: 18 },
-    { x: -15, y: 22 },
-    { x: -14, y: 22 },
-    { x: -13, y: 22 },
+    { x: -15, y: 24 },
+    { x: -14, y: 24 },
+    { x: -13, y: 24 },
   ];
 
   const baseYOffset = 0;
