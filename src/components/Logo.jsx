@@ -8,7 +8,7 @@ const Logo = ({ isOpen }) => {
   const openWidth = 240;
   const openHeight = 50;
   const scaleCondensed = 2.5;
-  const wrapperOffset = 28;
+  const wrapperOffset = 0;
   const condensedTargets = [
     { x: 13, y: 0 },
     { x: 14, y: 0 },
