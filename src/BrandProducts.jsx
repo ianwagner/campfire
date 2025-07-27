@@ -9,7 +9,10 @@ import ProductImportModal from './ProductImportModal.jsx';
 import ProductCard from './components/ProductCard.jsx';
 import ProductEditModal from './components/ProductEditModal.jsx';
 import Button from './components/Button.jsx';
-import { GiFairyWand } from 'react-icons/gi';
+import IconButton from './components/IconButton.jsx';
+import PageToolbar from './components/PageToolbar.jsx';
+import CreateButton from './components/CreateButton.jsx';
+import { FaMagic } from 'react-icons/fa';
 
 const emptyImage = { url: '', file: null };
 const emptyProduct = {
@@ -31,6 +34,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
   const [products, setProducts] = useState([{ ...emptyProduct }]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [filter, setFilter] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [editIdx, setEditIdx] = useState(null);
 
@@ -213,30 +217,41 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
 
   return (
     <PageWrapper title="Products">
-      <div className="mb-4 flex items-center gap-2">
-        <Button
-          type="button"
-          variant="action"
-          onClick={() => {
-            setProducts((p) => [...p, { ...emptyProduct }]);
-            setEditIdx(products.length);
-          }}
-        >
-          Add Product
-        </Button>
-        <Button type="button" variant="action" aria-label="Import from URL" onClick={() => setShowImport(true)}>
-          <GiFairyWand />
-        </Button>
-        <div className="ml-auto">
-          <Button onClick={handleSave} variant="primary" disabled={loading}>
-            {loading ? 'Saving...' : 'Save Products'}
-          </Button>
-        </div>
-      </div>
+      <PageToolbar
+        left={(
+          <input
+            type="text"
+            placeholder="Filter"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="p-1 border rounded"
+          />
+        )}
+        right={(
+          <>
+            <IconButton aria-label="Import from URL" onClick={() => setShowImport(true)}>
+              <FaMagic />
+            </IconButton>
+            <CreateButton
+              onClick={() => {
+                setProducts((p) => [...p, { ...emptyProduct }]);
+                setEditIdx(products.length);
+              }}
+              ariaLabel="Add Product"
+            />
+            <Button onClick={handleSave} variant="primary" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Products'}
+            </Button>
+          </>
+        )}
+      />
       {message && <p className="text-sm mb-2">{message}</p>}
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {products
-          .filter((p) => !p.archived)
+          .filter((p) =>
+            !p.archived &&
+            (!filter || p.name.toLowerCase().includes(filter.toLowerCase()))
+          )
           .map((prod, idx) => (
             <ProductCard key={idx} product={prod} onClick={() => setEditIdx(idx)} />
           ))}

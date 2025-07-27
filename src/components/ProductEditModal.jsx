@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Modal from './Modal.jsx';
+import ScrollModal from './ScrollModal.jsx';
 import FormField from './FormField.jsx';
 import TagInput from './TagInput.jsx';
 import Button from './Button.jsx';
@@ -12,9 +12,19 @@ const ProductEditModal = ({ product, brandCode = '', onSave, onClose }) => {
   const update = (changes) => setLocal((p) => ({ ...p, ...changes }));
 
   return (
-    <Modal sizeClass="max-w-lg w-full">
-      <h3 className="text-lg font-semibold mb-2">Edit Product</h3>
-      <FormField label="Name">
+    <ScrollModal
+      sizeClass="max-w-lg w-full"
+      header={
+        <div className="flex items-center justify-between p-2">
+          <h3 className="text-lg font-semibold mb-0">Edit Product</h3>
+          <Button type="button" variant="secondary" className="px-2 py-1" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-2 p-2">
+        <FormField label="Name">
         <input
           type="text"
           value={local.name}
@@ -50,6 +60,7 @@ const ProductEditModal = ({ product, brandCode = '', onSave, onClose }) => {
           Save
         </Button>
       </div>
+      </div>
       {showGallery && (
         <ProductGalleryModal
           brandCode={brandCode}
@@ -62,7 +73,7 @@ const ProductEditModal = ({ product, brandCode = '', onSave, onClose }) => {
           onClose={() => setShowGallery(false)}
         />
       )}
-    </Modal>
+    </ScrollModal>
   );
 };
 
