@@ -8,7 +8,7 @@ const RoleSidebar = ({ role, agencyId, isAdmin }) => {
   if (role === 'admin') return <AdminSidebar />;
   if (role === 'designer') return <DesignerSidebar />;
   if (role === 'agency') return <AgencySidebar agencyId={agencyId} />;
-  if (role === 'project-manager') return <Sidebar agencyId={agencyId} role={role} />;
+  if (role === 'project-manager' || role === 'ops') return <Sidebar agencyId={agencyId} role={role} />;
   return <Sidebar agencyId={['manager', 'editor'].includes(role) ? null : agencyId} role={role} />;
 };
 

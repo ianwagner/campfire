@@ -42,7 +42,7 @@ const editorTabs = [
 const Sidebar = ({ agencyId, role }) => {
   const isManager = role === 'manager';
   const isEditor = role === 'editor';
-  const isPm = role === 'project-manager';
+  const isPm = role === 'project-manager' || role === 'ops';
   const { agency } = useAgencyTheme(isManager || isEditor ? null : agencyId);
   const showAnimatedLogo = isManager || isEditor || !agencyId;
   const [collapsed, setCollapsed] = React.useState(false);
