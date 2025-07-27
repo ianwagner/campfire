@@ -4,6 +4,7 @@ import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 import TagInput from './components/TagInput.jsx';
 import ErrorMessages from './components/ErrorMessages';
+import useAgencies from './useAgencies';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -13,9 +14,11 @@ const AdminAccountForm = () => {
   const [role, setRole] = useState('client');
   const [brandCodes, setBrandCodes] = useState([]);
   const [brands, setBrands] = useState([]);
+  const [agencyId, setAgencyId] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState([]);
   const [success, setSuccess] = useState('');
+  const { agencies } = useAgencies();
 
   useEffect(() => {
     const fetchBrands = async () => {
@@ -42,6 +45,7 @@ const AdminAccountForm = () => {
         role,
         brandCodes: codes,
         audience: role,
+        ...(agencyId ? { agencyId } : {}),
       });
       await sendEmailVerification(cred.user);
       setSuccess('Account created. Ask the user to verify their email.');
@@ -49,6 +53,7 @@ const AdminAccountForm = () => {
       setPassword('');
       setRole('client');
       setBrandCodes([]);
+      setAgencyId('');
     } catch (err) {
       const msg = (err?.message || '').replace('Firebase:', '').replace(/\(auth.*\)/, '').trim();
       setErrors([msg]);
@@ -83,22 +88,37 @@ const AdminAccountForm = () => {
           </div>
           <div>
             <label className="block mb-1 text-sm font-medium">Role</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full p-2 border rounded"
-            >
-              <option value="client">Client</option>
-              <option value="designer">Designer</option>
-              <option value="manager">Manager</option>
-              <option value="editor">Editor</option>
-            </select>
-          </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium">Brand Codes</label>
-            <TagInput
-              value={brandCodes}
-              onChange={setBrandCodes}
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="w-full p-2 border rounded"
+          >
+            <option value="client">Client</option>
+            <option value="designer">Designer</option>
+            <option value="manager">Manager</option>
+            <option value="editor">Editor</option>
+          </select>
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Agency</label>
+          <select
+            value={agencyId}
+            onChange={(e) => setAgencyId(e.target.value)}
+            className="w-full p-2 border rounded"
+          >
+            <option value="">Select agency</option>
+            {agencies.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Brand Codes</label>
+          <TagInput
+            value={brandCodes}
+            onChange={setBrandCodes}
               suggestions={brands}
               id="brand-code-input"
             />
