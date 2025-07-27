@@ -10,6 +10,7 @@ import {
 } from 'react-icons/fi';
 import ScrollModal from './ScrollModal.jsx';
 import IconButton from './IconButton.jsx';
+import CloseButton from './CloseButton.jsx';
 import formatDetails from '../utils/formatDetails';
 
 const typeIcons = {
@@ -55,7 +56,7 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
             <IconButton onClick={() => onEdit(request)} aria-label="Edit">
               <FiEdit2 />
             </IconButton>
-            <button onClick={onClose} className="btn-secondary">Close</button>
+            <CloseButton onClick={onClose} />
           </div>
         </div>
       }
