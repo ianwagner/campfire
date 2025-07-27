@@ -5,8 +5,8 @@ import AgencyAdGroups from './AgencyAdGroups';
 
 const PmAdGroups = () => {
   const user = auth.currentUser;
-  const { agencyId } = useUserRole(user?.uid);
-  return <AgencyAdGroups agencyId={agencyId} />;
+  const { agencyId, brandCodes } = useUserRole(user?.uid);
+  return <AgencyAdGroups agencyId={agencyId} brandCodes={brandCodes} />;
 };
 
 export default PmAdGroups;

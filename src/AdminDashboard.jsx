@@ -8,7 +8,7 @@ import Table from './components/common/Table';
 import DateRangeSelector from './components/DateRangeSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
 
-function AdminDashboard({ agencyId } = {}) {
+function AdminDashboard({ agencyId, brandCodes = [] } = {}) {
   const thisMonth = getMonthString();
   const lastMonth = (() => {
     const d = new Date();
@@ -29,9 +29,31 @@ function AdminDashboard({ agencyId } = {}) {
         const start = new Date(Date.UTC(sYear, sMonth - 1, 1));
         const end = new Date(Date.UTC(eYear, eMonth, 0, 23, 59, 59, 999));
         const base = collection(db, 'brands');
-        const bQuery = agencyId ? query(base, where('agencyId', '==', agencyId)) : base;
-        const snap = await getDocs(bQuery);
-        const brands = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        let brandDocs = [];
+        if (agencyId) {
+          const snap = await getDocs(query(base, where('agencyId', '==', agencyId)));
+          brandDocs = snap.docs;
+        } else if (brandCodes.length > 0) {
+          const chunks = [];
+          for (let i = 0; i < brandCodes.length; i += 10) {
+            chunks.push(brandCodes.slice(i, i + 10));
+          }
+          const docs = [];
+          for (const chunk of chunks) {
+            const snap = await getDocs(query(base, where('code', 'in', chunk)));
+            docs.push(...snap.docs);
+          }
+          const seen = new Set();
+          brandDocs = docs.filter((d) => {
+            if (seen.has(d.id)) return false;
+            seen.add(d.id);
+            return true;
+          });
+        } else {
+          const snap = await getDocs(base);
+          brandDocs = snap.docs;
+        }
+        const brands = brandDocs.map((d) => ({ id: d.id, ...d.data() }));
         const results = [];
         for (const brand of brands) {
           const contracts = Array.isArray(brand.contracts) ? brand.contracts : [];
@@ -119,7 +141,7 @@ function AdminDashboard({ agencyId } = {}) {
     return () => {
       active = false;
     };
-  }, [range.start, range.end, agencyId]);
+  }, [range.start, range.end, agencyId, brandCodes]);
 
   return (
     <PageWrapper title="Dashboard">

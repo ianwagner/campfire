@@ -27,9 +27,10 @@ import Table from './components/common/Table';
 import AdGroupCard from './components/AdGroupCard.jsx';
 import IconButton from './components/IconButton.jsx';
 
-const AgencyAdGroups = ({ agencyId: propAgencyId }) => {
+const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [] }) => {
   const paramsId = new URLSearchParams(useLocation().search).get('agencyId');
   const agencyId = propAgencyId || paramsId;
+  const brandCodes = propBrandCodes;
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const user = auth.currentUser;
@@ -66,27 +67,47 @@ const AgencyAdGroups = ({ agencyId: propAgencyId }) => {
 
   useEffect(() => {
     const fetchGroups = async () => {
-      if (!agencyId) {
+      let codes = [];
+      if (agencyId) {
+        const bSnap = await getDocs(
+          query(collection(db, 'brands'), where('agencyId', '==', agencyId))
+        );
+        codes = bSnap.docs.map((d) => d.data().code).filter(Boolean);
+      } else if (brandCodes.length > 0) {
+        codes = brandCodes;
+      } else {
         setGroups([]);
         setLoading(false);
         return;
       }
+
+      if (codes.length === 0) {
+        setGroups([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        const bSnap = await getDocs(
-          query(collection(db, 'brands'), where('agencyId', '==', agencyId))
-        );
-        const codes = bSnap.docs.map((d) => d.data().code).filter(Boolean);
-        if (codes.length === 0) {
-          setGroups([]);
-          setLoading(false);
-          return;
+        const base = collection(db, 'adGroups');
+        const chunks = [];
+        for (let i = 0; i < codes.length; i += 10) {
+          chunks.push(codes.slice(i, i + 10));
         }
-        const gSnap = await getDocs(
-          query(collection(db, 'adGroups'), where('brandCode', 'in', codes))
-        );
+        const docs = [];
+        for (const chunk of chunks) {
+          const snap = await getDocs(query(base, where('brandCode', 'in', chunk)));
+          docs.push(...snap.docs);
+        }
+        const seen = new Set();
         const list = await Promise.all(
-          gSnap.docs.map(async (d) => {
+          docs
+            .filter((d) => {
+              if (seen.has(d.id)) return false;
+              seen.add(d.id);
+              return true;
+            })
+            .map(async (d) => {
             const data = d.data();
             let recipeCount = 0;
             let assetCount = 0;
@@ -145,7 +166,7 @@ const AgencyAdGroups = ({ agencyId: propAgencyId }) => {
       }
     };
     fetchGroups();
-  }, [agencyId]);
+  }, [agencyId, brandCodes]);
 
   return (
     <div className="min-h-screen p-4">
