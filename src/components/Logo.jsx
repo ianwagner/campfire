@@ -66,7 +66,7 @@ const Logo = ({ isOpen }) => {
       <div ref={wrapperRef} className="logo-inner">
         <svg
           style={{ position: 'absolute' }}
-          viewBox={isOpen ? '0 -13 140 50' : '0 0 50 50'}
+          viewBox="0 -13 140 50"
         >
           <rect fill="#FF710B" height="24" rx="12" width="140" />
         </svg>
