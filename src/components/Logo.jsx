@@ -4,10 +4,10 @@ import gsap from 'gsap';
 const Logo = ({ isOpen }) => {
   const wrapperRef = useRef(null);
 
-  const condensedSize = 147;
+  const condensedSize = 50;
   const openWidth = 240;
-  const openHeight = 40;
-  const scaleCondensed = condensedSize / openWidth;
+  const openHeight = 50;
+  const scaleCondensed = 2.5;
   const wrapperOffset = 28;
   const condensedTargets = [
     { x: 13, y: 0 },
@@ -27,10 +27,10 @@ const Logo = ({ isOpen }) => {
     const letters = Array.from(wrapperRef.current.querySelectorAll("svg[id^='letter-']")).reverse();
 
     gsap.set(wrapperRef.current, {
-      y: isOpen ? 0 : wrapperOffset,
-      scale: isOpen ? 1 : scaleCondensed,
-      transformOrigin: 'center center',
-    });
+  scale: isOpen ? 1 : scaleCondensed,
+  y: 0,
+  transformOrigin: 'center center',
+});
 
     gsap.set(letters, {
       x: (i) => (isOpen ? 0 : condensedTargets[i].x),
@@ -61,18 +61,18 @@ const Logo = ({ isOpen }) => {
 
   return (
     <div
-      className="logo-wrapper"
-      style={{
-        width: isOpen ? `${openWidth}px` : `${condensedSize}px`,
-        height: isOpen ? `${openHeight}px` : `${condensedSize}px`,
-        borderRadius: '60px',
-        backgroundColor: '#FF710B',
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: 'width 0.6s ease, height 0.6s ease',
-      }}
+  className="logo-wrapper"
+  style={{
+    width: isOpen ? `${openWidth}px` : `${condensedSize}px`,
+    height: isOpen ? `${openHeight}px` : `${condensedSize}px`,
+    borderRadius: '12px',
+    backgroundColor: '#FF710B',
+    overflow: 'hidden',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'width 0.6s ease, height 0.6s ease, border-radius 0.6s ease',
+  }}
     >
       <div
         ref={wrapperRef}
