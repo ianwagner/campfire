@@ -65,7 +65,7 @@ const Logo = ({ isOpen }) => {
   style={{
     width: isOpen ? `${openWidth}px` : `${condensedSize}px`,
     height: isOpen ? `${openHeight}px` : `${condensedSize}px`,
-    borderRadius: '12px',
+    borderRadius: isOpen ? '30px' : '12px',
     backgroundColor: '#FF710B',
     overflow: 'hidden',
     display: 'flex',
@@ -81,6 +81,7 @@ const Logo = ({ isOpen }) => {
           position: 'relative',
           width: `${openWidth}px`,
           height: `${openHeight}px`,
+          top: '7px',
         }}
       >
         <svg id="letter-0" style={{ overflow: 'visible' }} viewBox="0 0 140 24" xmlns="http://www.w3.org/2000/svg">
