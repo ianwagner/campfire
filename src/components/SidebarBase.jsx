@@ -176,7 +176,7 @@ const SidebarBase = ({
                 alt={logoAlt || 'Logo'}
                 loading="eager"
                 cacheKey={logoSrc}
-                className={`max-h-full w-auto ${logoReady ? '' : 'opacity-0'}`}
+                className={`max-h-full max-w-full w-auto ${logoReady ? '' : 'opacity-0'}`}
                 onLoad={() => setLogoReady(true)}
                 onError={() => setLogoReady(true)}
               />
@@ -257,7 +257,7 @@ const SidebarBase = ({
                     alt={logoAlt || 'Logo'}
                     loading="eager"
                     cacheKey={logoSrc}
-                    className={`max-h-full w-auto ${logoReady ? '' : 'opacity-0'}`}
+                    className={`max-h-full max-w-full w-auto ${logoReady ? '' : 'opacity-0'}`}
                     onLoad={() => setLogoReady(true)}
                     onError={() => setLogoReady(true)}
                   />

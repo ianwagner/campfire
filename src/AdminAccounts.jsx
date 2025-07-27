@@ -12,6 +12,7 @@ import SortButton from './components/SortButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
 import Button from './components/Button.jsx';
+import useAgencies from './useAgencies';
 
 const AdminAccounts = () => {
   const [accounts, setAccounts] = useState([]);
@@ -19,9 +20,14 @@ const AdminAccounts = () => {
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('name');
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ role: 'client', brandCodes: [], audience: '' });
+  const [form, setForm] = useState({ role: 'client', brandCodes: [], audience: '', agencyId: '' });
   const [brands, setBrands] = useState([]);
   const [viewAcct, setViewAcct] = useState(null);
+  const { agencies } = useAgencies();
+  const agencyMap = React.useMemo(
+    () => Object.fromEntries(agencies.map((a) => [a.id, a.name])),
+    [agencies]
+  );
 
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -58,6 +64,7 @@ const AdminAccounts = () => {
       role: acct.role || 'client',
       brandCodes: Array.isArray(acct.brandCodes) ? acct.brandCodes : [],
       audience: acct.audience || '',
+      agencyId: acct.agencyId || '',
     });
   };
 
@@ -71,11 +78,12 @@ const AdminAccounts = () => {
         role: form.role,
         brandCodes: codes,
         audience: form.audience,
+        agencyId: form.agencyId || '',
       });
       setAccounts((prev) =>
         prev.map((a) =>
           a.id === id
-            ? { ...a, role: form.role, brandCodes: codes, audience: form.audience }
+            ? { ...a, role: form.role, brandCodes: codes, audience: form.audience, agencyId: form.agencyId || '' }
             : a
         )
       );
@@ -158,6 +166,7 @@ const AdminAccounts = () => {
                 <th>Name</th>
                 <th>Role</th>
                 <th>Audience</th>
+                <th>Agency</th>
                 <th>Brand Codes</th>
                 <th>Actions</th>
               </tr>
@@ -198,6 +207,26 @@ const AdminAccounts = () => {
                       />
                     ) : (
                       acct.audience || ''
+                    )}
+                  </td>
+                  <td>
+                    {editId === acct.id ? (
+                      <select
+                        value={form.agencyId}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, agencyId: e.target.value }))
+                        }
+                        className="w-full p-1 border rounded"
+                      >
+                        <option value="">Select agency</option>
+                        {agencies.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      agencyMap[acct.agencyId] || acct.agencyId || ''
                     )}
                   </td>
                   <td>
@@ -257,6 +286,9 @@ const AdminAccounts = () => {
             <p className="text-sm mb-1">Role: {viewAcct.role}</p>
             {viewAcct.audience && (
               <p className="text-sm mb-1">Audience: {viewAcct.audience}</p>
+            )}
+            {viewAcct.agencyId && (
+              <p className="text-sm mb-1">Agency: {agencyMap[viewAcct.agencyId] || viewAcct.agencyId}</p>
             )}
             {Array.isArray(viewAcct.brandCodes) && viewAcct.brandCodes.length > 0 && (
               <p className="text-sm mb-1">Brands: {viewAcct.brandCodes.join(', ')}</p>
