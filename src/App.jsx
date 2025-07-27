@@ -146,7 +146,7 @@ const App = () => {
         ? '/admin/ad-groups'
         : role === 'manager'
           ? '/admin/tickets'
-          : role === 'project-manager'
+          : role === 'project-manager' || role === 'ops'
             ? '/pm/dashboard'
             : role === 'editor'
               ? '/editor/tickets'
@@ -333,7 +333,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole="project-manager"
+                    requiredRole={["project-manager", "ops"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
@@ -381,7 +381,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole="project-manager"
+                    requiredRole={["project-manager", "ops"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
@@ -525,7 +525,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole="project-manager"
+                    requiredRole={["project-manager", "ops"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
@@ -579,7 +579,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole={["client", "manager", "project-manager", "editor"]}
+                    requiredRole={["client", "manager", "project-manager", "ops", "editor"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
@@ -595,7 +595,7 @@ const App = () => {
               element={
                 user ? (
                   <RoleGuard
-                    requiredRole={["admin", "client", "agency", "designer", "manager"]}
+                    requiredRole={["admin", "client", "agency", "designer", "manager", "project-manager", "ops", "editor"]}
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >

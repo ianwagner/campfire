@@ -54,7 +54,7 @@ const useUserRole = (uid) => {
   }, [uid]);
 
   useEffect(() => {
-    if (agencyId || brandCodes.length === 0 || role === 'project-manager') return;
+    if (agencyId || brandCodes.length === 0 || role === 'project-manager' || role === 'ops') return;
     let cancelled = false;
     const fetchAgency = async () => {
       try {

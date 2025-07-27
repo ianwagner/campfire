@@ -188,6 +188,7 @@ const AdminAccounts = () => {
                         <option value="designer">Designer</option>
                         <option value="manager">Manager</option>
                         <option value="project-manager">Project Manager</option>
+                        <option value="ops">Ops</option>
                         <option value="editor">Editor</option>
                         <option value="admin">Admin</option>
                       </select>
