@@ -66,11 +66,11 @@ const SidebarBase = ({
             (activeChild
               ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
               : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
-            'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-1 justify-center overflow-hidden';
+            'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-1 justify-start overflow-hidden';
           return (
             <div key={tab.label} className="space-y-1">
               <button onClick={() => toggleGroup(tab.label)} className={parentClasses + ' focus:outline-none'}>
-                {ParentIcon && <ParentIcon className="text-lg" aria-hidden="true" />}
+                {ParentIcon && <ParentIcon className="text-lg shrink-0" aria-hidden="true" />}
                 <span
                   className={`transition-all duration-300 transform whitespace-nowrap ${collapsed ? 'opacity-0 w-0 -translate-x-4' : 'opacity-100 w-auto translate-x-0 ml-1'}`}
                 >
@@ -88,14 +88,14 @@ const SidebarBase = ({
                       (isActive
                         ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
                         : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
-                      'rounded-lg w-full text-center text-sm px-3 py-2 transition-colors duration-200 flex items-center gap-1 justify-center overflow-hidden';
+                      'rounded-lg w-full text-center text-sm px-3 py-2 transition-colors duration-200 flex items-center gap-1 justify-start overflow-hidden';
                     return (
                       <button
                         key={child.label}
                         onClick={() => handleClick(child)}
                         className={childClasses + ' focus:outline-none'}
                       >
-                        {ChildIcon && <ChildIcon className="text-lg" aria-hidden="true" />}
+                        {ChildIcon && <ChildIcon className="text-lg shrink-0" aria-hidden="true" />}
                         <span
                           className={`transition-all duration-300 transform whitespace-nowrap ${collapsed ? 'opacity-0 w-0 -translate-x-4' : 'opacity-100 w-auto translate-x-0 ml-1'}`}
                         >
@@ -121,12 +121,12 @@ const SidebarBase = ({
                 ? 'text-accent bg-accent-10 '
                 : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 ')
               +
-              'border border-transparent dark:!border-transparent rounded-xl w-full p-3 transition-colors duration-200 flex items-center justify-center overflow-hidden'
+              'border border-transparent dark:!border-transparent rounded-xl w-full p-3 transition-colors duration-200 flex items-center justify-start overflow-hidden'
             : (isActive
                 ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
                 : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ')
               +
-              'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-1 justify-center overflow-hidden') +
+              'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-1 justify-start overflow-hidden') +
           ' focus:outline-none';
         const Icon = tab.icon;
         return (
@@ -136,7 +136,7 @@ const SidebarBase = ({
             className={classes}
             title={collapsed ? tab.label : undefined}
           >
-            {Icon && <Icon className="text-lg" aria-hidden="true" />}
+            {Icon && <Icon className="text-lg shrink-0" aria-hidden="true" />}
             <span
               className={`transition-all duration-300 transform whitespace-nowrap ${collapsed ? 'opacity-0 w-0 -translate-x-4' : 'opacity-100 w-auto translate-x-0 ml-1'}`}
             >
@@ -194,9 +194,9 @@ const SidebarBase = ({
         <div className="flex flex-col items-center space-y-1">
           <button
             onClick={handleLogout}
-            className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-center gap-1 focus:outline-none"
+            className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-start gap-1 focus:outline-none"
           >
-            <FiLogOut className="text-lg" aria-hidden="true" />
+            <FiLogOut className="text-lg shrink-0" aria-hidden="true" />
             <span className={`transition-all duration-300 transform whitespace-nowrap ${collapsed ? 'opacity-0 w-0 -translate-x-4' : 'opacity-100 w-auto translate-x-0 ml-1'}`}>Log Out</span>
           </button>
           <footer
@@ -254,9 +254,9 @@ const SidebarBase = ({
             <div className="flex flex-col items-center space-y-1">
               <button
                 onClick={handleLogout}
-                className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-center gap-1 focus:outline-none"
+                className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-start gap-1 focus:outline-none"
               >
-                <FiLogOut className="text-lg" aria-hidden="true" />
+                <FiLogOut className="text-lg shrink-0" aria-hidden="true" />
                 <span className={`transition-all duration-300 transform whitespace-nowrap ${collapsed ? 'opacity-0 w-0 -translate-x-4' : 'opacity-100 w-auto translate-x-0 ml-1'}`}>Log Out</span>
               </button>
               <footer
