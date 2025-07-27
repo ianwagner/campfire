@@ -11,7 +11,11 @@ service cloud.firestore {
     }
     
     function isManager() {
-      return request.auth != null && request.auth.token.manager == true;
+      return request.auth != null && (
+        request.auth.token.manager == true ||
+        userData().role == 'manager' ||
+        userData().role == 'project-manager'
+      );
     }
 
     function isEditor() {
