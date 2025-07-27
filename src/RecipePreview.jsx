@@ -74,6 +74,7 @@ const RecipePreview = ({
   const [assetRows, setAssetRows] = useState([]);
   const [assetMap, setAssetMap] = useState({});
   const [assetUsage, setAssetUsage] = useState({});
+  const [showOptionLists, setShowOptionLists] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
   const [reviewRows, setReviewRows] = useState([]);
 
@@ -1135,11 +1136,13 @@ const RecipePreview = ({
                   (!i.relationships?.brandCode || i.relationships.brandCode === brandCode)
               );
               const defaultList = instOptions.map((i) => i.id);
-              const current = selectedInstances[c.key] !== undefined
-                ? selectedInstances[c.key]
-                : c.selectionMode === 'checklist'
-                ? defaultList
-                : '';
+              const current =
+                selectedInstances[c.key] !== undefined
+                  ? selectedInstances[c.key]
+                  : c.selectionMode === 'checklist'
+                  ? defaultList
+                  : '';
+              const listVisible = !!showOptionLists[c.id];
               const inst =
                 c.selectionMode === 'dropdown'
                   ? allInstances.find(
@@ -1153,6 +1156,17 @@ const RecipePreview = ({
                 <div key={c.id} className="space-y-2">
                   <label className="block text-sm mb-1">{c.label}</label>
                   {c.selectionMode === 'dropdown' && instOptions.length > 0 && (
+                    !listVisible ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowOptionLists((p) => ({ ...p, [c.id]: !p[c.id] }))
+                        }
+                        className="text-xs underline text-blue-600"
+                      >
+                        {instOptions.length} Options Loaded
+                      </button>
+                    ) : (
                     <select
                       className="w-full p-2 border rounded"
                       value={current}
@@ -1165,14 +1179,27 @@ const RecipePreview = ({
                         <option key={i.id} value={i.id}>{i.name}</option>
                       ))}
                     </select>
+                    )
                   )}
                   {c.selectionMode === 'checklist' && instOptions.length > 0 && (
-                    <TagChecklist
-                      options={instOptions.map((i) => ({ id: i.id, name: i.name }))}
-                      value={current}
-                      onChange={(arr) => setSelectedInstances({ ...selectedInstances, [c.key]: arr })}
-                      id={`check-${c.id}`}
-                    />
+                    !listVisible ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowOptionLists((p) => ({ ...p, [c.id]: !p[c.id] }))
+                        }
+                        className="text-xs underline text-blue-600"
+                      >
+                        {instOptions.length} Options Loaded
+                      </button>
+                    ) : (
+                      <TagChecklist
+                        options={instOptions.map((i) => ({ id: i.id, name: i.name }))}
+                        value={current}
+                        onChange={(arr) => setSelectedInstances({ ...selectedInstances, [c.key]: arr })}
+                        id={`check-${c.id}`}
+                      />
+                    )
                   )}
                   {c.selectionMode === 'random' && instOptions.length > 0 && (
                     <p className="text-sm italic">Random instance</p>
