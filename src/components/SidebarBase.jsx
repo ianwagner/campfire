@@ -69,7 +69,7 @@ const SidebarBase = ({
             'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-1 justify-center';
           return (
             <div key={tab.label} className="space-y-1">
-              <button onClick={() => toggleGroup(tab.label)} className={parentClasses}>
+              <button onClick={() => toggleGroup(tab.label)} className={parentClasses + ' focus:outline-none'}>
                 {ParentIcon && <ParentIcon className="text-lg" aria-hidden="true" />}
                 <span
                   className={`transition-all duration-300 overflow-hidden ${collapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}
@@ -93,7 +93,7 @@ const SidebarBase = ({
                       <button
                         key={child.label}
                         onClick={() => handleClick(child)}
-                        className={childClasses}
+                        className={childClasses + ' focus:outline-none'}
                       >
                         {ChildIcon && <ChildIcon className="text-lg" aria-hidden="true" />}
                         <span
@@ -115,15 +115,19 @@ const SidebarBase = ({
             ? tab.children.some((c) => currentPath.startsWith(c.path))
             : tab.path && currentPath.startsWith(tab.path));
 
-        const classes = collapsed
-          ? (isActive
-              ? 'text-accent bg-accent-10 '
-              : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 ') +
-            'rounded-xl w-full p-3 transition-colors duration-200 flex items-center justify-center'
-          : (isActive
-              ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
-              : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ') +
-            'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-1 justify-center';
+        const classes =
+          (collapsed
+            ? (isActive
+                ? 'text-accent bg-accent-10 '
+                : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 ')
+              +
+              'rounded-xl w-full p-3 transition-colors duration-200 flex items-center justify-center'
+            : (isActive
+                ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
+                : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ')
+              +
+              'rounded-xl w-full text-center px-3 py-[0.9rem] transition-colors duration-200 flex items-center gap-1 justify-center') +
+          ' focus:outline-none';
         const Icon = tab.icon;
         return (
           <button
@@ -177,7 +181,7 @@ const SidebarBase = ({
               type="button"
               aria-label="Toggle sidebar"
               onClick={onToggleCollapse}
-              className={`my-2 text-xl ${collapsed ? 'mx-auto' : 'w-full text-center'}`}
+              className={`my-2 text-xl ${collapsed ? 'mx-auto' : 'w-full text-center'} focus:outline-none`}
             >
               {collapsed ? (
                 <FiChevronRight aria-hidden="true" />
@@ -190,13 +194,16 @@ const SidebarBase = ({
         <div className="flex flex-col items-center space-y-1">
           <button
             onClick={handleLogout}
-            className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-center gap-1"
+            className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-center gap-1 focus:outline-none"
           >
             <FiLogOut className="text-lg" aria-hidden="true" />
             <span className={`transition-all duration-300 overflow-hidden ${collapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Log Out</span>
           </button>
-          <footer className="text-xs text-gray-400 dark:text-gray-500 text-center">
-            {collapsed ? '© 2025' : '© 2025 Studio Tak. All rights reserved.'}
+          <footer
+            className="text-xs text-gray-400 dark:text-gray-500 text-center whitespace-nowrap overflow-hidden transition-all duration-300"
+            style={{ maxWidth: collapsed ? '2.5rem' : '12rem' }}
+          >
+            © 2025 Studio Tak. All rights reserved.
           </footer>
         </div>
       </div>
@@ -205,7 +212,7 @@ const SidebarBase = ({
       <button
         type="button"
         aria-label="Menu"
-        className="md:hidden fixed top-4 right-2 m-2 text-2xl z-40"
+        className="md:hidden fixed top-4 right-2 m-2 text-2xl z-40 focus:outline-none"
         onClick={() => setOpen(true)}
       >
         &#9776;
@@ -216,7 +223,7 @@ const SidebarBase = ({
             <button
               type="button"
               aria-label="Close menu"
-              className="absolute top-4 right-4 text-2xl"
+              className="absolute top-4 right-4 text-2xl focus:outline-none"
               onClick={() => setOpen(false)}
             >
               &times;
@@ -247,13 +254,16 @@ const SidebarBase = ({
             <div className="flex flex-col items-center space-y-1">
               <button
                 onClick={handleLogout}
-                className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-center gap-1"
+                className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-center gap-1 focus:outline-none"
               >
                 <FiLogOut className="text-lg" aria-hidden="true" />
                 <span className={`transition-all duration-300 overflow-hidden ${collapsed ? 'opacity-0 w-0' : 'opacity-100 w-auto'}`}>Log Out</span>
               </button>
-              <footer className="text-xs text-gray-400 dark:text-gray-500 text-center">
-                {collapsed ? '© 2025' : '© 2025 Studio Tak. All rights reserved.'}
+              <footer
+                className="text-xs text-gray-400 dark:text-gray-500 text-center whitespace-nowrap overflow-hidden transition-all duration-300"
+                style={{ maxWidth: collapsed ? '2.5rem' : '12rem' }}
+              >
+                © 2025 Studio Tak. All rights reserved.
               </footer>
             </div>
           </div>
