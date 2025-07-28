@@ -21,7 +21,12 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
     const fetchTypes = async () => {
       try {
         const snap = await getDocs(collection(db, 'copyRecipeTypes'));
-        setTypes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const copyTypes = snap.docs.map((d) => ({ id: d.id, name: d.data().name }));
+        const adSnap = await getDocs(
+          query(collection(db, 'recipeTypes'), where('external', '==', true))
+        );
+        const adTypes = adSnap.docs.map((d) => ({ id: d.id, name: d.data().name }));
+        setTypes([...copyTypes, ...adTypes]);
       } catch (err) {
         console.error('Failed to load recipe types', err);
       }
