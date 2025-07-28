@@ -39,11 +39,60 @@ export const parsePdp = onCallFn({ secrets: ['OPENAI_API_KEY'], timeoutSeconds: 
     const metaDesc = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
 
     const images = [];
-    $('img').each((i, el) => {
-      if (images.length >= 8) return;
-      const src = $(el).attr('src');
-      if (src) images.push(absoluteUrl(url, src));
+    const seen = new Set();
+    const addImage = (src) => {
+      if (!src) return;
+      const abs = absoluteUrl(url, src);
+      if (abs && !seen.has(abs)) {
+        seen.add(abs);
+        images.push(abs);
+      }
+    };
+
+    // Open Graph, Twitter, and link rel images
+    addImage($("meta[property='og:image']").attr('content'));
+    addImage($("meta[name='twitter:image']").attr('content'));
+    addImage($("link[rel='image_src']").attr('href'));
+
+    // JSON-LD images
+    const extractImages = (obj) => {
+      if (!obj) return;
+      if (Array.isArray(obj)) return obj.forEach(extractImages);
+      if (typeof obj === 'object') {
+        if (obj.image) {
+          if (Array.isArray(obj.image)) obj.image.forEach((v) => extractImages(v));
+          else if (typeof obj.image === 'object') extractImages(obj.image.url || obj.image);
+          else addImage(obj.image);
+        }
+        Object.values(obj).forEach((v) => {
+          if (typeof v === 'object') extractImages(v);
+        });
+      }
+    };
+    $('script[type="application/ld+json"]').each((i, el) => {
+      try {
+        const data = JSON.parse($(el).contents().text());
+        extractImages(data);
+      } catch {}
     });
+
+    // <img> tags with srcset or lazy attributes
+    $('img').each((i, el) => {
+      if (images.length >= 8) return false;
+      const $el = $(el);
+      const width = parseInt($el.attr('width'), 10);
+      const height = parseInt($el.attr('height'), 10);
+      if ((width && width < 50) || (height && height < 50)) return;
+
+      const srcset = $el.attr('srcset');
+      if (srcset) {
+        srcset.split(',').forEach((item) => addImage(item.trim().split(' ')[0]));
+      }
+      addImage($el.attr('data-src') || $el.attr('data-lazy'));
+      addImage($el.attr('src'));
+    });
+
+    const imageUrls = images.slice(0, 8);
 
     const bodyText = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 8000);
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -68,7 +117,7 @@ export const parsePdp = onCallFn({ secrets: ['OPENAI_API_KEY'], timeoutSeconds: 
       benefits: Array.isArray(parsed.benefits)
         ? parsed.benefits
         : (parsed.benefits ? parsed.benefits.split(/[;\n]+/).map((b) => b.trim()).filter(Boolean) : []),
-      imageUrls: images,
+      imageUrls,
     };
 
     return result;
