@@ -24,6 +24,7 @@ const RecipeTypes = () => {
   const [enableAssetCsv, setEnableAssetCsv] = useState(false);
   const [assetFields, setAssetFields] = useState([]);
   const [defaultColumns, setDefaultColumns] = useState([]);
+  const [external, setExternal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -50,6 +51,7 @@ const RecipeTypes = () => {
     setEnableAssetCsv(false);
     setAssetFields([]);
     setDefaultColumns([]);
+    setExternal(false);
   };
 
   const openCreate = () => {
@@ -79,22 +81,24 @@ const RecipeTypes = () => {
           components: order,
           writeInFields: writeFields,
           defaultColumns: defaultCols,
+          external,
         });
         setTypes((t) =>
           t.map((r) =>
             r.id === editId
-              ? {
-                  ...r,
-                  name: name.trim(),
-                  gptPrompt: prompt,
-                  assetPrompt: assetPrompt,
-                  enableAssetCsv,
-                  assetMatchFields: assetFields,
-                  components: order,
-                  writeInFields: writeFields,
-                  defaultColumns: defaultCols,
-                }
-              : r
+          ? {
+              ...r,
+              name: name.trim(),
+              gptPrompt: prompt,
+              assetPrompt: assetPrompt,
+              enableAssetCsv,
+              assetMatchFields: assetFields,
+              components: order,
+              writeInFields: writeFields,
+              defaultColumns: defaultCols,
+              external,
+            }
+          : r
           )
         );
       } else {
@@ -107,6 +111,7 @@ const RecipeTypes = () => {
           components: order,
           writeInFields: writeFields,
           defaultColumns: defaultCols,
+          external,
         });
         setTypes((t) => [
           ...t,
@@ -120,6 +125,7 @@ const RecipeTypes = () => {
             components: order,
             writeInFields: writeFields,
             defaultColumns: defaultCols,
+            external,
           },
         ]);
       }
@@ -139,6 +145,7 @@ const RecipeTypes = () => {
     setAssetFields(t.assetMatchFields || []);
     setComponentOrder(t.components || []);
     setDefaultColumns(t.defaultColumns || []);
+    setExternal(!!t.external);
     setFields(
       t.writeInFields && t.writeInFields.length > 0
         ? t.writeInFields
@@ -240,6 +247,7 @@ const RecipeTypes = () => {
                 <th>Asset Prompt</th>
                 <th>Asset Fields</th>
                 <th>Default Columns</th>
+                <th>External</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -268,6 +276,7 @@ const RecipeTypes = () => {
                       ? t.defaultColumns.join(', ')
                       : '-'}
                   </td>
+                  <td>{t.external ? 'Yes' : 'No'}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
                       <IconButton onClick={() => startEdit(t)} aria-label="Edit">
@@ -408,6 +417,17 @@ const RecipeTypes = () => {
           >
             Add Field
           </Button>
+        </div>
+        <div>
+          <label className="block text-sm">
+            <input
+              type="checkbox"
+              className="mr-1"
+              checked={external}
+              onChange={(e) => setExternal(e.target.checked)}
+            />
+            External
+          </label>
         </div>
         <div className="flex gap-2">
           <Button type="submit" variant="primary">
