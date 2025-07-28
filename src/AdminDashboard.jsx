@@ -89,7 +89,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               where('dueDate', '<=', Timestamp.fromDate(end)),
             );
             const gSnap = await getDocs(q);
-            const recipeSet = new Set();
+            let briefedCount = 0;
             const approvedSet = new Set();
             const deliveredSet = new Set();
 
@@ -126,20 +126,14 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                   if (data.status === 'approved') approvedSet.add(key);
                 });
 
-                const selectedRecipes = recipeSnap.docs.filter(
-                  (r) => r.data()?.selected !== false
-                );
-                if (selectedRecipes.length > 0) {
-                  selectedRecipes.forEach((r) => {
-                    const key = `${g.id}-${r.id}`;
-                    recipeSet.add(key);
-                  });
-                } else {
-                  assetRecipes.forEach((key) => recipeSet.add(key));
-                }
+                const recipeCount =
+                  recipeSnap.docs.length > 0
+                    ? recipeSnap.docs.length
+                    : assetRecipes.size;
+                briefedCount += recipeCount;
             }
 
-            const briefed = recipeSet.size;
+            const briefed = briefedCount;
             const delivered = deliveredSet.size;
             const approved = approvedSet.size;
             const needed = contracted > delivered ? contracted - delivered : 0;
