@@ -94,34 +94,34 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             const deliveredSet = new Set();
 
             for (const g of gSnap.docs) {
-              const [assetsSnap, recipeSnap] = await Promise.all([
-                getDocs(collection(db, 'adGroups', g.id, 'assets')),
-                getDocs(collection(db, 'adGroups', g.id, 'recipes')).catch((err) => {
-                  console.error('Failed to load recipes', err);
-                  return { docs: [] };
-                }),
-              ]);
-              assetsSnap.docs.forEach((ad) => {
-                const data = ad.data() || {};
-                const info = parseAdFilename(data.filename || '');
-                const recipe = data.recipeCode || info.recipeCode || '';
-                if (!recipe) return;
-                const groupCode =
-                  data.adGroupCode || info.adGroupCode || g.id;
-                const key = `${groupCode}-${recipe}`;
-                recipeSet.add(key);
-                if (
-                  ['ready', 'approved', 'rejected', 'edit_requested'].includes(
-                    data.status
+                const [assetsSnap, recipeSnap] = await Promise.all([
+                  getDocs(collection(db, 'adGroups', g.id, 'assets')),
+                  getDocs(collection(db, 'adGroups', g.id, 'recipes')).catch((err) => {
+                    console.error('Failed to load recipes', err);
+                    return { docs: [] };
+                  }),
+                ]);
+                assetsSnap.docs.forEach((ad) => {
+                  const data = ad.data() || {};
+                  const info = parseAdFilename(data.filename || '');
+                  const recipe = data.recipeCode || info.recipeCode || '';
+                  if (!recipe) return;
+                  const groupCode =
+                    data.adGroupCode || info.adGroupCode || g.id;
+                  const key = `${groupCode}-${recipe}`;
+                  recipeSet.add(key);
+                  if (
+                    ['ready', 'approved', 'rejected', 'edit_requested'].includes(
+                      data.status
+                    )
                   )
-                )
-                  deliveredSet.add(key);
-                if (data.status === 'approved') approvedSet.add(key);
-              });
-              recipeSnap.docs.forEach((r) => {
-                const key = `${g.id}-${r.id}`;
-                recipeSet.add(key);
-              });
+                    deliveredSet.add(key);
+                  if (data.status === 'approved') approvedSet.add(key);
+                });
+                recipeSnap.docs.forEach((r) => {
+                  const key = `${g.id}-${r.id}`;
+                  recipeSet.add(key);
+                });
             }
 
             const briefed = recipeSet.size;
@@ -145,7 +145,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               needed,
               status,
             });
-          }
         }
         if (active) setRows(results);
       } catch (err) {
