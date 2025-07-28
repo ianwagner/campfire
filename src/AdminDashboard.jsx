@@ -63,93 +63,94 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           brandDocs = snap.docs;
         }
         const brands = brandDocs.map((d) => ({ id: d.id, ...d.data() }));
-        const results = [];
-        for (const brand of brands) {
-          const contracts = Array.isArray(brand.contracts) ? brand.contracts : [];
-          let contracted = 0;
-          for (const c of contracts) {
-            if (!c.startDate) continue;
-            const stills = Number(c.stills || 0);
-            const videos = Number(c.videos || 0);
-            let sd = new Date(c.startDate);
-            const ed = c.endDate ? new Date(c.endDate) : null;
-            while (sd <= end && (!ed || sd <= ed)) {
-              if (sd >= start && sd <= end) {
-                contracted += stills + videos;
+        const results = await Promise.all(
+          brands.map(async (brand) => {
+            const contracts = Array.isArray(brand.contracts) ? brand.contracts : [];
+            let contracted = 0;
+            for (const c of contracts) {
+              if (!c.startDate) continue;
+              const stills = Number(c.stills || 0);
+              const videos = Number(c.videos || 0);
+              let sd = new Date(c.startDate);
+              const ed = c.endDate ? new Date(c.endDate) : null;
+              while (sd <= end && (!ed || sd <= ed)) {
+                if (sd >= start && sd <= end) {
+                  contracted += stills + videos;
+                }
+                if (!c.renews) break;
+                sd.setMonth(sd.getMonth() + 1);
               }
-              if (!c.renews) break;
-              sd.setMonth(sd.getMonth() + 1);
             }
-          }
-          if (contracted === 0) continue;
-          const q = query(
-            collection(db, 'adGroups'),
-            where('brandCode', '==', brand.code || brand.codeId || ''),
-            where('dueDate', '>=', Timestamp.fromDate(start)),
-            where('dueDate', '<=', Timestamp.fromDate(end)),
-          );
-          const gSnap = await getDocs(q);
-          const recipeSet = new Set();
-          const approvedSet = new Set();
-          const deliveredSet = new Set();
-
-          for (const g of gSnap.docs) {
-            const assetsSnap = await getDocs(
-              collection(db, 'adGroups', g.id, 'assets')
+            if (contracted === 0) return null;
+            const q = query(
+              collection(db, 'adGroups'),
+              where('brandCode', '==', brand.code || brand.codeId || ''),
+              where('dueDate', '>=', Timestamp.fromDate(start)),
+              where('dueDate', '<=', Timestamp.fromDate(end)),
             );
-            assetsSnap.docs.forEach((ad) => {
-              const data = ad.data() || {};
-              const info = parseAdFilename(data.filename || '');
-              const recipe = data.recipeCode || info.recipeCode || '';
-              if (!recipe) return;
-              const groupCode =
-                data.adGroupCode || info.adGroupCode || g.id;
-              const key = `${groupCode}-${recipe}`;
-              recipeSet.add(key);
-              if (
-                ['ready', 'approved', 'rejected', 'edit_requested'].includes(
-                  data.status
-                )
-              )
-                deliveredSet.add(key);
-              if (data.status === 'approved') approvedSet.add(key);
-            });
-            try {
-              const recipeSnap = await getDocs(
-                collection(db, 'adGroups', g.id, 'recipes')
-              );
-              recipeSnap.docs.forEach((r) => {
-                const key = `${g.id}-${r.id}`;
-                recipeSet.add(key);
-              });
-            } catch (err) {
-              console.error('Failed to load recipes', err);
-            }
-          }
+            const gSnap = await getDocs(q);
+            const recipeSet = new Set();
+            const approvedSet = new Set();
+            const deliveredSet = new Set();
 
-          const briefed = recipeSet.size;
-          const delivered = deliveredSet.size;
-          const approved = approvedSet.size;
-          const needed = contracted > delivered ? contracted - delivered : 0;
-          const status =
-            delivered < contracted
-              ? 'under'
-              : delivered > contracted
-                ? 'over'
-                : 'complete';
-          results.push({
-            id: brand.id,
-            code: brand.code,
-            name: brand.name,
-            contracted,
-            briefed,
-            delivered,
-            approved,
-            needed,
-            status,
-          });
-        }
-        if (active) setRows(results);
+            await Promise.all(
+              gSnap.docs.map(async (g) => {
+                const [assetsSnap, recipeSnap] = await Promise.all([
+                  getDocs(collection(db, 'adGroups', g.id, 'assets')),
+                  getDocs(collection(db, 'adGroups', g.id, 'recipes')).catch((err) => {
+                    console.error('Failed to load recipes', err);
+                    return { docs: [] };
+                  }),
+                ]);
+                assetsSnap.docs.forEach((ad) => {
+                  const data = ad.data() || {};
+                  const info = parseAdFilename(data.filename || '');
+                  const recipe = data.recipeCode || info.recipeCode || '';
+                  if (!recipe) return;
+                  const groupCode =
+                    data.adGroupCode || info.adGroupCode || g.id;
+                  const key = `${groupCode}-${recipe}`;
+                  recipeSet.add(key);
+                  if (
+                    ['ready', 'approved', 'rejected', 'edit_requested'].includes(
+                      data.status
+                    )
+                  )
+                    deliveredSet.add(key);
+                  if (data.status === 'approved') approvedSet.add(key);
+                });
+                recipeSnap.docs.forEach((r) => {
+                  const key = `${g.id}-${r.id}`;
+                  recipeSet.add(key);
+                });
+              })
+            );
+
+            const briefed = recipeSet.size;
+            const delivered = deliveredSet.size;
+            const approved = approvedSet.size;
+            const needed = contracted > delivered ? contracted - delivered : 0;
+            const status =
+              delivered < contracted
+                ? 'under'
+                : delivered > contracted
+                  ? 'over'
+                  : 'complete';
+            return {
+              id: brand.id,
+              code: brand.code,
+              name: brand.name,
+              contracted,
+              briefed,
+              delivered,
+              approved,
+              needed,
+              status,
+            };
+          })
+        );
+        const filtered = results.filter(Boolean);
+        if (active) setRows(filtered);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
         if (active) setRows([]);
