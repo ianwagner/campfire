@@ -9,6 +9,10 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
+function slugify(str = '') {
+  return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
 function absoluteUrl(base, url) {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
@@ -40,12 +44,12 @@ export const parsePdp = onCallFn({ secrets: ['OPENAI_API_KEY'], timeoutSeconds: 
 
     const images = [];
     const seen = new Set();
-    const addImage = (src) => {
+    const addImage = (src, alt = '') => {
       if (!src) return;
       const abs = absoluteUrl(url, src);
       if (abs && !seen.has(abs)) {
         seen.add(abs);
-        images.push(abs);
+        images.push({ src: abs, alt: alt.toLowerCase() });
       }
     };
 
@@ -78,7 +82,7 @@ export const parsePdp = onCallFn({ secrets: ['OPENAI_API_KEY'], timeoutSeconds: 
 
     // <img> tags with srcset or lazy attributes
     $('img').each((i, el) => {
-      if (images.length >= 8) return false;
+      if (images.length >= 30) return false;
       const $el = $(el);
       const width = parseInt($el.attr('width'), 10);
       const height = parseInt($el.attr('height'), 10);
@@ -86,13 +90,11 @@ export const parsePdp = onCallFn({ secrets: ['OPENAI_API_KEY'], timeoutSeconds: 
 
       const srcset = $el.attr('srcset');
       if (srcset) {
-        srcset.split(',').forEach((item) => addImage(item.trim().split(' ')[0]));
+        srcset.split(',').forEach((item) => addImage(item.trim().split(' ')[0], $el.attr('alt') || ''));
       }
-      addImage($el.attr('data-src') || $el.attr('data-lazy'));
-      addImage($el.attr('src'));
+      addImage($el.attr('data-src') || $el.attr('data-lazy'), $el.attr('alt') || '');
+      addImage($el.attr('src'), $el.attr('alt') || '');
     });
-
-    const imageUrls = images.slice(0, 8);
 
     const bodyText = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 8000);
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -108,6 +110,18 @@ export const parsePdp = onCallFn({ secrets: ['OPENAI_API_KEY'], timeoutSeconds: 
     if (match) {
       try { parsed = JSON.parse(match[0]); } catch { parsed = {}; }
     }
+
+    const name = parsed.name || title;
+    const slug = slugify(name);
+
+    const prioritized = images.filter((img) => {
+      const src = img.src.toLowerCase();
+      const alt = img.alt || '';
+      return slug && (src.includes(slug) || alt.includes(name.toLowerCase()));
+    });
+    const others = images.filter((img) => !prioritized.includes(img));
+    const ordered = [...prioritized, ...others];
+    const imageUrls = ordered.map((i) => i.src).slice(0, 8);
 
     const result = {
       name: parsed.name || title,
