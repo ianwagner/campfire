@@ -133,10 +133,18 @@ const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [
                   adData.recipeCode || parseAdFilename(adData.filename || '').recipeCode;
                 if (code) set.add(code);
               });
-              recipeCount = set.size;
             } catch (err) {
               console.error('Failed to load assets', err);
-              recipeCount = 0;
+            }
+            try {
+              const recipeSnap = await getDocs(
+                collection(db, 'adGroups', d.id, 'recipes')
+              );
+              recipeCount =
+                recipeSnap.docs.length > 0 ? recipeSnap.docs.length : set.size;
+            } catch (err) {
+              console.error('Failed to load recipes', err);
+              recipeCount = set.size;
             }
 
             const designerName = data.designerId ? await getUserName(data.designerId) : '';

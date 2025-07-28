@@ -114,6 +114,17 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 deliveredSet.add(key);
               if (data.status === 'approved') approvedSet.add(key);
             });
+            try {
+              const recipeSnap = await getDocs(
+                collection(db, 'adGroups', g.id, 'recipes')
+              );
+              recipeSnap.docs.forEach((r) => {
+                const key = `${g.id}-${r.id}`;
+                recipeSet.add(key);
+              });
+            } catch (err) {
+              console.error('Failed to load recipes', err);
+            }
           }
 
           const briefed = recipeSet.size;
