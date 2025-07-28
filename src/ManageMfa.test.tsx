@@ -5,15 +5,18 @@ import ManageMfa from './ManageMfa';
 
 jest.mock('./firebase/config', () => ({ auth: {} }));
 
-const sendEmailVerification = jest.fn();
+jest.mock('firebase/auth', () => {
+  const sendEmailVerification = jest.fn();
+  return {
+    RecaptchaVerifier: jest.fn(),
+    PhoneAuthProvider: jest.fn(() => ({ verifyPhoneNumber: jest.fn() })),
+    multiFactor: jest.fn(() => ({ getSession: jest.fn() })),
+    sendEmailVerification,
+    signOut: jest.fn(),
+  };
+});
 
-jest.mock('firebase/auth', () => ({
-  RecaptchaVerifier: jest.fn(),
-  PhoneAuthProvider: jest.fn(() => ({ verifyPhoneNumber: jest.fn() })),
-  multiFactor: jest.fn(() => ({ getSession: jest.fn() })),
-  sendEmailVerification: (...args) => sendEmailVerification(...args),
-  signOut: jest.fn(),
-}));
+import { sendEmailVerification } from 'firebase/auth';
 
 const navigate = jest.fn();
 
