@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { FiFilePlus, FiPackage, FiAlertOctagon, FiZap, FiCheck, FiImage } from 'react-icons/fi';
 import getUserName from '../utils/getUserName';
+import { auth } from '../firebase/config';
+import useUserRole from '../useUserRole';
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -27,8 +29,10 @@ const Calendar = forwardRef(
     const [names, setNames] = useState({});
     const todayRef = useRef(null);
     const containerRef = useRef(null);
+    const { role } = useUserRole(auth.currentUser?.uid);
 
   useEffect(() => {
+    if (role === 'ops') return;
     const ids = new Set();
     requests.forEach((r) => {
       if (r.editorId) ids.add(r.editorId);
@@ -41,7 +45,7 @@ const Calendar = forwardRef(
         );
       }
     });
-  }, [requests]);
+  }, [requests, role]);
 
   useEffect(() => {
     if (todayRef.current && containerRef.current) {
@@ -155,8 +159,8 @@ const Calendar = forwardRef(
                         <div className="min-w-0">
                           <div className="font-semibold truncate">{t.title || 'Ticket'}</div>
                           {t.brandCode && <div className="truncate">{t.brandCode}</div>}
-                          {t.editorId && <div className="truncate">{names[t.editorId] || t.editorId}</div>}
-                          {t.designerId && <div className="truncate">{names[t.designerId] || t.designerId}</div>}
+                          {t.editorId && role !== 'ops' && <div className="truncate">{names[t.editorId] || t.editorId}</div>}
+                          {t.designerId && role !== 'ops' && <div className="truncate">{names[t.designerId] || t.designerId}</div>}
                         </div>
                       </div>
                     );

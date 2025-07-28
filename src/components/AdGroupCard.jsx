@@ -9,7 +9,6 @@ import {
   FiEdit,
   FiCalendar,
   FiMoreHorizontal,
-  FiEye,
   FiLink,
   FiEdit2,
   FiDownload,
@@ -18,6 +17,8 @@ import {
   FiRotateCcw,
   FiTrash,
 } from 'react-icons/fi';
+import { auth } from '../firebase/config';
+import useUserRole from '../useUserRole';
 import IconButton from './IconButton.jsx';
 
 
@@ -35,6 +36,8 @@ const AdGroupCard = ({
   triggerClickMenu,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const user = auth.currentUser;
+  const { role } = useUserRole(user?.uid);
 
   const handleClick = (e, cb) => {
     e.preventDefault();
@@ -60,13 +63,6 @@ const AdGroupCard = ({
       )}
       {menuOpen && (
         <div className="absolute right-1 top-7 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
-          <Link
-            to={`/ad-group/${group.id}`}
-            onClick={() => setMenuOpen(false)}
-            className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
-          >
-            <FiEye /> View Details
-          </Link>
           {onReview && (
             <button
               onClick={(e) => handleClick(e, onReview)}
@@ -154,7 +150,7 @@ const AdGroupCard = ({
             <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
               {group.brandCode}
             </p>
-            {group.designerName && (
+            {group.designerName && role !== 'ops' && (
               <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
                 {group.designerName}
               </p>

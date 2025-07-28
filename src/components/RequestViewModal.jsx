@@ -12,6 +12,8 @@ import ScrollModal from './ScrollModal.jsx';
 import IconButton from './IconButton.jsx';
 import CloseButton from './CloseButton.jsx';
 import formatDetails from '../utils/formatDetails';
+import { auth } from '../firebase/config';
+import useUserRole from '../useUserRole';
 
 const typeIcons = {
   newAds: FiFilePlus,
@@ -39,6 +41,8 @@ const typeLabels = {
 
 const RequestViewModal = ({ request, onClose, onEdit }) => {
   if (!request) return null;
+  const user = auth.currentUser;
+  const { role } = useUserRole(user?.uid);
   const Icon = typeIcons[request.type];
   const color = typeColors[request.type] || 'text-gray-600 dark:text-gray-300';
   const title = request.title || typeLabels[request.type];
@@ -80,10 +84,10 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
         {request.priority && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Priority: {request.priority}</p>
         )}
-        {request.designerId && (
+        {request.designerId && role !== 'ops' && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Designer: {request.designerId}</p>
         )}
-        {request.editorId && (
+        {request.editorId && role !== 'ops' && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Editor: {request.editorId}</p>
         )}
         {request.type === 'newAds' && (
