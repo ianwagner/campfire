@@ -99,7 +99,7 @@ service cloud.firestore {
     }
 
     match /recipeTypes/{docId} {
-      allow read: if true;
+      allow read: if isAdmin() || isManager() || isEditor() || resource.data.external == true;
       allow write: if isAdmin();
     }
 
