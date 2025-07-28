@@ -15,6 +15,7 @@ import RequestViewModal from './components/RequestViewModal.jsx';
 import Calendar from './components/Calendar.jsx';
 import useAgencies from './useAgencies';
 import formatDetails from './utils/formatDetails';
+import useUserRole from './useUserRole';
 
 const emptyForm = {
   type: 'newAds',
@@ -57,6 +58,8 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const calendarRef = useRef(null);
   const navigate = useNavigate();
   const { agencies } = useAgencies();
+  const { role } = useUserRole(auth.currentUser?.uid);
+  const isOps = role === 'ops';
 
   useEffect(() => {
     const fetchData = async () => {
@@ -128,9 +131,11 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
 
     fetchData();
     fetchBrands();
-    fetchDesigners();
-    if (canAssignEditor) fetchEditors();
-  }, [filterEditorId, filterCreatorId]);
+    if (!isOps) {
+      fetchDesigners();
+      if (canAssignEditor) fetchEditors();
+    }
+  }, [filterEditorId, filterCreatorId, isOps]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -147,7 +152,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   }, []);
 
   const resetForm = () => {
-    setForm(emptyForm);
+    setForm(isOps ? { ...emptyForm, type: 'bug' } : emptyForm);
     setEditId(null);
   };
 
@@ -156,6 +161,9 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     setAiArtStyle('');
     if (!canAssignEditor) {
       setForm((f) => ({ ...f, editorId: filterEditorId || auth.currentUser?.uid || '' }));
+    }
+    if (isOps) {
+      setForm((f) => ({ ...f, type: 'bug' }));
     }
     setShowModal(true);
   };
@@ -794,14 +802,14 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
             onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
             className="w-full p-2 border rounded"
           >
-            <option value="newAds">New Ads</option>
-            <option value="newAIAssets">New AI Assets</option>
+            {!isOps && <option value="newAds">New Ads</option>}
+            {!isOps && <option value="newAIAssets">New AI Assets</option>}
             <option value="newBrand">New Brand</option>
             <option value="bug">Bug</option>
             <option value="feature">Feature</option>
           </select>
         </div>
-        {canAssignEditor && (
+        {canAssignEditor && !isOps && (
           <div>
             <label className="block mb-1 text-sm font-medium">Editor</label>
             <select
@@ -849,19 +857,21 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                   className="w-full p-2 border rounded"
                 />
               </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Designer</label>
-                <select
-                  value={form.designerId}
-                  onChange={(e) => setForm((f) => ({ ...f, designerId: e.target.value }))}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="">Select designer</option>
-                  {designers.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              </div>
+              {!isOps && (
+                <div>
+                  <label className="block mb-1 text-sm font-medium">Designer</label>
+                  <select
+                    value={form.designerId}
+                    onChange={(e) => setForm((f) => ({ ...f, designerId: e.target.value }))}
+                    className="w-full p-2 border rounded"
+                  >
+                    <option value="">Select designer</option>
+                    {designers.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block mb-1 text-sm font-medium">Number of Ads</label>
                 <input
