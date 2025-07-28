@@ -106,6 +106,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                   console.error('Failed to load recipes', err);
                   recipeSnap = { docs: [] };
                 }
+
+                const assetRecipes = new Set();
                 assetsSnap.docs.forEach((ad) => {
                   const data = ad.data() || {};
                   const info = parseAdFilename(data.filename || '');
@@ -114,7 +116,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                   const groupCode =
                     data.adGroupCode || info.adGroupCode || g.id;
                   const key = `${groupCode}-${recipe}`;
-                  recipeSet.add(key);
+                  assetRecipes.add(key);
                   if (
                     ['ready', 'approved', 'rejected', 'edit_requested'].includes(
                       data.status
@@ -123,10 +125,18 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                     deliveredSet.add(key);
                   if (data.status === 'approved') approvedSet.add(key);
                 });
-                recipeSnap.docs.forEach((r) => {
-                  const key = `${g.id}-${r.id}`;
-                  recipeSet.add(key);
-                });
+
+                const selectedRecipes = recipeSnap.docs.filter(
+                  (r) => r.data()?.selected !== false
+                );
+                if (selectedRecipes.length > 0) {
+                  selectedRecipes.forEach((r) => {
+                    const key = `${g.id}-${r.id}`;
+                    recipeSet.add(key);
+                  });
+                } else {
+                  assetRecipes.forEach((key) => recipeSet.add(key));
+                }
             }
 
             const briefed = recipeSet.size;
