@@ -8,52 +8,30 @@ import {
   getDocs,
   addDoc,
   serverTimestamp,
+  writeBatch,
+  doc,
 } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import Modal from './components/Modal.jsx';
+import RecipePreview from './RecipePreview.jsx';
 
 const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   const [title, setTitle] = useState('');
-  const [types, setTypes] = useState([]);
-  const [selected, setSelected] = useState([]);
+  const brandCode = brandCodes[0] || '';
 
-  useEffect(() => {
-    const fetchTypes = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'copyRecipeTypes'));
-        const copyTypes = snap.docs.map((d) => ({ id: d.id, name: d.data().name }));
-        const adSnap = await getDocs(
-          query(collection(db, 'recipeTypes'), where('external', '==', true))
-        );
-        const adTypes = adSnap.docs.map((d) => ({ id: d.id, name: d.data().name }));
-        setTypes([...copyTypes, ...adTypes]);
-      } catch (err) {
-        console.error('Failed to load recipe types', err);
-      }
-    };
-    fetchTypes();
-  }, []);
-
-  const toggle = (id) => {
-    setSelected((s) =>
-      s.includes(id) ? s.filter((x) => x !== id) : [...s, id]
-    );
-  };
-
-  const handleSave = async () => {
+  const handleSave = async (recipes) => {
     if (!title.trim()) return;
-    const brandCode = brandCodes[0] || '';
     try {
       const projRef = await addDoc(collection(db, 'projects'), {
         title: title.trim(),
-        recipeTypes: selected,
+        recipeTypes: Array.isArray(recipes) ? recipes.map((r) => r.type) : [],
         brandCode,
         status: 'new',
         createdAt: serverTimestamp(),
         userId: auth.currentUser?.uid || null,
       });
 
-      await addDoc(collection(db, 'adGroups'), {
+      const groupRef = await addDoc(collection(db, 'adGroups'), {
         name: title.trim(),
         brandCode,
         status: 'new',
@@ -72,45 +50,52 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         password: '',
       });
 
-      onClose({ id: projRef.id, title: title.trim(), status: 'new', recipeTypes: selected, createdAt: new Date() });
+      if (Array.isArray(recipes) && recipes.length > 0) {
+        const batch = writeBatch(db);
+        recipes.forEach((r) => {
+          const ref = doc(db, 'adGroups', groupRef.id, 'recipes', String(r.recipeNo));
+          batch.set(
+            ref,
+            {
+              components: r.components,
+              copy: r.copy,
+              assets: r.assets || [],
+              type: r.type || '',
+              selected: r.selected || false,
+              brandCode: r.brandCode || brandCode,
+            },
+            { merge: true }
+          );
+        });
+        await batch.commit();
+      }
+
+      onClose({ id: projRef.id, title: title.trim(), status: 'new', recipeTypes: Array.isArray(recipes) ? recipes.map((r) => r.type) : [], createdAt: new Date() });
     } catch (err) {
       console.error('Failed to create project', err);
     }
   };
 
   return (
-    <Modal>
+    <Modal sizeClass="max-w-[50rem] w-full max-h-[90vh] overflow-auto">
       <h2 className="text-xl font-semibold mb-4">New Project</h2>
-      <div className="space-y-3">
-        <div>
-          <label className="block mb-1 text-sm font-medium">Title</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Recipe Types</label>
-          <div className="max-h-40 overflow-auto border rounded p-2">
-            {types.map((t) => (
-              <label key={t.id} className="block text-sm">
-                <input
-                  type="checkbox"
-                  className="mr-2"
-                  checked={selected.includes(t.id)}
-                  onChange={() => toggle(t.id)}
-                />
-                {t.name || t.id}
-              </label>
-            ))}
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <button className="btn" onClick={() => onClose(null)}>Cancel</button>
-          <button className="btn-primary" onClick={handleSave}>Save</button>
-        </div>
+      <div className="mb-4">
+        <label className="block mb-1 text-sm font-medium">Title</label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full p-2 border rounded"
+        />
+      </div>
+      <RecipePreview
+        onSave={handleSave}
+        brandCode={brandCode}
+        hideBrandSelect
+        externalOnly
+      />
+      <div className="flex justify-end gap-2 pt-2">
+        <button className="btn" onClick={() => onClose(null)}>Cancel</button>
       </div>
     </Modal>
   );
