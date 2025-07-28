@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  setDoc,
+  getDoc,
+} from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
+import useAgencies from './useAgencies';
 import { uploadBrandAsset } from './uploadBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
@@ -16,12 +25,15 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const [brandId, setBrandId] = useState(propId);
   const [brandCode, setBrandCode] = useState(propCode || brandCodes[0] || '');
   const [guidelines, setGuidelines] = useState({ url: '', file: null });
-  const [logos, setLogos] = useState([ { ...emptyLogo } ]);
+  const [logos, setLogos] = useState([{ ...emptyLogo }]);
   const [palette, setPalette] = useState(['#000000']);
-  const [fonts, setFonts] = useState([ { ...emptyFont } ]);
+  const [fonts, setFonts] = useState([{ ...emptyFont }]);
+  const [name, setName] = useState('');
+  const [agencyId, setAgencyId] = useState('');
   const [offering, setOffering] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const { agencies } = useAgencies();
 
   useEffect(() => {
     if (!propId && !propCode) {
@@ -38,6 +50,8 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             setBrandId(propId);
             const data = snap.data();
             setBrandCode(data.code || propCode);
+            setName(data.name || '');
+            setAgencyId(data.agencyId || '');
             setOffering(data.offering || '');
             setGuidelines({ url: data.guidelinesUrl || '', file: null });
             setLogos(
@@ -67,6 +81,8 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             setBrandId(docData.id);
             const data = docData.data();
             setBrandCode(data.code || brandCode);
+            setName(data.name || '');
+            setAgencyId(data.agencyId || '');
             setOffering(data.offering || '');
             setGuidelines({ url: data.guidelinesUrl || '', file: null });
             setLogos(
@@ -131,7 +147,15 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
       }
       await setDoc(
         doc(db, 'brands', brandId),
-        { guidelinesUrl, logos: logoUrls, palette, fonts: fontData, offering },
+        {
+          name: name.trim(),
+          agencyId: agencyId.trim(),
+          guidelinesUrl,
+          logos: logoUrls,
+          palette,
+          fonts: fontData,
+          offering,
+        },
         { merge: true }
       );
       setGuidelines({ url: guidelinesUrl, file: null });
@@ -155,7 +179,30 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
 
   return (
     <PageWrapper>
-      <form onSubmit={handleSave} className="space-y-4 max-w-md">
+      <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
+        <h2 className="text-xl mb-2">General Information</h2>
+        <FormField label="Brand Name">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+        </FormField>
+        <FormField label="Agency">
+          <select
+            value={agencyId}
+            onChange={(e) => setAgencyId(e.target.value)}
+            className="w-full p-2 border rounded"
+          >
+            <option value="">Select agency</option>
+            {agencies.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
         <FormField label="Offering">
           <input
             type="text"
@@ -164,6 +211,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             className="w-full p-2 border rounded"
           />
         </FormField>
+        <h2 className="text-xl mb-2">Brand Assets</h2>
         <FormField label="Brand Guidelines (PDF)">
           <input
             type="file"
