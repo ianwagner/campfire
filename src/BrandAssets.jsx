@@ -81,7 +81,7 @@ const BrandAssets = ({ brandCode, onClose, inline = false, hideGuidelines = fals
               {brand.fonts.map((f, idx) => {
                 if (!f || typeof f !== 'object') return null;
                 const { type, value, name } = f;
-                if (!value) return null;
+                if (typeof value !== 'string' || !value.trim()) return null;
                 return (
                   <li key={idx} className="text-sm">
                     {type === 'google' ? (
