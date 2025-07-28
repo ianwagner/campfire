@@ -63,8 +63,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           brandDocs = snap.docs;
         }
         const brands = brandDocs.map((d) => ({ id: d.id, ...d.data() }));
-        const results = await Promise.all(
-          brands.map(async (brand) => {
+        const results = [];
+        for (const brand of brands) {
             const contracts = Array.isArray(brand.contracts) ? brand.contracts : [];
             let contracted = 0;
             for (const c of contracts) {
@@ -81,7 +81,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 sd.setMonth(sd.getMonth() + 1);
               }
             }
-            if (contracted === 0) return null;
+            if (contracted === 0) continue;
             const q = query(
               collection(db, 'adGroups'),
               where('brandCode', '==', brand.code || brand.codeId || ''),
@@ -93,8 +93,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             const approvedSet = new Set();
             const deliveredSet = new Set();
 
-            await Promise.all(
-              gSnap.docs.map(async (g) => {
+            for (const g of gSnap.docs) {
                 const [assetsSnap, recipeSnap] = await Promise.all([
                   getDocs(collection(db, 'adGroups', g.id, 'assets')),
                   getDocs(collection(db, 'adGroups', g.id, 'recipes')).catch((err) => {
@@ -123,8 +122,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                   const key = `${g.id}-${r.id}`;
                   recipeSet.add(key);
                 });
-              })
-            );
+            }
 
             const briefed = recipeSet.size;
             const delivered = deliveredSet.size;
@@ -136,7 +134,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 : delivered > contracted
                   ? 'over'
                   : 'complete';
-            return {
+            results.push({
               id: brand.id,
               code: brand.code,
               name: brand.name,
@@ -146,11 +144,9 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               approved,
               needed,
               status,
-            };
-          })
-        );
-        const filtered = results.filter(Boolean);
-        if (active) setRows(filtered);
+            });
+        }
+        if (active) setRows(results);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
         if (active) setRows([]);
