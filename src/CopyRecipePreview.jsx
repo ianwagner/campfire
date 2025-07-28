@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import TagInput from './components/TagInput.jsx';
-import { FiEdit2, FiTrash, FiCheck } from 'react-icons/fi';
+import { FiEdit2, FiTrash, FiCheck, FiLink } from 'react-icons/fi';
 import selectRandomOption from './utils/selectRandomOption.js';
 
 const CopyRecipePreview = ({
@@ -24,6 +24,8 @@ const CopyRecipePreview = ({
   const [brandProducts, setBrandProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [formData, setFormData] = useState({});
+
+  const isUrl = (str) => /^https?:\/\//i.test(str);
 
   useEffect(() => {
     if (typeof onCopiesChange === 'function') {
@@ -350,7 +352,13 @@ const CopyRecipePreview = ({
                 />
               ) : (
                 <p className="p-2 whitespace-pre-wrap bg-gray-50 rounded dark:bg-[var(--dark-sidebar-bg)]">
-                  {c.primary}
+                  {isUrl(c.primary.trim()) ? (
+                    <a href={c.primary.trim()} target="_blank" rel="noreferrer">
+                      <FiLink />
+                    </a>
+                  ) : (
+                    c.primary
+                  )}
                 </p>
               )}
             </div>
@@ -371,7 +379,13 @@ const CopyRecipePreview = ({
                 />
               ) : (
                 <p className="p-2 whitespace-pre-wrap bg-gray-50 rounded dark:bg-[var(--dark-sidebar-bg)]">
-                  {c.headline}
+                  {isUrl(c.headline.trim()) ? (
+                    <a href={c.headline.trim()} target="_blank" rel="noreferrer">
+                      <FiLink />
+                    </a>
+                  ) : (
+                    c.headline
+                  )}
                 </p>
               )}
             </div>
@@ -394,7 +408,13 @@ const CopyRecipePreview = ({
                 />
               ) : (
                 <p className="p-2 whitespace-pre-wrap bg-gray-50 rounded dark:bg-[var(--dark-sidebar-bg)]">
-                  {c.description}
+                  {isUrl(c.description.trim()) ? (
+                    <a href={c.description.trim()} target="_blank" rel="noreferrer">
+                      <FiLink />
+                    </a>
+                  ) : (
+                    c.description
+                  )}
                 </p>
               )}
             </div>

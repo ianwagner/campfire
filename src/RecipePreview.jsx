@@ -11,6 +11,7 @@ import {
   FiPlus,
   FiSave,
   FiColumns,
+  FiLink,
 } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import { auth } from './firebase/config';
@@ -77,6 +78,8 @@ const RecipePreview = ({
   const [assetUsage, setAssetUsage] = useState({});
   const [showOptionLists, setShowOptionLists] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
+
+  const isUrl = (str) => /^https?:\/\//i.test(str);
   const [reviewRows, setReviewRows] = useState([]);
 
   const currentType = types.find((t) => t.id === selectedType);
@@ -1437,7 +1440,19 @@ const RecipePreview = ({
                                   />
                                 ) : null
                               ) : (
-                                editing === idx ? editComponents[col.key] : r.components[col.key]
+                                editing === idx
+                                  ? editComponents[col.key]
+                                  : isUrl(r.components[col.key]?.toString().trim()) ? (
+                                      <a
+                                        href={r.components[col.key]}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                      >
+                                        <FiLink />
+                                      </a>
+                                    ) : (
+                                      r.components[col.key]
+                                    )
                               )}
                             </React.Fragment>
                           )}
@@ -1457,7 +1472,13 @@ const RecipePreview = ({
                           className="min-h-[1.5rem] w-full"
                           onClick={() => navigator.clipboard.writeText(r.copy)}
                         >
-                          {r.copy}
+                          {isUrl(r.copy.trim()) ? (
+                            <a href={r.copy.trim()} target="_blank" rel="noreferrer">
+                              <FiLink />
+                            </a>
+                          ) : (
+                            r.copy
+                          )}
                         </div>
                       )}
                     </td>
