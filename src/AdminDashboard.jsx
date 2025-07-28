@@ -94,13 +94,18 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             const deliveredSet = new Set();
 
             for (const g of gSnap.docs) {
-                const [assetsSnap, recipeSnap] = await Promise.all([
-                  getDocs(collection(db, 'adGroups', g.id, 'assets')),
-                  getDocs(collection(db, 'adGroups', g.id, 'recipes')).catch((err) => {
-                    console.error('Failed to load recipes', err);
-                    return { docs: [] };
-                  }),
-                ]);
+                const assetsSnap = await getDocs(
+                  collection(db, 'adGroups', g.id, 'assets')
+                );
+                let recipeSnap;
+                try {
+                  recipeSnap = await getDocs(
+                    collection(db, 'adGroups', g.id, 'recipes')
+                  );
+                } catch (err) {
+                  console.error('Failed to load recipes', err);
+                  recipeSnap = { docs: [] };
+                }
                 assetsSnap.docs.forEach((ad) => {
                   const data = ad.data() || {};
                   const info = parseAdFilename(data.filename || '');
