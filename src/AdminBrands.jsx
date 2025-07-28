@@ -30,7 +30,7 @@ const AdminBrands = () => {
   const [showArchived, setShowArchived] = useState(false);
   const [view, setView] = useState('cards');
   const user = auth.currentUser;
-  const { role } = useUserRole(user?.uid);
+  const { role, brandCodes } = useUserRole(user?.uid);
   const isAdmin = role === 'admin';
   const isManager = role === 'manager' || role === 'editor';
   const { agencies } = useAgencies();
@@ -44,8 +44,30 @@ const AdminBrands = () => {
       setLoading(true);
       try {
         const base = collection(db, 'brands');
-        const snap = await getDocs(base);
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        let docs = [];
+        if (role === 'project-manager') {
+          if (!brandCodes || brandCodes.length === 0) {
+            setBrands([]);
+            setLoading(false);
+            return;
+          }
+          for (let i = 0; i < brandCodes.length; i += 10) {
+            const chunk = brandCodes.slice(i, i + 10);
+            const snap = await getDocs(query(base, where('code', 'in', chunk)));
+            docs.push(...snap.docs);
+          }
+        } else {
+          const snap = await getDocs(base);
+          docs = snap.docs;
+        }
+        const seen = new Set();
+        const list = docs
+          .filter((d) => {
+            if (seen.has(d.id)) return false;
+            seen.add(d.id);
+            return true;
+          })
+          .map((d) => ({ id: d.id, ...d.data() }));
         setBrands(list);
       } catch (err) {
         console.error('Failed to fetch brands', err);
@@ -56,7 +78,7 @@ const AdminBrands = () => {
     };
 
     fetchBrands();
-  }, [showArchived]);
+  }, [showArchived, role, brandCodes]);
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this brand?')) return;
