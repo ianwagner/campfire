@@ -20,8 +20,12 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   useEffect(() => {
     const fetchTypes = async () => {
       try {
-        const snap = await getDocs(collection(db, 'copyRecipeTypes'));
-        setTypes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const q = query(
+          collection(db, 'copyRecipeTypes'),
+          where('external', '==', true)
+        );
+        const snap = await getDocs(q);
+        setTypes(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); 
       } catch (err) {
         console.error('Failed to load recipe types', err);
       }
