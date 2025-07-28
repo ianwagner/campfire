@@ -26,6 +26,7 @@ import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
 import BrandAssets from "./BrandAssets.jsx";
+import BrandAssetsLayout from "./BrandAssetsLayout.jsx";
 import HoverPreview from "./components/HoverPreview.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
 import {
@@ -2839,25 +2840,10 @@ const AdGroupDetail = () => {
       {usesTabs
         ?
             tab === "assets" && (
-              <div className="flex flex-col sm:flex-row gap-4">
-                <BrandAssets brandCode={group?.brandCode} inline hideGuidelines />
-                {brandGuidelines && (
-                  <div className="flex-1">
-                    <div
-                      className="mb-4 bg-white p-4 rounded shadow w-full h-full overflow-auto relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
-                      style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
-                    >
-                      <h3 className="mb-3 font-semibold text-lg">Brand Guidelines</h3>
-                      <iframe
-                        src={brandGuidelines}
-                        title="Brand Guidelines"
-                        className="w-full border rounded"
-                        style={{ height: '500px' }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              <BrandAssetsLayout
+                brandCode={group?.brandCode}
+                guidelinesUrl={brandGuidelines}
+              />
             )
         :
             showBrandAssets && (
