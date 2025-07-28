@@ -55,9 +55,16 @@ const BrandAssets = ({ brandCode, onClose, inline = false, hideGuidelines = fals
           <div className="mb-3">
             <p className="font-medium text-sm mb-1">Logos</p>
             <div className="flex flex-wrap gap-2">
-              {brand.logos.map((url, idx) => (
-                <OptimizedImage key={idx} pngUrl={url} alt="logo" className="h-16 w-auto" />
-              ))}
+              {brand.logos
+                .filter((url) => typeof url === 'string' && url.trim())
+                .map((url, idx) => (
+                  <OptimizedImage
+                    key={idx}
+                    pngUrl={url}
+                    alt="logo"
+                    className="h-16 w-auto"
+                  />
+                ))}
             </div>
           </div>
         )}
@@ -65,12 +72,17 @@ const BrandAssets = ({ brandCode, onClose, inline = false, hideGuidelines = fals
           <div className="mb-3">
             <p className="font-medium text-sm mb-1">Palette</p>
             <div className="flex flex-wrap gap-2">
-              {brand.palette.map((color, idx) => (
-                <div key={idx} className="flex items-center gap-1">
-                  <div className="w-6 h-6 rounded" style={{ backgroundColor: color }} />
-                  <span className="text-sm font-mono">{color}</span>
-                </div>
-              ))}
+              {brand.palette
+                .filter((c) => typeof c === 'string' && c.trim())
+                .map((color, idx) => (
+                  <div key={idx} className="flex items-center gap-1">
+                    <div
+                      className="w-6 h-6 rounded"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-sm font-mono">{color}</span>
+                  </div>
+                ))}
             </div>
           </div>
         )}
@@ -101,9 +113,13 @@ const BrandAssets = ({ brandCode, onClose, inline = false, hideGuidelines = fals
           <div className="mb-3">
             <p className="font-medium text-sm mb-1">Brand Notes</p>
             <ul className="list-disc list-inside space-y-1">
-              {brand.notes.map((n, idx) => (
-                <li key={idx} className="text-sm whitespace-pre-wrap">{n}</li>
-              ))}
+              {brand.notes
+                .filter((n) => typeof n === 'string' && n.trim())
+                .map((n, idx) => (
+                  <li key={idx} className="text-sm whitespace-pre-wrap">
+                    {n}
+                  </li>
+                ))}
             </ul>
           </div>
         )}
