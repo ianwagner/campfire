@@ -51,6 +51,8 @@ import AgencyAdGroups from "./AgencyAdGroups";
 import PmAdGroups from "./PmAdGroups";
 import PmDashboard from "./PmDashboard";
 import PmRequests from "./PmRequests";
+import OpsContracts from "./OpsContracts";
+import OpsBrandContracts from "./OpsBrandContracts";
 import useTheme from "./useTheme";
 import debugLog from "./utils/debugLog";
 import useSiteSettings from "./useSiteSettings";
@@ -530,6 +532,38 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <PmAdGroups />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/ops/contracts"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="ops"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <OpsContracts />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/ops/contracts/:id"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="ops"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <OpsBrandContracts />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
