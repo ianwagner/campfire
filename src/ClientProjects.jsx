@@ -14,6 +14,8 @@ import {
 import { db, auth } from './firebase/config';
 import Modal from './components/Modal.jsx';
 import RecipePreview from './RecipePreview.jsx';
+import SelectProjectTypeModal from './SelectProjectTypeModal.jsx';
+import DescribeProjectModal from './DescribeProjectModal.jsx';
 
 const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   const [title, setTitle] = useState('');
@@ -104,7 +106,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
 const ClientProjects = ({ brandCodes = [] }) => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [modalStep, setModalStep] = useState(null); // null | 'choose' | 'brief' | 'describe'
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -136,7 +138,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
   }, []);
 
   const handleCreated = (proj) => {
-    setShowModal(false);
+    setModalStep(null);
     if (proj) {
       setProjects((p) => [proj, ...p]);
     }
@@ -149,14 +151,14 @@ const ClientProjects = ({ brandCodes = [] }) => {
       ) : projects.length === 0 ? (
         <div className="text-center mt-20">
           <p className="mb-4 text-xl">What are we creating next?</p>
-          <button className="btn-primary" onClick={() => setShowModal(true)}>
+          <button className="btn-primary" onClick={() => setModalStep('choose')}>
             Create new project
           </button>
         </div>
       ) : (
         <div className="w-full max-w-xl space-y-3">
           <div className="flex justify-center mb-4">
-            <button className="btn-primary" onClick={() => setShowModal(true)}>
+            <button className="btn-primary" onClick={() => setModalStep('choose')}>
               Create new project
             </button>
           </div>
@@ -172,8 +174,17 @@ const ClientProjects = ({ brandCodes = [] }) => {
           ))}
         </div>
       )}
-      {showModal && (
+      {modalStep === 'choose' && (
+        <SelectProjectTypeModal
+          onSelect={setModalStep}
+          onClose={() => setModalStep(null)}
+        />
+      )}
+      {modalStep === 'brief' && (
         <CreateProjectModal onClose={handleCreated} brandCodes={brandCodes} />
+      )}
+      {modalStep === 'describe' && (
+        <DescribeProjectModal onClose={handleCreated} brandCodes={brandCodes} />
       )}
     </div>
   );
