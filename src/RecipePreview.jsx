@@ -54,6 +54,7 @@ const RecipePreview = ({
   brandCode: initialBrandCode = '',
   hideBrandSelect = false,
   onRecipesClick = null,
+  externalOnly = false,
 }) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
@@ -181,7 +182,10 @@ const RecipePreview = ({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const typeSnap = await getDocs(collection(db, 'recipeTypes'));
+        const typeQuery = externalOnly
+          ? query(collection(db, 'recipeTypes'), where('external', '==', true))
+          : collection(db, 'recipeTypes');
+        const typeSnap = await getDocs(typeQuery);
         setTypes(typeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         const compSnap = await getDocs(collection(db, 'componentTypes'));
         const list = compSnap.docs.map((d) => {
@@ -220,7 +224,7 @@ const RecipePreview = ({
       }
     };
     fetchData();
-  }, []);
+  }, [externalOnly]);
 
   useEffect(() => {
     if (initialResults && Array.isArray(initialResults)) {
