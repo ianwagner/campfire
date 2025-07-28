@@ -46,7 +46,6 @@ const CopyRecipeTypes = () => {
   const [headlinePrompt, setHeadlinePrompt] = React.useState('');
   const [descriptionPrompt, setDescriptionPrompt] = React.useState('');
   const [writeFields, setWriteFields] = React.useState([{ label: '', key: '', inputType: 'text' }]);
-  const [external, setExternal] = React.useState(false);
 
   const placeholders = useMemo(() => {
     const arr = [
@@ -95,7 +94,6 @@ const resetForm = () => {
   setHeadlinePrompt('');
   setDescriptionPrompt('');
   setWriteFields([{ label: '', key: '', inputType: 'text' }]);
-  setExternal(false);
 };
 
   const openCreate = () => {
@@ -111,7 +109,6 @@ const resetForm = () => {
       headlinePrompt,
       descriptionPrompt,
       writeInFields: writeFields,
-      external,
     };
     try {
       if (editId) {
@@ -134,7 +131,6 @@ const resetForm = () => {
     setPrimaryPrompt(t.primaryPrompt || '');
     setHeadlinePrompt(t.headlinePrompt || '');
     setDescriptionPrompt(t.descriptionPrompt || '');
-    setExternal(!!t.external);
     setWriteFields(
       t.writeInFields && t.writeInFields.length > 0
         ? t.writeInFields
@@ -187,7 +183,6 @@ const resetForm = () => {
                 <th>Primary Prompt</th>
                 <th>Headline Prompt</th>
                 <th>Description Prompt</th>
-                <th>External</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -204,7 +199,6 @@ const resetForm = () => {
                   <td className="whitespace-pre-wrap break-words max-w-xs">
                     {t.descriptionPrompt || '-'}
                   </td>
-                  <td>{t.external ? 'Yes' : 'No'}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
                       <IconButton onClick={() => startEdit(t)} aria-label="Edit">
@@ -326,17 +320,6 @@ const resetForm = () => {
           >
             Add Field
           </button>
-        </div>
-        <div>
-          <label className="block text-sm">
-            <input
-              type="checkbox"
-              className="mr-1"
-              checked={external}
-              onChange={(e) => setExternal(e.target.checked)}
-            />
-            External
-          </label>
         </div>
         <div className="flex gap-2">
           <button type="submit" className="btn-primary">
