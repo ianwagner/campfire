@@ -9,6 +9,7 @@ import {
   FiUser,
   FiList,
   FiGrid,
+  FiFileText,
 } from 'react-icons/fi';
 
 const defaultTabs = [
@@ -33,6 +34,14 @@ const pmTabs = [
   { label: 'Account Settings', path: '/account-settings', icon: FiUser },
 ];
 
+const opsTabs = [
+  { label: 'Dashboard', path: '/pm/dashboard', icon: FiHome },
+  { label: 'Tickets', path: '/pm/tickets', icon: FiList },
+  { label: 'Ad Groups', path: '/pm/ad-groups', icon: FiGrid },
+  { label: 'Contracts', path: '/ops/contracts', icon: FiFileText },
+  { label: 'Account Settings', path: '/account-settings', icon: FiUser },
+];
+
 const editorTabs = [
   { label: 'Tickets', path: '/editor/tickets', icon: FiList },
   { label: 'Ad Groups', path: '/editor/ad-groups', icon: FiGrid },
@@ -43,7 +52,8 @@ const editorTabs = [
 const Sidebar = ({ agencyId, role }) => {
   const isManager = role === 'manager';
   const isEditor = role === 'editor';
-  const isPm = role === 'project-manager' || role === 'ops';
+  const isPm = role === 'project-manager';
+  const isOps = role === 'ops';
   const { agency } = useAgencyTheme(isManager || isEditor ? null : agencyId);
   const showAnimatedLogo = isManager || isEditor || !agencyId;
   const [collapsed, setCollapsed] = React.useState(false);
@@ -58,9 +68,11 @@ const Sidebar = ({ agencyId, role }) => {
     ? managerTabs
     : isEditor
       ? editorTabs
-      : isPm
-        ? pmTabs
-        : defaultTabs;
+      : isOps
+        ? opsTabs
+        : isPm
+          ? pmTabs
+          : defaultTabs;
 
   return (
     <SidebarBase
