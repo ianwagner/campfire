@@ -153,6 +153,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin() || isManager();
     }
+
+    match /projects/{projectId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
     
     match /requests/{docId} {
       allow read, write: if isAdmin() || isManager();
