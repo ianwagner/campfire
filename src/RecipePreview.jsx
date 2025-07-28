@@ -989,7 +989,11 @@ const RecipePreview = ({
         });
       });
       writeFields.forEach((f) => {
-        cols.push({ key: f.key, label: f.label });
+        cols.push({
+          key: f.key,
+          label: f.label,
+          inputType: f.inputType || 'text',
+        });
       });
       assetCols.forEach((c) => cols.push(c));
       cols.push({ key: 'review.name', label: 'Review - Name' });
@@ -1388,7 +1392,43 @@ const RecipePreview = ({
                                     ))}
                                 </select>
                               ) : null}
-                              {col.inputType === 'image' ? (
+                              {editing === idx && !col.key.includes('.') ? (
+                                col.inputType === 'textarea' ? (
+                                  <textarea
+                                    className="p-1 border rounded mb-1 w-full"
+                                    value={editComponents[col.key] || ''}
+                                    onChange={(e) =>
+                                      setEditComponents({
+                                        ...editComponents,
+                                        [col.key]: e.target.value,
+                                      })
+                                    }
+                                  />
+                                ) : col.inputType === 'list' ? (
+                                  <TagInput
+                                    id={`edit-${col.key}`}
+                                    value={editComponents[col.key] || []}
+                                    onChange={(arr) =>
+                                      setEditComponents({
+                                        ...editComponents,
+                                        [col.key]: arr,
+                                      })
+                                    }
+                                  />
+                                ) : (
+                                  <input
+                                    className="p-1 border rounded mb-1 w-full"
+                                    type={col.inputType || 'text'}
+                                    value={editComponents[col.key] || ''}
+                                    onChange={(e) =>
+                                      setEditComponents({
+                                        ...editComponents,
+                                        [col.key]: e.target.value,
+                                      })
+                                    }
+                                  />
+                                )
+                              ) : col.inputType === 'image' ? (
                                 (editing === idx ? editComponents[col.key] : r.components[col.key]) ? (
                                   <img
                                     src={editing === idx ? editComponents[col.key] : r.components[col.key]}
@@ -1401,8 +1441,8 @@ const RecipePreview = ({
                               )}
                             </React.Fragment>
                           )}
-                        </td>
-                      )
+                       </td>
+                     )
                   )}
                   {visibleColumns['copy'] && (
                     <td className="whitespace-pre-wrap break-words w-80 align-middle copy-cell">
