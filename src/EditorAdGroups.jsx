@@ -105,7 +105,9 @@ const EditorAdGroups = () => {
             let editCount = 0;
             const set = new Set();
             try {
-              const assetSnap = await getDocs(collection(db, 'adGroups', d.id, 'assets'));
+              const assetSnap = await getDocs(
+                collection(db, 'adGroups', d.id, 'assets')
+              );
               assetCount = assetSnap.docs.length;
               assetSnap.docs.forEach((adDoc) => {
                 const adData = adDoc.data();
@@ -114,13 +116,22 @@ const EditorAdGroups = () => {
                 if (adData.status === 'archived') archivedCount += 1;
                 if (adData.status === 'rejected') rejectedCount += 1;
                 if (adData.status === 'edit_requested') editCount += 1;
-                const code = adData.recipeCode || parseAdFilename(adData.filename || '').recipeCode;
+                const code =
+                  adData.recipeCode || parseAdFilename(adData.filename || '').recipeCode;
                 if (code) set.add(code);
               });
-              recipeCount = set.size;
             } catch (err) {
               console.error('Failed to load assets', err);
-              recipeCount = 0;
+            }
+            try {
+              const recipeSnap = await getDocs(
+                collection(db, 'adGroups', d.id, 'recipes')
+              );
+              recipeCount =
+                recipeSnap.docs.length > 0 ? recipeSnap.docs.length : set.size;
+            } catch (err) {
+              console.error('Failed to load recipes', err);
+              recipeCount = set.size;
             }
 
             const designerName = data.designerId ? await getUserName(data.designerId) : '';
