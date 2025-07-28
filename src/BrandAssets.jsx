@@ -4,7 +4,7 @@ import { db } from "./firebase/config";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 import Modal from "./components/Modal.jsx";
 
-const BrandAssets = ({ brandCode, onClose, inline = false, hideGuidelines = false }) => {
+const BrandAssets = ({ brandCode, onClose, inline = false, hideGuidelines = false, height = 'auto' }) => {
   const [brand, setBrand] = useState(null);
 
   useEffect(() => {
@@ -114,7 +114,7 @@ const BrandAssets = ({ brandCode, onClose, inline = false, hideGuidelines = fals
     return (
       <div
         className="mb-4 bg-white p-4 rounded shadow max-w-md w-full overflow-auto relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
-        style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
+        style={{ outline: '1px solid var(--border-color-default, #d1d5db)', height }}
       >
         {content}
       </div>

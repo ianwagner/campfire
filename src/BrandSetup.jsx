@@ -15,6 +15,9 @@ import { uploadBrandAsset } from './uploadBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import SaveButton from './components/SaveButton.jsx';
+import IconButton from './components/IconButton.jsx';
+import { FiEdit2 } from 'react-icons/fi';
+import BrandAssetsLayout from './BrandAssetsLayout.jsx';
 
 const emptyLogo = { url: '', file: null };
 const emptyFont = { type: 'google', value: '', name: '', file: null };
@@ -33,6 +36,8 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const [offering, setOffering] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const { agencies } = useAgencies();
 
   useEffect(() => {
@@ -105,6 +110,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             );
           }
         }
+        setDirty(false);
       } catch (err) {
         console.error('Failed to load brand', err);
       }
@@ -162,6 +168,8 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
       setLogos(logoUrls.map((u) => ({ url: u, file: null })));
       setFonts(fontData.map((f) => ({ ...f, file: null })));
       setMessage('Brand assets saved');
+      setDirty(false);
+      setEditing(false);
     } catch (err) {
       console.error('Failed to save brand', err);
       setMessage('Failed to save brand');
@@ -171,28 +179,53 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   };
 
   const updateLogoFile = (idx, file) => {
-    setLogos((prev) => prev.map((l, i) => (i === idx ? { url: file ? URL.createObjectURL(file) : l.url, file } : l)));
+    setLogos((prev) =>
+      prev.map((l, i) => (i === idx ? { url: file ? URL.createObjectURL(file) : l.url, file } : l))
+    );
+    setDirty(true);
   };
   const updateFont = (idx, changes) => {
     setFonts((prev) => prev.map((f, i) => (i === idx ? { ...f, ...changes } : f)));
+    setDirty(true);
   };
 
   return (
     <PageWrapper>
-      <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
+      <div className="flex justify-end mb-2">
+        {editing ? (
+          <SaveButton
+            form="brand-form"
+            type="submit"
+            canSave={dirty && !loading}
+            loading={loading}
+          />
+        ) : (
+          <IconButton aria-label="Edit" onClick={() => setEditing(true)}>
+            <FiEdit2 />
+          </IconButton>
+        )}
+      </div>
+      {editing ? (
+        <form id="brand-form" onSubmit={handleSave} className="space-y-6 max-w-2xl">
         <h2 className="text-xl mb-2">General Information</h2>
         <FormField label="Brand Name">
           <input
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              setDirty(true);
+            }}
             className="w-full p-2 border rounded"
           />
         </FormField>
         <FormField label="Agency">
           <select
             value={agencyId}
-            onChange={(e) => setAgencyId(e.target.value)}
+            onChange={(e) => {
+              setAgencyId(e.target.value);
+              setDirty(true);
+            }}
             className="w-full p-2 border rounded"
           >
             <option value="">Select agency</option>
@@ -207,7 +240,10 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
           <input
             type="text"
             value={offering}
-            onChange={(e) => setOffering(e.target.value)}
+            onChange={(e) => {
+              setOffering(e.target.value);
+              setDirty(true);
+            }}
             className="w-full p-2 border rounded"
           />
         </FormField>
@@ -216,7 +252,10 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
           <input
             type="file"
             accept="application/pdf"
-            onChange={(e) => setGuidelines({ url: guidelines.url, file: e.target.files[0] || null })}
+            onChange={(e) => {
+              setGuidelines({ url: guidelines.url, file: e.target.files[0] || null });
+              setDirty(true);
+            }}
             className="w-full p-2 border rounded"
           />
           {guidelines.url && (
@@ -239,7 +278,10 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
           ))}
           <button
             type="button"
-            onClick={() => setLogos((p) => [...p, { ...emptyLogo }])}
+            onClick={() => {
+              setLogos((p) => [...p, { ...emptyLogo }]);
+              setDirty(true);
+            }}
             className="btn-action mt-1"
           >
             Add Logo
@@ -251,20 +293,29 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
               <input
                 type="color"
                 value={color}
-                onChange={(e) => setPalette((p) => p.map((c, i) => (i === idx ? e.target.value : c)))}
+                onChange={(e) => {
+                  setPalette((p) => p.map((c, i) => (i === idx ? e.target.value : c)));
+                  setDirty(true);
+                }}
                 className="h-10 w-10 p-0 border rounded"
               />
               <input
                 type="text"
                 value={color}
-                onChange={(e) => setPalette((p) => p.map((c, i) => (i === idx ? e.target.value : c)))}
+                onChange={(e) => {
+                  setPalette((p) => p.map((c, i) => (i === idx ? e.target.value : c)));
+                  setDirty(true);
+                }}
                 className="w-24 p-1 border rounded"
               />
             </div>
           ))}
           <button
             type="button"
-            onClick={() => setPalette((p) => [...p, '#000000'])}
+            onClick={() => {
+              setPalette((p) => [...p, '#000000']);
+              setDirty(true);
+            }}
             className="btn-action mt-1"
           >
             Add Color
@@ -319,9 +370,10 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
               )}
               <button
                 type="button"
-                onClick={() =>
-                  setFonts((p) => p.filter((_, i) => i !== idx))
-                }
+                onClick={() => {
+                  setFonts((p) => p.filter((_, i) => i !== idx));
+                  setDirty(true);
+                }}
                 className="btn-action"
               >
                 Delete
@@ -330,17 +382,23 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
           ))}
           <button
             type="button"
-            onClick={() => setFonts((p) => [...p, { ...emptyFont }])}
+            onClick={() => {
+              setFonts((p) => [...p, { ...emptyFont }]);
+              setDirty(true);
+            }}
             className="btn-action mt-1"
           >
             Add Typeface
           </button>
         </FormField>
         {message && <p className="text-sm">{message}</p>}
-        <div className="text-right">
-          <SaveButton type="submit" canSave={!loading} loading={loading} />
-        </div>
       </form>
+      ) : (
+        <BrandAssetsLayout
+          brandCode={brandCode}
+          guidelinesUrl={guidelines.url}
+        />
+      )}
     </PageWrapper>
   );
 };
