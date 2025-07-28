@@ -5,6 +5,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import syncAssetLibrary from './utils/syncAssetLibrary';
 import FormField from './components/FormField.jsx';
 import TagInput from './components/TagInput.jsx';
+import ScrollModal from './components/ScrollModal.jsx';
 
 const emptyImage = { url: '', file: null };
 
@@ -101,9 +102,11 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
 
   if (!product) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
-        <div className="bg-white p-4 rounded shadow max-w-md w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-          <h3 className="mb-2 font-semibold">Import Product</h3>
+      <ScrollModal
+        sizeClass="max-w-md w-full"
+        header={<h3 className="p-2 mb-0 font-semibold">Import Product</h3>}
+      >
+        <div className="space-y-2 p-2">
           <FormField label="PDP URL">
             <input
               type="text"
@@ -113,23 +116,30 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
             />
           </FormField>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="text-right space-x-2 mt-2">
+          <div className="text-right space-x-2">
             <button type="button" onClick={onClose} className="btn-secondary px-3 py-1">
               Cancel
             </button>
-            <button type="button" onClick={fetchData} className="btn-primary px-3 py-1" disabled={loading || !url}>
+            <button
+              type="button"
+              onClick={fetchData}
+              className="btn-primary px-3 py-1"
+              disabled={loading || !url}
+            >
               {loading ? 'Loading...' : 'Fetch'}
             </button>
           </div>
         </div>
-      </div>
+      </ScrollModal>
     );
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4 overflow-auto">
-      <div className="bg-white p-4 rounded shadow max-w-md w-full space-y-3 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-        <h3 className="font-semibold">Review Product</h3>
+    <ScrollModal
+      sizeClass="max-w-md w-full"
+      header={<h3 className="p-2 mb-0 font-semibold">Review Product</h3>}
+    >
+      <div className="space-y-3 p-2">
         <FormField label="Name">
           <input
             type="text"
@@ -139,10 +149,16 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
           />
         </FormField>
         <FormField label="Description">
-          <TagInput value={product.description} onChange={(arr) => setProduct({ ...product, description: arr })} />
+          <TagInput
+            value={product.description}
+            onChange={(arr) => setProduct({ ...product, description: arr })}
+          />
         </FormField>
         <FormField label="Benefits">
-          <TagInput value={product.benefits} onChange={(arr) => setProduct({ ...product, benefits: arr })} />
+          <TagInput
+            value={product.benefits}
+            onChange={(arr) => setProduct({ ...product, benefits: arr })}
+          />
         </FormField>
         <FormField label="Images">
           <div className="grid grid-cols-2 gap-2">
@@ -165,12 +181,17 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
           <button type="button" onClick={onClose} className="btn-secondary px-3 py-1">
             Cancel
           </button>
-          <button type="button" onClick={confirm} className="btn-primary px-3 py-1" disabled={loading}>
+          <button
+            type="button"
+            onClick={confirm}
+            className="btn-primary px-3 py-1"
+            disabled={loading}
+          >
             {loading ? 'Saving...' : 'Add Product'}
           </button>
         </div>
       </div>
-    </div>
+    </ScrollModal>
   );
 };
 
