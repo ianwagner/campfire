@@ -536,7 +536,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                   {newReq.map((req) => (
                     <tr key={req.id}>
                       <td>{req.brandCode}</td>
-                      <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
+                      <td>{req.dueDate && typeof req.dueDate.toDate === 'function' ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds ?? req.numAssets}</td>
                       <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
@@ -592,7 +592,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                   {pending.map((req) => (
                     <tr key={req.id}>
                       <td>{req.brandCode}</td>
-                      <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
+                      <td>{req.dueDate && typeof req.dueDate.toDate === 'function' ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds ?? req.numAssets}</td>
                       <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
@@ -648,7 +648,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                   {ready.map((req) => (
                     <tr key={req.id}>
                       <td>{req.brandCode}</td>
-                      <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
+                      <td>{req.dueDate && typeof req.dueDate.toDate === 'function' ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds ?? req.numAssets}</td>
                       <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
@@ -702,7 +702,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                   {done.map((req) => (
                     <tr key={req.id}>
                       <td>{req.brandCode}</td>
-                      <td>{req.dueDate ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
+                      <td>{req.dueDate && typeof req.dueDate.toDate === 'function' ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
                       <td>{req.numAds ?? req.numAssets}</td>
                       <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
                       <td>
