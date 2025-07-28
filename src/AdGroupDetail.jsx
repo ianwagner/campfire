@@ -180,18 +180,20 @@ const AdGroupDetail = () => {
     if (!edit || edit === orig) return null;
     const diff = diffWords(orig, edit);
     return diff.map((p, i) => {
+      const text = p.text ?? p.value ?? "";
+      const type = p.type ?? "same";
       const space = i < diff.length - 1 ? " " : "";
-      if (p.type === "same") return p.text + space;
-      if (p.type === "removed")
+      if (type === "same") return text + space;
+      if (type === "removed")
         return (
           <span key={i} className="text-red-600 line-through">
-            {p.text}
+            {text}
             {space}
           </span>
         );
       return (
         <span key={i} className="text-green-600 italic">
-          {p.text}
+          {text}
           {space}
         </span>
       );
