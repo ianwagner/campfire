@@ -13,6 +13,7 @@ import {
 } from 'react-icons/fi';
 
 const defaultTabs = [
+  { label: 'Projects', path: '/projects', icon: FiList },
   { label: 'Campfire', path: '/dashboard/client', icon: FiHome },
   { label: 'Request', path: '/request', icon: FiEdit },
   { label: 'Brand Profile', path: '/brand-profile', icon: FiBriefcase },
