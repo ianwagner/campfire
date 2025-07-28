@@ -43,18 +43,20 @@ const FeedbackPanel = ({
                   if (!origCopy) return e.copyEdit;
                   const diff = diffWords(origCopy, e.copyEdit);
                   return diff.map((part, idx) => {
+                    const text = part.text ?? part.value ?? '';
+                    const type = part.type ?? 'same';
                     const space = idx < diff.length - 1 ? ' ' : '';
-                    if (part.type === 'same') return part.text + space;
-                    if (part.type === 'removed')
+                    if (type === 'same') return text + space;
+                    if (type === 'removed')
                       return (
                         <span key={idx} className="text-red-600 line-through">
-                          {part.text}
+                          {text}
                           {space}
                         </span>
                       );
                     return (
                       <span key={idx} className="text-green-600 italic">
-                        {part.text}
+                        {text}
                         {space}
                       </span>
                     );
