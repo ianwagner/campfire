@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from './firebase/config';
+import { functions, db } from './firebase/config';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import syncAssetLibrary from './utils/syncAssetLibrary';
 import FormField from './components/FormField.jsx';
 import TagInput from './components/TagInput.jsx';
 
@@ -35,6 +37,33 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
     }
   };
 
+  const saveToLibrary = async (items) => {
+    try {
+      let q = collection(db, 'adAssets');
+      if (brandCode) q = query(q, where('brandCode', '==', brandCode));
+      const snap = await getDocs(q);
+      const firebaseAssets = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const arrByUrl = Object.fromEntries(firebaseAssets.filter((a) => a.url).map((a) => [a.url, a]));
+      const arr = [...firebaseAssets];
+      for (const item of items) {
+        if (arrByUrl[item.url]) continue;
+        const newRow = {
+          id: Math.random().toString(36).slice(2),
+          createdAt: Date.now(),
+          url: item.url,
+          thumbnailUrl: item.thumbnailUrl || '',
+          name: product.name,
+          product: product.name,
+        };
+        arr.push(newRow);
+        arrByUrl[item.url] = newRow;
+      }
+      await syncAssetLibrary(brandCode, arr);
+    } catch (err) {
+      console.error('Failed to save assets', err);
+    }
+  };
+
   const confirm = async () => {
     if (!product) return;
     try {
@@ -42,13 +71,16 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
       const imgs = product.images.map((i) => i.url).filter(Boolean);
       const callable = httpsCallable(functions, 'cacheProductImages');
       const res = await callable({ urls: imgs, brandCode, productName: product.name });
-      const uploaded = Array.isArray(res.data?.urls) ? res.data.urls : [];
+      const uploaded = Array.isArray(res.data?.images) ? res.data.images : [];
       const slug = res.data?.slug || '';
+
+      await saveToLibrary(uploaded);
+
       onAdd({
         name: product.name,
         description: product.description,
         benefits: product.benefits,
-        images: uploaded.map((u) => ({ url: u, file: null })),
+        images: uploaded.map((u) => ({ url: u.url, file: null })),
         slug,
       });
       onClose();
@@ -60,10 +92,10 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
     }
   };
 
-  const updateImage = (idx, urlVal) => {
+  const removeImage = (idx) => {
     setProduct((p) => ({
       ...p,
-      images: p.images.map((img, i) => (i === idx ? { ...img, url: urlVal } : img)),
+      images: p.images.filter((_, i) => i !== idx),
     }));
   };
 
@@ -112,16 +144,21 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
         <FormField label="Benefits">
           <TagInput value={product.benefits} onChange={(arr) => setProduct({ ...product, benefits: arr })} />
         </FormField>
-        <FormField label="Image URLs">
-          {product.images.map((img, idx) => (
-            <input
-              key={idx}
-              type="text"
-              value={img.url}
-              onChange={(e) => updateImage(idx, e.target.value)}
-              className="w-full p-1 border rounded mb-1"
-            />
-          ))}
+        <FormField label="Images">
+          <div className="grid grid-cols-2 gap-2">
+            {product.images.map((img, idx) => (
+              <div key={idx} className="relative">
+                <img src={img.url} alt="prod" className="w-full h-auto border rounded" />
+                <button
+                  type="button"
+                  onClick={() => removeImage(idx)}
+                  className="absolute top-1 right-1 bg-white bg-opacity-75 rounded-full px-1"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
         </FormField>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="text-right space-x-2">
