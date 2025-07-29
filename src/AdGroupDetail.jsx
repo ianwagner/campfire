@@ -28,7 +28,7 @@ import CopyRecipePreview from "./CopyRecipePreview.jsx";
 import BrandAssets from "./BrandAssets.jsx";
 import BrandAssetsLayout from "./BrandAssetsLayout.jsx";
 import HoverPreview from "./components/HoverPreview.jsx";
-import { Link, useParams, useLocation } from "react-router-dom";
+import { Link, useParams, useLocation, useNavigate } from "react-router-dom";
 import {
   doc,
   getDoc,
@@ -160,6 +160,7 @@ const AdGroupDetail = () => {
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
+  const navigate = useNavigate();
   const isDesigner = userRole === "designer";
   const isAdmin = userRole === "admin";
   const isManager = userRole === "manager" || userRole === "editor";
@@ -248,9 +249,11 @@ const AdGroupDetail = () => {
   useEffect(() => {
     const load = async () => {
       const snap = await getDoc(doc(db, "adGroups", id));
-      if (snap.exists()) {
-        setGroup({ id: snap.id, ...snap.data() });
+      if (!snap.exists() || snap.data()?.status === "archived") {
+        navigate("/");
+        return;
       }
+      setGroup({ id: snap.id, ...snap.data() });
     };
     load();
     const unsub = onSnapshot(
@@ -271,7 +274,7 @@ const AdGroupDetail = () => {
       unsub();
       unsubBrief();
     };
-  }, [id]);
+  }, [id, navigate]);
 
   useEffect(() => {
     const unsub = onSnapshot(
