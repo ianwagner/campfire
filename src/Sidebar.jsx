@@ -11,11 +11,10 @@ import {
   FiGrid,
   FiFileText,
 } from 'react-icons/fi';
+import { FaFire } from 'react-icons/fa';
 
 const defaultTabs = [
-  { label: 'Projects', path: '/projects', icon: FiList },
-  { label: 'Campfire', path: '/dashboard/client', icon: FiHome },
-  { label: 'Request', path: '/request', icon: FiEdit },
+  { label: 'Campfire', path: '/projects', icon: FaFire },
   { label: 'Brand Profile', path: '/brand-profile', icon: FiBriefcase },
   { label: 'Account Settings', path: '/account-settings', icon: FiUser },
 ];
