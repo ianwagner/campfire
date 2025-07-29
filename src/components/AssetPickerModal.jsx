@@ -4,6 +4,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import useUserRole from '../useUserRole';
 import normalizeAssetType from '../utils/normalizeAssetType.js';
+import isVideoUrl from '../utils/isVideoUrl.js';
 import Button from './Button.jsx';
 
 const AssetPickerModal = ({
@@ -118,12 +119,18 @@ const AssetPickerModal = ({
                       : 'bg-accent-10 text-accent'
                   }`}
                   style={
-                    normalizeAssetType(a.type || a.assetType) === 'video'
+                    normalizeAssetType(a.type || a.assetType) === 'video' ||
+                    isVideoUrl(a.thumbnailUrl || a.url || a.firebaseUrl)
                       ? { backgroundColor: 'rgba(0,17,255,0.1)', color: '#0011FF' }
                       : {}
                   }
                 >
-                  {normalizeAssetType(a.type || a.assetType) === 'video' ? <FiVideo /> : <FiImage />}
+                  {normalizeAssetType(a.type || a.assetType) === 'video' ||
+                  isVideoUrl(a.thumbnailUrl || a.url || a.firebaseUrl) ? (
+                    <FiVideo />
+                  ) : (
+                    <FiImage />
+                  )}
                 </span>
               )}
             </button>

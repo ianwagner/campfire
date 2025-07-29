@@ -30,6 +30,7 @@ import IconButton from './components/IconButton.jsx';
 import SaveButton from './components/SaveButton.jsx';
 import TabButton from './components/TabButton.jsx';
 import normalizeAssetType from './utils/normalizeAssetType.js';
+import isVideoUrl from './utils/isVideoUrl.js';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -901,12 +902,18 @@ const RecipePreview = ({
                     : 'bg-accent-10 text-accent'
                 }`}
                 style={
-                  (a.assetType || '').toLowerCase() === 'video'
+                  (a.assetType || '').toLowerCase() === 'video' ||
+                  isVideoUrl(a.thumbnailUrl || a.adUrl || a.firebaseUrl)
                     ? { backgroundColor: 'rgba(0,17,255,0.1)', color: '#0011FF' }
                     : {}
                 }
               >
-                {(a.assetType || '').toLowerCase() === 'video' ? <FiVideo /> : <FiImage />}
+                {(a.assetType || '').toLowerCase() === 'video' ||
+                isVideoUrl(a.thumbnailUrl || a.adUrl || a.firebaseUrl) ? (
+                  <FiVideo />
+                ) : (
+                  <FiImage />
+                )}
               </button>
               {userRole === 'admin' && editing === rowIdx && (
                 <button
