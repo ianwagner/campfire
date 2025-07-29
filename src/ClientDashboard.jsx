@@ -4,7 +4,7 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 import parseAdFilename from './utils/parseAdFilename.js';
 import summarizeByRecipe from './utils/summarizeByRecipe.js';
-import { db } from './firebase/config';
+import { db, auth } from './firebase/config';
 import {
   collection,
   getDocs,
@@ -13,9 +13,10 @@ import {
   doc,
   updateDoc,
   limit,
+  serverTimestamp,
 } from 'firebase/firestore';
 
-const GroupCard = ({ group }) => {
+const GroupCard = ({ group, onArchive }) => {
   const rotations = useMemo(
     () => group.previewAds.map(() => Math.random() * 10 - 5),
     [group.id, group.previewAds.length]
@@ -57,6 +58,18 @@ const GroupCard = ({ group }) => {
         ) : null}
       </div>
       <h3 className="font-medium text-gray-700 dark:text-white">{group.name}</h3>
+      {onArchive && (
+        <button
+          className="btn-secondary mt-2"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onArchive();
+          }}
+        >
+          Archive
+        </button>
+      )}
     </Link>
   );
 };
@@ -64,6 +77,20 @@ const GroupCard = ({ group }) => {
 const ClientDashboard = ({ user, brandCodes = [] }) => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const handleArchive = async (id) => {
+    if (!window.confirm('Archive this group?')) return;
+    try {
+      await updateDoc(doc(db, 'adGroups', id), {
+        status: 'archived',
+        archivedAt: serverTimestamp(),
+        archivedBy: auth.currentUser?.uid || null,
+      });
+      setGroups((prev) => prev.filter((g) => g.id !== id));
+    } catch (err) {
+      console.error('Failed to archive group', err);
+    }
+  };
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -171,7 +198,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
             return group;
           })
         );
-        setGroups(list);
+        setGroups(list.filter((g) => g.status !== 'archived'));
       } catch (err) {
         console.error('Failed to fetch groups', err);
         setGroups([]);
@@ -192,7 +219,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
           {groups.map((g) => (
-            <GroupCard key={g.id} group={g} />
+            <GroupCard key={g.id} group={g} onArchive={() => handleArchive(g.id)} />
           ))}
         </div>
       )}
