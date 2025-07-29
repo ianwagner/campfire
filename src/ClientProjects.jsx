@@ -14,8 +14,24 @@ import {
 import { db, auth } from './firebase/config';
 import Modal from './components/Modal.jsx';
 import RecipePreview from './RecipePreview.jsx';
-import SelectProjectTypeModal from './SelectProjectTypeModal.jsx';
 import DescribeProjectModal from './DescribeProjectModal.jsx';
+import OptimizedImage from './components/OptimizedImage.jsx';
+import useSiteSettings from './useSiteSettings';
+import { FiFileText } from 'react-icons/fi';
+import { FaMagic } from 'react-icons/fa';
+
+const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
+  <button
+    className="border rounded p-4 text-left hover:bg-gray-100 flex flex-col items-start"
+    onClick={onClick}
+  >
+    <div className="text-2xl mb-2">
+      <Icon />
+    </div>
+    <span className="font-semibold mb-1">{title}</span>
+    <p className="text-sm text-gray-600">{desc}</p>
+  </button>
+);
 
 const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   const [title, setTitle] = useState('');
@@ -106,8 +122,9 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
 const ClientProjects = ({ brandCodes = [] }) => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modalStep, setModalStep] = useState(null); // null | 'choose' | 'brief' | 'describe'
+  const [modalStep, setModalStep] = useState(null); // null | 'brief' | 'describe'
   const navigate = useNavigate();
+  const { settings } = useSiteSettings();
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -166,37 +183,48 @@ const ClientProjects = ({ brandCodes = [] }) => {
     <div className="min-h-screen p-4 flex flex-col items-center">
       {loading ? (
         <p>Loading projects...</p>
-      ) : projects.length === 0 ? (
-        <div className="text-center mt-20">
-          <p className="mb-4 text-xl">What are we creating next?</p>
-          <button className="btn-primary" onClick={() => setModalStep('choose')}>
-            Create new project
-          </button>
-        </div>
       ) : (
-        <div className="w-full max-w-xl space-y-3">
-          <div className="flex justify-center mb-4">
-            <button className="btn-primary" onClick={() => setModalStep('choose')}>
-              Create new project
-            </button>
-          </div>
-          {projects.map((p) => (
-            <div
-              key={p.id}
-              className="border rounded p-4 flex justify-between items-center cursor-pointer"
-              onClick={() => navigate(`/projects/${p.id}`)}
-            >
-              <span className="font-medium">{p.title}</span>
-              <span className="text-sm text-gray-500">{p.status}</span>
+        <div className="w-full max-w-xl">
+          <div className="flex flex-col items-center text-center mt-6 mb-6">
+            {settings.iconUrl && (
+              <OptimizedImage
+                pngUrl={settings.iconUrl}
+                alt="Site icon"
+                loading="eager"
+                className="mb-4 max-h-16 w-auto"
+              />
+            )}
+            <h1 className="text-2xl mb-4">How would you like to start?</h1>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <OptionButton
+                icon={FiFileText}
+                title="Describe Project"
+                desc="Just tell us what you need. We'll generate a brief"
+                onClick={() => setModalStep('describe')}
+              />
+              <OptionButton
+                icon={FaMagic}
+                title="Generate Brief"
+                desc="Craft your own brief. Choose copy, visuals and layouts"
+                onClick={() => setModalStep('brief')}
+              />
             </div>
-          ))}
+          </div>
+          {projects.length > 0 && (
+            <div className="space-y-3">
+              {projects.map((p) => (
+                <div
+                  key={p.id}
+                  className="border rounded p-4 flex justify-between items-center cursor-pointer"
+                  onClick={() => navigate(`/projects/${p.id}`)}
+                >
+                  <span className="font-medium">{p.title}</span>
+                  <span className="text-sm text-gray-500">{p.status}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
-      {modalStep === 'choose' && (
-        <SelectProjectTypeModal
-          onSelect={setModalStep}
-          onClose={() => setModalStep(null)}
-        />
       )}
       {modalStep === 'brief' && (
         <CreateProjectModal onClose={handleCreated} brandCodes={brandCodes} />
