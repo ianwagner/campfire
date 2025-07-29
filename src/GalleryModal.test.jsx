@@ -20,3 +20,13 @@ test('renders ads and handles close', () => {
   fireEvent.click(screen.getByText('Close'));
   expect(onClose).toHaveBeenCalled();
 });
+
+test('does not display archived ads', () => {
+  const ads = [
+    { firebaseUrl: 'img1.png', filename: 'img1.png', status: 'archived' },
+    { firebaseUrl: 'img2.png', filename: 'img2.png' },
+  ];
+  render(<GalleryModal ads={ads} onClose={() => {}} />);
+  expect(screen.queryByAltText('img1.png')).not.toBeInTheDocument();
+  expect(screen.getByAltText('img2.png')).toBeInTheDocument();
+});
