@@ -7,6 +7,7 @@ const useUserRole = (uid) => {
   const [role, setRole] = useState(null);
   const [brandCodes, setBrandCodes] = useState([]);
   const [agencyId, setAgencyId] = useState(null);
+  const [hasAgencyField, setHasAgencyField] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,11 +31,13 @@ const useUserRole = (uid) => {
           setRole(data.role || null);
           const codes = Array.isArray(data.brandCodes) ? data.brandCodes : [];
           setBrandCodes(codes);
+          setHasAgencyField('agencyId' in data);
           setAgencyId(data.agencyId || null);
         } else {
           setRole(null);
           setBrandCodes([]);
           setAgencyId(null);
+          setHasAgencyField(false);
         }
         setLoading(false);
       },
@@ -43,6 +46,7 @@ const useUserRole = (uid) => {
         setRole(null);
         setBrandCodes([]);
         setAgencyId(null);
+        setHasAgencyField(false);
         setLoading(false);
       }
     );
@@ -54,7 +58,7 @@ const useUserRole = (uid) => {
   }, [uid]);
 
   useEffect(() => {
-    if (agencyId || brandCodes.length === 0 || role === 'project-manager' || role === 'ops') return;
+    if (hasAgencyField || agencyId || brandCodes.length === 0 || role === 'project-manager' || role === 'ops') return;
     let cancelled = false;
     const fetchAgency = async () => {
       try {
@@ -75,7 +79,7 @@ const useUserRole = (uid) => {
     return () => {
       cancelled = true;
     };
-  }, [brandCodes, agencyId, role]);
+  }, [brandCodes, agencyId, role, hasAgencyField]);
 
   return { role, brandCodes, agencyId, loading };
 };
