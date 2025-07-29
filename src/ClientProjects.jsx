@@ -124,8 +124,26 @@ const ClientProjects = ({ brandCodes = [] }) => {
           orderBy('createdAt', 'desc')
         );
         const snap = await getDocs(q);
+
+        const allProjects = snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+          createdAt: d.data().createdAt?.toDate(),
+        }));
+
+        const groupSnap = await getDocs(
+          query(collection(db, 'adGroups'), where('uploadedBy', '==', auth.currentUser.uid))
+        );
+        const activeKeys = new Set();
+        groupSnap.docs.forEach((g) => {
+          const data = g.data();
+          if (data.status !== 'archived') {
+            activeKeys.add(`${data.brandCode}|${data.name}`);
+          }
+        });
+
         setProjects(
-          snap.docs.map((d) => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate() }))
+          allProjects.filter((p) => activeKeys.has(`${p.brandCode}|${p.title}`))
         );
       } catch (err) {
         console.error('Failed to load projects', err);
