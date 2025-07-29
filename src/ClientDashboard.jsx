@@ -14,6 +14,7 @@ import {
   updateDoc,
   limit,
   serverTimestamp,
+  onSnapshot,
 } from 'firebase/firestore';
 
 const GroupCard = ({ group, onArchive }) => {
@@ -93,22 +94,24 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
   };
 
   useEffect(() => {
-    const fetchGroups = async () => {
-      if (!user?.uid || brandCodes.length === 0) {
-        setGroups([]);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      try {
-        const q = query(
-          collection(db, 'adGroups'),
-          where('brandCode', 'in', brandCodes),
-          where('status', '==', 'ready')
-        );
-        const snap = await getDocs(q);
-        const list = await Promise.all(
-          snap.docs.map(async (d) => {
+    if (!user?.uid || brandCodes.length === 0) {
+      setGroups([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const q = query(
+      collection(db, 'adGroups'),
+      where('brandCode', 'in', brandCodes),
+      where('status', '==', 'ready')
+    );
+
+    const unsub = onSnapshot(
+      q,
+      async (snap) => {
+        try {
+          const list = await Promise.all(
+            snap.docs.map(async (d) => {
             const data = d.data();
             const group = {
               id: d.id,
@@ -198,16 +201,22 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
             return group;
           })
         );
-        setGroups(list.filter((g) => g.status !== 'archived'));
-      } catch (err) {
+          setGroups(list.filter((g) => g.status !== 'archived'));
+          setLoading(false);
+        } catch (err) {
+          console.error('Failed to fetch groups', err);
+          setGroups([]);
+          setLoading(false);
+        }
+      },
+      (err) => {
         console.error('Failed to fetch groups', err);
         setGroups([]);
-      } finally {
         setLoading(false);
       }
-    };
+    );
 
-    fetchGroups();
+    return () => unsub();
   }, [brandCodes, user]);
 
   return (
