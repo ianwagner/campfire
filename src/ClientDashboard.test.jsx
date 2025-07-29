@@ -5,20 +5,24 @@ import '@testing-library/jest-dom';
 import ClientDashboard from './ClientDashboard';
 
 jest.mock('./firebase/config', () => ({ db: {}, auth: {} }));
-
-const getDocs = jest.fn();
-const updateDoc = jest.fn();
-const docMock = jest.fn((...args) => args.slice(1).join('/'));
-const collectionMock = jest.fn((...args) => args);
-
 jest.mock('firebase/firestore', () => ({
-  collection: (...args) => collectionMock(...args),
-  getDocs: (...args) => getDocs(...args),
+  collection: jest.fn(),
+  onSnapshot: jest.fn(),
+  getDocs: jest.fn(),
   query: jest.fn((...args) => args),
   where: jest.fn(),
-  doc: (...args) => docMock(...args),
-  updateDoc: (...args) => updateDoc(...args),
+  doc: jest.fn(),
+  updateDoc: jest.fn(),
+  limit: jest.fn((n) => n),
 }));
+
+import {
+  collection,
+  onSnapshot,
+  getDocs,
+  doc,
+  updateDoc,
+} from 'firebase/firestore';
 
 test('computes summary for groups missing data', async () => {
   const groupSnap = {
@@ -28,14 +32,27 @@ test('computes summary for groups missing data', async () => {
   };
   const assetSnap = {
     docs: [
-      { data: () => ({ firebaseUrl: 'url1', status: 'approved' }) },
-      { data: () => ({ firebaseUrl: 'url2', status: 'rejected' }) },
+      {
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'approved',
+          filename: 'B1_G1_1_9x16_V1.png',
+        }),
+      },
+      {
+        data: () => ({
+          firebaseUrl: 'url2',
+          status: 'rejected',
+          filename: 'B1_G1_2_9x16_V1.png',
+        }),
+      },
     ],
   };
-  getDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'assets') return Promise.resolve(assetSnap);
-    return Promise.resolve(groupSnap);
+  doc.mockImplementation((...args) => args.slice(1).join('/'));
+  getDocs.mockResolvedValue(assetSnap);
+  onSnapshot.mockImplementation((q, cb) => {
+    cb(groupSnap);
+    return jest.fn();
   });
 
   render(
