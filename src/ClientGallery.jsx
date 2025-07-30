@@ -23,20 +23,12 @@ const ClientGallery = ({ brandCodes = [] }) => {
       }
       setLoading(true);
       try {
-        const base = collection(db, 'adAssets');
-        const docs = [];
-        for (const code of brandCodes) {
-          const q = query(
-            base,
-            where('brandCode', '==', code),
-            where('status', '==', 'approved')
-          );
-          const snap = await getDocs(q);
-          docs.push(...snap.docs);
-        }
+        const q = query(collectionGroup(db, 'assets'), where('status', '==', 'approved'));
+        const snap = await getDocs(q);
         const seen = new Set();
         setAssets(
-          docs
+          snap.docs
+            .filter((d) => brandCodes.includes(d.data()?.brandCode || ''))
             .filter((d) => {
               if (seen.has(d.id)) return false;
               seen.add(d.id);
