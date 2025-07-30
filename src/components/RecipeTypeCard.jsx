@@ -1,11 +1,14 @@
 import React from 'react';
 import OptimizedImage from './OptimizedImage.jsx';
 
-const RecipeTypeCard = ({ type, onClick }) => (
+const RecipeTypeCard = ({ type, onClick, selected = false, className = '' }) => (
   <button
     type="button"
     onClick={onClick}
-    className="border rounded shadow bg-white dark:bg-[var(--dark-sidebar-bg)] overflow-hidden text-center p-4 flex flex-col items-center w-full"
+    aria-pressed={selected}
+    className={`border rounded shadow bg-white dark:bg-[var(--dark-sidebar-bg)] overflow-hidden text-center p-4 flex flex-col items-center w-full ${
+      selected ? 'border-accent' : ''
+    } ${className}`}
   >
     {type.iconUrl && (
       <OptimizedImage

@@ -3,6 +3,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import TagInput from './components/TagInput.jsx';
 import { FiEdit2, FiTrash, FiCheck, FiLink } from 'react-icons/fi';
+import RecipeTypeCard from './components/RecipeTypeCard.jsx';
 import selectRandomOption from './utils/selectRandomOption.js';
 
 const CopyRecipePreview = ({
@@ -202,19 +203,23 @@ const CopyRecipePreview = ({
       {!showOnlyResults && (
         <>
           <div>
-            <label className="block text-sm mb-1">Recipe Type</label>
-            <select
-              className="p-2 border rounded"
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
+            <label id="copy-recipe-type-label" className="block text-sm mb-1">
+              Recipe Type
+            </label>
+            <div
+              role="group"
+              aria-labelledby="copy-recipe-type-label"
+              className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
             >
-              <option value="">Select type...</option>
               {types.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
+                <RecipeTypeCard
+                  key={t.id}
+                  type={t}
+                  selected={selectedType === t.id}
+                  onClick={() => setSelectedType(t.id)}
+                />
               ))}
-            </select>
+            </div>
           </div>
           {!hideBrandSelect ? (
             <div>
