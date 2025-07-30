@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
+import useSiteSettings from './useSiteSettings';
+import OptimizedImage from './components/OptimizedImage.jsx';
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { settings } = useSiteSettings();
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -29,6 +32,16 @@ const ProjectDetail = () => {
 
   return (
     <div className="min-h-screen p-4">
+      {settings.artworkUrl && (
+        <div className="w-full p-4 mt-4 max-h-40 overflow-hidden rounded mb-6">
+          <OptimizedImage
+            pngUrl={settings.artworkUrl}
+            alt="Artwork"
+            loading="eager"
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
       <h1 className="text-2xl mb-4">{project.title}</h1>
       <h2 className="text-lg mb-2">Plan</h2>
       <ul className="list-disc list-inside">
