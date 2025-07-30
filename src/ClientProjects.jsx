@@ -119,6 +119,12 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   );
 };
 
+const uniqueById = (list) => {
+  const map = new Map();
+  list.forEach((item) => map.set(item.id, item));
+  return Array.from(map.values());
+};
+
 const ClientProjects = ({ brandCodes = [] }) => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -159,9 +165,10 @@ const ClientProjects = ({ brandCodes = [] }) => {
           }
         });
 
-        setProjects(
-          allProjects.filter((p) => activeKeys.has(`${p.brandCode}|${p.title}`))
+        const filtered = allProjects.filter((p) =>
+          activeKeys.has(`${p.brandCode}|${p.title}`)
         );
+        setProjects(uniqueById(filtered));
       } catch (err) {
         console.error('Failed to load projects', err);
         setProjects([]);
@@ -175,7 +182,10 @@ const ClientProjects = ({ brandCodes = [] }) => {
   const handleCreated = (proj) => {
     setModalStep(null);
     if (proj) {
-      setProjects((p) => [proj, ...p]);
+      setProjects((p) => {
+        const next = [proj, ...p];
+        return uniqueById(next);
+      });
     }
   };
 
