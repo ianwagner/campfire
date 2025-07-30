@@ -31,7 +31,7 @@ const ProjectDetail = () => {
   if (!project) return <div className="min-h-screen p-4">Project not found.</div>;
 
   return (
-    <div className="min-h-screen p-4">
+    <div className="min-h-screen w-full">
       {settings.artworkUrl && (
         <div className="w-full mt-4 max-h-40 overflow-hidden rounded mb-6">
           <OptimizedImage
