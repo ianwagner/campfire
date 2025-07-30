@@ -185,9 +185,8 @@ const ClientProjects = ({ brandCodes = [] }) => {
         <p>Loading projects...</p>
       ) : (
         <div className="w-full max-w-xl">
-          <div className="flex flex-col items-center text-center mt-6 mb-6">
-            {settings.artworkUrl && (
-              <div className="mb-4 p-4 w-full rounded overflow-hidden">
+                      {settings.artworkUrl && (
+              <div className="mb-4 w-full rounded overflow-hidden">
                 <OptimizedImage
                   pngUrl={settings.artworkUrl}
                   alt="Artwork"
@@ -196,6 +195,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
                 />
               </div>
             )}
+          <div className="flex flex-col items-center text-center mt-6 mb-6">
             <h1 className="text-2xl mb-4">How would you like to start?</h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <OptionButton
