@@ -12,6 +12,14 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "uploadedAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "assets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "brandCode", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
