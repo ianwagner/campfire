@@ -155,7 +155,7 @@
     @apply text-red-600 hover:text-red-800;
   }
   .tag {
-    @apply text-xs px-2 py-0.5 rounded-full;
+    @apply text-xs px-2 py-0.5 rounded;
   }
   .tag-new {
     background-color: var(--accent-color-10);
