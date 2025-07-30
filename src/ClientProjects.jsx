@@ -186,13 +186,15 @@ const ClientProjects = ({ brandCodes = [] }) => {
       ) : (
         <div className="w-full max-w-xl">
           <div className="flex flex-col items-center text-center mt-6 mb-6">
-            {settings.iconUrl && (
-              <OptimizedImage
-                pngUrl={settings.iconUrl}
-                alt="Site icon"
-                loading="eager"
-                className="mb-4 max-h-16 w-auto"
-              />
+            {settings.artworkUrl && (
+              <div className="mb-4 p-4 w-full rounded overflow-hidden">
+                <OptimizedImage
+                  pngUrl={settings.artworkUrl}
+                  alt="Artwork"
+                  loading="eager"
+                  className="w-full h-full object-cover"
+                />
+              </div>
             )}
             <h1 className="text-2xl mb-4">How would you like to start?</h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

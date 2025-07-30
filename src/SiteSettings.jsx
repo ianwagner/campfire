@@ -3,6 +3,7 @@ import useSiteSettings from './useSiteSettings';
 import { uploadLogo } from './uploadLogo';
 import { uploadIcon } from './uploadIcon';
 import { uploadCampfireLogo } from './uploadCampfireLogo';
+import { uploadArtwork } from './uploadArtwork';
 import OptimizedImage from './components/OptimizedImage.jsx';
 
 const SiteSettings = () => {
@@ -13,6 +14,8 @@ const SiteSettings = () => {
   const [campfireLogoFile, setCampfireLogoFile] = useState(null);
   const [iconUrl, setIconUrl] = useState('');
   const [iconFile, setIconFile] = useState(null);
+  const [artworkUrl, setArtworkUrl] = useState('');
+  const [artworkFile, setArtworkFile] = useState(null);
   const [accentColor, setAccentColor] = useState('#ea580c');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -24,6 +27,8 @@ const SiteSettings = () => {
     setCampfireLogoFile(null);
     setIconUrl(settings.iconUrl || '');
     setIconFile(null);
+    setArtworkUrl(settings.artworkUrl || '');
+    setArtworkFile(null);
     setAccentColor(settings.accentColor || '#ea580c');
   }, [settings]);
 
@@ -57,6 +62,16 @@ const SiteSettings = () => {
     }
   };
 
+  const handleArtworkChange = (e) => {
+    const file = e.target.files[0];
+    setArtworkFile(file || null);
+    if (file) {
+      setArtworkUrl(URL.createObjectURL(file));
+    } else {
+      setArtworkUrl(settings.artworkUrl || '');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -77,11 +92,17 @@ const SiteSettings = () => {
         icon = await uploadIcon(iconFile);
       }
 
+      let artwork = artworkUrl;
+      if (artworkFile) {
+        artwork = await uploadArtwork(artworkFile);
+      }
+
       await saveSettings({
         logoUrl: logo,
         iconUrl: icon,
         accentColor,
         campfireLogoUrl: campfireLogo,
+        artworkUrl: artwork,
       });
       setLogoUrl(logo);
       setLogoFile(null);
@@ -89,6 +110,8 @@ const SiteSettings = () => {
       setCampfireLogoFile(null);
       setIconUrl(icon);
       setIconFile(null);
+      setArtworkUrl(artwork);
+      setArtworkFile(null);
       setMessage('Settings saved');
     } catch (err) {
       console.error('Failed to save settings', err);
@@ -148,6 +171,23 @@ const SiteSettings = () => {
             <OptimizedImage
               pngUrl={iconUrl}
               alt="Icon preview"
+              loading="eager"
+              className="mt-2 max-h-16 w-auto"
+            />
+          )}
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Artwork</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleArtworkChange}
+            className="w-full p-2 border rounded"
+          />
+          {artworkUrl && (
+            <OptimizedImage
+              pngUrl={artworkUrl}
+              alt="Artwork preview"
               loading="eager"
               className="mt-2 max-h-16 w-auto"
             />
