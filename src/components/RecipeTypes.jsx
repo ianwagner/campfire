@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { FiEdit2, FiTrash, FiPlus } from 'react-icons/fi';
+import { FiEdit2, FiTrash, FiPlus, FiList, FiGrid } from 'react-icons/fi';
 import TagInput from './TagInput.jsx';
 import PromptTextarea from './PromptTextarea.jsx';
 import useComponentTypes from '../useComponentTypes';
@@ -9,13 +9,18 @@ import Button from './Button.jsx';
 import IconButton from './IconButton.jsx';
 import Modal from './Modal.jsx';
 import SortButton from './SortButton.jsx';
+import TabButton from './TabButton.jsx';
+import OptimizedImage from './OptimizedImage.jsx';
+import RecipeTypeCard from './RecipeTypeCard.jsx';
 import { db } from '../firebase/config';
+import { uploadRecipeIcon } from '../uploadRecipeIcon';
 
 const RecipeTypes = () => {
   const componentsData = useComponentTypes();
   const [types, setTypes] = useState([]);
   const [filter, setFilter] = useState('');
   const [sortAsc, setSortAsc] = useState(true);
+  const [view, setView] = useState('list');
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
   const [assetPrompt, setAssetPrompt] = useState('');
@@ -25,6 +30,8 @@ const RecipeTypes = () => {
   const [assetFields, setAssetFields] = useState([]);
   const [defaultColumns, setDefaultColumns] = useState([]);
   const [external, setExternal] = useState(false);
+  const [iconUrl, setIconUrl] = useState('');
+  const [iconFile, setIconFile] = useState(null);
   const [editId, setEditId] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -52,11 +59,23 @@ const RecipeTypes = () => {
     setAssetFields([]);
     setDefaultColumns([]);
     setExternal(false);
+    setIconUrl('');
+    setIconFile(null);
   };
 
   const openCreate = () => {
     resetForm();
     setShowModal(true);
+  };
+
+  const handleIconChange = (e) => {
+    const file = e.target.files[0];
+    setIconFile(file || null);
+    if (file) {
+      setIconUrl(URL.createObjectURL(file));
+    } else {
+      setIconUrl('');
+    }
   };
 
   const handleSave = async (e) => {
@@ -71,6 +90,10 @@ const RecipeTypes = () => {
       }))
       .filter((f) => f.label && f.key);
     try {
+      let icon = iconUrl;
+      if (iconFile) {
+        icon = await uploadRecipeIcon(iconFile);
+      }
       if (editId) {
         await updateDoc(doc(db, 'recipeTypes', editId), {
           name: name.trim(),
@@ -82,6 +105,7 @@ const RecipeTypes = () => {
           writeInFields: writeFields,
           defaultColumns: defaultCols,
           external,
+          iconUrl: icon,
         });
         setTypes((t) =>
           t.map((r) =>
@@ -96,6 +120,7 @@ const RecipeTypes = () => {
                   components: order,
                   writeInFields: writeFields,
                   defaultColumns: defaultCols,
+                  iconUrl: icon,
                 }
               : r
           )
@@ -111,6 +136,7 @@ const RecipeTypes = () => {
           writeInFields: writeFields,
           defaultColumns: defaultCols,
           external,
+          iconUrl: icon,
         });
         setTypes((t) => [
           ...t,
@@ -125,6 +151,7 @@ const RecipeTypes = () => {
             writeInFields: writeFields,
             defaultColumns: defaultCols,
             external,
+            iconUrl: icon,
           },
         ]);
       }
@@ -145,6 +172,8 @@ const RecipeTypes = () => {
     setComponentOrder(t.components || []);
     setDefaultColumns(t.defaultColumns || []);
     setExternal(!!t.external);
+    setIconUrl(t.iconUrl || '');
+    setIconFile(null);
     setFields(
       t.writeInFields && t.writeInFields.length > 0
         ? t.writeInFields
@@ -229,6 +258,12 @@ const RecipeTypes = () => {
               { value: 'desc', label: 'Sort Z-A' },
             ]}
           />
+          <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
+            <FiList />
+          </TabButton>
+          <TabButton active={view === 'cards'} onClick={() => setView('cards')} aria-label="Card view">
+            <FiGrid />
+          </TabButton>
         </div>
         <IconButton onClick={openCreate} aria-label="Create Recipe Type">
           <FiPlus />
@@ -236,10 +271,11 @@ const RecipeTypes = () => {
       </div>
       {filteredTypes.length === 0 ? (
         <p>No recipe types found.</p>
-      ) : (
+      ) : view === 'list' ? (
         <Table>
             <thead>
               <tr>
+                <th>Icon</th>
                 <th>Name</th>
                 <th>Components</th>
                 <th>Write-In Fields</th>
@@ -253,6 +289,15 @@ const RecipeTypes = () => {
             <tbody>
               {filteredTypes.map((t) => (
                 <tr key={t.id}>
+                  <td className="text-center">
+                    {t.iconUrl && (
+                      <OptimizedImage
+                        pngUrl={t.iconUrl}
+                        alt={`${t.name} icon`}
+                        className="w-8 h-8 object-contain inline-block"
+                      />
+                    )}
+                  </td>
                   <td>{t.name}</td>
                   <td>
                     {t.components && t.components.length > 0
@@ -294,6 +339,12 @@ const RecipeTypes = () => {
               ))}
             </tbody>
         </Table>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {filteredTypes.map((t) => (
+            <RecipeTypeCard key={t.id} type={t} onClick={() => startEdit(t)} />
+          ))}
+        </div>
       )}
       {showModal && (
         <Modal sizeClass="max-w-2xl">
@@ -301,6 +352,22 @@ const RecipeTypes = () => {
         <div>
           <label className="block text-sm mb-1">Name</label>
           <input className="w-full p-2 border rounded" value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Icon</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleIconChange}
+            className="w-full p-2 border rounded"
+          />
+          {iconUrl && (
+            <OptimizedImage
+              pngUrl={iconUrl}
+              alt="Icon preview"
+              className="mt-2 h-16 w-auto"
+            />
+          )}
         </div>
         <div>
           <label className="block text-sm mb-1">GPT Prompt</label>
