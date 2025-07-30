@@ -18,6 +18,7 @@ const defaultSettings = {
   logoUrl: '',
   iconUrl: '',
   campfireLogoUrl: '',
+  artworkUrl: '',
   accentColor: storedAccent || DEFAULT_ACCENT_COLOR,
 };
 
