@@ -25,11 +25,10 @@ const ClientGallery = ({ brandCodes = [] }) => {
       try {
         const base = collection(db, 'adAssets');
         const docs = [];
-        for (let i = 0; i < brandCodes.length; i += 10) {
-          const chunk = brandCodes.slice(i, i + 10);
+        for (const code of brandCodes) {
           const q = query(
             base,
-            where('brandCode', 'in', chunk),
+            where('brandCode', '==', code),
             where('status', '==', 'approved')
           );
           const snap = await getDocs(q);
