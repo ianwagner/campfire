@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import {
   doc,
   getDoc,
@@ -117,40 +117,40 @@ const ProjectDetail = () => {
 
   return (
     <div className="min-h-screen p-4 w-full">
-      {settings.artworkUrl && (
-        <div className="w-full mt-4 max-h-40 overflow-hidden rounded mb-6">
-          <OptimizedImage
-            pngUrl={settings.artworkUrl}
-            alt="Artwork"
-            loading="eager"
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
+      <div className="flex items-center mb-4">
+        <Link to="/projects" className="btn-arrow mr-2" aria-label="Back">
+          &lt;
+        </Link>
+      </div>
       <div className="flex flex-col md:flex-row gap-4 mb-4">
-        <div className="border rounded p-4 flex-1">
+        <div className="border rounded p-4 flex-1 max-w-xl relative pt-6">
           <h1 className="text-xl font-semibold mb-1">{project.title}</h1>
           {project.createdAt && (
             <p className="text-sm text-gray-600 mb-2">
               Submitted {project.createdAt.toLocaleString()}
             </p>
           )}
-          <div className="flex flex-wrap gap-2 mb-2">
-            {Array.from(new Set(project.recipeTypes || [])).map((id) => {
-              const type = typesMap[id] || { id, name: id };
-              return <RecipeTypeCard key={id} type={type} className="w-24" />;
-            })}
-          </div>
+          {project.recipeTypes && project.recipeTypes.length > 0 && (
+            <RecipeTypeCard
+              type={
+                typesMap[project.recipeTypes[0]] || {
+                  id: project.recipeTypes[0],
+                  name: project.recipeTypes[0],
+                }
+              }
+              className="w-20 absolute top-0 right-0 mt-2 mr-2"
+            />
+          )}
           <p className="text-sm text-gray-600">
             {recipes.length} recipe{recipes.length === 1 ? '' : 's'}
           </p>
         </div>
-        <div className="border rounded p-4 flex items-center justify-center">
+        <div className="border rounded p-4 flex items-center justify-center max-w-xl">
           <StatusBadge status={project.status} />
         </div>
       </div>
       <div className="space-y-4">
-        <div className="border rounded p-4">
+        <div className="border rounded p-4 max-w-xl">
           <button className="font-medium" onClick={() => setShowBrief((s) => !s)}>
             {showBrief ? 'Hide Brief' : 'View Brief'}
           </button>
@@ -162,11 +162,12 @@ const ProjectDetail = () => {
                 showOnlyResults
                 brandCode={project.brandCode}
                 hideBrandSelect
+                showColumnButton={false}
               />
             </div>
           )}
         </div>
-        <div className="border rounded p-4">
+        <div className="border rounded p-4 max-w-xl">
           <h2 className="font-medium mb-2">Gallery</h2>
           {assets.length === 0 ? (
             <p>No assets uploaded yet.</p>
