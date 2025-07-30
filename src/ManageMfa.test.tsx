@@ -18,12 +18,13 @@ jest.mock('firebase/auth', () => {
 
 import { sendEmailVerification } from 'firebase/auth';
 
-const navigate = jest.fn();
-
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useNavigate: () => navigate,
-}));
+jest.mock('react-router-dom', () => {
+  const actual = jest.requireActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => jest.fn(),
+  };
+});
 
 afterEach(() => {
   jest.clearAllMocks();

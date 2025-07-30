@@ -3,13 +3,19 @@ import useAssets from './useAssets';
 
 jest.mock('./firebase/config', () => ({ db: {} }));
 
-const getDocs = jest.fn();
-const collectionMock = jest.fn((...args) => args);
+jest.mock('firebase/firestore', () => {
+  const getDocsMock = jest.fn();
+  const collectionMock = jest.fn((...args) => args);
+  return {
+    getDocs: (...args) => getDocsMock(...args),
+    collection: (...args) => collectionMock(...args),
+    __esModule: true,
+    getDocsMock,
+    collectionMock,
+  };
+});
 
-jest.mock('firebase/firestore', () => ({
-  getDocs: (...args) => getDocs(...args),
-  collection: (...args) => collectionMock(...args),
-}));
+const { getDocsMock: getDocs, collectionMock } = require('firebase/firestore');
 
 test('loads assets from firestore', async () => {
   const snap = { docs: [{ id: 'a1', data: () => ({ foo: 'bar' }) }] };

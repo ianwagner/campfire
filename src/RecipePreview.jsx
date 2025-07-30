@@ -62,6 +62,7 @@ const RecipePreview = ({
   const [components, setComponents] = useState([]);
   const [instances, setInstances] = useState([]);
   const [brandProducts, setBrandProducts] = useState([]);
+  const [brandCampaigns, setBrandCampaigns] = useState([]);
   const [brands, setBrands] = useState([]);
   const [brandCode, setBrandCode] = useState(initialBrandCode);
   const [selectedType, setSelectedType] = useState('');
@@ -91,7 +92,7 @@ const RecipePreview = ({
   useEffect(() => {
     setVisibleColumns({});
   }, [selectedType]);
-  const allInstances = useMemo(() => [...instances, ...brandProducts], [instances, brandProducts]);
+  const allInstances = useMemo(() => [...instances, ...brandProducts, ...brandCampaigns], [instances, brandProducts, brandCampaigns]);
   const filteredAssetRows = useMemo(() => {
     const term = assetFilter.toLowerCase();
     if (!term) return assetRows;
@@ -180,6 +181,48 @@ const RecipePreview = ({
     };
     loadProducts();
   }, [brandCode]);
+
+  useEffect(() => {
+    const loadCampaigns = async () => {
+      if (!brandCode) {
+        setBrandCampaigns([]);
+        return;
+      }
+      try {
+        const q = query(collection(db, 'brands'), where('code', '==', brandCode));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          const camps = Array.isArray(data.campaigns) ? data.campaigns : [];
+          setBrandCampaigns(
+            camps.map((c, idx) => ({
+              id: `campaign-${idx}`,
+              componentKey: 'campaign',
+              name: c.name,
+              values: {
+                name: c.name,
+                details: Array.isArray(c.details)
+                  ? c.details
+                  : typeof c.details === 'string'
+                  ? c.details
+                      .split(/[;\n]+/)
+                      .map((d) => d.trim())
+                      .filter(Boolean)
+                  : [],
+              },
+              relationships: { brandCode },
+            }))
+          );
+        } else {
+          setBrandCampaigns([]);
+        }
+      } catch (err) {
+        console.error('Failed to load campaigns', err);
+        setBrandCampaigns([]);
+      }
+    };
+    loadCampaigns();
+  }, [brandCode]);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const isAdminOrAgency = userRole === 'admin' || userRole === 'agency';
 
@@ -216,6 +259,16 @@ const RecipePreview = ({
             { label: 'Name', key: 'name', inputType: 'text' },
             { label: 'Description', key: 'description', inputType: 'list' },
             { label: 'Benefits', key: 'benefits', inputType: 'list' },
+          ],
+        });
+        list.push({
+          id: 'campaign',
+          key: 'campaign',
+          label: 'Campaign',
+          selectionMode: 'dropdown',
+          attributes: [
+            { label: 'Name', key: 'name', inputType: 'text' },
+            { label: 'Details', key: 'details', inputType: 'list' },
           ],
         });
         setComponents(list);

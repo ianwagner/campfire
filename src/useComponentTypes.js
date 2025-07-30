@@ -35,6 +35,16 @@ export default function useComponentTypes() {
               { label: 'Benefits', key: 'benefits', inputType: 'text' },
             ],
           });
+          list.push({
+            id: 'campaign',
+            key: 'campaign',
+            label: 'Campaign',
+            selectionMode: 'dropdown',
+            attributes: [
+              { label: 'Name', key: 'name', inputType: 'text' },
+              { label: 'Details', key: 'details', inputType: 'list' },
+            ],
+          });
           setComponents(list);
         }
       } catch (err) {
