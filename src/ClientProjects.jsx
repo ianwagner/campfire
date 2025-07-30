@@ -22,7 +22,7 @@ import { FaMagic } from 'react-icons/fa';
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
-    className="border rounded p-4 text-left hover:bg-gray-100 flex flex-col items-start"
+    className="border rounded p-4 text-left hover:bg-gray-100 flex flex-col items-start w-full"
     onClick={onClick}
   >
     <div className="text-2xl mb-2">
@@ -184,7 +184,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
       {loading ? (
         <p>Loading projects...</p>
       ) : (
-        <div className="w-full">
+        <div className="w-full flex flex-col items-center">
           {settings.artworkUrl && (
               <div className="w-full mt-4 max-h-80 overflow-hidden rounded mb-6">
                 <OptimizedImage
@@ -195,9 +195,9 @@ const ClientProjects = ({ brandCodes = [] }) => {
                 />
               </div>
             )}
-          <div className="max-w-xl flex flex-col items-center text-center mt-6 mb-6">
+          <div className="max-w-xl w-full flex flex-col items-center text-center mt-6 mb-6">
             <h1 className="text-2xl mb-4">How would you like to start?</h1>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full justify-items-center">
               <OptionButton
                 icon={FiFileText}
                 title="Describe Project"
@@ -213,7 +213,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
             </div>
           </div>
           {projects.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-3 max-w-xl w-full mx-auto">
               {projects.map((p) => (
                 <div
                   key={p.id}
