@@ -88,11 +88,12 @@ const RecipePreview = ({
   const currentType = types.find((t) => t.id === selectedType);
 
 
-  // Reset visible columns when the selected recipe type changes so defaults
-  // for the new type can be applied in the column initialization effect below.
+  // Reset visible columns when the selected recipe type changes or when the
+  // recipe type details load so defaults for the type can be applied in the
+  // column initialization effect below.
   useEffect(() => {
     setVisibleColumns({});
-  }, [selectedType]);
+  }, [selectedType, currentType]);
   const allInstances = useMemo(() => [...instances, ...brandProducts, ...brandCampaigns], [instances, brandProducts, brandCampaigns]);
   const filteredAssetRows = useMemo(() => {
     const term = assetFilter.toLowerCase();
