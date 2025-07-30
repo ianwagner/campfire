@@ -184,7 +184,8 @@ const ClientProjects = ({ brandCodes = [] }) => {
       {loading ? (
         <p>Loading projects...</p>
       ) : (
-                            {settings.artworkUrl && (
+        <div className="w-full">
+          {settings.artworkUrl && (
               <div className="w-full mt-4 max-h-80 overflow-hidden rounded mb-6">
                 <OptimizedImage
                   pngUrl={settings.artworkUrl}
@@ -194,7 +195,6 @@ const ClientProjects = ({ brandCodes = [] }) => {
                 />
               </div>
             )}
-        <div className="w-full max-w-xl">
           <div className="flex flex-col items-center text-center mt-6 mb-6">
             <h1 className="text-2xl mb-4">How would you like to start?</h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
