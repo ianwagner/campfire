@@ -180,12 +180,13 @@ const ClientProjects = ({ brandCodes = [] }) => {
   };
 
   return (
-    <div className="min-h-screen p-4 flex flex-col items-center">
+    <div className="min-h-screen p-4 flex flex-col items-center overflow-y-auto snap-y snap-mandatory scroll-smooth">
       {loading ? (
         <p>Loading projects...</p>
       ) : (
         <div className="w-full flex flex-col items-center">
           {settings.artworkUrl && (
+            <section className="snap-start w-full">
               <div className="w-full mt-4 max-h-80 overflow-hidden rounded mb-6">
                 <OptimizedImage
                   pngUrl={settings.artworkUrl}
@@ -194,38 +195,41 @@ const ClientProjects = ({ brandCodes = [] }) => {
                   className="w-full h-full object-cover"
                 />
               </div>
-            )}
-          <div className="max-w-xl w-full flex flex-col items-center text-center mt-6 mb-6">
-            <h1 className="text-2xl mb-4">How would you like to start?</h1>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full justify-items-center">
-              <OptionButton
-                icon={FiFileText}
-                title="Describe Project"
-                desc="Just tell us what you need. We'll generate a brief"
-                onClick={() => setModalStep('describe')}
-              />
-              <OptionButton
-                icon={FaMagic}
-                title="Generate Brief"
-                desc="Craft your own brief. Choose copy, visuals and layouts"
-                onClick={() => setModalStep('brief')}
-              />
-            </div>
-          </div>
-          {projects.length > 0 && (
-            <div className="space-y-3 max-w-xl w-full mx-auto">
-              {projects.map((p) => (
-                <div
-                  key={p.id}
-                  className="border rounded p-4 flex justify-between items-center cursor-pointer"
-                  onClick={() => navigate(`/projects/${p.id}`)}
-                >
-                  <span className="font-medium">{p.title}</span>
-                  <span className="text-sm text-gray-500">{p.status}</span>
-                </div>
-              ))}
-            </div>
+            </section>
           )}
+          <section className="snap-start w-full flex flex-col items-center">
+            <div className="max-w-xl w-full flex flex-col items-center text-center mb-6">
+              <h1 className="text-2xl mb-4">How would you like to start?</h1>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full justify-items-center">
+                <OptionButton
+                  icon={FiFileText}
+                  title="Describe Project"
+                  desc="Just tell us what you need. We'll generate a brief"
+                  onClick={() => setModalStep('describe')}
+                />
+                <OptionButton
+                  icon={FaMagic}
+                  title="Generate Brief"
+                  desc="Craft your own brief. Choose copy, visuals and layouts"
+                  onClick={() => setModalStep('brief')}
+                />
+              </div>
+            </div>
+            {projects.length > 0 && (
+              <div className="space-y-3 max-w-xl w-full mx-auto">
+                {projects.map((p) => (
+                  <div
+                    key={p.id}
+                    className="border rounded p-4 flex justify-between items-center cursor-pointer"
+                    onClick={() => navigate(`/projects/${p.id}`)}
+                  >
+                    <span className="font-medium">{p.title}</span>
+                    <span className="text-sm text-gray-500">{p.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       )}
       {modalStep === 'brief' && (
