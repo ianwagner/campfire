@@ -197,12 +197,12 @@ const ClientProjects = ({ brandCodes = [] }) => {
         <div className="w-full flex flex-col items-center">
           {settings.artworkUrl && (
             <section className="snap-start w-full">
-              <div className="w-full mt-4 max-h-80 overflow-hidden rounded mb-6">
+              <div className="max-w-[60rem] w-full mx-auto mt-4 max-h-[25rem] overflow-hidden rounded-lg mb-6">
                 <OptimizedImage
                   pngUrl={settings.artworkUrl}
                   alt="Artwork"
                   loading="eager"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover object-center"
                 />
               </div>
             </section>
