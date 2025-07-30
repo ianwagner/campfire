@@ -89,6 +89,14 @@ service cloud.firestore {
       allow update: if isAdmin() || isManager() || (request.auth != null && resource.data.uploadedBy == request.auth.uid);
       allow delete: if isAdmin();
 
+      // Ad assets are viewable by any authenticated user regardless of the
+      // parent ad group's permissions. Placing this rule before the generic
+      // catch-all ensures it takes precedence.
+      match /assets/{assetId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null;
+      }
+
       match /{document=**} {
         allow read: if (get(/databases/$(database)/documents/adGroups/$(groupId)).data.visibility == "public" &&
                        !get(/databases/$(database)/documents/adGroups/$(groupId)).data.requireAuth) ||
@@ -128,9 +136,6 @@ service cloud.firestore {
         allow read: if request.auth != null;
       }
     }
-    match /adGroups/{groupId}/assets/{assetId} {
-  		allow read: if request.auth != null;
-		}
     match /assets/{assetId} {
   		allow read: if request.auth != null;
 		}
