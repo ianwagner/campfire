@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collectionGroup, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
@@ -23,18 +23,14 @@ const ClientGallery = ({ brandCodes = [] }) => {
       }
       setLoading(true);
       try {
-        const base = collection(db, 'adAssets');
-        const all = [];
-        for (const code of brandCodes) {
-          const q = query(
-            base,
-            where('brandCode', '==', code),
-            where('status', '==', 'approved')
-          );
-          const snap = await getDocs(q);
-          all.push(...snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        }
-        setAssets(all);
+        const base = collectionGroup(db, 'assets');
+        const q = query(
+          base,
+          where('brandCode', 'in', brandCodes),
+          where('status', '==', 'approved')
+        );
+        const snap = await getDocs(q);
+        setAssets(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error('Failed to load assets', err);
         setAssets([]);
