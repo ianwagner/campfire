@@ -7,6 +7,7 @@ import BrandSetup from './BrandSetup';
 import AssetLibrary from './AssetLibrary.jsx';
 import ReviewLibrary from './ReviewLibrary.jsx';
 import BrandProducts from './BrandProducts.jsx';
+import BrandCampaigns from './BrandCampaigns.jsx';
 import TabButton from './components/TabButton.jsx';
 import {
   FiSettings,
@@ -16,6 +17,7 @@ import {
   FiMessageCircle,
   FiFileText,
   FiFeather,
+  FiFlag,
 } from 'react-icons/fi';
 import BrandTone from './BrandTone.jsx';
 import BrandContracts from './BrandContracts.jsx';
@@ -92,6 +94,9 @@ const BrandProfile = ({ brandId: propId = null }) => {
         <TabButton active={tab === 'products'} onClick={() => setTab('products')}>
           <FiShoppingCart /> <span>Products</span>
         </TabButton>
+        <TabButton active={tab === 'campaigns'} onClick={() => setTab('campaigns')}>
+          <FiFlag /> <span>Campaigns</span>
+        </TabButton>
         <TabButton active={tab === 'contracts'} onClick={() => setTab('contracts')}>
           <FiFileText /> <span>Contracts</span>
         </TabButton>
@@ -102,6 +107,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
       {tab === 'library' && <AssetLibrary brandCode={brandCode} />}
       {tab === 'reviews' && <ReviewLibrary brandCode={brandCode} />}
       {tab === 'products' && <BrandProducts brandId={brandId} brandCode={brandCode} />}
+      {tab === 'campaigns' && <BrandCampaigns brandId={brandId} brandCode={brandCode} />}
       {tab === 'contracts' && (
         <BrandContracts brandId={brandId} brandCode={brandCode} />
       )}
