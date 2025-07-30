@@ -219,7 +219,7 @@ const AdGroupDetail = () => {
         base = "/dashboard/designer";
         break;
       case "client":
-        base = "/dashboard/client";
+        base = "/projects";
         break;
       default:
         base = "/";

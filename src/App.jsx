@@ -154,7 +154,9 @@ const App = () => {
             ? '/pm/dashboard'
             : role === 'editor'
               ? '/editor/tickets'
-              : `/dashboard/${role}`
+              : role === 'client'
+                ? '/projects'
+                : `/dashboard/${role}`
     : '/login';
   if (signedIn && !role) {
     return (
