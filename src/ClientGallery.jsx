@@ -24,13 +24,27 @@ const ClientGallery = ({ brandCodes = [] }) => {
       setLoading(true);
       try {
         const base = collection(db, 'adAssets');
-        const q = query(
-          base,
-          where('brandCode', 'in', brandCodes),
-          where('status', '==', 'approved')
+        const docs = [];
+        for (let i = 0; i < brandCodes.length; i += 10) {
+          const chunk = brandCodes.slice(i, i + 10);
+          const q = query(
+            base,
+            where('brandCode', 'in', chunk),
+            where('status', '==', 'approved')
+          );
+          const snap = await getDocs(q);
+          docs.push(...snap.docs);
+        }
+        const seen = new Set();
+        setAssets(
+          docs
+            .filter((d) => {
+              if (seen.has(d.id)) return false;
+              seen.add(d.id);
+              return true;
+            })
+            .map((d) => ({ id: d.id, ...d.data() }))
         );
-        const snap = await getDocs(q);
-        setAssets(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error('Failed to load assets', err);
         setAssets([]);
