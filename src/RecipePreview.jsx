@@ -31,6 +31,7 @@ import SaveButton from './components/SaveButton.jsx';
 import TabButton from './components/TabButton.jsx';
 import normalizeAssetType from './utils/normalizeAssetType.js';
 import isVideoUrl from './utils/isVideoUrl.js';
+import RecipeTypeCard from './components/RecipeTypeCard.jsx';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -1117,13 +1118,21 @@ const RecipePreview = ({
       {!showOnlyResults && (
         <form onSubmit={handleGenerate} className="space-y-2 max-w-[50rem]">
         <div>
-          <label className="block text-sm mb-1">Recipe Type</label>
-          <select className="w-full p-2 border rounded" value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
-            <option value="">Select...</option>
+          <label id="recipe-type-label" className="block text-sm mb-1">Recipe Type</label>
+          <div
+            role="group"
+            aria-labelledby="recipe-type-label"
+            className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+          >
             {types.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+              <RecipeTypeCard
+                key={t.id}
+                type={t}
+                selected={selectedType === t.id}
+                onClick={() => setSelectedType(t.id)}
+              />
             ))}
-          </select>
+          </div>
         </div>
         {!hideBrandSelect && (
           <div>
