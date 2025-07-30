@@ -33,7 +33,7 @@ const ProjectDetail = () => {
   return (
     <div className="min-h-screen p-4">
       {settings.artworkUrl && (
-        <div className="w-full mt-4 max-h-40 overflow-hidden rounded mb-6">
+        <div className="-mx-4 px-4 mt-4 mb-6 max-h-40 overflow-hidden rounded">
           <OptimizedImage
             pngUrl={settings.artworkUrl}
             alt="Artwork"
