@@ -195,7 +195,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
                 />
               </div>
             )}
-          <div className="flex flex-col items-center text-center mt-6 mb-6">
+          <div className="max-w-xl flex flex-col items-center text-center mt-6 mb-6">
             <h1 className="text-2xl mb-4">How would you like to start?</h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <OptionButton
