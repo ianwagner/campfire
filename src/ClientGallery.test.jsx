@@ -28,18 +28,18 @@ jest.mock('firebase/firestore', () => {
 
 const { getDocsMock: getDocs, whereMock } = require('firebase/firestore');
 
-test('chunks brand codes when loading assets', async () => {
-  getDocs
-    .mockResolvedValueOnce({ docs: [{ id: 'a1', data: () => ({ name: 'a1', firebaseUrl: 'u1' }) }] })
-    .mockResolvedValueOnce({ docs: [{ id: 'a2', data: () => ({ name: 'a2', firebaseUrl: 'u2' }) }] });
+test('loads assets for each brand code', async () => {
+  getDocs.mockResolvedValue({
+    docs: [
+      { id: 'a1', data: () => ({ name: 'a1', firebaseUrl: 'u1' }) },
+    ],
+  });
 
-  const codes = Array.from({ length: 12 }, (_, i) => `B${i}`);
+  const codes = ['B1', 'B2'];
   render(<ClientGallery brandCodes={codes} />);
 
-  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(codes.length));
   const brandCalls = whereMock.mock.calls.filter((c) => c[0] === 'brandCode');
-  expect(brandCalls[0][2]).toEqual(codes.slice(0, 10));
-  expect(brandCalls[1][2]).toEqual(codes.slice(10));
+  expect(brandCalls.map((c) => c[2])).toEqual(codes);
   expect(screen.getByAltText('a1')).toBeInTheDocument();
-  expect(screen.getByAltText('a2')).toBeInTheDocument();
 });
