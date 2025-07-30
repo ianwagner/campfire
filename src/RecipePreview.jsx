@@ -225,7 +225,8 @@ const RecipePreview = ({
     loadCampaigns();
   }, [brandCode]);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
-  const isAdminOrAgency = userRole === 'admin' || userRole === 'agency';
+  const canEditRecipes =
+    userRole === 'admin' || userRole === 'agency' || userRole === 'client';
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1420,7 +1421,7 @@ const RecipePreview = ({
                     )
                 )}
                 {visibleColumns['copy'] && <th className="w-80">Copy</th>}
-                <th className="text-center">{isAdminOrAgency ? 'Actions' : ''}</th>
+                <th className="text-center">{canEditRecipes ? 'Actions' : ''}</th>
               </tr>
             </thead>
             <tbody>
@@ -1553,7 +1554,7 @@ const RecipePreview = ({
                     </td>
                   )}
                   <td className="text-center align-middle">
-                    {isAdminOrAgency ? (
+                    {canEditRecipes ? (
                       <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
