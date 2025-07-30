@@ -136,7 +136,7 @@ const ProjectDetail = () => {
             </p>
           )}
           <div className="flex flex-wrap gap-2 mb-2">
-            {(project.recipeTypes || []).map((id) => {
+            {Array.from(new Set(project.recipeTypes || [])).map((id) => {
               const type = typesMap[id] || { id, name: id };
               return <RecipeTypeCard key={id} type={type} className="w-24" />;
             })}
