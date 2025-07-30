@@ -16,6 +16,7 @@ import ReviewRoute from "./ReviewRoute";
 import AdGroupDetail from "./AdGroupDetail";
 import DesignerDashboard from "./DesignerDashboard";
 import ClientDashboard from "./ClientDashboard";
+import ClientGallery from "./ClientGallery";
 import AdminAdGroups from "./AdminAdGroups";
 import EditorAdGroups from "./EditorAdGroups";
 import AdminRequests from "./AdminRequests";
@@ -312,6 +313,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <ClientProjects brandCodes={brandCodes} />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/gallery"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <ClientGallery brandCodes={brandCodes} />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
