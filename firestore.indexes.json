@@ -6,6 +6,14 @@
       "fields": [{ "fieldPath": "uploadedAt", "order": "ASCENDING" }]
     },
     {
+      "collectionGroup": "adAssets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "brandCode", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "assets",
       "queryScope": "COLLECTION",
       "fields": [
