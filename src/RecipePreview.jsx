@@ -58,6 +58,7 @@ const RecipePreview = ({
   hideBrandSelect = false,
   onRecipesClick = null,
   externalOnly = false,
+  showColumnButton = true,
 }) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
@@ -1096,9 +1097,12 @@ const RecipePreview = ({
       const updated = { ...prev };
       const addKey = (key) => {
         if (!(key in updated)) {
-          let show = false;
-          if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
-            show = currentType.defaultColumns.includes(key);
+          let show = true;
+          if (showColumnButton) {
+            show = false;
+            if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
+              show = currentType.defaultColumns.includes(key);
+            }
           }
           updated[key] = show;
         }
@@ -1113,7 +1117,7 @@ const RecipePreview = ({
       });
       return updated;
     });
-  }, [columnMeta, currentType]);
+  }, [columnMeta, currentType, showColumnButton]);
 
   return (
     <div>
@@ -1317,7 +1321,7 @@ const RecipePreview = ({
       <div className="overflow-x-auto table-container mt-6">
         <PageToolbar
           left={
-            results.length > 0 ? (
+            results.length > 0 && showColumnButton ? (
               <TabButton onClick={() => setShowColumnMenu(true)} aria-label="Columns">
                 <FiColumns />
               </TabButton>
@@ -1344,7 +1348,7 @@ const RecipePreview = ({
             </>
           }
         />
-        {results.length > 0 && showColumnMenu && (
+        {results.length > 0 && showColumnMenu && showColumnButton && (
           <div
             className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
             onClick={() => setShowColumnMenu(false)}
