@@ -2,23 +2,42 @@ import syncAssetLibrary from './syncAssetLibrary';
 
 jest.mock('../firebase/config', () => ({ db: {} }));
 
-const mockSetDoc = jest.fn(() => Promise.resolve());
-const mockDeleteDoc = jest.fn(() => Promise.resolve());
-const mockGetDocs = jest.fn();
-const collectionMock = jest.fn(() => 'collection');
-const queryMock = jest.fn(() => 'query');
-const whereMock = jest.fn(() => 'where');
-const docMock = jest.fn((...args) => args.slice(1).join('/'));
+jest.mock('firebase/firestore', () => {
+  const docMock = jest.fn((...args) => args.slice(1).join('/'));
+  const setDocMock = jest.fn(() => Promise.resolve());
+  const deleteDocMock = jest.fn(() => Promise.resolve());
+  const getDocsMock = jest.fn();
+  const collectionMock = jest.fn(() => 'collection');
+  const queryMock = jest.fn(() => 'query');
+  const whereMock = jest.fn(() => 'where');
+  return {
+    doc: (...args) => docMock(...args),
+    setDoc: (...args) => setDocMock(...args),
+    deleteDoc: (...args) => deleteDocMock(...args),
+    getDocs: (...args) => getDocsMock(...args),
+    collection: (...args) => collectionMock(...args),
+    query: (...args) => queryMock(...args),
+    where: (...args) => whereMock(...args),
+    __esModule: true,
+    docMock,
+    setDocMock,
+    deleteDocMock,
+    getDocsMock,
+    collectionMock,
+    queryMock,
+    whereMock,
+  };
+});
 
-jest.mock('firebase/firestore', () => ({
-  doc: (...args) => docMock(...args),
-  setDoc: (...args) => mockSetDoc(...args),
-  deleteDoc: (...args) => mockDeleteDoc(...args),
-  getDocs: (...args) => mockGetDocs(...args),
-  collection: (...args) => collectionMock(...args),
-  query: (...args) => queryMock(...args),
-  where: (...args) => whereMock(...args),
-}));
+const {
+  docMock,
+  setDocMock: mockSetDoc,
+  deleteDocMock: mockDeleteDoc,
+  getDocsMock: mockGetDocs,
+  collectionMock,
+  queryMock,
+  whereMock,
+} = require('firebase/firestore');
 
 test('writes each asset with brand code', async () => {
   mockGetDocs.mockResolvedValueOnce({ docs: [] });
