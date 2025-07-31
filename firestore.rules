@@ -146,10 +146,8 @@ service cloud.firestore {
 
     // ✅ Collection group rule for any 'assets' subcollection
     match /assets/{assetId} {
-  allow read: if isAdmin() || isManager() || isEditor() ||
-    (request.auth != null &&
-     userData().brandCodes.hasAny([resource.data.brandId]));
-}
+      allow read: if request.auth != null;
+    }
 
     match /notifications/{docId} {
       allow read: if request.auth != null;
