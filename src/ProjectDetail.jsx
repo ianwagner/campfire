@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   doc,
@@ -27,6 +27,9 @@ const ProjectDetail = () => {
   const [typesMap, setTypesMap] = useState({});
   const [assets, setAssets] = useState([]);
   const [showBrief, setShowBrief] = useState(false);
+  const [showAllAssets, setShowAllAssets] = useState(false);
+  const galleryRef = useRef(null);
+  const [columns, setColumns] = useState(0);
   const { settings } = useSiteSettings();
 
   useEffect(() => {
@@ -86,6 +89,34 @@ const ProjectDetail = () => {
     load();
   }, [projectId]);
 
+  const updateLayout = () => {
+    if (typeof window === 'undefined') return;
+    const gallery = galleryRef.current;
+    if (!gallery) return;
+    const style = window.getComputedStyle(gallery);
+    const rowHeight = parseInt(style.getPropertyValue('grid-auto-rows'));
+    const rowGap = parseInt(style.getPropertyValue('row-gap'));
+    const colCount = style.getPropertyValue('grid-template-columns').split(' ').length;
+    setColumns(colCount);
+    Array.from(gallery.children).forEach((child) => {
+      const img = child.querySelector('img');
+      if (img) {
+        const h = img.getBoundingClientRect().height;
+        const span = Math.ceil((h + rowGap) / (rowHeight + rowGap));
+        child.style.gridRowEnd = `span ${span}`;
+      }
+    });
+  };
+
+  useEffect(() => {
+    updateLayout();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', updateLayout);
+      return () => window.removeEventListener('resize', updateLayout);
+    }
+    return undefined;
+  }, [assets]);
+
   const saveRecipes = async (list) => {
     if (!groupId || !Array.isArray(list)) return;
     try {
@@ -114,6 +145,8 @@ const ProjectDetail = () => {
 
   if (loading) return <div className="min-h-screen p-4">Loading...</div>;
   if (!project) return <div className="min-h-screen p-4">Project not found.</div>;
+
+  const visibleAssets = showAllAssets ? assets : assets.slice(0, columns || assets.length);
 
   return (
     <div className="min-h-screen p-4 w-full max-w-[60rem] mx-auto">
@@ -175,25 +208,38 @@ const ProjectDetail = () => {
           {assets.length === 0 ? (
             <p>No assets uploaded yet.</p>
           ) : (
-            <div className="asset-gallery mt-2">
-              {assets.map((a) => (
-                <div key={a.id} className="asset-gallery-item">
-                  {isVideoUrl(a.firebaseUrl || a.url) ? (
-                    <VideoPlayer
-                      src={a.firebaseUrl || a.url}
-                      poster={a.thumbnailUrl}
-                      className="w-full h-auto object-contain"
-                    />
-                  ) : (
-                    <OptimizedImage
-                      pngUrl={a.thumbnailUrl || a.url || a.firebaseUrl}
-                      alt={a.name || 'asset'}
-                      className="w-full h-auto object-contain"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="asset-gallery mt-2" ref={galleryRef}>
+                {visibleAssets.map((a) => (
+                  <div key={a.id} className="asset-gallery-item">
+                    {isVideoUrl(a.firebaseUrl || a.url) ? (
+                      <VideoPlayer
+                        src={a.firebaseUrl || a.url}
+                        poster={a.thumbnailUrl}
+                        className="w-full h-auto object-contain"
+                        onLoadedData={updateLayout}
+                      />
+                    ) : (
+                      <OptimizedImage
+                        pngUrl={a.thumbnailUrl || a.url || a.firebaseUrl}
+                        alt={a.name || 'asset'}
+                        className="w-full h-auto object-contain"
+                        onLoad={updateLayout}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              {!showAllAssets && assets.length > visibleAssets.length && (
+                <button
+                  type="button"
+                  className="text-sm text-accent mt-2"
+                  onClick={() => setShowAllAssets(true)}
+                >
+                  View More
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
