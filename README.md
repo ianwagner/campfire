@@ -340,6 +340,9 @@ when generating recipes.
 Saving the library writes the assets to Firestore so they are available from any
 browser or device.
 
+Clients can view all of their approved ads on the **Media Library** page at
+`/media-library`, accessible from the sidebar.
+
 ## Notification Automation
 
 Administrators can configure notification rules under `/admin/notifications`.
