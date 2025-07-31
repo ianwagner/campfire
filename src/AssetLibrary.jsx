@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   FiTrash,
   FiLink,
@@ -63,25 +63,25 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [thumbSelectedLoading, setThumbSelectedLoading] = useState(false);
   const [tagSelectedLoading, setTagSelectedLoading] = useState(false);
 
-  const filtered = assets.filter((a) => {
+  const filtered = useMemo(() => {
     const term = filter.toLowerCase();
-    return (
+    const arr = assets.filter((a) =>
       !term ||
       (a.name || '').toLowerCase().includes(term) ||
       (a.product || '').toLowerCase().includes(term) ||
       (a.campaign || '').toLowerCase().includes(term)
     );
-  });
-
-  if (!dirty) {
-    filtered.sort((a, b) => {
-      if (sortField === 'createdAt') return (b.createdAt || 0) - (a.createdAt || 0);
-      if (sortField === 'type') return (a.type || '').localeCompare(b.type || '');
-      if (sortField === 'product') return (a.product || '').localeCompare(b.product || '');
-      if (sortField === 'campaign') return (a.campaign || '').localeCompare(b.campaign || '');
-      return (a.name || '').localeCompare(b.name || '');
-    });
-  }
+    if (!dirty) {
+      arr.sort((a, b) => {
+        if (sortField === 'createdAt') return (b.createdAt || 0) - (a.createdAt || 0);
+        if (sortField === 'type') return (a.type || '').localeCompare(b.type || '');
+        if (sortField === 'product') return (a.product || '').localeCompare(b.product || '');
+        if (sortField === 'campaign') return (a.campaign || '').localeCompare(b.campaign || '');
+        return (a.name || '').localeCompare(b.name || '');
+      });
+    }
+    return arr;
+  }, [assets, filter, sortField, dirty]);
 
   const lastIdx = useRef(null);
   const dragValue = useRef(null);
