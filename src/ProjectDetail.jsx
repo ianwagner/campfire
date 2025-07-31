@@ -116,7 +116,7 @@ const ProjectDetail = () => {
   if (!project) return <div className="min-h-screen p-4">Project not found.</div>;
 
   return (
-    <div className="min-h-screen p-4 w-full">
+    <div className="min-h-screen p-4 w-full max-w-[55rem] mx-auto">
       <div className="flex items-center mb-4">
         <Link to="/projects" className="btn-arrow mr-2" aria-label="Back">
           &lt;
@@ -138,7 +138,8 @@ const ProjectDetail = () => {
                   name: project.recipeTypes[0],
                 }
               }
-              className="w-20 absolute top-0 right-0 mt-2 mr-2"
+              size="small"
+              className="absolute top-0 right-0 mt-2 mr-2"
             />
           )}
           <p className="text-sm text-gray-600">
