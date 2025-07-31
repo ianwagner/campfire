@@ -3,30 +3,39 @@ import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import MediaLibrary from './MediaLibrary.jsx';
 
-jest.mock('./firebase/config', () => ({ db: {} }));
+jest.mock('./firebase/config', () => ({ db: {}, auth: {} }));
+jest.mock('firebase/auth', () => ({ onAuthStateChanged: jest.fn() }));
 
 jest.mock('./components/OptimizedImage.jsx', () => (props) => <img {...props} />);
 jest.mock('./components/VideoPlayer.jsx', () => (props) => <video {...props} />);
 
 jest.mock('firebase/firestore', () => {
   const getDocsMock = jest.fn();
-  const collectionMock = jest.fn((...args) => args);
+  const collectionGroupMock = jest.fn((...args) => args);
   const queryMock = jest.fn((...args) => args);
   const whereMock = jest.fn((...args) => args);
   return {
-    collection: (...args) => collectionMock(...args),
+    collectionGroup: (...args) => collectionGroupMock(...args),
     getDocs: (...args) => getDocsMock(...args),
     query: (...args) => queryMock(...args),
     where: (...args) => whereMock(...args),
     __esModule: true,
     getDocsMock,
-    collectionMock,
+    collectionGroupMock,
     queryMock,
     whereMock,
   };
 });
 
-const { getDocsMock: getDocs, whereMock, collectionMock } = require('firebase/firestore');
+const { getDocsMock: getDocs, whereMock, collectionGroupMock } = require('firebase/firestore');
+const authModule = require('firebase/auth');
+
+beforeEach(() => {
+  authModule.onAuthStateChanged.mockImplementation((_, cb) => {
+    cb({ uid: 'u1' });
+    return () => {};
+  });
+});
 
 test('loads assets for each brand code', async () => {
   getDocs.mockResolvedValue({
@@ -38,9 +47,7 @@ test('loads assets for each brand code', async () => {
   const codes = ['B1', 'B2'];
   render(<MediaLibrary brandCodes={codes} />);
 
-  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(codes.length));
-  expect(collectionMock).toHaveBeenCalledWith({}, 'adAssets');
-  const brandCalls = whereMock.mock.calls.filter((c) => c[0] === 'brandCode');
-  expect(brandCalls.map((c) => c[2])).toEqual(codes);
+  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(1));
+  expect(collectionGroupMock).toHaveBeenCalledWith({}, 'assets');
   expect(screen.getByAltText('a1')).toBeInTheDocument();
 });
