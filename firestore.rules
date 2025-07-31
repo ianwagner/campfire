@@ -70,7 +70,10 @@ service cloud.firestore {
     }
 
     match /brands/{brandId}/assets/{assetId} {
-      allow read: if isAdmin() || isManager() || isEditor();
+      allow read: if (
+	isAdmin() || isManager() || isEditor() ||
+    	(request.auth != null && userData().brandCodes.hasAny([brandId]))
+	);
     }
 
     match /componentInstances/{docId} {
