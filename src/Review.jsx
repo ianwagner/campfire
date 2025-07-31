@@ -1561,8 +1561,8 @@ useEffect(() => {
       >
         V{getVersion(displayAd)}
       </span>
-    ) : (
-      <div className="relative">
+      ) : (
+      <div className="absolute top-0 left-0">
         <span
           onClick={() => setShowVersionMenu((o) => !o)}
           className="version-badge cursor-pointer select-none"
