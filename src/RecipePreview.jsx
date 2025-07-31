@@ -1097,12 +1097,11 @@ const RecipePreview = ({
       const updated = { ...prev };
       const addKey = (key) => {
         if (!(key in updated)) {
-          let show = true;
-          if (showColumnButton) {
-            show = false;
-            if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
-              show = currentType.defaultColumns.includes(key);
-            }
+          let show = false;
+          if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
+            show = currentType.defaultColumns.includes(key);
+          } else if (!showColumnButton) {
+            show = true;
           }
           updated[key] = show;
         }
