@@ -25,15 +25,27 @@ const MediaLibrary = ({ brandCodes = [] }) => {
       }
       setLoading(true);
       try {
-        const q = query(
-          collectionGroup(db, 'assets'),
-          where('status', '==', 'approved')
+        const chunks = [];
+        for (let i = 0; i < brandCodes.length; i += 10) {
+          chunks.push(brandCodes.slice(i, i + 10));
+        }
+
+        const snaps = await Promise.all(
+          chunks.map((chunk) =>
+            getDocs(
+              query(
+                collectionGroup(db, 'assets'),
+                where('status', '==', 'approved'),
+                where('brandCode', 'in', chunk)
+              )
+            )
+          )
         );
-        const snap = await getDocs(q);
+
         const seen = new Set();
+        const docs = snaps.flatMap((s) => s.docs);
         setAssets(
-          snap.docs
-            .filter((d) => brandCodes.includes(d.data()?.brandCode || ''))
+          docs
             .filter((d) => {
               if (seen.has(d.id)) return false;
               seen.add(d.id);
