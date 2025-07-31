@@ -41,6 +41,14 @@ const emptyAsset = {
   createdAt: null,
 };
 
+const sortFn = (field) => (a, b) => {
+  if (field === 'createdAt') return (b.createdAt || 0) - (a.createdAt || 0);
+  if (field === 'type') return (a.type || '').localeCompare(b.type || '');
+  if (field === 'product') return (a.product || '').localeCompare(b.product || '');
+  if (field === 'campaign') return (a.campaign || '').localeCompare(b.campaign || '');
+  return (a.name || '').localeCompare(b.name || '');
+};
+
 const AssetLibrary = ({ brandCode = '' }) => {
   const [assets, setAssets] = useState([]);
   const [selected, setSelected] = useState({});
@@ -63,25 +71,25 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [thumbSelectedLoading, setThumbSelectedLoading] = useState(false);
   const [tagSelectedLoading, setTagSelectedLoading] = useState(false);
 
+  // keep assets sorted whenever the sort field changes
+  useEffect(() => {
+    setAssets((prev) => {
+      const arr = [...prev];
+      arr.sort(sortFn(sortField));
+      return arr;
+    });
+  }, [sortField]);
+
   const filtered = useMemo(() => {
     const term = filter.toLowerCase();
-    const arr = assets.filter((a) =>
-      !term ||
-      (a.name || '').toLowerCase().includes(term) ||
-      (a.product || '').toLowerCase().includes(term) ||
-      (a.campaign || '').toLowerCase().includes(term)
+    return assets.filter(
+      (a) =>
+        !term ||
+        (a.name || '').toLowerCase().includes(term) ||
+        (a.product || '').toLowerCase().includes(term) ||
+        (a.campaign || '').toLowerCase().includes(term)
     );
-    if (!dirty) {
-      arr.sort((a, b) => {
-        if (sortField === 'createdAt') return (b.createdAt || 0) - (a.createdAt || 0);
-        if (sortField === 'type') return (a.type || '').localeCompare(b.type || '');
-        if (sortField === 'product') return (a.product || '').localeCompare(b.product || '');
-        if (sortField === 'campaign') return (a.campaign || '').localeCompare(b.campaign || '');
-        return (a.name || '').localeCompare(b.name || '');
-      });
-    }
-    return arr;
-  }, [assets, filter, sortField, dirty]);
+  }, [assets, filter]);
 
   const lastIdx = useRef(null);
   const dragValue = useRef(null);
@@ -117,7 +125,9 @@ const AssetLibrary = ({ brandCode = '' }) => {
         if (brandCode) q = query(q, where('brandCode', '==', brandCode));
         const snap = await getDocs(q);
         if (!cancelled) {
-          setAssets(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+          const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          docs.sort(sortFn(sortField));
+          setAssets(docs);
           setDirty(false);
         }
       } catch (err) {
@@ -326,6 +336,11 @@ const AssetLibrary = ({ brandCode = '' }) => {
     try {
       setSaving(true);
       await syncAssetLibrary(brandCode, assets);
+      setAssets((prev) => {
+        const arr = [...prev];
+        arr.sort(sortFn(sortField));
+        return arr;
+      });
       setDirty(false);
     } catch (err) {
       console.error('Failed to save assets', err);
