@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { collectionGroup, getDocs, query, where } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { onAuthStateChanged } from 'firebase/auth';
+import { db, auth } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
@@ -15,6 +16,7 @@ const MediaLibrary = ({ brandCodes = [] }) => {
   const galleryRef = useRef(null);
 
   useEffect(() => {
+    let unsub = null;
     const load = async () => {
       if (!brandCodes || brandCodes.length === 0) {
         setAssets([]);
@@ -23,7 +25,10 @@ const MediaLibrary = ({ brandCodes = [] }) => {
       }
       setLoading(true);
       try {
-        const q = query(collectionGroup(db, 'assets'), where('status', '==', 'approved'));
+        const q = query(
+          collectionGroup(db, 'assets'),
+          where('status', '==', 'approved')
+        );
         const snap = await getDocs(q);
         const seen = new Set();
         setAssets(
@@ -43,7 +48,19 @@ const MediaLibrary = ({ brandCodes = [] }) => {
         setLoading(false);
       }
     };
-    load();
+
+    unsub = onAuthStateChanged(auth, (u) => {
+      if (u) {
+        load();
+      } else {
+        setAssets([]);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      if (unsub) unsub();
+    };
   }, [brandCodes]);
 
   const updateSpans = () => {
