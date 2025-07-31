@@ -2400,6 +2400,7 @@ const AdGroupDetail = () => {
               showOnlyResults
               onSelectChange={toggleRecipeSelect}
               onRecipesClick={() => setShowRecipes(true)}
+              externalOnly
             />
           )}
           {userRole === "admin" && savedRecipes.length === 0 && (
@@ -2794,6 +2795,7 @@ const AdGroupDetail = () => {
             onSave={saveRecipes}
             brandCode={group?.brandCode}
             hideBrandSelect
+            externalOnly
           />
         </Modal>
       )}

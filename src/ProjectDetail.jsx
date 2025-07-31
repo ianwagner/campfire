@@ -163,6 +163,7 @@ const ProjectDetail = () => {
                 brandCode={project.brandCode}
                 hideBrandSelect
                 showColumnButton={false}
+                externalOnly
               />
             </div>
           )}
