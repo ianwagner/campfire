@@ -116,21 +116,26 @@ const ProjectDetail = () => {
   if (!project) return <div className="min-h-screen p-4">Project not found.</div>;
 
   return (
-    <div className="min-h-screen p-4 w-full max-w-[55rem] mx-auto">
+    <div className="min-h-screen p-4 w-full max-w-[60rem] mx-auto">
       <div className="flex items-center mb-4">
         <Link to="/projects" className="btn-arrow mr-2" aria-label="Back">
           &lt;
         </Link>
       </div>
       <div className="flex flex-col md:flex-row gap-4 mb-4">
-        <div className="border rounded p-4 flex-1 max-w-xl relative pt-6">
+        <div className="border rounded p-4 flex-1 max-w-[60rem]">
           <h1 className="text-xl font-semibold mb-1">{project.title}</h1>
           {project.createdAt && (
             <p className="text-sm text-gray-600 mb-2">
               Submitted {project.createdAt.toLocaleString()}
             </p>
           )}
-          {project.recipeTypes && project.recipeTypes.length > 0 && (
+          <p className="text-sm text-gray-600">
+            {recipes.length} recipe{recipes.length === 1 ? '' : 's'}
+          </p>
+        </div>
+        {project.recipeTypes && project.recipeTypes.length > 0 && (
+          <div className="border rounded p-4 flex items-center justify-center max-w-[60rem]">
             <RecipeTypeCard
               type={
                 typesMap[project.recipeTypes[0]] || {
@@ -139,19 +144,15 @@ const ProjectDetail = () => {
                 }
               }
               size="small"
-              className="absolute top-0 right-0 mt-2 mr-2"
             />
-          )}
-          <p className="text-sm text-gray-600">
-            {recipes.length} recipe{recipes.length === 1 ? '' : 's'}
-          </p>
-        </div>
-        <div className="border rounded p-4 flex items-center justify-center max-w-xl">
+          </div>
+        )}
+        <div className="border rounded p-4 flex items-center justify-center max-w-[60rem]">
           <StatusBadge status={project.status} />
         </div>
       </div>
       <div className="space-y-4">
-        <div className="border rounded p-4 max-w-xl">
+        <div className="border rounded p-4 max-w-[60rem]">
           <button className="font-medium" onClick={() => setShowBrief((s) => !s)}>
             {showBrief ? 'Hide Brief' : 'View Brief'}
           </button>
@@ -169,7 +170,7 @@ const ProjectDetail = () => {
             </div>
           )}
         </div>
-        <div className="border rounded p-4 max-w-xl">
+        <div className="border rounded p-4 max-w-[60rem]">
           <h2 className="font-medium mb-2">Gallery</h2>
           {assets.length === 0 ? (
             <p>No assets uploaded yet.</p>
