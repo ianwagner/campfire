@@ -49,5 +49,7 @@ test('loads assets for each brand code', async () => {
 
   await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(1));
   expect(collectionGroupMock).toHaveBeenCalledWith({}, 'assets');
-  expect(screen.getByAltText('a1')).toBeInTheDocument();
+  expect(whereMock).toHaveBeenCalledWith('status', '==', 'approved');
+  expect(whereMock).toHaveBeenCalledWith('brandCode', 'in', codes);
+  expect(await screen.findByAltText('a1')).toBeInTheDocument();
 });
