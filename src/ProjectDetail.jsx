@@ -115,6 +115,15 @@ const ProjectDetail = () => {
   if (loading) return <div className="min-h-screen p-4">Loading...</div>;
   if (!project) return <div className="min-h-screen p-4">Project not found.</div>;
 
+  const firstType =
+    project.recipeTypes && project.recipeTypes.length > 0
+      ? typesMap[project.recipeTypes[0]] || {
+          id: project.recipeTypes[0],
+          name: project.recipeTypes[0],
+          iconUrl: undefined,
+        }
+      : null;
+
   return (
     <div className="min-h-screen p-4 w-full max-w-[60rem] mx-auto">
       <div className="flex items-center mb-4">
@@ -134,17 +143,16 @@ const ProjectDetail = () => {
             {recipes.length} recipe{recipes.length === 1 ? '' : 's'}
           </p>
         </div>
-        {project.recipeTypes && project.recipeTypes.length > 0 && (
-          <div className="border rounded p-4 flex items-center justify-center max-w-[60rem]">
-            <RecipeTypeCard
-              type={
-                typesMap[project.recipeTypes[0]] || {
-                  id: project.recipeTypes[0],
-                  name: project.recipeTypes[0],
-                }
-              }
-              size="small"
-            />
+        {firstType && (
+          <div className="border rounded p-4 flex items-center justify-center gap-2 max-w-[60rem]">
+            {firstType.iconUrl && (
+              <OptimizedImage
+                pngUrl={firstType.iconUrl}
+                alt={`${firstType.name} icon`}
+                className="w-8 h-8 object-contain"
+              />
+            )}
+            <p className="font-medium text-xs">{firstType.name}</p>
           </div>
         )}
         <div className="border rounded p-4 flex items-center justify-center max-w-[60rem]">
