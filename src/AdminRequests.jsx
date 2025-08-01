@@ -946,7 +946,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       <span className="relative group">
                         <FiX className="text-red-600" />
                         <div className="absolute right-0 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                          We can’t access this link. Please make sure it is set to “anyone can view”.
+                          We can’t access this link. Please make sure it’s set to “anyone can view” or the folder may be empty.
                         </div>
                       </span>
                     )}
