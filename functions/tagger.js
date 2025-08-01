@@ -3,6 +3,9 @@ import { google } from 'googleapis';
 import vision from '@google-cloud/vision';
 import OpenAI from 'openai';
 import sharp from 'sharp';
+
+// Uses Google Drive API with supportsAllDrives so folders from shared drives
+// can be processed the same as My Drive folders.
 import admin from 'firebase-admin';
 
 if (!admin.apps.length) {
@@ -13,6 +16,9 @@ async function listImages(folderId, drive) {
   const res = await drive.files.list({
     q: `'${folderId}' in parents and mimeType contains 'image/' and trashed=false`,
     fields: 'files(id,name,webContentLink,mimeType)',
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+    corpora: 'allDrives',
   });
   return res.data.files || [];
 }
@@ -54,7 +60,11 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
 
     for (const file of files) {
       try {
-        const dl = await drive.files.get({ fileId: file.id, alt: 'media' }, { responseType: 'arraybuffer' });
+        const dl = await drive.files.get({
+          fileId: file.id,
+          alt: 'media',
+          supportsAllDrives: true,
+        }, { responseType: 'arraybuffer' });
         let buffer = Buffer.from(dl.data);
         if (buffer.length > 2 * 1024 * 1024) {
           try {
