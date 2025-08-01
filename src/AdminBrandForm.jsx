@@ -9,6 +9,7 @@ const AdminBrandForm = () => {
   const [agencyId, setAgencyId] = useState('');
   const [toneOfVoice, setToneOfVoice] = useState('');
   const [offering, setOffering] = useState('');
+  const [driveFolderId, setDriveFolderId] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const { agencies } = useAgencies();
@@ -25,6 +26,7 @@ const AdminBrandForm = () => {
         agencyId: agencyId.trim(),
         toneOfVoice: toneOfVoice.trim(),
         offering: offering.trim(),
+        driveFolderId: driveFolderId.trim(),
         archived: false,
         archivedAt: null,
         archivedBy: null,
@@ -35,6 +37,7 @@ const AdminBrandForm = () => {
       setAgencyId('');
       setToneOfVoice('');
       setOffering('');
+      setDriveFolderId('');
       setMessage('Brand added');
     } catch (err) {
       console.error('Failed to add brand', err);
@@ -97,6 +100,15 @@ const AdminBrandForm = () => {
             type="text"
             value={offering}
             onChange={(e) => setOffering(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Drive Folder ID</label>
+          <input
+            type="text"
+            value={driveFolderId}
+            onChange={(e) => setDriveFolderId(e.target.value)}
             className="w-full p-2 border rounded"
           />
         </div>

@@ -12,6 +12,7 @@ import { generateTagsForAssets } from './tagAssets.js';
 import { listDriveFiles } from './listDriveFiles.js';
 import { parsePdp } from './parsePdp.js';
 import { cacheProductImages } from './cacheProductImages.js';
+import { copyAssetToDrive, cleanupDriveFile } from './driveAssets.js';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -287,4 +288,6 @@ export {
   listDriveFiles,
   parsePdp,
   cacheProductImages,
+  copyAssetToDrive,
+  cleanupDriveFile,
 };
