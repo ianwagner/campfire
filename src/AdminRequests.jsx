@@ -363,19 +363,6 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     setLinkStatus((s) => [...s, null]);
   };
 
-  const removeAssetLink = (idx) => {
-    setForm((f) => {
-      const arr = [...(f.assetLinks || [])];
-      arr.splice(idx, 1);
-      return { ...f, assetLinks: arr.length ? arr : [''] };
-    });
-    setLinkStatus((s) => {
-      const arr = [...s];
-      arr.splice(idx, 1);
-      return arr.length ? arr : [null];
-    });
-  };
-
   const handleAssetLinkChange = (idx, val) => {
     setForm((f) => {
       const arr = [...(f.assetLinks || [])];
@@ -392,11 +379,6 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const verifyLink = async (idx) => {
     const url = (form.assetLinks || [])[idx];
     if (!url) return;
-    setLinkStatus((s) => {
-      const arr = [...s];
-      arr[idx] = 'loading';
-      return arr;
-    });
     try {
       const callable = httpsCallable(functions, 'listDriveFiles', { timeout: 60000 });
       await callable({ data: { driveFolderUrl: url } });
@@ -410,11 +392,6 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
         const arr = [...s];
         arr[idx] = false;
         return arr;
-      });
-      setForm((f) => {
-        const arr = [...(f.assetLinks || [])];
-        arr[idx] = 'rejected 10';
-        return { ...f, assetLinks: arr };
       });
     }
   };
@@ -962,22 +939,13 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       onBlur={() => verifyLink(idx)}
                       className="flex-1 p-2 border rounded"
                     />
-                    {linkStatus[idx] === 'loading' && (
-                      <div className="loading-ring w-4 h-4 border-2" />
-                    )}
                     {linkStatus[idx] === true && (
-                      <FiCheckCircle className="text-[var(--approve-color)]" />
+                      <FiCheckCircle className="text-green-600" />
                     )}
                     {linkStatus[idx] === false && (
                       <span className="relative group">
-                        <button
-                          type="button"
-                          onClick={() => removeAssetLink(idx)}
-                          className="p-0 m-0 text-[var(--reject-color)]"
-                        >
-                          <FiX />
-                        </button>
-                        <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-normal z-20 bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                        <FiX className="text-red-600" />
+                        <div className="absolute right-0 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
                           We can’t access this link. Please make sure it’s set to “anyone can view” or the folder may be empty.
                         </div>
                       </span>
