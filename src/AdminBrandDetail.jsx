@@ -10,6 +10,9 @@ import useAgencies from './useAgencies';
 const emptyLogo = { url: '', file: null };
 const emptyFont = { type: 'google', value: '', name: '', file: null };
 
+const driveIdRegex = /^[\w-]{10,}$/;
+const isValidDriveId = (id) => driveIdRegex.test(id);
+
 const AdminBrandDetail = () => {
   const { id } = useParams();
   const [code, setCode] = useState('');
@@ -85,8 +88,17 @@ const AdminBrandDetail = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!id) return;
-    setLoading(true);
     setMessage('');
+    const trimmedId = driveFolderId.trim();
+    if (!trimmedId) {
+      setMessage('Drive folder ID is required');
+      return;
+    }
+    if (!isValidDriveId(trimmedId)) {
+      setMessage('Drive folder ID is malformed');
+      return;
+    }
+    setLoading(true);
     try {
       let guidelinesUrl = guidelines.url;
       const brandCode = code.trim();
