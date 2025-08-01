@@ -13,7 +13,7 @@ jest.mock('googleapis', () => {
   };
 });
 
-const { listDriveFiles } = require('./listDriveFiles.js');
+const { listDriveFiles, extractFileId } = require('./listDriveFiles.js');
 
 afterEach(() => {
   jest.clearAllMocks();
@@ -58,4 +58,10 @@ test('returns single file when file url provided', async () => {
   });
   expect(mocks.listMock).not.toHaveBeenCalled();
   expect(res.results).toEqual([{ name: 'img.png', url: 'fileLink', campaign: 'Camp' }]);
+});
+
+test('extractFileId handles url fragments', () => {
+  const folderId = 'ccccccccccccccccccccccccc';
+  const url = `https://drive.google.com/drive/folders/${folderId}#folder=0`;
+  expect(extractFileId(url)).toBe(folderId);
 });
