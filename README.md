@@ -102,7 +102,7 @@ firebase functions:list
 to confirm the functions appear in your project.
 
 The Drive-based functions such as `listDriveFiles`, `generateThumbnailsForAssets`,
-and `tagger` support files stored in shared drives. They pass `supportsAllDrives`
+`verifyDriveAccess`, and `tagger` support files stored in shared drives. They pass `supportsAllDrives`
 and related options to the Google Drive API so links from team drives work the
 same as regular My Drive URLs.
 

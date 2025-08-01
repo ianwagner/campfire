@@ -10,6 +10,7 @@ import { tagger } from './tagger.js';
 import { generateThumbnailsForAssets } from './thumbnails.js';
 import { generateTagsForAssets } from './tagAssets.js';
 import { listDriveFiles } from './listDriveFiles.js';
+import { verifyDriveAccess } from './verifyDriveAccess.js';
 import { parsePdp } from './parsePdp.js';
 import { cacheProductImages } from './cacheProductImages.js';
 import { copyAssetToDrive, cleanupDriveFile } from './driveAssets.js';
@@ -286,6 +287,7 @@ export {
   generateThumbnailsForAssets,
   generateTagsForAssets,
   listDriveFiles,
+  verifyDriveAccess,
   parsePdp,
   cacheProductImages,
   copyAssetToDrive,
