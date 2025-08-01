@@ -17,6 +17,7 @@ const AdminBrandDetail = () => {
   const [agencyId, setAgencyId] = useState('');
   const [toneOfVoice, setToneOfVoice] = useState('');
   const [offering, setOffering] = useState('');
+  const [driveFolderId, setDriveFolderId] = useState('');
   const [guidelines, setGuidelines] = useState({ url: '', file: null });
   const [logos, setLogos] = useState([{ ...emptyLogo }]);
   const [palette, setPalette] = useState(['#000000']);
@@ -38,6 +39,7 @@ const AdminBrandDetail = () => {
           setAgencyId(data.agencyId || '');
           setToneOfVoice(data.toneOfVoice || '');
           setOffering(data.offering || '');
+          setDriveFolderId(data.driveFolderId || '');
           setGuidelines({ url: data.guidelinesUrl || '', file: null });
           setLogos(
             Array.isArray(data.logos) && data.logos.length
@@ -124,6 +126,7 @@ const AdminBrandDetail = () => {
         agencyId: agencyId.trim(),
         toneOfVoice: toneOfVoice.trim(),
         offering: offering.trim(),
+        driveFolderId: driveFolderId.trim(),
         guidelinesUrl,
         logos: logoUrls,
         palette,
@@ -189,6 +192,14 @@ const AdminBrandDetail = () => {
             type="text"
             value={offering}
             onChange={(e) => setOffering(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+        </FormField>
+        <FormField label="Drive Folder ID">
+          <input
+            type="text"
+            value={driveFolderId}
+            onChange={(e) => setDriveFolderId(e.target.value)}
             className="w-full p-2 border rounded"
           />
         </FormField>
