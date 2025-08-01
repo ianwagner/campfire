@@ -19,6 +19,9 @@ import IconButton from './components/IconButton.jsx';
 import { FiEdit2 } from 'react-icons/fi';
 import BrandAssetsLayout from './BrandAssetsLayout.jsx';
 
+const driveIdRegex = /^[\w-]{10,}$/;
+const isValidDriveId = (id) => driveIdRegex.test(id);
+
 const emptyLogo = { url: '', file: null };
 const emptyFont = { type: 'google', value: '', name: '', file: null };
 
@@ -34,6 +37,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const [name, setName] = useState('');
   const [agencyId, setAgencyId] = useState('');
   const [offering, setOffering] = useState('');
+  const [driveFolderId, setDriveFolderId] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -58,6 +62,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             setName(data.name || '');
             setAgencyId(data.agencyId || '');
             setOffering(data.offering || '');
+            setDriveFolderId(data.driveFolderId || '');
             setGuidelines({ url: data.guidelinesUrl || '', file: null });
             setLogos(
               Array.isArray(data.logos) && data.logos.length
@@ -89,6 +94,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             setName(data.name || '');
             setAgencyId(data.agencyId || '');
             setOffering(data.offering || '');
+            setDriveFolderId(data.driveFolderId || '');
             setGuidelines({ url: data.guidelinesUrl || '', file: null });
             setLogos(
               Array.isArray(data.logos) && data.logos.length
@@ -123,6 +129,17 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
     if (!brandId) return;
     setLoading(true);
     setMessage('');
+    const trimmedId = driveFolderId.trim();
+    if (!trimmedId) {
+      setMessage('Drive folder ID is required');
+      setLoading(false);
+      return;
+    }
+    if (!isValidDriveId(trimmedId)) {
+      setMessage('Drive folder ID is malformed');
+      setLoading(false);
+      return;
+    }
     try {
       let guidelinesUrl = guidelines.url;
       if (guidelines.file) {
@@ -161,12 +178,14 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
           palette,
           fonts: fontData,
           offering,
+          driveFolderId: trimmedId,
         },
         { merge: true }
       );
       setGuidelines({ url: guidelinesUrl, file: null });
       setLogos(logoUrls.map((u) => ({ url: u, file: null })));
       setFonts(fontData.map((f) => ({ ...f, file: null })));
+      setDriveFolderId(trimmedId);
       setMessage('Brand assets saved');
       setDirty(false);
       setEditing(false);
@@ -242,6 +261,17 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             value={offering}
             onChange={(e) => {
               setOffering(e.target.value);
+              setDirty(true);
+            }}
+            className="w-full p-2 border rounded"
+          />
+        </FormField>
+        <FormField label="Drive Folder ID">
+          <input
+            type="text"
+            value={driveFolderId}
+            onChange={(e) => {
+              setDriveFolderId(e.target.value);
               setDirty(true);
             }}
             className="w-full p-2 border rounded"
