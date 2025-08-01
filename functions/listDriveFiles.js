@@ -9,7 +9,7 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-function extractFileId(url) {
+export function extractFileId(url) {
   if (!url) return null;
   // Prefer folder style URLs used elsewhere in the project
   let match = /\/folders\/([^/?]+)/.exec(url);

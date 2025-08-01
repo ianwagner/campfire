@@ -380,8 +380,8 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     const url = (form.assetLinks || [])[idx];
     if (!url) return;
     try {
-      const callable = httpsCallable(functions, 'listDriveFiles', { timeout: 60000 });
-      await callable({ data: { driveFolderUrl: url } });
+      const callable = httpsCallable(functions, 'verifyDriveAccess', { timeout: 60000 });
+      await callable({ data: { url } });
       setLinkStatus((s) => {
         const arr = [...s];
         arr[idx] = true;
