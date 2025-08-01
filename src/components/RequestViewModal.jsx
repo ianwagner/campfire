@@ -113,6 +113,20 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
             </a>
           </p>
         )}
+        {request.assetLinks && request.assetLinks.length > 0 && (
+          <div className="text-black dark:text-[var(--dark-text)] mb-0">
+            Asset Links:
+            <ul className="list-disc ml-4">
+              {request.assetLinks.map((l, i) => (
+                <li key={i}>
+                  <a href={l} target="_blank" rel="noopener noreferrer" className="break-all text-blue-600">
+                    {l}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {request.status && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Status: {request.status}</p>
         )}

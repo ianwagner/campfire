@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where } from 'firebase/firestore';
-import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal } from 'react-icons/fi';
+import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal, FiCheckCircle, FiX } from 'react-icons/fi';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
 import { db, auth } from './firebase/config';
@@ -26,6 +26,7 @@ const emptyForm = {
   numAssets: 1,
   inspiration: '',
   uploadLink: '',
+  assetLinks: [''],
   details: '',
   priority: 'low',
   name: '',
@@ -60,6 +61,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const { agencies } = useAgencies();
   const { role } = useUserRole(auth.currentUser?.uid);
   const isOps = role === 'ops';
+  const [linkStatus, setLinkStatus] = useState([null]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -154,11 +156,13 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const resetForm = () => {
     setForm(isOps ? { ...emptyForm, type: 'bug' } : emptyForm);
     setEditId(null);
+    setLinkStatus([null]);
   };
 
   const openCreate = () => {
     resetForm();
     setAiArtStyle('');
+    setLinkStatus([null]);
     if (!canAssignEditor) {
       setForm((f) => ({ ...f, editorId: filterEditorId || auth.currentUser?.uid || '' }));
     }
@@ -184,6 +188,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       numAssets: req.numAssets || 1,
       inspiration: req.inspiration || '',
       uploadLink: req.uploadLink || '',
+      assetLinks: req.assetLinks && req.assetLinks.length ? req.assetLinks : [''],
       details: req.details || '',
       priority: req.priority || 'low',
       name: req.name || '',
@@ -195,6 +200,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     });
     const b = brands.find((br) => br.code === req.brandCode);
     setAiArtStyle(b?.aiArtStyle || '');
+    setLinkStatus((req.assetLinks && req.assetLinks.length ? req.assetLinks : ['']).map(() => null));
     setShowModal(true);
   };
 
@@ -208,6 +214,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       numAssets: Number(form.numAssets) || 0,
       inspiration: form.inspiration,
       uploadLink: form.uploadLink,
+      assetLinks: (form.assetLinks || []).filter((l) => l),
       details: form.details,
       priority: form.priority,
       name: form.name,
@@ -348,6 +355,43 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     setForm((f) => ({ ...f, brandCode: code }));
     const b = brands.find((br) => br.code === code);
     setAiArtStyle(b?.aiArtStyle || '');
+  };
+
+  const addAssetLink = () => {
+    setForm((f) => ({ ...f, assetLinks: [...(f.assetLinks || []), ''] }));
+    setLinkStatus((s) => [...s, null]);
+  };
+
+  const handleAssetLinkChange = (idx, val) => {
+    setForm((f) => {
+      const arr = [...(f.assetLinks || [])];
+      arr[idx] = val;
+      return { ...f, assetLinks: arr };
+    });
+    setLinkStatus((s) => {
+      const arr = [...s];
+      arr[idx] = null;
+      return arr;
+    });
+  };
+
+  const verifyLink = async (idx) => {
+    const url = (form.assetLinks || [])[idx];
+    if (!url) return;
+    try {
+      const resp = await fetch(url, { method: 'HEAD' });
+      setLinkStatus((s) => {
+        const arr = [...s];
+        arr[idx] = resp.ok;
+        return arr;
+      });
+    } catch (err) {
+      setLinkStatus((s) => {
+        const arr = [...s];
+        arr[idx] = false;
+        return arr;
+      });
+    }
   };
 
   const handleCreateGroup = async (req) => {
@@ -882,18 +926,31 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                   className="w-full p-2 border rounded"
                 />
               </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Priority</label>
-                <select
-                  value={form.priority}
-                  onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
+              {form.assetLinks.map((link, idx) => (
+                <div key={idx} className="flex items-center gap-2 mb-1">
+                  <input
+                    type="text"
+                    value={link}
+                    onChange={(e) => handleAssetLinkChange(idx, e.target.value)}
+                    onBlur={() => verifyLink(idx)}
+                    className="flex-1 p-2 border rounded"
+                  />
+                  {linkStatus[idx] === true && (
+                    <FiCheckCircle className="text-green-600" />
+                  )}
+                  {linkStatus[idx] === false && (
+                    <span className="relative group">
+                      <FiX className="text-red-600" />
+                      <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                        we can’t access this link. please make sure it is set to “anyone can view”.
+                      </div>
+                    </span>
+                  )}
+                </div>
+              ))}
+              <button type="button" onClick={addAssetLink} className="text-sm text-blue-600 underline mb-2">
+                Add another link
+              </button>
               <div>
                 <label className="block mb-1 text-sm font-medium">Details</label>
                 <textarea
