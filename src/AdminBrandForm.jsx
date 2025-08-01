@@ -3,6 +3,9 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencies from './useAgencies';
 
+const driveIdRegex = /^[\w-]{10,}$/;
+const isValidDriveId = (id) => driveIdRegex.test(id);
+
 const AdminBrandForm = () => {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -18,6 +21,15 @@ const AdminBrandForm = () => {
     e.preventDefault();
     setMessage('');
     if (!code.trim()) return;
+    const trimmedId = driveFolderId.trim();
+    if (!trimmedId) {
+      setMessage('Drive folder ID is required');
+      return;
+    }
+    if (!isValidDriveId(trimmedId)) {
+      setMessage('Drive folder ID is malformed');
+      return;
+    }
     setLoading(true);
     try {
       await addDoc(collection(db, 'brands'), {
