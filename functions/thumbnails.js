@@ -2,6 +2,9 @@ import { onCall as onCallFn, HttpsError } from 'firebase-functions/v2/https';
 import { google } from 'googleapis';
 import sharp from 'sharp';
 import admin from 'firebase-admin';
+
+// Generates thumbnails for Drive files and supports shared drives via
+// supportsAllDrives on download calls.
 import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
@@ -46,7 +49,11 @@ export const generateThumbnailsForAssets = onCallFn({ timeoutSeconds: 60, memory
       const fileId = extractFileId(url);
       if (!fileId) throw new Error('Invalid Drive URL');
       const tmp = path.join(os.tmpdir(), fileId);
-      const dl = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'arraybuffer' });
+      const dl = await drive.files.get({
+        fileId,
+        alt: 'media',
+        supportsAllDrives: true,
+      }, { responseType: 'arraybuffer' });
       await fs.writeFile(tmp, Buffer.from(dl.data));
       let inputTmp = tmp;
       const meta = await sharp(tmp).metadata().catch(() => ({}));
