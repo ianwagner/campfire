@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal, FiCheckCircle, FiX } from 'react-icons/fi';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
-import { db, auth } from './firebase/config';
+import { db, auth, functions } from './firebase/config';
 import { useNavigate } from 'react-router-dom';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
@@ -379,10 +380,11 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     const url = (form.assetLinks || [])[idx];
     if (!url) return;
     try {
-      const resp = await fetch(url, { method: 'HEAD' });
+      const callable = httpsCallable(functions, 'listDriveFiles', { timeout: 60000 });
+      await callable({ data: { driveFolderUrl: url } });
       setLinkStatus((s) => {
         const arr = [...s];
-        arr[idx] = resp.ok;
+        arr[idx] = true;
         return arr;
       });
     } catch (err) {
@@ -926,31 +928,34 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                   className="w-full p-2 border rounded"
                 />
               </div>
-              {form.assetLinks.map((link, idx) => (
-                <div key={idx} className="flex items-center gap-2 mb-1">
-                  <input
-                    type="text"
-                    value={link}
-                    onChange={(e) => handleAssetLinkChange(idx, e.target.value)}
-                    onBlur={() => verifyLink(idx)}
-                    className="flex-1 p-2 border rounded"
-                  />
-                  {linkStatus[idx] === true && (
-                    <FiCheckCircle className="text-green-600" />
-                  )}
-                  {linkStatus[idx] === false && (
-                    <span className="relative group">
-                      <FiX className="text-red-600" />
-                      <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                        we can’t access this link. please make sure it is set to “anyone can view”.
-                      </div>
-                    </span>
-                  )}
-                </div>
-              ))}
-              <button type="button" onClick={addAssetLink} className="text-sm text-blue-600 underline mb-2">
-                Add another link
-              </button>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Gdrive Link</label>
+                {form.assetLinks.map((link, idx) => (
+                  <div key={idx} className="flex items-center gap-2 mb-1">
+                    <input
+                      type="text"
+                      value={link}
+                      onChange={(e) => handleAssetLinkChange(idx, e.target.value)}
+                      onBlur={() => verifyLink(idx)}
+                      className="flex-1 p-2 border rounded"
+                    />
+                    {linkStatus[idx] === true && (
+                      <FiCheckCircle className="text-green-600" />
+                    )}
+                    {linkStatus[idx] === false && (
+                      <span className="relative group">
+                        <FiX className="text-red-600" />
+                        <div className="absolute right-0 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                          We can’t access this link. Please make sure it is set to “anyone can view”.
+                        </div>
+                      </span>
+                    )}
+                  </div>
+                ))}
+                <button type="button" onClick={addAssetLink} className="text-sm text-blue-600 underline mb-2">
+                  Add another link
+                </button>
+              </div>
               <div>
                 <label className="block mb-1 text-sm font-medium">Details</label>
                 <textarea
