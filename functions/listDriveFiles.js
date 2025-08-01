@@ -11,15 +11,9 @@ if (!admin.apps.length) {
 
 export function extractFileId(url) {
   if (!url) return null;
-  // Prefer folder style URLs used elsewhere in the project
-  let match = /\/folders\/([^/?]+)/.exec(url);
-  if (match) return match[1];
-  // Fallback for file URLs
-  match = /\/file\/d\/([^/?]+)/.exec(url);
-  if (match) return match[1];
-  // Fallback for URLs with ?id=
-  match = /[?&]id=([^&]+)/.exec(url);
-  return match ? match[1] : null;
+  // Matches ID in various drive URL formats and tolerates extra fragments
+  const match = url.match(/[\w-]{25,}/);
+  return match ? match[0] : null;
 }
 
 export const listDriveFiles = onCallFn({ timeoutSeconds: 60, memory: '256MiB' }, async (data) => {
