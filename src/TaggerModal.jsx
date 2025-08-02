@@ -214,7 +214,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
                 Cancel
               </button>
               <button type="button" onClick={handleAddRows} className="btn-primary px-3 py-1" disabled={loading}>
-                Add Rows from Drive
+                Add Assets from Drive
               </button>
               
             </div>
@@ -258,7 +258,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
               </div>
               <div className="text-right">
                 <button type="submit" className="btn-primary px-3 py-1" disabled={loading}>
-                  Add Rows from Drive
+                  Add Assets from Drive
                 </button>
               </div>
             </form>

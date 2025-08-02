@@ -33,6 +33,7 @@ import normalizeAssetType from './utils/normalizeAssetType.js';
 import isVideoUrl from './utils/isVideoUrl.js';
 import RecipeTypeCard from './components/RecipeTypeCard.jsx';
 import OptimizedImage from './components/OptimizedImage.jsx';
+import TaggerModal from './TaggerModal.jsx';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -69,6 +70,7 @@ const RecipePreview = ({
   const [brands, setBrands] = useState([]);
   const [brandCode, setBrandCode] = useState(initialBrandCode);
   const [selectedType, setSelectedType] = useState('');
+  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({});
   const [selectedInstances, setSelectedInstances] = useState({});
   const [results, setResults] = useState([]);
@@ -83,6 +85,7 @@ const RecipePreview = ({
   const [assetUsage, setAssetUsage] = useState({});
   const [showOptionLists, setShowOptionLists] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
+  const [showTagger, setShowTagger] = useState(false);
 
   const isUrl = (str) => /^https?:\/\//i.test(str);
   const [reviewRows, setReviewRows] = useState([]);
@@ -96,6 +99,7 @@ const RecipePreview = ({
   useEffect(() => {
     setVisibleColumns({});
   }, [selectedType, currentType]);
+
   const allInstances = useMemo(() => [...instances, ...brandProducts, ...brandCampaigns], [instances, brandProducts, brandCampaigns]);
   const filteredAssetRows = useMemo(() => {
     const term = assetFilter.toLowerCase();
@@ -295,6 +299,7 @@ const RecipePreview = ({
       originalResultsRef.current = mapped;
       if (initialResults[0]?.type) {
         setSelectedType(initialResults[0].type);
+        setStep(2);
       }
       if (initialResults[0]?.brandCode) {
         setBrandCode(initialResults[0].brandCode);
@@ -1130,24 +1135,41 @@ const RecipePreview = ({
     <div>
       {!showOnlyResults && (
         <form onSubmit={handleGenerate} className="space-y-2 max-w-[50rem]">
-        <div>
-          <label id="recipe-type-label" className="block text-sm mb-1">Recipe Type</label>
-          <div
-            role="group"
-            aria-labelledby="recipe-type-label"
-            className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-          >
-            {types.map((t) => (
-              <RecipeTypeCard
-                key={t.id}
-                type={t}
-                selected={selectedType === t.id}
-                onClick={() => setSelectedType(t.id)}
-              />
-            ))}
+        {step === 1 && (
+          <div>
+            <label id="recipe-type-label" className="block text-sm mb-1">Recipe Type</label>
+            <div
+              role="group"
+              aria-labelledby="recipe-type-label"
+              className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+            >
+              {types.map((t) => (
+                <RecipeTypeCard
+                  key={t.id}
+                  type={t}
+                  selected={selectedType === t.id}
+                  onClick={() => {
+                    setSelectedType(t.id);
+                    setStep(2);
+                  }}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-        {!hideBrandSelect && (
+        )}
+        {step === 2 && (
+          <button
+            type="button"
+            onClick={() => {
+              setStep(1);
+              setSelectedType('');
+            }}
+            className="btn-secondary mb-2"
+          >
+            &larr; Back
+          </button>
+        )}
+        {step === 2 && !hideBrandSelect && (
           <div>
             <label className="block text-sm mb-1">Brand</label>
             <select
@@ -1164,13 +1186,13 @@ const RecipePreview = ({
             </select>
           </div>
         )}
-        {currentType?.enableAssetCsv && (
+        {step === 2 && currentType?.enableAssetCsv && (
           <div className="space-y-2">
             <div>
               <label className="block text-sm mb-1">Asset Library</label>
               {assetRows.length > 0 && (
                 <div className="flex items-center gap-2 mt-1">
-                  <p className="text-xs">{assetRows.length} rows loaded</p>
+                  <p className="text-xs">{assetRows.length} assets loaded</p>
                   <input
                     type="text"
                     placeholder="Filter"
@@ -1178,13 +1200,20 @@ const RecipePreview = ({
                     onChange={(e) => setAssetFilter(e.target.value)}
                     className="p-1 border rounded text-xs"
                   />
+                  <IconButton
+                    aria-label="Add Assets"
+                    onClick={() => setShowTagger(true)}
+                    className="text-sm"
+                  >
+                    <FiPlus />
+                  </IconButton>
                 </div>
               )}
             </div>
 
           </div>
         )}
-        {currentType && (
+        {step === 2 && currentType && (
           <div className="space-y-4">
             {displayedComponents.map((c) => {
               if (c.key === 'brand') return null;
@@ -1652,6 +1681,15 @@ const RecipePreview = ({
           initialFilter={assetPicker?.product}
           onSelect={handleAssetSelect}
           onClose={() => setAssetPicker(null)}
+        />
+      )}
+      {showTagger && (
+        <TaggerModal
+          brandCode={brandCode}
+          onClose={() => {
+            setShowTagger(false);
+            loadAssetLibrary();
+          }}
         />
       )}
   </div>
