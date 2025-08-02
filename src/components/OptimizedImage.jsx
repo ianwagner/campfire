@@ -10,6 +10,7 @@ const OptimizedImage = ({
   alt = '',
   loading = 'lazy',
   cacheKey,
+  className = '',
   ...props
 }) => {
   const png = typeof pngUrl === 'string' ? pngUrl : '';
@@ -29,14 +30,30 @@ const OptimizedImage = ({
 
   if (renderWebp) {
     return (
-      <picture>
+      <picture className={className}>
         <source srcSet={webpSrc} type="image/webp" />
-        <img src={imgSrc} alt={alt} loading={loading} decoding="async" {...props} />
+        <img
+          src={imgSrc}
+          alt={alt}
+          loading={loading}
+          decoding="async"
+          className={className}
+          {...props}
+        />
       </picture>
     );
   }
 
-  return <img src={imgSrc} alt={alt} loading={loading} decoding="async" {...props} />;
+  return (
+    <img
+      src={imgSrc}
+      alt={alt}
+      loading={loading}
+      decoding="async"
+      className={className}
+      {...props}
+    />
+  );
 };
 
 export default OptimizedImage;
