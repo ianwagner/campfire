@@ -64,6 +64,11 @@ const RecipeTypeCard = ({
       >
         {type.name}
       </p>
+      {type.description && size !== 'small' && (
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          {type.description}
+        </p>
+      )}
     </button>
   );
 };
