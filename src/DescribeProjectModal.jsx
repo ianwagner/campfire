@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import ScrollModal from './components/ScrollModal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import { collection, addDoc, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import { FiInfo, FiCheckCircle, FiX } from 'react-icons/fi';
-import { db, auth, functions } from './firebase/config';
+import { FiInfo } from 'react-icons/fi';
+import { db, auth } from './firebase/config';
+import UrlCheckInput from './components/UrlCheckInput.jsx';
 
 const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
   const [title, setTitle] = useState('');
@@ -12,7 +12,6 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
   const [dueDate, setDueDate] = useState('');
   const [numAds, setNumAds] = useState(1);
   const [assetLinks, setAssetLinks] = useState(['']);
-  const [linkStatus, setLinkStatus] = useState([null]);
   const [details, setDetails] = useState('');
 
   useEffect(() => {
@@ -31,29 +30,18 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
       );
       setNumAds(request.numAds || 1);
       setAssetLinks(request.assetLinks && request.assetLinks.length ? request.assetLinks : ['']);
-      setLinkStatus(
-        request.assetLinks && request.assetLinks.length
-          ? request.assetLinks.map(() => null)
-          : [null]
-      );
       setDetails(request.details || '');
     }
   }, [request, brandCodes]);
 
   const addAssetLink = () => {
     setAssetLinks((l) => [...l, '']);
-    setLinkStatus((s) => [...s, null]);
   };
 
   const handleAssetLinkChange = (idx, val) => {
     setAssetLinks((arr) => {
       const next = [...arr];
       next[idx] = val;
-      return next;
-    });
-    setLinkStatus((s) => {
-      const next = [...s];
-      next[idx] = null;
       return next;
     });
   };
@@ -63,36 +51,9 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
       const next = arr.filter((_, i) => i !== idx);
       return next.length ? next : [''];
     });
-    setLinkStatus((s) => {
-      const next = s.filter((_, i) => i !== idx);
-      return next.length ? next : [null];
-    });
   };
 
-  const verifyLink = async (idx) => {
-    const url = assetLinks[idx];
-    if (!url) return;
-    setLinkStatus((s) => {
-      const next = [...s];
-      next[idx] = 'loading';
-      return next;
-    });
-    try {
-      const callable = httpsCallable(functions, 'verifyDriveAccess', { timeout: 60000 });
-      await callable({ url });
-      setLinkStatus((s) => {
-        const next = [...s];
-        next[idx] = true;
-        return next;
-      });
-    } catch (err) {
-      setLinkStatus((s) => {
-        const next = [...s];
-        next[idx] = false;
-        return next;
-      });
-    }
-  };
+  // URL verification handled by UrlCheckInput component
 
   const handleSave = async () => {
     if (!title.trim()) return;
@@ -190,26 +151,14 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
             </InfoTooltip>
           </label>
           {assetLinks.map((link, idx) => (
-            <div key={idx} className="relative flex items-center gap-2 mb-1">
-              <input
-                type="text"
-                value={link}
-                onChange={(e) => handleAssetLinkChange(idx, e.target.value)}
-                onBlur={() => verifyLink(idx)}
-                className={`flex-1 p-2 border rounded ${linkStatus[idx] === false ? 'line-through' : ''}`}
-              />
-              {linkStatus[idx] === 'loading' && (
-                <div className="absolute inset-0 flex items-center justify-center bg-white/60">
-                  <div className="loading-ring w-4 h-4" />
-                </div>
-              )}
-              {linkStatus[idx] === true && <FiCheckCircle className="text-green-600" />}
-              {linkStatus[idx] === false && (
-                <InfoTooltip text="We can’t access this link. Please make sure it’s set to “anyone can view” or the folder may be empty." maxWidth={250}>
-                  <FiX className="text-red-600 cursor-pointer" onClick={() => removeAssetLink(idx)} />
-                </InfoTooltip>
-              )}
-            </div>
+            <UrlCheckInput
+              key={idx}
+              value={link}
+              onChange={(val) => handleAssetLinkChange(idx, val)}
+              onRemove={() => removeAssetLink(idx)}
+              inputClass="p-2"
+              className="mb-1"
+            />
           ))}
           <button type="button" onClick={addAssetLink} className="text-sm text-blue-600 underline mb-2">
             Add another link
