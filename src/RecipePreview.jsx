@@ -61,6 +61,9 @@ const RecipePreview = ({
   onRecipesClick = null,
   externalOnly = false,
   showColumnButton = true,
+  title = '',
+  onTitleChange = null,
+  onStepChange = null,
 }) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
@@ -91,6 +94,10 @@ const RecipePreview = ({
   const [reviewRows, setReviewRows] = useState([]);
 
   const currentType = types.find((t) => t.id === selectedType);
+
+  useEffect(() => {
+    if (onStepChange) onStepChange(step);
+  }, [step, onStepChange]);
 
 
   // Reset visible columns when the selected recipe type changes or when the
@@ -1170,9 +1177,20 @@ const RecipePreview = ({
             >
               &lt;
             </button>
-            <h2 className="text-xl font-semibold mb-4">
+            <h2 className="text-xl font-semibold mb-2">
               {currentType?.name || 'Generate a Brief'}
             </h2>
+            {onTitleChange && (
+              <div className="mb-4">
+                <label className="block mb-1 text-sm font-medium">Title</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => onTitleChange(e.target.value)}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+            )}
           </>
         )}
         {step === 2 && !hideBrandSelect && (
@@ -1198,7 +1216,12 @@ const RecipePreview = ({
               <label className="block text-sm mb-1">Asset Library</label>
               {assetRows.length > 0 && (
                 <div className="flex items-center gap-2 mt-1">
-                  <p className="text-xs">{assetRows.length} assets loaded</p>
+                  <p className="text-sm">
+                    <span className="font-semibold text-accent">
+                      {assetRows.length}
+                    </span>{' '}
+                    assets found
+                  </p>
                   <input
                     type="text"
                     placeholder="Filter"
@@ -1206,14 +1229,14 @@ const RecipePreview = ({
                     onChange={(e) => setAssetFilter(e.target.value)}
                     className="p-1 border rounded text-xs"
                   />
-                    <IconButton
-                      type="button"
-                      aria-label="Add Assets"
-                      onClick={() => setShowTagger(true)}
-                      className="text-sm"
-                    >
-                      <FiPlus /> Assets
-                    </IconButton>
+                  <IconButton
+                    type="button"
+                    aria-label="Add Assets"
+                    onClick={() => setShowTagger(true)}
+                    className="text-sm"
+                  >
+                    <FiPlus /> Assets
+                  </IconButton>
                 </div>
               )}
             </div>

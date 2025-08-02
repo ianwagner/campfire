@@ -35,6 +35,7 @@ const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
 
 const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   const [title, setTitle] = useState('');
+  const [step, setStep] = useState(1);
   const brandCode = brandCodes[0] || '';
 
   const handleSave = async (recipes) => {
@@ -96,21 +97,15 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
 
   return (
     <Modal sizeClass="max-w-[50rem] w-full max-h-[90vh] overflow-auto">
-      <h2 className="text-xl font-semibold mb-4">New Project</h2>
-      <div className="mb-4">
-        <label className="block mb-1 text-sm font-medium">Title</label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full p-2 border rounded"
-        />
-      </div>
+      {step === 1 && <h2 className="text-xl font-semibold mb-4">New Project</h2>}
       <RecipePreview
         onSave={handleSave}
         brandCode={brandCode}
         hideBrandSelect
         externalOnly
+        title={title}
+        onTitleChange={setTitle}
+        onStepChange={setStep}
       />
       <div className="flex justify-end gap-2 pt-2">
         <button className="btn" onClick={() => onClose(null)}>Cancel</button>
