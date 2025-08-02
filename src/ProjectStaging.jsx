@@ -9,7 +9,7 @@ import {
   where,
   onSnapshot,
 } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { db, auth } from './firebase/config';
 import DescribeProjectModal from './DescribeProjectModal.jsx';
 
 const ProjectStaging = () => {
@@ -37,8 +37,15 @@ const ProjectStaging = () => {
         };
         setProject(proj);
 
+        if (!auth.currentUser?.uid) {
+          throw new Error('User not authenticated');
+        }
         const reqSnap = await getDocs(
-          query(collection(db, 'requests'), where('projectId', '==', projectId))
+          query(
+            collection(db, 'requests'),
+            where('projectId', '==', projectId),
+            where('createdBy', '==', auth.currentUser.uid)
+          )
         );
         if (!reqSnap.empty) {
           const r = reqSnap.docs[0];
