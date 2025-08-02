@@ -8,6 +8,7 @@ import {
   query,
   where,
   onSnapshot,
+  deleteDoc,
 } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import DescribeProjectModal from './DescribeProjectModal.jsx';
@@ -19,6 +20,22 @@ const ProjectStaging = () => {
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editRequest, setEditRequest] = useState(false);
+
+  const handleDelete = async () => {
+    if (!window.confirm('Delete this project?')) return;
+    try {
+      await deleteDoc(doc(db, 'projects', projectId));
+      if (request?.id) {
+        await deleteDoc(doc(db, 'requests', request.id));
+      }
+      navigate('/projects', {
+        replace: true,
+        state: { removedProject: projectId },
+      });
+    } catch (err) {
+      console.error('Failed to delete project', err);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -107,9 +124,17 @@ const ProjectStaging = () => {
             dangerouslySetInnerHTML={{ __html: request.details }}
           />
         )}
-        <button className="btn-primary mt-2" onClick={() => setEditRequest(true)}>
-          Edit
-        </button>
+        <div className="mt-2">
+          <button
+            className="btn-primary mr-2"
+            onClick={() => setEditRequest(true)}
+          >
+            Edit
+          </button>
+          <button className="btn-secondary btn-delete" onClick={handleDelete}>
+            Delete
+          </button>
+        </div>
       </div>
       {editRequest && (
         <DescribeProjectModal
