@@ -1340,7 +1340,7 @@ const RecipePreview = ({
                 return (
                   <div key={c.id} className="space-y-2">
                     <label className="block text-sm mb-1">{c.label}</label>
-                    <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                    <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                       {instOptions.map((i) => (
                         <ProductCard
                           key={i.id}
