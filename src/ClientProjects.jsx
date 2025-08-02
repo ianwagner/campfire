@@ -46,7 +46,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         title: title.trim(),
         recipeTypes: Array.isArray(recipes) ? recipes.map((r) => r.type) : [],
         brandCode,
-        status: 'new',
+        status: 'briefed',
         createdAt: serverTimestamp(),
         userId: auth.currentUser?.uid || null,
       });
@@ -54,7 +54,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
       const groupRef = await addDoc(collection(db, 'adGroups'), {
         name: title.trim(),
         brandCode,
-        status: 'new',
+        status: 'briefed',
         uploadedBy: auth.currentUser?.uid || null,
         projectId: projRef.id,
         createdAt: serverTimestamp(),
@@ -91,7 +91,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         await batch.commit();
       }
 
-      onClose({ id: projRef.id, title: title.trim(), status: 'new', recipeTypes: Array.isArray(recipes) ? recipes.map((r) => r.type) : [], createdAt: new Date() });
+      onClose({ id: projRef.id, title: title.trim(), status: 'briefed', recipeTypes: Array.isArray(recipes) ? recipes.map((r) => r.type) : [], createdAt: new Date() });
     } catch (err) {
       console.error('Failed to create project', err);
     }
@@ -254,27 +254,34 @@ const ClientProjects = ({ brandCodes = [] }) => {
             </div>
             {displayProjects.length > 0 && (
               <div className="space-y-3 max-w-xl w-full mx-auto">
-                {displayProjects.map((p) => (
-                  <div
-                    key={p.id}
-                    className="border rounded p-4 flex justify-between items-center cursor-pointer"
-                    onClick={() =>
-                      navigate(
-                        p.group ? `/projects/${p.id}` : `/projects/${p.id}/staging`
-                      )
-                    }
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-medium">{p.title}</span>
-                      {brandCodes.length > 1 && p.brandCode && (
-                        <span className="text-xs text-gray-500">{p.brandCode}</span>
-                      )}
+                {displayProjects.map((p) => {
+                  const status = p.group ? p.group.status : p.status;
+                  return (
+                    <div
+                      key={p.id}
+                      className="border rounded p-4 flex justify-between items-center cursor-pointer"
+                      onClick={() =>
+                        navigate(
+                          p.group ? `/projects/${p.id}` : `/projects/${p.id}/staging`
+                        )
+                      }
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-medium">{p.title}</span>
+                        {brandCodes.length > 1 && p.brandCode && (
+                          <span className="text-xs text-gray-500">{p.brandCode}</span>
+                        )}
+                      </div>
+                      <span className="text-sm text-gray-500">
+                        {status === 'processing' ? (
+                          <span className="processing-dots">processing</span>
+                        ) : (
+                          status
+                        )}
+                      </span>
                     </div>
-                    <span className="text-sm text-gray-500">
-                      {p.group ? p.group.status : p.status}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
