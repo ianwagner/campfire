@@ -9,6 +9,7 @@ import ReviewLibrary from './ReviewLibrary.jsx';
 import BrandProducts from './BrandProducts.jsx';
 import BrandCampaigns from './BrandCampaigns.jsx';
 import TabButton from './components/TabButton.jsx';
+import BrandCard from './components/BrandCard.jsx';
 import {
   FiSettings,
   FiFolder,
@@ -31,6 +32,8 @@ const BrandProfile = ({ brandId: propId = null }) => {
   const [brandCode, setBrandCode] = useState('');
   const [brandName, setBrandName] = useState('');
   const [tab, setTab] = useState('setup');
+  const [brands, setBrands] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -45,7 +48,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
         } catch (err) {
           console.error('Failed to load brand', err);
         }
-      } else if (brandCodes.length > 0) {
+      } else if (brandCodes.length === 1) {
         const code = brandCodes[0];
         setBrandCode(code);
         try {
@@ -60,16 +63,55 @@ const BrandProfile = ({ brandId: propId = null }) => {
           console.error('Failed to load brand by code', err);
           setBrandName(code);
         }
+      } else if (brandCodes.length > 1) {
+        setLoading(true);
+        try {
+          const base = collection(db, 'brands');
+          const chunks = [];
+          for (let i = 0; i < brandCodes.length; i += 10) {
+            chunks.push(brandCodes.slice(i, i + 10));
+          }
+          const docs = [];
+          for (const chunk of chunks) {
+            const q = query(base, where('code', 'in', chunk));
+            const snap = await getDocs(q);
+            docs.push(...snap.docs);
+          }
+          setBrands(docs.map((d) => ({ id: d.id, ...d.data() })));
+        } catch (err) {
+          console.error('Failed to load brands', err);
+          setBrands([]);
+        } finally {
+          setLoading(false);
+        }
       }
     };
     load();
   }, [brandId, brandCodes]);
+  if (!brandId && brandCodes.length > 1) {
+    return (
+      <div className="min-h-screen p-4">
+        <h1 className="text-2xl mb-4">Brand Profile</h1>
+        {loading ? (
+          <p>Loading brands...</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {brands.map((b) => (
+              <Link key={b.id} to={`/brand-profile/${b.id}`}>
+                <BrandCard brand={b} />
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4">
       <div className="flex items-center mb-2">
         {id && (
-          <Link to="/admin/brands" className="btn-arrow mr-2" aria-label="Back">
+          <Link to="/brand-profile" className="btn-arrow mr-2" aria-label="Back">
             &lt;
           </Link>
         )}
