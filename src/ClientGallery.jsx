@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { collectionGroup, getDocs, query, where } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { onAuthStateChanged } from 'firebase/auth';
+import { db, auth } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
@@ -15,6 +16,7 @@ const ClientGallery = ({ brandCodes = [] }) => {
   const galleryRef = useRef(null);
 
   useEffect(() => {
+    let unsub = null;
     const load = async () => {
       if (!brandCodes || brandCodes.length === 0) {
         setAssets([]);
@@ -23,12 +25,27 @@ const ClientGallery = ({ brandCodes = [] }) => {
       }
       setLoading(true);
       try {
-        const q = query(collectionGroup(db, 'assets'), where('status', '==', 'approved'));
-        const snap = await getDocs(q);
+        const chunks = [];
+        for (let i = 0; i < brandCodes.length; i += 10) {
+          chunks.push(brandCodes.slice(i, i + 10));
+        }
+
+        const snaps = await Promise.all(
+          chunks.map((chunk) =>
+            getDocs(
+              query(
+                collectionGroup(db, 'assets'),
+                where('status', '==', 'approved'),
+                where('brandCode', 'in', chunk)
+              )
+            )
+          )
+        );
+
         const seen = new Set();
+        const docs = snaps.flatMap((s) => s.docs);
         setAssets(
-          snap.docs
-            .filter((d) => brandCodes.includes(d.data()?.brandCode || ''))
+          docs
             .filter((d) => {
               if (seen.has(d.id)) return false;
               seen.add(d.id);
@@ -43,7 +60,19 @@ const ClientGallery = ({ brandCodes = [] }) => {
         setLoading(false);
       }
     };
-    load();
+
+    unsub = onAuthStateChanged(auth, (u) => {
+      if (u) {
+        load();
+      } else {
+        setAssets([]);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      if (unsub) unsub();
+    };
   }, [brandCodes]);
 
   const updateSpans = () => {
