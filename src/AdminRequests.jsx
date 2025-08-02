@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
-import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal, FiCheckCircle, FiX } from 'react-icons/fi';
+import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal } from 'react-icons/fi';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
-import { db, auth, functions } from './firebase/config';
+import { db, auth } from './firebase/config';
 import { useNavigate } from 'react-router-dom';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
@@ -17,6 +16,7 @@ import Calendar from './components/Calendar.jsx';
 import useAgencies from './useAgencies';
 import formatDetails from './utils/formatDetails';
 import useUserRole from './useUserRole';
+import UrlCheckInput from './components/UrlCheckInput.jsx';
 
 const emptyForm = {
   type: 'newAds',
@@ -62,7 +62,6 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const { agencies } = useAgencies();
   const { role } = useUserRole(auth.currentUser?.uid);
   const isOps = role === 'ops';
-  const [linkStatus, setLinkStatus] = useState([null]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -157,13 +156,11 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const resetForm = () => {
     setForm(isOps ? { ...emptyForm, type: 'bug' } : emptyForm);
     setEditId(null);
-    setLinkStatus([null]);
   };
 
   const openCreate = () => {
     resetForm();
     setAiArtStyle('');
-    setLinkStatus([null]);
     if (!canAssignEditor) {
       setForm((f) => ({ ...f, editorId: filterEditorId || auth.currentUser?.uid || '' }));
     }
@@ -201,7 +198,6 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     });
     const b = brands.find((br) => br.code === req.brandCode);
     setAiArtStyle(b?.aiArtStyle || '');
-    setLinkStatus((req.assetLinks && req.assetLinks.length ? req.assetLinks : ['']).map(() => null));
     setShowModal(true);
   };
 
@@ -360,7 +356,6 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
 
   const addAssetLink = () => {
     setForm((f) => ({ ...f, assetLinks: [...(f.assetLinks || []), ''] }));
-    setLinkStatus((s) => [...s, null]);
   };
 
   const handleAssetLinkChange = (idx, val) => {
@@ -369,32 +364,9 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       arr[idx] = val;
       return { ...f, assetLinks: arr };
     });
-    setLinkStatus((s) => {
-      const arr = [...s];
-      arr[idx] = null;
-      return arr;
-    });
   };
 
-  const verifyLink = async (idx) => {
-    const url = (form.assetLinks || [])[idx];
-    if (!url) return;
-    try {
-      const callable = httpsCallable(functions, 'verifyDriveAccess', { timeout: 60000 });
-      await callable({ url });
-      setLinkStatus((s) => {
-        const arr = [...s];
-        arr[idx] = true;
-        return arr;
-      });
-    } catch (err) {
-      setLinkStatus((s) => {
-        const arr = [...s];
-        arr[idx] = false;
-        return arr;
-      });
-    }
-  };
+  // URL verification handled by UrlCheckInput component
 
   const handleCreateGroup = async (req) => {
     if (req.type === 'newBrand') {
@@ -932,26 +904,13 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
               <div>
                 <label className="block mb-1 text-sm font-medium">Gdrive Link</label>
                 {form.assetLinks.map((link, idx) => (
-                  <div key={idx} className="flex items-center gap-2 mb-1">
-                    <input
-                      type="text"
-                      value={link}
-                      onChange={(e) => handleAssetLinkChange(idx, e.target.value)}
-                      onBlur={() => verifyLink(idx)}
-                      className="flex-1 p-2 border rounded"
-                    />
-                    {linkStatus[idx] === true && (
-                      <FiCheckCircle className="text-green-600" />
-                    )}
-                    {linkStatus[idx] === false && (
-                      <span className="relative group">
-                        <FiX className="text-red-600" />
-                        <div className="absolute right-0 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                          We can’t access this link. Please make sure it’s set to “anyone can view” or the folder may be empty.
-                        </div>
-                      </span>
-                    )}
-                  </div>
+                  <UrlCheckInput
+                    key={idx}
+                    value={link}
+                    onChange={(val) => handleAssetLinkChange(idx, val)}
+                    inputClass="p-2"
+                    className="mb-1"
+                  />
                 ))}
                 <button type="button" onClick={addAssetLink} className="text-sm text-blue-600 underline mb-2">
                   Add another link
