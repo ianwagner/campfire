@@ -61,12 +61,9 @@ const ProjectStaging = () => {
   }, [projectId]);
 
   useEffect(() => {
-    if (!project) return;
     const q = query(
       collection(db, 'adGroups'),
-      where('name', '==', project.title),
-      where('brandCode', '==', project.brandCode),
-      where('uploadedBy', '==', project.userId)
+      where('projectId', '==', projectId)
     );
     const unsub = onSnapshot(q, (snap) => {
       if (!snap.empty) {
@@ -74,7 +71,7 @@ const ProjectStaging = () => {
       }
     });
     return () => unsub();
-  }, [project, projectId, navigate]);
+  }, [projectId, navigate]);
 
   if (loading) return <div className="min-h-screen p-4">Loading...</div>;
   if (!project || !request)
