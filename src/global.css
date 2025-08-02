@@ -403,6 +403,21 @@
     background-color: var(--edit-color-10);
     color: var(--edit-color);
   }
+
+  .processing-dots::after {
+    content: '...';
+    display: inline-block;
+    overflow: hidden;
+    width: 0;
+    vertical-align: bottom;
+    animation: dots-ellipsis 1s steps(4, end) infinite;
+  }
+}
+
+@keyframes dots-ellipsis {
+  to {
+    width: 1.25em;
+  }
 }
 @keyframes approve-bounce {
   0% {
