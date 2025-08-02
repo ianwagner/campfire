@@ -1254,6 +1254,8 @@ const RecipePreview = ({
               onClick={() => {
                 setStep(1);
                 setSelectedType('');
+                setResults([]);
+                setDirty(false);
               }}
               className="btn-arrow mb-2"
               aria-label="Back"
@@ -1290,7 +1292,7 @@ const RecipePreview = ({
                   <div className="flex items-baseline gap-2">
                     <p className="text-sm">
                       <span className="font-semibold text-accent">
-                        {assetRows.length}
+                        {filteredAssetRows.length}
                       </span>{' '}
                       assets found
                     </p>
@@ -1771,8 +1773,12 @@ const RecipePreview = ({
                       visibleColumns[col.key] && (
                         <td
                           key={col.key}
-                          className="align-middle"
-                          style={col.key.endsWith('.assets') ? { overflow: 'visible' } : undefined}
+                          className={`align-middle ${col.key === 'product.name' ? 'whitespace-normal break-words' : ''}`}
+                          style={
+                            col.key.endsWith('.assets') || col.key === 'product.name'
+                              ? { overflow: 'visible' }
+                              : undefined
+                          }
                         >
                           {col.key.endsWith('.assets') ? (
                             renderAssetList(
@@ -1965,7 +1971,7 @@ const RecipePreview = ({
       <div className="sticky bottom-0 bg-white dark:bg-[var(--dark-sidebar-bg)] p-2 flex justify-between items-center">
         <button
           type="button"
-          className="text-sm text-blue-600 underline"
+          className="text-sm text-accent underline"
           onClick={handleReset}
           aria-label="Discard generated recipe changes"
         >

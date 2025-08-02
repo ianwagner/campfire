@@ -19,7 +19,7 @@ const ProductCard = ({ product, onClick, selected = false }) => {
           className="w-full h-24 object-contain border-b border-gray-200 dark:border-gray-600 p-2 bg-white dark:bg-white"
         />
       )}
-      <p className="p-1 font-medium text-gray-700 dark:text-gray-300 mb-0 text-xs">
+      <p className="p-1 font-medium text-gray-700 dark:text-gray-300 mb-0 text-xs break-words">
         {product.name || 'Untitled'}
       </p>
     </button>
