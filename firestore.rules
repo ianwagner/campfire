@@ -173,12 +173,14 @@ service cloud.firestore {
 
     match /requests/{docId} {
       allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
-      allow read, update: if isAdmin() || isManager() || isEditor() ||
-        (request.auth != null && resource.data.createdBy == request.auth.uid);
-      allow delete: if isAdmin() || isManager() || isEditor();
+      // Allow request creators to read and update their own requests
+      allow read, update: if request.auth != null && resource.data.createdBy == request.auth.uid;
+      // Elevated roles retain full access
+      allow read, update, delete: if isAdmin() || isManager() || isEditor();
     }
 
-    match /requests/{document=**} {
+    // Restrict access to any subcollections under requests
+    match /requests/{docId}/{document=**} {
       allow read, write: if isAdmin() || isManager() || isEditor();
     }
 
