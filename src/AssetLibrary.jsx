@@ -293,7 +293,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
         setAssets((prev) =>
           prev.map((a) =>
             a.id === row.id
-              ? { ...a, type: result.type || a.type, description: result.description || a.description, product: result.product || a.product, campaign: result.campaign || a.campaign }
+              ? { ...a, type: a.type || result.type, description: a.description || result.description }
               : a
           )
         );
