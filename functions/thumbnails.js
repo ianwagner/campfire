@@ -80,3 +80,22 @@ export const generateThumbnailsForAssets = onCallFn({ timeoutSeconds: 60, memory
   }
   return { results };
 });
+
+export const deleteThumbnails = onCallFn({ timeoutSeconds: 60, memory: '512MiB' }, async (request) => {
+  const urls = request.data?.urls || request.data;
+  if (!Array.isArray(urls)) {
+    throw new HttpsError('invalid-argument', 'urls array is required');
+  }
+  const bucket = admin.storage().bucket();
+  for (const url of urls) {
+    try {
+      const match = /thumbnails\/([^/?]+)/.exec(url);
+      if (match?.[1]) {
+        await bucket.file(`thumbnails/${match[1]}`).delete({ ignoreNotFound: true });
+      }
+    } catch (err) {
+      console.error('Failed to delete thumbnail', url, err);
+    }
+  }
+  return { success: true };
+});

@@ -7,7 +7,7 @@ import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { tagger } from './tagger.js';
-import { generateThumbnailsForAssets } from './thumbnails.js';
+import { generateThumbnailsForAssets, deleteThumbnails } from './thumbnails.js';
 import { generateTagsForAssets } from './tagAssets.js';
 import { listDriveFiles } from './listDriveFiles.js';
 import { verifyDriveAccess } from './verifyDriveAccess.js';
@@ -363,6 +363,7 @@ export const archiveProjectOnRequestDone = onDocumentUpdated('requests/{requestI
 export {
   tagger,
   generateThumbnailsForAssets,
+  deleteThumbnails,
   generateTagsForAssets,
   listDriveFiles,
   verifyDriveAccess,
