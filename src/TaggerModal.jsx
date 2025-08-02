@@ -5,6 +5,7 @@ import { functions, db } from './firebase/config';
 import syncAssetLibrary from "./utils/syncAssetLibrary";
 import LoadingOverlay from './LoadingOverlay';
 import { safeSetItem, safeRemoveItem } from './utils/safeLocalStorage.js';
+import { FiCheckCircle, FiX } from 'react-icons/fi';
 
 const TaggerModal = ({ onClose, brandCode = '' }) => {
   const [driveFolderUrl, setDriveFolderUrl] = useState('');
@@ -15,6 +16,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
   const [results, setResults] = useState([]);
   const [error, setError] = useState('');
   const [jobId, setJobId] = useState('');
+  const [linkStatus, setLinkStatus] = useState(null);
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -53,6 +55,19 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
       safeRemoveItem('taggerModalOpen');
     };
   }, []);
+
+  const verifyLink = async () => {
+    const url = driveFolderUrl;
+    if (!url) return;
+    setLinkStatus('loading');
+    try {
+      const callable = httpsCallable(functions, 'verifyDriveAccess', { timeout: 60000 });
+      await callable({ url });
+      setLinkStatus(true);
+    } catch (err) {
+      setLinkStatus(false);
+    }
+  };
 
   const updateResult = (idx, field, value) => {
     setResults((p) => p.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
@@ -171,18 +186,31 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
       <div className="bg-white p-4 rounded shadow max-w-lg w-full relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
         {loading && <LoadingOverlay text="Tagging assets..." className="!absolute" />}
-        <h3 className="mb-2 font-semibold">Tag Assets from Drive</h3>
+        <h3 className="mb-2 font-semibold">Load Assets from Gdrive</h3>
         {((!jobId && results.length === 0) || loading) ? (
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label className="block mb-1 text-sm">Google Drive Folder Link</label>
-              <input
-                type="text"
-                value={driveFolderUrl}
-                onChange={(e) => setDriveFolderUrl(e.target.value)}
-                className="w-full p-1 border rounded"
-                required
-              />
+              <div className="relative flex items-center gap-2">
+                <input
+                  type="text"
+                  value={driveFolderUrl}
+                  onChange={(e) => {
+                    setDriveFolderUrl(e.target.value);
+                    setLinkStatus(null);
+                  }}
+                  onBlur={verifyLink}
+                  className={`flex-1 p-1 border rounded ${linkStatus === false ? 'line-through' : ''}`}
+                  required
+                />
+                {linkStatus === 'loading' && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+                    <div className="w-5 h-5 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                  </div>
+                )}
+                {linkStatus === true && <FiCheckCircle className="text-green-600" />}
+                {linkStatus === false && <FiX className="text-red-600" />}
+              </div>
             </div>
             <div>
               <label className="block mb-1 text-sm">Folder Name</label>
@@ -224,13 +252,26 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
             <form onSubmit={(e) => { e.preventDefault(); handleAddRows(); }} className="space-y-2">
               <div>
                 <label className="block mb-1 text-sm">Google Drive Folder Link</label>
-                <input
-                  type="text"
-                  value={driveFolderUrl}
-                  onChange={(e) => setDriveFolderUrl(e.target.value)}
-                  className="w-full p-1 border rounded"
-                  required
-                />
+                <div className="relative flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={driveFolderUrl}
+                    onChange={(e) => {
+                      setDriveFolderUrl(e.target.value);
+                      setLinkStatus(null);
+                    }}
+                    onBlur={verifyLink}
+                    className={`flex-1 p-1 border rounded ${linkStatus === false ? 'line-through' : ''}`}
+                    required
+                  />
+                  {linkStatus === 'loading' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+                      <div className="w-5 h-5 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                  {linkStatus === true && <FiCheckCircle className="text-green-600" />}
+                  {linkStatus === false && <FiX className="text-red-600" />}
+                </div>
               </div>
               <div>
                 <label className="block mb-1 text-sm">Folder Name</label>
