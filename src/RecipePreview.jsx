@@ -39,6 +39,7 @@ import InfoTooltip from './components/InfoTooltip.jsx';
 import ProductCard from './components/ProductCard.jsx';
 import AddProductCard from './components/AddProductCard.jsx';
 import ProductEditModal from './components/ProductEditModal.jsx';
+import ProductImportModal from './ProductImportModal.jsx';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -97,6 +98,7 @@ const RecipePreview = ({
   const [assetFilter, setAssetFilter] = useState('');
   const [showTagger, setShowTagger] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const isUrl = (str) => /^https?:\/\//i.test(str);
   const [reviewRows, setReviewRows] = useState([]);
@@ -1349,7 +1351,10 @@ const RecipePreview = ({
                           onClick={() => toggle(i.id)}
                         />
                       ))}
-                      <AddProductCard onAdd={() => setShowProductModal(true)} />
+                      <AddProductCard
+                        onAdd={() => setShowProductModal(true)}
+                        onImport={() => setShowImportModal(true)}
+                      />
                     </div>
                     {showProductModal && (
                       <ProductEditModal
@@ -1383,6 +1388,35 @@ const RecipePreview = ({
                           }));
                         }}
                         onClose={() => setShowProductModal(false)}
+                      />
+                    )}
+                    {showImportModal && (
+                      <ProductImportModal
+                        brandCode={brandCode}
+                        onAdd={(p) => {
+                          const id = `product-${brandProducts.length}`;
+                          const newProd = {
+                            id,
+                            componentKey: 'product',
+                            name: p.name,
+                            values: {
+                              name: p.name,
+                              description: p.description,
+                              benefits: p.benefits,
+                              featuredImage: p.images?.[0]?.url || '',
+                              images: Array.isArray(p.images)
+                                ? p.images.map((img) => img.url)
+                                : [],
+                            },
+                            relationships: { brandCode },
+                          };
+                          setBrandProducts((arr) => [...arr, newProd]);
+                          setSelectedInstances((prev) => ({
+                            ...prev,
+                            [c.key]: [...currentList, id],
+                          }));
+                        }}
+                        onClose={() => setShowImportModal(false)}
                       />
                     )}
                   </div>
