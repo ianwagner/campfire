@@ -19,6 +19,7 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import useSiteSettings from './useSiteSettings';
 import { FiFileText } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
+import TabButton from './components/TabButton.jsx';
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
@@ -129,6 +130,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalStep, setModalStep] = useState(null); // null | 'brief' | 'describe'
+  const [view, setView] = useState('current');
   const navigate = useNavigate();
   const { settings } = useSiteSettings();
 
@@ -191,6 +193,10 @@ const ClientProjects = ({ brandCodes = [] }) => {
       navigate(`/projects/${proj.id}/staging`);
     }
   };
+  const displayProjects = projects.filter((p) => {
+    const status = p.group ? p.group.status : p.status;
+    return view === 'archived' ? status === 'archived' : status !== 'archived';
+  });
 
   return (
     <div className="min-h-screen p-4 flex flex-col items-center overflow-y-auto snap-y snap-mandatory scroll-smooth">
@@ -220,17 +226,25 @@ const ClientProjects = ({ brandCodes = [] }) => {
                   desc="Just tell us what you need. We'll generate a brief"
                   onClick={() => setModalStep('describe')}
                 />
-                  <OptionButton
-                    icon={FaMagic}
-                    title="Generate a Brief"
-                    desc="Craft your own brief. Choose copy, visuals and layouts"
-                    onClick={() => setModalStep('brief')}
-                  />
+                <OptionButton
+                  icon={FaMagic}
+                  title="Generate a Brief"
+                  desc="Craft your own brief. Choose copy, visuals and layouts"
+                  onClick={() => setModalStep('brief')}
+                />
               </div>
+            <div className="flex gap-2 mt-6">
+              <TabButton active={view === 'current'} onClick={() => setView('current')}>
+                Current
+              </TabButton>
+              <TabButton active={view === 'archived'} onClick={() => setView('archived')}>
+                Archived
+              </TabButton>
             </div>
-            {projects.length > 0 && (
+            </div>
+            {displayProjects.length > 0 && (
               <div className="space-y-3 max-w-xl w-full mx-auto">
-                {projects.map((p) => (
+                {displayProjects.map((p) => (
                   <div
                     key={p.id}
                     className="border rounded p-4 flex justify-between items-center cursor-pointer"
