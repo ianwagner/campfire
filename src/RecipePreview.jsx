@@ -1384,9 +1384,13 @@ const RecipePreview = ({
                       visibleColumns[col.key] && (
                         <td
                           key={col.key}
-                          className={`align-middle ${col.key === 'product.name' ? 'whitespace-normal break-words' : ''}`}
+                          className={`align-middle ${
+                            col.key === 'product.name'
+                              ? 'max-w-[20ch] truncate'
+                              : ''
+                          }`}
                           style={
-                            col.key.endsWith('.assets') || col.key === 'product.name'
+                            col.key.endsWith('.assets')
                               ? { overflow: 'visible' }
                               : undefined
                           }
@@ -1513,30 +1517,27 @@ const RecipePreview = ({
                   <td className="text-center align-middle">
                     {canEditRecipes ? (
                       <div className="flex items-center justify-center gap-1">
-                        <button
-                          type="button"
+                        <IconButton
                           onClick={() => handleEditRow(idx)}
                           aria-label={editing === idx ? 'Save' : 'Edit'}
-                          className="btn-secondary px-1.5 py-0.5 text-xs"
+                          className="p-0 flex-shrink-0"
                         >
                           {editing === idx ? <FiCheckSquare /> : <FiEdit2 />}
-                        </button>
-                        <button
-                          type="button"
+                        </IconButton>
+                        <IconButton
                           onClick={() => handleRefreshRow(idx)}
                           aria-label="Refresh"
-                          className="btn-secondary px-1.5 py-0.5 text-xs"
+                          className="p-0 flex-shrink-0"
                         >
                           <FaMagic />
-                        </button>
-                        <button
-                          type="button"
+                        </IconButton>
+                        <IconButton
                           onClick={() => handleDeleteRow(idx)}
                           aria-label="Delete"
-                          className="btn-secondary px-1.5 py-0.5 text-xs btn-delete"
+                          className="p-0 flex-shrink-0 btn-delete"
                         >
                           <FiTrash />
-                        </button>
+                        </IconButton>
                       </div>
                     ) : (
                       <button
@@ -1579,7 +1580,7 @@ const RecipePreview = ({
       )}
     </div>
     {results.length > 0 && userRole !== 'designer' && onSave && (
-      <div className="sticky bottom-0 bg-white dark:bg-[var(--dark-sidebar-bg)] p-2 flex justify-between items-center">
+      <div className="sticky bottom-0 bg-white dark:bg-[var(--dark-sidebar-bg)] p-2 pb-0 flex justify-between items-center">
         <button
           type="button"
           className="text-sm text-accent underline"

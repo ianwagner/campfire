@@ -333,7 +333,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
             </tbody>
           </table>
         </div>
-        <div className="sticky bottom-0 bg-white dark:bg-[var(--dark-sidebar-bg)] text-right space-x-2 pt-2">
+        <div className="sticky bottom-0 bg-white dark:bg-[var(--dark-sidebar-bg)] text-right space-x-2 px-2 pt-2 pb-0">
           <button onClick={handleClose} className="btn-secondary px-3 py-1">
             Cancel
           </button>
