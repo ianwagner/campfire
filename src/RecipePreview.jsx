@@ -13,6 +13,7 @@ import {
   FiSave,
   FiColumns,
   FiLink,
+  FiInfo,
 } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import { auth, db, storage } from './firebase/config';
@@ -34,6 +35,7 @@ import isVideoUrl from './utils/isVideoUrl.js';
 import RecipeTypeCard from './components/RecipeTypeCard.jsx';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import TaggerModal from './TaggerModal.jsx';
+import InfoTooltip from './components/InfoTooltip.jsx';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -1247,28 +1249,35 @@ const RecipePreview = ({
             <div>
               <label className="block text-sm mb-1">Asset Library</label>
               {assetRows.length > 0 && (
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-sm">
-                    <span className="font-semibold text-accent">
-                      {assetRows.length}
-                    </span>{' '}
-                    assets found
-                  </p>
-                  <input
-                    type="text"
-                    placeholder="Filter"
-                    value={assetFilter}
-                    onChange={(e) => setAssetFilter(e.target.value)}
-                    className="p-1 border rounded text-xs"
-                  />
-                  <IconButton
-                    type="button"
-                    aria-label="Add Assets"
-                    onClick={() => setShowTagger(true)}
-                    className="text-sm"
-                  >
-                    <FiPlus /> Assets
-                  </IconButton>
+                <div className="flex items-center mt-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm">
+                      <span className="font-semibold text-accent">
+                        {assetRows.length}
+                      </span>{' '}
+                      assets found
+                    </p>
+                    <IconButton
+                      type="button"
+                      aria-label="Add Assets"
+                      onClick={() => setShowTagger(true)}
+                      className="text-sm"
+                    >
+                      <FiPlus /> Assets
+                    </IconButton>
+                  </div>
+                  <div className="flex items-center gap-1 ml-auto">
+                    <input
+                      type="text"
+                      placeholder="Filter"
+                      value={assetFilter}
+                      onChange={(e) => setAssetFilter(e.target.value)}
+                      className="p-1 border rounded text-xs"
+                    />
+                    <InfoTooltip text="Type here to narrow down assets for this brief.">
+                      <FiInfo className="text-gray-500" />
+                    </InfoTooltip>
+                  </div>
                 </div>
               )}
             </div>
