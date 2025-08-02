@@ -31,6 +31,7 @@ const RecipeTypes = () => {
   const [enableAssetCsv, setEnableAssetCsv] = useState(false);
   const [assetFields, setAssetFields] = useState([]);
   const [defaultColumns, setDefaultColumns] = useState([]);
+  const [clientVisibleColumns, setClientVisibleColumns] = useState([]);
   const [external, setExternal] = useState(false);
   const [iconUrl, setIconUrl] = useState('');
   const [iconFile, setIconFile] = useState(null);
@@ -62,6 +63,7 @@ const RecipeTypes = () => {
     setEnableAssetCsv(false);
     setAssetFields([]);
     setDefaultColumns([]);
+    setClientVisibleColumns([]);
     setExternal(false);
     setIconUrl('');
     setIconFile(null);
@@ -86,6 +88,7 @@ const RecipeTypes = () => {
     e.preventDefault();
     const order = componentOrder.filter(Boolean);
     const defaultCols = defaultColumns.filter(Boolean);
+    const clientCols = clientVisibleColumns.filter(Boolean);
     const writeFields = fields
       .map((f) => ({
         label: f.label.trim(),
@@ -110,6 +113,7 @@ const RecipeTypes = () => {
           clientFormComponents: clientComponents,
           writeInFields: writeFields,
           defaultColumns: defaultCols,
+          clientVisibleColumns: clientCols,
           external,
           iconUrl: icon,
         });
@@ -128,6 +132,7 @@ const RecipeTypes = () => {
                   clientFormComponents: clientComponents,
                   writeInFields: writeFields,
                   defaultColumns: defaultCols,
+                  clientVisibleColumns: clientCols,
                   iconUrl: icon,
                 }
               : r
@@ -145,6 +150,7 @@ const RecipeTypes = () => {
           clientFormComponents: clientComponents,
           writeInFields: writeFields,
           defaultColumns: defaultCols,
+          clientVisibleColumns: clientCols,
           external,
           iconUrl: icon,
         });
@@ -162,6 +168,7 @@ const RecipeTypes = () => {
             clientFormComponents: clientComponents,
             writeInFields: writeFields,
             defaultColumns: defaultCols,
+            clientVisibleColumns: clientCols,
             external,
             iconUrl: icon,
           },
@@ -185,6 +192,7 @@ const RecipeTypes = () => {
     setComponentOrder(t.components || []);
     setClientComponents(t.clientFormComponents || []);
     setDefaultColumns(t.defaultColumns || []);
+    setClientVisibleColumns(t.clientVisibleColumns || []);
     setExternal(!!t.external);
     setIconUrl(t.iconUrl || '');
     setIconFile(null);
@@ -298,6 +306,7 @@ const RecipeTypes = () => {
                 <th>Asset Prompt</th>
                 <th>Asset Fields</th>
                 <th>Default Columns</th>
+                <th>Client Columns</th>
                 <th>External</th>
                 <th>Actions</th>
               </tr>
@@ -340,6 +349,11 @@ const RecipeTypes = () => {
                   <td>
                     {t.defaultColumns && t.defaultColumns.length > 0
                       ? t.defaultColumns.join(', ')
+                      : '-'}
+                  </td>
+                  <td>
+                    {t.clientVisibleColumns && t.clientVisibleColumns.length > 0
+                      ? t.clientVisibleColumns.join(', ')
                       : '-'}
                   </td>
                   <td>{t.external ? 'Yes' : 'No'}</td>
@@ -468,6 +482,15 @@ const RecipeTypes = () => {
             id="default-columns"
             value={defaultColumns}
             onChange={setDefaultColumns}
+            suggestions={columnOptions}
+          />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Visible Columns for Client</label>
+          <TagInput
+            id="client-columns"
+            value={clientVisibleColumns}
+            onChange={setClientVisibleColumns}
             suggestions={columnOptions}
           />
         </div>
