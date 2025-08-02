@@ -1,7 +1,7 @@
 import React from 'react';
 import OptimizedImage from './OptimizedImage.jsx';
 
-const ProductCard = ({ product, onClick }) => {
+const ProductCard = ({ product, onClick, selected = false }) => {
   const img = product.featuredImage ||
     (Array.isArray(product.images) && product.images.length
       ? product.images[0].url || product.images[0]
@@ -10,7 +10,7 @@ const ProductCard = ({ product, onClick }) => {
     <button
       type="button"
       onClick={onClick}
-      className="border rounded shadow bg-white dark:bg-[var(--dark-sidebar-bg)] overflow-hidden text-center"
+      className={`border rounded shadow bg-white dark:bg-[var(--dark-sidebar-bg)] overflow-hidden text-center ${selected ? 'ring-2 ring-blue-500' : ''}`}
     >
       {img && (
         <OptimizedImage

@@ -5,12 +5,16 @@ import IconButton from './IconButton.jsx';
 
 const AddProductCard = ({ onAdd, onImport }) => (
   <div className="border rounded shadow bg-white dark:bg-[var(--dark-sidebar-bg)] flex flex-col items-center justify-center gap-2 p-4">
-    <IconButton aria-label="Import Product" onClick={onImport}>
-      <FaMagic />
-    </IconButton>
-    <IconButton aria-label="Add Product" onClick={onAdd}>
-      <FiPlus />
-    </IconButton>
+    {onImport && (
+      <IconButton aria-label="Import Product" onClick={onImport}>
+        <FaMagic />
+      </IconButton>
+    )}
+    {onAdd && (
+      <IconButton aria-label="Add Product" onClick={onAdd}>
+        <FiPlus />
+      </IconButton>
+    )}
   </div>
 );
 
