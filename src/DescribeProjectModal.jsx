@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './components/Modal.jsx';
-import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { FiInfo, FiCheckCircle, FiX } from 'react-icons/fi';
 import { db, auth, functions } from './firebase/config';
 
-const DescribeProjectModal = ({ onClose, brandCodes = [] }) => {
+const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
   const [title, setTitle] = useState('');
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
   const [dueDate, setDueDate] = useState('');
@@ -13,6 +13,31 @@ const DescribeProjectModal = ({ onClose, brandCodes = [] }) => {
   const [assetLinks, setAssetLinks] = useState(['']);
   const [linkStatus, setLinkStatus] = useState([null]);
   const [details, setDetails] = useState('');
+
+  useEffect(() => {
+    if (request) {
+      setTitle(request.title || '');
+      setBrandCode(request.brandCode || brandCodes[0] || '');
+      setDueDate(
+        request.dueDate
+          ? (request.dueDate.toDate
+              ? request.dueDate.toDate()
+              : new Date(request.dueDate)
+            )
+              .toISOString()
+              .slice(0, 10)
+          : ''
+      );
+      setNumAds(request.numAds || 1);
+      setAssetLinks(request.assetLinks && request.assetLinks.length ? request.assetLinks : ['']);
+      setLinkStatus(
+        request.assetLinks && request.assetLinks.length
+          ? request.assetLinks.map(() => null)
+          : [null]
+      );
+      setDetails(request.details || '');
+    }
+  }, [request, brandCodes]);
 
   const addAssetLink = () => {
     setAssetLinks((l) => [...l, '']);
@@ -55,30 +80,58 @@ const DescribeProjectModal = ({ onClose, brandCodes = [] }) => {
   const handleSave = async () => {
     if (!title.trim()) return;
     try {
-      const projRef = await addDoc(collection(db, 'projects'), {
-        title: title.trim(),
-        recipeTypes: [],
-        brandCode,
-        status: 'new',
-        createdAt: serverTimestamp(),
-        userId: auth.currentUser?.uid || null,
-      });
+      let projectId = request?.projectId;
+      if (request) {
+        await updateDoc(doc(db, 'requests', request.id), {
+          brandCode,
+          title: title.trim(),
+          dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
+          numAds: Number(numAds) || 0,
+          assetLinks: (assetLinks || []).filter((l) => l),
+          details,
+        });
+        if (projectId) {
+          await updateDoc(doc(db, 'projects', projectId), {
+            title: title.trim(),
+            brandCode,
+            status: 'processing',
+          });
+        }
+      } else {
+        const projRef = await addDoc(collection(db, 'projects'), {
+          title: title.trim(),
+          recipeTypes: [],
+          brandCode,
+          status: 'processing',
+          createdAt: serverTimestamp(),
+          userId: auth.currentUser?.uid || null,
+        });
+        projectId = projRef.id;
+        await addDoc(collection(db, 'requests'), {
+          type: 'newAds',
+          brandCode,
+          title: title.trim(),
+          dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
+          numAds: Number(numAds) || 0,
+          assetLinks: (assetLinks || []).filter((l) => l),
+          details,
+          status: 'new',
+          createdAt: serverTimestamp(),
+          createdBy: auth.currentUser?.uid || null,
+          projectId,
+        });
+      }
 
-      await addDoc(collection(db, 'requests'), {
-        type: 'newAds',
-        brandCode,
+      onClose({
+        id: projectId,
         title: title.trim(),
-        dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
+        status: 'processing',
+        brandCode,
+        dueDate: dueDate ? new Date(dueDate) : null,
         numAds: Number(numAds) || 0,
         assetLinks: (assetLinks || []).filter((l) => l),
         details,
-        status: 'new',
-        createdAt: serverTimestamp(),
-        createdBy: auth.currentUser?.uid || null,
-        projectId: projRef.id,
       });
-
-      onClose({ id: projRef.id, title: title.trim(), status: 'new', recipeTypes: [], createdAt: new Date() });
     } catch (err) {
       console.error('Failed to create project request', err);
     }

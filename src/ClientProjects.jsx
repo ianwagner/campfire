@@ -157,18 +157,17 @@ const ClientProjects = ({ brandCodes = [] }) => {
         const groupSnap = await getDocs(
           query(collection(db, 'adGroups'), where('uploadedBy', '==', auth.currentUser.uid))
         );
-        const activeKeys = new Set();
+        const groupMap = {};
         groupSnap.docs.forEach((g) => {
           const data = g.data();
-          if (data.status !== 'archived') {
-            activeKeys.add(`${data.brandCode}|${data.name}`);
-          }
+          groupMap[`${data.brandCode}|${data.name}`] = { id: g.id, ...data };
         });
 
-        const filtered = allProjects.filter((p) =>
-          activeKeys.has(`${p.brandCode}|${p.title}`)
-        );
-        setProjects(uniqueById(filtered));
+        const merged = allProjects.map((p) => {
+          const key = `${p.brandCode}|${p.title}`;
+          return { ...p, group: groupMap[key] };
+        });
+        setProjects(uniqueById(merged));
       } catch (err) {
         console.error('Failed to load projects', err);
         setProjects([]);
@@ -234,7 +233,9 @@ const ClientProjects = ({ brandCodes = [] }) => {
                     onClick={() => navigate(`/projects/${p.id}`)}
                   >
                     <span className="font-medium">{p.title}</span>
-                    <span className="text-sm text-gray-500">{p.status}</span>
+                    <span className="text-sm text-gray-500">
+                      {p.group ? p.group.status : p.status}
+                    </span>
                   </div>
                 ))}
               </div>

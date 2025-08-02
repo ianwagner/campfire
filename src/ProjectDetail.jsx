@@ -17,6 +17,7 @@ import RecipePreview from './RecipePreview.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import isVideoUrl from './utils/isVideoUrl';
+import DescribeProjectModal from './DescribeProjectModal.jsx';
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
@@ -30,6 +31,8 @@ const ProjectDetail = () => {
   const [showAllAssets, setShowAllAssets] = useState(false);
   const galleryRef = useRef(null);
   const [columns, setColumns] = useState(0);
+  const [request, setRequest] = useState(null);
+  const [editRequest, setEditRequest] = useState(false);
   const { settings } = useSiteSettings();
 
   useEffect(() => {
@@ -68,6 +71,14 @@ const ProjectDetail = () => {
 
           const aSnap = await getDocs(collection(db, 'adGroups', g.id, 'assets'));
           setAssets(aSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        } else {
+          const reqSnap = await getDocs(
+            query(collection(db, 'requests'), where('projectId', '==', projectId))
+          );
+          if (!reqSnap.empty) {
+            const r = reqSnap.docs[0];
+            setRequest({ id: r.id, ...r.data() });
+          }
         }
 
         if (proj.recipeTypes && proj.recipeTypes.length > 0) {
@@ -186,6 +197,27 @@ const ProjectDetail = () => {
         </div>
       </div>
       <div className="space-y-4">
+        {!groupId && request && (
+          <div className="border rounded p-4 max-w-[60rem] space-y-1">
+            <h2 className="text-lg font-semibold mb-1">{request.title || 'New Ads Ticket'}</h2>
+            {request.brandCode && <p className="mb-0">Brand: {request.brandCode}</p>}
+            {request.dueDate && (
+              <p className="mb-0">
+                Due Date:{' '}
+                {request.dueDate.toDate
+                  ? request.dueDate.toDate().toLocaleDateString()
+                  : new Date(request.dueDate).toLocaleDateString()}
+              </p>
+            )}
+            <p className="mb-0"># Ads: {request.numAds}</p>
+            {request.details && (
+              <div className="text-sm" dangerouslySetInnerHTML={{ __html: request.details }} />
+            )}
+            <button className="btn-primary mt-2" onClick={() => setEditRequest(true)}>
+              Edit
+            </button>
+          </div>
+        )}
         <div className="border rounded p-4 max-w-[60rem]">
           <button className="font-medium" onClick={() => setShowBrief((s) => !s)}>
             {showBrief ? 'Hide Brief' : 'View Brief'}
@@ -244,6 +276,19 @@ const ProjectDetail = () => {
           )}
         </div>
       </div>
+      {editRequest && request && (
+        <DescribeProjectModal
+          onClose={(updated) => {
+            setEditRequest(false);
+            if (updated) {
+              setRequest((r) => ({ ...r, ...updated }));
+              setProject((p) => ({ ...p, title: updated.title, brandCode: updated.brandCode }));
+            }
+          }}
+          brandCodes={[project.brandCode]}
+          request={{ ...request, projectId: project.id, id: request.id }}
+        />
+      )}
     </div>
   );
 };
