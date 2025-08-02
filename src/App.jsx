@@ -42,6 +42,7 @@ import EditorBrands from "./EditorBrands";
 import AdminAgencies from "./AdminAgencies";
 import ClientProjects from "./ClientProjects";
 import ProjectDetail from "./ProjectDetail";
+import ProjectStaging from "./ProjectStaging";
 import AdminRecipeSetup from "./AdminRecipeSetup";
 import AdminCopyRecipes from "./AdminCopyRecipes";
 import AdminNotifications from "./AdminNotifications";
@@ -362,6 +363,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <ClientDashboard user={user} brandCodes={brandCodes} />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/projects/:projectId/staging"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <ProjectStaging />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

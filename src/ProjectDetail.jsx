@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, Navigate } from 'react-router-dom';
 import {
   doc,
   getDoc,
@@ -16,7 +16,6 @@ import RecipePreview from './RecipePreview.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import isVideoUrl from './utils/isVideoUrl';
-import DescribeProjectModal from './DescribeProjectModal.jsx';
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
@@ -31,7 +30,6 @@ const ProjectDetail = () => {
   const galleryRef = useRef(null);
   const [columns, setColumns] = useState(0);
   const [request, setRequest] = useState(null);
-  const [editRequest, setEditRequest] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -156,50 +154,7 @@ const ProjectDetail = () => {
   if (!project) return <div className="min-h-screen p-4">Project not found.</div>;
 
   if (!groupId && request) {
-    return (
-      <div className="min-h-screen p-4 w-full max-w-[60rem] mx-auto">
-        <div className="flex items-center mb-4">
-          <Link to="/projects" className="btn-arrow mr-2" aria-label="Back">
-            &lt;
-          </Link>
-        </div>
-        <div className="border rounded p-4 max-w-[60rem] space-y-1">
-          <h1 className="text-xl font-semibold mb-1">{request.title || 'New Ads Ticket'}</h1>
-          {request.brandCode && <p className="mb-0">Brand: {request.brandCode}</p>}
-          {request.dueDate && (
-            <p className="mb-0">
-              Due Date:{' '}
-              {request.dueDate.toDate
-                ? request.dueDate.toDate().toLocaleDateString()
-                : new Date(request.dueDate).toLocaleDateString()}
-            </p>
-          )}
-          <p className="mb-0"># Ads: {request.numAds}</p>
-          {request.details && (
-            <div
-              className="text-sm"
-              dangerouslySetInnerHTML={{ __html: request.details }}
-            />
-          )}
-          <button className="btn-primary mt-2" onClick={() => setEditRequest(true)}>
-            Edit
-          </button>
-        </div>
-        {editRequest && (
-          <DescribeProjectModal
-            onClose={(updated) => {
-              setEditRequest(false);
-              if (updated) {
-                setRequest((r) => ({ ...r, ...updated }));
-                setProject((p) => ({ ...p, title: updated.title, brandCode: updated.brandCode }));
-              }
-            }}
-            brandCodes={[project.brandCode]}
-            request={{ ...request, projectId: project.id, id: request.id }}
-          />
-        )}
-      </div>
-    );
+    return <Navigate to={`/projects/${projectId}/staging`} replace />;
   }
 
   const visibleAssets = showAllAssets
