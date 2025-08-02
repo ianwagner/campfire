@@ -24,12 +24,12 @@ const SelectProjectTypeModal = ({ onSelect, onClose }) => (
         desc="Just tell us what you need. We'll generate a brief"
         onClick={() => onSelect('describe')}
       />
-      <OptionButton
-        icon={FaMagic}
-        title="Generate Brief"
-        desc="Craft your own brief. Choose copy, visuals and layouts"
-        onClick={() => onSelect('brief')}
-      />
+        <OptionButton
+          icon={FaMagic}
+          title="Generate a Brief"
+          desc="Craft your own brief. Choose copy, visuals and layouts"
+          onClick={() => onSelect('brief')}
+        />
     </div>
     <div className="flex justify-end gap-2">
       <button className="btn" onClick={onClose}>Cancel</button>
