@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { getDownloadURL, ref } from 'firebase/storage';
 import {
   FiImage,
   FiVideo,
@@ -14,11 +15,10 @@ import {
   FiLink,
 } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
-import { auth } from './firebase/config';
+import { auth, db, storage } from './firebase/config';
 import useUserRole from './useUserRole';
 import TagChecklist from './components/TagChecklist.jsx';
 import TagInput from './components/TagInput.jsx';
-import { db } from './firebase/config';
 import selectRandomOption from './utils/selectRandomOption.js';
 import parseContextTags from './utils/parseContextTags.js';
 import debugLog from './utils/debugLog';
@@ -251,7 +251,28 @@ const RecipePreview = ({
           ? query(collection(db, 'recipeTypes'), where('external', '==', true))
           : collection(db, 'recipeTypes');
         const typeSnap = await getDocs(typeQuery);
-        setTypes(typeSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const resolveUrl = async (url) => {
+          if (!url) return url;
+          if (isUrl(url)) return url;
+          try {
+            return await getDownloadURL(ref(storage, url));
+          } catch (err) {
+            console.error('Failed to load icon URL', url, err);
+            return url;
+          }
+        };
+        const typeList = await Promise.all(
+          typeSnap.docs.map(async (d) => {
+            const data = d.data();
+            const iconUrl = await resolveUrl(data.iconUrl);
+            let iconUrls = data.iconUrls;
+            if (Array.isArray(iconUrls)) {
+              iconUrls = await Promise.all(iconUrls.map(resolveUrl));
+            }
+            return { id: d.id, ...data, iconUrl, iconUrls };
+          })
+        );
+        setTypes(typeList);
         const compSnap = await getDocs(collection(db, 'componentTypes'));
         const list = compSnap.docs.map((d) => {
           const data = d.data();

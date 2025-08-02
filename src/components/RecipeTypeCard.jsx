@@ -1,6 +1,8 @@
 import React from 'react';
 import OptimizedImage from './OptimizedImage.jsx';
 
+const isUrl = (str) => /^https?:\/\//i.test(str || '');
+
 const RecipeTypeCard = ({
   type,
   onClick,
@@ -35,14 +37,25 @@ const RecipeTypeCard = ({
           <div
             className={`flex flex-wrap justify-center ${iconContainerClasses}`}
           >
-            {urls.map((url, idx) => (
-              <OptimizedImage
-                key={idx}
-                pngUrl={url}
-                alt={`${type.name} icon ${idx + 1}`}
-                className={`${iconClasses} object-contain`}
-              />
-            ))}
+            {urls.map((url, idx) => {
+              if (isUrl(url)) {
+                return (
+                  <OptimizedImage
+                    key={idx}
+                    pngUrl={url}
+                    alt={`${type.name} icon ${idx + 1}`}
+                    className={`${iconClasses} object-contain`}
+                  />
+                );
+              }
+              return (
+                <div
+                  key={idx}
+                  className={`${iconClasses} bg-gray-200 rounded`}
+                  aria-hidden="true"
+                />
+              );
+            })}
           </div>
         ) : null;
       })()}
