@@ -83,7 +83,7 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
         let type = '';
         let product = '';
         try {
-          const prompt = `These labels describe an asset: ${labels}. Provide a short description, asset type, and product in JSON {description, type, product}.`;
+          const prompt = `These labels describe an asset: ${labels}. Select the best asset type from ["Lifestyle", "Video", "POW", "Background"] (where POW means product on white), identify the product if obvious, and provide a short, straightforward description such as "a tennis court" or "people on the beach". Respond in JSON {"description":"<description>","type":"<type>","product":"<product>"}.`;
           const gpt = await openai.chat.completions.create({
             model: 'gpt-3.5-turbo',
             messages: [{ role: 'user', content: prompt }],
@@ -91,13 +91,21 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
           });
           const text = gpt.choices?.[0]?.message?.content || '';
           const jsonMatch = text.match(/\{[\s\S]*?\}/); // match first JSON block
-          if (!jsonMatch) throw new Error("OpenAI did not return valid JSON");
+          if (!jsonMatch) throw new Error('OpenAI did not return valid JSON');
           const parsed = JSON.parse(jsonMatch[0]);
           description = parsed.description || description;
           type = parsed.type || '';
           product = parsed.product || '';
         } catch (err) {
           console.error('OpenAI failed:', err?.message || err?.toString());
+        }
+        const allowedTypes = ['Lifestyle', 'Video', 'POW', 'Background'];
+        if (!allowedTypes.includes(type)) {
+          const t = (type || '').toLowerCase();
+          if (t.includes('video')) type = 'Video';
+          else if (t.includes('white') || t.includes('product')) type = 'POW';
+          else if (t.includes('background')) type = 'Background';
+          else type = 'Lifestyle';
         }
         const result = {
           name: file.name,
