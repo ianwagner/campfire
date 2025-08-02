@@ -23,6 +23,10 @@ service cloud.firestore {
       return request.auth != null && userData().role == 'editor';
     }
 
+    function isClient() {
+      return request.auth != null && userData().role == 'client';
+    }
+
     function userData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -64,7 +68,12 @@ service cloud.firestore {
 
     match /brands/{brandId} {
       allow read: if true;
-      allow update: if isAdmin() || isManager() || isEditor();
+      allow update: if isAdmin() || isManager() || isEditor() ||
+        (isClient() &&
+         userData().brandCodes != null &&
+         userData().brandCodes.hasAny([resource.data.code]) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['products'])
+        );
       allow delete: if isAdmin();
       allow create: if isAdmin();
     }
