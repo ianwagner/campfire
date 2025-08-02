@@ -1672,7 +1672,11 @@ const RecipePreview = ({
                   {columnMeta.map(
                     (col) =>
                       visibleColumns[col.key] && (
-                        <td key={col.key} className="align-middle">
+                        <td
+                          key={col.key}
+                          className="align-middle"
+                          style={col.key.endsWith('.assets') ? { overflow: 'visible' } : undefined}
+                        >
                           {col.key.endsWith('.assets') ? (
                             renderAssetList(
                               editing === idx
