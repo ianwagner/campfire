@@ -1643,7 +1643,7 @@ const AdGroupDetail = () => {
             }`}
           >
             <div className="overflow-x-auto table-container">
-              <table className="ad-table min-w-max w-full">
+              <table className="ad-table min-w-full w-full">
                 <tbody>
                   {g.assets.map((a) => (
                     <tr key={a.id} className="asset-row">
@@ -2120,7 +2120,7 @@ const AdGroupDetail = () => {
 
       {(tableVisible || (showStats && specialGroups.length > 0)) && (
         <div className="overflow-x-auto table-container">
-          <table className="ad-table min-w-max">
+          <table className="ad-table min-w-full">
             <thead>
               <tr>
                 <th>Filename</th>

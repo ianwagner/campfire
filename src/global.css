@@ -228,7 +228,7 @@
   }
 
   .ad-table th:not(:last-child),
-  .ad-table td:not(:last-child) {
+  .ad-table td:not(:last-child):not(.copy-cell) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -237,6 +237,11 @@
   .ad-table th:last-child,
   .ad-table td:last-child {
     white-space: nowrap;
+  }
+
+  .ad-table td.copy-cell {
+    white-space: pre-wrap;
+    word-break: break-word;
   }
   .ad-table tbody tr:nth-child(odd) {
     background-color: #ffffff;
