@@ -20,6 +20,7 @@ import useSiteSettings from './useSiteSettings';
 import { FiFileText } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import TabButton from './components/TabButton.jsx';
+import { uploadFile } from './uploadFile.js';
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
@@ -39,7 +40,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   const [step, setStep] = useState(1);
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
 
-  const handleSave = async (recipes) => {
+  const handleSave = async (recipes, briefNote, briefAssets) => {
     if (!title.trim()) return;
     try {
       const projRef = await addDoc(collection(db, 'projects'), {
@@ -69,7 +70,29 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         requireAuth: false,
         requirePassword: false,
         password: '',
+        ...(briefNote ? { notes: briefNote } : {}),
       });
+
+      if (Array.isArray(briefAssets) && briefAssets.length > 0) {
+        for (const file of briefAssets) {
+          try {
+            const url = await uploadFile(
+              file,
+              groupRef.id,
+              brandCode,
+              title.trim(),
+            );
+            await addDoc(collection(db, 'adGroups', groupRef.id, 'groupAssets'), {
+              filename: file.name,
+              firebaseUrl: url,
+              uploadedAt: serverTimestamp(),
+              note: '',
+            });
+          } catch (err) {
+            console.error('Brief upload failed', err);
+          }
+        }
+      }
 
       if (Array.isArray(recipes) && recipes.length > 0) {
         const batch = writeBatch(db);
@@ -110,6 +133,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         onTitleChange={setTitle}
         onStepChange={setStep}
         onBrandCodeChange={setBrandCode}
+        showBriefExtras
       />
       <div className="flex justify-end gap-2 pt-2">
         <button className="btn" onClick={() => onClose(null)}>Cancel</button>

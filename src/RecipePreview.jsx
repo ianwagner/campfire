@@ -14,6 +14,7 @@ import {
   FiColumns,
   FiLink,
   FiInfo,
+  FiUpload,
 } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import { auth, db, storage } from './firebase/config';
@@ -72,6 +73,7 @@ const RecipePreview = ({
   onTitleChange = null,
   onStepChange = null,
   onBrandCodeChange = null,
+  showBriefExtras = false,
 }) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
@@ -99,6 +101,21 @@ const RecipePreview = ({
   const [showTagger, setShowTagger] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+
+  const [briefNote, setBriefNote] = useState('');
+  const [briefFiles, setBriefFiles] = useState([]);
+  const briefFileInputRef = useRef(null);
+
+  const handleBriefNoteChange = (e) => {
+    setBriefNote(e.target.value);
+    setDirty(true);
+  };
+
+  const handleBriefFilesChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    setBriefFiles(files);
+    if (files.length > 0) setDirty(true);
+  };
 
   const isUrl = (str) => /^https?:\/\//i.test(str);
   const [reviewRows, setReviewRows] = useState([]);
@@ -959,7 +976,7 @@ const RecipePreview = ({
     if (!onSave) return;
     setSaving(true);
     try {
-      await onSave(results);
+      await onSave(results, briefNote, briefFiles);
       originalResultsRef.current = results;
       setDirty(false);
     } finally {
@@ -969,6 +986,8 @@ const RecipePreview = ({
 
   const handleReset = () => {
     setResults(originalResultsRef.current.map((r) => ({ ...r })));
+    setBriefNote('');
+    setBriefFiles([]);
     setDirty(false);
   };
 
@@ -1304,6 +1323,50 @@ const RecipePreview = ({
         )}
         {step === 2 && currentType && (
           <div className="space-y-4">
+            {showBriefExtras && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Brief Note (Optional)</label>
+                  <textarea
+                    value={briefNote}
+                    onChange={handleBriefNoteChange}
+                    placeholder="E.g. Only use red. Avoid lifestyle imagery."
+                    className="w-full p-2 border rounded"
+                  />
+                  <p className="text-sm text-gray-600">
+                    Add any specific instructions for this brief. These notes will be seen by the designers.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Brief-Specific Assets</label>
+                  <div className="flex items-center gap-2 mb-1">
+                    <input
+                      type="file"
+                      multiple
+                      ref={briefFileInputRef}
+                      onChange={handleBriefFilesChange}
+                      className="hidden"
+                    />
+                    <IconButton onClick={() => briefFileInputRef.current && briefFileInputRef.current.click()}>
+                      <FiUpload /> Upload brief assets
+                    </IconButton>
+                    <InfoTooltip text="What counts as a brief asset? These assets are only for this brief—things like lockups, mockups, sketches, campaign PDFs, or inspiration boards. This is different from your brand’s Asset Library, which includes reusable product photos, videos, and brand elements that power your creative recipes.">
+                      <FiInfo className="text-gray-500" />
+                    </InfoTooltip>
+                  </div>
+                  {briefFiles.length > 0 && (
+                    <ul className="text-sm list-disc ml-5">
+                      {briefFiles.map((f, idx) => (
+                        <li key={idx}>{f.name}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="text-sm text-gray-600">
+                    Upload logos, lockups, inspiration, or campaign-specific files for this brief. These are only used for this request.
+                  </p>
+                </div>
+              </>
+            )}
             {displayedComponents.map((c) => {
               if (c.key === 'brand') return null;
               const instOptions = allInstances.filter(
