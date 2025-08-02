@@ -649,7 +649,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
                     </button>
                   )}
                 </td>
-                <td className="text-center">
+                <td className="text-center" style={{ overflow: 'visible' }}>
                   {a.thumbnailUrl && (
                     <HoverPreview
                       preview={
