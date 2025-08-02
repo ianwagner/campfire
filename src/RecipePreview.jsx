@@ -36,6 +36,9 @@ import RecipeTypeCard from './components/RecipeTypeCard.jsx';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import TaggerModal from './TaggerModal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
+import ProductCard from './components/ProductCard.jsx';
+import AddProductCard from './components/AddProductCard.jsx';
+import ProductEditModal from './components/ProductEditModal.jsx';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -93,6 +96,7 @@ const RecipePreview = ({
   const [showOptionLists, setShowOptionLists] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
   const [showTagger, setShowTagger] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
 
   const isUrl = (str) => /^https?:\/\//i.test(str);
   const [reviewRows, setReviewRows] = useState([]);
@@ -186,6 +190,8 @@ const RecipePreview = ({
                       .map((d) => d.trim())
                       .filter(Boolean)
                   : [],
+                featuredImage: p.featuredImage || '',
+                images: Array.isArray(p.images) ? p.images : [],
               },
               relationships: { brandCode },
             }))
@@ -1321,6 +1327,67 @@ const RecipePreview = ({
                     )
                   : null;
               const imgAttr = c.attributes?.find((a) => a.inputType === 'image');
+              if (c.key === 'product') {
+                const currentList = Array.isArray(current) ? current : defaultList;
+                const toggle = (id) => {
+                  setSelectedInstances({
+                    ...selectedInstances,
+                    [c.key]: currentList.includes(id)
+                      ? currentList.filter((x) => x !== id)
+                      : [...currentList, id],
+                  });
+                };
+                return (
+                  <div key={c.id} className="space-y-2">
+                    <label className="block text-sm mb-1">{c.label}</label>
+                    <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                      {instOptions.map((i) => (
+                        <ProductCard
+                          key={i.id}
+                          product={{ ...i.values, name: i.name }}
+                          selected={currentList.includes(i.id)}
+                          onClick={() => toggle(i.id)}
+                        />
+                      ))}
+                      <AddProductCard onAdd={() => setShowProductModal(true)} />
+                    </div>
+                    {showProductModal && (
+                      <ProductEditModal
+                        product={{
+                          name: '',
+                          description: [],
+                          benefits: [],
+                          featuredImage: '',
+                          images: [],
+                        }}
+                        brandCode={brandCode}
+                        onSave={(p) => {
+                          const id = `product-${brandProducts.length}`;
+                          const newProd = {
+                            id,
+                            componentKey: 'product',
+                            name: p.name,
+                            values: {
+                              name: p.name,
+                              description: p.description,
+                              benefits: p.benefits,
+                              featuredImage: p.featuredImage || '',
+                              images: p.images || [],
+                            },
+                            relationships: { brandCode },
+                          };
+                          setBrandProducts((arr) => [...arr, newProd]);
+                          setSelectedInstances((prev) => ({
+                            ...prev,
+                            [c.key]: [...currentList, id],
+                          }));
+                        }}
+                        onClose={() => setShowProductModal(false)}
+                      />
+                    )}
+                  </div>
+                );
+              }
               return (
                 <div key={c.id} className="space-y-2">
                   <label className="block text-sm mb-1">{c.label}</label>
