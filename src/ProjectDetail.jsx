@@ -8,6 +8,7 @@ import {
   query,
   where,
   writeBatch,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
@@ -39,6 +40,7 @@ const ProjectDetail = () => {
         const snap = await getDoc(doc(db, 'projects', projectId));
         if (!snap.exists()) {
           setProject(null);
+          setLoading(false);
           return;
         }
         const data = snap.data();
@@ -49,34 +51,12 @@ const ProjectDetail = () => {
         };
         setProject(proj);
 
-        // fetch matching ad group
-        const gSnap = await getDocs(
-          query(
-            collection(db, 'adGroups'),
-            where('name', '==', proj.title),
-            where('brandCode', '==', proj.brandCode),
-            where('uploadedBy', '==', proj.userId)
-          )
+        const reqSnap = await getDocs(
+          query(collection(db, 'requests'), where('projectId', '==', projectId))
         );
-        if (!gSnap.empty) {
-          const g = gSnap.docs[0];
-          setGroupId(g.id);
-
-          const rSnap = await getDocs(collection(db, 'adGroups', g.id, 'recipes'));
-          setRecipes(
-            rSnap.docs.map((d, idx) => ({ recipeNo: idx + 1, id: d.id, ...d.data() }))
-          );
-
-          const aSnap = await getDocs(collection(db, 'adGroups', g.id, 'assets'));
-          setAssets(aSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        } else {
-          const reqSnap = await getDocs(
-            query(collection(db, 'requests'), where('projectId', '==', projectId))
-          );
-          if (!reqSnap.empty) {
-            const r = reqSnap.docs[0];
-            setRequest({ id: r.id, ...r.data() });
-          }
+        if (!reqSnap.empty) {
+          const r = reqSnap.docs[0];
+          setRequest({ id: r.id, ...r.data() });
         }
 
         if (proj.recipeTypes && proj.recipeTypes.length > 0) {
@@ -97,6 +77,32 @@ const ProjectDetail = () => {
     };
     load();
   }, [projectId]);
+
+  useEffect(() => {
+    if (!project) return undefined;
+    const q = query(
+      collection(db, 'adGroups'),
+      where('name', '==', project.title),
+      where('brandCode', '==', project.brandCode),
+      where('uploadedBy', '==', project.userId)
+    );
+    const unsub = onSnapshot(q, async (gSnap) => {
+      if (!gSnap.empty) {
+        const g = gSnap.docs[0];
+        setGroupId(g.id);
+        const rSnap = await getDocs(collection(db, 'adGroups', g.id, 'recipes'));
+        setRecipes(
+          rSnap.docs.map((d, idx) => ({ recipeNo: idx + 1, id: d.id, ...d.data() }))
+        );
+        const aSnap = await getDocs(collection(db, 'adGroups', g.id, 'assets'));
+        setAssets(aSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setRequest(null);
+      } else {
+        setGroupId(null);
+      }
+    });
+    return () => unsub();
+  }, [project]);
 
   const updateLayout = () => {
     if (typeof window === 'undefined') return;
