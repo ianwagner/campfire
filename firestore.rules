@@ -151,7 +151,7 @@ service cloud.firestore {
     }
 
     // ✅ Collection group rule for any 'assets' subcollection
-    match /assets/{assetId} {
+    match /{path=**}/assets/{assetId} {
       allow get, list: if request.auth != null;
     }
 
