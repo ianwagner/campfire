@@ -1355,15 +1355,27 @@ const RecipePreview = ({
                   <label className="block text-sm font-medium mb-1">Brief-Specific Assets</label>
                   <div className="flex items-center gap-2 mb-1">
                     <input
+                      id="brief-file-input"
                       type="file"
                       multiple
                       ref={briefFileInputRef}
                       onChange={handleBriefFilesChange}
                       className="hidden"
                     />
-                    <IconButton onClick={() => briefFileInputRef.current && briefFileInputRef.current.click()}>
+                    <label
+                      htmlFor="brief-file-input"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          briefFileInputRef.current && briefFileInputRef.current.click();
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300 hover:bg-[var(--accent-color-10)] hover:text-gray-900 dark:hover:text-white focus:outline-none active:bg-[var(--accent-color-10)] cursor-pointer"
+                    >
                       <FiUpload /> Upload brief assets
-                    </IconButton>
+                    </label>
                     <InfoTooltip text="What counts as a brief asset? These assets are only for this brief—things like lockups, mockups, sketches, campaign PDFs, or inspiration boards. This is different from your brand’s Asset Library, which includes reusable product photos, videos, and brand elements that power your creative recipes.">
                       <FiInfo className="text-gray-500" />
                     </InfoTooltip>
