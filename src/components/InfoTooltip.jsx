@@ -10,7 +10,10 @@ const InfoTooltip = ({ text, children, maxWidth = 200 }) => {
     if (!visible) return;
     const rect = ref.current?.getBoundingClientRect();
     if (rect) {
-      setCoords({ x: rect.left + rect.width / 2, y: rect.bottom + 4 });
+      setCoords({
+        x: rect.left + rect.width / 2 + window.scrollX,
+        y: rect.top + window.scrollY - 4,
+      });
     }
   }, [visible]);
 
@@ -29,7 +32,7 @@ const InfoTooltip = ({ text, children, maxWidth = 200 }) => {
               position: 'absolute',
               top: coords.y,
               left: coords.x,
-              transform: 'translate(-50%, 0)',
+              transform: 'translate(-50%, -100%)',
               zIndex: 1000,
               maxWidth: typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth,
             }}
