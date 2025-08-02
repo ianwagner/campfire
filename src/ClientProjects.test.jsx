@@ -55,6 +55,8 @@ test('displays brand code when multiple brand codes provided', () => {
     </MemoryRouter>
   );
 
-  expect(screen.getByText('B1 - Project 1')).toBeInTheDocument();
+  expect(screen.getByText('Project 1')).toBeInTheDocument();
+  expect(screen.getByText('B1')).toBeInTheDocument();
+  expect(screen.queryByText('B1 - Project 1')).not.toBeInTheDocument();
 });
 
