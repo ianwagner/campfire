@@ -36,7 +36,7 @@ const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
 const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   const [title, setTitle] = useState('');
   const [step, setStep] = useState(1);
-  const brandCode = brandCodes[0] || '';
+  const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
 
   const handleSave = async (recipes) => {
     if (!title.trim()) return;
@@ -101,11 +101,13 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
       <RecipePreview
         onSave={handleSave}
         brandCode={brandCode}
-        hideBrandSelect
+        allowedBrandCodes={brandCodes}
+        hideBrandSelect={brandCodes.length <= 1}
         externalOnly
         title={title}
         onTitleChange={setTitle}
         onStepChange={setStep}
+        onBrandCodeChange={setBrandCode}
       />
       <div className="flex justify-end gap-2 pt-2">
         <button className="btn" onClick={() => onClose(null)}>Cancel</button>
