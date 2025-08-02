@@ -55,6 +55,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         brandCode,
         status: 'new',
         uploadedBy: auth.currentUser?.uid || null,
+        projectId: projRef.id,
         createdAt: serverTimestamp(),
         lastUpdated: serverTimestamp(),
         reviewedCount: 0,
