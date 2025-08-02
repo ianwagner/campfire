@@ -160,7 +160,11 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
               className="mb-1"
             />
           ))}
-          <button type="button" onClick={addAssetLink} className="text-sm text-blue-600 underline mb-2">
+          <button
+            type="button"
+            onClick={addAssetLink}
+            className="text-sm text-[var(--accent-color)] underline mb-2"
+          >
             Add another link
           </button>
         </div>
