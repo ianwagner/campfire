@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, Link, Navigate } from 'react-router-dom';
+import { useParams, Link, Navigate, useNavigate } from 'react-router-dom';
 import {
   doc,
   getDoc,
@@ -19,6 +19,7 @@ import isVideoUrl from './utils/isVideoUrl';
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
+  const navigate = useNavigate();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [groupId, setGroupId] = useState(null);
@@ -36,7 +37,10 @@ const ProjectDetail = () => {
       try {
         const snap = await getDoc(doc(db, 'projects', projectId));
         if (!snap.exists()) {
-          setProject(null);
+          navigate('/projects', {
+            replace: true,
+            state: { removedProject: projectId },
+          });
           return;
         }
         const data = snap.data();
@@ -74,7 +78,10 @@ const ProjectDetail = () => {
 
         if (proj.recipeTypes && proj.recipeTypes.length > 0) {
           const typeSnap = await getDocs(
-            query(collection(db, 'recipeTypes'), where('__name__', 'in', proj.recipeTypes.slice(0, 10)))
+            query(
+              collection(db, 'recipeTypes'),
+              where('__name__', 'in', proj.recipeTypes.slice(0, 10))
+            )
           );
           const map = {};
           typeSnap.docs.forEach((d) => {
@@ -84,9 +91,8 @@ const ProjectDetail = () => {
         }
       } catch (err) {
         console.error('Failed to load project', err);
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     };
     load();
   }, [projectId]);
