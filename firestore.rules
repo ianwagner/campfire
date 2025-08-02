@@ -70,7 +70,6 @@ service cloud.firestore {
     }
 
     match /brands/{brandId}/assets/{assetId} {
-      // Allow any authenticated user to read brand assets
       allow read: if request.auth != null;
     }
 
@@ -144,8 +143,8 @@ service cloud.firestore {
 
     // ✅ Collection group rule for any 'assets' subcollection
     match /assets/{assetId} {
-  allow get, list: if request.auth != null;
-}
+      allow get, list: if request.auth != null;
+    }
 
     match /notifications/{docId} {
       allow read: if request.auth != null;
@@ -166,20 +165,18 @@ service cloud.firestore {
     }
 
     match /projects/{projectId} {
-      // Align access with recipes: any user can read, writes require auth
       allow read: if true;
       allow write: if request.auth != null;
     }
 
     match /requests/{docId} {
       allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
-      allow read, update: if isAdmin() || isManager() || isEditor() ||
-        (request.auth != null && resource.data.createdBy == request.auth.uid);
-      allow delete: if isAdmin() || isManager() || isEditor();
-    }
 
-    match /requests/{document=**} {
-      allow read, write: if isAdmin() || isManager() || isEditor();
+      allow read, update: if isAdmin() || isManager() || isEditor() ||
+        (request.auth != null &&
+         get(/databases/$(database)/documents/requests/$(docId)).data.createdBy == request.auth.uid);
+
+      allow delete: if isAdmin() || isManager() || isEditor();
     }
 
     match /designers/{docId} {
