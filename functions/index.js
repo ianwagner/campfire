@@ -1,4 +1,4 @@
-import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import * as functions from 'firebase-functions';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import admin from 'firebase-admin';
@@ -281,6 +281,84 @@ export const applyManagerClaimOnUpdate = onDocumentUpdated('users/{id}', async (
   return syncManagerClaim(event.params.id, afterRole, beforeRole);
 });
 
+export const cleanupOnProjectDelete = onDocumentDeleted('projects/{projectId}', async (event) => {
+  const projectId = event.params.projectId;
+  const batch = db.batch();
+  try {
+    const groups = await db.collection('adGroups').where('projectId', '==', projectId).get();
+    groups.forEach((doc) => batch.delete(doc.ref));
+    const requests = await db.collection('requests').where('projectId', '==', projectId).get();
+    requests.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+  } catch (err) {
+    console.error('Failed to cleanup project', err);
+  }
+  return null;
+});
+
+export const deleteProjectOnGroupDelete = onDocumentDeleted('adGroups/{groupId}', async (event) => {
+  const data = event.data.data() || {};
+  const projectId = data.projectId;
+  if (!projectId) return null;
+  try {
+    await db.collection('projects').doc(projectId).delete();
+  } catch (err) {
+    console.error('Failed to delete project for group', err);
+  }
+  return null;
+});
+
+export const deleteProjectOnRequestDelete = onDocumentDeleted('requests/{requestId}', async (event) => {
+  const data = event.data.data() || {};
+  const projectId = data.projectId;
+  if (!projectId) return null;
+  try {
+    await db.collection('projects').doc(projectId).delete();
+  } catch (err) {
+    console.error('Failed to delete project for request', err);
+  }
+  return null;
+});
+
+export const archiveProjectOnGroupArchived = onDocumentUpdated('adGroups/{groupId}', async (event) => {
+  const before = event.data.before.data() || {};
+  const after = event.data.after.data() || {};
+  if (before.status === 'archived' || after.status !== 'archived') return null;
+  const projectId = after.projectId;
+  if (!projectId) return null;
+  try {
+    const reqSnap = await db.collection('requests').where('projectId', '==', projectId).limit(1).get();
+    if (!reqSnap.empty && reqSnap.docs[0].data().status === 'done') {
+      await db.collection('projects').doc(projectId).update({
+        status: 'archived',
+        archivedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+  } catch (err) {
+    console.error('Failed to archive project on group archive', err);
+  }
+  return null;
+});
+
+export const archiveProjectOnRequestDone = onDocumentUpdated('requests/{requestId}', async (event) => {
+  const before = event.data.before.data() || {};
+  const after = event.data.after.data() || {};
+  if (before.status === 'done' || after.status !== 'done') return null;
+  const projectId = after.projectId;
+  if (!projectId) return null;
+  try {
+    const groupSnap = await db.collection('adGroups').where('projectId', '==', projectId).limit(1).get();
+    if (!groupSnap.empty && groupSnap.docs[0].data().status === 'archived') {
+      await db.collection('projects').doc(projectId).update({
+        status: 'archived',
+        archivedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+  } catch (err) {
+    console.error('Failed to archive project on request done', err);
+  }
+  return null;
+});
 
 export {
   tagger,
