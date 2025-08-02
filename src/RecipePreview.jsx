@@ -1255,7 +1255,7 @@ const RecipePreview = ({
               <label className="block text-sm mb-1">Asset Library</label>
               {assetRows.length > 0 && (
                 <div className="flex items-center mt-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-baseline gap-2">
                     <p className="text-sm">
                       <span className="font-semibold text-accent">
                         {assetRows.length}
