@@ -1158,7 +1158,17 @@ const RecipePreview = ({
       });
     }
 
-    if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
+    if (externalOnly && currentType?.clientVisibleColumns && currentType.clientVisibleColumns.length > 0) {
+      const order = currentType.clientVisibleColumns;
+      cols.sort((a, b) => {
+        const ai = order.indexOf(a.key);
+        const bi = order.indexOf(b.key);
+        if (ai === -1 && bi === -1) return 0;
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
+    } else if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
       const order = currentType.defaultColumns;
       cols.sort((a, b) => {
         const ai = order.indexOf(a.key);
@@ -1171,7 +1181,7 @@ const RecipePreview = ({
     }
 
     return cols;
-  }, [orderedComponents, writeFields, initialResults, currentType]);
+  }, [orderedComponents, writeFields, initialResults, currentType, externalOnly]);
 
   useEffect(() => {
     setVisibleColumns((prev) => {
@@ -1179,7 +1189,9 @@ const RecipePreview = ({
       const addKey = (key) => {
         if (!(key in updated)) {
           let show = false;
-          if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
+          if (externalOnly && currentType?.clientVisibleColumns && currentType.clientVisibleColumns.length > 0) {
+            show = currentType.clientVisibleColumns.includes(key);
+          } else if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
             show = currentType.defaultColumns.includes(key);
           } else if (!showColumnButton) {
             show = true;
@@ -1197,7 +1209,7 @@ const RecipePreview = ({
       });
       return updated;
     });
-  }, [columnMeta, currentType, showColumnButton]);
+  }, [columnMeta, currentType, showColumnButton, externalOnly]);
 
   return (
     <div>
