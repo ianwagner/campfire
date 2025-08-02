@@ -121,7 +121,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
         campaign,
       };
       const callable = httpsCallable(functions, 'tagger', { timeout: 300000 });
-      const res = await callable({ data: payload, ...payload });
+      const res = await callable(payload);
       if (res.data?.jobId) {
         setJobId(res.data.jobId);
         try {
@@ -155,7 +155,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
     try {
       const payload = { driveFolderUrl: driveFolderUrl.trim(), campaign };
       const callable = httpsCallable(functions, 'listDriveFiles', { timeout: 60000 });
-      const res = await callable({ data: payload, ...payload });
+      const res = await callable(payload);
       const rows = Array.isArray(res.data?.results)
         ? res.data.results.map((r) => ({ ...r, product }))
         : [];

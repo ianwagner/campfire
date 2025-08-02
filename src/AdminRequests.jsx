@@ -381,7 +381,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     if (!url) return;
     try {
       const callable = httpsCallable(functions, 'verifyDriveAccess', { timeout: 60000 });
-      await callable({ data: { url } });
+      await callable({ url });
       setLinkStatus((s) => {
         const arr = [...s];
         arr[idx] = true;
