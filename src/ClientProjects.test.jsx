@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import ClientProjects from './ClientProjects';
@@ -107,5 +107,39 @@ test('toggle shows archived projects', () => {
 
   expect(screen.getByText('P2')).toBeInTheDocument();
   expect(screen.queryByText('P1')).not.toBeInTheDocument();
+});
+
+test('removes project card when navigation state requests removal', async () => {
+  onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'p1',
+            data: () => ({
+              title: 'P1',
+              brandCode: 'B1',
+              status: 'new',
+              createdAt: { toDate: () => new Date() },
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    });
+
+  render(
+    <MemoryRouter
+      initialEntries={[{ pathname: '/projects', state: { removedProject: 'p1' } }]}
+    >
+      <ClientProjects brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  await waitFor(() => expect(screen.queryByText('P1')).not.toBeInTheDocument());
 });
 

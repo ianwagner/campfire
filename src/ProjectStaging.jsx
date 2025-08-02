@@ -25,7 +25,10 @@ const ProjectStaging = () => {
       try {
         const snap = await getDoc(doc(db, 'projects', projectId));
         if (!snap.exists()) {
-          setProject(null);
+          navigate('/projects', {
+            replace: true,
+            state: { removedProject: projectId },
+          });
           setLoading(false);
           return;
         }

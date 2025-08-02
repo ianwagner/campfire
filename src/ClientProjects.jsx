@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   collection,
   query,
@@ -132,7 +132,17 @@ const ClientProjects = ({ brandCodes = [] }) => {
   const [modalStep, setModalStep] = useState(null); // null | 'brief' | 'describe'
   const [view, setView] = useState('current');
   const navigate = useNavigate();
+  const location = useLocation();
   const { settings } = useSiteSettings();
+
+  useEffect(() => {
+    if (location.state?.removedProject) {
+      const id = location.state.removedProject;
+      setProjects((list) => list.filter((p) => p.id !== id));
+      setProjDocs((list) => list.filter((p) => p.id !== id));
+      navigate('/projects', { replace: true });
+    }
+  }, [location.state, navigate]);
 
   useEffect(() => {
     if (!auth.currentUser?.uid) {
