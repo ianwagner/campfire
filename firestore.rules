@@ -171,7 +171,10 @@ service cloud.firestore {
     }
 
     match /requests/{docId} {
-      allow read, write: if isAdmin() || isManager() || isEditor();
+      allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
+      allow read, update: if isAdmin() || isManager() || isEditor() ||
+        (request.auth != null && resource.data.createdBy == request.auth.uid);
+      allow delete: if isAdmin() || isManager() || isEditor();
     }
 
     match /requests/{document=**} {

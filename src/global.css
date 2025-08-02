@@ -295,6 +295,10 @@
     background-color: var(--pending-color-10);
     color: var(--pending-color);
   }
+  .status-processing {
+    background-color: var(--pending-color-10);
+    color: var(--pending-color);
+  }
   .status-briefed {
     background-color: var(--pending-color-10);
     color: var(--pending-color);
@@ -352,6 +356,10 @@
     color: var(--pending-color);
   }
   .status-select.status-pending {
+    background-color: var(--pending-color-10);
+    color: var(--pending-color);
+  }
+  .status-select.status-processing {
     background-color: var(--pending-color-10);
     color: var(--pending-color);
   }
