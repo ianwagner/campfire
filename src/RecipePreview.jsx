@@ -959,6 +959,11 @@ const RecipePreview = ({
     }
   };
 
+  const handleCancel = () => {
+    setResults(originalResultsRef.current.map((r) => ({ ...r })));
+    setDirty(false);
+  };
+
   const renderAssetList = (list = [], rowIdx = null, key = '') => (
     <div className="flex justify-center gap-1">
       {list && list.length > 0 ? (
@@ -1494,9 +1499,6 @@ const RecipePreview = ({
           }
           right={
             <>
-              {results.length > 0 && userRole !== 'designer' && onSave && (
-                <SaveButton onClick={handleSave} canSave={dirty} loading={saving} />
-              )}
               {userRole !== 'designer' && onRecipesClick && (
                 <IconButton
                   onClick={onRecipesClick}
@@ -1790,9 +1792,17 @@ const RecipePreview = ({
           }}
         />
       )}
-  </div>
     </div>
-  );
+    {results.length > 0 && userRole !== 'designer' && onSave && (
+      <div className="sticky bottom-0 bg-white dark:bg-[var(--dark-sidebar-bg)] p-2 flex justify-end gap-2">
+        <button type="button" className="btn-secondary px-3 py-1" onClick={handleCancel}>
+          Cancel
+        </button>
+        <SaveButton onClick={handleSave} canSave={dirty} loading={saving} />
+      </div>
+    )}
+  </div>
+);
 };
 
 export default RecipePreview;
