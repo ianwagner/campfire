@@ -274,7 +274,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
                       </div>
                       <span className="text-sm text-gray-500">
                         {status === 'processing' ? (
-                          <span className="processing-dots">processing</span>
+                          <span className="processing-dots" aria-label="processing" />
                         ) : (
                           status
                         )}
