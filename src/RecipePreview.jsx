@@ -965,7 +965,7 @@ const RecipePreview = ({
     }
   };
 
-  const handleCancel = () => {
+  const handleReset = () => {
     setResults(originalResultsRef.current.map((r) => ({ ...r })));
     setDirty(false);
   };
@@ -1865,9 +1865,14 @@ const RecipePreview = ({
       )}
     </div>
     {results.length > 0 && userRole !== 'designer' && onSave && (
-      <div className="sticky bottom-0 bg-white dark:bg-[var(--dark-sidebar-bg)] p-2 flex justify-end gap-2">
-        <button type="button" className="btn-secondary px-3 py-1" onClick={handleCancel}>
-          Cancel
+      <div className="sticky bottom-0 bg-white dark:bg-[var(--dark-sidebar-bg)] p-2 flex justify-between items-center">
+        <button
+          type="button"
+          className="text-sm text-blue-600 underline"
+          onClick={handleReset}
+          aria-label="Discard generated recipe changes"
+        >
+          Discard Changes
         </button>
         <SaveButton onClick={handleSave} canSave={dirty} loading={saving} />
       </div>
