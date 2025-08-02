@@ -240,7 +240,11 @@ const ClientProjects = ({ brandCodes = [] }) => {
                       )
                     }
                   >
-                    <span className="font-medium">{p.title}</span>
+                    <span className="font-medium">
+                      {brandCodes.length > 1 && p.brandCode
+                        ? `${p.brandCode} - ${p.title}`
+                        : p.title}
+                    </span>
                     <span className="text-sm text-gray-500">
                       {p.group ? p.group.status : p.status}
                     </span>
