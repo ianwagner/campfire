@@ -696,6 +696,22 @@ const App = () => {
               }
             />
             <Route
+              path="/brand-profile/:id"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <BrandProfile />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
               path="/account-settings"
               element={
                 user ? (

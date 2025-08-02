@@ -58,12 +58,14 @@ const RecipePreview = ({
   onSelectChange = null,
   brandCode: initialBrandCode = '',
   hideBrandSelect = false,
+  allowedBrandCodes = null,
   onRecipesClick = null,
   externalOnly = false,
   showColumnButton = true,
   title = '',
   onTitleChange = null,
   onStepChange = null,
+  onBrandCodeChange = null,
 }) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
@@ -291,7 +293,11 @@ const RecipePreview = ({
         const instSnap = await getDocs(collection(db, 'componentInstances'));
         setInstances(instSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         const brandSnap = await getDocs(collection(db, 'brands'));
-        setBrands(brandSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        let brandList = brandSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        if (Array.isArray(allowedBrandCodes) && allowedBrandCodes.length > 0) {
+          brandList = brandList.filter((b) => allowedBrandCodes.includes(b.code));
+        }
+        setBrands(brandList);
       } catch (err) {
         console.error('Failed to load data', err);
       }
@@ -1143,26 +1149,48 @@ const RecipePreview = ({
       {!showOnlyResults && (
         <form onSubmit={handleGenerate} className="space-y-2 max-w-[50rem]">
         {step === 1 && (
-          <div>
-            <label id="recipe-type-label" className="block text-sm mb-1">Recipe Type</label>
-            <div
-              role="group"
-              aria-labelledby="recipe-type-label"
-              className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-            >
-              {types.map((t) => (
-                <RecipeTypeCard
-                  key={t.id}
-                  type={t}
-                  selected={selectedType === t.id}
-                  onClick={() => {
-                    setSelectedType(t.id);
-                    setStep(2);
+          <>
+            {!hideBrandSelect && (
+              <div className="mb-4">
+                <label className="block text-sm mb-1">Brand</label>
+                <select
+                  className="w-full p-2 border rounded"
+                  value={brandCode}
+                  onChange={(e) => {
+                    setBrandCode(e.target.value);
+                    if (onBrandCodeChange) onBrandCodeChange(e.target.value);
                   }}
-                />
-              ))}
+                >
+                  <option value="">None</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.code}>
+                      {b.code} {b.name ? `- ${b.name}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div>
+              <label id="recipe-type-label" className="block text-sm mb-1">Recipe Type</label>
+              <div
+                role="group"
+                aria-labelledby="recipe-type-label"
+                className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+              >
+                {types.map((t) => (
+                  <RecipeTypeCard
+                    key={t.id}
+                    type={t}
+                    selected={selectedType === t.id}
+                    onClick={() => {
+                      setSelectedType(t.id);
+                      setStep(2);
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          </>
         )}
         {step === 2 && (
           <>
@@ -1192,23 +1220,6 @@ const RecipePreview = ({
               </div>
             )}
           </>
-        )}
-        {step === 2 && !hideBrandSelect && (
-          <div>
-            <label className="block text-sm mb-1">Brand</label>
-            <select
-              className="w-full p-2 border rounded"
-              value={brandCode}
-              onChange={(e) => setBrandCode(e.target.value)}
-            >
-              <option value="">None</option>
-              {brands.map((b) => (
-                <option key={b.id} value={b.code}>
-                  {b.code} {b.name ? `- ${b.name}` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
         )}
         {step === 2 && currentType?.enableAssetCsv && (
           <div className="space-y-2">
