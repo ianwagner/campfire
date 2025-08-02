@@ -34,7 +34,7 @@ const UrlCheckInput = ({ value, onChange, onRemove, errorMessage = 'We can’t a
       />
       {status === 'loading' && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/60">
-          <div className="w-5 h-5 border-4 border-gray-300 border-t-[var(--accent-color)] rounded-full animate-spin"></div>
+          <div className="w-5 h-5 border-4 border-[var(--accent-color)] border-t-transparent rounded-full animate-spin"></div>
         </div>
       )}
       {status === true && <FiCheckCircle className="text-green-600" />}
