@@ -9,6 +9,7 @@ import Modal from './components/Modal.jsx';
 import ScrollModal from './components/ScrollModal.jsx';
 import HoverPreview from './components/HoverPreview.jsx';
 import { FiImage, FiLoader } from 'react-icons/fi';
+import SaveButton from './components/SaveButton.jsx';
 
 const typeOptions = ['Lifestyle', 'Video', 'POW', 'Background'];
 
@@ -20,6 +21,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -115,6 +117,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
   };
 
   const saveToLibrary = async () => {
+    setSaving(true);
     try {
       let q = collection(db, 'adAssets');
       if (brandCode) q = query(q, where('brandCode', '==', brandCode));
@@ -141,6 +144,8 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
       onClose();
     } catch (err) {
       console.error('Failed to save assets', err);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -328,13 +333,11 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
             </tbody>
           </table>
         </div>
-        <div className="text-right space-x-2">
+        <div className="sticky bottom-0 bg-white dark:bg-[var(--dark-sidebar-bg)] text-right space-x-2 pt-2">
           <button onClick={handleClose} className="btn-secondary px-3 py-1">
-            Close
+            Cancel
           </button>
-          <button onClick={saveToLibrary} className="btn-primary px-3 py-1">
-            Save
-          </button>
+          <SaveButton onClick={saveToLibrary} canSave={results.length > 0} loading={saving} />
         </div>
       </div>
     </ScrollModal>
