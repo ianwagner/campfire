@@ -211,8 +211,8 @@
   .ad-table {
     width: 100%;
     max-width: 100%;
-    min-width: max-content;
     border-collapse: collapse;
+    table-layout: fixed;
     font-size: var(--font-size-base);
   }
   @media (max-width: 640px) {
@@ -225,6 +225,18 @@
     border: 1px solid var(--table-border-color);
     padding: var(--space-xs) var(--space-sm);
     text-align: left;
+  }
+
+  .ad-table th:not(:last-child),
+  .ad-table td:not(:last-child) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ad-table th:last-child,
+  .ad-table td:last-child {
+    white-space: nowrap;
   }
   .ad-table tbody tr:nth-child(odd) {
     background-color: #ffffff;
