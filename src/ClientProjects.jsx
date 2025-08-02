@@ -5,7 +5,7 @@ import {
   query,
   where,
   orderBy,
-  getDocs,
+  onSnapshot,
   addDoc,
   serverTimestamp,
   writeBatch,
@@ -127,65 +127,70 @@ const uniqueById = (list) => {
 
 const ClientProjects = ({ brandCodes = [] }) => {
   const [projects, setProjects] = useState([]);
+  const [projDocs, setProjDocs] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalStep, setModalStep] = useState(null); // null | 'brief' | 'describe'
   const navigate = useNavigate();
   const { settings } = useSiteSettings();
 
   useEffect(() => {
-    const fetchProjects = async () => {
-      if (!auth.currentUser?.uid) {
-        setProjects([]);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      try {
-        const q = query(
-          collection(db, 'projects'),
-          where('userId', '==', auth.currentUser.uid),
-          orderBy('createdAt', 'desc')
-        );
-        const snap = await getDocs(q);
+    if (!auth.currentUser?.uid) {
+      setProjects([]);
+      setLoading(false);
+      return undefined;
+    }
+    setLoading(true);
+    const projQ = query(
+      collection(db, 'projects'),
+      where('userId', '==', auth.currentUser.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const groupQ = query(
+      collection(db, 'adGroups'),
+      where('uploadedBy', '==', auth.currentUser.uid)
+    );
 
-        const allProjects = snap.docs.map((d) => ({
+    const unsubProj = onSnapshot(
+      projQ,
+      (snap) => {
+        const all = snap.docs.map((d) => ({
           id: d.id,
           ...d.data(),
           createdAt: d.data().createdAt?.toDate(),
         }));
-
-        const groupSnap = await getDocs(
-          query(collection(db, 'adGroups'), where('uploadedBy', '==', auth.currentUser.uid))
-        );
-        const groupMap = {};
-        groupSnap.docs.forEach((g) => {
-          const data = g.data();
-          groupMap[`${data.brandCode}|${data.name}`] = { id: g.id, ...data };
-        });
-
-        const merged = allProjects.map((p) => {
-          const key = `${p.brandCode}|${p.title}`;
-          return { ...p, group: groupMap[key] };
-        });
-        setProjects(uniqueById(merged));
-      } catch (err) {
-        console.error('Failed to load projects', err);
-        setProjects([]);
-      } finally {
+        setProjDocs(all);
         setLoading(false);
-      }
+      },
+      () => setLoading(false)
+    );
+
+    const unsubGroup = onSnapshot(groupQ, (snap) => {
+      setGroups(snap.docs.map((g) => ({ id: g.id, ...g.data() })));
+    });
+
+    return () => {
+      unsubProj();
+      unsubGroup();
     };
-    fetchProjects();
   }, []);
+
+  useEffect(() => {
+    const groupMap = {};
+    groups.forEach((g) => {
+      groupMap[`${g.brandCode}|${g.name}`] = g;
+    });
+    const merged = projDocs.map((p) => {
+      const key = `${p.brandCode}|${p.title}`;
+      return { ...p, group: groupMap[key] };
+    });
+    setProjects(uniqueById(merged));
+  }, [projDocs, groups]);
 
   const handleCreated = (proj) => {
     setModalStep(null);
     if (proj) {
-      setProjects((p) => {
-        const next = [proj, ...p];
-        return uniqueById(next);
-      });
-      navigate(`/projects/${proj.id}`);
+      navigate(`/projects/${proj.id}/staging`);
     }
   };
 
@@ -231,7 +236,11 @@ const ClientProjects = ({ brandCodes = [] }) => {
                   <div
                     key={p.id}
                     className="border rounded p-4 flex justify-between items-center cursor-pointer"
-                    onClick={() => navigate(`/projects/${p.id}`)}
+                    onClick={() =>
+                      navigate(
+                        p.group ? `/projects/${p.id}` : `/projects/${p.id}/staging`
+                      )
+                    }
                   >
                     <span className="font-medium">{p.title}</span>
                     <span className="text-sm text-gray-500">
