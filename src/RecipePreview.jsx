@@ -1158,16 +1158,22 @@ const RecipePreview = ({
           </div>
         )}
         {step === 2 && (
-          <button
-            type="button"
-            onClick={() => {
-              setStep(1);
-              setSelectedType('');
-            }}
-            className="btn-secondary mb-2"
-          >
-            &larr; Back
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setStep(1);
+                setSelectedType('');
+              }}
+              className="btn-arrow mb-2"
+              aria-label="Back"
+            >
+              &lt;
+            </button>
+            <h2 className="text-xl font-semibold mb-4">
+              {currentType?.name || 'Generate a Brief'}
+            </h2>
+          </>
         )}
         {step === 2 && !hideBrandSelect && (
           <div>
@@ -1200,13 +1206,14 @@ const RecipePreview = ({
                     onChange={(e) => setAssetFilter(e.target.value)}
                     className="p-1 border rounded text-xs"
                   />
-                  <IconButton
-                    aria-label="Add Assets"
-                    onClick={() => setShowTagger(true)}
-                    className="text-sm"
-                  >
-                    <FiPlus />
-                  </IconButton>
+                    <IconButton
+                      type="button"
+                      aria-label="Add Assets"
+                      onClick={() => setShowTagger(true)}
+                      className="text-sm"
+                    >
+                      <FiPlus /> Assets
+                    </IconButton>
                 </div>
               )}
             </div>
@@ -1278,25 +1285,36 @@ const RecipePreview = ({
                       <button
                         type="button"
                         onClick={() =>
-                          setShowOptionLists((p) => ({ ...p, [c.id]: !p[c.id] }))
+                          setShowOptionLists((p) => ({ ...p, [c.id]: true }))
                         }
-                        className="text-xs underline text-blue-600"
+                        className="text-xs underline text-accent"
                       >
-                        {instOptions.length} Options Loaded
+                        See options
                       </button>
                     ) : (
-                      <select
-                        className="w-full p-2 border rounded"
-                        value={current}
-                        onChange={(e) =>
-                          setSelectedInstances({ ...selectedInstances, [c.key]: e.target.value })
-                        }
-                      >
-                        <option value="">Custom...</option>
-                        {instOptions.map((i) => (
-                          <option key={i.id} value={i.id}>{i.name}</option>
-                        ))}
-                      </select>
+                      <>
+                        <select
+                          className="w-full p-2 border rounded"
+                          value={current}
+                          onChange={(e) =>
+                            setSelectedInstances({ ...selectedInstances, [c.key]: e.target.value })
+                          }
+                        >
+                          <option value="">Custom...</option>
+                          {instOptions.map((i) => (
+                            <option key={i.id} value={i.id}>{i.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowOptionLists((p) => ({ ...p, [c.id]: false }))
+                          }
+                          className="text-xs underline text-accent"
+                        >
+                          Hide options
+                        </button>
+                      </>
                     )
                   )}
                   {c.selectionMode === 'checklist' && instOptions.length > 0 && (
@@ -1304,19 +1322,30 @@ const RecipePreview = ({
                       <button
                         type="button"
                         onClick={() =>
-                          setShowOptionLists((p) => ({ ...p, [c.id]: !p[c.id] }))
+                          setShowOptionLists((p) => ({ ...p, [c.id]: true }))
                         }
-                        className="text-xs underline text-blue-600"
+                        className="text-xs underline text-accent"
                       >
-                        {instOptions.length} Options Loaded
+                        See options
                       </button>
                     ) : (
-                      <TagChecklist
-                        options={instOptions.map((i) => ({ id: i.id, name: i.name }))}
-                        value={current}
-                        onChange={(arr) => setSelectedInstances({ ...selectedInstances, [c.key]: arr })}
-                        id={`check-${c.id}`}
-                      />
+                      <>
+                        <TagChecklist
+                          options={instOptions.map((i) => ({ id: i.id, name: i.name }))}
+                          value={current}
+                          onChange={(arr) => setSelectedInstances({ ...selectedInstances, [c.key]: arr })}
+                          id={`check-${c.id}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowOptionLists((p) => ({ ...p, [c.id]: false }))
+                          }
+                          className="text-xs underline text-accent"
+                        >
+                          Hide options
+                        </button>
+                      </>
                     )
                   )}
                   {c.selectionMode === 'random' && instOptions.length > 0 && (

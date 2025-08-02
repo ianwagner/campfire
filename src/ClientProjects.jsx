@@ -222,12 +222,12 @@ const ClientProjects = ({ brandCodes = [] }) => {
                   desc="Just tell us what you need. We'll generate a brief"
                   onClick={() => setModalStep('describe')}
                 />
-                <OptionButton
-                  icon={FaMagic}
-                  title="Generate Brief"
-                  desc="Craft your own brief. Choose copy, visuals and layouts"
-                  onClick={() => setModalStep('brief')}
-                />
+                  <OptionButton
+                    icon={FaMagic}
+                    title="Generate a Brief"
+                    desc="Craft your own brief. Choose copy, visuals and layouts"
+                    onClick={() => setModalStep('brief')}
+                  />
               </div>
             </div>
             {projects.length > 0 && (
