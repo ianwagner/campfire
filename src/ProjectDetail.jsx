@@ -10,7 +10,6 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
-import useSiteSettings from './useSiteSettings';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import RecipeTypeCard from './components/RecipeTypeCard.jsx';
 import RecipePreview from './RecipePreview.jsx';
@@ -33,7 +32,6 @@ const ProjectDetail = () => {
   const [columns, setColumns] = useState(0);
   const [request, setRequest] = useState(null);
   const [editRequest, setEditRequest] = useState(false);
-  const { settings } = useSiteSettings();
 
   useEffect(() => {
     const load = async () => {
@@ -157,7 +155,56 @@ const ProjectDetail = () => {
   if (loading) return <div className="min-h-screen p-4">Loading...</div>;
   if (!project) return <div className="min-h-screen p-4">Project not found.</div>;
 
-  const visibleAssets = showAllAssets ? assets : assets.slice(0, columns || assets.length);
+  if (!groupId && request) {
+    return (
+      <div className="min-h-screen p-4 w-full max-w-[60rem] mx-auto">
+        <div className="flex items-center mb-4">
+          <Link to="/projects" className="btn-arrow mr-2" aria-label="Back">
+            &lt;
+          </Link>
+        </div>
+        <div className="border rounded p-4 max-w-[60rem] space-y-1">
+          <h1 className="text-xl font-semibold mb-1">{request.title || 'New Ads Ticket'}</h1>
+          {request.brandCode && <p className="mb-0">Brand: {request.brandCode}</p>}
+          {request.dueDate && (
+            <p className="mb-0">
+              Due Date:{' '}
+              {request.dueDate.toDate
+                ? request.dueDate.toDate().toLocaleDateString()
+                : new Date(request.dueDate).toLocaleDateString()}
+            </p>
+          )}
+          <p className="mb-0"># Ads: {request.numAds}</p>
+          {request.details && (
+            <div
+              className="text-sm"
+              dangerouslySetInnerHTML={{ __html: request.details }}
+            />
+          )}
+          <button className="btn-primary mt-2" onClick={() => setEditRequest(true)}>
+            Edit
+          </button>
+        </div>
+        {editRequest && (
+          <DescribeProjectModal
+            onClose={(updated) => {
+              setEditRequest(false);
+              if (updated) {
+                setRequest((r) => ({ ...r, ...updated }));
+                setProject((p) => ({ ...p, title: updated.title, brandCode: updated.brandCode }));
+              }
+            }}
+            brandCodes={[project.brandCode]}
+            request={{ ...request, projectId: project.id, id: request.id }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  const visibleAssets = showAllAssets
+    ? assets
+    : assets.slice(0, columns || assets.length);
 
   return (
     <div className="min-h-screen p-4 w-full max-w-[60rem] mx-auto">
@@ -197,27 +244,6 @@ const ProjectDetail = () => {
         </div>
       </div>
       <div className="space-y-4">
-        {!groupId && request && (
-          <div className="border rounded p-4 max-w-[60rem] space-y-1">
-            <h2 className="text-lg font-semibold mb-1">{request.title || 'New Ads Ticket'}</h2>
-            {request.brandCode && <p className="mb-0">Brand: {request.brandCode}</p>}
-            {request.dueDate && (
-              <p className="mb-0">
-                Due Date:{' '}
-                {request.dueDate.toDate
-                  ? request.dueDate.toDate().toLocaleDateString()
-                  : new Date(request.dueDate).toLocaleDateString()}
-              </p>
-            )}
-            <p className="mb-0"># Ads: {request.numAds}</p>
-            {request.details && (
-              <div className="text-sm" dangerouslySetInnerHTML={{ __html: request.details }} />
-            )}
-            <button className="btn-primary mt-2" onClick={() => setEditRequest(true)}>
-              Edit
-            </button>
-          </div>
-        )}
         <div className="border rounded p-4 max-w-[60rem]">
           <button className="font-medium" onClick={() => setShowBrief((s) => !s)}>
             {showBrief ? 'Hide Brief' : 'View Brief'}
@@ -276,19 +302,6 @@ const ProjectDetail = () => {
           )}
         </div>
       </div>
-      {editRequest && request && (
-        <DescribeProjectModal
-          onClose={(updated) => {
-            setEditRequest(false);
-            if (updated) {
-              setRequest((r) => ({ ...r, ...updated }));
-              setProject((p) => ({ ...p, title: updated.title, brandCode: updated.brandCode }));
-            }
-          }}
-          brandCodes={[project.brandCode]}
-          request={{ ...request, projectId: project.id, id: request.id }}
-        />
-      )}
     </div>
   );
 };

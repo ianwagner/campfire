@@ -185,6 +185,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
         const next = [proj, ...p];
         return uniqueById(next);
       });
+      navigate(`/projects/${proj.id}`);
     }
   };
 
