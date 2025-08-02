@@ -47,14 +47,9 @@ const ProjectDetail = () => {
         };
         setProject(proj);
 
-        // fetch matching ad group
+        // fetch ad group for this project
         const gSnap = await getDocs(
-          query(
-            collection(db, 'adGroups'),
-            where('name', '==', proj.title),
-            where('brandCode', '==', proj.brandCode),
-            where('uploadedBy', '==', proj.userId)
-          )
+          query(collection(db, 'adGroups'), where('projectId', '==', projectId))
         );
         if (!gSnap.empty) {
           const g = gSnap.docs[0];
