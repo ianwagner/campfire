@@ -7,7 +7,7 @@ import useComponentTypes from '../useComponentTypes';
 import Table from './common/Table';
 import Button from './Button.jsx';
 import IconButton from './IconButton.jsx';
-import Modal from './Modal.jsx';
+import ScrollModal from './ScrollModal.jsx';
 import SortButton from './SortButton.jsx';
 import TabButton from './TabButton.jsx';
 import OptimizedImage from './OptimizedImage.jsx';
@@ -360,8 +360,13 @@ const RecipeTypes = () => {
         </div>
       )}
       {showModal && (
-        <Modal sizeClass="max-w-2xl">
-      <form onSubmit={handleSave} className="space-y-2 max-w-[50rem]">
+        <ScrollModal
+          sizeClass="max-w-2xl w-full"
+          header={
+            <h3 className="p-2 font-semibold">{editId ? 'Edit Recipe Type' : 'Add Recipe Type'}</h3>
+          }
+        >
+      <form onSubmit={handleSave} className="space-y-2 max-w-[50rem] p-2">
         <div>
           <label className="block text-sm mb-1">Name</label>
           <input className="w-full p-2 border rounded" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -535,7 +540,7 @@ const RecipeTypes = () => {
           </Button>
         </div>
       </form>
-        </Modal>
+        </ScrollModal>
       )}
     </div>
   );

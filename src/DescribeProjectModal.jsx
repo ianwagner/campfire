@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Modal from './components/Modal.jsx';
+import ScrollModal from './components/ScrollModal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import { collection, addDoc, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -155,9 +155,11 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
   };
 
   return (
-    <Modal sizeClass="max-w-md w-full max-h-[90vh] overflow-auto">
-      <h2 className="text-xl font-semibold mb-4">Describe Project</h2>
-      <div className="space-y-3 mb-4">
+    <ScrollModal
+      sizeClass="max-w-md w-full"
+      header={<h2 className="text-xl font-semibold p-2">Describe Project</h2>}
+    >
+      <div className="space-y-3 p-2">
         {brandCodes.length > 1 && (
           <div>
             <label className="block mb-1 text-sm font-medium">Brand</label>
@@ -218,11 +220,11 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           <textarea rows={3} value={details} onChange={(e) => setDetails(e.target.value)} className="w-full p-2 border rounded" />
         </div>
       </div>
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 p-2">
         <button className="btn-secondary" onClick={() => onClose(null)}>Cancel</button>
         <button className="btn-primary" onClick={handleSave}>Save</button>
       </div>
-    </Modal>
+    </ScrollModal>
   );
 };
 
