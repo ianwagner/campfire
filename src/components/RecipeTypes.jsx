@@ -22,6 +22,7 @@ const RecipeTypes = () => {
   const [sortAsc, setSortAsc] = useState(true);
   const [view, setView] = useState('list');
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [prompt, setPrompt] = useState('');
   const [assetPrompt, setAssetPrompt] = useState('');
   const [componentOrder, setComponentOrder] = useState([]);
@@ -52,6 +53,7 @@ const RecipeTypes = () => {
   const resetForm = () => {
     setEditId(null);
     setName('');
+    setDescription('');
     setPrompt('');
     setAssetPrompt('');
     setComponentOrder([]);
@@ -99,6 +101,7 @@ const RecipeTypes = () => {
       if (editId) {
         await updateDoc(doc(db, 'recipeTypes', editId), {
           name: name.trim(),
+          description: description.trim(),
           gptPrompt: prompt,
           assetPrompt: assetPrompt,
           enableAssetCsv,
@@ -116,6 +119,7 @@ const RecipeTypes = () => {
               ? {
                   ...r,
                   name: name.trim(),
+                  description: description.trim(),
                   gptPrompt: prompt,
                   assetPrompt: assetPrompt,
                   enableAssetCsv,
@@ -132,6 +136,7 @@ const RecipeTypes = () => {
       } else {
         const docRef = await addDoc(collection(db, 'recipeTypes'), {
           name: name.trim(),
+          description: description.trim(),
           gptPrompt: prompt,
           assetPrompt: assetPrompt,
           enableAssetCsv,
@@ -148,6 +153,7 @@ const RecipeTypes = () => {
           {
             id: docRef.id,
             name: name.trim(),
+            description: description.trim(),
             gptPrompt: prompt,
             assetPrompt: assetPrompt,
             enableAssetCsv,
@@ -171,6 +177,7 @@ const RecipeTypes = () => {
   const startEdit = (t) => {
     setEditId(t.id);
     setName(t.name);
+    setDescription(t.description || '');
     setPrompt(t.gptPrompt || '');
     setAssetPrompt(t.assetPrompt || '');
     setEnableAssetCsv(!!t.enableAssetCsv);
@@ -284,6 +291,7 @@ const RecipeTypes = () => {
               <tr>
                 <th>Icon</th>
                 <th>Name</th>
+                <th>Description</th>
                 <th>Components</th>
                 <th>Client Form</th>
                 <th>Write-In Fields</th>
@@ -307,6 +315,7 @@ const RecipeTypes = () => {
                     )}
                   </td>
                   <td>{t.name}</td>
+                  <td>{t.description || '-'}</td>
                   <td>
                     {t.components && t.components.length > 0
                       ? t.components.join(', ')
@@ -370,6 +379,14 @@ const RecipeTypes = () => {
         <div>
           <label className="block text-sm mb-1">Name</label>
           <input className="w-full p-2 border rounded" value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Description</label>
+          <textarea
+            className="w-full p-2 border rounded"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
         </div>
         <div>
           <label className="block text-sm mb-1">Icon</label>

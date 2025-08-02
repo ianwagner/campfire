@@ -33,6 +33,7 @@ The Recipe Type tab lets an admin define:
 - The form layout presented to the user.
 - The message that is sent to chat when the recipe is generated.
 - The order in which components and chat output appear in each recipe row.
+- A description displayed below the title when generating a brief.
 
 When creating a type, list the component keys in the desired order separated by
 commas (e.g. `headline,cta,image`). These keys correspond to components defined

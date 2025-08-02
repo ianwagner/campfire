@@ -1226,9 +1226,14 @@ const RecipePreview = ({
             >
               &lt;
             </button>
-            <h2 className="text-xl font-semibold mb-2">
+            <h2 className="text-xl font-semibold">
               {currentType?.name || 'Generate a Brief'}
             </h2>
+            {currentType?.description && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                {currentType.description}
+              </p>
+            )}
             {onTitleChange && (
               <div className="mb-4">
                 <label className="block mb-1 text-sm font-medium">Title</label>
