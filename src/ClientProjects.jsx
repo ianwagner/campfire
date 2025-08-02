@@ -240,11 +240,12 @@ const ClientProjects = ({ brandCodes = [] }) => {
                       )
                     }
                   >
-                    <span className="font-medium">
-                      {brandCodes.length > 1 && p.brandCode
-                        ? `${p.brandCode} - ${p.title}`
-                        : p.title}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{p.title}</span>
+                      {brandCodes.length > 1 && p.brandCode && (
+                        <span className="text-xs text-gray-500">{p.brandCode}</span>
+                      )}
+                    </div>
                     <span className="text-sm text-gray-500">
                       {p.group ? p.group.status : p.status}
                     </span>
