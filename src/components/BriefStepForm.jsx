@@ -77,7 +77,7 @@ export default function BriefStepForm({
       {currentType?.enableAssetCsv && (
         <div className="space-y-2">
           <div>
-            <label className="block text-sm mb-1">Asset Library</label>
+          <label className="block mb-1 text-sm font-medium">Asset Library</label>
             {assetRows.length > 0 && (
               <div className="flex items-center mt-1">
                 <div className="flex items-baseline gap-2">
@@ -118,8 +118,13 @@ export default function BriefStepForm({
           {showBriefExtras && (
             <>
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Brief Note (Optional)
+                <label className="block mb-1 text-sm font-medium">
+                  <span className="inline-flex items-center gap-1">
+                    Brief Note (Optional)
+                    <InfoTooltip text="Add any specific instructions for this brief. These notes will be seen by the designers.">
+                      <FiInfo className="text-gray-500" />
+                    </InfoTooltip>
+                  </span>
                 </label>
                 <textarea
                   value={briefNote}
@@ -127,13 +132,15 @@ export default function BriefStepForm({
                   placeholder="E.g. Only use red. Avoid lifestyle imagery."
                   className="w-full p-2 border rounded"
                 />
-                <p className="text-sm text-gray-600">
-                  Add any specific instructions for this brief. These notes will be seen by the designers.
-                </p>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Brief-Specific Assets
+                <label className="block mb-1 text-sm font-medium">
+                  <span className="inline-flex items-center gap-1">
+                    Brief-Specific Assets
+                    <InfoTooltip text="Upload logos, lockups, inspiration, or campaign-specific files for this brief. These are only used for this request. This is different from your brand’s Asset Library, which includes reusable product photos, videos, and brand elements that power your creative recipes.">
+                      <FiInfo className="text-gray-500" />
+                    </InfoTooltip>
+                  </span>
                 </label>
                 <div className="flex items-center gap-2 mb-1">
                   <input
@@ -159,9 +166,6 @@ export default function BriefStepForm({
                   >
                     <FiUpload /> Upload brief assets
                   </label>
-                  <InfoTooltip text="What counts as a brief asset? These assets are only for this brief—things like lockups, mockups, sketches, campaign PDFs, or inspiration boards. This is different from your brand’s Asset Library, which includes reusable product photos, videos, and brand elements that power your creative recipes.">
-                    <FiInfo className="text-gray-500" />
-                  </InfoTooltip>
                 </div>
                 {briefFiles.length > 0 && (
                   <ul className="text-sm list-disc ml-5">
@@ -170,9 +174,6 @@ export default function BriefStepForm({
                     ))}
                   </ul>
                 )}
-                <p className="text-sm text-gray-600">
-                  Upload logos, lockups, inspiration, or campaign-specific files for this brief. These are only used for this request.
-                </p>
               </div>
             </>
           )}
@@ -214,7 +215,7 @@ export default function BriefStepForm({
               };
               return (
                 <div key={c.id} className="space-y-2">
-                  <label className="block text-sm mb-1">{c.label}</label>
+                  <label className="block mb-1 text-sm font-medium">Products</label>
                   <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                     {instOptions.map((i) => (
                       <ProductCard
@@ -299,7 +300,7 @@ export default function BriefStepForm({
             }
             return (
               <div key={c.id} className="space-y-2">
-                <label className="block text-sm mb-1">{c.label}</label>
+                <label className="block mb-1 text-sm font-medium">{c.label}</label>
                 {c.selectionMode === 'dropdown' && instOptions.length > 0 && (
                   imgAttr ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -413,7 +414,7 @@ export default function BriefStepForm({
                 {((c.selectionMode === 'dropdown' && !inst) || instOptions.length === 0) &&
                   c.attributes?.map((a) => (
                     <div key={a.key}>
-                      <label className="block text-xs mb-1">{a.label}</label>
+                      <label className="block mb-1 text-sm font-medium">{a.label}</label>
                       <input
                         className="w-full p-2 border rounded"
                         value={formData[`${c.key}.${a.key}`] || ''}
@@ -428,7 +429,7 @@ export default function BriefStepForm({
           })}
           {writeFields.map((f) => (
             <div key={f.key}>
-              <label className="block text-sm mb-1">{f.label}</label>
+              <label className="block mb-1 text-sm font-medium">{f.label}</label>
               {f.inputType === 'textarea' ? (
                 <textarea
                   className="w-full p-2 border rounded"
