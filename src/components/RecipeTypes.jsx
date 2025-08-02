@@ -25,6 +25,7 @@ const RecipeTypes = () => {
   const [prompt, setPrompt] = useState('');
   const [assetPrompt, setAssetPrompt] = useState('');
   const [componentOrder, setComponentOrder] = useState([]);
+  const [clientComponents, setClientComponents] = useState([]);
   const [fields, setFields] = useState([{ label: '', key: '', inputType: 'text' }]);
   const [enableAssetCsv, setEnableAssetCsv] = useState(false);
   const [assetFields, setAssetFields] = useState([]);
@@ -54,6 +55,7 @@ const RecipeTypes = () => {
     setPrompt('');
     setAssetPrompt('');
     setComponentOrder([]);
+    setClientComponents([]);
     setFields([{ label: '', key: '', inputType: 'text' }]);
     setEnableAssetCsv(false);
     setAssetFields([]);
@@ -102,6 +104,7 @@ const RecipeTypes = () => {
           enableAssetCsv,
           assetMatchFields: assetFields,
           components: order,
+          clientFormComponents: clientComponents,
           writeInFields: writeFields,
           defaultColumns: defaultCols,
           external,
@@ -118,6 +121,7 @@ const RecipeTypes = () => {
                   enableAssetCsv,
                   assetMatchFields: assetFields,
                   components: order,
+                  clientFormComponents: clientComponents,
                   writeInFields: writeFields,
                   defaultColumns: defaultCols,
                   iconUrl: icon,
@@ -133,6 +137,7 @@ const RecipeTypes = () => {
           enableAssetCsv,
           assetMatchFields: assetFields,
           components: order,
+          clientFormComponents: clientComponents,
           writeInFields: writeFields,
           defaultColumns: defaultCols,
           external,
@@ -148,6 +153,7 @@ const RecipeTypes = () => {
             enableAssetCsv,
             assetMatchFields: assetFields,
             components: order,
+            clientFormComponents: clientComponents,
             writeInFields: writeFields,
             defaultColumns: defaultCols,
             external,
@@ -170,6 +176,7 @@ const RecipeTypes = () => {
     setEnableAssetCsv(!!t.enableAssetCsv);
     setAssetFields(t.assetMatchFields || []);
     setComponentOrder(t.components || []);
+    setClientComponents(t.clientFormComponents || []);
     setDefaultColumns(t.defaultColumns || []);
     setExternal(!!t.external);
     setIconUrl(t.iconUrl || '');
@@ -278,6 +285,7 @@ const RecipeTypes = () => {
                 <th>Icon</th>
                 <th>Name</th>
                 <th>Components</th>
+                <th>Client Form</th>
                 <th>Write-In Fields</th>
                 <th>Asset Prompt</th>
                 <th>Asset Fields</th>
@@ -302,6 +310,11 @@ const RecipeTypes = () => {
                   <td>
                     {t.components && t.components.length > 0
                       ? t.components.join(', ')
+                      : '-'}
+                  </td>
+                  <td>
+                    {t.clientFormComponents && t.clientFormComponents.length > 0
+                      ? t.clientFormComponents.join(', ')
                       : '-'}
                   </td>
                   <td>
@@ -413,6 +426,16 @@ const RecipeTypes = () => {
             id="component-order"
             value={componentOrder}
             onChange={setComponentOrder}
+            suggestions={componentsData.map((c) => c.key)}
+            onlySuggestions
+          />
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Visible on Client Form</label>
+          <TagInput
+            id="client-form-components"
+            value={clientComponents}
+            onChange={setClientComponents}
             suggestions={componentsData.map((c) => c.key)}
             onlySuggestions
           />

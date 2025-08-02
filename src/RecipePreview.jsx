@@ -32,6 +32,7 @@ import TabButton from './components/TabButton.jsx';
 import normalizeAssetType from './utils/normalizeAssetType.js';
 import isVideoUrl from './utils/isVideoUrl.js';
 import RecipeTypeCard from './components/RecipeTypeCard.jsx';
+import OptimizedImage from './components/OptimizedImage.jsx';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -1039,6 +1040,13 @@ const RecipePreview = ({
         : components,
     [currentType, compMap, components],
   );
+  const displayedComponents = useMemo(
+    () =>
+      externalOnly && currentType?.clientFormComponents?.length
+        ? currentType.clientFormComponents.map((k) => compMap[k]).filter(Boolean)
+        : orderedComponents,
+    [externalOnly, currentType, compMap, orderedComponents],
+  );
   const writeFields = useMemo(
     () => currentType?.writeInFields || [],
     [currentType],
@@ -1178,7 +1186,7 @@ const RecipePreview = ({
         )}
         {currentType && (
           <div className="space-y-4">
-            {orderedComponents.map((c) => {
+            {displayedComponents.map((c) => {
               if (c.key === 'brand') return null;
               const instOptions = allInstances.filter(
                 (i) =>
@@ -1202,11 +1210,42 @@ const RecipePreview = ({
                         (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
                     )
                   : null;
+              const imgAttr = c.attributes?.find((a) => a.inputType === 'image');
               return (
                 <div key={c.id} className="space-y-2">
                   <label className="block text-sm mb-1">{c.label}</label>
                   {c.selectionMode === 'dropdown' && instOptions.length > 0 && (
-                    !listVisible ? (
+                    imgAttr ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        {instOptions.map((i) => {
+                          const imgUrl = i.values?.[imgAttr.key] || '';
+                          const selected = current === i.id;
+                          return (
+                            <button
+                              type="button"
+                              key={i.id}
+                              onClick={() =>
+                                setSelectedInstances({ ...selectedInstances, [c.key]: i.id })
+                              }
+                              className={`border rounded p-2 flex flex-col items-center ${selected ? 'ring-2 ring-blue-500' : ''}`}
+                            >
+                              {imgUrl ? (
+                                <OptimizedImage
+                                  pngUrl={imgUrl}
+                                  alt={i.name}
+                                  className="w-full h-24 object-cover mb-2"
+                                />
+                              ) : (
+                                <div className="w-full h-24 flex items-center justify-center bg-gray-100 mb-2">
+                                  <FiImage className="text-3xl text-gray-400" />
+                                </div>
+                              )}
+                              <span className="text-xs sm:text-sm text-center">{i.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : !listVisible ? (
                       <button
                         type="button"
                         onClick={() =>
@@ -1217,18 +1256,18 @@ const RecipePreview = ({
                         {instOptions.length} Options Loaded
                       </button>
                     ) : (
-                    <select
-                      className="w-full p-2 border rounded"
-                      value={current}
-                      onChange={(e) =>
-                        setSelectedInstances({ ...selectedInstances, [c.key]: e.target.value })
-                      }
-                    >
-                      <option value="">Custom...</option>
-                      {instOptions.map((i) => (
-                        <option key={i.id} value={i.id}>{i.name}</option>
-                      ))}
-                    </select>
+                      <select
+                        className="w-full p-2 border rounded"
+                        value={current}
+                        onChange={(e) =>
+                          setSelectedInstances({ ...selectedInstances, [c.key]: e.target.value })
+                        }
+                      >
+                        <option value="">Custom...</option>
+                        {instOptions.map((i) => (
+                          <option key={i.id} value={i.id}>{i.name}</option>
+                        ))}
+                      </select>
                     )
                   )}
                   {c.selectionMode === 'checklist' && instOptions.length > 0 && (
