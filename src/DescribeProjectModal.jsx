@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './components/Modal.jsx';
+import InfoTooltip from './components/InfoTooltip.jsx';
 import { collection, addDoc, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { FiInfo, FiCheckCircle, FiX } from 'react-icons/fi';
@@ -57,9 +58,25 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
     });
   };
 
+  const removeAssetLink = (idx) => {
+    setAssetLinks((arr) => {
+      const next = arr.filter((_, i) => i !== idx);
+      return next.length ? next : [''];
+    });
+    setLinkStatus((s) => {
+      const next = s.filter((_, i) => i !== idx);
+      return next.length ? next : [null];
+    });
+  };
+
   const verifyLink = async (idx) => {
     const url = assetLinks[idx];
     if (!url) return;
+    setLinkStatus((s) => {
+      const next = [...s];
+      next[idx] = 'loading';
+      return next;
+    });
     try {
       const callable = httpsCallable(functions, 'verifyDriveAccess', { timeout: 60000 });
       await callable({ url });
@@ -164,32 +181,31 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           <input type="number" min="1" value={numAds} onChange={(e) => setNumAds(e.target.value)} className="w-full p-2 border rounded" />
         </div>
         <div>
-          <label className="block mb-1 text-sm font-medium flex items-center gap-1">
+              <label className="block mb-1 text-sm font-medium flex items-center gap-1">
             Gdrive Link
-            <span className="relative group text-gray-500">
-              <FiInfo />
-              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                Add a link to new assets you'd like to use.
-              </div>
-            </span>
+            <InfoTooltip text="Add a link to new assets you'd like to use." maxWidth={200}>
+              <FiInfo className="text-gray-500" />
+            </InfoTooltip>
           </label>
           {assetLinks.map((link, idx) => (
-            <div key={idx} className="flex items-center gap-2 mb-1">
+            <div key={idx} className="relative flex items-center gap-2 mb-1">
               <input
                 type="text"
                 value={link}
                 onChange={(e) => handleAssetLinkChange(idx, e.target.value)}
                 onBlur={() => verifyLink(idx)}
-                className="flex-1 p-2 border rounded"
+                className={`flex-1 p-2 border rounded ${linkStatus[idx] === false ? 'line-through' : ''}`}
               />
+              {linkStatus[idx] === 'loading' && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+                  <div className="loading-ring w-4 h-4" />
+                </div>
+              )}
               {linkStatus[idx] === true && <FiCheckCircle className="text-green-600" />}
               {linkStatus[idx] === false && (
-                <span className="relative group">
-                  <FiX className="text-red-600" />
-                  <div className="absolute right-0 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                    We can’t access this link. Please make sure it’s set to “anyone can view” or the folder may be empty.
-                  </div>
-                </span>
+                <InfoTooltip text="We can’t access this link. Please make sure it’s set to “anyone can view” or the folder may be empty." maxWidth={250}>
+                  <FiX className="text-red-600 cursor-pointer" onClick={() => removeAssetLink(idx)} />
+                </InfoTooltip>
               )}
             </div>
           ))}
