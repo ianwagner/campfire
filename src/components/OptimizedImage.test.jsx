@@ -12,3 +12,12 @@ test('applies class to picture and img elements', () => {
   expect(picture).toHaveClass('w-8');
   expect(img).toHaveClass('w-8');
 });
+
+test('renders img without picture when pngUrl has query params', () => {
+  const url = 'https://example.com/test.png?token=123';
+  const { container } = render(<OptimizedImage pngUrl={url} />);
+  const picture = container.querySelector('picture');
+  const img = container.querySelector('img');
+  expect(picture).toBeNull();
+  expect(img).toHaveAttribute('src', url);
+});

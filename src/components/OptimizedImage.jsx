@@ -18,7 +18,7 @@ const OptimizedImage = ({
   const webp =
     typeof webpUrl === 'string'
       ? webpUrl
-      : png
+      : typeof png === 'string' && png.toLowerCase().endsWith('.png')
       ? png.replace(/\.png$/, '.webp')
       : undefined;
   const webpRaw = webp ? useCachedImageUrl(`${cacheKey || webp}-webp`, webp) : null;
