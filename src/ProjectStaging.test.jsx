@@ -90,3 +90,23 @@ test('deletes project and request and navigates back', async () => {
     state: { removedProject: 'p1' },
   });
 });
+
+test('allows deleting when request is missing', async () => {
+  window.confirm = jest.fn(() => true);
+  mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
+  render(
+    <MemoryRouter>
+      <ProjectStaging />
+    </MemoryRouter>
+  );
+  await waitFor(() =>
+    expect(screen.getByText('Project not found.')).toBeInTheDocument()
+  );
+  fireEvent.click(screen.getByText('Delete Project'));
+  await waitFor(() => expect(mockDeleteDoc).toHaveBeenCalledTimes(1));
+  expect(mockDeleteDoc.mock.calls[0][0]).toBe('projects/p1');
+  expect(mockNavigate).toHaveBeenCalledWith('/projects', {
+    replace: true,
+    state: { removedProject: 'p1' },
+  });
+});
