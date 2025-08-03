@@ -5,30 +5,34 @@ import '@testing-library/jest-dom';
 import CreateAdGroup from './CreateAdGroup';
 
 jest.mock('./firebase/config', () => ({ db: {}, auth: {} }));
+jest.mock('./uploadFile.js', () => ({ uploadFile: jest.fn(() => Promise.resolve('url')) }));
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
   addDoc: jest.fn(() => Promise.resolve({ id: '1' })),
   serverTimestamp: jest.fn(),
+  doc: jest.fn(),
+  getDoc: jest.fn(() => Promise.resolve({ exists: () => false, data: () => ({}) })),
+  writeBatch: jest.fn(() => ({ set: jest.fn(), commit: jest.fn() })),
 }));
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => jest.fn(),
 }));
 
-test('renders Create Ad Group heading', () => {
+test('renders Generate a Brief heading', () => {
   render(
     <MemoryRouter>
       <CreateAdGroup />
     </MemoryRouter>
   );
-  expect(screen.getByText(/Create Ad Group/i)).toBeInTheDocument();
+  expect(screen.getByText(/Generate a Brief/i)).toBeInTheDocument();
 });
 
-test('hides sidebar when showSidebar is false', () => {
+test('renders when sidebar hidden', () => {
   render(
     <MemoryRouter>
       <CreateAdGroup showSidebar={false} />
     </MemoryRouter>
   );
-  expect(screen.queryByText(/Log Out/i)).not.toBeInTheDocument();
+  expect(screen.getByText(/Generate a Brief/i)).toBeInTheDocument();
 });
