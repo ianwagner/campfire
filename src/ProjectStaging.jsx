@@ -95,7 +95,14 @@ const ProjectStaging = () => {
 
   if (loading) return <div className="min-h-screen p-4">Loading...</div>;
   if (!project || !request)
-    return <div className="min-h-screen p-4">Project not found.</div>;
+    return (
+      <div className="min-h-screen p-4">
+        <p>Project not found.</p>
+        <button className="btn-secondary btn-delete mt-2" onClick={handleDelete}>
+          Delete Project
+        </button>
+      </div>
+    );
 
   return (
     <div className="min-h-screen p-4 w-full max-w-[60rem] mx-auto">

@@ -8,6 +8,7 @@ import {
   query,
   where,
   writeBatch,
+  deleteDoc,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
@@ -285,6 +286,19 @@ const ProjectDetail = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm('Delete this project?')) return;
+    try {
+      await deleteDoc(doc(db, 'projects', projectId));
+      navigate('/projects', {
+        replace: true,
+        state: { removedProject: projectId },
+      });
+    } catch (err) {
+      console.error('Failed to delete project', err);
+    }
+  };
+
   const handleArchive = async () => {
     if (!groupId) return;
     if (!window.confirm('Archive this project?')) return;
@@ -301,7 +315,15 @@ const ProjectDetail = () => {
   const downloadDisabled = approvedAssets.length === 0;
 
   if (loading) return <div className="min-h-screen p-4">Loading...</div>;
-  if (!project) return <div className="min-h-screen p-4">Project not found.</div>;
+  if (!project)
+    return (
+      <div className="min-h-screen p-4">
+        <p>Project not found.</p>
+        <button className="btn-secondary btn-delete mt-2" onClick={handleDelete}>
+          Delete Project
+        </button>
+      </div>
+    );
 
   if (!groupId && request) {
     return <Navigate to={`/projects/${projectId}/staging`} replace />;
