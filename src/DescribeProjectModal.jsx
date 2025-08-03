@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import ScrollModal from './components/ScrollModal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
-import { collection, addDoc, updateDoc, doc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  serverTimestamp,
+  Timestamp,
+} from 'firebase/firestore';
 import { FiInfo } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import UrlCheckInput from './components/UrlCheckInput.jsx';
+import { deductCredits } from './utils/credits.js';
 
 const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
   const [title, setTitle] = useState('');
@@ -101,6 +109,8 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           createdBy: auth.currentUser?.uid || null,
           projectId,
         });
+
+        await deductCredits(brandCode, 'projectCreation');
       }
 
       onClose({

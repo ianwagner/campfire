@@ -1,5 +1,16 @@
-import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  increment,
+  addDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { db, auth } from '../firebase/config';
 
 /**
  * Reads the current credit balance for a brand.
@@ -29,5 +40,39 @@ export async function setBrandCredits(brandId, amount) {
  */
 export async function adjustBrandCredits(brandId, delta) {
   await updateDoc(doc(db, 'brands', brandId), { credits: increment(delta) });
+}
+
+/**
+ * Deducts credits from a brand based on an action type.
+ * Looks up the cost in site settings and records a log entry.
+ *
+ * @param {string} brandCode Brand code identifier
+ * @param {string} type Action type (e.g. 'projectCreation', 'editRequest')
+ */
+export async function deductCredits(brandCode, type) {
+  try {
+    const settingsSnap = await getDoc(doc(db, 'settings', 'site'));
+    const cost = settingsSnap.data()?.creditCosts?.[type];
+    const amount = typeof cost === 'number' ? cost : 0;
+    if (amount <= 0) return;
+
+    const brandSnap = await getDocs(
+      query(collection(db, 'brands'), where('code', '==', brandCode))
+    );
+    if (brandSnap.empty) return;
+    const ref = brandSnap.docs[0].ref;
+    await updateDoc(ref, { credits: increment(-amount) });
+
+    await addDoc(collection(db, 'creditLogs'), {
+      brandCode,
+      type,
+      amount: -amount,
+      brandId: brandSnap.docs[0].id,
+      createdAt: serverTimestamp(),
+      userId: auth.currentUser?.uid || null,
+    });
+  } catch (err) {
+    console.error('Failed to deduct credits', err);
+  }
 }
 

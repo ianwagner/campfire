@@ -21,6 +21,7 @@ import { FiFileText } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import TabButton from './components/TabButton.jsx';
 import { uploadFile } from './uploadFile.js';
+import { deductCredits } from './utils/credits.js';
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
@@ -117,7 +118,15 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         await batch.commit();
       }
 
-      onClose({ id: projRef.id, title: title.trim(), status: 'briefed', recipeTypes: Array.isArray(recipes) ? recipes.map((r) => r.type) : [], createdAt: new Date() });
+      await deductCredits(brandCode, 'projectCreation');
+
+      onClose({
+        id: projRef.id,
+        title: title.trim(),
+        status: 'briefed',
+        recipeTypes: Array.isArray(recipes) ? recipes.map((r) => r.type) : [],
+        createdAt: new Date(),
+      });
     } catch (err) {
       console.error('Failed to create project', err);
     }
