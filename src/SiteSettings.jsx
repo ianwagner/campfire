@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import useSiteSettings from './useSiteSettings';
+import useAdminClaim from './useAdminClaim';
+import SubscriptionPlansTab from './SubscriptionPlansTab';
 import { uploadLogo } from './uploadLogo';
 import { uploadIcon } from './uploadIcon';
 import { uploadCampfireLogo } from './uploadCampfireLogo';
@@ -7,6 +9,8 @@ import { uploadArtwork } from './uploadArtwork';
 import OptimizedImage from './components/OptimizedImage.jsx';
 
 const SiteSettings = () => {
+  const { isAdmin } = useAdminClaim();
+  const [activeTab, setActiveTab] = useState('general');
   const { settings, saveSettings } = useSiteSettings();
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState(null);
@@ -138,6 +142,25 @@ const SiteSettings = () => {
   return (
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Site Settings</h1>
+        <div className="mb-4 flex space-x-4 border-b">
+          <button
+            type="button"
+            className={`pb-2 ${activeTab === 'general' ? 'border-b-2 border-black' : ''}`}
+            onClick={() => setActiveTab('general')}
+          >
+            General
+          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className={`pb-2 ${activeTab === 'plans' ? 'border-b-2 border-black' : ''}`}
+              onClick={() => setActiveTab('plans')}
+            >
+              Subscription Plans
+            </button>
+          )}
+        </div>
+        {activeTab === 'general' && (
         <form onSubmit={handleSubmit} className="space-y-4 max-w-sm">
           <div>
             <label className="block mb-1 text-sm font-medium">Logo</label>
@@ -241,6 +264,8 @@ const SiteSettings = () => {
             {loading ? 'Saving...' : 'Save Settings'}
           </button>
         </form>
+        )}
+        {isAdmin && activeTab === 'plans' && <SubscriptionPlansTab />}
     </div>
   );
 };
