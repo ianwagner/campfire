@@ -20,6 +20,10 @@ const defaultSettings = {
   campfireLogoUrl: '',
   artworkUrl: '',
   accentColor: storedAccent || DEFAULT_ACCENT_COLOR,
+  creditCosts: {
+    projectCreation: 1,
+    editRequest: 1,
+  },
 };
 
 

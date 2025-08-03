@@ -13,6 +13,23 @@ import {
 import { db, auth } from '../firebase/config';
 
 /**
+ * Retrieves the credit cost for a given action type.
+ *
+ * @param {string} type Action type key
+ * @param {Record<string, number>} [creditCosts] Optional costs map from
+ *   useSiteSettings
+ * @returns {Promise<number>} cost amount (defaults to 0 if undefined)
+ */
+export async function getCreditCost(type, creditCosts) {
+  if (creditCosts && typeof creditCosts[type] === 'number') {
+    return creditCosts[type];
+  }
+  const snap = await getDoc(doc(db, 'settings', 'site'));
+  const cost = snap.data()?.creditCosts?.[type];
+  return typeof cost === 'number' ? cost : 0;
+}
+
+/**
  * Reads the current credit balance for a brand.
  * @param {string} brandId Firestore brand document ID
  * @returns {Promise<number>} credits value, defaulting to 0 if missing
@@ -48,12 +65,12 @@ export async function adjustBrandCredits(brandId, delta) {
  *
  * @param {string} brandCode Brand code identifier
  * @param {string} type Action type (e.g. 'projectCreation', 'editRequest')
+ * @param {Record<string, number>} [creditCosts] Optional costs map from
+ *   useSiteSettings to avoid an extra fetch
  */
-export async function deductCredits(brandCode, type) {
+export async function deductCredits(brandCode, type, creditCosts) {
   try {
-    const settingsSnap = await getDoc(doc(db, 'settings', 'site'));
-    const cost = settingsSnap.data()?.creditCosts?.[type];
-    const amount = typeof cost === 'number' ? cost : 0;
+    const amount = await getCreditCost(type, creditCosts);
     if (amount <= 0) return;
 
     const brandSnap = await getDocs(
