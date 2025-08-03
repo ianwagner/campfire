@@ -1,26 +1,24 @@
 // © 2025 Studio Tak. All rights reserved.
 // This file is part of a proprietary software project. Do not distribute.
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  doc,
-  getDoc,
   collection,
   addDoc,
   serverTimestamp,
-  Timestamp,
-} from "firebase/firestore";
-import { db, auth } from "./firebase/config";
-import { uploadFile } from "./uploadFile";
+  writeBatch,
+  doc,
+  getDoc,
+} from 'firebase/firestore';
+import { db, auth } from './firebase/config';
+import RecipePreview from './RecipePreview.jsx';
+import { uploadFile } from './uploadFile.js';
 
 const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
-  const [name, setName] = useState("");
-  const [brand, setBrand] = useState("");
+  const [title, setTitle] = useState('');
+  const [step, setStep] = useState(1);
   const [brandCodes, setBrandCodes] = useState([]);
-  const [dueDate, setDueDate] = useState("");
-  const [notes, setNotes] = useState("");
-  const [assetFiles, setAssetFiles] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [brandCode, setBrandCode] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,143 +28,105 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
         return;
       }
       try {
-        const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+        const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
         const codes = snap.exists() ? snap.data().brandCodes : [];
         if (Array.isArray(codes)) {
           setBrandCodes(codes);
+          setBrandCode(codes[0] || '');
         } else {
           setBrandCodes([]);
         }
       } catch (err) {
-        console.error("Failed to fetch brand codes", err);
+        console.error('Failed to fetch brand codes', err);
         setBrandCodes([]);
       }
     };
     fetchCodes();
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    const groupName = name.trim() || `Group ${Date.now()}`;
+  const handleSave = async (recipes, briefNote, briefAssets) => {
+    if (!title.trim()) return;
     try {
-      const docRef = await addDoc(collection(db, "adGroups"), {
-        name: groupName,
-        brandCode: brand.trim(),
-        notes: notes.trim(),
+      const groupRef = await addDoc(collection(db, 'adGroups'), {
+        name: title.trim(),
+        brandCode,
+        status: 'briefed',
         uploadedBy: auth.currentUser?.uid || null,
         createdAt: serverTimestamp(),
-        status: "pending",
+        lastUpdated: serverTimestamp(),
         reviewedCount: 0,
         approvedCount: 0,
         editCount: 0,
         rejectedCount: 0,
         archivedCount: 0,
-        thumbnailUrl: "",
-        lastUpdated: serverTimestamp(),
-        visibility: "private",
+        thumbnailUrl: '',
+        visibility: 'private',
         requireAuth: false,
         requirePassword: false,
-        password: "",
-        dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
+        password: '',
+        ...(briefNote ? { notes: briefNote } : {}),
       });
 
-      for (const file of assetFiles) {
-        try {
-          const url = await uploadFile(
-            file,
-            docRef.id,
-            brand.trim(),
-            groupName,
-          );
-          await addDoc(collection(db, "adGroups", docRef.id, "groupAssets"), {
-            filename: file.name,
-            firebaseUrl: url,
-            uploadedAt: serverTimestamp(),
-          });
-        } catch (err) {
-          console.error("Asset upload failed", err);
+      if (Array.isArray(briefAssets) && briefAssets.length > 0) {
+        for (const file of briefAssets) {
+          try {
+            const url = await uploadFile(file, groupRef.id, brandCode, title.trim());
+            await addDoc(collection(db, 'adGroups', groupRef.id, 'groupAssets'), {
+              filename: file.name,
+              firebaseUrl: url,
+              uploadedAt: serverTimestamp(),
+              note: '',
+            });
+          } catch (err) {
+            console.error('Brief upload failed', err);
+          }
         }
       }
 
-      navigate(`/ad-group/${docRef.id}`);
+      if (Array.isArray(recipes) && recipes.length > 0) {
+        const batch = writeBatch(db);
+        recipes.forEach((r) => {
+          const ref = doc(db, 'adGroups', groupRef.id, 'recipes', String(r.recipeNo));
+          batch.set(
+            ref,
+            {
+              components: r.components,
+              copy: r.copy,
+              assets: r.assets || [],
+              type: r.type || '',
+              selected: r.selected || false,
+              brandCode: r.brandCode || brandCode,
+            },
+            { merge: true }
+          );
+        });
+        await batch.commit();
+      }
+
+      navigate(`/ad-group/${groupRef.id}`);
     } catch (err) {
-      console.error("Failed to create ad group", err);
-    } finally {
-      setLoading(false);
+      console.error('Failed to create ad group', err);
     }
   };
 
   return (
-    <div
-      className={`${asModal ? '' : 'min-h-screen mt-10'} p-4 max-w-md mx-auto`}
-    >
-      <h1 className="text-2xl mb-4">Create Ad Group</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block mb-1 text-sm font-medium">Group Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-2 border rounded"
-            placeholder="Optional"
-          />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Brand</label>
-          {brandCodes.length > 0 ? (
-            <select
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              className="w-full p-2 border rounded"
-              required
-            >
-              <option value="">Select brand</option>
-              {brandCodes.map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p className="text-sm text-gray-500">No brands assigned</p>
-          )}
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Due Date</label>
-          <input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Notes</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="w-full p-2 border rounded"
-            rows={3}
-            placeholder="Optional"
-          />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Ad Group Assets</label>
-          <input
-            type="file"
-            multiple
-            onChange={(e) => setAssetFiles(Array.from(e.target.files))}
-            className="w-full"
-          />
-        </div>
-        <button type="submit" className="w-full btn-primary" disabled={loading}>
-          {loading ? "Creating..." : "Create Group"}
-        </button>
-      </form>
+    <div className={`${asModal ? '' : 'min-h-screen mt-10'} p-4 max-w-[50rem] mx-auto`}>
+      {step === 1 && <h2 className="text-xl font-semibold mb-4">Generate a Brief</h2>}
+      <RecipePreview
+        onSave={handleSave}
+        brandCode={brandCode}
+        allowedBrandCodes={brandCodes}
+        hideBrandSelect={brandCodes.length <= 1}
+        externalOnly
+        title={title}
+        onTitleChange={setTitle}
+        onStepChange={setStep}
+        onBrandCodeChange={setBrandCode}
+        showBriefExtras
+      />
     </div>
   );
 };
 
 export default CreateAdGroup;
+
