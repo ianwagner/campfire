@@ -22,11 +22,7 @@ const AdminBrandForm = () => {
     setMessage('');
     if (!code.trim()) return;
     const trimmedId = driveFolderId.trim();
-    if (!trimmedId) {
-      setMessage('Drive folder ID is required');
-      return;
-    }
-    if (!isValidDriveId(trimmedId)) {
+    if (trimmedId && !isValidDriveId(trimmedId)) {
       setMessage('Drive folder ID is malformed');
       return;
     }
@@ -126,7 +122,11 @@ const AdminBrandForm = () => {
             value={driveFolderId}
             onChange={(e) => setDriveFolderId(e.target.value)}
             className="w-full p-2 border rounded"
+            placeholder="Optional Google Drive folder ID"
           />
+          <p className="text-xs text-gray-600 mt-1">
+            Optional. Use the ID from the folder's URL and share the folder with the service account to store uploaded ads.
+          </p>
         </div>
         {message && <p className="text-sm text-center">{message}</p>}
           <button
