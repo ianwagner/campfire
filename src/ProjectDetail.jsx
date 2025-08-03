@@ -24,6 +24,7 @@ import { FiExternalLink, FiDownload, FiArchive } from 'react-icons/fi';
 import { archiveGroup } from './utils/archiveGroup';
 import createArchiveTicket from './utils/createArchiveTicket';
 import isVideoUrl from './utils/isVideoUrl';
+import { deductRecipeCredits } from './utils/credits.js';
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
@@ -137,6 +138,7 @@ const ProjectDetail = () => {
     if (!groupId || !Array.isArray(list)) return;
     try {
       const batch = writeBatch(db);
+      const existingIds = recipes.map((r) => String(r.recipeNo));
       list.forEach((r) => {
         const ref = doc(db, 'adGroups', groupId, 'recipes', String(r.recipeNo));
         batch.set(
@@ -153,6 +155,15 @@ const ProjectDetail = () => {
         );
       });
       await batch.commit();
+      const brandCode = project.brandCode || '';
+      const newRecipes = list.filter(
+        (r) => !existingIds.includes(String(r.recipeNo))
+      );
+      await Promise.all(
+        newRecipes.map((r) =>
+          deductRecipeCredits(r.brandCode || brandCode, r.type)
+        )
+      );
       setRecipes(list);
     } catch (err) {
       console.error('Failed to save recipes', err);
