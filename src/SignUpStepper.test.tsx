@@ -44,9 +44,9 @@ test('sends verification email after signup', async () => {
     expect.objectContaining({
       fullName: 'Tester',
       email: 't@e.com',
-      plan: 'free',
-      isPaid: false,
-      credits: 10,
+      subscriptionPlanId: null,
+      credits: 0,
+      lastCreditReset: expect.anything(),
       stripeCustomerId: null,
     })
   );

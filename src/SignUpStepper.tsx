@@ -1,7 +1,7 @@
 import React, { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 import ErrorMessages from './components/ErrorMessages';
 
@@ -45,9 +45,9 @@ const SignUpStepper: React.FC = () => {
       await setDoc(doc(db, 'users', cred.user.uid), {
         fullName: fullName.trim(),
         email: email.trim(),
-        plan: 'free',
-        isPaid: false,
-        credits: 10,
+        subscriptionPlanId: null,
+        credits: 0,
+        lastCreditReset: serverTimestamp(),
         stripeCustomerId: null,
       });
       await sendEmailVerification(cred.user);
