@@ -34,7 +34,7 @@ The Recipe Type tab lets an admin define:
 - The message that is sent to chat when the recipe is generated.
 - The order in which components and chat output appear in each recipe row.
 - A description displayed below the title when generating a brief.
-- The default visible recipe columns when a client views generated recipes.
+- The default visible columns for an ad type recipe shown to all users except clients (clients have their own visibility settings).
 
 When creating a type, list the component keys in the desired order separated by
 commas (e.g. `headline,cta,image`). These keys correspond to components defined
