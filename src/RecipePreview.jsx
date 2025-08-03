@@ -349,8 +349,10 @@ const RecipePreview = ({
   useEffect(() => {
     if (initialResults && Array.isArray(initialResults)) {
       const mapped = initialResults.map((r, idx) => ({ recipeNo: idx + 1, ...r }));
-      setResults(mapped);
-      originalResultsRef.current = mapped;
+      // Deep clone to avoid mutating the original reference when editing.
+      const cloned = JSON.parse(JSON.stringify(mapped));
+      setResults(cloned);
+      originalResultsRef.current = JSON.parse(JSON.stringify(cloned));
       if (initialResults[0]?.type) {
         setSelectedType(initialResults[0].type);
         setStep(2);
@@ -974,7 +976,8 @@ const RecipePreview = ({
     setSaving(true);
     try {
       await onSave(results, briefNote, briefFiles);
-      originalResultsRef.current = results;
+      // After saving, store a deep copy as the new original reference.
+      originalResultsRef.current = JSON.parse(JSON.stringify(results));
       setDirty(false);
     } finally {
       setSaving(false);
@@ -982,7 +985,8 @@ const RecipePreview = ({
   };
 
   const handleReset = () => {
-    setResults(originalResultsRef.current.map((r) => ({ ...r })));
+    // Restore a deep-cloned copy of the original results to avoid shared refs.
+    setResults(JSON.parse(JSON.stringify(originalResultsRef.current)));
     setBriefNote('');
     setBriefFiles([]);
     setDirty(false);
