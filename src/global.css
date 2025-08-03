@@ -229,16 +229,19 @@
 
   .ad-table th:not(:last-child),
   .ad-table td:not(:last-child):not(.copy-cell) {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .ad-table th:last-child,
   .ad-table td:last-child {
-    white-space: nowrap;
+    white-space: normal;
     /* Allow action columns to size to their content instead of being forced to 1% */
     width: auto;
+  }
+
+  .ad-table td:last-child > div {
+    flex-wrap: wrap;
   }
 
   .ad-table td.copy-cell {
