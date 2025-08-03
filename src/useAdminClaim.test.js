@@ -36,5 +36,5 @@ test('returns admin true when claim present', async () => {
   expect(result.current.isAdmin).toBe(true);
   expect(result.current.isReady).toBe(true);
   expect(result.current.loading).toBe(false);
-  expect(user.getIdToken).toHaveBeenCalledWith(true);
+  expect(user.getIdToken).not.toHaveBeenCalled();
 });
