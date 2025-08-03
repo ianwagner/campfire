@@ -11,23 +11,23 @@ jest.mock('./components/VideoPlayer.jsx', () => (props) => <video {...props} />)
 
 jest.mock('firebase/firestore', () => {
   const getDocsMock = jest.fn();
-  const collectionGroupMock = jest.fn((...args) => args);
+  const collectionMock = jest.fn((...args) => args);
   const queryMock = jest.fn((...args) => args);
   const whereMock = jest.fn((...args) => args);
   return {
-    collectionGroup: (...args) => collectionGroupMock(...args),
+    collection: (...args) => collectionMock(...args),
     getDocs: (...args) => getDocsMock(...args),
     query: (...args) => queryMock(...args),
     where: (...args) => whereMock(...args),
     __esModule: true,
     getDocsMock,
-    collectionGroupMock,
+    collectionMock,
     queryMock,
     whereMock,
   };
 });
 
-const { getDocsMock: getDocs, whereMock, collectionGroupMock } = require('firebase/firestore');
+const { getDocsMock: getDocs, whereMock, collectionMock } = require('firebase/firestore');
 const authModule = require('firebase/auth');
 
 beforeEach(() => {
@@ -48,7 +48,7 @@ test('loads assets for each brand code', async () => {
   render(<ClientGallery brandCodes={codes} />);
 
   await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(1));
-  expect(collectionGroupMock).toHaveBeenCalledWith({}, 'assets');
+  expect(collectionMock).toHaveBeenCalledWith({}, 'adAssets');
   expect(whereMock).toHaveBeenCalledWith('status', '==', 'approved');
   expect(whereMock).toHaveBeenCalledWith('brandCode', 'in', codes);
   expect(await screen.findByAltText('a1')).toBeInTheDocument();
