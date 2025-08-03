@@ -35,8 +35,8 @@ async function ensureFolder(name, parentId, drive) {
 
 export const copyAssetToDrive = onDocumentCreated('adGroups/{groupId}/assets/{assetId}', async (event) => {
   const data = event.data.data() || {};
-  const { filename, firebaseUrl, brandCode, recipeCode } = data;
-  if (!firebaseUrl) return null;
+  const { filename, firebaseUrl, brandCode, recipeCode, uploadedAt } = data;
+  if (!firebaseUrl || !uploadedAt) return null;
 
   const groupSnap = await db.doc(`adGroups/${event.params.groupId}`).get();
   const groupName = groupSnap.exists ? groupSnap.data().name || event.params.groupId : event.params.groupId;

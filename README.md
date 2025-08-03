@@ -147,6 +147,14 @@ controls. Selecting **Edit** on a brand row opens the brand profile page,
 allowing administrators to update brand assets. New brands can be added via
 `/admin/brands/new`.
 
+### Optional Drive Folder for Uploaded Assets
+
+Brand profiles include an optional Google Drive folder ID. When provided, any
+ads uploaded to an ad group are copied into a subfolder of this Drive folder.
+Use the ID portion of the folder's URL (between `/folders/` and any `?` query)
+and ensure the folder is shared with the project's service account so uploads
+have access.
+
 ## Authentication
 
 The project uses Firebase Authentication for admin access. The `Login` component

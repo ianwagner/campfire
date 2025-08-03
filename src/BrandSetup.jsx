@@ -130,12 +130,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
     setLoading(true);
     setMessage('');
     const trimmedId = driveFolderId.trim();
-    if (!trimmedId) {
-      setMessage('Drive folder ID is required');
-      setLoading(false);
-      return;
-    }
-    if (!isValidDriveId(trimmedId)) {
+    if (trimmedId && !isValidDriveId(trimmedId)) {
       setMessage('Drive folder ID is malformed');
       setLoading(false);
       return;
@@ -275,7 +270,11 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
               setDirty(true);
             }}
             className="w-full p-2 border rounded"
+            placeholder="Optional Google Drive folder ID"
           />
+          <p className="text-xs text-gray-600 mt-1">
+            Optional. Use the ID from the folder's URL and share the folder with the service account to store uploaded ads.
+          </p>
         </FormField>
         <h2 className="text-xl mb-2">Brand Assets</h2>
         <FormField label="Brand Guidelines (PDF)">
