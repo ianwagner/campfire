@@ -1,8 +1,8 @@
 import React from 'react';
 
-const Table = ({ children }) => (
+const Table = ({ children, className = '' }) => (
   <div className="overflow-x-auto table-container">
-    <table className="ad-table w-full table-fixed text-sm">{children}</table>
+    <table className={`ad-table w-full min-w-max text-sm ${className}`.trim()}>{children}</table>
   </div>
 );
 
