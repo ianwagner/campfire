@@ -42,7 +42,15 @@ test('sends verification email after signup', async () => {
   await waitFor(() => expect(sendEmailVerification).toHaveBeenCalledWith({ uid: 'u1' }));
   expect(setDoc).toHaveBeenCalledWith(
     'userDoc',
-    expect.objectContaining({ companyName: 'Acme', fullName: 'Tester', email: 't@e.com' })
+    expect.objectContaining({
+      companyName: 'Acme',
+      fullName: 'Tester',
+      email: 't@e.com',
+      plan: 'free',
+      isPaid: false,
+      credits: 10,
+      stripeCustomerId: null,
+    })
   );
 });
 

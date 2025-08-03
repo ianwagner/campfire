@@ -56,6 +56,10 @@ const AgencyBrands = () => {
         archivedAt: null,
         archivedBy: null,
         createdAt: serverTimestamp(),
+        plan: 'free',
+        isPaid: false,
+        credits: 10,
+        stripeCustomerId: null,
       });
       setBrands((prev) => [
         ...prev,
@@ -69,6 +73,10 @@ const AgencyBrands = () => {
           archived: false,
           archivedAt: null,
           archivedBy: null,
+          plan: 'free',
+          isPaid: false,
+          credits: 10,
+          stripeCustomerId: null,
         },
       ]);
       setForm({ code: '', name: '', toneOfVoice: '', offering: '' });

@@ -114,6 +114,11 @@ export const signOutUser = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
+export const createStripeCustomer = functions.https.onCall(async (data) => {
+  console.log('createStripeCustomer payload:', data);
+  return { customerId: 'dummy_customer_id' };
+});
+
 export const initBrandCredits = onDocumentCreated('brands/{brandId}', async (event) => {
   const snap = event.data;
   if (!snap) return null;
