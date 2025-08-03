@@ -55,8 +55,22 @@ export async function setBrandCredits(brandId, amount) {
  * @param {string} brandId Firestore brand document ID
  * @param {number} delta amount to increment (or decrement)
  */
-export async function adjustBrandCredits(brandId, delta) {
-  await updateDoc(doc(db, 'brands', brandId), { credits: increment(delta) });
+export async function adjustBrandCredits(brandId, delta, action = 'adjust', refId) {
+  const brandRef = doc(db, 'brands', brandId);
+  await updateDoc(brandRef, { credits: increment(delta) });
+  try {
+    const brandSnap = await getDoc(brandRef);
+    await addDoc(collection(db, 'creditLogs'), {
+      brandCode: brandSnap.data()?.code || null,
+      userId: auth.currentUser?.uid || null,
+      action,
+      amount: delta,
+      refId: refId ?? brandId,
+      createdAt: serverTimestamp(),
+    });
+  } catch (err) {
+    console.error('Failed to log credit adjustment', err);
+  }
 }
 
 /**
@@ -82,11 +96,11 @@ export async function deductCredits(brandCode, type, creditCosts) {
 
     await addDoc(collection(db, 'creditLogs'), {
       brandCode,
-      type,
-      amount: -amount,
-      brandId: brandSnap.docs[0].id,
-      createdAt: serverTimestamp(),
       userId: auth.currentUser?.uid || null,
+      action: type,
+      amount: -amount,
+      refId: brandSnap.docs[0].id,
+      createdAt: serverTimestamp(),
     });
   } catch (err) {
     console.error('Failed to deduct credits', err);

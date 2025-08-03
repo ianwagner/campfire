@@ -28,6 +28,14 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "uploadedAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "creditLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "brandCode", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
