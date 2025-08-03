@@ -162,7 +162,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
       setProducts((prev) =>
         prev.map((p, i) => (i === idx ? { ...p, archived: true } : p))
       );
-      createArchiveTicket({ target: 'product', brandId, index: idx });
+      createArchiveTicket({ target: 'product', brandId, index: idx, brandCode });
     } else {
       setProducts((prev) => prev.filter((_, i) => i !== idx));
     }

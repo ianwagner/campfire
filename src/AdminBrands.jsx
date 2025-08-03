@@ -108,7 +108,8 @@ const AdminBrands = () => {
       setBrands((prev) =>
         prev.map((b) => (b.id === id ? { ...b, archived: true } : b))
       );
-      await createArchiveTicket({ target: 'brand', brandId: id });
+      const brand = brands.find((b) => b.id === id);
+      await createArchiveTicket({ target: 'brand', brandId: id, brandCode: brand?.code });
     } catch (err) {
       console.error('Failed to archive brand', err);
     }

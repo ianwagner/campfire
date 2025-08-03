@@ -304,7 +304,7 @@ const ProjectDetail = () => {
     if (!window.confirm('Archive this project?')) return;
     try {
       await archiveGroup(groupId);
-      await createArchiveTicket({ target: 'adGroup', groupId });
+      await createArchiveTicket({ target: 'adGroup', groupId, brandCode: project?.brandCode });
       navigate('/projects');
     } catch (err) {
       console.error('Failed to archive group', err);

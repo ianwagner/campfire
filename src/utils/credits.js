@@ -60,8 +60,12 @@ export async function adjustBrandCredits(brandId, delta, action = 'adjust', refI
   await updateDoc(brandRef, { credits: increment(delta) });
   try {
     const brandSnap = await getDoc(brandRef);
+    const code = brandSnap.data()?.code || null;
+    if (!code) {
+      console.warn('adjustBrandCredits called for brand without brandCode', brandId);
+    }
     await addDoc(collection(db, 'creditLogs'), {
-      brandCode: brandSnap.data()?.code || null,
+      brandCode: code,
       userId: auth.currentUser?.uid || null,
       action,
       amount: delta,
@@ -84,6 +88,10 @@ export async function adjustBrandCredits(brandId, delta, action = 'adjust', refI
  */
 export async function deductCredits(brandCode, type, creditCosts) {
   try {
+    if (!brandCode) {
+      console.warn('deductCredits called without brandCode');
+      return;
+    }
     const amount = await getCreditCost(type, creditCosts);
     if (amount <= 0) return;
 

@@ -199,7 +199,8 @@ const AdminAdGroups = () => {
       setGroups((prev) =>
         prev.map((g) => (g.id === groupId ? { ...g, status: 'archived' } : g))
       );
-      await createArchiveTicket({ target: 'adGroup', groupId });
+      const group = groups.find((g) => g.id === groupId);
+      await createArchiveTicket({ target: 'adGroup', groupId, brandCode: group?.brandCode });
     } catch (err) {
       console.error('Failed to archive group', err);
     }
