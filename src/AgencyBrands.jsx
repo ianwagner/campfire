@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   collection,
@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import BrandCard from './components/BrandCard.jsx';
+import useSubscriptionPlans from './useSubscriptionPlans.js';
 
 const AgencyBrands = () => {
   const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
@@ -21,6 +22,8 @@ const AgencyBrands = () => {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ code: '', name: '', toneOfVoice: '', offering: '' });
   const [message, setMessage] = useState('');
+  const { plans } = useSubscriptionPlans();
+  const planMap = useMemo(() => Object.fromEntries(plans.map((p) => [p.id, p.name])), [plans]);
 
   useEffect(() => {
     const fetchBrands = async () => {
@@ -29,7 +32,14 @@ const AgencyBrands = () => {
       try {
         const q = query(collection(db, 'brands'), where('agencyId', '==', agencyId));
         const snap = await getDocs(q);
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const list = snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            ...data,
+            credits: typeof data.credits === 'number' ? data.credits : 0,
+          };
+        });
         setBrands(list);
       } catch (err) {
         console.error('Failed to fetch brands', err);
@@ -56,9 +66,9 @@ const AgencyBrands = () => {
         archivedAt: null,
         archivedBy: null,
         createdAt: serverTimestamp(),
-        plan: 'free',
-        isPaid: false,
+        subscriptionPlanId: 'free',
         credits: 10,
+        lastCreditReset: serverTimestamp(),
         stripeCustomerId: null,
       });
       setBrands((prev) => [
@@ -73,9 +83,9 @@ const AgencyBrands = () => {
           archived: false,
           archivedAt: null,
           archivedBy: null,
-          plan: 'free',
-          isPaid: false,
+          subscriptionPlanId: 'free',
           credits: 10,
+          lastCreditReset: new Date(),
           stripeCustomerId: null,
         },
       ]);
@@ -194,6 +204,8 @@ const AgencyBrands = () => {
               <th>Name</th>
               <th>Tone of Voice</th>
               <th>Offering</th>
+              <th>Plan</th>
+              <th>Credits</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -248,6 +260,8 @@ const AgencyBrands = () => {
                     brand.offering || ''
                   )}
                 </td>
+                <td>{planMap[brand.subscriptionPlanId] || brand.subscriptionPlanId || ''}</td>
+                <td className={brand.credits < 0 ? 'text-red-600 dark:text-red-400' : ''}>{brand.credits}</td>
                 <td className="text-center">
                   {editId === brand.id ? (
                     <>

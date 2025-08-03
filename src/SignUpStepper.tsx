@@ -1,7 +1,7 @@
 import React, { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase/config';
 import ErrorMessages from './components/ErrorMessages';
 
@@ -48,9 +48,9 @@ const SignUpStepper: React.FC = () => {
         companyName: companyName.trim(),
         fullName: fullName.trim(),
         email: email.trim(),
-        plan: 'free',
-        isPaid: false,
+        subscriptionPlanId: 'free',
         credits: 10,
+        lastCreditReset: serverTimestamp(),
         stripeCustomerId: null,
       });
       await sendEmailVerification(cred.user);

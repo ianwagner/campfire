@@ -9,6 +9,7 @@ const createUserWithEmailAndPassword = jest.fn();
 const sendEmailVerification = jest.fn();
 const setDoc = jest.fn();
 const docMock = jest.fn(() => 'userDoc');
+const serverTimestamp = jest.fn(() => 'ts');
 const navigate = jest.fn();
 
 jest.mock('firebase/auth', () => ({
@@ -19,6 +20,7 @@ jest.mock('firebase/auth', () => ({
 jest.mock('firebase/firestore', () => ({
   doc: (...args: any[]) => docMock(...args),
   setDoc: (...args: any[]) => setDoc(...args),
+  serverTimestamp: () => serverTimestamp(),
 }));
 
 jest.mock('react-router-dom', () => ({
@@ -46,9 +48,9 @@ test('sends verification email after signup', async () => {
       companyName: 'Acme',
       fullName: 'Tester',
       email: 't@e.com',
-      plan: 'free',
-      isPaid: false,
+      subscriptionPlanId: 'free',
       credits: 10,
+      lastCreditReset: expect.anything(),
       stripeCustomerId: null,
     })
   );

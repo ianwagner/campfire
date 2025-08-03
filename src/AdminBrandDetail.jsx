@@ -6,6 +6,7 @@ import { uploadBrandAsset } from './uploadBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import useAgencies from './useAgencies';
+import useSubscriptionPlans from './useSubscriptionPlans.js';
 
 const emptyLogo = { url: '', file: null };
 const emptyFont = { type: 'google', value: '', name: '', file: null };
@@ -27,9 +28,13 @@ const AdminBrandDetail = () => {
   const [fonts, setFonts] = useState([{ ...emptyFont }]);
   const [notes, setNotes] = useState(['']);
   const [credits, setCredits] = useState(0);
+  const [subscriptionPlanId, setSubscriptionPlanId] = useState('');
+  const [lastCreditReset, setLastCreditReset] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const { agencies } = useAgencies();
+  const { plans } = useSubscriptionPlans();
+  const selectedPlan = plans.find((p) => p.id === subscriptionPlanId);
 
   useEffect(() => {
     const load = async () => {
@@ -67,6 +72,10 @@ const AdminBrandDetail = () => {
           );
           setNotes(Array.isArray(data.notes) && data.notes.length ? data.notes : ['']);
           setCredits(typeof data.credits === 'number' ? data.credits : 0);
+          setSubscriptionPlanId(data.subscriptionPlanId || '');
+          setLastCreditReset(
+            data.lastCreditReset?.toDate ? data.lastCreditReset.toDate() : null
+          );
         }
       } catch (err) {
         console.error('Failed to load brand', err);
@@ -146,6 +155,7 @@ const AdminBrandDetail = () => {
         palette,
         fonts: fontData,
         notes,
+        subscriptionPlanId,
         credits,
       });
       setGuidelines({ url: guidelinesUrl, file: null });
@@ -381,6 +391,23 @@ const AdminBrandDetail = () => {
             Add Note
           </button>
         </FormField>
+        <FormField label="Subscription Plan">
+          <select
+            value={subscriptionPlanId}
+            onChange={(e) => setSubscriptionPlanId(e.target.value)}
+            className="w-full p-2 border rounded"
+          >
+            <option value="">Select plan</option>
+            {plans.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="Last Credit Reset">
+          <p>{lastCreditReset ? lastCreditReset.toLocaleString() : 'N/A'}</p>
+        </FormField>
         <FormField label="Credits">
           <input
             type="number"
@@ -390,6 +417,7 @@ const AdminBrandDetail = () => {
             }
             className="w-full p-2 border rounded"
             min="0"
+            disabled={!selectedPlan?.isEnterprise}
           />
         </FormField>
         {message && <p className="text-sm text-center">{message}</p>}

@@ -21,6 +21,7 @@ import SortButton from './components/SortButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
 import BrandCard from './components/BrandCard.jsx';
+import useSubscriptionPlans from './useSubscriptionPlans.js';
 
 const AdminBrands = () => {
   const [brands, setBrands] = useState([]);
@@ -37,6 +38,11 @@ const AdminBrands = () => {
   const agencyMap = useMemo(
     () => Object.fromEntries(agencies.map((a) => [a.id, a.name])),
     [agencies]
+  );
+  const { plans } = useSubscriptionPlans();
+  const planMap = useMemo(
+    () => Object.fromEntries(plans.map((p) => [p.id, p.name])),
+    [plans]
   );
 
   useEffect(() => {
@@ -72,6 +78,7 @@ const AdminBrands = () => {
             return {
               id: d.id,
               ...data,
+              subscriptionPlanId: data.subscriptionPlanId || '',
               credits: typeof data.credits === 'number' ? data.credits : 0,
             };
           });
@@ -194,6 +201,7 @@ const AdminBrands = () => {
               <tr>
                 <th>Code</th>
                 <th>Name</th>
+                <th>Plan</th>
                 <th>Agency</th>
                 <th>Credits</th>
                 <th>Actions</th>
@@ -204,6 +212,7 @@ const AdminBrands = () => {
                 <tr key={brand.id}>
                   <td>{brand.code}</td>
                   <td>{brand.name}</td>
+                  <td>{planMap[brand.subscriptionPlanId] || brand.subscriptionPlanId || ''}</td>
                   <td>{agencyMap[brand.agencyId] || brand.agencyId}</td>
                   <td
                     className={
@@ -257,7 +266,7 @@ const AdminBrands = () => {
             {displayBrands.map((brand) => (
               <div key={brand.id} className="relative">
                 <Link to={`/admin/brands/${brand.id}`}>
-                  <BrandCard brand={brand} showCredits />
+                  <BrandCard brand={brand} />
                 </Link>
                 <IconButton
                   as={Link}

@@ -16,6 +16,7 @@ import TabButton from './components/TabButton.jsx';
 import SortButton from './components/SortButton.jsx';
 import BrandCard from './components/BrandCard.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
+import useSubscriptionPlans from './useSubscriptionPlans.js';
 
 const EditorBrands = () => {
   const [brands, setBrands] = useState([]);
@@ -30,6 +31,11 @@ const EditorBrands = () => {
   const agencyMap = useMemo(
     () => Object.fromEntries(agencies.map((a) => [a.id, a.name])),
     [agencies]
+  );
+  const { plans } = useSubscriptionPlans();
+  const planMap = useMemo(
+    () => Object.fromEntries(plans.map((p) => [p.id, p.name])),
+    [plans]
   );
 
   useEffect(() => {
@@ -59,7 +65,15 @@ const EditorBrands = () => {
             seen.add(d.id);
             return true;
           })
-          .map((d) => ({ id: d.id, ...d.data() }));
+          .map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              ...data,
+              subscriptionPlanId: data.subscriptionPlanId || '',
+              credits: typeof data.credits === 'number' ? data.credits : 0,
+            };
+          });
         setBrands(list);
       } catch (err) {
         console.error('Failed to fetch brands', err);
@@ -135,7 +149,9 @@ const EditorBrands = () => {
               <tr>
                 <th>Code</th>
                 <th>Name</th>
+                <th>Plan</th>
                 <th>Agency</th>
+                <th>Credits</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -144,7 +160,9 @@ const EditorBrands = () => {
                 <tr key={brand.id}>
                   <td>{brand.code}</td>
                   <td>{brand.name}</td>
+                  <td>{planMap[brand.subscriptionPlanId] || brand.subscriptionPlanId || ''}</td>
                   <td>{agencyMap[brand.agencyId] || brand.agencyId}</td>
+                  <td className={brand.credits < 0 ? 'text-red-600 dark:text-red-400' : ''}>{brand.credits}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
                       <IconButton as={Link} to={`/editor/brands/${brand.id}`} aria-label="Edit">
