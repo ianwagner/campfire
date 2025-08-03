@@ -33,6 +33,7 @@ const RecipeTypes = () => {
   const [defaultColumns, setDefaultColumns] = useState([]);
   const [clientVisibleColumns, setClientVisibleColumns] = useState([]);
   const [external, setExternal] = useState(false);
+  const [creditCost, setCreditCost] = useState(0);
   const [iconUrl, setIconUrl] = useState('');
   const [iconFile, setIconFile] = useState(null);
   const [editId, setEditId] = useState(null);
@@ -65,6 +66,7 @@ const RecipeTypes = () => {
     setDefaultColumns([]);
     setClientVisibleColumns([]);
     setExternal(false);
+    setCreditCost(0);
     setIconUrl('');
     setIconFile(null);
   };
@@ -115,6 +117,7 @@ const RecipeTypes = () => {
           defaultColumns: defaultCols,
           clientVisibleColumns: clientCols,
           external,
+          creditCost: Number(creditCost) || 0,
           iconUrl: icon,
         });
         setTypes((t) =>
@@ -134,6 +137,7 @@ const RecipeTypes = () => {
                   defaultColumns: defaultCols,
                   clientVisibleColumns: clientCols,
                   iconUrl: icon,
+                  creditCost: Number(creditCost) || 0,
                 }
               : r
           )
@@ -152,6 +156,7 @@ const RecipeTypes = () => {
           defaultColumns: defaultCols,
           clientVisibleColumns: clientCols,
           external,
+          creditCost: Number(creditCost) || 0,
           iconUrl: icon,
         });
         setTypes((t) => [
@@ -170,6 +175,7 @@ const RecipeTypes = () => {
             defaultColumns: defaultCols,
             clientVisibleColumns: clientCols,
             external,
+            creditCost: Number(creditCost) || 0,
             iconUrl: icon,
           },
         ]);
@@ -194,6 +200,7 @@ const RecipeTypes = () => {
     setDefaultColumns(t.defaultColumns || []);
     setClientVisibleColumns(t.clientVisibleColumns || []);
     setExternal(!!t.external);
+    setCreditCost(typeof t.creditCost === 'number' ? t.creditCost : 0);
     setIconUrl(t.iconUrl || '');
     setIconFile(null);
     setFields(
@@ -308,6 +315,7 @@ const RecipeTypes = () => {
                 <th>Default Columns</th>
                 <th>Client Columns</th>
                 <th>External</th>
+                <th>Credits</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -357,6 +365,7 @@ const RecipeTypes = () => {
                       : '-'}
                   </td>
                   <td>{t.external ? 'Yes' : 'No'}</td>
+                  <td>{typeof t.creditCost === 'number' ? t.creditCost : 0}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
                       <IconButton onClick={() => startEdit(t)} aria-label="Edit">
@@ -504,6 +513,16 @@ const RecipeTypes = () => {
             />
             External (client visible)
           </label>
+        </div>
+        <div>
+          <label className="block text-sm mb-1">Credit Cost</label>
+          <input
+            type="number"
+            min="0"
+            className="w-full p-2 border rounded"
+            value={creditCost}
+            onChange={(e) => setCreditCost(Number(e.target.value))}
+          />
         </div>
         <div className="space-y-2">
           <label className="block text-sm">Write-In Fields</label>

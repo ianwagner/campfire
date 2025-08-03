@@ -10,6 +10,7 @@ import {
   serverTimestamp,
   writeBatch,
   doc,
+  getDoc,
 } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import Modal from './components/Modal.jsx';
@@ -21,7 +22,7 @@ import { FiFileText } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import TabButton from './components/TabButton.jsx';
 import { uploadFile } from './uploadFile.js';
-import { deductCredits } from './utils/credits.js';
+import { deductRecipeCredits } from './utils/credits.js';
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
@@ -103,8 +104,22 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
       }
 
       if (Array.isArray(recipes) && recipes.length > 0) {
+        const typeIds = [...new Set(recipes.map((r) => r.type).filter(Boolean))];
+        const costMap = {};
+        for (const t of typeIds) {
+          try {
+            const snap = await getDoc(doc(db, 'recipeTypes', t));
+            costMap[t] =
+              snap.exists() && typeof snap.data().creditCost === 'number'
+                ? snap.data().creditCost
+                : 0;
+          } catch {
+            costMap[t] = 0;
+          }
+        }
         const batch = writeBatch(db);
         recipes.forEach((r) => {
+          const cost = costMap[r.type] || 0;
           const ref = doc(db, 'adGroups', groupRef.id, 'recipes', String(r.recipeNo));
           batch.set(
             ref,
@@ -115,14 +130,23 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
               type: r.type || '',
               selected: r.selected || false,
               brandCode: r.brandCode || brandCode,
+              creditsCharged: cost > 0,
             },
             { merge: true }
           );
         });
         await batch.commit();
+        for (const r of recipes) {
+          const cost = costMap[r.type] || 0;
+          if (cost > 0) {
+            await deductRecipeCredits(
+              r.brandCode || brandCode,
+              cost,
+              `${groupRef.id}_${r.recipeNo}`
+            );
+          }
+        }
       }
-
-      await deductCredits(brandCode, 'projectCreation');
 
       onClose({
         id: projRef.id,

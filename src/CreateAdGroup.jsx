@@ -13,6 +13,7 @@ import {
 import { db, auth } from './firebase/config';
 import RecipePreview from './RecipePreview.jsx';
 import { uploadFile } from './uploadFile.js';
+import { deductRecipeCredits } from './utils/credits.js';
 
 const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
   const [title, setTitle] = useState('');
@@ -88,8 +89,22 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
       }
 
       if (Array.isArray(recipes) && recipes.length > 0) {
+        const typeIds = [...new Set(recipes.map((r) => r.type).filter(Boolean))];
+        const costMap = {};
+        for (const t of typeIds) {
+          try {
+            const snap = await getDoc(doc(db, 'recipeTypes', t));
+            costMap[t] =
+              snap.exists() && typeof snap.data().creditCost === 'number'
+                ? snap.data().creditCost
+                : 0;
+          } catch {
+            costMap[t] = 0;
+          }
+        }
         const batch = writeBatch(db);
         recipes.forEach((r) => {
+          const cost = costMap[r.type] || 0;
           const ref = doc(db, 'adGroups', groupRef.id, 'recipes', String(r.recipeNo));
           batch.set(
             ref,
@@ -100,11 +115,22 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
               type: r.type || '',
               selected: r.selected || false,
               brandCode: r.brandCode || brandCode,
+              creditsCharged: cost > 0,
             },
             { merge: true }
           );
         });
         await batch.commit();
+        for (const r of recipes) {
+          const cost = costMap[r.type] || 0;
+          if (cost > 0) {
+            await deductRecipeCredits(
+              r.brandCode || brandCode,
+              cost,
+              `${groupRef.id}_${r.recipeNo}`
+            );
+          }
+        }
       }
 
       navigate(`/ad-group/${groupRef.id}`);

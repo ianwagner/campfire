@@ -118,3 +118,35 @@ export async function deductCredits(brandCode, type, creditCosts) {
   }
 }
 
+/**
+ * Deducts a specific number of credits for saving a recipe.
+ * Records the deduction in the credit log with action 'recipeSave'.
+ *
+ * @param {string} brandCode Brand code identifier
+ * @param {number} amount Number of credits to deduct
+ * @param {string} [refId] Optional reference id for logging
+ */
+export async function deductRecipeCredits(brandCode, amount, refId) {
+  try {
+    if (!brandCode || !amount || amount <= 0) return;
+    const snap = await getDocs(
+      query(collection(db, 'brands'), where('code', '==', brandCode))
+    );
+    if (snap.empty) return;
+
+    const brandDoc = snap.docs[0];
+    await updateDoc(brandDoc.ref, { credits: increment(-amount) });
+
+    await addDoc(collection(db, 'creditLogs'), {
+      brandCode,
+      userId: auth.currentUser?.uid || null,
+      action: 'recipeSave',
+      amount: -amount,
+      refId: refId ?? brandDoc.id,
+      createdAt: serverTimestamp(),
+    });
+  } catch (err) {
+    console.error('Failed to deduct recipe credits', err);
+  }
+}
+

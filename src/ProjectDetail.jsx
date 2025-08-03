@@ -24,6 +24,7 @@ import { FiExternalLink, FiDownload, FiArchive } from 'react-icons/fi';
 import { archiveGroup } from './utils/archiveGroup';
 import createArchiveTicket from './utils/createArchiveTicket';
 import isVideoUrl from './utils/isVideoUrl';
+import { deductRecipeCredits } from './utils/credits.js';
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
@@ -136,8 +137,24 @@ const ProjectDetail = () => {
   const saveRecipes = async (list) => {
     if (!groupId || !Array.isArray(list)) return;
     try {
+      const existingMap = new Map(recipes.map((r) => [r.recipeNo, r]));
+      const typeIds = [...new Set(list.map((r) => r.type).filter(Boolean))];
+      const costMap = {};
+      for (const t of typeIds) {
+        try {
+          const snap = await getDoc(doc(db, 'recipeTypes', t));
+          costMap[t] =
+            snap.exists() && typeof snap.data().creditCost === 'number'
+              ? snap.data().creditCost
+              : 0;
+        } catch {
+          costMap[t] = 0;
+        }
+      }
       const batch = writeBatch(db);
       list.forEach((r) => {
+        const cost = costMap[r.type] || 0;
+        const already = existingMap.get(r.recipeNo)?.creditsCharged;
         const ref = doc(db, 'adGroups', groupId, 'recipes', String(r.recipeNo));
         batch.set(
           ref,
@@ -148,12 +165,30 @@ const ProjectDetail = () => {
             type: r.type || '',
             selected: r.selected || false,
             brandCode: r.brandCode || project.brandCode || '',
+            creditsCharged: already || cost > 0,
           },
           { merge: true }
         );
       });
       await batch.commit();
-      setRecipes(list);
+      for (const r of list) {
+        const cost = costMap[r.type] || 0;
+        const already = existingMap.get(r.recipeNo)?.creditsCharged;
+        if (!already && cost > 0) {
+          await deductRecipeCredits(
+            r.brandCode || project.brandCode || '',
+            cost,
+            `${groupId}_${r.recipeNo}`
+          );
+        }
+      }
+      setRecipes(
+        list.map((r) => ({
+          ...r,
+          creditsCharged:
+            existingMap.get(r.recipeNo)?.creditsCharged || (costMap[r.type] || 0) > 0,
+        }))
+      );
     } catch (err) {
       console.error('Failed to save recipes', err);
     }

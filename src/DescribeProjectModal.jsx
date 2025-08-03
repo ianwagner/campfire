@@ -12,7 +12,6 @@ import {
 import { FiInfo } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import UrlCheckInput from './components/UrlCheckInput.jsx';
-import { deductCredits } from './utils/credits.js';
 
 const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
   const [title, setTitle] = useState('');
@@ -113,7 +112,6 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           projectId,
         });
 
-        await deductCredits(brandCode, 'projectCreation');
       }
 
       onClose({
