@@ -94,7 +94,7 @@ const AdGroupListView = ({
             ))}
           </div>
           {view === 'table' ? (
-            <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
+            <div className="hidden sm:block mt-[0.8rem]">
               <Table>
                 <thead>
                   <tr>
