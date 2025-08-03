@@ -385,8 +385,11 @@ const AdminBrandDetail = () => {
           <input
             type="number"
             value={credits}
-            onChange={(e) => setCredits(Number(e.target.value))}
+            onChange={(e) =>
+              setCredits(e.target.value === '' ? 0 : Number(e.target.value))
+            }
             className="w-full p-2 border rounded"
+            min="0"
           />
         </FormField>
         {message && <p className="text-sm text-center">{message}</p>}
