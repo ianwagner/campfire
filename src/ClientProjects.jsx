@@ -42,6 +42,9 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
 
   const handleSave = async (recipes, briefNote, briefAssets) => {
+    if (!brandCode) {
+      console.warn('handleSave called without brandCode');
+    }
     if (!title.trim()) {
       window.alert('Please enter a title before saving.');
       return;
@@ -90,6 +93,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
               filename: file.name,
               firebaseUrl: url,
               uploadedAt: serverTimestamp(),
+              brandCode,
               note: '',
             });
           } catch (err) {

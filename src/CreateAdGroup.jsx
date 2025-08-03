@@ -45,6 +45,9 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
   }, []);
 
   const handleSave = async (recipes, briefNote, briefAssets) => {
+    if (!brandCode) {
+      console.warn('handleSave called without brandCode');
+    }
     if (!title.trim()) return;
     try {
       const groupRef = await addDoc(collection(db, 'adGroups'), {
@@ -75,6 +78,7 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
               filename: file.name,
               firebaseUrl: url,
               uploadedAt: serverTimestamp(),
+              brandCode,
               note: '',
             });
           } catch (err) {

@@ -791,7 +791,7 @@ const AdGroupDetail = () => {
         archivedBy: auth.currentUser?.uid || null,
       });
       setGroup((p) => ({ ...p, status: "archived" }));
-      await createArchiveTicket({ target: 'adGroup', groupId: id });
+      await createArchiveTicket({ target: 'adGroup', groupId: id, brandCode: group?.brandCode });
     } catch (err) {
       console.error("Failed to archive group", err);
     }
@@ -897,6 +897,7 @@ const AdGroupDetail = () => {
           filename: file.name,
           firebaseUrl: url,
           uploadedAt: serverTimestamp(),
+          brandCode: group?.brandCode || '',
           note: "",
         });
       } catch (err) {
