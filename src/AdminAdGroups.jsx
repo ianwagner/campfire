@@ -535,7 +535,7 @@ const AdminAdGroups = () => {
 
       {showCreate && (
         <ScrollModal
-          sizeClass="max-w-md w-full"
+          sizeClass="max-w-[50rem] w-full"
           header={
             <div className="flex justify-end p-2">
               <CloseButton onClick={() => setShowCreate(false)} />
