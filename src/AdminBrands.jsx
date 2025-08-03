@@ -67,7 +67,14 @@ const AdminBrands = () => {
             seen.add(d.id);
             return true;
           })
-          .map((d) => ({ id: d.id, ...d.data() }));
+          .map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              ...data,
+              credits: typeof data.credits === 'number' ? data.credits : 0,
+            };
+          });
         setBrands(list);
       } catch (err) {
         console.error('Failed to fetch brands', err);
@@ -187,6 +194,7 @@ const AdminBrands = () => {
                 <th>Code</th>
                 <th>Name</th>
                 <th>Agency</th>
+                <th>Credits</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -196,6 +204,7 @@ const AdminBrands = () => {
                   <td>{brand.code}</td>
                   <td>{brand.name}</td>
                   <td>{agencyMap[brand.agencyId] || brand.agencyId}</td>
+                  <td>{brand.credits}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
                       <IconButton as="a" href={`/admin/brands/${brand.id}`} aria-label="Edit">
@@ -236,7 +245,7 @@ const AdminBrands = () => {
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {displayBrands.map((brand) => (
               <Link key={brand.id} to={`/admin/brands/${brand.id}`}>
-                <BrandCard brand={brand} />
+                <BrandCard brand={brand} showCredits />
               </Link>
             ))}
           </div>
