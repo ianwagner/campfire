@@ -5,24 +5,24 @@ import SignUpStepper from './SignUpStepper';
 
 jest.mock('./firebase/config', () => ({ auth: {}, db: {} }));
 
-const createUserWithEmailAndPassword = jest.fn();
-const sendEmailVerification = jest.fn();
-const setDoc = jest.fn();
-const docMock = jest.fn(() => 'userDoc');
-const navigate = jest.fn();
+const mockCreateUserWithEmailAndPassword = jest.fn();
+const mockSendEmailVerification = jest.fn();
+const mockSetDoc = jest.fn();
+const mockDoc = jest.fn(() => 'userDoc');
+const mockNavigate = jest.fn();
 
 jest.mock('firebase/auth', () => ({
-  createUserWithEmailAndPassword: (...args: any[]) => createUserWithEmailAndPassword(...args),
-  sendEmailVerification: (...args: any[]) => sendEmailVerification(...args),
+  createUserWithEmailAndPassword: (...args: any[]) => mockCreateUserWithEmailAndPassword(...args),
+  sendEmailVerification: (...args: any[]) => mockSendEmailVerification(...args),
 }));
 
 jest.mock('firebase/firestore', () => ({
-  doc: (...args: any[]) => docMock(...args),
-  setDoc: (...args: any[]) => setDoc(...args),
+  doc: (...args: any[]) => mockDoc(...args),
+  setDoc: (...args: any[]) => mockSetDoc(...args),
 }));
 
 jest.mock('react-router-dom', () => ({
-  useNavigate: () => navigate,
+  useNavigate: () => mockNavigate,
 }));
 
 afterEach(() => {
@@ -30,20 +30,18 @@ afterEach(() => {
 });
 
 test('sends verification email after signup', async () => {
-  createUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+  mockCreateUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
   render(<SignUpStepper />);
 
-  fireEvent.change(screen.getByLabelText('Company Name'), { target: { value: 'Acme' } });
   fireEvent.change(screen.getByLabelText('Full Name'), { target: { value: 'Tester' } });
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 't@e.com' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pass' } });
   fireEvent.click(screen.getByText('Create Account'));
 
-  await waitFor(() => expect(sendEmailVerification).toHaveBeenCalledWith({ uid: 'u1' }));
-  expect(setDoc).toHaveBeenCalledWith(
+  await waitFor(() => expect(mockSendEmailVerification).toHaveBeenCalledWith({ uid: 'u1' }));
+  expect(mockSetDoc).toHaveBeenCalledWith(
     'userDoc',
     expect.objectContaining({
-      companyName: 'Acme',
       fullName: 'Tester',
       email: 't@e.com',
       plan: 'free',
@@ -55,12 +53,9 @@ test('sends verification email after signup', async () => {
 });
 
 test('navigates to MFA enrollment after account creation', async () => {
-  createUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+  mockCreateUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
   render(<SignUpStepper />);
 
-  fireEvent.change(screen.getByLabelText('Company Name'), {
-    target: { value: 'Acme' },
-  });
   fireEvent.change(screen.getByLabelText('Full Name'), {
     target: { value: 'Tester' },
   });
@@ -72,5 +67,5 @@ test('navigates to MFA enrollment after account creation', async () => {
   });
   fireEvent.click(screen.getByText('Create Account'));
 
-  await waitFor(() => expect(navigate).toHaveBeenCalledWith('/mfa-settings'));
+  await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/mfa-settings'));
 });
