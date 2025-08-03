@@ -8,15 +8,18 @@ import {
   query,
   where,
   writeBatch,
-  updateDoc,
-  serverTimestamp,
 } from 'firebase/firestore';
-import { db, auth } from './firebase/config';
+import { db } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import RecipeTypeCard from './components/RecipeTypeCard.jsx';
 import RecipePreview from './RecipePreview.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
+import PageWrapper from './components/PageWrapper.jsx';
+import PageToolbar from './components/PageToolbar.jsx';
+import Button from './components/Button.jsx';
+import { archiveGroup } from './utils/archiveGroup';
+import createArchiveTicket from './utils/createArchiveTicket';
 import isVideoUrl from './utils/isVideoUrl';
 
 const ProjectDetail = () => {
@@ -284,11 +287,8 @@ const ProjectDetail = () => {
     if (!groupId) return;
     if (!window.confirm('Archive this project?')) return;
     try {
-      await updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'archived',
-        archivedAt: serverTimestamp(),
-        archivedBy: auth.currentUser?.uid || null,
-      });
+      await archiveGroup(groupId);
+      await createArchiveTicket({ target: 'adGroup', groupId });
       navigate('/projects');
     } catch (err) {
       console.error('Failed to archive group', err);
@@ -310,31 +310,37 @@ const ProjectDetail = () => {
     : assets.slice(0, columns || assets.length);
 
   return (
-    <div className="min-h-screen p-4 w-full max-w-[60rem] mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <Link to="/projects" className="btn-arrow mr-2" aria-label="Back">
-          &lt;
-        </Link>
-        <div className="flex items-center gap-2">
-          <Link
-            to={`/review/${groupId}`}
-            className={`btn-secondary ${reviewDisabled ? 'opacity-50 pointer-events-none' : ''}`}
-          >
-            Review Link
-          </Link>
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={downloadDisabled}
-            className={`btn-secondary ${downloadDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            Download approved assets
-          </button>
-          <button type="button" onClick={handleArchive} className="btn-secondary">
-            Archive
-          </button>
-        </div>
-      </div>
+    <PageWrapper className="w-full max-w-[60rem] mx-auto">
+      <PageToolbar
+        left={
+          <Button as={Link} to="/projects" variant="arrow" aria-label="Back">
+            &lt;
+          </Button>
+        }
+        right={
+          <>
+            <Button
+              as={Link}
+              to={`/review/${groupId}`}
+              variant="secondary"
+              className={reviewDisabled ? 'opacity-50 pointer-events-none' : ''}
+            >
+              Review Link
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleDownload}
+              disabled={downloadDisabled}
+              className={downloadDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+            >
+              Download approved assets
+            </Button>
+            <Button variant="secondary" onClick={handleArchive}>
+              Archive
+            </Button>
+          </>
+        }
+      />
       <div className="flex flex-col md:flex-row gap-4 mb-4">
         <div className="border rounded p-4 flex-1 max-w-[60rem]">
           <h1 className="text-xl font-semibold mb-1">{project.title}</h1>
@@ -424,7 +430,7 @@ const ProjectDetail = () => {
           )}
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };
 
