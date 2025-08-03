@@ -48,6 +48,10 @@ const SignUpStepper: React.FC = () => {
         companyName: companyName.trim(),
         fullName: fullName.trim(),
         email: email.trim(),
+        plan: 'free',
+        isPaid: false,
+        credits: 10,
+        stripeCustomerId: null,
       });
       await sendEmailVerification(cred.user);
       if (stepIndex < steps.length - 1) {

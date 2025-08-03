@@ -43,6 +43,10 @@ const AdminBrandForm = () => {
         archivedAt: null,
         archivedBy: null,
         createdAt: serverTimestamp(),
+        plan: 'free',
+        isPaid: false,
+        credits: 10,
+        stripeCustomerId: null,
       });
       setCode('');
       setName('');
