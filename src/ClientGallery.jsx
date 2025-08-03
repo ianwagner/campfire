@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { collectionGroup, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
@@ -34,7 +34,7 @@ const ClientGallery = ({ brandCodes = [] }) => {
           chunks.map((chunk) =>
             getDocs(
               query(
-                collectionGroup(db, 'assets'),
+                collection(db, 'adAssets'),
                 where('status', '==', 'approved'),
                 where('brandCode', 'in', chunk)
               )
