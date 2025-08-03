@@ -14,7 +14,15 @@ const BrandCard = ({ brand, showCredits = false }) => {
       )}
         <p className="p-2 font-medium text-gray-700 dark:text-gray-300 mb-0">{brand.code}</p>
         {showCredits && (
-          <p className="pb-2 text-sm text-gray-600 dark:text-gray-300">{brand.credits} credits</p>
+          <p
+            className={`pb-2 text-sm ${
+              brand.credits < 0
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-gray-600 dark:text-gray-300'
+            }`}
+          >
+            {brand.credits} credits
+          </p>
         )}
     </div>
   );

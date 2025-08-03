@@ -204,7 +204,13 @@ const AdminBrands = () => {
                   <td>{brand.code}</td>
                   <td>{brand.name}</td>
                   <td>{agencyMap[brand.agencyId] || brand.agencyId}</td>
-                  <td>{brand.credits}</td>
+                  <td
+                    className={
+                      brand.credits < 0 ? 'text-red-600 dark:text-red-400' : ''
+                    }
+                  >
+                    {brand.credits}
+                  </td>
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
                       <IconButton
