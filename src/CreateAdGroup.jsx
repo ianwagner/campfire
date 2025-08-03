@@ -13,6 +13,7 @@ import {
 import { db, auth } from './firebase/config';
 import RecipePreview from './RecipePreview.jsx';
 import { uploadFile } from './uploadFile.js';
+import { deductRecipeCredits } from './utils/credits.js';
 
 const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
   const [title, setTitle] = useState('');
@@ -105,6 +106,11 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
           );
         });
         await batch.commit();
+        await Promise.all(
+          recipes.map((r) =>
+            deductRecipeCredits(r.brandCode || brandCode, r.type)
+          )
+        );
       }
 
       navigate(`/ad-group/${groupRef.id}`);

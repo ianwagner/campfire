@@ -67,6 +67,7 @@ import IconButton from "./components/IconButton.jsx";
 import TabButton from "./components/TabButton.jsx";
 import stripVersion from "./utils/stripVersion";
 import summarizeByRecipe from "./utils/summarizeByRecipe";
+import { deductRecipeCredits } from "./utils/credits.js";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -1183,6 +1184,15 @@ const AdGroupDetail = () => {
         );
       });
       await batch.commit();
+      const brandCode = group?.brandCode || "";
+      const newRecipes = list.filter(
+        (r) => !existingIds.includes(String(r.recipeNo))
+      );
+      await Promise.all(
+        newRecipes.map((r) =>
+          deductRecipeCredits(r.brandCode || brandCode, r.type)
+        ),
+      );
       if (group?.status === "pending") {
         try {
           await updateDoc(doc(db, "adGroups", id), { status: "briefed" });

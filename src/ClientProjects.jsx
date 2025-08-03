@@ -21,7 +21,6 @@ import { FiFileText } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import TabButton from './components/TabButton.jsx';
 import { uploadFile } from './uploadFile.js';
-import { deductCredits } from './utils/credits.js';
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
@@ -122,8 +121,6 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         await batch.commit();
       }
 
-      await deductCredits(brandCode, 'projectCreation');
-
       onClose({
         id: projRef.id,
         title: title.trim(),
@@ -173,6 +170,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
   const [view, setView] = useState('current');
   const navigate = useNavigate();
   const location = useLocation();
+
   const { settings } = useSiteSettings();
 
   useEffect(() => {

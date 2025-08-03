@@ -118,3 +118,25 @@ export async function deductCredits(brandCode, type, creditCosts) {
   }
 }
 
+export async function deductRecipeCredits(brandCode, recipeTypeId) {
+  try {
+    if (!brandCode || !recipeTypeId) {
+      console.warn('deductRecipeCredits called without brandCode or recipeTypeId');
+      return;
+    }
+    const typeSnap = await getDoc(doc(db, 'recipeTypes', recipeTypeId));
+    if (!typeSnap.exists()) return;
+    const data = typeSnap.data();
+    const amount =
+      typeof data.creditCost === 'number'
+        ? data.creditCost
+        : typeof data.credits === 'number'
+        ? data.credits
+        : 0;
+    if (amount <= 0) return;
+    await deductCredits(brandCode, 'recipeSave', { recipeSave: amount });
+  } catch (err) {
+    console.error('Failed to deduct recipe credits', err);
+  }
+}
+
