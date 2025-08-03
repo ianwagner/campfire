@@ -24,14 +24,14 @@ import { uploadFile } from './uploadFile.js';
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
-    className="border rounded p-4 text-left hover:bg-gray-100 flex flex-col items-start w-full"
+    className="border rounded p-4 text-left hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] bg-white dark:bg-[var(--dark-sidebar-bg)] flex flex-col items-start w-full"
     onClick={onClick}
   >
     <div className="text-2xl mb-2">
       <Icon />
     </div>
     <span className="font-semibold mb-1">{title}</span>
-    <p className="text-sm text-gray-600">{desc}</p>
+    <p className="text-sm text-gray-600 dark:text-gray-300">{desc}</p>
   </button>
 );
 
@@ -286,7 +286,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
                   return (
                     <div
                       key={p.id}
-                      className="border rounded p-4 flex justify-between items-center cursor-pointer"
+                      className="border rounded p-4 flex justify-between items-center cursor-pointer bg-white hover:bg-gray-50 dark:bg-[var(--dark-sidebar-bg)] dark:hover:bg-[var(--dark-sidebar-hover)]"
                       onClick={() =>
                         navigate(
                           p.group ? `/projects/${p.id}` : `/projects/${p.id}/staging`
@@ -296,10 +296,10 @@ const ClientProjects = ({ brandCodes = [] }) => {
                       <div className="flex flex-col">
                         <span className="font-medium">{p.title}</span>
                         {brandCodes.length > 1 && p.brandCode && (
-                          <span className="text-xs text-gray-500">{p.brandCode}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{p.brandCode}</span>
                         )}
                       </div>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
                         {status === 'processing' ? (
                           <span
                             className="processing-dots"
