@@ -41,7 +41,10 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
 
   const handleSave = async (recipes, briefNote, briefAssets) => {
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      window.alert('Please enter a title before saving.');
+      return;
+    }
     try {
       const projRef = await addDoc(collection(db, 'projects'), {
         title: title.trim(),
