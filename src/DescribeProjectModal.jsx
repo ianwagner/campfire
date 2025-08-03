@@ -56,7 +56,10 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
   // URL verification handled by UrlCheckInput component
 
   const handleSave = async () => {
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      window.alert('Please enter a title before saving.');
+      return;
+    }
     try {
       let projectId = request?.projectId;
       if (request) {
