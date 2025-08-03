@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import DescribeProjectModal from './DescribeProjectModal.jsx';
+import { deductCredits } from './utils/credits.js';
 
 const ProjectStaging = () => {
   const { projectId } = useParams();
@@ -145,7 +146,7 @@ const ProjectStaging = () => {
       </div>
       {editRequest && (
         <DescribeProjectModal
-          onClose={(updated) => {
+          onClose={async (updated) => {
             setEditRequest(false);
             if (updated) {
               setRequest((r) => ({ ...r, ...updated }));
@@ -154,6 +155,10 @@ const ProjectStaging = () => {
                 title: updated.title,
                 brandCode: updated.brandCode,
               }));
+              await deductCredits(
+                updated.brandCode || project.brandCode,
+                'editRequest'
+              );
             }
           }}
           brandCodes={[project.brandCode]}
