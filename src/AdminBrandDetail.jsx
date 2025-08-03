@@ -26,6 +26,7 @@ const AdminBrandDetail = () => {
   const [palette, setPalette] = useState(['#000000']);
   const [fonts, setFonts] = useState([{ ...emptyFont }]);
   const [notes, setNotes] = useState(['']);
+  const [credits, setCredits] = useState(0);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const { agencies } = useAgencies();
@@ -65,6 +66,7 @@ const AdminBrandDetail = () => {
               : [{ ...emptyFont }]
           );
           setNotes(Array.isArray(data.notes) && data.notes.length ? data.notes : ['']);
+          setCredits(typeof data.credits === 'number' ? data.credits : 0);
         }
       } catch (err) {
         console.error('Failed to load brand', err);
@@ -144,6 +146,7 @@ const AdminBrandDetail = () => {
         palette,
         fonts: fontData,
         notes,
+        credits,
       });
       setGuidelines({ url: guidelinesUrl, file: null });
       setLogos(logoUrls.map((u) => ({ url: u, file: null })));
@@ -377,6 +380,14 @@ const AdminBrandDetail = () => {
           <button type="button" onClick={() => setNotes((p) => [...p, ''])} className="btn-action mt-1">
             Add Note
           </button>
+        </FormField>
+        <FormField label="Credits">
+          <input
+            type="number"
+            value={credits}
+            onChange={(e) => setCredits(Number(e.target.value))}
+            className="w-full p-2 border rounded"
+          />
         </FormField>
         {message && <p className="text-sm text-center">{message}</p>}
         <div className="text-right">

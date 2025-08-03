@@ -114,6 +114,16 @@ export const signOutUser = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
+export const initBrandCredits = onDocumentCreated('brands/{brandId}', async (event) => {
+  const snap = event.data;
+  if (!snap) return null;
+  const data = snap.data();
+  if (typeof data.credits !== 'number') {
+    await snap.ref.update({ credits: 0 });
+  }
+  return null;
+});
+
 export const sendNotification = onDocumentCreated('notifications/{id}', async (event) => {
   console.log('⚡ sendNotification triggered');
 
