@@ -969,7 +969,7 @@ const RecipePreview = ({
 
   const handleSave = async () => {
     if (!onSave) return;
-    if (!showOnlyResults && !title?.trim()) {
+    if (!showOnlyResults && onTitleChange && !title?.trim()) {
       window.alert('Please enter a title before saving.');
       return;
     }
@@ -1599,7 +1599,7 @@ const RecipePreview = ({
         </button>
         <SaveButton
           onClick={handleSave}
-          canSave={dirty && (showOnlyResults || !!title.trim())}
+          canSave={dirty && (showOnlyResults || !onTitleChange || !!title.trim())}
           loading={saving}
         />
       </div>

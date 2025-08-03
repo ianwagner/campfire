@@ -15,8 +15,8 @@ jest.mock('firebase/firestore', () => ({
   where: (...args) => args,
 }));
 
-const useUserRole = jest.fn(() => ({ role: 'admin', loading: false }));
-jest.mock('./useUserRole', () => (...args) => useUserRole(...args));
+const mockUseUserRole = jest.fn(() => ({ role: 'admin', loading: false }));
+jest.mock('./useUserRole', () => (...args) => mockUseUserRole(...args));
 
 afterEach(() => {
   jest.clearAllMocks();
@@ -117,6 +117,29 @@ test('allows saving without title when showOnlyResults is true', async () => {
     <RecipePreview
       onSave={onSave}
       showOnlyResults
+      initialResults={[{ type: 'Type1', components: {} }]}
+    />,
+  );
+
+  const toggleBtn = await screen.findByLabelText('Toggle Select');
+  fireEvent.click(toggleBtn);
+
+  const saveBtn = screen.getByLabelText('Save');
+  fireEvent.click(saveBtn);
+
+  await waitFor(() => expect(onSave).toHaveBeenCalled());
+  expect(alertSpy).not.toHaveBeenCalled();
+  alertSpy.mockRestore();
+});
+
+test('allows saving without title when onTitleChange is not provided', async () => {
+  mockGetDocs.mockResolvedValue({ docs: [] });
+  const onSave = jest.fn().mockResolvedValue();
+  const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+
+  render(
+    <RecipePreview
+      onSave={onSave}
       initialResults={[{ type: 'Type1', components: {} }]}
     />,
   );
