@@ -969,7 +969,7 @@ const RecipePreview = ({
 
   const handleSave = async () => {
     if (!onSave) return;
-    if (!title?.trim()) {
+    if (!showOnlyResults && !title?.trim()) {
       window.alert('Please enter a title before saving.');
       return;
     }
