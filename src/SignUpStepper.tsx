@@ -59,6 +59,10 @@ const SignUpStepper: React.FC = () => {
         fullName: fullName.trim(),
         email: email.trim(),
         ...(agencyId ? { agencyId } : {}),
+        plan: 'free',
+        isPaid: false,
+        credits: 10,
+        stripeCustomerId: null,
       });
       await sendEmailVerification(cred.user);
       navigate('/mfa-settings');

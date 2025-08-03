@@ -46,6 +46,10 @@ const AdminAccountForm = () => {
         brandCodes: codes,
         audience: role,
         ...(agencyId ? { agencyId } : {}),
+        plan: 'free',
+        isPaid: false,
+        credits: 10,
+        stripeCustomerId: null,
       });
       await sendEmailVerification(cred.user);
       setSuccess('Account created. Ask the user to verify their email.');

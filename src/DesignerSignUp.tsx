@@ -34,6 +34,10 @@ const DesignerSignUp: React.FC = () => {
         audience: 'designer',
         fullName: fullName.trim(),
         email: email.trim(),
+        plan: 'free',
+        isPaid: false,
+        credits: 10,
+        stripeCustomerId: null,
       });
       await sendEmailVerification(cred.user);
       navigate('/mfa-settings');
