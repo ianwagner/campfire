@@ -15,7 +15,6 @@ const useAdminClaim = () => {
       setIsReady(false);
       if (user) {
         try {
-          await user.getIdToken(true);
           const res = await getIdTokenResult(user);
           setIsAdmin(!!res.claims.admin);
         } catch (err) {
