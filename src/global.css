@@ -237,7 +237,8 @@
   .ad-table th:last-child,
   .ad-table td:last-child {
     white-space: nowrap;
-    width: 1%;
+    /* Allow action columns to size to their content instead of being forced to 1% */
+    width: auto;
   }
 
   .ad-table td.copy-cell {
