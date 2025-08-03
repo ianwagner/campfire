@@ -155,7 +155,8 @@ const ProjectDetail = () => {
       list.forEach((r) => {
         const cost = costMap[r.type] || 0;
         const already = existingMap.get(r.recipeNo)?.creditsCharged;
-        const ref = doc(db, 'adGroups', groupId, 'recipes', String(r.recipeNo));
+        const docId = r.id || String(r.recipeNo);
+        const ref = doc(db, 'adGroups', groupId, 'recipes', docId);
         batch.set(
           ref,
           {
@@ -185,6 +186,7 @@ const ProjectDetail = () => {
       setRecipes(
         list.map((r) => ({
           ...r,
+          id: r.id || String(r.recipeNo),
           creditsCharged:
             existingMap.get(r.recipeNo)?.creditsCharged || (costMap[r.type] || 0) > 0,
         }))

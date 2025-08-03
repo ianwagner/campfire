@@ -1161,14 +1161,15 @@ const AdGroupDetail = () => {
 
       const batch = writeBatch(db);
       const existingIds = Object.keys(recipesMeta);
-      const newIds = list.map((r) => String(r.recipeNo));
+      const newIds = list.map((r) => r.id || String(r.recipeNo));
       existingIds.forEach((rid) => {
         if (!newIds.includes(rid)) {
           batch.delete(doc(db, "adGroups", id, "recipes", rid));
         }
       });
       list.forEach((r) => {
-        const docRef = doc(db, "adGroups", id, "recipes", String(r.recipeNo));
+        const docId = r.id || String(r.recipeNo);
+        const docRef = doc(db, "adGroups", id, "recipes", docId);
         batch.set(
           docRef,
           {
