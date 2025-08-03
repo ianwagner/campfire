@@ -21,6 +21,7 @@ import SortButton from './components/SortButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
 import BrandCard from './components/BrandCard.jsx';
+import useSubscriptionPlans from './useSubscriptionPlans';
 
 const AdminBrands = () => {
   const [brands, setBrands] = useState([]);
@@ -37,6 +38,11 @@ const AdminBrands = () => {
   const agencyMap = useMemo(
     () => Object.fromEntries(agencies.map((a) => [a.id, a.name])),
     [agencies]
+  );
+  const { plans } = useSubscriptionPlans();
+  const planMap = useMemo(
+    () => Object.fromEntries(plans.map((p) => [p.id, p.name])),
+    [plans]
   );
 
   useEffect(() => {
@@ -195,6 +201,7 @@ const AdminBrands = () => {
                 <th>Code</th>
                 <th>Name</th>
                 <th>Agency</th>
+                <th>Plan</th>
                 <th>Credits</th>
                 <th>Actions</th>
               </tr>
@@ -205,6 +212,7 @@ const AdminBrands = () => {
                   <td>{brand.code}</td>
                   <td>{brand.name}</td>
                   <td>{agencyMap[brand.agencyId] || brand.agencyId}</td>
+                  <td>{planMap[brand.subscriptionPlanId] || ''}</td>
                   <td
                     className={
                       brand.credits < 0 ? 'text-red-600 dark:text-red-400' : ''
@@ -257,7 +265,7 @@ const AdminBrands = () => {
             {displayBrands.map((brand) => (
               <div key={brand.id} className="relative">
                 <Link to={`/admin/brands/${brand.id}`}>
-                  <BrandCard brand={brand} showCredits />
+                  <BrandCard brand={brand} />
                 </Link>
                 <IconButton
                   as={Link}

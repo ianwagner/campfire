@@ -56,9 +56,9 @@ const AgencyBrands = () => {
         archivedAt: null,
         archivedBy: null,
         createdAt: serverTimestamp(),
-        plan: 'free',
-        isPaid: false,
-        credits: 10,
+        subscriptionPlanId: null,
+        credits: 0,
+        lastCreditReset: serverTimestamp(),
         stripeCustomerId: null,
       });
       setBrands((prev) => [
@@ -73,9 +73,9 @@ const AgencyBrands = () => {
           archived: false,
           archivedAt: null,
           archivedBy: null,
-          plan: 'free',
-          isPaid: false,
-          credits: 10,
+          subscriptionPlanId: null,
+          credits: 0,
+          lastCreditReset: new Date(),
           stripeCustomerId: null,
         },
       ]);

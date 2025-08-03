@@ -1,8 +1,11 @@
 import React from 'react';
 import OptimizedImage from './OptimizedImage.jsx';
+import useSubscriptionPlans from '../useSubscriptionPlans';
 
-const BrandCard = ({ brand, showCredits = false }) => {
+const BrandCard = ({ brand }) => {
   const logo = Array.isArray(brand.logos) && brand.logos.length > 0 ? brand.logos[0] : null;
+  const { plans } = useSubscriptionPlans();
+  const planName = plans.find((p) => p.id === brand.subscriptionPlanId)?.name || 'No Plan';
   return (
     <div className="border rounded shadow bg-white dark:bg-[var(--dark-sidebar-bg)] overflow-hidden text-center">
       {logo && (
@@ -13,17 +16,18 @@ const BrandCard = ({ brand, showCredits = false }) => {
         />
       )}
         <p className="p-2 font-medium text-gray-700 dark:text-gray-300 mb-0">{brand.code}</p>
-        {showCredits && (
-          <p
-            className={`pb-2 text-sm ${
-              brand.credits < 0
-                ? 'text-red-600 dark:text-red-400'
-                : 'text-gray-600 dark:text-gray-300'
-            }`}
-          >
-            {brand.credits} credits
-          </p>
-        )}
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          {planName}
+        </p>
+        <p
+          className={`pb-2 text-sm ${
+            brand.credits < 0
+              ? 'text-red-600 dark:text-red-400'
+              : 'text-gray-600 dark:text-gray-300'
+          }`}
+        >
+          {brand.credits} credits
+        </p>
     </div>
   );
 };

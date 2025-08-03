@@ -6,6 +6,7 @@ import { uploadBrandAsset } from './uploadBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import useAgencies from './useAgencies';
+import useSubscriptionPlans from './useSubscriptionPlans';
 
 const emptyLogo = { url: '', file: null };
 const emptyFont = { type: 'google', value: '', name: '', file: null };
@@ -26,10 +27,13 @@ const AdminBrandDetail = () => {
   const [palette, setPalette] = useState(['#000000']);
   const [fonts, setFonts] = useState([{ ...emptyFont }]);
   const [notes, setNotes] = useState(['']);
+  const [subscriptionPlanId, setSubscriptionPlanId] = useState('');
   const [credits, setCredits] = useState(0);
+  const [lastCreditReset, setLastCreditReset] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const { agencies } = useAgencies();
+  const { plans } = useSubscriptionPlans();
 
   useEffect(() => {
     const load = async () => {
@@ -66,7 +70,9 @@ const AdminBrandDetail = () => {
               : [{ ...emptyFont }]
           );
           setNotes(Array.isArray(data.notes) && data.notes.length ? data.notes : ['']);
+          setSubscriptionPlanId(data.subscriptionPlanId || '');
           setCredits(typeof data.credits === 'number' ? data.credits : 0);
+          setLastCreditReset(data.lastCreditReset || null);
         }
       } catch (err) {
         console.error('Failed to load brand', err);
@@ -74,6 +80,14 @@ const AdminBrandDetail = () => {
     };
     load();
   }, [id]);
+
+  const selectedPlan = plans.find((p) => p.id === subscriptionPlanId);
+
+  useEffect(() => {
+    if (selectedPlan && !selectedPlan.isEnterprise) {
+      setCredits(selectedPlan.monthlyCredits || 0);
+    }
+  }, [selectedPlan]);
 
   const updateLogoFile = (idx, file) => {
     setLogos((prev) =>
@@ -146,6 +160,7 @@ const AdminBrandDetail = () => {
         palette,
         fonts: fontData,
         notes,
+        subscriptionPlanId: subscriptionPlanId || null,
         credits,
       });
       setGuidelines({ url: guidelinesUrl, file: null });
@@ -381,6 +396,20 @@ const AdminBrandDetail = () => {
             Add Note
           </button>
         </FormField>
+        <FormField label="Subscription Plan">
+          <select
+            value={subscriptionPlanId}
+            onChange={(e) => setSubscriptionPlanId(e.target.value)}
+            className="w-full p-2 border rounded"
+          >
+            <option value="">Select plan</option>
+            {plans.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </FormField>
         <FormField label="Credits">
           <input
             type="number"
@@ -390,7 +419,15 @@ const AdminBrandDetail = () => {
             }
             className="w-full p-2 border rounded"
             min="0"
+            disabled={!selectedPlan?.isEnterprise}
           />
+        </FormField>
+        <FormField label="Last Credit Reset">
+          <p className="p-2 border rounded bg-gray-100 dark:bg-gray-800">
+            {lastCreditReset && lastCreditReset.toDate
+              ? lastCreditReset.toDate().toLocaleString()
+              : 'N/A'}
+          </p>
         </FormField>
         {message && <p className="text-sm text-center">{message}</p>}
         <div className="text-right">
