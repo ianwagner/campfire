@@ -15,6 +15,9 @@ jest.mock('firebase/firestore', () => ({
   where: (...args) => args,
 }));
 
+const useUserRole = jest.fn(() => ({ role: 'admin', loading: false }));
+jest.mock('./useUserRole', () => (...args) => useUserRole(...args));
+
 afterEach(() => {
   jest.clearAllMocks();
 });
@@ -103,5 +106,29 @@ test('normalizeAssetType detects keywords within value', () => {
   expect(normalizeAssetType('Video Clip')).toBe('video');
   expect(normalizeAssetType('animated gif file')).toBe('video');
   expect(normalizeAssetType('unknown')).toBe('unknown');
+});
+
+test('allows saving without title when showOnlyResults is true', async () => {
+  mockGetDocs.mockResolvedValue({ docs: [] });
+  const onSave = jest.fn().mockResolvedValue();
+  const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+
+  render(
+    <RecipePreview
+      onSave={onSave}
+      showOnlyResults
+      initialResults={[{ type: 'Type1', components: {} }]}
+    />,
+  );
+
+  const toggleBtn = await screen.findByLabelText('Toggle Select');
+  fireEvent.click(toggleBtn);
+
+  const saveBtn = screen.getByLabelText('Save');
+  fireEvent.click(saveBtn);
+
+  await waitFor(() => expect(onSave).toHaveBeenCalled());
+  expect(alertSpy).not.toHaveBeenCalled();
+  alertSpy.mockRestore();
 });
 
