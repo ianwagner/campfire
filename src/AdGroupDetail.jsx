@@ -2797,6 +2797,7 @@ const AdGroupDetail = () => {
             onSave={saveRecipes}
             brandCode={group?.brandCode}
             hideBrandSelect
+            showOnlyResults
             externalOnly
           />
         </Modal>
