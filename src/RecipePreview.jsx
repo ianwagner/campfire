@@ -1599,7 +1599,7 @@ const RecipePreview = ({
         </button>
         <SaveButton
           onClick={handleSave}
-          canSave={dirty && !!title.trim()}
+          canSave={dirty && (showOnlyResults || !!title.trim())}
           loading={saving}
         />
       </div>
