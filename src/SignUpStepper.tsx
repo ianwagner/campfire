@@ -21,7 +21,6 @@ const SignUpStepper: React.FC = () => {
   const steps = STEP_CONFIG.filter((s) => s.enabled);
   const [stepIndex, setStepIndex] = useState(0);
   const currentStep = steps[stepIndex];
-  const [companyName, setCompanyName] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +31,6 @@ const SignUpStepper: React.FC = () => {
   const submitAccount = async (e: FormEvent) => {
     e.preventDefault();
     const msgs: string[] = [];
-    if (!companyName.trim()) msgs.push('Company name is required');
     if (!fullName.trim()) msgs.push('Full name is required');
     if (!emailRegex.test(email)) msgs.push('Valid email is required');
     if (!password) msgs.push('Password is required');
@@ -45,7 +43,6 @@ const SignUpStepper: React.FC = () => {
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       await setDoc(doc(db, 'users', cred.user.uid), {
-        companyName: companyName.trim(),
         fullName: fullName.trim(),
         email: email.trim(),
         plan: 'free',
@@ -70,23 +67,23 @@ const SignUpStepper: React.FC = () => {
   const goNext = () => setStepIndex(stepIndex + 1);
 
   return (
-    <div className="flex justify-center p-4">
+    <div className="flex flex-col items-center p-4">
+      <ul className="steps mb-4 justify-center">
+        {steps.map((s, idx) => (
+          <li key={s.id} className={`step ${idx <= stepIndex ? 'step-primary' : ''}`}>
+            {s.label}
+          </li>
+        ))}
+      </ul>
       <div className="w-80">
         {currentStep.id === 1 && (
           <form onSubmit={submitAccount} className="space-y-4">
             <div>
-              <label className="block mb-1 text-sm font-medium">Company Name</label>
+              <label htmlFor="fullName" className="block mb-1 text-sm font-medium">
+                Full Name
+              </label>
               <input
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <div>
-              <label className="block mb-1 text-sm font-medium">Full Name</label>
-              <input
+                id="fullName"
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
@@ -95,8 +92,11 @@ const SignUpStepper: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block mb-1 text-sm font-medium">Email</label>
+              <label htmlFor="email" className="block mb-1 text-sm font-medium">
+                Email
+              </label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -105,8 +105,11 @@ const SignUpStepper: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block mb-1 text-sm font-medium">Password</label>
+              <label htmlFor="password" className="block mb-1 text-sm font-medium">
+                Password
+              </label>
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
