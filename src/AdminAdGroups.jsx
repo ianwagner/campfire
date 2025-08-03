@@ -37,6 +37,8 @@ import IconButton from './components/IconButton.jsx';
 import SortButton from './components/SortButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
+import ScrollModal from './components/ScrollModal.jsx';
+import CloseButton from './components/CloseButton.jsx';
 
 const AdminAdGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -532,16 +534,16 @@ const AdminAdGroups = () => {
       </div>
 
       {showCreate && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-md w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)] overflow-y-auto max-h-[90vh]">
-            <CreateAdGroup showSidebar={false} asModal={true} />
-            <div className="text-right mt-2">
-              <button onClick={() => setShowCreate(false)} className="btn-secondary px-3 py-1">
-                Close
-              </button>
+        <ScrollModal
+          sizeClass="max-w-md w-full"
+          header={
+            <div className="flex justify-end p-2">
+              <CloseButton onClick={() => setShowCreate(false)} />
             </div>
-          </div>
-        </div>
+          }
+        >
+          <CreateAdGroup showSidebar={false} asModal={true} />
+        </ScrollModal>
       )}
       {viewNote && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
