@@ -76,7 +76,9 @@ service cloud.firestore {
         (isClient() &&
          userData().brandCodes != null &&
          userData().brandCodes.hasAny([resource.data.code]) &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['products'])
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['products', 'credits']) &&
+         (!request.resource.data.keys().hasAny(['credits']) ||
+          request.resource.data.credits <= resource.data.credits)
         );
       allow delete: if isAdmin();
       allow create: if isAdmin();
