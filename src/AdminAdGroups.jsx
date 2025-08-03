@@ -443,27 +443,28 @@ const AdminAdGroups = () => {
                             as={Link}
                             to={`/ad-group/${g.id}`}
                             aria-label="View Details"
+                            className="p-0"
                           >
                             <FiEye />
                           </IconButton>
                           <IconButton
                             as={Link}
                             to={`/review/${g.id}`}
-                            className="ml-2"
+                            className="ml-2 p-0"
                             aria-label="Review"
                           >
                             <FiCheckCircle />
                           </IconButton>
                           <IconButton
                             onClick={() => handleShare(g.id)}
-                            className="ml-2"
+                            className="ml-2 p-0"
                             aria-label="Share Link"
                           >
                             <FiLink />
                           </IconButton>
                           <IconButton
                             onClick={() => startRename(g)}
-                            className="ml-2"
+                            className="ml-2 p-0"
                             aria-label="Rename"
                           >
                             <FiEdit2 />
@@ -471,7 +472,7 @@ const AdminAdGroups = () => {
                           {g.status === 'archived' ? (
                             <IconButton
                               onClick={() => handleRestoreGroup(g.id)}
-                              className="ml-2"
+                              className="ml-2 p-0"
                               aria-label="Restore"
                               disabled={!isAdmin && !isManager}
                             >
@@ -480,7 +481,7 @@ const AdminAdGroups = () => {
                           ) : (
                             <IconButton
                               onClick={() => handleArchiveGroup(g.id)}
-                              className="ml-2"
+                              className="ml-2 p-0"
                               aria-label="Archive"
                               disabled={!isAdmin && !isManager}
                             >
@@ -490,7 +491,7 @@ const AdminAdGroups = () => {
                           {isAdmin && (
                             <IconButton
                               onClick={() => handleDeleteGroup(g.id, g.brandCode, g.name)}
-                              className="ml-2"
+                              className="ml-2 p-0"
                               aria-label="Delete"
                             >
                               <FiTrash />
