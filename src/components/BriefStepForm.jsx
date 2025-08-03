@@ -250,7 +250,7 @@ export default function BriefStepForm({
                             name: p.name,
                             description: p.description,
                             benefits: p.benefits,
-                            featuredImage: p.images?.[0]?.url || '',
+                            featuredImage: p.featuredImage || p.images?.[0]?.url || '',
                             images: Array.isArray(p.images)
                               ? p.images.map((img) => img.url)
                               : [],
@@ -279,7 +279,7 @@ export default function BriefStepForm({
                             name: p.name,
                             description: p.description,
                             benefits: p.benefits,
-                            featuredImage: p.images?.[0]?.url || '',
+                            featuredImage: p.featuredImage || p.images?.[0]?.url || '',
                             images: Array.isArray(p.images)
                               ? p.images.map((img) => img.url)
                               : [],

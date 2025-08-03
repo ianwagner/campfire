@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions, db } from './firebase/config';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { FiStar } from 'react-icons/fi';
 import syncAssetLibrary from './utils/syncAssetLibrary';
 import FormField from './components/FormField.jsx';
 import TagInput from './components/TagInput.jsx';
@@ -22,13 +23,15 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
       const callable = httpsCallable(functions, 'parsePdp');
       const res = await callable({ url });
       const data = res.data || {};
+      const imgs = Array.isArray(data.imageUrls) && data.imageUrls.length
+        ? data.imageUrls.map((u) => ({ url: u, file: null }))
+        : [{ ...emptyImage }];
       setProduct({
         name: data.name || '',
         description: Array.isArray(data.description) ? data.description : [],
         benefits: Array.isArray(data.benefits) ? data.benefits : [],
-        images: Array.isArray(data.imageUrls) && data.imageUrls.length
-          ? data.imageUrls.map((u) => ({ url: u, file: null }))
-          : [{ ...emptyImage }],
+        images: imgs,
+        featuredImage: imgs[0]?.url || '',
       });
     } catch (err) {
       console.error('Failed to parse PDP', err);
@@ -52,6 +55,7 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
           id: Math.random().toString(36).slice(2),
           createdAt: Date.now(),
           url: item.url,
+          firebaseUrl: item.url,
           thumbnailUrl: item.thumbnailUrl || '',
           name: product.name,
           product: product.name,
@@ -77,11 +81,16 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
 
       await saveToLibrary(uploaded);
 
+      const featuredIdx = product.images.findIndex((i) => i.url === product.featuredImage);
+      const featuredImage =
+        featuredIdx >= 0 && uploaded[featuredIdx] ? uploaded[featuredIdx].url : uploaded[0]?.url || '';
+
       onAdd({
         name: product.name,
         description: product.description,
         benefits: product.benefits,
         images: uploaded.map((u) => ({ url: u.url, file: null })),
+        featuredImage,
         slug,
       });
       onClose();
@@ -94,10 +103,14 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
   };
 
   const removeImage = (idx) => {
-    setProduct((p) => ({
-      ...p,
-      images: p.images.filter((_, i) => i !== idx),
-    }));
+    setProduct((p) => {
+      const imgs = p.images.filter((_, i) => i !== idx);
+      let featuredImage = p.featuredImage;
+      if (featuredImage === p.images[idx]?.url) {
+        featuredImage = imgs[0]?.url || '';
+      }
+      return { ...p, images: imgs, featuredImage };
+    });
   };
 
   if (!product) {
@@ -164,7 +177,19 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
           <div className="grid grid-cols-2 gap-2">
             {product.images.map((img, idx) => (
               <div key={idx} className="relative">
-                <img src={img.url} alt="prod" className="w-full h-auto border rounded" />
+                <button
+                  type="button"
+                  onClick={() => setProduct({ ...product, featuredImage: img.url })}
+                  className="block w-full"
+                >
+                  <img
+                    src={img.url}
+                    alt="prod"
+                    className={`w-full h-auto border rounded ${
+                      product.featuredImage === img.url ? 'ring-2 ring-yellow-500' : ''
+                    }`}
+                  />
+                </button>
                 <button
                   type="button"
                   onClick={() => removeImage(idx)}
@@ -172,6 +197,10 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
                 >
                   ✕
                 </button>
+                <FiStar
+                  className="absolute top-1 left-1 text-xl text-yellow-500"
+                  fill={product.featuredImage === img.url ? 'currentColor' : 'none'}
+                />
               </div>
             ))}
           </div>
