@@ -151,17 +151,19 @@ service cloud.firestore {
     }
 
     // ✅ Collection group rule for any 'assets' subcollection
-    match /{path=**}/assets/{assetId} {
-      allow get, list: if
-        request.auth != null && (
-          // Allow internal roles to read any asset
-          isAdmin() || isManager() || isEditor() || isDesigner() ||
-          // Clients can only read approved assets for their brands
-          (isClient() &&
-            userData().brandCodes != null &&
-            userData().brandCodes.hasAny([resource.data.brandCode]) &&
-            resource.data.status == 'approved')
-        );
+    match /{path=**} {
+      match /assets/{assetId} {
+        allow get, list: if
+          request.auth != null && (
+            // Allow internal roles to read any asset
+            isAdmin() || isManager() || isEditor() || isDesigner() ||
+            // Clients can only read approved assets for their brands
+            (isClient() &&
+              userData().brandCodes != null &&
+              userData().brandCodes.hasAny([resource.data.brandCode]) &&
+              resource.data.status == 'approved')
+          );
+      }
     }
 
     match /notifications/{docId} {
