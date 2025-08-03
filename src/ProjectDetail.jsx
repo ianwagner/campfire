@@ -18,6 +18,8 @@ import VideoPlayer from './components/VideoPlayer.jsx';
 import PageWrapper from './components/PageWrapper.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import Button from './components/Button.jsx';
+import IconButton from './components/IconButton.jsx';
+import { FiExternalLink, FiDownload, FiArchive } from 'react-icons/fi';
 import { archiveGroup } from './utils/archiveGroup';
 import createArchiveTicket from './utils/createArchiveTicket';
 import isVideoUrl from './utils/isVideoUrl';
@@ -319,25 +321,44 @@ const ProjectDetail = () => {
         }
         right={
           <>
-            <Button
-              as={Link}
-              to={`/review/${groupId}`}
-              variant="secondary"
-              className={reviewDisabled ? 'opacity-50 pointer-events-none' : ''}
-            >
-              Review Link
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={handleDownload}
-              disabled={downloadDisabled}
-              className={downloadDisabled ? 'opacity-50 cursor-not-allowed' : ''}
-            >
-              Download approved assets
-            </Button>
-            <Button variant="secondary" onClick={handleArchive}>
-              Archive
-            </Button>
+            <span className="relative group">
+              <IconButton
+                as={Link}
+                to={`/review/${groupId}`}
+                aria-label="Review Link"
+                className={`${reviewDisabled ? 'opacity-50 pointer-events-none' : ''} text-xl`}
+              >
+                <FiExternalLink />
+              </IconButton>
+              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                Review Link
+              </div>
+            </span>
+            <span className="relative group">
+              <IconButton
+                aria-label="Download approved assets"
+                onClick={handleDownload}
+                disabled={downloadDisabled}
+                className={`text-xl ${downloadDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <FiDownload />
+              </IconButton>
+              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                Download Approved
+              </div>
+            </span>
+            <span className="relative group">
+              <IconButton
+                aria-label="Archive"
+                onClick={handleArchive}
+                className="text-xl"
+              >
+                <FiArchive />
+              </IconButton>
+              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                Archive
+              </div>
+            </span>
           </>
         }
       />
