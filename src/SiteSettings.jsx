@@ -17,6 +17,8 @@ const SiteSettings = () => {
   const [artworkUrl, setArtworkUrl] = useState('');
   const [artworkFile, setArtworkFile] = useState(null);
   const [accentColor, setAccentColor] = useState('#ea580c');
+  const [projectCreationCost, setProjectCreationCost] = useState('1');
+  const [editRequestCost, setEditRequestCost] = useState('1');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -30,6 +32,12 @@ const SiteSettings = () => {
     setArtworkUrl(settings.artworkUrl || '');
     setArtworkFile(null);
     setAccentColor(settings.accentColor || '#ea580c');
+    setProjectCreationCost(
+      String(settings.creditCosts?.projectCreation ?? 1)
+    );
+    setEditRequestCost(
+      String(settings.creditCosts?.editRequest ?? 1)
+    );
   }, [settings]);
 
   const handleFileChange = (e) => {
@@ -103,6 +111,10 @@ const SiteSettings = () => {
         accentColor,
         campfireLogoUrl: campfireLogo,
         artworkUrl: artwork,
+        creditCosts: {
+          projectCreation: Number(projectCreationCost) || 0,
+          editRequest: Number(editRequestCost) || 0,
+        },
       });
       setLogoUrl(logo);
       setLogoFile(null);
@@ -112,6 +124,8 @@ const SiteSettings = () => {
       setIconFile(null);
       setArtworkUrl(artwork);
       setArtworkFile(null);
+      setProjectCreationCost(String(Number(projectCreationCost) || 0));
+      setEditRequestCost(String(Number(editRequestCost) || 0));
       setMessage('Settings saved');
     } catch (err) {
       console.error('Failed to save settings', err);
@@ -192,6 +206,26 @@ const SiteSettings = () => {
               className="mt-2 max-h-16 w-auto"
             />
           )}
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Project Creation Cost</label>
+          <input
+            type="number"
+            min="0"
+            value={projectCreationCost}
+            onChange={(e) => setProjectCreationCost(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+        </div>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Edit Request Cost</label>
+          <input
+            type="number"
+            min="0"
+            value={editRequestCost}
+            onChange={(e) => setEditRequestCost(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
         </div>
         <div>
           <label className="block mb-1 text-sm font-medium">Accent Color</label>
