@@ -967,6 +967,10 @@ const RecipePreview = ({
 
   const handleSave = async () => {
     if (!onSave) return;
+    if (!title?.trim()) {
+      window.alert('Please enter a title before saving.');
+      return;
+    }
     setSaving(true);
     try {
       await onSave(results, briefNote, briefFiles);
@@ -1589,7 +1593,11 @@ const RecipePreview = ({
         >
           Discard Changes
         </button>
-        <SaveButton onClick={handleSave} canSave={dirty} loading={saving} />
+        <SaveButton
+          onClick={handleSave}
+          canSave={dirty && !!title.trim()}
+          loading={saving}
+        />
       </div>
     )}
   </div>
