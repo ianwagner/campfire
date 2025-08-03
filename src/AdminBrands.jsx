@@ -207,7 +207,11 @@ const AdminBrands = () => {
                   <td>{brand.credits}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
-                      <IconButton as="a" href={`/admin/brands/${brand.id}`} aria-label="Edit">
+                      <IconButton
+                        as="a"
+                        href={`/admin/brands/${brand.id}/edit`}
+                        aria-label="Edit details"
+                      >
                         <FiEdit2 />
                       </IconButton>
                       {(isAdmin || isManager) && (
@@ -244,9 +248,19 @@ const AdminBrands = () => {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {displayBrands.map((brand) => (
-              <Link key={brand.id} to={`/admin/brands/${brand.id}`}>
-                <BrandCard brand={brand} showCredits />
-              </Link>
+              <div key={brand.id} className="relative">
+                <Link to={`/admin/brands/${brand.id}`}>
+                  <BrandCard brand={brand} showCredits />
+                </Link>
+                <IconButton
+                  as={Link}
+                  to={`/admin/brands/${brand.id}/edit`}
+                  aria-label="Edit brand"
+                  className="absolute top-2 right-2 bg-white dark:bg-[var(--dark-sidebar-bg)]"
+                >
+                  <FiEdit2 />
+                </IconButton>
+              </div>
             ))}
           </div>
         )}

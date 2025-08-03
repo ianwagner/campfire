@@ -38,6 +38,7 @@ import useUserRole from "./useUserRole";
 import useAdminClaim from "./useAdminClaim";
 import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
+import AdminBrandDetail from "./AdminBrandDetail";
 import EditorBrands from "./EditorBrands";
 import AdminAgencies from "./AdminAgencies";
 import ClientProjects from "./ClientProjects";
@@ -889,6 +890,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminBrandForm />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/brands/:id/edit"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole={["admin", "manager", "project-manager"]}
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <AdminBrandDetail />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
