@@ -8,8 +8,6 @@ jest.mock('./firebase/config', () => ({ auth: {}, db: {} }));
 const createUserWithEmailAndPassword = jest.fn();
 const sendEmailVerification = jest.fn();
 const setDoc = jest.fn();
-const addDoc = jest.fn(() => ({ id: 'a1' }));
-const collectionMock = jest.fn(() => 'agenciesCollection');
 const docMock = jest.fn(() => 'userDoc');
 const navigate = jest.fn();
 
@@ -21,8 +19,6 @@ jest.mock('firebase/auth', () => ({
 jest.mock('firebase/firestore', () => ({
   doc: (...args: any[]) => docMock(...args),
   setDoc: (...args: any[]) => setDoc(...args),
-  addDoc: (...args: any[]) => addDoc(...args),
-  collection: (...args: any[]) => collectionMock(...args),
 }));
 
 jest.mock('react-router-dom', () => ({
@@ -38,18 +34,15 @@ test('sends verification email after signup', async () => {
   render(<SignUpStepper />);
 
   fireEvent.change(screen.getByLabelText('Company Name'), { target: { value: 'Acme' } });
-  fireEvent.click(screen.getByText('Next'));
-
   fireEvent.change(screen.getByLabelText('Full Name'), { target: { value: 'Tester' } });
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 't@e.com' } });
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pass' } });
   fireEvent.click(screen.getByText('Create Account'));
 
   await waitFor(() => expect(sendEmailVerification).toHaveBeenCalledWith({ uid: 'u1' }));
-  expect(addDoc).toHaveBeenCalled();
   expect(setDoc).toHaveBeenCalledWith(
     'userDoc',
-    expect.objectContaining({ agencyId: 'a1', audience: 'agency' })
+    expect.objectContaining({ companyName: 'Acme', fullName: 'Tester', email: 't@e.com' })
   );
 });
 
@@ -60,8 +53,6 @@ test('navigates to MFA enrollment after account creation', async () => {
   fireEvent.change(screen.getByLabelText('Company Name'), {
     target: { value: 'Acme' },
   });
-  fireEvent.click(screen.getByText('Next'));
-
   fireEvent.change(screen.getByLabelText('Full Name'), {
     target: { value: 'Tester' },
   });
