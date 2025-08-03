@@ -91,8 +91,11 @@ export async function deductCredits(brandCode, type, creditCosts) {
       query(collection(db, 'brands'), where('code', '==', brandCode))
     );
     if (brandSnap.empty) return;
-    const ref = brandSnap.docs[0].ref;
-    await updateDoc(ref, { credits: increment(-amount) });
+
+    const brandDoc = brandSnap.docs[0];
+    const current =
+      typeof brandDoc.data().credits === 'number' ? brandDoc.data().credits : 0;
+    await updateDoc(brandDoc.ref, { credits: current - amount });
 
     await addDoc(collection(db, 'creditLogs'), {
       brandCode,

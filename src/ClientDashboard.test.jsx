@@ -24,6 +24,10 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
 test('computes summary for groups missing data', async () => {
   const groupSnap = {
     docs: [
@@ -66,4 +70,26 @@ test('computes summary for groups missing data', async () => {
     'adGroups/g1',
     expect.objectContaining({ approvedCount: 1, rejectedCount: 1 })
   );
+});
+
+test('shows warning when credits are negative', async () => {
+  const brandSnap = {
+    docs: [{ data: () => ({ credits: -5 }) }],
+  };
+
+  getDocs.mockResolvedValueOnce(brandSnap);
+  onSnapshot.mockImplementation((q, cb) => {
+    cb({ docs: [] });
+    return jest.fn();
+  });
+
+  render(
+    <MemoryRouter>
+      <ClientDashboard user={{ uid: 'u1', metadata: {} }} brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  expect(
+    await screen.findByText(/credit balance is negative/i)
+  ).toBeInTheDocument();
 });

@@ -78,6 +78,7 @@ const GroupCard = ({ group, onArchive }) => {
 const ClientDashboard = ({ user, brandCodes = [] }) => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hasNegativeCredits, setHasNegativeCredits] = useState(false);
 
   const handleArchive = async (id) => {
     if (!window.confirm('Archive this group?')) return;
@@ -92,6 +93,28 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
       console.error('Failed to archive group', err);
     }
   };
+
+  useEffect(() => {
+    if (brandCodes.length === 0) {
+      setHasNegativeCredits(false);
+      return;
+    }
+    const checkCredits = async () => {
+      try {
+        const snap = await getDocs(
+          query(collection(db, 'brands'), where('code', 'in', brandCodes))
+        );
+        const negative = snap.docs.some(
+          (d) => (d.data().credits ?? 0) < 0
+        );
+        setHasNegativeCredits(negative);
+      } catch (err) {
+        console.error('Failed to check brand credits', err);
+        setHasNegativeCredits(false);
+      }
+    };
+    checkCredits();
+  }, [brandCodes]);
 
   useEffect(() => {
     if (!user?.uid || brandCodes.length === 0) {
@@ -221,6 +244,11 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
 
   return (
     <div className="min-h-screen p-4">
+      {hasNegativeCredits && (
+        <div className="mb-4 rounded border border-red-200 bg-red-100 p-2 text-red-800">
+          Your credit balance is negative. Please add more credits.
+        </div>
+      )}
       {loading ? (
         <p>Loading groups...</p>
       ) : groups.length === 0 ? (
