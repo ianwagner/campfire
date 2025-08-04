@@ -41,7 +41,6 @@ const ShareLinkModal = ({
       requireAuth: acc === "auth",
       requirePassword: acc === "any" ? pwReq : false,
       password: acc === "any" && pwReq ? pwVal : "",
-      ...(vis === "public" ? { status: 'in review' } : {}),
     };
     try {
       await updateDoc(doc(db, "adGroups", groupId), update);

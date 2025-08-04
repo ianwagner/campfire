@@ -11,12 +11,10 @@ const knownStatuses = new Set([
   "edit_requested",
   "archived",
   "draft",
+  "reviewed",
   "in_review",
   "review_pending",
   "mixed",
-  "in_design",
-  "edit_request",
-  "done",
 ]);
 
 const StatusBadge = ({ status, className = "" }) => {

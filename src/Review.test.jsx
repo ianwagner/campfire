@@ -994,10 +994,10 @@ test('shows alert when locking fails due to permissions', async () => {
   );
 });
 
-test('opening and exiting done group keeps status', async () => {
+test('opening and exiting reviewed group keeps status', async () => {
   const groupDoc = {
     exists: () => true,
-    data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'done' }),
+    data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'reviewed' }),
   };
   const assetSnapshot = {
     docs: [
@@ -1033,7 +1033,7 @@ test('opening and exiting done group keeps status', async () => {
   await waitFor(() => expect(updateDoc).toHaveBeenCalled());
 
   const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
+  expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
   expect(
     updateDoc.mock.calls.some((c) => c[1].status === 'in review')
   ).toBe(false);
@@ -1115,7 +1115,7 @@ test('updates group status after finishing review', async () => {
   await waitFor(() => expect(updateDoc).toHaveBeenCalled());
 
   const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
+  expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
 });
 
 test('updates status and shows summary when no ads available', async () => {
@@ -1138,7 +1138,7 @@ test('updates status and shows summary when no ads available', async () => {
 
   await waitFor(() => expect(updateDoc).toHaveBeenCalled());
   const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
+  expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
 
   expect(await screen.findByText(/Thank you for your feedback/i)).toBeInTheDocument();
 });
