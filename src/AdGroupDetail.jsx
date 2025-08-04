@@ -158,6 +158,11 @@ const AdGroupDetail = () => {
   const [revisionModal, setRevisionModal] = useState(null);
   let hasApprovedV2 = false;
   const countsRef = useRef(null);
+  const canToggleDesign =
+    group?.designerId &&
+    ((isDesigner && auth.currentUser?.uid === group.designerId) ||
+      isAdmin ||
+      isManager);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
   const isDesigner = userRole === "designer";
@@ -429,6 +434,9 @@ const AdGroupDetail = () => {
       const newStatus = computeGroupStatus(assets, group.status);
       if (newStatus !== group.status) {
         update.status = newStatus;
+        if (newStatus === 'edit request') {
+          update.visibility = 'private';
+        }
       }
       updateDoc(doc(db, "adGroups", id), update).catch((err) =>
         console.error("Failed to update summary", err),
@@ -808,6 +816,21 @@ const AdGroupDetail = () => {
       setGroup((p) => ({ ...p, status: "pending" }));
     } catch (err) {
       console.error("Failed to restore group", err);
+    }
+  };
+
+  const toggleDesign = async () => {
+    if (!group) return;
+    const newStatus = group.status === 'in design' ? 'pending' : 'in design';
+    const update = { status: newStatus };
+    if (newStatus === 'in design') {
+      update.visibility = 'private';
+    }
+    try {
+      await updateDoc(doc(db, 'adGroups', id), update);
+      setGroup((p) => ({ ...p, ...update }));
+    } catch (err) {
+      console.error('Failed to update group status', err);
     }
   };
 
@@ -1945,6 +1968,16 @@ const AdGroupDetail = () => {
             </select>
           ) : (
             <span>{designerName || 'Unassigned'}</span>
+          )}
+          {canToggleDesign && (
+            <button
+              onClick={toggleDesign}
+              className={`ml-2 status-select ${
+                group.status === 'in design' ? 'status-approved' : 'status-pending'
+              }`}
+            >
+              Design In Progress
+            </button>
           )}
         </p>
       {group.status === "archived" && (
