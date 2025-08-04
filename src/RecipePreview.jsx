@@ -85,6 +85,7 @@ const RecipePreview = ({
   const [generateCount, setGenerateCount] = useState(1);
   const [saving, setSaving] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState({});
+  const [columnsReady, setColumnsReady] = useState(false);
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const [assetRows, setAssetRows] = useState([]);
   const [assetMap, setAssetMap] = useState({});
@@ -125,6 +126,7 @@ const RecipePreview = ({
   // column initialization effect below.
   useEffect(() => {
     setVisibleColumns({});
+    setColumnsReady(false);
   }, [selectedType, currentType]);
 
   const allInstances = useMemo(() => [...instances, ...brandProducts, ...brandCampaigns], [instances, brandProducts, brandCampaigns]);
@@ -1210,6 +1212,7 @@ const RecipePreview = ({
       });
       return updated;
     });
+    setColumnsReady(true);
   }, [columnMeta, currentType, showColumnButton, userRole]);
 
   return (
@@ -1366,8 +1369,9 @@ const RecipePreview = ({
               </div>
             </div>
           )}
-        {results.length > 0 && (
-          <table className="ad-table min-w-full table-auto text-sm">
+        {results.length > 0 &&
+          (columnsReady ? (
+            <table className="ad-table min-w-full table-auto text-sm">
             <thead>
               <tr>
                 {visibleColumns['recipeNo'] && <th>Recipe #</th>}
@@ -1567,8 +1571,10 @@ const RecipePreview = ({
                 </tr>
               ))}
             </tbody>
-          </table>
-      )}
+            </table>
+          ) : (
+            <div>Loading columns...</div>
+          ))}
       {assetPicker && (
         <AssetPickerModal
           brandCode={brandCode}
