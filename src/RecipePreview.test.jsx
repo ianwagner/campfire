@@ -155,3 +155,18 @@ test('allows saving without title when onTitleChange is not provided', async () 
   alertSpy.mockRestore();
 });
 
+test('hides add recipe button when showOnlyResults is true', async () => {
+  mockGetDocs.mockResolvedValue({ docs: [] });
+
+  render(
+    <RecipePreview
+      showOnlyResults
+      initialResults={[{ type: 'Type1', components: {} }]}
+    />,
+  );
+
+  await waitFor(() => expect(mockGetDocs).toHaveBeenCalled());
+
+  expect(screen.queryByLabelText('Add Recipe Row')).toBeNull();
+});
+
