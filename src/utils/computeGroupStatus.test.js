@@ -28,12 +28,9 @@ test('uses status of non-archived ads', () => {
   expect(status).toBe('ready');
 });
 
-test('returns done when all ads reviewed', () => {
-  const status = computeGroupStatus(
-    [{ status: 'approved' }, { status: 'rejected' }],
-    'ready',
-  );
-  expect(status).toBe('done');
+test('returns reviewed when all ads reviewed', () => {
+  const status = computeGroupStatus([{ status: 'approved' }, { status: 'rejected' }], 'ready');
+  expect(status).toBe('reviewed');
 });
 
 test('returns review pending when currentStatus is review pending', () => {
