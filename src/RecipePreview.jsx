@@ -1187,6 +1187,7 @@ const RecipePreview = ({
   }, [orderedComponents, writeFields, initialResults, currentType, userRole]);
 
   useEffect(() => {
+    if (userRole === 'client' && !currentType?.clientVisibleColumns) return;
     setVisibleColumns((prev) => {
       const updated = { ...prev };
       const addKey = (key) => {
@@ -1573,7 +1574,7 @@ const RecipePreview = ({
             </tbody>
             </table>
           ) : (
-            <div>Loading columns...</div>
+            <div>Loading...</div>
           ))}
       {assetPicker && (
         <AssetPickerModal
