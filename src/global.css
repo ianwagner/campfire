@@ -357,6 +357,18 @@
     background-color: var(--accent-color-10);
     color: var(--accent-color);
   }
+  .status-in_design {
+    background-color: var(--accent-color-10);
+    color: var(--accent-color);
+  }
+  .status-edit_request {
+    background-color: var(--edit-color-10);
+    color: var(--edit-color);
+  }
+  .status-done {
+    background-color: var(--approve-color-10);
+    color: var(--approve-color);
+  }
   .status-review_pending {
     background-color: var(--pending-color-10);
     color: var(--pending-color);
@@ -412,6 +424,18 @@
   .status-select.status-in_review {
     background-color: var(--accent-color-10);
     color: var(--accent-color);
+  }
+  .status-select.status-in_design {
+    background-color: var(--accent-color-10);
+    color: var(--accent-color);
+  }
+  .status-select.status-edit_request {
+    background-color: var(--edit-color-10);
+    color: var(--edit-color);
+  }
+  .status-select.status-done {
+    background-color: var(--approve-color-10);
+    color: var(--approve-color);
   }
   .status-select.status-review_pending {
     background-color: var(--pending-color-10);

@@ -12,11 +12,14 @@ import computeKanbanStatus from '../utils/computeKanbanStatus';
 const statusOrder = {
   pending: 1,
   briefed: 2,
-  ready: 3,
-  'review pending': 4,
-  'in review': 4,
-  reviewed: 5,
-  archived: 6,
+  'in design': 3,
+  ready: 4,
+  'review pending': 5,
+  'in review': 5,
+  'edit request': 6,
+  reviewed: 7,
+  done: 8,
+  archived: 9,
 };
 
 const AdGroupListView = ({

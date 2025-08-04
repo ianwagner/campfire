@@ -5,6 +5,11 @@ test('returns in review when currentStatus is in review', () => {
   expect(status).toBe('in review');
 });
 
+test('returns in design when currentStatus is in design', () => {
+  const status = computeGroupStatus([{ status: 'pending' }], 'in design');
+  expect(status).toBe('in design');
+});
+
 test('returns archived when all ads archived', () => {
   const status = computeGroupStatus([{ status: 'archived' }], 'archived');
   expect(status).toBe('archived');
@@ -28,9 +33,17 @@ test('uses status of non-archived ads', () => {
   expect(status).toBe('ready');
 });
 
-test('returns reviewed when all ads reviewed', () => {
-  const status = computeGroupStatus([{ status: 'approved' }, { status: 'rejected' }], 'ready');
-  expect(status).toBe('reviewed');
+test('returns edit request when any edit requested', () => {
+  const status = computeGroupStatus([{ status: 'edit_requested' }, { status: 'approved' }], 'ready');
+  expect(status).toBe('edit request');
+});
+
+test('returns done when all ads reviewed', () => {
+  const status = computeGroupStatus(
+    [{ status: 'approved' }, { status: 'rejected' }],
+    'ready',
+  );
+  expect(status).toBe('done');
 });
 
 test('returns review pending when currentStatus is review pending', () => {
