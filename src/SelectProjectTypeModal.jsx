@@ -5,7 +5,7 @@ import { FaMagic } from 'react-icons/fa';
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
-    className="border rounded p-4 text-left hover:bg-gray-100 flex flex-col items-start"
+    className="border rounded-xl p-4 text-left hover:bg-gray-100 flex flex-col items-start"
     onClick={onClick}
   >
     <div className="text-2xl mb-2"><Icon /></div>

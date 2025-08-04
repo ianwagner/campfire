@@ -26,7 +26,7 @@ import { deductRecipeCredits } from './utils/credits.js';
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
-    className="border rounded p-4 text-left hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] bg-white dark:bg-[var(--dark-sidebar-bg)] flex flex-col items-start w-full"
+    className="border rounded-xl p-4 text-left hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] bg-white dark:bg-[var(--dark-sidebar-bg)] flex flex-col items-start w-full"
     onClick={onClick}
   >
     <div className="text-2xl mb-2">
@@ -323,7 +323,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
                   return (
                     <div
                       key={p.id}
-                      className="border rounded p-4 flex justify-between items-center cursor-pointer bg-white hover:bg-gray-50 dark:bg-[var(--dark-sidebar-bg)] dark:hover:bg-[var(--dark-sidebar-hover)]"
+                      className="border rounded-xl p-4 flex justify-between items-center cursor-pointer bg-white hover:bg-gray-50 dark:bg-[var(--dark-sidebar-bg)] dark:hover:bg-[var(--dark-sidebar-hover)]"
                       onClick={() =>
                         navigate(
                           p.group ? `/projects/${p.id}` : `/projects/${p.id}/staging`
