@@ -478,7 +478,7 @@ const ProjectDetail = () => {
         {project.recipeTypes && project.recipeTypes.length > 0 && (
           <div className="border rounded flex items-center justify-center max-w-[60rem]">
             <RecipeTypeCard
-              className="bg-transparent border-none shadow-none p-0 justify-center"
+              className="bg-transparent border-none shadow-none p-0 justify-center h-full min-w-[100px]"
               type={
                 typesMap[project.recipeTypes[0]] || {
                   id: project.recipeTypes[0],
