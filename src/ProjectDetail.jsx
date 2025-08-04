@@ -18,6 +18,7 @@ import StatusBadge from './components/StatusBadge.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import PageWrapper from './components/PageWrapper.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
+import LoadingOverlay from './LoadingOverlay.jsx';
 import Button from './components/Button.jsx';
 import IconButton from './components/IconButton.jsx';
 import { FiExternalLink, FiDownload, FiArchive } from 'react-icons/fi';
@@ -36,6 +37,7 @@ const ProjectDetail = () => {
   const [typesMap, setTypesMap] = useState({});
   const [assets, setAssets] = useState([]);
   const [showBrief, setShowBrief] = useState(false);
+  const [briefLoading, setBriefLoading] = useState(false);
   const [showAllAssets, setShowAllAssets] = useState(false);
   const galleryRef = useRef(null);
   const [columns, setColumns] = useState(0);
@@ -133,6 +135,31 @@ const ProjectDetail = () => {
     }
     return undefined;
   }, [assets]);
+
+  const handleToggleBrief = async () => {
+    if (showBrief) {
+      setShowBrief(false);
+      setBriefLoading(false);
+      return;
+    }
+    setBriefLoading(true);
+    setShowBrief(true);
+    try {
+      if (recipes.length === 0 && groupId) {
+        const rSnap = await getDocs(
+          collection(db, 'adGroups', groupId, 'recipes')
+        );
+        setRecipes(
+          rSnap.docs.map((d, idx) => ({ recipeNo: idx + 1, id: d.id, ...d.data() }))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to load brief', err);
+      setShowBrief(false);
+    } finally {
+      setBriefLoading(false);
+    }
+  };
 
   const saveRecipes = async (list) => {
     if (!groupId || !Array.isArray(list)) return;
@@ -453,20 +480,24 @@ const ProjectDetail = () => {
       </div>
       <div className="space-y-4">
         <div className="border rounded p-4 max-w-[60rem]">
-          <button className="font-medium" onClick={() => setShowBrief((s) => !s)}>
+          <button className="font-medium" onClick={handleToggleBrief}>
             {showBrief ? 'Hide Brief' : 'View Brief'}
           </button>
           {showBrief && (
             <div className="mt-4">
-              <RecipePreview
-                onSave={saveRecipes}
-                initialResults={recipes}
-                showOnlyResults
-                brandCode={project.brandCode}
-                hideBrandSelect
-                showColumnButton={false}
-                externalOnly
-              />
+              {briefLoading ? (
+                <LoadingOverlay />
+              ) : (
+                <RecipePreview
+                  onSave={saveRecipes}
+                  initialResults={recipes}
+                  showOnlyResults
+                  brandCode={project.brandCode}
+                  hideBrandSelect
+                  showColumnButton={false}
+                  externalOnly
+                />
+              )}
             </div>
           )}
         </div>
