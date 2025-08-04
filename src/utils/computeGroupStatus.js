@@ -6,12 +6,16 @@ export default function computeGroupStatus(
   if (active.length === 0) {
     return currentStatus === 'briefed' ? 'briefed' : 'archived';
   }
+  if (currentStatus === 'in design') return 'in design';
   if (currentStatus === 'in review') return 'in review';
+  if (active.some((a) => a.status === 'edit_requested')) return 'edit request';
   if (active.some((a) => a.status === 'ready')) return 'ready';
   if (
-    active.every((a) => a.status !== 'ready' && a.status !== 'pending')
+    active.every((a) =>
+      ['approved', 'rejected', 'archived'].includes(a.status),
+    )
   ) {
-    return 'reviewed';
+    return 'done';
   }
   if (currentStatus === 'review pending') return 'review pending';
   if (currentStatus === 'briefed') return 'briefed';
