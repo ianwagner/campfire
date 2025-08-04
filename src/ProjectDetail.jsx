@@ -9,6 +9,7 @@ import {
   where,
   writeBatch,
   deleteDoc,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
@@ -69,6 +70,9 @@ const ProjectDetail = () => {
         if (!gSnap.empty) {
           const g = gSnap.docs[0];
           setGroupId(g.id);
+          setProject((prev) =>
+            prev ? { ...prev, status: g.data().status } : prev
+          );
 
           const rSnap = await getDocs(collection(db, 'adGroups', g.id, 'recipes'));
           setRecipes(
@@ -107,6 +111,17 @@ const ProjectDetail = () => {
     };
     load();
   }, [projectId]);
+
+  useEffect(() => {
+    if (!groupId) return;
+    const unsub = onSnapshot(doc(db, 'adGroups', groupId), (snap) => {
+      const data = snap.data();
+      setProject((prev) =>
+        prev ? { ...prev, status: data?.status || prev.status } : prev
+      );
+    });
+    return () => unsub();
+  }, [groupId]);
 
   const updateLayout = () => {
     if (typeof window === 'undefined') return;
