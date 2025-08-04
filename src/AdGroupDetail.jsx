@@ -1401,6 +1401,29 @@ const AdGroupDetail = () => {
     setShareModal(true);
   };
 
+  const toggleInDesign = async () => {
+    if (!id) return;
+    const newStatus =
+      group.status === "in design"
+        ? computeGroupStatus(assets, "pending")
+        : "in design";
+    const update = { status: newStatus };
+    if (newStatus === "in design") {
+      Object.assign(update, {
+        visibility: "private",
+        requireAuth: false,
+        requirePassword: false,
+        password: "",
+      });
+    }
+    try {
+      await updateDoc(doc(db, "adGroups", id), update);
+      setGroup((p) => ({ ...p, ...update }));
+    } catch (err) {
+      console.error("Failed to update status", err);
+    }
+  };
+
   const sanitize = (str) =>
     (str || "")
       .replace(/[\\/:*?"<>|]/g, "")
@@ -1945,6 +1968,20 @@ const AdGroupDetail = () => {
             </select>
           ) : (
             <span>{designerName || 'Unassigned'}</span>
+          )}
+          {((isDesigner && auth.currentUser?.uid === group.designerId) || isAdmin || isManager) && (
+            <button
+              type="button"
+              onClick={toggleInDesign}
+              aria-pressed={group.status === 'in design'}
+              className={`ml-2 px-2 py-1 border rounded ${
+                group.status === 'in design'
+                  ? 'bg-[var(--approve-color)] text-white'
+                  : 'bg-gray-200 dark:bg-gray-700'
+              }`}
+            >
+              Design In Progress
+            </button>
           )}
         </p>
       {group.status === "archived" && (
