@@ -186,10 +186,12 @@ const EditorAdGroups = () => {
   const statusOrder = {
     pending: 1,
     briefed: 2,
+    'in design': 3,
     ready: 3,
     'review pending': 4,
     'in review': 4,
-    reviewed: 5,
+    'edit request': 4,
+    done: 5,
     archived: 6,
   };
   const term = filter.toLowerCase();
