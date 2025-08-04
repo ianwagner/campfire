@@ -47,6 +47,8 @@ import debugLog from './utils/debugLog';
 import useDebugTrace from './utils/useDebugTrace';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
+import useSiteSettings from './useSiteSettings';
+import { deductCredits } from './utils/credits';
 
 const getVersion = (ad) =>
   ad.version || parseAdFilename(ad.filename || '').version || 1;
@@ -126,6 +128,7 @@ const Review = forwardRef(
   const currentIndexRef = useRef(currentIndex);
   const reviewLengthRef = useRef(reviewAds.length);
   const { agency } = useAgencyTheme(agencyId);
+  const { settings } = useSiteSettings(false);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -1175,6 +1178,14 @@ useEffect(() => {
       }
 
       await Promise.all(updates);
+      if (responseType === 'edit' && userRole === 'client') {
+        const brandCode = currentAd?.brandCode || recipeAssets[0]?.brandCode;
+        if (brandCode) {
+          await deductCredits(brandCode, 'editRequest', settings.creditCosts);
+        } else {
+          console.warn('submitResponse missing brandCode for edit request');
+        }
+      }
       if (groupId) {
         localStorage.setItem(`lastViewed-${groupId}`, new Date().toISOString());
       }
