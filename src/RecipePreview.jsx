@@ -1296,7 +1296,7 @@ const RecipePreview = ({
                   <FaMagic />
                 </IconButton>
               )}
-              {results.length > 0 && userRole !== 'designer' && (
+              {results.length > 0 && userRole !== 'designer' && !showOnlyResults && (
                 <IconButton onClick={addRecipeRow} aria-label="Add Recipe Row">
                   <FiPlus />
                 </IconButton>
