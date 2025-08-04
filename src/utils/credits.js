@@ -135,7 +135,9 @@ export async function deductRecipeCredits(brandCode, amount, refId) {
     if (snap.empty) return;
 
     const brandDoc = snap.docs[0];
-    await updateDoc(brandDoc.ref, { credits: increment(-amount) });
+    const current =
+      typeof brandDoc.data().credits === 'number' ? brandDoc.data().credits : 0;
+    await updateDoc(brandDoc.ref, { credits: current - amount });
 
     await addDoc(collection(db, 'creditLogs'), {
       brandCode,
