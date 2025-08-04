@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import useSiteSettings from './useSiteSettings';
 import useAdminClaim from './useAdminClaim';
 import SubscriptionPlansTab from './SubscriptionPlansTab';
+import CreditSettingsTab from './CreditSettingsTab.jsx';
 import { uploadLogo } from './uploadLogo';
 import { uploadIcon } from './uploadIcon';
 import { uploadCampfireLogo } from './uploadCampfireLogo';
 import { uploadArtwork } from './uploadArtwork';
 import OptimizedImage from './components/OptimizedImage.jsx';
+import TabButton from './components/TabButton.jsx';
 
 const SiteSettings = () => {
   const { isAdmin } = useAdminClaim();
@@ -21,8 +23,6 @@ const SiteSettings = () => {
   const [artworkUrl, setArtworkUrl] = useState('');
   const [artworkFile, setArtworkFile] = useState(null);
   const [accentColor, setAccentColor] = useState('#ea580c');
-  const [projectCreationCost, setProjectCreationCost] = useState('1');
-  const [editRequestCost, setEditRequestCost] = useState('1');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -36,12 +36,6 @@ const SiteSettings = () => {
     setArtworkUrl(settings.artworkUrl || '');
     setArtworkFile(null);
     setAccentColor(settings.accentColor || '#ea580c');
-    setProjectCreationCost(
-      String(settings.creditCosts?.projectCreation ?? 1)
-    );
-    setEditRequestCost(
-      String(settings.creditCosts?.editRequest ?? 1)
-    );
   }, [settings]);
 
   const handleFileChange = (e) => {
@@ -115,10 +109,6 @@ const SiteSettings = () => {
         accentColor,
         campfireLogoUrl: campfireLogo,
         artworkUrl: artwork,
-        creditCosts: {
-          projectCreation: Number(projectCreationCost) || 0,
-          editRequest: Number(editRequestCost) || 0,
-        },
       });
       setLogoUrl(logo);
       setLogoFile(null);
@@ -128,8 +118,6 @@ const SiteSettings = () => {
       setIconFile(null);
       setArtworkUrl(artwork);
       setArtworkFile(null);
-      setProjectCreationCost(String(Number(projectCreationCost) || 0));
-      setEditRequestCost(String(Number(editRequestCost) || 0));
       setMessage('Settings saved');
     } catch (err) {
       console.error('Failed to save settings', err);
@@ -142,22 +130,25 @@ const SiteSettings = () => {
   return (
     <div className="min-h-screen p-4">
         <h1 className="text-2xl mb-4">Site Settings</h1>
-        <div className="mb-4 flex space-x-4 border-b">
-          <button
-            type="button"
-            className={`pb-2 ${activeTab === 'general' ? 'border-b-2 border-black' : ''}`}
-            onClick={() => setActiveTab('general')}
-          >
+        <div className="flex flex-wrap gap-2 mb-4">
+          <TabButton active={activeTab === 'general'} onClick={() => setActiveTab('general')}>
             General
-          </button>
+          </TabButton>
           {isAdmin && (
-            <button
-              type="button"
-              className={`pb-2 ${activeTab === 'plans' ? 'border-b-2 border-black' : ''}`}
+            <TabButton
+              active={activeTab === 'credits'}
+              onClick={() => setActiveTab('credits')}
+            >
+              Credit Settings
+            </TabButton>
+          )}
+          {isAdmin && (
+            <TabButton
+              active={activeTab === 'plans'}
               onClick={() => setActiveTab('plans')}
             >
               Subscription Plans
-            </button>
+            </TabButton>
           )}
         </div>
         {activeTab === 'general' && (
@@ -231,26 +222,6 @@ const SiteSettings = () => {
           )}
         </div>
         <div>
-          <label className="block mb-1 text-sm font-medium">Project Creation Cost</label>
-          <input
-            type="number"
-            min="0"
-            value={projectCreationCost}
-            onChange={(e) => setProjectCreationCost(e.target.value)}
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Edit Request Cost</label>
-          <input
-            type="number"
-            min="0"
-            value={editRequestCost}
-            onChange={(e) => setEditRequestCost(e.target.value)}
-            className="w-full p-2 border rounded"
-          />
-        </div>
-        <div>
           <label className="block mb-1 text-sm font-medium">Accent Color</label>
           <input
             type="color"
@@ -264,6 +235,9 @@ const SiteSettings = () => {
             {loading ? 'Saving...' : 'Save Settings'}
           </button>
         </form>
+        )}
+        {isAdmin && activeTab === 'credits' && (
+          <CreditSettingsTab settings={settings} saveSettings={saveSettings} />
         )}
         {isAdmin && activeTab === 'plans' && <SubscriptionPlansTab />}
     </div>
