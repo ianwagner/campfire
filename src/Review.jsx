@@ -1179,7 +1179,10 @@ useEffect(() => {
 
       await Promise.all(updates);
       if (responseType === 'edit' && userRole === 'client') {
-        const brandCode = currentAd?.brandCode || recipeAssets[0]?.brandCode;
+        const brandCode =
+          currentAd?.brandCode ||
+          recipeAssets[0]?.brandCode ||
+          brandCodes[0];
         if (brandCode) {
           await deductCredits(brandCode, 'editRequest', settings.creditCosts);
         } else {
