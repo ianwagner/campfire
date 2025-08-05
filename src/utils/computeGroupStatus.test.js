@@ -1,52 +1,62 @@
 import computeGroupStatus from './computeGroupStatus';
 
-test('preserves inReview when already set', () => {
-  const status = computeGroupStatus([{ status: 'pending' }], 'inReview', 1);
-  expect(status).toBe('inReview');
+test('returns in review when currentStatus is in review', () => {
+  const status = computeGroupStatus([{ status: 'ready' }], 'in review');
+  expect(status).toBe('in review');
 });
 
-test('preserves inDesign when already set', () => {
-  const status = computeGroupStatus([{ status: 'pending' }], 'inDesign', 1);
-  expect(status).toBe('inDesign');
+test('returns in design when currentStatus is in design', () => {
+  const status = computeGroupStatus([{ status: 'pending' }], 'in design');
+  expect(status).toBe('in design');
 });
 
-test('returns done when all ads are finalized', () => {
+test('returns archived when all ads archived', () => {
+  const status = computeGroupStatus([{ status: 'archived' }], 'archived');
+  expect(status).toBe('archived');
+});
+
+test('returns ready when any ad is ready', () => {
+  const status = computeGroupStatus([{ status: 'ready' }, { status: 'approved' }], 'pending');
+  expect(status).toBe('ready');
+});
+
+test('returns ready when status is briefed but an ad is ready', () => {
+  const status = computeGroupStatus([{ status: 'ready' }], 'briefed');
+  expect(status).toBe('ready');
+});
+
+test('uses status of non-archived ads', () => {
   const status = computeGroupStatus(
-    [
-      { status: 'approved' },
-      { status: 'rejected' },
-      { status: 'archived' },
-    ],
-    'inDesign',
-    1,
+    [{ status: 'archived' }, { status: 'ready' }],
+    'archived',
+  );
+  expect(status).toBe('ready');
+});
+
+test('returns edit request when any edit requested', () => {
+  const status = computeGroupStatus([{ status: 'edit_requested' }, { status: 'approved' }], 'ready');
+  expect(status).toBe('edit request');
+});
+
+test('returns done when all ads reviewed', () => {
+  const status = computeGroupStatus(
+    [{ status: 'approved' }, { status: 'rejected' }],
+    'ready',
   );
   expect(status).toBe('done');
 });
 
-test('returns editRequest when any ad has edit requested', () => {
-  const status = computeGroupStatus(
-    [{ status: 'edit_requested' }, { status: 'approved' }],
-    'inDesign',
-    1,
-  );
-  expect(status).toBe('editRequest');
+test('returns review pending when currentStatus is review pending', () => {
+  const status = computeGroupStatus([{ status: 'pending' }], 'review pending');
+  expect(status).toBe('review pending');
 });
 
-test('returns archived when all ads are archived', () => {
-  const status = computeGroupStatus(
-    [{ status: 'archived' }],
-    'inDesign',
-    1,
-  );
-  expect(status).toBe('archived');
-});
-
-test('returns briefed when recipes exist but no assets', () => {
-  const status = computeGroupStatus([], 'new', 2);
+test('returns briefed when currentStatus is briefed and no ready ads', () => {
+  const status = computeGroupStatus([], 'briefed');
   expect(status).toBe('briefed');
 });
 
-test('returns new when no recipes and no assets', () => {
-  const status = computeGroupStatus([], 'new', 0);
-  expect(status).toBe('new');
+test('returns pending otherwise', () => {
+  const status = computeGroupStatus([{ status: 'pending' }], 'pending');
+  expect(status).toBe('pending');
 });

@@ -7,7 +7,7 @@ export default function computeKanbanStatus(group) {
   const edit = counts.edit || 0;
 
   if (assetCount === 0) return 'new';
-  if (edit > 0) return 'editRequest';
+  if (edit > 0) return 'edit request';
   if (approved + archived + rejected >= assetCount) return 'done';
   return 'designed';
 }

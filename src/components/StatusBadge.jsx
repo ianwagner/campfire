@@ -18,9 +18,6 @@ const knownStatuses = new Set([
   "in_design",
   "edit_request",
   "done",
-  "indesign",
-  "inreview",
-  "editrequest",
 ]);
 
 const StatusBadge = ({ status, className = "" }) => {
