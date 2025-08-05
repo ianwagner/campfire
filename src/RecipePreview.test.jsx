@@ -170,3 +170,38 @@ test('hides add recipe button when showOnlyResults is true', async () => {
   expect(screen.queryByLabelText('Add Recipe Row')).toBeNull();
 });
 
+test('client users can manage layout assets', async () => {
+  mockUseUserRole.mockReturnValue({ role: 'client', loading: false });
+  mockGetDocs.mockResolvedValue({ docs: [] });
+  const initialResults = [
+    {
+      type: 'Type1',
+      components: {
+        'layout.assets': [
+          { id: 'a1', assetType: 'image', firebaseUrl: 'http://example.com/a1.jpg' },
+          { needAsset: true },
+        ],
+      },
+    },
+  ];
+  const openSpy = jest.spyOn(window, 'open').mockImplementation(() => {});
+
+  render(<RecipePreview initialResults={initialResults} />);
+
+  const assetBtn = await screen.findAllByLabelText('Asset');
+  fireEvent.click(assetBtn[0]);
+  expect(openSpy).toHaveBeenCalledTimes(1);
+
+  const editBtn = await screen.findByLabelText('Edit');
+  fireEvent.click(editBtn);
+
+  expect(screen.getByLabelText('Remove Asset')).toBeInTheDocument();
+  expect(screen.getByLabelText('Add Asset')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Need asset' })).toBeInTheDocument();
+
+  fireEvent.click(screen.getAllByLabelText('Asset')[0]);
+  expect(openSpy).toHaveBeenCalledTimes(1);
+
+  openSpy.mockRestore();
+});
+

@@ -997,35 +997,41 @@ const RecipePreview = ({
   const renderAssetList = (list = [], rowIdx = null, key = '') => (
     <div className="flex justify-center gap-1">
       {list && list.length > 0 ? (
-        list.map((a, i) =>
-          a.needAsset ? (
-            <button
-              key={`na-${i}`}
-              type="button"
-              onClick={() =>
-                setAssetPicker({
-                  rowIdx,
-                  key,
-                  assetIdx: i,
-                  product: results[rowIdx]?.components['product.name'] || '',
-                })
-              }
-              className="text-red-500 text-xs underline"
-            >
-              Need asset
-            </button>
-          ) : (
+        list.map((a, i) => {
+          if (a.needAsset) {
+            return canEditRecipes && editing === rowIdx ? (
+              <button
+                key={`na-${i}`}
+                type="button"
+                onClick={() =>
+                  setAssetPicker({
+                    rowIdx,
+                    key,
+                    assetIdx: i,
+                    product: results[rowIdx]?.components['product.name'] || '',
+                  })
+                }
+                className="text-red-500 text-xs underline"
+              >
+                Need asset
+              </button>
+            ) : (
+              <span key={`na-${i}`} className="text-red-500 text-xs">
+                Need asset
+              </span>
+            );
+          }
+          return (
             <span key={a.id} className="relative inline-block group">
               <button
                 type="button"
                 onClick={() =>
-                  userRole === 'admin' && editing === rowIdx
+                  canEditRecipes && editing === rowIdx
                     ? setAssetPicker({
                         rowIdx,
                         key,
                         assetIdx: i,
-                        product:
-                          results[rowIdx]?.components['product.name'] || '',
+                        product: results[rowIdx]?.components['product.name'] || '',
                       })
                     : window.open(a.adUrl || a.firebaseUrl, '_blank')
                 }
@@ -1049,7 +1055,7 @@ const RecipePreview = ({
                   <FiImage />
                 )}
               </button>
-              {userRole === 'admin' && editing === rowIdx && (
+              {canEditRecipes && editing === rowIdx && (
                 <button
                   type="button"
                   onClick={() => handleAssetRemove(rowIdx, key, i)}
@@ -1071,12 +1077,12 @@ const RecipePreview = ({
                 }
               />
             </span>
-          )
-        )
+          );
+        })
       ) : (
         '-'
       )}
-      {userRole === 'admin' && editing === rowIdx && (
+      {canEditRecipes && editing === rowIdx && (
         <button
           type="button"
           onClick={() => handleAddAsset(rowIdx, key)}
