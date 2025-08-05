@@ -117,7 +117,10 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
 
     const fetchEditors = async () => {
       try {
-        const q = query(collection(db, 'users'), where('role', '==', 'editor'));
+        const q = query(
+          collection(db, 'users'),
+          where('role', 'in', ['editor', 'project-manager'])
+        );
         const snap = await getDocs(q);
         setEditors(
           snap.docs.map((d) => ({
