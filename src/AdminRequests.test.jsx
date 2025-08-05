@@ -4,7 +4,13 @@ import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import AdminRequests from './AdminRequests';
 
-jest.mock('./firebase/config', () => ({ db: {}, functions: {} }));
+jest.mock('./useAgencies', () => () => ({ agencies: [] }));
+jest.mock('./useUserRole', () => () => ({ role: 'admin' }));
+jest.mock('./firebase/config', () => ({
+  db: {},
+  functions: {},
+  auth: { currentUser: { uid: 'admin', displayName: 'Admin', email: 'a@a.com' } },
+}));
 
 const getDocs = jest.fn();
 const addDoc = jest.fn(() => ({ id: 'r1' }));
@@ -12,6 +18,9 @@ const updateDoc = jest.fn();
 const deleteDoc = jest.fn();
 const docMock = jest.fn(() => ({}));
 const collectionMock = jest.fn();
+const serverTimestamp = jest.fn(() => ({}));
+const queryMock = jest.fn((...args) => args);
+const whereMock = jest.fn();
 
 const callableFn = jest.fn();
 const httpsCallable = jest.fn(() => callableFn);
@@ -24,6 +33,9 @@ jest.mock('firebase/firestore', () => ({
   deleteDoc: (...args) => deleteDoc(...args),
   doc: (...args) => docMock(...args),
   Timestamp: { fromDate: () => ({}) },
+  serverTimestamp: (...args) => serverTimestamp(...args),
+  query: (...args) => queryMock(...args),
+  where: (...args) => whereMock(...args),
 }));
 
 jest.mock('firebase/functions', () => ({
@@ -85,4 +97,24 @@ test('shows tooltip when asset link cannot be accessed', async () => {
       )
     ).toBeInTheDocument()
   );
+});
+
+test('includes project managers in editor list', async () => {
+  getDocs
+    .mockResolvedValueOnce({ docs: [] })
+    .mockResolvedValueOnce({ docs: [] })
+    .mockResolvedValueOnce({ docs: [] })
+    .mockResolvedValueOnce({
+      docs: [
+        { id: 'e1', data: () => ({ fullName: 'Editor One' }) },
+        { id: 'pm1', data: () => ({ fullName: 'PM One' }) },
+      ],
+    });
+  render(
+    <MemoryRouter>
+      <AdminRequests />
+    </MemoryRouter>
+  );
+  fireEvent.click(screen.getByText('Add Ticket'));
+  await waitFor(() => expect(screen.getByText('PM One')).toBeInTheDocument());
 });
