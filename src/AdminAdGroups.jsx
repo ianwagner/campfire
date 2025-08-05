@@ -254,19 +254,22 @@ const AdminAdGroups = () => {
   };
 
   const statusOrder = {
-    new: 1,
+    pending: 1,
     briefed: 2,
-    inDesign: 3,
-    inReview: 4,
-    editRequest: 5,
-    done: 6,
-    archived: 7,
+    'in design': 3,
+    ready: 4,
+    'review pending': 5,
+    'in review': 5,
+    'edit request': 6,
+    reviewed: 7,
+    done: 8,
+    archived: 9,
   };
 
   const kanbanColumns = [
     { label: 'New', status: 'new' },
     { label: 'Designed', status: 'designed' },
-    { label: 'Edit Request', status: 'editRequest' },
+    { label: 'Edit Request', status: 'edit request' },
     { label: 'Done', status: 'done' },
   ];
   const term = filter.toLowerCase();

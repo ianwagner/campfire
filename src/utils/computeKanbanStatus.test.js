@@ -5,9 +5,9 @@ test('returns new when no assets', () => {
   expect(status).toBe('new');
 });
 
-test('returns editRequest when any edits present', () => {
+test('returns edit request when any edits present', () => {
   const status = computeKanbanStatus({ assetCount: 2, counts: { edit: 1 } });
-  expect(status).toBe('editRequest');
+  expect(status).toBe('edit request');
 });
 
 test('returns done when all approved, archived, or rejected', () => {

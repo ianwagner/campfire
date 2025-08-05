@@ -65,8 +65,8 @@ const ShareLinkModal = ({
       await saveSettings("public", access, needPw, newPw);
       if (groupId) {
         try {
-          await updateDoc(doc(db, "adGroups", groupId), { status: "inReview" });
-          onUpdate && onUpdate({ status: "inReview" });
+          await updateDoc(doc(db, "adGroups", groupId), { status: "in review" });
+          onUpdate && onUpdate({ status: "in review" });
         } catch (err) {
           console.error("Failed to update status", err);
         }

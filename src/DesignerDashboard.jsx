@@ -29,7 +29,7 @@ const DesignerDashboard = () => {
   const kanbanColumns = [
     { label: 'New', status: 'new' },
     { label: 'Designed', status: 'designed' },
-    { label: 'Edit Request', status: 'editRequest' },
+    { label: 'Edit Request', status: 'edit request' },
     { label: 'Done', status: 'done' },
   ];
 
