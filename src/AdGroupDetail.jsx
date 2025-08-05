@@ -426,7 +426,7 @@ const AdGroupDetail = () => {
             ? { thumbnailUrl: summary.thumbnail }
             : {}),
       };
-      const newStatus = computeGroupStatus(assets, group.status);
+      const newStatus = computeGroupStatus(assets, group.status, recipeCount);
       if (newStatus !== group.status) {
         update.status = newStatus;
       }
@@ -436,7 +436,7 @@ const AdGroupDetail = () => {
       countsRef.current = summary;
       setGroup((p) => ({ ...p, ...update }));
     }
-  }, [assets, group, id]);
+  }, [assets, group, id, recipeCount]);
 
   const recipeGroups = useMemo(() => {
     const map = {};
@@ -761,7 +761,7 @@ const AdGroupDetail = () => {
 
   const resetGroup = async () => {
     if (!group) return;
-    const confirmReset = window.confirm("Reset this group to pending?");
+    const confirmReset = window.confirm("Reset this group?");
     if (!confirmReset) return;
     try {
       const batch = writeBatch(db);
@@ -772,10 +772,11 @@ const AdGroupDetail = () => {
           lastUpdatedAt: serverTimestamp(),
         });
       });
-      batch.update(doc(db, "adGroups", id), { status: "pending" });
+      const newStatus = recipeCount > 0 ? "briefed" : "new";
+      batch.update(doc(db, "adGroups", id), { status: newStatus });
       await batch.commit();
       setAssets((prev) => prev.map((a) => ({ ...a, status: "pending" })));
-      setGroup((p) => ({ ...p, status: "pending" }));
+      setGroup((p) => ({ ...p, status: newStatus }));
     } catch (err) {
       console.error("Failed to reset group", err);
     }
@@ -800,12 +801,13 @@ const AdGroupDetail = () => {
   const restoreGroup = async () => {
     if (!group) return;
     try {
+      const newStatus = computeGroupStatus(assets, "new", recipeCount);
       await updateDoc(doc(db, "adGroups", id), {
-        status: "pending",
+        status: newStatus,
         archivedAt: null,
         archivedBy: null,
       });
-      setGroup((p) => ({ ...p, status: "pending" }));
+      setGroup((p) => ({ ...p, status: newStatus, archivedAt: null, archivedBy: null }));
     } catch (err) {
       console.error("Failed to restore group", err);
     }
@@ -1184,7 +1186,7 @@ const AdGroupDetail = () => {
         );
       });
       await batch.commit();
-      if (group?.status === "pending") {
+      if (group?.status === "new") {
         try {
           await updateDoc(doc(db, "adGroups", id), { status: "briefed" });
           setGroup((prev) => ({ ...prev, status: "briefed" }));
@@ -1377,7 +1379,7 @@ const AdGroupDetail = () => {
           lastUpdatedAt: serverTimestamp(),
         });
       }
-      batch.update(doc(db, "adGroups", id), { status: "ready" });
+      batch.update(doc(db, "adGroups", id), { status: "inReview" });
       await batch.commit();
       if (pendingAssets.length > 0) {
         setAssets((prev) =>
@@ -1388,6 +1390,7 @@ const AdGroupDetail = () => {
           ),
         );
       }
+      setGroup((p) => ({ ...p, status: "inReview" }));
     } catch (err) {
       console.error("Failed to mark ready", err);
     } finally {
@@ -1404,11 +1407,11 @@ const AdGroupDetail = () => {
   const toggleInDesign = async () => {
     if (!id) return;
     const newStatus =
-      group.status === "in design"
-        ? computeGroupStatus(assets, "pending")
-        : "in design";
+      group.status === "inDesign"
+        ? computeGroupStatus(assets, "new", recipeCount)
+        : "inDesign";
     const update = { status: newStatus };
-    if (newStatus === "in design") {
+    if (newStatus === "inDesign") {
       Object.assign(update, {
         visibility: "private",
         requireAuth: false,
@@ -1973,9 +1976,9 @@ const AdGroupDetail = () => {
             <button
               type="button"
               onClick={toggleInDesign}
-              aria-pressed={group.status === 'in design'}
+              aria-pressed={group.status === 'inDesign'}
               className={`ml-2 px-2 py-1 border rounded ${
-                group.status === 'in design'
+                group.status === 'inDesign'
                   ? 'bg-[var(--approve-color)] text-white'
                   : 'bg-gray-200 dark:bg-gray-700'
               }`}
@@ -2067,8 +2070,7 @@ const AdGroupDetail = () => {
                       disabled={
                         readyLoading ||
                         assets.length === 0 ||
-                        group.status === "ready" ||
-                        group.status === "in review"
+                        group.status === "inReview"
                       }
                       className="bg-transparent"
                       aria-label="Ready"
