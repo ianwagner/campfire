@@ -296,12 +296,24 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
         <FormField label="Logos">
           {logos.map((logo, idx) => (
             <div key={idx} className="mb-2">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => updateLogoFile(idx, e.target.files[0])}
-                className="w-full p-2 border rounded"
-              />
+              <div className="flex items-center space-x-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => updateLogoFile(idx, e.target.files[0])}
+                  className="w-full p-2 border rounded"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLogos((p) => p.filter((_, i) => i !== idx));
+                    setDirty(true);
+                  }}
+                  className="btn-action"
+                >
+                  Delete
+                </button>
+              </div>
               {logo.url && <img src={logo.url} alt="logo" className="mt-1 h-16 w-auto" />}
             </div>
           ))}
@@ -337,6 +349,16 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
                 }}
                 className="w-24 p-1 border rounded"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  setPalette((p) => p.filter((_, i) => i !== idx));
+                  setDirty(true);
+                }}
+                className="btn-action"
+              >
+                Delete
+              </button>
             </div>
           ))}
           <button
