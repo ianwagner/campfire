@@ -184,16 +184,13 @@ const EditorAdGroups = () => {
   }, []);
 
   const statusOrder = {
-    pending: 1,
+    new: 1,
     briefed: 2,
-    'in design': 3,
-    ready: 4,
-    'review pending': 5,
-    'in review': 5,
-    'edit request': 6,
-    reviewed: 7,
-    done: 8,
-    archived: 9,
+    inDesign: 3,
+    inReview: 4,
+    editRequest: 5,
+    done: 6,
+    archived: 7,
   };
   const term = filter.toLowerCase();
   const displayGroups = groups
@@ -358,10 +355,10 @@ const EditorAdGroups = () => {
           ) : (
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
               <div className="min-w-max flex gap-4">
-                {[
+                {[ 
                   { label: 'New', status: 'new' },
                   { label: 'Designed', status: 'designed' },
-                  { label: 'Edit Request', status: 'edit request' },
+                  { label: 'Edit Request', status: 'editRequest' },
                   { label: 'Done', status: 'done' },
                 ].map((col) => (
                   <div key={col.status} className="flex-shrink-0 w-[240px] sm:w-[320px]">
