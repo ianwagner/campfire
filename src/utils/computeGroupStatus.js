@@ -1,6 +1,7 @@
 export default function computeGroupStatus(
   assets = [],
-  currentStatus = 'pending',
+  currentStatus = 'new',
+  recipeCount = 0,
 ) {
   if (
     assets.length > 0 &&
@@ -9,20 +10,13 @@ export default function computeGroupStatus(
     )
   )
     return 'done';
-  if (assets.some((a) => a.status === 'edit_requested')) return 'edit request';
+  if (assets.some((a) => a.status === 'edit_requested')) return 'editRequest';
   const active = assets.filter((a) => a.status !== 'archived');
   if (active.length === 0) {
-    return currentStatus === 'briefed' ? 'briefed' : 'archived';
+    if (assets.length === 0) return recipeCount > 0 ? 'briefed' : 'new';
+    return 'archived';
   }
-  if (currentStatus === 'in review') return 'in review';
-  if (currentStatus === 'in design') return 'in design';
-  if (active.some((a) => a.status === 'ready')) return 'ready';
-  if (
-    active.every((a) => a.status !== 'ready' && a.status !== 'pending')
-  ) {
-    return 'reviewed';
-  }
-  if (currentStatus === 'review pending') return 'review pending';
-  if (currentStatus === 'briefed') return 'briefed';
-  return 'pending';
+  if (currentStatus === 'inReview') return 'inReview';
+  if (currentStatus === 'inDesign') return 'inDesign';
+  return recipeCount > 0 ? 'briefed' : 'new';
 }
