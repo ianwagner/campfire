@@ -12,6 +12,7 @@ import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import useAgencies from './useAgencies';
 import { uploadBrandAsset } from './uploadBrandAsset';
+import { deleteBrandAsset } from './deleteBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import SaveButton from './components/SaveButton.jsx';
@@ -203,6 +204,36 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
     setDirty(true);
   };
 
+  const handleRemoveLogo = async (idx) => {
+    const logo = logos[idx];
+    if (logo?.url && !logo.file) {
+      try {
+        await deleteBrandAsset(logo.url);
+      } catch (err) {
+        console.error('Failed to delete logo', err);
+        setMessage('Failed to delete logo');
+        return;
+      }
+    }
+    setLogos((p) => p.filter((_, i) => i !== idx));
+    setDirty(true);
+  };
+
+  const handleRemoveFont = async (idx) => {
+    const font = fonts[idx];
+    if (font.type === 'custom' && font.value && !font.file) {
+      try {
+        await deleteBrandAsset(font.value);
+      } catch (err) {
+        console.error('Failed to delete font', err);
+        setMessage('Failed to delete font');
+        return;
+      }
+    }
+    setFonts((p) => p.filter((_, i) => i !== idx));
+    setDirty(true);
+  };
+
   return (
     <PageWrapper>
       <div className="flex justify-end mb-2">
@@ -295,7 +326,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
         </FormField>
         <FormField label="Logos">
           {logos.map((logo, idx) => (
-            <div key={idx} className="mb-2">
+            <div key={idx} className="mb-2 space-y-1">
               <input
                 type="file"
                 accept="image/*"
@@ -303,6 +334,13 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
                 className="w-full p-2 border rounded"
               />
               {logo.url && <img src={logo.url} alt="logo" className="mt-1 h-16 w-auto" />}
+              <button
+                type="button"
+                onClick={() => handleRemoveLogo(idx)}
+                className="btn-action"
+              >
+                Delete
+              </button>
             </div>
           ))}
           <button
@@ -399,10 +437,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
               )}
               <button
                 type="button"
-                onClick={() => {
-                  setFonts((p) => p.filter((_, i) => i !== idx));
-                  setDirty(true);
-                }}
+                onClick={() => handleRemoveFont(idx)}
                 className="btn-action"
               >
                 Delete
