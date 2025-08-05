@@ -1035,7 +1035,7 @@ test('opening and exiting reviewed group keeps status', async () => {
   const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
   expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
   expect(
-    updateDoc.mock.calls.some((c) => c[1].status === 'in review')
+    updateDoc.mock.calls.some((c) => c[1].status === 'inReview')
   ).toBe(false);
 });
 

@@ -49,7 +49,7 @@ const GroupCard = ({ group, onArchive }) => {
         ))}
       </div>
       <div className="flex justify-center items-center gap-2 mb-1 text-sm">
-        {group.status !== "ready" && <StatusBadge status={group.status} />}
+        {group.status !== "inReview" && <StatusBadge status={group.status} />}
         {group.hasReady ? (
           <span className="tag tag-new">New!</span>
         ) : group.counts.approved > 0 ? (

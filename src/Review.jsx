@@ -294,10 +294,10 @@ useEffect(() => {
   if (!started || !groupId || reviewAds.length === 0 || initialStatus === 'reviewed') return;
 
   updateDoc(doc(db, 'adGroups', groupId), {
-    status: 'in review',
+    status: 'inReview',
     reviewProgress: currentIndex,
   })
-    .then(() => setGroupStatus('in review'))
+    .then(() => setGroupStatus('inReview'))
     .catch((err) => console.error('Failed to update group status', err));
 }, [started, groupId, reviewAds.length, currentIndex, initialStatus]);
 
