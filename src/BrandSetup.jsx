@@ -7,11 +7,13 @@ import {
   doc,
   setDoc,
   getDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import useAgencies from './useAgencies';
 import { uploadBrandAsset } from './uploadBrandAsset';
+import { deleteBrandAsset } from './deleteBrandAsset';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import SaveButton from './components/SaveButton.jsx';
@@ -203,6 +205,59 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
     setDirty(true);
   };
 
+  const handleDeleteLogo = async (idx) => {
+    const logo = logos[idx];
+    if (logo.url) {
+      try {
+        await deleteBrandAsset(logo.url);
+        const updated = logos.filter((_, i) => i !== idx);
+        setLogos(updated.length ? updated : [{ ...emptyLogo }]);
+        if (brandId) {
+          await updateDoc(doc(db, 'brands', brandId), {
+            logos: updated.filter((l) => l.url).map((l) => l.url),
+          });
+        }
+        setDirty(true);
+      } catch (err) {
+        console.error('Failed to delete logo', err);
+        setMessage('Failed to delete logo');
+      }
+    } else {
+      const updated = logos.filter((_, i) => i !== idx);
+      setLogos(updated.length ? updated : [{ ...emptyLogo }]);
+      setDirty(true);
+    }
+  };
+
+  const handleDeleteFont = async (idx) => {
+    const font = fonts[idx];
+    try {
+      if (font.type === 'custom' && font.value) {
+        await deleteBrandAsset(font.value);
+      }
+      const updated = fonts.filter((_, i) => i !== idx);
+      setFonts(updated.length ? updated : [{ ...emptyFont }]);
+      if (brandId) {
+        const fontData = updated
+          .map((f) => {
+            if (f.type === 'custom' && f.value) {
+              return { type: 'custom', value: f.value, name: f.name || '' };
+            }
+            if (f.type === 'google' && f.value) {
+              return { type: 'google', value: f.value };
+            }
+            return null;
+          })
+          .filter(Boolean);
+        await updateDoc(doc(db, 'brands', brandId), { fonts: fontData });
+      }
+      setDirty(true);
+    } catch (err) {
+      console.error('Failed to delete font', err);
+      setMessage('Failed to delete font');
+    }
+  };
+
   return (
     <PageWrapper>
       <div className="flex justify-end mb-2">
@@ -305,10 +360,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
                 />
                 <button
                   type="button"
-                  onClick={() => {
-                    setLogos((p) => p.filter((_, i) => i !== idx));
-                    setDirty(true);
-                  }}
+                  onClick={() => handleDeleteLogo(idx)}
                   className="btn-action"
                 >
                   Delete
@@ -421,10 +473,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
               )}
               <button
                 type="button"
-                onClick={() => {
-                  setFonts((p) => p.filter((_, i) => i !== idx));
-                  setDirty(true);
-                }}
+                onClick={() => handleDeleteFont(idx)}
                 className="btn-action"
               >
                 Delete
