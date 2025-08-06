@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FiThumbsDown, FiThumbsUp, FiEdit } from 'react-icons/fi';
+import { FiThumbsDown, FiThumbsUp, FiEdit, FiAlertTriangle } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -65,6 +65,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           let briefed = 0;
           let delivered = 0;
           let approved = 0;
+          let error = false;
 
           for (const [m, v] of Object.entries(counts)) {
             if (m >= range.start && m <= range.end) {
@@ -114,17 +115,30 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               approved = approvedSnap.data().count || 0;
             } catch (err) {
               console.error('Failed to count assets', err);
+              error = true;
             }
           }
 
-          if (contracted === 0) return null;
-          const needed = contracted > delivered ? contracted - delivered : 0;
-          const status =
-            delivered < contracted
-              ? 'under'
-              : delivered > contracted
-                ? 'over'
-                : 'complete';
+          if (contracted === 0 && !error) return null;
+
+          let needed;
+          let status;
+          if (error) {
+            contracted = '?';
+            briefed = '?';
+            delivered = '?';
+            approved = '?';
+            needed = '?';
+            status = 'error';
+          } else {
+            needed = contracted > delivered ? contracted - delivered : 0;
+            status =
+              delivered < contracted
+                ? 'under'
+                : delivered > contracted
+                  ? 'over'
+                  : 'complete';
+          }
 
           return {
             id: docSnap.id,
@@ -136,6 +150,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             approved,
             needed,
             status,
+            error,
           };
         });
 
@@ -188,7 +203,12 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 <td className="text-center">{r.approved}</td>
                 <td className="text-center">{r.needed}</td>
                 <td className="text-center">
-                  {r.status === 'under' ? (
+                  {r.error ? (
+                    <span className="flex items-center justify-center gap-1 text-yellow-500">
+                      <FiAlertTriangle />
+                      warning
+                    </span>
+                  ) : r.status === 'under' ? (
                     <span className="flex items-center justify-center gap-1 text-reject">
                       <FiThumbsDown />
                       {r.status}
