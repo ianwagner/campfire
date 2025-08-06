@@ -146,7 +146,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
             {request.brandCode}
           </p>
         )}
-        {expanded && request.dueDate && (
+        {request.dueDate && (
           <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0 flex items-center gap-1">
             <FiCalendar className="text-gray-600 dark:text-gray-300" />
             {request.dueDate.toDate().toLocaleDateString()}
