@@ -278,6 +278,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
           product={products[editIdx]}
           brandCode={brandCode}
           onSave={(p) => updateProduct(editIdx, p)}
+          onDelete={() => removeProduct(editIdx)}
           onClose={() => setEditIdx(null)}
         />
       )}
