@@ -88,6 +88,12 @@ service cloud.firestore {
       allow read: if request.auth != null;
     }
 
+    // ✅ Brand Stats
+    match /brandStats/{brandId} {
+      allow read: if isAdmin() || isManager();
+      allow write: if isAdmin();
+    }
+
     match /componentInstances/{docId} {
       allow read: if true;
       allow write: if isAdmin();

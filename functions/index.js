@@ -145,7 +145,7 @@ async function recomputeBrandStats(brandId) {
     };
   });
 
-  await db.collection('stats/brand').doc(brandId).set(
+  await db.collection('brandStats').doc(brandId).set(
     {
       brandId,
       code: brandCode,
