@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { FiThumbsDown, FiThumbsUp, FiEdit } from 'react-icons/fi';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  collectionGroup,
+  getCountFromServer,
+} from 'firebase/firestore';
 import { db } from './firebase/config';
 import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
@@ -37,10 +44,12 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           for (let i = 0; i < brandCodes.length; i += 10) {
             chunks.push(brandCodes.slice(i, i + 10));
           }
-          for (const chunk of chunks) {
-            const snap = await getDocs(query(base, where('code', 'in', chunk)));
-            statDocs.push(...snap.docs);
-          }
+          const snaps = await Promise.all(
+            chunks.map((chunk) =>
+              getDocs(query(base, where('code', 'in', chunk)))
+            )
+          );
+          snaps.forEach((snap) => statDocs.push(...snap.docs));
         } else if (agencyId) {
           const snap = await getDocs(query(base, where('agencyId', '==', agencyId)));
           statDocs = snap.docs;
@@ -49,14 +58,14 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           statDocs = snap.docs;
         }
 
-        const results = [];
-        for (const docSnap of statDocs) {
+        const resultPromises = statDocs.map(async (docSnap) => {
           const data = docSnap.data() || {};
           const counts = data.counts || {};
           let contracted = 0;
           let briefed = 0;
           let delivered = 0;
           let approved = 0;
+
           for (const [m, v] of Object.entries(counts)) {
             if (m >= range.start && m <= range.end) {
               contracted += Number(v.contracted || 0);
@@ -65,7 +74,50 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               approved += Number(v.approved || 0);
             }
           }
-          if (contracted === 0) continue;
+
+          // Fallback to counting assets directly when no pre-aggregated data
+          if (contracted === 0 && data.code) {
+            try {
+              const [totalSnap, briefedSnap, deliveredSnap, approvedSnap] =
+                await Promise.all([
+                  getCountFromServer(
+                    query(
+                      collectionGroup(db, 'assets'),
+                      where('brandCode', '==', data.code)
+                    )
+                  ),
+                  getCountFromServer(
+                    query(
+                      collectionGroup(db, 'assets'),
+                      where('brandCode', '==', data.code),
+                      where('status', '==', 'briefed')
+                    )
+                  ),
+                  getCountFromServer(
+                    query(
+                      collectionGroup(db, 'assets'),
+                      where('brandCode', '==', data.code),
+                      where('status', '==', 'delivered')
+                    )
+                  ),
+                  getCountFromServer(
+                    query(
+                      collectionGroup(db, 'assets'),
+                      where('brandCode', '==', data.code),
+                      where('status', '==', 'approved')
+                    )
+                  ),
+                ]);
+              contracted = totalSnap.data().count || 0;
+              briefed = briefedSnap.data().count || 0;
+              delivered = deliveredSnap.data().count || 0;
+              approved = approvedSnap.data().count || 0;
+            } catch (err) {
+              console.error('Failed to count assets', err);
+            }
+          }
+
+          if (contracted === 0) return null;
           const needed = contracted > delivered ? contracted - delivered : 0;
           const status =
             delivered < contracted
@@ -73,7 +125,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               : delivered > contracted
                 ? 'over'
                 : 'complete';
-          results.push({
+
+          return {
             id: docSnap.id,
             code: data.code,
             name: data.name,
@@ -83,8 +136,10 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             approved,
             needed,
             status,
-          });
-        }
+          };
+        });
+
+        const results = (await Promise.all(resultPromises)).filter(Boolean);
         if (active) setRows(results);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
