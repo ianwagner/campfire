@@ -1,4 +1,9 @@
-import { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } from 'firebase-functions/v2/firestore';
+import {
+  onDocumentCreated,
+  onDocumentUpdated,
+  onDocumentDeleted,
+  onDocumentWritten,
+} from 'firebase-functions/v2/firestore';
 import * as functions from 'firebase-functions';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import admin from 'firebase-admin';
@@ -21,6 +26,165 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+
+function parseAdFilename(filename) {
+  if (!filename) return {};
+  const name = filename.replace(/\.[^/.]+$/, '');
+  const parts = name.split('_');
+
+  const brandCode = parts[0] || '';
+  const adGroupCode = parts[1] || '';
+  const recipeCode = parts[2] || '';
+
+  let aspectRatio = '';
+  let version;
+
+  if (parts.length >= 5) {
+    aspectRatio = parts[3] || '';
+    const match = /^V(\d+)/i.exec(parts[4]);
+    if (match) version = parseInt(match[1], 10);
+  } else if (parts.length === 4) {
+    const match = /^V(\d+)/i.exec(parts[3]);
+    if (match) {
+      version = parseInt(match[1], 10);
+    } else {
+      aspectRatio = parts[3] || '';
+    }
+  }
+
+  return { brandCode, adGroupCode, recipeCode, aspectRatio, version };
+}
+
+function monthKey(date) {
+  return date.toISOString().slice(0, 7);
+}
+
+async function recomputeBrandStats(brandId) {
+  const brandSnap = await db.collection('brands').doc(brandId).get();
+  if (!brandSnap.exists) return;
+  const brand = brandSnap.data() || {};
+  const brandCode = brand.code || brand.codeId || '';
+  const name = brand.name || '';
+
+  const contractedCounts = {};
+  const contracts = Array.isArray(brand.contracts) ? brand.contracts : [];
+  for (const c of contracts) {
+    if (!c.startDate) continue;
+    const stills = Number(c.stills || 0);
+    const videos = Number(c.videos || 0);
+    let current = new Date(c.startDate);
+    const end = c.endDate ? new Date(c.endDate) : null;
+    let loops = 0;
+    while (current && (!end || current <= end)) {
+      const key = monthKey(current);
+      contractedCounts[key] = (contractedCounts[key] || 0) + stills + videos;
+      if (!c.renews) break;
+      current = new Date(current);
+      current.setMonth(current.getMonth() + 1);
+      loops++;
+      if (!end && loops > 60) break; // limit unlimited contracts to 5 years
+    }
+  }
+
+  const briefedCounts = {};
+  const deliveredSets = {};
+  const approvedSets = {};
+
+  const groupSnap = await db.collection('adGroups').where('brandCode', '==', brandCode).get();
+  for (const g of groupSnap.docs) {
+    const gData = g.data() || {};
+    const dueDate = gData.dueDate && gData.dueDate.toDate ? gData.dueDate.toDate() : null;
+    if (!dueDate) continue;
+    const mKey = monthKey(dueDate);
+
+    let recipeSnap;
+    try {
+      recipeSnap = await g.ref.collection('recipes').get();
+    } catch (err) {
+      recipeSnap = { docs: [] };
+    }
+
+    const assetsSnap = await g.ref.collection('assets').get();
+    const assetRecipes = new Set();
+    assetsSnap.docs.forEach((ad) => {
+      const data = ad.data() || {};
+      const info = parseAdFilename(data.filename || '');
+      const recipe = data.recipeCode || info.recipeCode || '';
+      if (!recipe) return;
+      const groupCode = data.adGroupCode || info.adGroupCode || g.id;
+      const key = `${groupCode}-${recipe}`;
+      assetRecipes.add(key);
+      if (['ready', 'approved', 'rejected', 'edit_requested'].includes(data.status)) {
+        if (!deliveredSets[mKey]) deliveredSets[mKey] = new Set();
+        deliveredSets[mKey].add(key);
+      }
+      if (data.status === 'approved') {
+        if (!approvedSets[mKey]) approvedSets[mKey] = new Set();
+        approvedSets[mKey].add(key);
+      }
+    });
+
+    const recipeCount =
+      recipeSnap.docs.length > 0 ? recipeSnap.docs.length : assetRecipes.size;
+    briefedCounts[mKey] = (briefedCounts[mKey] || 0) + recipeCount;
+  }
+
+  const months = new Set([
+    ...Object.keys(contractedCounts),
+    ...Object.keys(briefedCounts),
+    ...Object.keys(deliveredSets),
+    ...Object.keys(approvedSets),
+  ]);
+  const counts = {};
+  months.forEach((m) => {
+    counts[m] = {
+      contracted: contractedCounts[m] || 0,
+      briefed: briefedCounts[m] || 0,
+      delivered: deliveredSets[m] ? deliveredSets[m].size : 0,
+      approved: approvedSets[m] ? approvedSets[m].size : 0,
+    };
+  });
+
+  await db.collection('stats/brand').doc(brandId).set(
+    {
+      brandId,
+      code: brandCode,
+      name,
+      agencyId: brand.agencyId || null,
+      counts,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+export const updateBrandStatsOnBrandChange = onDocumentWritten('brands/{brandId}', async (event) => {
+  await recomputeBrandStats(event.params.brandId);
+  return null;
+});
+
+export const updateBrandStatsOnAssetChange = onDocumentWritten(
+  'adGroups/{groupId}/assets/{assetId}',
+  async (event) => {
+    const groupId = event.params.groupId;
+    try {
+      const groupSnap = await db.collection('adGroups').doc(groupId).get();
+      const brandCode = groupSnap.data()?.brandCode;
+      if (!brandCode) return null;
+      const brandSnap = await db
+        .collection('brands')
+        .where('code', '==', brandCode)
+        .limit(1)
+        .get();
+      if (brandSnap.empty) return null;
+      const brandId = brandSnap.docs[0].id;
+      await recomputeBrandStats(brandId);
+    } catch (err) {
+      console.error('Failed to update brand stats on asset change', err);
+    }
+    return null;
+  }
+);
 
 export const processUpload = onObjectFinalized(async (event) => {
   const object = event.data;

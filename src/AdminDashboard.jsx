@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FiThumbsDown, FiThumbsUp, FiEdit } from 'react-icons/fi';
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import parseAdFilename from './utils/parseAdFilename.js';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
@@ -31,129 +30,60 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         return;
       }
       try {
-        const [sYear, sMonth] = range.start.split('-').map(Number);
-        const [eYear, eMonth] = range.end.split('-').map(Number);
-        const start = new Date(Date.UTC(sYear, sMonth - 1, 1));
-        const end = new Date(Date.UTC(eYear, eMonth, 0, 23, 59, 59, 999));
-        const base = collection(db, 'brands');
-        let brandDocs = [];
+        const base = collection(db, 'stats', 'brand');
+        let statDocs = [];
         if (brandCodes.length > 0) {
           const chunks = [];
           for (let i = 0; i < brandCodes.length; i += 10) {
             chunks.push(brandCodes.slice(i, i + 10));
           }
-          const docs = [];
           for (const chunk of chunks) {
             const snap = await getDocs(query(base, where('code', 'in', chunk)));
-            docs.push(...snap.docs);
+            statDocs.push(...snap.docs);
           }
-          const seen = new Set();
-          brandDocs = docs.filter((d) => {
-            const data = d.data() || {};
-            if (agencyId && data.agencyId !== agencyId) return false;
-            if (seen.has(d.id)) return false;
-            seen.add(d.id);
-            return true;
-          });
         } else if (agencyId) {
           const snap = await getDocs(query(base, where('agencyId', '==', agencyId)));
-          brandDocs = snap.docs;
+          statDocs = snap.docs;
         } else {
           const snap = await getDocs(base);
-          brandDocs = snap.docs;
+          statDocs = snap.docs;
         }
-        const brands = brandDocs.map((d) => ({ id: d.id, ...d.data() }));
+
         const results = [];
-        for (const brand of brands) {
-            const contracts = Array.isArray(brand.contracts) ? brand.contracts : [];
-            let contracted = 0;
-            for (const c of contracts) {
-              if (!c.startDate) continue;
-              const stills = Number(c.stills || 0);
-              const videos = Number(c.videos || 0);
-              let sd = new Date(c.startDate);
-              const ed = c.endDate ? new Date(c.endDate) : null;
-              while (sd <= end && (!ed || sd <= ed)) {
-                if (sd >= start && sd <= end) {
-                  contracted += stills + videos;
-                }
-                if (!c.renews) break;
-                sd.setMonth(sd.getMonth() + 1);
-              }
+        for (const docSnap of statDocs) {
+          const data = docSnap.data() || {};
+          const counts = data.counts || {};
+          let contracted = 0;
+          let briefed = 0;
+          let delivered = 0;
+          let approved = 0;
+          for (const [m, v] of Object.entries(counts)) {
+            if (m >= range.start && m <= range.end) {
+              contracted += Number(v.contracted || 0);
+              briefed += Number(v.briefed || 0);
+              delivered += Number(v.delivered || 0);
+              approved += Number(v.approved || 0);
             }
-            if (contracted === 0) continue;
-            const q = query(
-              collection(db, 'adGroups'),
-              where('brandCode', '==', brand.code || brand.codeId || ''),
-              where('dueDate', '>=', Timestamp.fromDate(start)),
-              where('dueDate', '<=', Timestamp.fromDate(end)),
-            );
-            const gSnap = await getDocs(q);
-            let briefedCount = 0;
-            const approvedSet = new Set();
-            const deliveredSet = new Set();
-
-            for (const g of gSnap.docs) {
-                const assetsSnap = await getDocs(
-                  collection(db, 'adGroups', g.id, 'assets')
-                );
-                let recipeSnap;
-                try {
-                  recipeSnap = await getDocs(
-                    collection(db, 'adGroups', g.id, 'recipes')
-                  );
-                } catch (err) {
-                  console.error('Failed to load recipes', err);
-                  recipeSnap = { docs: [] };
-                }
-
-                const assetRecipes = new Set();
-                assetsSnap.docs.forEach((ad) => {
-                  const data = ad.data() || {};
-                  const info = parseAdFilename(data.filename || '');
-                  const recipe = data.recipeCode || info.recipeCode || '';
-                  if (!recipe) return;
-                  const groupCode =
-                    data.adGroupCode || info.adGroupCode || g.id;
-                  const key = `${groupCode}-${recipe}`;
-                  assetRecipes.add(key);
-                  if (
-                    ['ready', 'approved', 'rejected', 'edit_requested'].includes(
-                      data.status
-                    )
-                  )
-                    deliveredSet.add(key);
-                  if (data.status === 'approved') approvedSet.add(key);
-                });
-
-                const recipeCount =
-                  recipeSnap.docs.length > 0
-                    ? recipeSnap.docs.length
-                    : assetRecipes.size;
-                briefedCount += recipeCount;
-            }
-
-            const briefed = briefedCount;
-            const delivered = deliveredSet.size;
-            const approved = approvedSet.size;
-            const needed = contracted > delivered ? contracted - delivered : 0;
-            const status =
-              delivered < contracted
-                ? 'under'
-                : delivered > contracted
-                  ? 'over'
-                  : 'complete';
-            results.push({
-              id: brand.id,
-              code: brand.code,
-              name: brand.name,
-              contracted,
-              briefed,
-              delivered,
-              approved,
-              needed,
-              status,
-            });
+          }
+          if (contracted === 0) continue;
+          const needed = contracted > delivered ? contracted - delivered : 0;
+          const status =
+            delivered < contracted
+              ? 'under'
+              : delivered > contracted
+                ? 'over'
+                : 'complete';
+          results.push({
+            id: docSnap.id,
+            code: data.code,
+            name: data.name,
+            contracted,
+            briefed,
+            delivered,
+            approved,
+            needed,
+            status,
+          });
         }
         if (active) setRows(results);
       } catch (err) {
