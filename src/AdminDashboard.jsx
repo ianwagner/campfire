@@ -57,6 +57,42 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           const snap = await getDocs(base);
           statDocs = snap.docs;
         }
+        let extraBrands = [];
+        if (statDocs.length === 0) {
+          if (brandCodes.length > 0) {
+            extraBrands = brandCodes.map((code) => ({ id: code, code }));
+          } else {
+            let brandQuery = agencyId
+              ? query(collection(db, 'brands'), where('agencyId', '==', agencyId))
+              : collection(db, 'brands');
+            const brandSnap = await getDocs(brandQuery);
+            extraBrands = brandSnap.docs.map((d) => ({
+              id: d.id,
+              code: d.data().code,
+              name: d.data().name,
+            }));
+            if (extraBrands.length === 0) {
+              let contractQuery = agencyId
+                ? query(collection(db, 'contracts'), where('agencyId', '==', agencyId))
+                : collection(db, 'contracts');
+              const contractSnap = await getDocs(contractQuery);
+              extraBrands = contractSnap.docs.map((d) => {
+                const data = d.data() || {};
+                return {
+                  id: data.brandId || d.id,
+                  code: data.brandCode,
+                  name: data.brandName,
+                };
+              });
+            }
+          }
+        } else if (brandCodes.length > 0) {
+          const existingCodes = new Set(
+            statDocs.map((d) => (d.data() || {}).code)
+          );
+          const missing = brandCodes.filter((c) => !existingCodes.has(c));
+          extraBrands = missing.map((code) => ({ id: code, code }));
+        }
 
         const resultPromises = statDocs.map(async (docSnap) => {
           const data = docSnap.data() || {};
@@ -153,9 +189,90 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             error,
           };
         });
+        const fallbackPromises = extraBrands.map(async (brand) => {
+          let contracted = 0;
+          let briefed = 0;
+          let delivered = 0;
+          let approved = 0;
+          let error = false;
+          try {
+            const [totalSnap, briefedSnap, deliveredSnap, approvedSnap] =
+              await Promise.all([
+                getCountFromServer(
+                  query(
+                    collectionGroup(db, 'assets'),
+                    where('brandCode', '==', brand.code)
+                  )
+                ),
+                getCountFromServer(
+                  query(
+                    collectionGroup(db, 'assets'),
+                    where('brandCode', '==', brand.code),
+                    where('status', '==', 'briefed')
+                  )
+                ),
+                getCountFromServer(
+                  query(
+                    collectionGroup(db, 'assets'),
+                    where('brandCode', '==', brand.code),
+                    where('status', '==', 'delivered')
+                  )
+                ),
+                getCountFromServer(
+                  query(
+                    collectionGroup(db, 'assets'),
+                    where('brandCode', '==', brand.code),
+                    where('status', '==', 'approved')
+                  )
+                ),
+              ]);
+            contracted = totalSnap.data().count || 0;
+            briefed = briefedSnap.data().count || 0;
+            delivered = deliveredSnap.data().count || 0;
+            approved = approvedSnap.data().count || 0;
+          } catch (err) {
+            console.error('Failed to count assets', err);
+            error = true;
+          }
+          if (contracted === 0 && !error) return null;
+
+          let needed;
+          let status;
+          if (error) {
+            contracted = '?';
+            briefed = '?';
+            delivered = '?';
+            approved = '?';
+            needed = '?';
+            status = 'error';
+          } else {
+            needed = contracted > delivered ? contracted - delivered : 0;
+            status =
+              delivered < contracted
+                ? 'under'
+                : delivered > contracted
+                  ? 'over'
+                  : 'complete';
+          }
+
+          return {
+            id: brand.id,
+            code: brand.code,
+            name: brand.name,
+            contracted,
+            briefed,
+            delivered,
+            approved,
+            needed,
+            status,
+            error,
+          };
+        });
 
         const results = (await Promise.all(resultPromises)).filter(Boolean);
-        if (active) setRows(results);
+        const fallbackResults = (await Promise.all(fallbackPromises)).filter(Boolean);
+        const merged = [...results, ...fallbackResults];
+        if (active) setRows(merged);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
         if (active) setRows([]);
