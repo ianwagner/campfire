@@ -3,28 +3,33 @@ service cloud.firestore {
 
     // ✅ Helper functions
     function isAdmin() {
-      return request.auth != null && request.auth.token.admin == true;
+      return request.auth != null && (
+        request.auth.token.admin == true ||
+        (userData() != null && userData().role == 'admin')
+      );
     }
 
     function isDesigner() {
-      return request.auth != null && userData().role == 'designer';
+      return request.auth != null && userData() != null && userData().role == 'designer';
     }
 
     function isManager() {
       return request.auth != null && (
         request.auth.token.manager == true ||
-        userData().role == 'manager' ||
-        userData().role == 'project-manager' ||
-        userData().role == 'ops'
+        (userData() != null && (
+          userData().role == 'manager' ||
+          userData().role == 'project-manager' ||
+          userData().role == 'ops'
+        ))
       );
     }
 
     function isEditor() {
-      return request.auth != null && userData().role == 'editor';
+      return request.auth != null && userData() != null && userData().role == 'editor';
     }
 
     function isClient() {
-      return request.auth != null && userData().role == 'client';
+      return request.auth != null && userData() != null && userData().role == 'client';
     }
 
     function userData() {
