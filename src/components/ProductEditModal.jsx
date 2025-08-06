@@ -6,8 +6,10 @@ import Button from './Button.jsx';
 import SaveButton from './SaveButton.jsx';
 import CloseButton from './CloseButton.jsx';
 import ProductGalleryModal from './ProductGalleryModal.jsx';
+import IconButton from './IconButton.jsx';
+import { FiTrash } from 'react-icons/fi';
 
-const ProductEditModal = ({ product, brandCode = '', onSave, onClose }) => {
+const ProductEditModal = ({ product, brandCode = '', onSave, onClose, onDelete }) => {
   const [local, setLocal] = useState(product);
   const [showGallery, setShowGallery] = useState(false);
 
@@ -20,6 +22,13 @@ const ProductEditModal = ({ product, brandCode = '', onSave, onClose }) => {
     onClose();
   };
 
+  const handleDelete = () => {
+    if (window.confirm('Delete this product?')) {
+      onDelete && onDelete();
+      onClose();
+    }
+  };
+
   return (
     <ScrollModal
       sizeClass="max-w-lg w-full"
@@ -27,6 +36,11 @@ const ProductEditModal = ({ product, brandCode = '', onSave, onClose }) => {
         <div className="flex items-center justify-between p-2">
           <h3 className="text-lg font-semibold mb-0">Edit Product</h3>
           <div className="flex items-center gap-2">
+            {onDelete && (
+              <IconButton aria-label="Delete" onClick={handleDelete} className="text-red-600">
+                <FiTrash />
+              </IconButton>
+            )}
             <SaveButton onClick={handleSave} canSave={dirty} />
             <CloseButton onClick={onClose} />
           </div>
