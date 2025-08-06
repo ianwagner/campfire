@@ -175,7 +175,7 @@ service cloud.firestore {
     // ✅ Collection group rule for any 'assets' subcollection
     match /{path=**} {
       match /assets/{assetId} {
-        allow get, list: if
+        allow get, list, count: if
           request.auth != null && (
             // Allow internal roles to read any asset
             isAdmin() || isManager() || isEditor() || isDesigner() ||
