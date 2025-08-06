@@ -37,7 +37,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         return;
       }
       try {
-        const base = collection(db, 'stats', 'brand');
+        const base = collection(db, 'brandStats');
         let statDocs = [];
         if (brandCodes.length > 0) {
           const chunks = [];
