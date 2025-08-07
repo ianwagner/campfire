@@ -19,11 +19,12 @@ import getMonthString from './utils/getMonthString.js';
 
 function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = {}) {
   const thisMonth = getMonthString();
-  const lastMonth = (() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    return getMonthString(d);
-  })();
+    const lastMonth = (() => {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() - 1);
+      return getMonthString(d);
+    })();
   const [range, setRange] = useState({ start: lastMonth, end: thisMonth });
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -149,16 +150,17 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 const start = new Date(c.startDate);
                 const end = c.endDate ? new Date(c.endDate) : new Date(c.startDate);
                 const units = Number(c.stills || 0) + Number(c.videos || 0);
-                let cur = new Date(start);
-                while (cur <= end) {
-                  const m = getMonthString(cur);
-                  if (m >= range.start && m <= range.end) {
-                    contracted += units;
+                  let cur = new Date(start);
+                  while (cur <= end) {
+                    const m = getMonthString(cur);
+                    if (m >= range.start && m <= range.end) {
+                      contracted += units;
+                    }
+                    cur.setDate(1);
+                    cur.setMonth(cur.getMonth() + 1);
                   }
-                  cur.setMonth(cur.getMonth() + 1);
-                }
-              });
-            }
+                });
+              }
 
             if (brandCode) {
               const startDate = new Date(`${range.start}-01`);
