@@ -95,8 +95,8 @@ async function recomputeBrandStats(brandId) {
   for (const g of groupSnap.docs) {
     const gData = g.data() || {};
     const dueDate = gData.dueDate && gData.dueDate.toDate ? gData.dueDate.toDate() : null;
-    if (!dueDate) continue;
-    const mKey = monthKey(dueDate);
+    const mKey = gData.month || (dueDate ? monthKey(dueDate) : null);
+    if (!mKey) continue;
 
     let recipeSnap;
     try {
@@ -215,8 +215,10 @@ export const updateBrandStatsOnAdGroupChange = onDocumentWritten(
     const beforeBrand = before.brandCode;
     const afterBrand = after.brandCode;
     const brandChanged = beforeBrand !== afterBrand;
-
-    if (!dueDateChanged && !brandChanged) return null;
+    const beforeMonth = before.month;
+    const afterMonth = after.month;
+    const monthChanged = beforeMonth !== afterMonth;
+    if (!dueDateChanged && !brandChanged && !monthChanged) return null;
 
     const brandCodes = new Set();
     if (beforeBrand) brandCodes.add(beforeBrand);

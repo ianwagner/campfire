@@ -165,14 +165,24 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               const startDate = new Date(`${month}-01`);
               const endDate = new Date(startDate);
               endDate.setMonth(endDate.getMonth() + 1);
-              const adQ = query(
+              const monthQ = query(
                 collection(db, 'adGroups'),
                 where('brandCode', '==', brandCode),
+                where('month', '==', month)
+              );
+              const dueQ = query(
+                collection(db, 'adGroups'),
+                where('brandCode', '==', brandCode),
+                where('month', '==', null),
                 where('dueDate', '>=', Timestamp.fromDate(startDate)),
                 where('dueDate', '<', Timestamp.fromDate(endDate))
               );
-              const adSnap = await getDocs(adQ);
-              for (const g of adSnap.docs) {
+              const [monthSnap, dueSnap] = await Promise.all([
+                getDocs(monthQ),
+                getDocs(dueQ),
+              ]);
+              const adDocs = [...monthSnap.docs, ...dueSnap.docs];
+              for (const g of adDocs) {
                 const [rSnap, aSnap] = await Promise.all([
                   getCountFromServer(collection(db, 'adGroups', g.id, 'recipes')),
                   getDocs(
