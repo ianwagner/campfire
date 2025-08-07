@@ -6,6 +6,7 @@ import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import IconButton from './components/IconButton.jsx';
 import SaveButton from './components/SaveButton.jsx';
+import MonthSelector from './components/MonthSelector.jsx';
 import { FiRefreshCw } from 'react-icons/fi';
 
 const emptyContract = {
@@ -91,7 +92,17 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
     setLoading(true);
     setMessage('');
     try {
-      await setDoc(doc(db, 'brands', brandId), { contracts }, { merge: true });
+      const normalized = contracts.map((c) => ({
+        ...c,
+        startDate: c.startDate ? c.startDate.slice(0, 7) : '',
+        endDate: c.endDate ? c.endDate.slice(0, 7) : '',
+      }));
+      await setDoc(
+        doc(db, 'brands', brandId),
+        { contracts: normalized },
+        { merge: true }
+      );
+      setContracts(normalized);
       setMessage('Contracts saved');
     } catch (err) {
       console.error('Failed to save contracts', err);
@@ -107,19 +118,21 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
         {contracts.map((c, idx) => (
           <div key={idx} className="border p-2 rounded space-y-2">
             <FormField label="Start Month">
-              <input
-                type="month"
+              <MonthSelector
                 value={c.startDate}
-                onChange={(e) => updateContract(idx, { startDate: e.target.value })}
-                className="w-full p-2 border rounded"
+                onChange={(value) => updateContract(idx, { startDate: value })}
+                showButton={false}
+                className="w-full"
+                inputClassName="w-full p-2 border rounded"
               />
             </FormField>
             <FormField label="End Month (optional)">
-              <input
-                type="month"
+              <MonthSelector
                 value={c.endDate}
-                onChange={(e) => updateContract(idx, { endDate: e.target.value })}
-                className="w-full p-2 border rounded"
+                onChange={(value) => updateContract(idx, { endDate: value })}
+                showButton={false}
+                className="w-full"
+                inputClassName="w-full p-2 border rounded"
               />
             </FormField>
             <FormField label="Number of Stills">
