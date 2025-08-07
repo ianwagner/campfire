@@ -15,7 +15,7 @@ jest.mock('firebase/firestore', () => ({
   where: (...args) => args,
 }));
 
-const mockUseUserRole = jest.fn(() => ({ role: 'admin', loading: false }));
+const mockUseUserRole = jest.fn(() => ({ role: 'admin', agencyId: null, loading: false }));
 jest.mock('./useUserRole', () => (...args) => mockUseUserRole(...args));
 
 afterEach(() => {

@@ -45,7 +45,7 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
     fetchCodes();
   }, []);
 
-  const handleSave = async (recipes, briefNote, briefAssets) => {
+  const handleSave = async (recipes, briefNote, briefAssets, month) => {
     if (!brandCode) {
       console.warn('handleSave called without brandCode');
     }
@@ -68,6 +68,7 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
         requireAuth: false,
         requirePassword: false,
         password: '',
+        month: month || null,
         ...(briefNote ? { notes: briefNote } : {}),
       });
 

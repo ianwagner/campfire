@@ -44,6 +44,9 @@ export default function BriefStepForm({
   writeFields,
   generateCount,
   setGenerateCount,
+  month,
+  setMonth,
+  isAgency,
 }) {
   return (
     <>
@@ -70,6 +73,17 @@ export default function BriefStepForm({
             type="text"
             value={title}
             onChange={(e) => onTitleChange(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+        </div>
+      )}
+      {isAgency && (
+        <div className="mb-4">
+          <label className="block mb-1 text-sm font-medium">Month</label>
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
             className="w-full p-2 border rounded"
           />
         </div>
