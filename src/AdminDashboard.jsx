@@ -173,18 +173,23 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               );
               const adSnap = await getDocs(adQ);
               for (const g of adSnap.docs) {
-                const [rSnap, aSnap, apSnap] = await Promise.all([
+                const [rSnap, dSnap, apSnap] = await Promise.all([
                   getCountFromServer(collection(db, 'adGroups', g.id, 'recipes')),
-                  getCountFromServer(collection(db, 'adGroups', g.id, 'assets')),
                   getCountFromServer(
                     query(
-                      collection(db, 'adGroups', g.id, 'assets'),
+                      collection(db, 'adGroups', g.id, 'recipes'),
+                      where('status', 'in', ['approved', 'rejected'])
+                    )
+                  ),
+                  getCountFromServer(
+                    query(
+                      collection(db, 'adGroups', g.id, 'recipes'),
                       where('status', '==', 'approved')
                     )
                   ),
                 ]);
                 briefed += rSnap.data().count || 0;
-                delivered += aSnap.data().count || 0;
+                delivered += dSnap.data().count || 0;
                 approved += apSnap.data().count || 0;
               }
             }
