@@ -141,17 +141,19 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 : [];
               const selected = new Date(`${month}-01`);
               contracts.forEach((c) => {
-                if (!c.startDate) return;
-                const start = new Date(`${c.startDate}-01`);
+                const startStr = c.startDate ? c.startDate.slice(0, 7) : '';
+                if (!startStr) return;
+                const start = new Date(`${startStr}-01`);
                 let end;
-                if (c.endDate) {
-                  end = new Date(`${c.endDate}-01`);
+                const endStr = c.endDate ? c.endDate.slice(0, 7) : '';
+                if (endStr) {
+                  end = new Date(`${endStr}-01`);
                 } else if (c.renews || c.repeat) {
                   const current = new Date();
                   current.setDate(1);
                   end = selected > current ? current : selected;
                 } else {
-                  end = new Date(`${c.startDate}-01`);
+                  end = new Date(`${startStr}-01`);
                 }
                 if (selected >= start && selected <= end) {
                   const units = Number(c.stills || 0) + Number(c.videos || 0);
@@ -310,7 +312,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
 
   return (
     <PageWrapper title="Dashboard">
-      <MonthSelector value={month} onChange={setMonth} />
+      <MonthSelector value={month} onChange={setMonth} className="mb-4" />
       {loading ? (
         <p>Loading...</p>
       ) : rows.length === 0 ? (
