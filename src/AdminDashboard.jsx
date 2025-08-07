@@ -166,12 +166,11 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               const startDate = new Date(`${month}-01`);
               const endDate = new Date(startDate);
               endDate.setMonth(endDate.getMonth() + 1);
-              endDate.setDate(0);
               const adQ = query(
                 collection(db, 'adGroups'),
                 where('brandCode', '==', brandCode),
                 where('dueDate', '>=', Timestamp.fromDate(startDate)),
-                where('dueDate', '<=', Timestamp.fromDate(endDate))
+                where('dueDate', '<', Timestamp.fromDate(endDate))
               );
               const adSnap = await getDocs(adQ);
               for (const g of adSnap.docs) {
