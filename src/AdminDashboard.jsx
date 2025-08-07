@@ -315,13 +315,13 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   return (
     <PageWrapper title="Dashboard">
       <MonthSelector value={month} onChange={setMonth} className="mb-4" />
-      {loading ? (
-        <p>Loading...</p>
-      ) : rows.length === 0 ? (
-        <p>No contracts found.</p>
-      ) : (
-        <Table>
-          <thead>
+        {loading ? (
+          <p>Loading...</p>
+        ) : rows.length === 0 ? (
+          <p>No contracts found.</p>
+        ) : (
+          <Table className="dashboard-table">
+            <thead>
             <tr>
               <th>Brand</th>
               <th>Contracted</th>
@@ -332,46 +332,56 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               <th>Status</th>
             </tr>
           </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td>{r.code || r.name}</td>
-                <td className="text-center">{r.contracted}</td>
-                <td className="text-center">{r.briefed}</td>
-                <td className="text-center">{r.delivered}</td>
-                <td className="text-center">{r.approved}</td>
-                <td className="text-center">{r.needed}</td>
-                <td className="text-center">
-                  {r.error ? (
-                    <span className="flex items-center justify-center gap-1 text-yellow-500">
-                      <FiAlertTriangle />
-                      warning
-                    </span>
-                  ) : r.status === 'under' ? (
-                    <span className="flex items-center justify-center gap-1 text-reject">
-                      <FiThumbsDown />
-                      {r.status}
-                    </span>
-                  ) : r.status === 'over' ? (
-                    <span className="flex items-center justify-center gap-1 text-edit">
-                      <FiEdit />
-                      {r.status}
-                    </span>
-                  ) : r.status === 'complete' ? (
-                    <span className="flex items-center justify-center gap-1 text-approve">
-                      <FiThumbsUp />
-                      {r.status}
-                    </span>
-                  ) : (
-                    r.status
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      )}
-    </PageWrapper>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td data-label="Brand">{r.code || r.name}</td>
+                  <td className="text-center" data-label="Contracted">
+                    {r.contracted}
+                  </td>
+                  <td className="text-center" data-label="Briefed">
+                    {r.briefed}
+                  </td>
+                  <td className="text-center" data-label="Delivered">
+                    {r.delivered}
+                  </td>
+                  <td className="text-center" data-label="Approved">
+                    {r.approved}
+                  </td>
+                  <td className="text-center" data-label="Needed">
+                    {r.needed}
+                  </td>
+                  <td className="text-center" data-label="Status">
+                    {r.error ? (
+                      <span className="flex items-center justify-center gap-1 text-yellow-500">
+                        <FiAlertTriangle />
+                        warning
+                      </span>
+                    ) : r.status === 'under' ? (
+                      <span className="flex items-center justify-center gap-1 text-reject">
+                        <FiThumbsDown />
+                        {r.status}
+                      </span>
+                    ) : r.status === 'over' ? (
+                      <span className="flex items-center justify-center gap-1 text-edit">
+                        <FiEdit />
+                        {r.status}
+                      </span>
+                    ) : r.status === 'complete' ? (
+                      <span className="flex items-center justify-center gap-1 text-approve">
+                        <FiThumbsUp />
+                        {r.status}
+                      </span>
+                    ) : (
+                      r.status
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </PageWrapper>
   );
 }
 
