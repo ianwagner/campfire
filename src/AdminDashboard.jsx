@@ -5,8 +5,10 @@ import {
   getDocs,
   query,
   where,
-  collectionGroup,
   getCountFromServer,
+  doc,
+  getDoc,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import { getAuth } from 'firebase/auth';
@@ -110,6 +112,127 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           extraBrands = missing.map((code) => ({ id: code, code }));
         }
 
+        const computeCounts = async (brand) => {
+          let contracted = 0;
+          let briefed = 0;
+          let delivered = 0;
+          let approved = 0;
+          let error = false;
+
+          try {
+            let brandId = brand.id;
+            let brandCode = brand.code;
+            let brandName = brand.name;
+            let brandSnap;
+            if (brandId) {
+              brandSnap = await getDoc(doc(db, 'brands', brandId));
+            }
+            if ((!brandSnap || !brandSnap.exists()) && brandCode) {
+              const q = query(
+                collection(db, 'brands'),
+                where('code', '==', brandCode)
+              );
+              const snap = await getDocs(q);
+              if (!snap.empty) {
+                brandSnap = snap.docs[0];
+                brandId = brandSnap.id;
+              }
+            }
+            if (brandSnap && brandSnap.exists()) {
+              const bData = brandSnap.data() || {};
+              brandName = brandName || bData.name;
+              const contracts = Array.isArray(bData.contracts)
+                ? bData.contracts
+                : [];
+              contracts.forEach((c) => {
+                if (!c.startDate) return;
+                const start = new Date(c.startDate);
+                const end = c.endDate ? new Date(c.endDate) : new Date(c.startDate);
+                const units = Number(c.stills || 0) + Number(c.videos || 0);
+                let cur = new Date(start);
+                while (cur <= end) {
+                  const m = getMonthString(cur);
+                  if (m >= range.start && m <= range.end) {
+                    contracted += units;
+                  }
+                  cur.setMonth(cur.getMonth() + 1);
+                }
+              });
+            }
+
+            if (brandCode) {
+              const startDate = new Date(`${range.start}-01`);
+              const endDate = new Date(`${range.end}-01`);
+              endDate.setMonth(endDate.getMonth() + 1);
+              endDate.setDate(0);
+              const adQ = query(
+                collection(db, 'adGroups'),
+                where('brandCode', '==', brandCode),
+                where('dueDate', '>=', Timestamp.fromDate(startDate)),
+                where('dueDate', '<=', Timestamp.fromDate(endDate))
+              );
+              const adSnap = await getDocs(adQ);
+              for (const g of adSnap.docs) {
+                const [rSnap, aSnap, apSnap] = await Promise.all([
+                  getCountFromServer(collection(db, 'adGroups', g.id, 'recipes')),
+                  getCountFromServer(collection(db, 'adGroups', g.id, 'assets')),
+                  getCountFromServer(
+                    query(
+                      collection(db, 'adGroups', g.id, 'assets'),
+                      where('status', '==', 'approved')
+                    )
+                  ),
+                ]);
+                briefed += rSnap.data().count || 0;
+                delivered += aSnap.data().count || 0;
+                approved += apSnap.data().count || 0;
+              }
+            }
+
+            if (
+              contracted === 0 &&
+              briefed === 0 &&
+              delivered === 0 &&
+              approved === 0
+            ) {
+              return null;
+            }
+
+            return {
+              id: brandId || brand.code,
+              code: brandCode,
+              name: brandName,
+              contracted,
+              briefed,
+              delivered,
+              approved,
+              needed:
+                contracted > delivered ? contracted - delivered : 0,
+              status:
+                delivered < contracted
+                  ? 'under'
+                  : delivered > contracted
+                    ? 'over'
+                    : 'complete',
+              error,
+            };
+          } catch (err) {
+            console.error('Failed to compute counts', err);
+            return {
+              id: brand.id,
+              code: brand.code,
+              name: brand.name,
+              contracted: '?',
+              briefed: '?',
+              delivered: '?',
+              approved: '?',
+              needed: '?',
+              status: 'error',
+              error: true,
+            };
+          }
+        };
+
         const resultPromises = statDocs.map(async (docSnap) => {
           const data = docSnap.data() || {};
           const counts = data.counts || {};
@@ -128,69 +251,11 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             }
           }
 
-          // Fallback to counting assets directly when no pre-aggregated data
           if (contracted === 0 && data.code) {
-            try {
-              const [totalSnap, briefedSnap, deliveredSnap, approvedSnap] =
-                await Promise.all([
-                  getCountFromServer(
-                    query(
-                      collectionGroup(db, 'assets'),
-                      where('brandCode', '==', data.code)
-                    )
-                  ),
-                  getCountFromServer(
-                    query(
-                      collectionGroup(db, 'assets'),
-                      where('brandCode', '==', data.code),
-                      where('status', '==', 'briefed')
-                    )
-                  ),
-                  getCountFromServer(
-                    query(
-                      collectionGroup(db, 'assets'),
-                      where('brandCode', '==', data.code),
-                      where('status', '==', 'delivered')
-                    )
-                  ),
-                  getCountFromServer(
-                    query(
-                      collectionGroup(db, 'assets'),
-                      where('brandCode', '==', data.code),
-                      where('status', '==', 'approved')
-                    )
-                  ),
-                ]);
-              contracted = totalSnap.data().count || 0;
-              briefed = briefedSnap.data().count || 0;
-              delivered = deliveredSnap.data().count || 0;
-              approved = approvedSnap.data().count || 0;
-            } catch (err) {
-              console.error('Failed to count assets', err);
-              error = true;
-            }
+            return await computeCounts({ id: docSnap.id, code: data.code, name: data.name });
           }
 
           if (contracted === 0 && !error) return null;
-
-          let needed;
-          let status;
-          if (error) {
-            contracted = '?';
-            briefed = '?';
-            delivered = '?';
-            approved = '?';
-            needed = '?';
-            status = 'error';
-          } else {
-            needed = contracted > delivered ? contracted - delivered : 0;
-            status =
-              delivered < contracted
-                ? 'under'
-                : delivered > contracted
-                  ? 'over'
-                  : 'complete';
-          }
 
           return {
             id: docSnap.id,
@@ -200,90 +265,18 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             briefed,
             delivered,
             approved,
-            needed,
-            status,
-            error,
-          };
-        });
-        const fallbackPromises = extraBrands.map(async (brand) => {
-          let contracted = 0;
-          let briefed = 0;
-          let delivered = 0;
-          let approved = 0;
-          let error = false;
-          try {
-            const [totalSnap, briefedSnap, deliveredSnap, approvedSnap] =
-              await Promise.all([
-                getCountFromServer(
-                  query(
-                    collectionGroup(db, 'assets'),
-                    where('brandCode', '==', brand.code)
-                  )
-                ),
-                getCountFromServer(
-                  query(
-                    collectionGroup(db, 'assets'),
-                    where('brandCode', '==', brand.code),
-                    where('status', '==', 'briefed')
-                  )
-                ),
-                getCountFromServer(
-                  query(
-                    collectionGroup(db, 'assets'),
-                    where('brandCode', '==', brand.code),
-                    where('status', '==', 'delivered')
-                  )
-                ),
-                getCountFromServer(
-                  query(
-                    collectionGroup(db, 'assets'),
-                    where('brandCode', '==', brand.code),
-                    where('status', '==', 'approved')
-                  )
-                ),
-              ]);
-            contracted = totalSnap.data().count || 0;
-            briefed = briefedSnap.data().count || 0;
-            delivered = deliveredSnap.data().count || 0;
-            approved = approvedSnap.data().count || 0;
-          } catch (err) {
-            console.error('Failed to count assets', err);
-            error = true;
-          }
-          if (contracted === 0 && !error) return null;
-
-          let needed;
-          let status;
-          if (error) {
-            contracted = '?';
-            briefed = '?';
-            delivered = '?';
-            approved = '?';
-            needed = '?';
-            status = 'error';
-          } else {
-            needed = contracted > delivered ? contracted - delivered : 0;
-            status =
+            needed:
+              contracted > delivered ? contracted - delivered : 0,
+            status:
               delivered < contracted
                 ? 'under'
                 : delivered > contracted
                   ? 'over'
-                  : 'complete';
-          }
-
-          return {
-            id: brand.id,
-            code: brand.code,
-            name: brand.name,
-            contracted,
-            briefed,
-            delivered,
-            approved,
-            needed,
-            status,
+                  : 'complete',
             error,
           };
         });
+        const fallbackPromises = extraBrands.map((brand) => computeCounts(brand));
 
         const results = (await Promise.all(resultPromises)).filter(Boolean);
         const fallbackResults = (await Promise.all(fallbackPromises)).filter(Boolean);
