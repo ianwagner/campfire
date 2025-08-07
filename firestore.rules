@@ -1,6 +1,13 @@
 service cloud.firestore {
   match /databases/{database}/documents {
 
+match /assets/{assetId} {
+  allow aggregate: if request.auth != null && (
+    request.auth.token.admin == true ||
+    request.auth.token.manager == true
+  );
+}
+
     // ✅ Helper functions
     function isAdmin() {
       return request.auth != null && (
@@ -177,21 +184,18 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
-    // ✅ Collection group rule for any 'assets' subcollection
-    match /{path=**} {
-      match /assets/{assetId} {
-        allow get, list, count: if
-          request.auth != null && (
-            // Allow internal roles to read any asset
-            isAdmin() || isManager() || isEditor() || isDesigner() ||
-            // Clients can only read approved assets for their brands
-            (isClient() &&
-              userData().brandCodes != null &&
-              userData().brandCodes.hasAny([resource.data.brandCode]) &&
-              resource.data.status == 'approved')
-          );
-      }
-    }
+match /{path=**} {
+  match /assets/{assetId} {
+    allow get, list, aggregate: if
+      request.auth != null && (
+        isAdmin() || isManager() || isEditor() || isDesigner() ||
+        (isClient() &&
+          userData().brandCodes != null &&
+          userData().brandCodes.hasAny([resource.data.brandCode]) &&
+          resource.data.status == 'approved')
+      );
+  }
+}
 
     match /notifications/{docId} {
       allow read: if request.auth != null;
