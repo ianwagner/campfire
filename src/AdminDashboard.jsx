@@ -266,7 +266,10 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             }
           }
 
-          if (contracted === 0 && data.code) {
+          if (
+            data.code &&
+            (contracted === 0 || (briefed === 0 && delivered === 0 && approved === 0))
+          ) {
             return await computeCounts({ id: docSnap.id, code: data.code, name: data.name });
           }
 
