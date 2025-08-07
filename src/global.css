@@ -260,9 +260,42 @@
   html.dark .ad-table tbody tr:nth-child(even) {
     background-color: var(--dark-sidebar-hover);
   }
-  .ad-table thead {
-    background-color: var(--table-head-bg);
-  }
+    .ad-table thead {
+      background-color: var(--table-head-bg);
+    }
+
+    /* Mobile card layout for dashboard tables */
+    @media (max-width: 640px) {
+      .dashboard-table thead {
+        display: none;
+      }
+      .dashboard-table,
+      .dashboard-table tbody,
+      .dashboard-table tr,
+      .dashboard-table td {
+        display: block;
+        width: 100%;
+      }
+      .dashboard-table tr {
+        background-color: #ffffff;
+        border: 1px solid var(--table-border-color);
+        border-radius: var(--border-radius-base);
+        box-shadow: var(--box-shadow-base);
+        margin-bottom: var(--space-md);
+        padding: var(--space-md);
+      }
+      .dashboard-table td {
+        border: none;
+        padding: var(--space-xs) 0;
+        display: flex;
+        justify-content: space-between;
+      }
+      .dashboard-table td::before {
+        content: attr(data-label);
+        font-weight: var(--font-weight-semibold);
+        margin-right: var(--space-sm);
+      }
+    }
   .table-row-group {
     background-color: var(--table-row-alt-bg);
   }
