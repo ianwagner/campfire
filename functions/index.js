@@ -80,9 +80,10 @@ async function recomputeBrandStats(brandId) {
       contractedCounts[key] = (contractedCounts[key] || 0) + stills + videos;
       if (!c.renews) break;
       current = new Date(current);
+      current.setDate(1);
       current.setMonth(current.getMonth() + 1);
       loops++;
-      if (!end && loops > 60) break; // limit unlimited contracts to 5 years
+      if (!end && loops >= 60) break; // limit unlimited contracts to 5 years
     }
   }
 
