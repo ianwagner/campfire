@@ -150,7 +150,12 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               delivered = deliveredSnap.data().count || 0;
               approved = approvedSnap.data().count || 0;
             } catch (err) {
-              console.error('Failed to count assets', err);
+              console.error('Failed to count assets', err?.code, err);
+              if (err?.code === 'permission-denied') {
+                window.alert(
+                  "Asset counts couldn't be retrieved due to missing permissions."
+                );
+              }
               error = true;
             }
           }
@@ -231,7 +236,12 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             delivered = deliveredSnap.data().count || 0;
             approved = approvedSnap.data().count || 0;
           } catch (err) {
-            console.error('Failed to count assets', err);
+            console.error('Failed to count assets', err?.code, err);
+            if (err?.code === 'permission-denied') {
+              window.alert(
+                "Asset counts couldn't be retrieved due to missing permissions."
+              );
+            }
             error = true;
           }
           if (contracted === 0 && !error) return null;
