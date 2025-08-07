@@ -147,10 +147,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 if (c.endDate) {
                   end = new Date(c.endDate);
                 } else if (isRepeating) {
-                  const selectedEnd = new Date(`${month}-01`);
-                  const current = new Date();
-                  current.setDate(1);
-                  end = selectedEnd > current ? current : selectedEnd;
+                  end = new Date(`${month}-01`);
                 } else {
                   end = new Date(c.startDate);
                 }
