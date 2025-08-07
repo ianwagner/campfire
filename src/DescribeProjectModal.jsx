@@ -12,14 +12,19 @@ import {
 import { FiInfo } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import UrlCheckInput from './components/UrlCheckInput.jsx';
+import useUserRole from './useUserRole';
 
 const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
   const [title, setTitle] = useState('');
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
   const [dueDate, setDueDate] = useState('');
+  const [month, setMonth] = useState('');
   const [numAds, setNumAds] = useState(1);
   const [assetLinks, setAssetLinks] = useState(['']);
   const [details, setDetails] = useState('');
+
+  const { role, agencyId } = useUserRole(auth.currentUser?.uid);
+  const isAgency = role === 'agency' || !!agencyId;
 
   useEffect(() => {
     if (request) {
@@ -38,6 +43,7 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
       setNumAds(request.numAds || 1);
       setAssetLinks(request.assetLinks && request.assetLinks.length ? request.assetLinks : ['']);
       setDetails(request.details || '');
+      setMonth(request.month || '');
     }
   }, [request, brandCodes]);
 
@@ -80,12 +86,14 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           numAds: Number(numAds) || 0,
           assetLinks: (assetLinks || []).filter((l) => l),
           details,
+          month: month || null,
         });
         if (projectId) {
           await updateDoc(doc(db, 'projects', projectId), {
             title: title.trim(),
             brandCode,
             status: 'processing',
+            month: month || null,
           });
         }
       } else {
@@ -96,6 +104,7 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           status: 'processing',
           createdAt: serverTimestamp(),
           userId: auth.currentUser?.uid || null,
+          month: month || null,
         });
         projectId = projRef.id;
         await addDoc(collection(db, 'requests'), {
@@ -110,6 +119,7 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           createdAt: serverTimestamp(),
           createdBy: auth.currentUser?.uid || null,
           projectId,
+          month: month || null,
         });
 
       }
@@ -123,6 +133,7 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
         numAds: Number(numAds) || 0,
         assetLinks: (assetLinks || []).filter((l) => l),
         details,
+        month: month || null,
       });
     } catch (err) {
       console.error('Failed to create project request', err);
@@ -153,6 +164,17 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           <label className="block mb-1 text-sm font-medium">Due Date</label>
           <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full p-2 border rounded" />
         </div>
+        {isAgency && (
+          <div>
+            <label className="block mb-1 text-sm font-medium">Month</label>
+            <input
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+        )}
         <div>
           <label className="block mb-1 text-sm font-medium">Number of Ads</label>
           <input type="number" min="1" value={numAds} onChange={(e) => setNumAds(e.target.value)} className="w-full p-2 border rounded" />

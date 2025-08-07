@@ -99,6 +99,7 @@ const RecipePreview = ({
   const [briefNote, setBriefNote] = useState('');
   const [briefFiles, setBriefFiles] = useState([]);
   const briefFileInputRef = useRef(null);
+  const [month, setMonth] = useState('');
 
   const handleBriefNoteChange = (e) => {
     setBriefNote(e.target.value);
@@ -262,7 +263,8 @@ const RecipePreview = ({
     };
     loadCampaigns();
   }, [brandCode]);
-  const { role: userRole } = useUserRole(auth.currentUser?.uid);
+  const { role: userRole, agencyId } = useUserRole(auth.currentUser?.uid);
+  const isAgencyUser = userRole === 'agency' || !!agencyId;
   const canEditRecipes =
     userRole === 'admin' || userRole === 'agency' || userRole === 'client';
 
@@ -977,7 +979,7 @@ const RecipePreview = ({
     }
     setSaving(true);
     try {
-      await onSave(results, briefNote, briefFiles);
+      await onSave(results, briefNote, briefFiles, month);
       // After saving, store a deep copy as the new original reference.
       originalResultsRef.current = JSON.parse(JSON.stringify(results));
       setDirty(false);
@@ -991,6 +993,7 @@ const RecipePreview = ({
     setResults(JSON.parse(JSON.stringify(originalResultsRef.current)));
     setBriefNote('');
     setBriefFiles([]);
+    setMonth('');
     setDirty(false);
   };
 
@@ -1279,6 +1282,9 @@ const RecipePreview = ({
             writeFields={writeFields}
             generateCount={generateCount}
             setGenerateCount={setGenerateCount}
+            month={month}
+            setMonth={setMonth}
+            isAgency={isAgencyUser}
           />
         )}
       </form>
