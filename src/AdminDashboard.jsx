@@ -316,9 +316,9 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             <tbody>
               {rows.map((r) => {
                 const contracted = Number(r.contracted);
-                const briefedMatch = Number(r.briefed) === contracted;
-                const deliveredMatch = Number(r.delivered) === contracted;
-                const approvedMatch = Number(r.approved) === contracted;
+                const briefedMatch = Number(r.briefed) >= contracted;
+                const deliveredMatch = Number(r.delivered) >= contracted;
+                const approvedMatch = Number(r.approved) >= contracted;
                 return (
                   <tr key={r.id}>
                     <td data-label="Brand">{r.code || r.name}</td>
