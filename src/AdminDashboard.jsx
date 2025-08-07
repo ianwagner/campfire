@@ -9,6 +9,7 @@ import {
   getCountFromServer,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
+import { getAuth } from 'firebase/auth';
 import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
 import DateRangeSelector from './components/DateRangeSelector.jsx';
@@ -24,6 +25,21 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   const [range, setRange] = useState({ start: lastMonth, end: thisMonth });
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    user.getIdTokenResult(true)
+      .then((token) => {
+        console.log(token.claims);
+        if (!token.claims.admin) {
+          // optionally handle missing admin claim
+        }
+      })
+      .catch((err) => console.error(err));
+  }, []);
 
   useEffect(() => {
     let active = true;
