@@ -199,6 +199,9 @@
   .bg-accent-10 {
     background-color: var(--accent-color-10);
   }
+  .bg-approve-10 {
+    background-color: var(--approve-color-10);
+  }
   .border-accent {
     border-color: var(--accent-color);
   }

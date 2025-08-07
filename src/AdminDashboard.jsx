@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FiThumbsDown, FiThumbsUp, FiEdit, FiAlertTriangle } from 'react-icons/fi';
+import { FiCheck } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -112,7 +112,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           let briefed = 0;
           let delivered = 0;
           let approved = 0;
-          let error = false;
 
           try {
             let brandId = brand.id;
@@ -222,13 +221,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               approved,
               needed:
                 contracted > delivered ? contracted - delivered : 0,
-              status:
-                delivered < contracted
-                  ? 'under'
-                  : delivered > contracted
-                    ? 'over'
-                    : 'complete',
-              error,
             };
           } catch (err) {
             console.error('Failed to compute counts', err);
@@ -241,8 +233,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               delivered: '?',
               approved: '?',
               needed: '?',
-              status: 'error',
-              error: true,
             };
           }
         };
@@ -254,7 +244,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           let briefed = 0;
           let delivered = 0;
           let approved = 0;
-          let error = false;
 
           for (const [m, v] of Object.entries(counts)) {
             if (m === month) {
@@ -272,7 +261,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             return await computeCounts({ id: docSnap.id, code: data.code, name: data.name });
           }
 
-          if (contracted === 0 && !error) return null;
+          if (contracted === 0) return null;
 
           return {
             id: docSnap.id,
@@ -284,13 +273,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             approved,
             needed:
               contracted > delivered ? contracted - delivered : 0,
-            status:
-              delivered < contracted
-                ? 'under'
-                : delivered > contracted
-                  ? 'over'
-                  : 'complete',
-            error,
           };
         });
         const fallbackPromises = extraBrands.map((brand) => computeCounts(brand));
@@ -329,55 +311,53 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               <th>Delivered</th>
               <th>Approved</th>
               <th>Needed</th>
-              <th>Status</th>
             </tr>
           </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td data-label="Brand">{r.code || r.name}</td>
-                  <td className="text-center" data-label="Contracted">
-                    {r.contracted}
-                  </td>
-                  <td className="text-center" data-label="Briefed">
-                    {r.briefed}
-                  </td>
-                  <td className="text-center" data-label="Delivered">
-                    {r.delivered}
-                  </td>
-                  <td className="text-center" data-label="Approved">
-                    {r.approved}
-                  </td>
-                  <td className="text-center" data-label="Needed">
-                    {r.needed}
-                  </td>
-                  <td className="text-center" data-label="Status">
-                    {r.error ? (
-                      <span className="flex items-center justify-center gap-1 text-yellow-500">
-                        <FiAlertTriangle />
-                        warning
-                      </span>
-                    ) : r.status === 'under' ? (
-                      <span className="flex items-center justify-center gap-1 text-reject">
-                        <FiThumbsDown />
-                        {r.status}
-                      </span>
-                    ) : r.status === 'over' ? (
-                      <span className="flex items-center justify-center gap-1 text-edit">
-                        <FiEdit />
-                        {r.status}
-                      </span>
-                    ) : r.status === 'complete' ? (
-                      <span className="flex items-center justify-center gap-1 text-approve">
-                        <FiThumbsUp />
-                        {r.status}
-                      </span>
-                    ) : (
-                      r.status
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const contracted = Number(r.contracted);
+                const briefedMatch = Number(r.briefed) === contracted;
+                const deliveredMatch = Number(r.delivered) === contracted;
+                const approvedMatch = Number(r.approved) === contracted;
+                return (
+                  <tr key={r.id}>
+                    <td data-label="Brand">{r.code || r.name}</td>
+                    <td className="text-center" data-label="Contracted">
+                      {r.contracted}
+                    </td>
+                    <td
+                      className={`text-center ${briefedMatch ? 'bg-approve-10' : ''}`}
+                      data-label="Briefed"
+                    >
+                      {r.briefed}
+                      {briefedMatch && (
+                        <FiCheck className="inline ml-1 text-approve" />
+                      )}
+                    </td>
+                    <td
+                      className={`text-center ${deliveredMatch ? 'bg-approve-10' : ''}`}
+                      data-label="Delivered"
+                    >
+                      {r.delivered}
+                      {deliveredMatch && (
+                        <FiCheck className="inline ml-1 text-approve" />
+                      )}
+                    </td>
+                    <td
+                      className={`text-center ${approvedMatch ? 'bg-approve-10' : ''}`}
+                      data-label="Approved"
+                    >
+                      {r.approved}
+                      {approvedMatch && (
+                        <FiCheck className="inline ml-1 text-approve" />
+                      )}
+                    </td>
+                    <td className="text-center" data-label="Needed">
+                      {r.needed}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </Table>
         )}
