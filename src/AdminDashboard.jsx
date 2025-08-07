@@ -148,9 +148,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 if (endStr) {
                   end = new Date(`${endStr}-01`);
                 } else if (c.renews || c.repeat) {
-                  const current = new Date();
-                  current.setDate(1);
-                  end = selected > current ? current : selected;
+                  end = selected;
                 } else {
                   end = new Date(`${startStr}-01`);
                 }
