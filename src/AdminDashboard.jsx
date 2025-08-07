@@ -179,6 +179,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                     query(
                       collection(db, 'adGroups', g.id, 'assets'),
                       where('status', 'in', [
+                        'ready',
                         'approved',
                         'rejected',
                         'edit_requested',

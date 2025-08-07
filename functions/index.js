@@ -116,7 +116,7 @@ async function recomputeBrandStats(brandId) {
     recipeSnap.docs.forEach((r) => {
       const rData = r.data() || {};
       const key = `${g.id}-${r.id}`;
-      if (['approved', 'rejected', 'edit_requested'].includes(rData.status)) {
+      if (['ready', 'approved', 'rejected', 'edit_requested'].includes(rData.status)) {
         deliveredSet.add(key);
       }
       if (rData.status === 'approved') {
