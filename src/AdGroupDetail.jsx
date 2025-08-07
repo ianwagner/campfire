@@ -46,6 +46,7 @@ import {
   orderBy,
   arrayUnion,
   Timestamp,
+  deleteField,
 } from "firebase/firestore";
 import { deleteObject, ref } from "firebase/storage";
 import { auth, db, storage } from "./firebase/config";
@@ -124,6 +125,7 @@ const AdGroupDetail = () => {
   const [group, setGroup] = useState(null);
   const [brandName, setBrandName] = useState("");
   const [brandGuidelines, setBrandGuidelines] = useState("");
+  const [brandHasAgency, setBrandHasAgency] = useState(false);
   const [assets, setAssets] = useState([]);
   const [briefAssets, setBriefAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -329,14 +331,17 @@ const AdGroupDetail = () => {
           const data = snap.docs[0].data();
           setBrandName(data.name || group.brandCode);
           setBrandGuidelines(data.guidelinesUrl || "");
+          setBrandHasAgency(Boolean(data.agencyId));
         } else {
           setBrandName(group.brandCode);
           setBrandGuidelines("");
+          setBrandHasAgency(false);
         }
       } catch (err) {
         console.error("Failed to fetch brand name", err);
         setBrandName(group.brandCode);
         setBrandGuidelines("");
+        setBrandHasAgency(false);
       }
     };
     loadBrand();
@@ -1934,7 +1939,7 @@ const AdGroupDetail = () => {
                 console.error("Failed to update due date", err);
               }
             }}
-            className="border p-1 rounded"
+          className="border p-1 rounded"
           />
         ) : (
           <span>
@@ -1943,11 +1948,54 @@ const AdGroupDetail = () => {
               : "N/A"}
           </span>
           )}
-          <span className="hidden sm:inline">|</span>
-          Designer:
-          {isAdmin || isManager ? (
-            <select
-              value={group.designerId || ''}
+        {(brandHasAgency || userRole === 'admin') && (
+          <>
+            <span className="hidden sm:inline">|</span>
+            Month:
+            <input
+              type="month"
+              value={group.month || ''}
+              onChange={async (e) => {
+                const value = e.target.value;
+                try {
+                  if (value) {
+                    await updateDoc(doc(db, 'adGroups', id), { month: value });
+                    setGroup((p) => ({ ...p, month: value }));
+                    if (group.requestId) {
+                      try {
+                        await updateDoc(doc(db, 'requests', group.requestId), { month: value });
+                      } catch (err) {
+                        console.error('Failed to sync ticket month', err);
+                      }
+                    }
+                  } else {
+                    await updateDoc(doc(db, 'adGroups', id), { month: deleteField() });
+                    setGroup((p) => {
+                      const u = { ...p };
+                      delete u.month;
+                      return u;
+                    });
+                    if (group.requestId) {
+                      try {
+                        await updateDoc(doc(db, 'requests', group.requestId), { month: deleteField() });
+                      } catch (err) {
+                        console.error('Failed to sync ticket month', err);
+                      }
+                    }
+                  }
+                } catch (err) {
+                  console.error('Failed to update month', err);
+                }
+              }}
+              className="border p-1 rounded"
+            />
+          </>
+        )}
+        <span className="hidden sm:inline">|</span>
+        Designer:
+        {isAdmin || isManager ? (
+          <select
+            value={group.designerId || ''}
               onChange={async (e) => {
                 const value = e.target.value || null;
                 try {
