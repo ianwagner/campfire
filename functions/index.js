@@ -186,6 +186,66 @@ export const updateBrandStatsOnAssetChange = onDocumentWritten(
   }
 );
 
+export const updateBrandStatsOnAdGroupChange = onDocumentWritten(
+  'adGroups/{groupId}',
+  async (event) => {
+    const before = event.data?.before?.data() || {};
+    const after = event.data?.after?.data() || {};
+
+    const beforeDue = before.dueDate?.toMillis ? before.dueDate.toMillis() : before.dueDate;
+    const afterDue = after.dueDate?.toMillis ? after.dueDate.toMillis() : after.dueDate;
+    const dueDateChanged = beforeDue !== afterDue;
+    const beforeBrand = before.brandCode;
+    const afterBrand = after.brandCode;
+    const brandChanged = beforeBrand !== afterBrand;
+
+    if (!dueDateChanged && !brandChanged) return null;
+
+    const brandCodes = new Set();
+    if (beforeBrand) brandCodes.add(beforeBrand);
+    if (afterBrand) brandCodes.add(afterBrand);
+
+    for (const code of brandCodes) {
+      try {
+        const snap = await db
+          .collection('brands')
+          .where('code', '==', code)
+          .limit(1)
+          .get();
+        if (snap.empty) continue;
+        const brandId = snap.docs[0].id;
+        await recomputeBrandStats(brandId);
+      } catch (err) {
+        console.error('Failed to update brand stats on ad group change', err);
+      }
+    }
+    return null;
+  }
+);
+
+export const updateBrandStatsOnRecipeChange = onDocumentWritten(
+  'adGroups/{groupId}/recipes/{recipeId}',
+  async (event) => {
+    const groupId = event.params.groupId;
+    try {
+      const groupSnap = await db.collection('adGroups').doc(groupId).get();
+      const brandCode = groupSnap.data()?.brandCode;
+      if (!brandCode) return null;
+      const brandSnap = await db
+        .collection('brands')
+        .where('code', '==', brandCode)
+        .limit(1)
+        .get();
+      if (brandSnap.empty) return null;
+      const brandId = brandSnap.docs[0].id;
+      await recomputeBrandStats(brandId);
+    } catch (err) {
+      console.error('Failed to update brand stats on recipe change', err);
+    }
+    return null;
+  }
+);
+
 export const processUpload = onObjectFinalized(async (event) => {
   const object = event.data;
   const { bucket, name, contentType } = object;
