@@ -93,12 +93,12 @@ service cloud.firestore {
       allow read: if request.auth != null;
 
       // Allow aggregation counts for internal roles using helper functions
-      allow count: if request.auth != null && (
-        isAdmin() ||
-        isManager() ||
-        isEditor() ||
-        isDesigner()
-      );
+allow count: if request.auth != null && (
+  request.auth.token.admin == true ||
+  request.auth.token.manager == true ||
+  request.auth.token.editor == true ||
+  request.auth.token.designer == true
+);
     }
 
     // ✅ Brand Stats
@@ -201,12 +201,12 @@ service cloud.firestore {
           );
 
         // Allow aggregation counts for internal roles using helper functions
-        allow count: if request.auth != null && (
-          isAdmin() ||
-          isManager() ||
-          isEditor() ||
-          isDesigner()
-        );
+allow count: if request.auth != null && (
+  request.auth.token.admin == true ||
+  request.auth.token.manager == true ||
+  request.auth.token.editor == true ||
+  request.auth.token.designer == true
+);
       }
     }
 
