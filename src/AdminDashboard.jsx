@@ -150,7 +150,9 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 } else if (c.renews || c.repeat) {
                   const current = new Date();
                   current.setDate(1);
-                  end = selected > current ? current : selected;
+                  const currentPlusTwo = new Date(current);
+                  currentPlusTwo.setMonth(currentPlusTwo.getMonth() + 2);
+                  end = selected > currentPlusTwo ? currentPlusTwo : selected;
                 } else {
                   end = new Date(`${startStr}-01`);
                 }
