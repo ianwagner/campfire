@@ -173,24 +173,32 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               );
               const adSnap = await getDocs(adQ);
               for (const g of adSnap.docs) {
-                const [rSnap, dSnap, apSnap] = await Promise.all([
+                const [rSnap, aSnap] = await Promise.all([
                   getCountFromServer(collection(db, 'adGroups', g.id, 'recipes')),
-                  getCountFromServer(
+                  getDocs(
                     query(
-                      collection(db, 'adGroups', g.id, 'recipes'),
-                      where('status', 'in', ['approved', 'rejected', 'edit_requested'])
-                    )
-                  ),
-                  getCountFromServer(
-                    query(
-                      collection(db, 'adGroups', g.id, 'recipes'),
-                      where('status', '==', 'approved')
+                      collection(db, 'adGroups', g.id, 'assets'),
+                      where('status', 'in', [
+                        'approved',
+                        'rejected',
+                        'edit_requested',
+                      ])
                     )
                   ),
                 ]);
                 briefed += rSnap.data().count || 0;
-                delivered += dSnap.data().count || 0;
-                approved += apSnap.data().count || 0;
+                const deliveredSet = new Set();
+                const approvedSet = new Set();
+                aSnap.docs.forEach((a) => {
+                  const data = a.data() || {};
+                  const key = `${g.id}:${data.recipeCode || ''}`;
+                  deliveredSet.add(key);
+                  if (data.status === 'approved') {
+                    approvedSet.add(key);
+                  }
+                });
+                delivered += deliveredSet.size;
+                approved += approvedSet.size;
               }
             }
 
