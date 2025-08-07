@@ -6,35 +6,48 @@ import AdGroupDetail from './AdGroupDetail';
 
 jest.mock('./firebase/config', () => ({ db: {}, auth: {} }));
 
-const useUserRole = jest.fn(() => ({ role: 'admin', brandCodes: [], loading: false }));
-jest.mock('./useUserRole', () => (...args) => useUserRole(...args));
+const mockUseUserRole = jest.fn(() => ({ role: 'admin', brandCodes: [], loading: false }));
+jest.mock('./useUserRole', () => (...args) => mockUseUserRole(...args));
 
-const getDoc = jest.fn();
-const onSnapshot = jest.fn();
-const updateDoc = jest.fn();
-const setDoc = jest.fn();
-const getDocs = jest.fn();
-const docMock = jest.fn((...args) => args.slice(1).join('/'));
-const collectionMock = jest.fn((...args) => args);
-const queryMock = jest.fn((...args) => args);
-const whereMock = jest.fn((...args) => args);
-const arrayUnionMock = jest.fn((...args) => args);
+jest.mock('./RecipePreview.jsx', () => () => <div />);
+jest.mock('./CopyRecipePreview.jsx', () => () => <div />);
+jest.mock('./BrandAssets.jsx', () => () => <div />);
+jest.mock('./BrandAssetsLayout.jsx', () => () => <div />);
+jest.mock('./components/HoverPreview.jsx', () => () => <div />);
+jest.mock('./components/ShareLinkModal.jsx', () => () => <div />);
+jest.mock('./components/OptimizedImage.jsx', () => () => <div />);
+jest.mock('./components/VideoPlayer.jsx', () => () => <div />);
+jest.mock('./LoadingOverlay', () => () => <div />);
+jest.mock('./components/Modal.jsx', () => ({ children }) => <div>{children}</div>);
+
+const mockGetDoc = jest.fn();
+const mockOnSnapshot = jest.fn();
+const mockUpdateDoc = jest.fn();
+const mockSetDoc = jest.fn();
+const mockGetDocs = jest.fn();
+const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
+const mockCollection = jest.fn((...args) => args);
+const mockQuery = jest.fn((...args) => args);
+const mockWhere = jest.fn((...args) => args);
+const mockArrayUnion = jest.fn((...args) => args);
+const mockDeleteField = jest.fn(() => 'DELETE_FIELD');
 
 jest.mock('firebase/firestore', () => ({
-  doc: (...args) => docMock(...args),
-  getDoc: (...args) => getDoc(...args),
-  onSnapshot: (...args) => onSnapshot(...args),
-  collection: (...args) => collectionMock(...args),
-  updateDoc: (...args) => updateDoc(...args),
-  setDoc: (...args) => setDoc(...args),
+  doc: (...args) => mockDoc(...args),
+  getDoc: (...args) => mockGetDoc(...args),
+  onSnapshot: (...args) => mockOnSnapshot(...args),
+  collection: (...args) => mockCollection(...args),
+  updateDoc: (...args) => mockUpdateDoc(...args),
+  setDoc: (...args) => mockSetDoc(...args),
   serverTimestamp: jest.fn(),
   writeBatch: jest.fn(() => ({ update: jest.fn(), commit: jest.fn() })),
   addDoc: jest.fn(),
   deleteDoc: jest.fn(),
-  arrayUnion: (...args) => arrayUnionMock(...args),
-  getDocs: (...args) => getDocs(...args),
-  query: (...args) => queryMock(...args),
-  where: (...args) => whereMock(...args),
+  arrayUnion: (...args) => mockArrayUnion(...args),
+  getDocs: (...args) => mockGetDocs(...args),
+  query: (...args) => mockQuery(...args),
+  where: (...args) => mockWhere(...args),
+  deleteField: (...args) => mockDeleteField(...args),
 }));
 
 jest.mock('firebase/storage', () => ({ ref: jest.fn(), deleteObject: jest.fn() }));
@@ -46,12 +59,12 @@ jest.mock('react-router-dom', () => ({
 }));
 
 beforeEach(() => {
-  getDoc.mockResolvedValue({
+  mockGetDoc.mockResolvedValue({
     exists: () => true,
     id: 'group1',
     data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'draft' }),
   });
-  getDocs.mockResolvedValue({ empty: true, docs: [] });
+  mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
 });
 
 afterEach(() => {
@@ -59,7 +72,7 @@ afterEach(() => {
 });
 
 test('toggles asset status to ready', async () => {
-  onSnapshot.mockImplementation((col, cb) => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
     cb({ docs: [{ id: 'asset1', data: () => ({ filename: 'f1.png', status: 'pending' }) }] });
     return jest.fn();
   });
@@ -74,12 +87,12 @@ test('toggles asset status to ready', async () => {
   const select = screen.getByRole('combobox');
   fireEvent.change(select, { target: { value: 'ready' } });
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
-  expect(updateDoc).toHaveBeenCalledWith('adGroups/group1/assets/asset1', { status: 'ready' });
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
+  expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1/assets/asset1', { status: 'ready' });
 });
 
 test('toggles asset status back to pending', async () => {
-  onSnapshot.mockImplementation((col, cb) => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
     cb({ docs: [{ id: 'asset1', data: () => ({ filename: 'f1.png', status: 'ready' }) }] });
     return jest.fn();
   });
@@ -94,12 +107,12 @@ test('toggles asset status back to pending', async () => {
   const select = screen.getByRole('combobox');
   fireEvent.change(select, { target: { value: 'pending' } });
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
-  expect(updateDoc).toHaveBeenCalledWith('adGroups/group1/assets/asset1', { status: 'pending' });
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
+  expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1/assets/asset1', { status: 'pending' });
 });
 
 test('fetches recipe history', async () => {
-  onSnapshot.mockImplementation((col, cb) => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
     cb({
       docs: [
         { id: 'asset1', data: () => ({ filename: '1_9x16.png', status: 'ready' }) },
@@ -119,8 +132,8 @@ test('fetches recipe history', async () => {
   const historyBtn = screen.getByLabelText('History');
   fireEvent.click(historyBtn);
 
-  await waitFor(() => expect(getDocs).toHaveBeenCalled());
-  expect(collectionMock).toHaveBeenCalledWith(
+  await waitFor(() => expect(mockGetDocs).toHaveBeenCalled());
+  expect(mockCollection).toHaveBeenCalledWith(
     {},
     'adGroups',
     'group1',
@@ -131,7 +144,7 @@ test('fetches recipe history', async () => {
 });
 
 test('opens metadata modal for recipe id "1"', async () => {
-  onSnapshot.mockImplementation((col, cb) => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
     const path = Array.isArray(col) ? col.join('/') : '';
     if (path.includes('recipes')) {
       cb({
@@ -164,7 +177,7 @@ test('opens metadata modal for recipe id "1"', async () => {
 
 test('updates version display when asset changes', async () => {
   let snapshotCb;
-  onSnapshot.mockImplementation((col, cb) => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
     snapshotCb = cb;
     cb({
       docs: [
@@ -201,4 +214,36 @@ test('updates version display when asset changes', async () => {
   row = await screen.findByText('ad_V2.png');
   versionCell = row.closest('tr').querySelector('td:nth-child(2)');
   expect(versionCell).toHaveTextContent('2');
+});
+
+test('admin can manage month even without agency', async () => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({ docs: [] });
+    return jest.fn();
+  });
+
+  const { container } = render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>
+  );
+
+  await screen.findByText('Group 1');
+  const monthInput = container.querySelector('input[type="month"]');
+  expect(monthInput).toBeInTheDocument();
+
+  fireEvent.change(monthInput, { target: { value: '2024-07' } });
+  await waitFor(() =>
+    expect(mockUpdateDoc).toHaveBeenNthCalledWith(1, 'adGroups/group1', { month: '2024-07' })
+  );
+
+  fireEvent.change(monthInput, { target: { value: '2024-08' } });
+  await waitFor(() =>
+    expect(mockUpdateDoc).toHaveBeenNthCalledWith(2, 'adGroups/group1', { month: '2024-08' })
+  );
+
+  fireEvent.change(monthInput, { target: { value: '' } });
+  await waitFor(() =>
+    expect(mockUpdateDoc).toHaveBeenNthCalledWith(3, 'adGroups/group1', { month: 'DELETE_FIELD' })
+  );
 });

@@ -169,6 +169,7 @@ const AdGroupDetail = () => {
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
   const showStats = usesTabs ? tab === "stats" : !showTable;
+  const canEditMonth = isAdmin || brandHasAgency;
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -1948,7 +1949,7 @@ const AdGroupDetail = () => {
               : "N/A"}
           </span>
           )}
-        {(brandHasAgency || userRole === 'admin') && (
+        {canEditMonth && (
           <>
             <span className="hidden sm:inline">|</span>
             Month:
@@ -1957,6 +1958,7 @@ const AdGroupDetail = () => {
               value={group.month || ''}
               onChange={async (e) => {
                 const value = e.target.value;
+                if (!canEditMonth) return;
                 try {
                   if (value) {
                     await updateDoc(doc(db, 'adGroups', id), { month: value });
