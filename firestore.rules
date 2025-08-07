@@ -92,12 +92,12 @@ service cloud.firestore {
     match /brands/{brandId}/assets/{assetId} {
       allow read: if request.auth != null;
 
-      // Allow aggregation counts for internal roles based on custom claims
+      // Allow aggregation counts for internal roles using helper functions
       allow count: if request.auth != null && (
-        request.auth.token.admin == true ||
-        request.auth.token.manager == true ||
-        request.auth.token.editor == true ||
-        request.auth.token.designer == true
+        isAdmin() ||
+        isManager() ||
+        isEditor() ||
+        isDesigner()
       );
     }
 
@@ -200,12 +200,12 @@ service cloud.firestore {
               resource.data.status == 'approved')
           );
 
-        // Allow aggregation counts for internal roles based on custom claims
+        // Allow aggregation counts for internal roles using helper functions
         allow count: if request.auth != null && (
-          request.auth.token.admin == true ||
-          request.auth.token.manager == true ||
-          request.auth.token.editor == true ||
-          request.auth.token.designer == true
+          isAdmin() ||
+          isManager() ||
+          isEditor() ||
+          isDesigner()
         );
       }
     }
