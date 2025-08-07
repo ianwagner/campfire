@@ -148,18 +148,29 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               contracts.forEach((c) => {
                 if (!c.startDate) return;
                 const start = new Date(c.startDate);
-                const end = c.endDate ? new Date(c.endDate) : new Date(c.startDate);
+                const isRepeating = c.renews || c.repeat;
+                let end;
+                if (c.endDate) {
+                  end = new Date(c.endDate);
+                } else if (isRepeating) {
+                  const selectedEnd = new Date(`${range.end}-01`);
+                  const current = new Date();
+                  current.setDate(1);
+                  end = selectedEnd > current ? current : selectedEnd;
+                } else {
+                  end = new Date(c.startDate);
+                }
                 const units = Number(c.stills || 0) + Number(c.videos || 0);
-                  let cur = new Date(start);
-                  while (cur <= end) {
-                    const m = getMonthString(cur);
-                    if (m >= range.start && m <= range.end) {
-                      contracted += units;
-                    }
-                    cur.setDate(1);
-                    cur.setMonth(cur.getMonth() + 1);
+                let cur = new Date(start);
+                while (cur <= end) {
+                  const m = getMonthString(cur);
+                  if (m >= range.start && m <= range.end) {
+                    contracted += units;
                   }
-                });
+                  cur.setDate(1);
+                  cur.setMonth(cur.getMonth() + 1);
+                }
+              });
               }
 
             if (brandCode) {
