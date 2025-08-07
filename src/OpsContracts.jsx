@@ -20,11 +20,32 @@ const OpsContracts = () => {
       setLoading(true);
       try {
         const base = collection(db, 'brands');
-        const q = agencyId
-          ? query(base, where('agencyId', '==', agencyId))
-          : query(base, where('code', 'in', brandCodes));
-        const snap = await getDocs(q);
-        setBrands(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        let docs = [];
+
+        if (agencyId) {
+          const q = query(base, where('agencyId', '==', agencyId));
+          const snap = await getDocs(q);
+          docs = snap.docs;
+        } else {
+          const chunks = [];
+          for (let i = 0; i < brandCodes.length; i += 10) {
+            chunks.push(brandCodes.slice(i, i + 10));
+          }
+          const snaps = await Promise.all(
+            chunks.map((codes) =>
+              getDocs(query(base, where('code', 'in', codes)))
+            )
+          );
+          const docMap = new Map();
+          snaps.forEach((snap) => {
+            snap.docs.forEach((d) => {
+              docMap.set(d.id, d);
+            });
+          });
+          docs = Array.from(docMap.values());
+        }
+
+        setBrands(docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error('Failed to fetch brands', err);
         setBrands([]);
