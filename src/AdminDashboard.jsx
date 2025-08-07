@@ -180,7 +180,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                   getCountFromServer(
                     query(
                       collection(db, 'adGroups', g.id, 'recipes'),
-                      where('status', 'in', ['approved', 'rejected'])
+                      where('status', 'in', ['approved', 'rejected', 'edit_requested'])
                     )
                   ),
                   getCountFromServer(
