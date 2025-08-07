@@ -14,18 +14,12 @@ import { db } from './firebase/config';
 import { getAuth } from 'firebase/auth';
 import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
-import DateRangeSelector from './components/DateRangeSelector.jsx';
+import MonthSelector from './components/MonthSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
 
 function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = {}) {
   const thisMonth = getMonthString();
-    const lastMonth = (() => {
-      const d = new Date();
-      d.setDate(1);
-      d.setMonth(d.getMonth() - 1);
-      return getMonthString(d);
-    })();
-  const [range, setRange] = useState({ start: lastMonth, end: thisMonth });
+  const [month, setMonth] = useState(thisMonth);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -153,7 +147,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 if (c.endDate) {
                   end = new Date(c.endDate);
                 } else if (isRepeating) {
-                  const selectedEnd = new Date(`${range.end}-01`);
+                  const selectedEnd = new Date(`${month}-01`);
                   const current = new Date();
                   current.setDate(1);
                   end = selectedEnd > current ? current : selectedEnd;
@@ -164,7 +158,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 let cur = new Date(start);
                 while (cur <= end) {
                   const m = getMonthString(cur);
-                  if (m >= range.start && m <= range.end) {
+                  if (m === month) {
                     contracted += units;
                   }
                   cur.setDate(1);
@@ -174,8 +168,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               }
 
             if (brandCode) {
-              const startDate = new Date(`${range.start}-01`);
-              const endDate = new Date(`${range.end}-01`);
+              const startDate = new Date(`${month}-01`);
+              const endDate = new Date(startDate);
               endDate.setMonth(endDate.getMonth() + 1);
               endDate.setDate(0);
               const adQ = query(
@@ -261,7 +255,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           let error = false;
 
           for (const [m, v] of Object.entries(counts)) {
-            if (m >= range.start && m <= range.end) {
+            if (m === month) {
               contracted += Number(v.contracted || 0);
               briefed += Number(v.briefed || 0);
               delivered += Number(v.delivered || 0);
@@ -311,15 +305,11 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     return () => {
       active = false;
     };
-  }, [range.start, range.end, agencyId, brandCodes]);
+  }, [month, agencyId, brandCodes]);
 
   return (
     <PageWrapper title="Dashboard">
-      <DateRangeSelector
-        startDate={range.start}
-        endDate={range.end}
-        onChange={(r) => setRange(r)}
-      />
+      <MonthSelector value={month} onChange={setMonth} />
       {loading ? (
         <p>Loading...</p>
       ) : rows.length === 0 ? (
