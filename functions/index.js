@@ -72,17 +72,17 @@ async function recomputeBrandStats(brandId) {
     if (!c.startDate) continue;
     const stills = Number(c.stills || 0);
     const videos = Number(c.videos || 0);
-    let current = new Date(c.startDate);
-    const end = c.endDate ? new Date(c.endDate) : null;
+    let current = new Date(`${c.startDate}-01`);
+    const end = c.endDate ? new Date(`${c.endDate}-01`) : null;
     let loops = 0;
     while (current && (!end || current <= end)) {
       const key = monthKey(current);
       contractedCounts[key] = (contractedCounts[key] || 0) + stills + videos;
-      if (!c.renews) break;
       current = new Date(current);
       current.setDate(1);
       current.setMonth(current.getMonth() + 1);
       loops++;
+      if (!c.renews && !c.endDate) break; // single-month contract
       if (!end && loops >= 60) break; // limit unlimited contracts to 5 years
     }
   }
@@ -107,6 +107,24 @@ async function recomputeBrandStats(brandId) {
 
     const assetsSnap = await g.ref.collection('assets').get();
     const assetRecipes = new Set();
+    if (!deliveredSets[mKey]) deliveredSets[mKey] = new Set();
+    if (!approvedSets[mKey]) approvedSets[mKey] = new Set();
+    const deliveredSet = deliveredSets[mKey];
+    const approvedSet = approvedSets[mKey];
+
+    // count recipe statuses
+    recipeSnap.docs.forEach((r) => {
+      const rData = r.data() || {};
+      const key = `${g.id}-${r.id}`;
+      if (['approved', 'rejected', 'edit_requested'].includes(rData.status)) {
+        deliveredSet.add(key);
+      }
+      if (rData.status === 'approved') {
+        approvedSet.add(key);
+      }
+    });
+
+    // fall back to assets
     assetsSnap.docs.forEach((ad) => {
       const data = ad.data() || {};
       const info = parseAdFilename(data.filename || '');
@@ -116,12 +134,10 @@ async function recomputeBrandStats(brandId) {
       const key = `${groupCode}-${recipe}`;
       assetRecipes.add(key);
       if (['ready', 'approved', 'rejected', 'edit_requested'].includes(data.status)) {
-        if (!deliveredSets[mKey]) deliveredSets[mKey] = new Set();
-        deliveredSets[mKey].add(key);
+        deliveredSet.add(key);
       }
       if (data.status === 'approved') {
-        if (!approvedSets[mKey]) approvedSets[mKey] = new Set();
-        approvedSets[mKey].add(key);
+        approvedSet.add(key);
       }
     });
 

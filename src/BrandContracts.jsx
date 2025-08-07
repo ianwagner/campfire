@@ -41,8 +41,8 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
             setContracts(
               Array.isArray(data.contracts) && data.contracts.length
                 ? data.contracts.map((c) => ({
-                    startDate: c.startDate || '',
-                    endDate: c.endDate || '',
+                    startDate: c.startDate ? c.startDate.slice(0, 7) : '',
+                    endDate: c.endDate ? c.endDate.slice(0, 7) : '',
                     stills: c.stills || '',
                     videos: c.videos || '',
                     renews: c.renews || false,
@@ -61,8 +61,8 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
             setContracts(
               Array.isArray(data.contracts) && data.contracts.length
                 ? data.contracts.map((c) => ({
-                    startDate: c.startDate || '',
-                    endDate: c.endDate || '',
+                    startDate: c.startDate ? c.startDate.slice(0, 7) : '',
+                    endDate: c.endDate ? c.endDate.slice(0, 7) : '',
                     stills: c.stills || '',
                     videos: c.videos || '',
                     renews: c.renews || false,
@@ -106,17 +106,17 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
       <form onSubmit={handleSave} className="space-y-4 max-w-md">
         {contracts.map((c, idx) => (
           <div key={idx} className="border p-2 rounded space-y-2">
-            <FormField label="Start Date">
+            <FormField label="Start Month">
               <input
-                type="date"
+                type="month"
                 value={c.startDate}
                 onChange={(e) => updateContract(idx, { startDate: e.target.value })}
                 className="w-full p-2 border rounded"
               />
             </FormField>
-            <FormField label="End Date (optional)">
+            <FormField label="End Month (optional)">
               <input
-                type="date"
+                type="month"
                 value={c.endDate}
                 onChange={(e) => updateContract(idx, { endDate: e.target.value })}
                 className="w-full p-2 border rounded"
