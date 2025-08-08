@@ -23,6 +23,7 @@ jest.mock('./useSiteSettings', () => jest.fn(() => ({ settings: {}, loading: fal
 jest.mock('./RecipePreview.jsx', () => () => <div />);
 jest.mock('./DescribeProjectModal.jsx', () => () => <div />);
 jest.mock('./components/OptimizedImage.jsx', () => () => <div />);
+jest.mock('./useUserRole', () => () => ({ agencyId: null }));
 
 import { onSnapshot } from 'firebase/firestore';
 

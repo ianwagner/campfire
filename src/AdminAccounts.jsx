@@ -73,6 +73,10 @@ const AdminAccounts = () => {
   const handleSave = async (id) => {
     debugLog('Saving account', id);
     const codes = form.brandCodes.filter(Boolean);
+    if (form.role === 'ops' && !form.agencyId) {
+      window.alert('Ops users require an agency');
+      return;
+    }
     try {
       await updateDoc(doc(db, 'users', id), {
         role: form.role,

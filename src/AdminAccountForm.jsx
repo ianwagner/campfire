@@ -39,6 +39,11 @@ const AdminAccountForm = () => {
     setSuccess('');
     setLoading(true);
     try {
+      if (role === 'ops' && !agencyId) {
+        setErrors(['Ops accounts require an agency']);
+        setLoading(false);
+        return;
+      }
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const codes = brandCodes.filter(Boolean);
       await setDoc(doc(db, 'users', cred.user.uid), {
@@ -97,6 +102,7 @@ const AdminAccountForm = () => {
             <option value="designer">Designer</option>
             <option value="manager">Manager</option>
             <option value="editor">Editor</option>
+            <option value="ops">Ops</option>
           </select>
         </div>
         <div>

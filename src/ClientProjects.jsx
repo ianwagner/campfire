@@ -23,6 +23,7 @@ import { FaMagic } from 'react-icons/fa';
 import TabButton from './components/TabButton.jsx';
 import { uploadFile } from './uploadFile.js';
 import { deductRecipeCredits } from './utils/credits.js';
+import useUserRole from './useUserRole';
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
@@ -41,6 +42,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   const [title, setTitle] = useState('');
   const [step, setStep] = useState(1);
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
+  const { agencyId } = useUserRole(auth.currentUser?.uid);
 
   const handleSave = async (recipes, briefNote, briefAssets) => {
     if (!brandCode) {
@@ -58,6 +60,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         status: 'briefed',
         createdAt: serverTimestamp(),
         userId: auth.currentUser?.uid || null,
+        agencyId: agencyId || null,
       });
 
       const groupRef = await addDoc(collection(db, 'adGroups'), {

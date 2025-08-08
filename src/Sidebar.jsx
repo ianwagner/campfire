@@ -40,6 +40,7 @@ const opsTabs = [
   { label: 'Dashboard', path: '/pm/dashboard', icon: FiHome },
   { label: 'Tickets', path: '/pm/tickets', icon: FiList },
   { label: 'Ad Groups', path: '/pm/ad-groups', icon: FiGrid },
+  { label: 'Client Projects', path: '/ops/projects', icon: FiFolder },
   { label: 'Contracts', path: '/ops/contracts', icon: FiFileText },
   { label: 'Account Settings', path: '/account-settings', icon: FiUser },
 ];
