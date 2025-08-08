@@ -242,6 +242,22 @@ export const updateBrandStatsOnAdGroupChange = onDocumentWritten(
   }
 );
 
+export const syncProjectStatusOnAdGroupUpdate = onDocumentUpdated(
+  'adGroups/{groupId}',
+  async (event) => {
+    const after = event.data?.after?.data() || {};
+    const projectId = after.projectId;
+    const status = after.status;
+    if (!projectId || !status) return null;
+    try {
+      await db.collection('projects').doc(projectId).update({ status });
+    } catch (err) {
+      console.error('Failed to sync project status from ad group', err);
+    }
+    return null;
+  }
+);
+
 export const updateBrandStatsOnRecipeChange = onDocumentWritten(
   'adGroups/{groupId}/recipes/{recipeId}',
   async (event) => {
