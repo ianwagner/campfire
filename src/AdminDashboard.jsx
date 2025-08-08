@@ -173,7 +173,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               const dueQ = query(
                 collection(db, 'adGroups'),
                 where('brandCode', '==', brandCode),
-                where('month', '==', null),
                 where('dueDate', '>=', Timestamp.fromDate(startDate)),
                 where('dueDate', '<', Timestamp.fromDate(endDate))
               );
@@ -181,7 +180,11 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 getDocs(monthQ),
                 getDocs(dueQ),
               ]);
-              const adDocs = [...monthSnap.docs, ...dueSnap.docs];
+              const dueDocs = dueSnap.docs.filter((g) => {
+                const data = g.data() || {};
+                return !data.month;
+              });
+              const adDocs = [...monthSnap.docs, ...dueDocs];
               for (const g of adDocs) {
                 const [rSnap, aSnap] = await Promise.all([
                   getCountFromServer(collection(db, 'adGroups', g.id, 'recipes')),
