@@ -36,6 +36,14 @@
         { "fieldPath": "brandCode", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "adGroups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "brandCode", "order": "ASCENDING" },
+        { "fieldPath": "dueDate", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
