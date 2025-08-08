@@ -44,6 +44,14 @@
         { "fieldPath": "brandCode", "order": "ASCENDING" },
         { "fieldPath": "dueDate", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "adGroups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "brandCode", "order": "ASCENDING" },
+        { "fieldPath": "month", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
