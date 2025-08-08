@@ -1,5 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, orderBy, serverTimestamp } from 'firebase/firestore';
+import React, { useEffect, useState, useRef } from 'react';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+  orderBy,
+  serverTimestamp,
+  onSnapshot,
+} from 'firebase/firestore';
 import { FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
@@ -9,7 +20,11 @@ const OpsClientProjects = () => {
   const [clients, setClients] = useState([]);
   const [expanded, setExpanded] = useState({});
   const [projects, setProjects] = useState({});
+  const [projDocs, setProjDocs] = useState({});
+  const [groups, setGroups] = useState({});
   const [loading, setLoading] = useState(true);
+  const projUnsubs = useRef({});
+  const groupUnsubs = useRef({});
 
   useEffect(() => {
     if (!agencyId) return;
@@ -33,23 +48,91 @@ const OpsClientProjects = () => {
     fetchClients();
   }, [agencyId]);
 
-  const toggle = async (id) => {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
-    if (!projects[id]) {
-      try {
-        const q = query(
+  useEffect(() => {
+    const merged = {};
+    Object.keys(projDocs).forEach((cid) => {
+      const projList = projDocs[cid] || [];
+      const groupList = groups[cid] || [];
+      const groupMap = {};
+      groupList.forEach((g) => {
+        groupMap[`${g.brandCode}|${g.name}`] = g;
+      });
+      merged[cid] = projList.map((p) => ({
+        ...p,
+        group: groupMap[`${p.brandCode}|${p.title}`],
+      }));
+    });
+    setProjects(merged);
+  }, [projDocs, groups]);
+
+  const toggle = (id) => {
+    const willExpand = !expanded[id];
+    setExpanded((prev) => ({ ...prev, [id]: willExpand }));
+
+    if (willExpand) {
+      if (!projUnsubs.current[id]) {
+        const projQ = query(
           collection(db, 'projects'),
           where('userId', '==', id),
           where('agencyId', '==', agencyId),
           orderBy('createdAt', 'desc')
         );
-        const snap = await getDocs(q);
-        setProjects((prev) => ({ ...prev, [id]: snap.docs.map((d) => ({ id: d.id, ...d.data() })) }));
-      } catch (err) {
-        console.error('Failed to fetch projects', err);
+        projUnsubs.current[id] = onSnapshot(
+          projQ,
+          (snap) => {
+            const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            setProjDocs((prev) => ({ ...prev, [id]: list }));
+          },
+          (err) => console.error('Project listener failed', err)
+        );
       }
+      if (!groupUnsubs.current[id]) {
+        const groupQ = query(
+          collection(db, 'adGroups'),
+          where('uploadedBy', '==', id)
+        );
+        groupUnsubs.current[id] = onSnapshot(
+          groupQ,
+          (snap) => {
+            const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            setGroups((prev) => ({ ...prev, [id]: list }));
+          },
+          (err) => console.error('Ad group listener failed', err)
+        );
+      }
+    } else {
+      if (projUnsubs.current[id]) {
+        projUnsubs.current[id]();
+        delete projUnsubs.current[id];
+      }
+      if (groupUnsubs.current[id]) {
+        groupUnsubs.current[id]();
+        delete groupUnsubs.current[id];
+      }
+      setProjDocs((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+      setGroups((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+      setProjects((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
     }
   };
+
+  useEffect(() => {
+    return () => {
+      Object.values(projUnsubs.current).forEach((unsub) => unsub());
+      Object.values(groupUnsubs.current).forEach((unsub) => unsub());
+    };
+  }, []);
 
   const handleArchive = async (clientId, projectId) => {
     try {
@@ -104,29 +187,32 @@ const OpsClientProjects = () => {
               {expanded[c.id] && (
                 <ul className="px-4 pb-2 space-y-1">
                   {(projects[c.id] || []).length ? (
-                    projects[c.id].map((p) => (
-                      <li key={p.id} className="flex justify-between items-center">
-                        <span>
-                          {p.title} - {p.status}
-                        </span>
-                        <span className="space-x-2">
-                          {p.status !== 'archived' && (
+                    projects[c.id].map((p) => {
+                      const status = p.group ? p.group.status : p.status;
+                      return (
+                        <li key={p.id} className="flex justify-between items-center">
+                          <span>
+                            {p.title} - {status}
+                          </span>
+                          <span className="space-x-2">
+                            {status !== 'archived' && (
+                              <button
+                                className="text-sm text-blue-600"
+                                onClick={() => handleArchive(c.id, p.id)}
+                              >
+                                Archive
+                              </button>
+                            )}
                             <button
-                              className="text-sm text-blue-600"
-                              onClick={() => handleArchive(c.id, p.id)}
+                              className="text-sm text-red-600"
+                              onClick={() => handleDelete(c.id, p.id)}
                             >
-                              Archive
+                              Delete
                             </button>
-                          )}
-                          <button
-                            className="text-sm text-red-600"
-                            onClick={() => handleDelete(c.id, p.id)}
-                          >
-                            Delete
-                          </button>
-                        </span>
-                      </li>
-                    ))
+                          </span>
+                        </li>
+                      );
+                    })
                   ) : (
                     <li className="text-sm text-gray-500">No projects.</li>
                   )}
