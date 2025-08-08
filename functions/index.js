@@ -618,6 +618,40 @@ export const archiveProjectOnRequestDone = onDocumentUpdated('requests/{requestI
   return null;
 });
 
+export const syncProjectStatus = onDocumentWritten('adGroups/{groupId}', async (event) => {
+  const before = event.data.before.data() || {};
+  const after = event.data.after.data() || {};
+  const projectId = after.projectId || before.projectId;
+  if (!projectId) return null;
+
+  const projectRef = db.collection('projects').doc(projectId);
+
+  if (!event.data.after.exists) {
+    try {
+      if (before.status === 'archived') {
+        await projectRef.update({
+          status: 'archived',
+          archivedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } else {
+        await projectRef.delete();
+      }
+    } catch (err) {
+      console.error('Failed to handle project for deleted ad group', err);
+    }
+    return null;
+  }
+
+  const status = after.status;
+  if (!status) return null;
+  try {
+    await projectRef.update({ status });
+  } catch (err) {
+    console.error('Failed to sync project status', err);
+  }
+  return null;
+});
+
 export {
   tagger,
   generateThumbnailsForAssets,
