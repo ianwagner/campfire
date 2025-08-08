@@ -94,6 +94,7 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
             brandCode,
             status: 'processing',
             month: month || null,
+            ...(agencyId ? { agencyId } : {}),
           });
         }
       } else {
@@ -105,6 +106,7 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           createdAt: serverTimestamp(),
           userId: auth.currentUser?.uid || null,
           month: month || null,
+          agencyId: agencyId || null,
         });
         projectId = projRef.id;
         await addDoc(collection(db, 'requests'), {
