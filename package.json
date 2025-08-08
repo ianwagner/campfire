@@ -35,7 +35,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "sync": "node sync.js",
-    "test": "jest"
+    "test": "jest",
+    "backfill-adgroup-months": "node functions/backfillAdGroupMonths.js"
   },
   "license": "UNLICENSED"
 }
