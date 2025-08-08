@@ -148,9 +148,9 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 if (endStr) {
                   end = new Date(`${endStr}-01`);
                 } else if (c.renews || c.repeat) {
-                  const current = new Date();
-                  current.setDate(1);
-                  end = selected > current ? current : selected;
+                  // Open-ended contracts should count for future months up to five years
+                  end = new Date(start);
+                  end.setMonth(end.getMonth() + 60);
                 } else {
                   end = new Date(`${startStr}-01`);
                 }
