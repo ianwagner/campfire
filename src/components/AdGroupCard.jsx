@@ -16,6 +16,8 @@ import {
   FiArchive,
   FiRotateCcw,
   FiTrash,
+  FiClock,
+  FiUser,
 } from 'react-icons/fi';
 import { auth } from '../firebase/config';
 import useUserRole from '../useUserRole';
@@ -33,6 +35,9 @@ const AdGroupCard = ({
   onGallery,
   onCopy,
   onDownload,
+  onChangeMonth,
+  onChangeDueDate,
+  onChangeDesigner,
   triggerClickMenu,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -101,6 +106,30 @@ const AdGroupCard = ({
               className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
             >
               <FiDownload /> Download Approved
+            </button>
+          )}
+          {onChangeMonth && (
+            <button
+              onClick={(e) => handleClick(e, onChangeMonth)}
+              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+            >
+              <FiClock /> Change Month
+            </button>
+          )}
+          {onChangeDueDate && (
+            <button
+              onClick={(e) => handleClick(e, onChangeDueDate)}
+              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+            >
+              <FiCalendar /> Change Due Date
+            </button>
+          )}
+          {onChangeDesigner && (
+            <button
+              onClick={(e) => handleClick(e, onChangeDesigner)}
+              className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+            >
+              <FiUser /> Change Designer
             </button>
           )}
           {onRename && (

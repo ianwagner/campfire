@@ -17,7 +17,7 @@ import {
   FiThumbsDown,
   FiEdit,
 } from 'react-icons/fi';
-import { collection, getDocs, getDoc, query, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, getDoc, query, where, doc, updateDoc, serverTimestamp, Timestamp, deleteField } from 'firebase/firestore';
 import { db } from './firebase/config';
 import createArchiveTicket from './utils/createArchiveTicket';
 import deleteGroup from './utils/deleteGroup';
@@ -39,6 +39,7 @@ import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
 import ScrollModal from './components/ScrollModal.jsx';
 import CloseButton from './components/CloseButton.jsx';
+import GalleryModal from './components/GalleryModal.jsx';
 
 const AdminAdGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -59,6 +60,8 @@ const AdminAdGroups = () => {
   const [designers, setDesigners] = useState([]);
   const [designerFilter, setDesignerFilter] = useState('');
   const [view, setView] = useState('kanban');
+  const [showGallery, setShowGallery] = useState(false);
+  const [galleryAds, setGalleryAds] = useState([]);
 
   const handleShare = async (id) => {
     let url = `${window.location.origin}/review/${id}`;
@@ -179,7 +182,7 @@ const AdminAdGroups = () => {
   }, []);
 
   const handleDeleteGroup = async (groupId, brandCode, groupName) => {
-    if (!window.confirm('Delete this group?')) return;
+    if (!window.confirm('Delete this group? This cannot be undone.')) return;
     try {
       await deleteGroup(groupId, brandCode, groupName);
       setGroups((prev) => prev.filter((g) => g.id !== groupId));
@@ -218,6 +221,109 @@ const AdminAdGroups = () => {
       );
     } catch (err) {
       console.error('Failed to restore group', err);
+    }
+  };
+
+  const handleGallery = async (id) => {
+    try {
+      const snap = await getDocs(collection(db, 'adGroups', id, 'assets'));
+      setGalleryAds(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (err) {
+      console.error('Failed to load assets', err);
+      setGalleryAds([]);
+    }
+    setShowGallery(true);
+  };
+
+  const handleChangeMonth = async (group) => {
+    const current = group.month || '';
+    const value = window.prompt('Enter new month (YYYY-MM)', current);
+    if (value === null) return;
+    const trimmed = value.trim();
+    try {
+      if (trimmed) {
+        await updateDoc(doc(db, 'adGroups', group.id), { month: trimmed });
+        setGroups((prev) =>
+          prev.map((g) => (g.id === group.id ? { ...g, month: trimmed } : g))
+        );
+        if (group.requestId) {
+          try {
+            await updateDoc(doc(db, 'requests', group.requestId), { month: trimmed });
+          } catch (err) {
+            console.error('Failed to sync ticket month', err);
+          }
+        }
+      } else {
+        await updateDoc(doc(db, 'adGroups', group.id), { month: deleteField() });
+        setGroups((prev) =>
+          prev.map((g) => {
+            if (g.id !== group.id) return g;
+            const u = { ...g };
+            delete u.month;
+            return u;
+          })
+        );
+        if (group.requestId) {
+          try {
+            await updateDoc(doc(db, 'requests', group.requestId), { month: deleteField() });
+          } catch (err) {
+            console.error('Failed to sync ticket month', err);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update month', err);
+    }
+  };
+
+  const handleChangeDueDate = async (group) => {
+    const current = group.dueDate
+      ? (group.dueDate.toDate
+          ? group.dueDate.toDate().toISOString().slice(0, 10)
+          : new Date(group.dueDate).toISOString().slice(0, 10))
+      : '';
+    const value = window.prompt('Enter new due date (YYYY-MM-DD)', current);
+    if (value === null) return;
+    const date = value ? Timestamp.fromDate(new Date(value)) : null;
+    try {
+      await updateDoc(doc(db, 'adGroups', group.id), { dueDate: date });
+      setGroups((prev) =>
+        prev.map((g) => (g.id === group.id ? { ...g, dueDate: date } : g))
+      );
+      if (group.requestId) {
+        try {
+          await updateDoc(doc(db, 'requests', group.requestId), { dueDate: date });
+        } catch (err) {
+          console.error('Failed to sync ticket due date', err);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update due date', err);
+    }
+  };
+
+  const handleChangeDesigner = async (group) => {
+    const opts = designers.map((d) => `${d.id} (${d.name})`).join(', ');
+    const value = window.prompt(`Enter designer ID (${opts})`, group.designerId || '');
+    if (value === null) return;
+    const trimmed = value.trim();
+    const designerId = trimmed || null;
+    try {
+      await updateDoc(doc(db, 'adGroups', group.id), { designerId });
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === group.id
+            ? {
+                ...g,
+                designerId,
+                designerName:
+                  designers.find((d) => d.id === designerId)?.name || '',
+              }
+            : g
+        )
+      );
+    } catch (err) {
+      console.error('Failed to update designer', err);
     }
   };
 
@@ -359,6 +465,10 @@ const AdminAdGroups = () => {
                 onReview={() => (window.location.href = `/review/${g.id}`)}
                 onShare={() => handleShare(g.id)}
                 onRename={() => promptRename(g)}
+                onGallery={() => handleGallery(g.id)}
+                onChangeMonth={() => handleChangeMonth(g)}
+                onChangeDueDate={() => handleChangeDueDate(g)}
+                onChangeDesigner={() => handleChangeDesigner(g)}
                 onArchive={
                   g.status !== 'archived' && (isAdmin || isManager)
                     ? () => handleArchiveGroup(g.id)
@@ -525,7 +635,32 @@ const AdminAdGroups = () => {
                       {displayGroups
                         .filter((g) => computeKanbanStatus(g) === col.status)
                         .map((g) => (
-                          <AdGroupCard key={g.id} group={g} />
+                          <AdGroupCard
+                            key={g.id}
+                            group={g}
+                            onReview={() => (window.location.href = `/review/${g.id}`)}
+                            onShare={() => handleShare(g.id)}
+                            onRename={() => promptRename(g)}
+                            onGallery={() => handleGallery(g.id)}
+                            onChangeMonth={() => handleChangeMonth(g)}
+                            onChangeDueDate={() => handleChangeDueDate(g)}
+                            onChangeDesigner={() => handleChangeDesigner(g)}
+                            onArchive={
+                              g.status !== 'archived' && (isAdmin || isManager)
+                                ? () => handleArchiveGroup(g.id)
+                                : undefined
+                            }
+                            onRestore={
+                              g.status === 'archived' && (isAdmin || isManager)
+                                ? () => handleRestoreGroup(g.id)
+                                : undefined
+                            }
+                            onDelete={
+                              isAdmin
+                                ? () => handleDeleteGroup(g.id, g.brandCode, g.name)
+                                : undefined
+                            }
+                          />
                         ))}
                     </div>
                   </div>
@@ -561,6 +696,9 @@ const AdminAdGroups = () => {
             </button>
           </div>
         </div>
+      )}
+      {showGallery && (
+        <GalleryModal ads={galleryAds} onClose={() => setShowGallery(false)} />
       )}
       {shareInfo && (
         <ShareLinkModal
