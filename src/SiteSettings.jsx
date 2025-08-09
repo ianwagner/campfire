@@ -28,24 +28,6 @@ const SiteSettings = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  const normalizeMonthColors = (colors) => {
-    const normalized = {};
-    Object.entries(DEFAULT_MONTH_COLORS).forEach(([m, def]) => {
-      const val = colors?.[m];
-      if (typeof val === 'string') {
-        normalized[m] = { color: val, opacity: 1 };
-      } else if (val) {
-        normalized[m] = {
-          color: val.color || def.color,
-          opacity: val.opacity != null ? val.opacity : def.opacity,
-        };
-      } else {
-        normalized[m] = { ...def };
-      }
-    });
-    return normalized;
-  };
-
   useEffect(() => {
     setLogoUrl(settings.logoUrl || '');
     setLogoFile(null);
@@ -56,7 +38,7 @@ const SiteSettings = () => {
     setArtworkUrl(settings.artworkUrl || '');
     setArtworkFile(null);
     setAccentColor(settings.accentColor || '#ea580c');
-    setMonthColors(normalizeMonthColors(settings.monthColors));
+    setMonthColors(settings.monthColors || DEFAULT_MONTH_COLORS);
   }, [settings]);
 
   const handleFileChange = (e) => {
@@ -257,57 +239,30 @@ const SiteSettings = () => {
           <div>
             <label className="block mb-1 text-sm font-medium">Month Colors</label>
             <div className="space-y-2">
-              {Object.entries(monthColors)
-                .sort(([a], [b]) => Number(a) - Number(b))
-                .map(([m, { color, opacity }]) => {
-                  const label = new Date(2020, Number(m) - 1).toLocaleString(
-                    'default',
-                    {
-                      month: 'short',
-                    }
-                  );
-                  return (
-                    <div key={m} className="flex items-center gap-2">
-                      <span className="w-8 text-sm">{label}</span>
-                      <input
-                        type="text"
-                        value={color}
-                        onChange={(e) =>
-                          setMonthColors((prev) => ({
-                            ...prev,
-                            [m]: { ...prev[m], color: e.target.value },
-                          }))
-                        }
-                        className="w-24 p-2 border rounded text-sm"
-                      />
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={Math.round((opacity ?? 1) * 100)}
-                          onChange={(e) =>
-                            setMonthColors((prev) => ({
-                              ...prev,
-                              [m]: {
-                                ...prev[m],
-                                opacity: Number(e.target.value) / 100,
-                              },
-                            }))
-                          }
-                          className="w-16 p-2 border rounded text-sm"
-                        />
-                        <span className="text-sm">%</span>
-                      </div>
-                      <span
-                        className="text-white tag-pill px-2 py-0.5 text-xs"
-                        style={{ backgroundColor: color, opacity }}
-                      >
-                        {label}
-                      </span>
-                    </div>
-                  );
-                })}
+              {Object.entries(monthColors).map(([m, color]) => {
+                const label = new Date(2020, Number(m) - 1).toLocaleString('default', {
+                  month: 'short',
+                });
+                return (
+                  <div key={m} className="flex items-center gap-2">
+                    <span className="w-8 text-sm">{label}</span>
+                    <input
+                      type="text"
+                      value={color}
+                      onChange={(e) =>
+                        setMonthColors((prev) => ({ ...prev, [m]: e.target.value }))
+                      }
+                      className="w-24 p-2 border rounded text-sm"
+                    />
+                    <span
+                      className="text-white tag-pill px-2 py-0.5 text-xs"
+                      style={{ backgroundColor: color }}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
