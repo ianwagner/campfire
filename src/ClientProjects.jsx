@@ -271,7 +271,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
     }
   };
   const displayProjects = projects.filter((p) => {
-    const status = p.group ? p.group.status : p.status;
+    const status = p.status || p.group?.status;
     return view === 'archived' ? status === 'archived' : status !== 'archived';
   });
 
@@ -322,7 +322,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
             {displayProjects.length > 0 && (
               <div className="space-y-3 max-w-xl w-full mx-auto">
                 {displayProjects.map((p) => {
-                  const status = p.group ? p.group.status : p.status;
+                  const status = p.status || p.group?.status;
                   return (
                     <div
                       key={p.id}

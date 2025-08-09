@@ -10,6 +10,7 @@ import {
   writeBatch,
   deleteDoc,
   onSnapshot,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
@@ -114,11 +115,20 @@ const ProjectDetail = () => {
 
   useEffect(() => {
     if (!groupId) return;
-    const unsub = onSnapshot(doc(db, 'adGroups', groupId), (snap) => {
+    const unsub = onSnapshot(doc(db, 'adGroups', groupId), async (snap) => {
       const data = snap.data();
       setProject((prev) =>
         prev ? { ...prev, status: data?.status || prev.status } : prev
       );
+      if (data?.status) {
+        try {
+          await updateDoc(doc(db, 'projects', projectId), {
+            status: data.status,
+          });
+        } catch (err) {
+          console.error('Failed to sync project status', err);
+        }
+      }
     });
     return () => unsub();
   }, [groupId]);
