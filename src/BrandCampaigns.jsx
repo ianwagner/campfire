@@ -6,6 +6,7 @@ import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import TagInput from './components/TagInput.jsx';
 import SaveButton from './components/SaveButton.jsx';
+import useUnsavedChanges from './useUnsavedChanges.js';
 
 const emptyCampaign = { name: '', details: [] };
 
@@ -17,6 +18,7 @@ const BrandCampaigns = ({ brandId: propId = null, brandCode: propCode = '' }) =>
   const [campaigns, setCampaigns] = useState([{ ...emptyCampaign }]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!propId && !propCode) setBrandCode(brandCodes[0] || '');
@@ -72,6 +74,7 @@ const BrandCampaigns = ({ brandId: propId = null, brandCode: propCode = '' }) =>
             );
           }
         }
+        setDirty(false);
       } catch (err) {
         console.error('Failed to load brand', err);
       }
@@ -81,13 +84,20 @@ const BrandCampaigns = ({ brandId: propId = null, brandCode: propCode = '' }) =>
 
   const updateCampaign = (idx, changes) => {
     setCampaigns((prev) => prev.map((c, i) => (i === idx ? { ...c, ...changes } : c)));
+    setDirty(true);
   };
 
-  const addCampaign = () => setCampaigns((p) => [...p, { ...emptyCampaign }]);
-  const removeCampaign = (idx) => setCampaigns((p) => p.filter((_, i) => i !== idx));
+  const addCampaign = () => {
+    setCampaigns((p) => [...p, { ...emptyCampaign }]);
+    setDirty(true);
+  };
+  const removeCampaign = (idx) => {
+    setCampaigns((p) => p.filter((_, i) => i !== idx));
+    setDirty(true);
+  };
 
   const handleSave = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!brandId) return;
     setLoading(true);
     setMessage('');
@@ -99,6 +109,7 @@ const BrandCampaigns = ({ brandId: propId = null, brandCode: propCode = '' }) =>
       await setDoc(doc(db, 'brands', brandId), { campaigns: campaignData }, { merge: true });
       setCampaigns(campaignData);
       setMessage('Campaigns saved');
+      setDirty(false);
     } catch (err) {
       console.error('Failed to save campaigns', err);
       setMessage('Failed to save campaigns');
@@ -107,9 +118,19 @@ const BrandCampaigns = ({ brandId: propId = null, brandCode: propCode = '' }) =>
     }
   };
 
+  useUnsavedChanges(dirty, handleSave);
+
   return (
     <PageWrapper>
-      <form onSubmit={handleSave} className="space-y-4 max-w-md">
+      <div className="flex justify-end mb-2">
+        <SaveButton
+          form="campaigns-form"
+          type="submit"
+          canSave={dirty && !loading}
+          loading={loading}
+        />
+      </div>
+      <form id="campaigns-form" onSubmit={handleSave} className="space-y-4 max-w-md">
         {campaigns.map((c, idx) => (
           <div key={idx} className="border p-2 rounded space-y-2">
             <FormField label="Campaign Name">
@@ -135,9 +156,6 @@ const BrandCampaigns = ({ brandId: propId = null, brandCode: propCode = '' }) =>
           Add Campaign
         </button>
         {message && <p className="text-sm">{message}</p>}
-        <div className="text-right">
-          <SaveButton type="submit" canSave={!loading} loading={loading} />
-        </div>
       </form>
     </PageWrapper>
   );

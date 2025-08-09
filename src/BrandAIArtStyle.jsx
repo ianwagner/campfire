@@ -5,6 +5,7 @@ import useUserRole from './useUserRole';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import SaveButton from './components/SaveButton.jsx';
+import useUnsavedChanges from './useUnsavedChanges.js';
 
 const BrandAIArtStyle = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const user = auth.currentUser;
@@ -14,6 +15,7 @@ const BrandAIArtStyle = ({ brandId: propId = null, brandCode: propCode = '' }) =
   const [style, setStyle] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!propId && !propCode) setBrandCode(brandCodes[0] || '');
@@ -41,6 +43,7 @@ const BrandAIArtStyle = ({ brandId: propId = null, brandCode: propCode = '' }) =
             setStyle(data.aiArtStyle || '');
           }
         }
+        setDirty(false);
       } catch (err) {
         console.error('Failed to load brand', err);
       }
@@ -49,13 +52,14 @@ const BrandAIArtStyle = ({ brandId: propId = null, brandCode: propCode = '' }) =
   }, [brandCode, propId, propCode]);
 
   const handleSave = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!brandId) return;
     setLoading(true);
     setMessage('');
     try {
       await setDoc(doc(db, 'brands', brandId), { aiArtStyle: style }, { merge: true });
       setMessage('AI art style saved');
+      setDirty(false);
     } catch (err) {
       console.error('Failed to save AI art style', err);
       setMessage('Failed to save AI art style');
@@ -64,20 +68,30 @@ const BrandAIArtStyle = ({ brandId: propId = null, brandCode: propCode = '' }) =
     }
   };
 
+  useUnsavedChanges(dirty, handleSave);
+
   return (
     <PageWrapper>
-      <form onSubmit={handleSave} className="space-y-4 max-w-md">
+      <div className="flex justify-end mb-2">
+        <SaveButton
+          form="ai-form"
+          type="submit"
+          canSave={dirty && !loading}
+          loading={loading}
+        />
+      </div>
+      <form id="ai-form" onSubmit={handleSave} className="space-y-4 max-w-md">
         <FormField label="AI Art Style">
           <textarea
             value={style}
-            onChange={(e) => setStyle(e.target.value)}
+            onChange={(e) => {
+              setStyle(e.target.value);
+              setDirty(true);
+            }}
             className="w-full p-2 border rounded"
           />
         </FormField>
         {message && <p className="text-sm">{message}</p>}
-        <div className="text-right">
-          <SaveButton type="submit" canSave={!loading} loading={loading} />
-        </div>
       </form>
     </PageWrapper>
   );
