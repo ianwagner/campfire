@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
+import { DEFAULT_MONTH_COLORS } from './constants';
 import { applyAccentColor } from './utils/theme';
 import { applyFavicon } from './utils/favicon';
 import debugLog from './utils/debugLog';
@@ -20,6 +21,7 @@ const defaultSettings = {
   campfireLogoUrl: '',
   artworkUrl: '',
   accentColor: storedAccent || DEFAULT_ACCENT_COLOR,
+  monthColors: DEFAULT_MONTH_COLORS,
   creditCosts: {
     projectCreation: 1,
     editRequest: 1,

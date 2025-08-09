@@ -261,7 +261,7 @@ test('renders month pill with correct color', async () => {
 
   await waitFor(() => expect(screen.getByText('Feb')).toBeInTheDocument());
   const monthPill = screen.getByText('Feb');
-  expect(monthPill).toHaveClass('bg-orange-500');
+  expect(monthPill).toHaveStyle('background-color: #f97316');
   expect(monthPill).toHaveClass('tag-pill');
 });
 
