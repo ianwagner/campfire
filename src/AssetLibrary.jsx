@@ -6,7 +6,6 @@ import {
   FiPlus,
   FiFolderPlus,
   FiTag,
-  FiUpload,
   FiList,
   FiGrid,
   FiDownload,
@@ -19,7 +18,6 @@ import TabButton from './components/TabButton.jsx';
 import SortButton from './components/SortButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import HoverPreview from './components/HoverPreview.jsx';
-import { uploadBrandAsset } from './uploadBrandAsset';
 import TaggerModal from './TaggerModal.jsx';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase/config';
@@ -58,7 +56,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [loading, setLoading] = useState(false);
   const [showTagger, setShowTagger] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
-  const fileInputRef = useRef(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState('list');
@@ -383,33 +380,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
   };
 
 
-  const handleFolderUpload = async (files) => {
-    if (!files || files.length === 0) return;
-    setLoading(true);
-    const newAssets = [];
-    for (const file of files) {
-      try {
-        const url = await uploadBrandAsset(file, brandCode, 'library');
-        newAssets.push({
-          ...emptyAsset,
-          id: Math.random().toString(36).slice(2),
-          createdAt: Date.now(),
-          name: file.name,
-          url,
-          campaign: file.webkitRelativePath
-            ? file.webkitRelativePath.split('/')[0]
-            : '',
-        });
-      } catch (err) {
-        console.error('Upload failed', err);
-      }
-    }
-    setAssets((p) => [...p, ...newAssets]);
-    setDirty(true);
-    setLoading(false);
-  };
-
-
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
   const startIdx = page * PAGE_SIZE;
   const visible = filtered.slice(startIdx, startIdx + rowsPerPage);
@@ -461,13 +431,13 @@ const AssetLibrary = ({ brandCode = '' }) => {
           <span className="relative group">
             <IconButton
               onClick={() => setShowAddMenu((p) => !p)}
-              aria-label="Add Folder"
+              aria-label="Add Drive Folder"
               className="text-xl"
             >
               <FiFolderPlus />
             </IconButton>
             <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-              Upload Folder
+              Add Drive Folder
             </div>
           </span>
           <div className="relative">
@@ -483,29 +453,8 @@ const AssetLibrary = ({ brandCode = '' }) => {
                 >
                   <FiLink /> Drive
                 </button>
-                <button
-                  type="button"
-                  className="btn-action w-full text-left"
-                  onClick={() => {
-                    setShowAddMenu(false);
-                    fileInputRef.current?.click();
-                  }}
-                >
-                  <FiUpload /> Upload
-                </button>
               </div>
             )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              webkitdirectory="true"
-              className="hidden"
-              onChange={(e) => {
-                handleFolderUpload(e.target.files);
-                e.target.value = null;
-              }}
-            />
           </div>
           <span className="relative group">
             <IconButton onClick={addRow} aria-label="Add Asset" className="text-xl">
