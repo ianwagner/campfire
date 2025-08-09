@@ -10,6 +10,7 @@ import {
   writeBatch,
   deleteDoc,
   onSnapshot,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
@@ -31,9 +32,11 @@ import {
   FiFileText,
   FiType,
 } from 'react-icons/fi';
+import { Bubbles } from 'lucide-react';
 import { archiveGroup } from './utils/archiveGroup';
 import createArchiveTicket from './utils/createArchiveTicket';
 import isVideoUrl from './utils/isVideoUrl';
+import stripVersion from './utils/stripVersion';
 import { deductRecipeCredits } from './utils/credits.js';
 
 const fileExt = (name) => {
@@ -423,6 +426,88 @@ const ProjectDetail = () => {
     }
   };
 
+  const handleScrub = async () => {
+    if (!groupId) return;
+    if (!window.confirm('Scrub review history? This will remove older revisions.'))
+      return;
+    try {
+      const chains = {};
+      assets.forEach((a) => {
+        const root = a.parentAdId || a.id;
+        if (!chains[root]) chains[root] = [];
+        chains[root].push(a);
+      });
+      const batch = writeBatch(db);
+      Object.entries(chains).forEach(([rootId, list]) => {
+        if (list.length <= 1) return;
+        const latest = list.reduce(
+          (acc, cur) => (cur.version > acc.version ? cur : acc),
+          list[0]
+        );
+        list
+          .filter((a) => a.id !== latest.id)
+          .forEach((a) => {
+            const dest = doc(
+              db,
+              'adGroups',
+              groupId,
+              'scrubbedHistory',
+              rootId,
+              'assets',
+              a.id
+            );
+            batch.set(dest, { ...a, scrubbedAt: serverTimestamp() });
+            batch.delete(doc(db, 'adGroups', groupId, 'assets', a.id));
+          });
+        const update = { version: 1, parentAdId: null, scrubbedFrom: rootId };
+        if (latest.filename) {
+          const idx = latest.filename.lastIndexOf('.');
+          const ext = idx >= 0 ? latest.filename.slice(idx) : '';
+          update.filename = stripVersion(latest.filename) + ext;
+        }
+        batch.update(
+          doc(db, 'adGroups', groupId, 'assets', latest.id),
+          update
+        );
+      });
+      await batch.commit();
+      setAssets((prev) => {
+        const groups = {};
+        prev.forEach((a) => {
+          const root = a.parentAdId || a.id;
+          if (!groups[root]) groups[root] = [];
+          groups[root].push(a);
+        });
+        const result = [];
+        Object.entries(groups).forEach(([rootId, list]) => {
+          if (list.length <= 1) {
+            result.push(list[0]);
+            return;
+          }
+          const latest = list.reduce(
+            (acc, cur) => (cur.version > acc.version ? cur : acc),
+            list[0]
+          );
+          const updated = {
+            ...latest,
+            version: 1,
+            parentAdId: null,
+            scrubbedFrom: rootId,
+          };
+          if (latest.filename) {
+            const idx = latest.filename.lastIndexOf('.');
+            const ext = idx >= 0 ? latest.filename.slice(idx) : '';
+            updated.filename = stripVersion(latest.filename) + ext;
+          }
+          result.push(updated);
+        });
+        return result;
+      });
+    } catch (err) {
+      console.error('Failed to scrub review history', err);
+    }
+  };
+
   const handleArchive = async () => {
     if (!groupId) return;
     if (!window.confirm('Archive this project?')) return;
@@ -491,6 +576,18 @@ const ProjectDetail = () => {
               </IconButton>
               <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
                 Download Approved
+              </div>
+            </span>
+            <span className="relative group">
+              <IconButton
+                aria-label="Scrub Review History"
+                onClick={handleScrub}
+                className="text-xl"
+              >
+                <Bubbles />
+              </IconButton>
+              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                Scrub Review History
               </div>
             </span>
             <span className="relative group">
