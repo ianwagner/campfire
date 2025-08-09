@@ -332,6 +332,11 @@ const ClientProjects = ({ brandCodes = [] }) => {
     )
     .sort((a, b) => {
       if (sortField === 'title') return (a.title || '').localeCompare(b.title || '');
+      if (sortField === 'status') {
+        const statusA = (a.group ? a.group.status : a.status) || '';
+        const statusB = (b.group ? b.group.status : b.status) || '';
+        return statusA.localeCompare(statusB);
+      }
       return (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0);
     });
 
@@ -370,7 +375,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
                   onClick={() => setModalStep('brief')}
                 />
               </div>
-            <div className="flex flex-wrap gap-2 mt-6 justify-center">
+            <div className="flex flex-wrap items-center gap-2 mt-6 justify-center">
               <TabButton active={view === 'current'} onClick={() => setView('current')}>
                 Current
               </TabButton>
@@ -390,6 +395,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
                 options={[
                   { value: 'createdAt', label: 'Date Added' },
                   { value: 'title', label: 'Title' },
+                  { value: 'status', label: 'Status' },
                 ]}
               />
             </div>
