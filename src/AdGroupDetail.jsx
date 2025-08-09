@@ -2227,10 +2227,11 @@ const AdGroupDetail = () => {
                         </IconButton>
                         <IconButton
                           onClick={scrubReviewHistory}
-                          aria-label="Scrub History"
+                          aria-label="Scrub Review History"
                           className="bg-transparent"
                         >
                           <FiClock size={20} />
+                          <span>Scrub Review History</span>
                         </IconButton>
                         <IconButton
                           onClick={archiveGroup}
