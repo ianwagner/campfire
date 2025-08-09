@@ -90,6 +90,9 @@ const ProjectDetail = () => {
         };
         setProject(proj);
 
+        // We'll collect recipes to derive recipe types if needed
+        let recipeList = [];
+
         // fetch ad group for this project
         const gSnap = await getDocs(
           query(collection(db, 'adGroups'), where('projectId', '==', projectId))
@@ -102,9 +105,12 @@ const ProjectDetail = () => {
           );
 
           const rSnap = await getDocs(collection(db, 'adGroups', g.id, 'recipes'));
-          setRecipes(
-            rSnap.docs.map((d, idx) => ({ recipeNo: idx + 1, id: d.id, ...d.data() }))
-          );
+          recipeList = rSnap.docs.map((d, idx) => ({
+            recipeNo: idx + 1,
+            id: d.id,
+            ...d.data(),
+          }));
+          setRecipes(recipeList);
 
           const aSnap = await getDocs(collection(db, 'adGroups', g.id, 'assets'));
           setAssets(aSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -124,11 +130,24 @@ const ProjectDetail = () => {
           }
         }
 
-        if (proj.recipeTypes && proj.recipeTypes.length > 0) {
+        // Determine recipe type ids either from project data or derived from recipes
+        let typeIds = Array.isArray(proj.recipeTypes) ? [...proj.recipeTypes] : [];
+        if (typeIds.length === 0 && recipeList.length > 0) {
+          typeIds = [
+            ...new Set(recipeList.map((r) => r.type).filter(Boolean)),
+          ];
+          if (typeIds.length > 0) {
+            setProject((prev) =>
+              prev ? { ...prev, recipeTypes: typeIds } : prev
+            );
+          }
+        }
+
+        if (typeIds.length > 0) {
           const typeSnap = await getDocs(
             query(
               collection(db, 'recipeTypes'),
-              where('__name__', 'in', proj.recipeTypes.slice(0, 10))
+              where('__name__', 'in', typeIds.slice(0, 10))
             )
           );
           const map = {};
@@ -437,6 +456,8 @@ const ProjectDetail = () => {
 
   const reviewDisabled = assets.length === 0;
   const downloadDisabled = approvedAssets.length === 0;
+  const recipeTypeId =
+    project.recipeTypes?.[0] || recipes.find((r) => r.type)?.type;
 
   if (loading) return <div className="min-h-screen p-4">Loading...</div>;
   if (!project)
@@ -520,14 +541,14 @@ const ProjectDetail = () => {
             {recipes.length} recipe{recipes.length === 1 ? '' : 's'}
           </p>
         </div>
-        {project.recipeTypes && project.recipeTypes.length > 0 && (
+        {recipeTypeId && (
           <div className="border rounded flex items-center justify-center max-w-[60rem]">
             <RecipeTypeCard
               className="bg-transparent border-none shadow-none p-0 justify-center h-full min-w-[100px]"
               type={
-                typesMap[project.recipeTypes[0]] || {
-                  id: project.recipeTypes[0],
-                  name: project.recipeTypes[0],
+                typesMap[recipeTypeId] || {
+                  id: recipeTypeId,
+                  name: recipeTypeId,
                 }
               }
               size="small"
