@@ -22,11 +22,36 @@ import PageToolbar from './components/PageToolbar.jsx';
 import LoadingOverlay from './LoadingOverlay.jsx';
 import Button from './components/Button.jsx';
 import IconButton from './components/IconButton.jsx';
-import { FiExternalLink, FiDownload, FiArchive } from 'react-icons/fi';
+import {
+  FiExternalLink,
+  FiDownload,
+  FiArchive,
+  FiFile,
+  FiPenTool,
+  FiFileText,
+  FiType,
+} from 'react-icons/fi';
 import { archiveGroup } from './utils/archiveGroup';
 import createArchiveTicket from './utils/createArchiveTicket';
 import isVideoUrl from './utils/isVideoUrl';
 import { deductRecipeCredits } from './utils/credits.js';
+
+const fileExt = (name) => {
+  const idx = name.lastIndexOf('.');
+  return idx >= 0 ? name.slice(idx + 1).toLowerCase() : '';
+};
+
+const PlaceholderIcon = ({ ext }) => {
+  let Icon = FiFile;
+  if (ext === 'ai') Icon = FiPenTool;
+  else if (ext === 'pdf') Icon = FiFileText;
+  else if (['otf', 'ttf', 'woff', 'woff2'].includes(ext)) Icon = FiType;
+  return (
+    <div className="w-40 h-32 flex items-center justify-center bg-accent-10 text-accent rounded">
+      <Icon size={32} />
+    </div>
+  );
+};
 
 const ProjectDetail = () => {
   const { projectId } = useParams();
@@ -37,6 +62,8 @@ const ProjectDetail = () => {
   const [recipes, setRecipes] = useState([]);
   const [typesMap, setTypesMap] = useState({});
   const [assets, setAssets] = useState([]);
+  const [briefAssets, setBriefAssets] = useState([]);
+  const [briefNote, setBriefNote] = useState('');
   const [showBrief, setShowBrief] = useState(false);
   const [briefLoading, setBriefLoading] = useState(false);
   const [showAllAssets, setShowAllAssets] = useState(false);
@@ -81,6 +108,12 @@ const ProjectDetail = () => {
 
           const aSnap = await getDocs(collection(db, 'adGroups', g.id, 'assets'));
           setAssets(aSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+
+          setBriefNote(g.data().notes || '');
+          const bSnap = await getDocs(
+            collection(db, 'adGroups', g.id, 'groupAssets')
+          );
+          setBriefAssets(bSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         } else {
           const reqSnap = await getDocs(
             query(collection(db, 'requests'), where('projectId', '==', projectId))
@@ -167,6 +200,18 @@ const ProjectDetail = () => {
         setRecipes(
           rSnap.docs.map((d, idx) => ({ recipeNo: idx + 1, id: d.id, ...d.data() }))
         );
+      }
+      if (briefAssets.length === 0 && groupId) {
+         const bSnap = await getDocs(
+           collection(db, 'adGroups', groupId, 'groupAssets')
+         );
+         setBriefAssets(bSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      }
+      if (!briefNote && groupId) {
+        try {
+          const g = await getDoc(doc(db, 'adGroups', groupId));
+          setBriefNote(g.data()?.notes || '');
+        } catch {}
       }
     } catch (err) {
       console.error('Failed to load brief', err);
@@ -499,19 +544,77 @@ const ProjectDetail = () => {
             {showBrief ? 'Hide Brief' : 'View Brief'}
           </button>
           {showBrief && (
-            <div className="mt-4">
+            <div className="mt-4 space-y-4">
               {briefLoading ? (
                 <LoadingOverlay />
               ) : (
-                <RecipePreview
-                  onSave={saveRecipes}
-                  initialResults={recipes}
-                  showOnlyResults
-                  brandCode={project.brandCode}
-                  hideBrandSelect
-                  showColumnButton={false}
-                  externalOnly
-                />
+                <>
+                  {briefNote && (
+                    <div>
+                      <h4 className="font-medium mb-1">Notes:</h4>
+                      <p>{briefNote}</p>
+                    </div>
+                  )}
+                  {briefAssets.length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-1">Assets:</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {briefAssets.map((a) => (
+                          <div key={a.id} className="asset-card">
+                            {(() => {
+                              const ext = fileExt(a.filename || '');
+                              if (a.firebaseUrl && ext === 'svg') {
+                                return (
+                                  <a href={a.firebaseUrl} download>
+                                    <img
+                                      src={a.firebaseUrl}
+                                      alt={a.filename}
+                                      className="object-contain max-w-[10rem] max-h-32"
+                                    />
+                                  </a>
+                                );
+                              }
+                              if (
+                                a.firebaseUrl &&
+                                !['ai', 'pdf'].includes(ext) &&
+                                !['otf', 'ttf', 'woff', 'woff2'].includes(ext)
+                              ) {
+                                return (
+                                  <a href={a.firebaseUrl} download>
+                                    <OptimizedImage
+                                      pngUrl={a.firebaseUrl}
+                                      alt={a.filename}
+                                      className="object-contain max-w-[10rem] max-h-32"
+                                    />
+                                  </a>
+                                );
+                              }
+                              return (
+                                <a href={a.firebaseUrl} download>
+                                  <PlaceholderIcon ext={ext} />
+                                </a>
+                              );
+                            })()}
+                            {a.note && (
+                              <div className="absolute bottom-1 right-1 bg-accent text-white rounded-full p-1">
+                                <FiFileText size={14} />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <RecipePreview
+                    onSave={saveRecipes}
+                    initialResults={recipes}
+                    showOnlyResults
+                    brandCode={project.brandCode}
+                    hideBrandSelect
+                    showColumnButton={false}
+                    externalOnly
+                  />
+                </>
               )}
             </div>
           )}
