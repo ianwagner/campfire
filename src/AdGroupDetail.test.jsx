@@ -236,8 +236,8 @@ test('scrubs review history', async () => {
     </MemoryRouter>
   );
 
-  await screen.findByLabelText('Scrub History');
-  fireEvent.click(screen.getByLabelText('Scrub History'));
+  await screen.findByLabelText('Scrub Review History');
+  fireEvent.click(screen.getByLabelText('Scrub Review History'));
 
   await waitFor(() => {
     const batch = require('firebase/firestore').writeBatch.mock.results[0].value;
