@@ -15,6 +15,11 @@ export default function BriefStepForm({
   currentType,
   onTitleChange,
   title,
+  brands,
+  brandCode,
+  setBrandCode,
+  onBrandCodeChange,
+  hideBrandSelect,
   assetRows,
   filteredAssetRows,
   setShowTagger,
@@ -28,7 +33,6 @@ export default function BriefStepForm({
   handleBriefFilesChange,
   displayedComponents,
   allInstances,
-  brandCode,
   selectedInstances,
   setSelectedInstances,
   showOptionLists,
@@ -65,6 +69,26 @@ export default function BriefStepForm({
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
           {currentType.description}
         </p>
+      )}
+      {!hideBrandSelect && (
+        <div className="mb-4">
+          <label className="block mb-1 text-sm font-medium">Brand</label>
+          <select
+            className="w-full p-2 border rounded"
+            value={brandCode}
+            onChange={(e) => {
+              setBrandCode(e.target.value);
+              if (onBrandCodeChange) onBrandCodeChange(e.target.value);
+            }}
+          >
+            <option value="">None</option>
+            {brands.map((b) => (
+              <option key={b.id} value={b.code}>
+                {b.code} {b.name ? `- ${b.name}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
       {onTitleChange && (
         <div className="mb-4">
