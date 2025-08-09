@@ -22,6 +22,7 @@ import useSiteSettings from './useSiteSettings';
 import { FiFileText } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import TabButton from './components/TabButton.jsx';
+import SortButton from './components/SortButton.jsx';
 import { uploadFile } from './uploadFile.js';
 import { deductRecipeCredits } from './utils/credits.js';
 import useUserRole from './useUserRole';
@@ -215,6 +216,8 @@ const ClientProjects = ({ brandCodes = [] }) => {
   const [loading, setLoading] = useState(true);
   const [modalStep, setModalStep] = useState(null); // null | 'brief' | 'describe'
   const [view, setView] = useState('current');
+  const [filter, setFilter] = useState('');
+  const [sortField, setSortField] = useState('createdAt');
   const navigate = useNavigate();
   const location = useLocation();
   const { settings } = useSiteSettings();
@@ -315,10 +318,22 @@ const ClientProjects = ({ brandCodes = [] }) => {
       navigate(`/projects/${proj.id}/staging`);
     }
   };
-  const displayProjects = projects.filter((p) => {
-    const status = p.group ? p.group.status : p.status;
-    return view === 'archived' ? status === 'archived' : status !== 'archived';
-  });
+  const term = filter.toLowerCase();
+  const displayProjects = projects
+    .filter((p) => {
+      const status = p.group ? p.group.status : p.status;
+      return view === 'archived' ? status === 'archived' : status !== 'archived';
+    })
+    .filter(
+      (p) =>
+        !term ||
+        (p.title || '').toLowerCase().includes(term) ||
+        (p.brandCode || '').toLowerCase().includes(term)
+    )
+    .sort((a, b) => {
+      if (sortField === 'title') return (a.title || '').localeCompare(b.title || '');
+      return (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0);
+    });
 
   return (
     <div className="min-h-screen p-4 flex flex-col items-center overflow-y-auto snap-y snap-mandatory scroll-smooth">
@@ -355,13 +370,28 @@ const ClientProjects = ({ brandCodes = [] }) => {
                   onClick={() => setModalStep('brief')}
                 />
               </div>
-            <div className="flex gap-2 mt-6">
+            <div className="flex flex-wrap gap-2 mt-6 justify-center">
               <TabButton active={view === 'current'} onClick={() => setView('current')}>
                 Current
               </TabButton>
               <TabButton active={view === 'archived'} onClick={() => setView('archived')}>
                 Archived
               </TabButton>
+              <input
+                type="text"
+                placeholder="Filter"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="p-1 border rounded"
+              />
+              <SortButton
+                value={sortField}
+                onChange={setSortField}
+                options={[
+                  { value: 'createdAt', label: 'Date Added' },
+                  { value: 'title', label: 'Title' },
+                ]}
+              />
             </div>
             </div>
             {displayProjects.length > 0 && (
