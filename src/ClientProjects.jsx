@@ -26,6 +26,21 @@ import { uploadFile } from './uploadFile.js';
 import { deductRecipeCredits } from './utils/credits.js';
 import useUserRole from './useUserRole';
 
+const MONTH_COLORS = {
+  '01': 'bg-red-500',
+  '02': 'bg-orange-500',
+  '03': 'bg-amber-500',
+  '04': 'bg-yellow-500',
+  '05': 'bg-lime-500',
+  '06': 'bg-green-500',
+  '07': 'bg-teal-500',
+  '08': 'bg-blue-500',
+  '09': 'bg-indigo-500',
+  '10': 'bg-purple-500',
+  '11': 'bg-pink-500',
+  '12': 'bg-rose-500',
+};
+
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
     className="border rounded-xl p-4 text-left hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] bg-white dark:bg-[var(--dark-sidebar-bg)] flex flex-col items-start w-full"
@@ -354,6 +369,13 @@ const ClientProjects = ({ brandCodes = [] }) => {
                 {displayProjects.map((p) => {
                   const status = p.group ? p.group.status : p.status;
                   const adCount = p.group ? p.group.recipeCount : p.request?.numAds;
+                  const rawMonth = p.group?.month || p.month;
+                  const monthLabel = rawMonth
+                    ? new Date(`2023-${rawMonth}-01`).toLocaleString('default', {
+                        month: 'short',
+                      })
+                    : null;
+                  const monthColor = rawMonth ? MONTH_COLORS[rawMonth] : null;
                   return (
                     <div
                       key={p.id}
@@ -381,8 +403,17 @@ const ClientProjects = ({ brandCodes = [] }) => {
                             status
                           )}
                         </span>
-                        {adCount != null && (
-                          <span className="tag-pill px-2 py-0.5 text-xs">{adCount}</span>
+                        {(adCount != null || monthLabel) && (
+                          <div className="flex gap-2 mt-1">
+                            {adCount != null && (
+                              <span className="tag-pill px-2 py-0.5 text-xs">{adCount}</span>
+                            )}
+                            {monthLabel && (
+                              <span className={`${monthColor} tag-pill px-2 py-0.5 text-xs`}>
+                                {monthLabel}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
