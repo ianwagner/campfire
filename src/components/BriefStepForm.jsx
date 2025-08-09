@@ -9,6 +9,8 @@ import ProductCard from './ProductCard.jsx';
 import AddProductCard from './AddProductCard.jsx';
 import ProductEditModal from './ProductEditModal.jsx';
 import ProductImportModal from '../ProductImportModal.jsx';
+import getMonthString from '../utils/getMonthString.js';
+import { DEFAULT_MONTH_COLORS } from '../constants.js';
 
 export default function BriefStepForm({
   onBack,
@@ -50,8 +52,21 @@ export default function BriefStepForm({
   setGenerateCount,
   month,
   setMonth,
+  dueDate,
+  setDueDate,
   isAgency,
 }) {
+  const monthOptions = Array.from({ length: 12 }).map((_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + i);
+    return {
+      value: getMonthString(d),
+      label: d.toLocaleString('default', { month: 'short', year: 'numeric' }),
+    };
+  });
+
+  const monthColorEntry = DEFAULT_MONTH_COLORS[month?.slice(-2)] || null;
+
   return (
     <>
       <button
@@ -62,14 +77,44 @@ export default function BriefStepForm({
       >
         &lt;
       </button>
-      <h2 className="text-xl font-semibold">
-        {currentType?.name || 'Generate a Brief'}
-      </h2>
-      {currentType?.description && (
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-          {currentType.description}
-        </p>
-      )}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-xl font-semibold">
+            {currentType?.name || 'Generate a Brief'}
+          </h2>
+          {currentType?.description && (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {currentType.description}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            aria-label="Due date"
+            className="border tag-pill px-2 py-1 text-sm"
+          />
+          {isAgency && (
+            <select
+              aria-label="Month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="text-white tag-pill px-2 py-1 text-xs"
+              style={{
+                backgroundColor: monthColorEntry?.color,
+              }}
+            >
+              {monthOptions.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
       {!hideBrandSelect && (
         <div className="mb-4">
           <label className="block mb-1 text-sm font-medium">Brand</label>
@@ -97,17 +142,6 @@ export default function BriefStepForm({
             type="text"
             value={title}
             onChange={(e) => onTitleChange(e.target.value)}
-            className="w-full p-2 border rounded"
-          />
-        </div>
-      )}
-      {isAgency && (
-        <div className="mb-4">
-          <label className="block mb-1 text-sm font-medium">Month</label>
-          <input
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
             className="w-full p-2 border rounded"
           />
         </div>

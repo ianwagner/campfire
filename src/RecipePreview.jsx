@@ -34,6 +34,7 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import TaggerModal from './TaggerModal.jsx';
 import BriefStepSelect from './components/BriefStepSelect.jsx';
 import BriefStepForm from './components/BriefStepForm.jsx';
+import getMonthString from './utils/getMonthString.js';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -99,7 +100,8 @@ const RecipePreview = ({
   const [briefNote, setBriefNote] = useState('');
   const [briefFiles, setBriefFiles] = useState([]);
   const briefFileInputRef = useRef(null);
-  const [month, setMonth] = useState('');
+  const [month, setMonth] = useState(getMonthString());
+  const [dueDate, setDueDate] = useState('');
 
   const handleBriefNoteChange = (e) => {
     setBriefNote(e.target.value);
@@ -979,7 +981,7 @@ const RecipePreview = ({
     }
     setSaving(true);
     try {
-      await onSave(results, briefNote, briefFiles, month);
+      await onSave(results, briefNote, briefFiles, month, dueDate);
       // After saving, store a deep copy as the new original reference.
       originalResultsRef.current = JSON.parse(JSON.stringify(results));
       setDirty(false);
@@ -993,7 +995,8 @@ const RecipePreview = ({
     setResults(JSON.parse(JSON.stringify(originalResultsRef.current)));
     setBriefNote('');
     setBriefFiles([]);
-    setMonth('');
+    setMonth(getMonthString());
+    setDueDate('');
     setDirty(false);
   };
 
@@ -1283,6 +1286,8 @@ const RecipePreview = ({
             setGenerateCount={setGenerateCount}
             month={month}
             setMonth={setMonth}
+            dueDate={dueDate}
+            setDueDate={setDueDate}
             isAgency={isAgencyUser}
           />
         )}
