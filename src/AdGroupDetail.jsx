@@ -828,6 +828,7 @@ const AdGroupDetail = () => {
               id,
               "scrubbedHistory",
               rootId,
+              "assets",
               a.id,
             );
             batch.set(dest, { ...a, scrubbedAt: serverTimestamp() });
