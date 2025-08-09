@@ -3,7 +3,6 @@ import {
   FiTrash,
   FiLink,
   FiImage,
-  FiPlus,
   FiFolderPlus,
   FiTag,
   FiList,
@@ -190,12 +189,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
     }
     return undefined;
   }, [view, filtered]);
-
-  const addRow = () => {
-    const id = Math.random().toString(36).slice(2);
-    setAssets((p) => [...p, { ...emptyAsset, id, createdAt: Date.now() }]);
-    setDirty(true);
-  };
 
   const updateRow = (id, field, value) => {
     setAssets((p) => p.map((a) => (a.id === id ? { ...a, [field]: value } : a)));
@@ -437,14 +430,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
             </IconButton>
             <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
               Add Drive Folder
-            </div>
-          </span>
-          <span className="relative group">
-            <IconButton onClick={addRow} aria-label="Add Asset" className="text-xl">
-              <FiPlus />
-            </IconButton>
-            <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-              Add Asset
             </div>
           </span>
           <div className="border-l h-6 mx-2" />
