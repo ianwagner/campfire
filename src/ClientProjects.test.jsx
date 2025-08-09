@@ -213,3 +213,55 @@ test('group-backed project shows recipe count', async () => {
   expect(screen.getByText('5')).toHaveClass('tag-pill');
 });
 
+test('renders month pill with correct color', async () => {
+  onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'p1',
+            data: () => ({
+              title: 'ProjMonth',
+              brandCode: 'B1',
+              status: 'new',
+              createdAt: { toDate: () => new Date() },
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'g1',
+            data: () => ({
+              name: 'ProjMonth',
+              brandCode: 'B1',
+              status: 'new',
+              recipeCount: 2,
+              month: '02',
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    });
+
+  render(
+    <MemoryRouter>
+      <ClientProjects brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  await waitFor(() => expect(screen.getByText('Feb')).toBeInTheDocument());
+  const monthPill = screen.getByText('Feb');
+  expect(monthPill).toHaveClass('bg-orange-500');
+  expect(monthPill).toHaveClass('tag-pill');
+});
+
