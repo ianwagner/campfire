@@ -243,7 +243,7 @@ test('scrubs review history', async () => {
     const batch = require('firebase/firestore').writeBatch.mock.results[0].value;
     expect(batch.commit).toHaveBeenCalled();
     expect(batch.set).toHaveBeenCalledWith(
-      'adGroups/group1/scrubbedHistory/asset1/asset1',
+      'adGroups/group1/scrubbedHistory/asset1/assets/asset1',
       expect.objectContaining({ version: 1 })
     );
     expect(batch.delete).toHaveBeenCalledWith('adGroups/group1/assets/asset1');
