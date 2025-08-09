@@ -21,6 +21,7 @@ import {
   FiType,
   FiCopy,
   FiPlus,
+  FiLock,
 } from "react-icons/fi";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
@@ -28,6 +29,7 @@ import CopyRecipePreview from "./CopyRecipePreview.jsx";
 import BrandAssets from "./BrandAssets.jsx";
 import BrandAssetsLayout from "./BrandAssetsLayout.jsx";
 import HoverPreview from "./components/HoverPreview.jsx";
+import InfoTooltip from "./components/InfoTooltip.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
 import {
   doc,
@@ -2371,19 +2373,25 @@ const AdGroupDetail = () => {
             ) : (
               <>
                 <h4 className="font-medium mb-1">Brief Note:</h4>
-                  <div
-                    style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
+                <div
+                  style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
                   className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
-                  >
-                  <button
-                    onClick={() => {
-                      setNotesInput(group?.notes || "");
-                      setEditingNotes(true);
-                    }}
-                    className="absolute top-1 right-1 btn-secondary px-1 py-0.5 text-xs"
-                  >
-                    Edit
-                  </button>
+                >
+                  {group?.status === "in design" ? (
+                    <InfoTooltip text="This project is already being designed.">
+                      <FiLock className="absolute top-1 right-1 text-gray-500" />
+                    </InfoTooltip>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setNotesInput(group?.notes || "");
+                        setEditingNotes(true);
+                      }}
+                      className="absolute top-1 right-1 btn-secondary px-1 py-0.5 text-xs"
+                    >
+                      Edit
+                    </button>
+                  )}
                   {group?.notes}
                 </div>
               </>
@@ -2402,62 +2410,83 @@ const AdGroupDetail = () => {
             )
           )}
           {userRole === "admin" && !group?.notes && !editingNotes && (
-            <div className="mb-4">
-              <IconButton
-                onClick={() => {
-                  setNotesInput("");
-                  setEditingNotes(true);
-                }}
-              >
-                Add Note
-              </IconButton>
-            </div>
+            group?.status === "in design" ? (
+              <div className="mb-4">
+                <InfoTooltip text="This project is already being designed.">
+                  <FiLock className="text-gray-500" />
+                </InfoTooltip>
+              </div>
+            ) : (
+              <div className="mb-4">
+                <IconButton
+                  onClick={() => {
+                    setNotesInput("");
+                    setEditingNotes(true);
+                  }}
+                >
+                  Add Note
+                </IconButton>
+              </div>
+            )
           )}
           {briefAssets.length > 0 && (
             <>
               <h4 className="font-medium mb-1">Brief Assets:</h4>
-                <div
-                  style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
-                  className={`flex flex-wrap gap-2 mb-4 p-2 bg-white shadow rounded relative ${briefDrag ? "bg-accent-10" : ""} dark:bg-[var(--dark-sidebar-bg)]`}
+              <div
+                style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
+                className={`flex flex-wrap gap-2 mb-4 p-2 bg-white shadow rounded relative ${briefDrag ? "bg-accent-10" : ""} dark:bg-[var(--dark-sidebar-bg)]`}
                 onDragOver={(e) => {
+                  if (group?.status === "in design") return;
                   e.preventDefault();
                   setBriefDrag(true);
                 }}
-                onDragLeave={() => setBriefDrag(false)}
+                onDragLeave={() => {
+                  if (group?.status === "in design") return;
+                  setBriefDrag(false);
+                }}
                 onDrop={(e) => {
+                  if (group?.status === "in design") return;
                   e.preventDefault();
                   setBriefDrag(false);
                   handleBriefUpload(e.dataTransfer.files);
                 }}
               >
-                <div className="w-full flex justify-between mb-2">
-                  <IconButton onClick={downloadBriefAll}>
-                    <FiDownload />
-                    Download All
-                  </IconButton>
-                  {userRole === "admin" && (
-                    <>
-                      <input
-                        id="brief-upload"
-                        type="file"
-                        multiple
-                        onChange={(e) => {
-                          handleBriefUpload(e.target.files);
-                          e.target.value = null;
-                        }}
-                        className="hidden"
-                      />
-                      <IconButton
-                        onClick={() =>
-                          document.getElementById("brief-upload").click()
-                        }
-                      >
-                        <FiUpload />
-                        Upload
-                      </IconButton>
-                    </>
-                  )}
-                </div>
+                {group?.status === "in design" ? (
+                  <div className="w-full flex justify-end mb-2">
+                    <InfoTooltip text="This project is already being designed.">
+                      <FiLock className="text-gray-500" />
+                    </InfoTooltip>
+                  </div>
+                ) : (
+                  <div className="w-full flex justify-between mb-2">
+                    <IconButton onClick={downloadBriefAll}>
+                      <FiDownload />
+                      Download All
+                    </IconButton>
+                    {userRole === "admin" && (
+                      <>
+                        <input
+                          id="brief-upload"
+                          type="file"
+                          multiple
+                          onChange={(e) => {
+                            handleBriefUpload(e.target.files);
+                            e.target.value = null;
+                          }}
+                          className="hidden"
+                        />
+                        <IconButton
+                          onClick={() =>
+                            document.getElementById("brief-upload").click()
+                          }
+                        >
+                          <FiUpload />
+                          Upload
+                        </IconButton>
+                      </>
+                    )}
+                  </div>
+                )}
                 {briefAssets.map((a) => (
                   <div key={a.id} className="asset-card group cursor-pointer">
                     {(() => {
@@ -2506,38 +2535,46 @@ const AdGroupDetail = () => {
                       </div>
                     )}
                     {userRole === "admin" && (
-                      <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex flex-col items-center justify-center gap-1 text-white text-xs">
-                        <a
-                          href={a.firebaseUrl}
-                          download
-                          className="btn-secondary px-1 py-0.5"
-                        >
-                          Download
-                        </a>
-                        <label className="btn-secondary px-1 py-0.5 cursor-pointer">
-                          Replace
-                          <input
-                            type="file"
-                            className="hidden"
-                            onChange={(e) => {
-                              replaceBriefAsset(a, e.target.files[0]);
-                              e.target.value = null;
-                            }}
-                          />
-                        </label>
-                        <button
-                          onClick={() => addBriefAssetNote(a)}
-                          className="btn-secondary px-1 py-0.5"
-                        >
-                          Note
-                        </button>
-                        <button
-                          onClick={() => deleteBriefAsset(a)}
-                          className="btn-delete px-1 py-0.5"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      group?.status === "in design" ? (
+                        <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex items-center justify-center text-white">
+                          <InfoTooltip text="This project is already being designed.">
+                            <FiLock size={20} />
+                          </InfoTooltip>
+                        </div>
+                      ) : (
+                        <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex flex-col items-center justify-center gap-1 text-white text-xs">
+                          <a
+                            href={a.firebaseUrl}
+                            download
+                            className="btn-secondary px-1 py-0.5"
+                          >
+                            Download
+                          </a>
+                          <label className="btn-secondary px-1 py-0.5 cursor-pointer">
+                            Replace
+                            <input
+                              type="file"
+                              className="hidden"
+                              onChange={(e) => {
+                                replaceBriefAsset(a, e.target.files[0]);
+                                e.target.value = null;
+                              }}
+                            />
+                          </label>
+                          <button
+                            onClick={() => addBriefAssetNote(a)}
+                            className="btn-secondary px-1 py-0.5"
+                          >
+                            Note
+                          </button>
+                          <button
+                            onClick={() => deleteBriefAsset(a)}
+                            className="btn-delete px-1 py-0.5"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )
                     )}
                     {userRole === "designer" && a.note && (
                       <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex items-center justify-center text-white text-xs p-1 text-center whitespace-pre-wrap">
@@ -2550,21 +2587,29 @@ const AdGroupDetail = () => {
             </>
           )}
           {userRole === "admin" && briefAssets.length === 0 && (
-            <div className="mb-4">
-              <input
-                id="brief-upload"
-                type="file"
-                multiple
-                onChange={(e) => {
-                  handleBriefUpload(e.target.files);
-                  e.target.value = null;
-                }}
-                className="hidden"
-              />
-              <IconButton onClick={() => document.getElementById("brief-upload").click()}>
-                <FiUpload /> Add Assets
-              </IconButton>
-            </div>
+            group?.status === "in design" ? (
+              <div className="mb-4">
+                <InfoTooltip text="This project is already being designed.">
+                  <FiLock className="text-gray-500" />
+                </InfoTooltip>
+              </div>
+            ) : (
+              <div className="mb-4">
+                <input
+                  id="brief-upload"
+                  type="file"
+                  multiple
+                  onChange={(e) => {
+                    handleBriefUpload(e.target.files);
+                    e.target.value = null;
+                  }}
+                  className="hidden"
+                />
+                <IconButton onClick={() => document.getElementById("brief-upload").click()}>
+                  <FiUpload /> Add Assets
+                </IconButton>
+              </div>
+            )
           )}
           {savedRecipes.length > 0 && (
             <RecipePreview
