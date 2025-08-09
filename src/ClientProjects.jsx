@@ -19,6 +19,7 @@ import RecipePreview from './RecipePreview.jsx';
 import DescribeProjectModal from './DescribeProjectModal.jsx';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import useSiteSettings from './useSiteSettings';
+import { DEFAULT_MONTH_COLORS } from './constants';
 import { FiFileText } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import TabButton from './components/TabButton.jsx';
@@ -26,21 +27,6 @@ import SortButton from './components/SortButton.jsx';
 import { uploadFile } from './uploadFile.js';
 import { deductRecipeCredits } from './utils/credits.js';
 import useUserRole from './useUserRole';
-
-const MONTH_COLORS = {
-  '01': 'bg-red-500',
-  '02': 'bg-orange-500',
-  '03': 'bg-amber-500',
-  '04': 'bg-yellow-500',
-  '05': 'bg-lime-500',
-  '06': 'bg-green-500',
-  '07': 'bg-teal-500',
-  '08': 'bg-blue-500',
-  '09': 'bg-indigo-500',
-  '10': 'bg-purple-500',
-  '11': 'bg-pink-500',
-  '12': 'bg-rose-500',
-};
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
@@ -221,6 +207,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { settings } = useSiteSettings();
+  const monthColors = settings.monthColors || DEFAULT_MONTH_COLORS;
 
   useEffect(() => {
     if (location.state?.removedProject) {
@@ -401,12 +388,16 @@ const ClientProjects = ({ brandCodes = [] }) => {
                   const adCount = p.group ? p.group.recipeCount : p.request?.numAds;
                   const rawMonth = p.group?.month || p.month;
                   const monthLabel = rawMonth
-                    ? new Date(`${rawMonth}-01`).toLocaleString('default', {
+                    ? new Date(
+                        Number(rawMonth.slice(0, 4)),
+                        Number(rawMonth.slice(-2)) - 1,
+                        1
+                      ).toLocaleString('default', {
                         month: 'short',
                       })
                     : null;
                   const monthColor = rawMonth
-                    ? MONTH_COLORS[rawMonth.slice(-2)]
+                    ? monthColors[rawMonth.slice(-2)]
                     : null;
                   return (
                     <div
@@ -441,7 +432,10 @@ const ClientProjects = ({ brandCodes = [] }) => {
                               <span className="tag-pill px-2 py-0.5 text-xs">{adCount}</span>
                             )}
                             {monthLabel && (
-                              <span className={`${monthColor} text-white tag-pill px-2 py-0.5 text-xs`}>
+                              <span
+                                className="text-white tag-pill px-2 py-0.5 text-xs"
+                                style={{ backgroundColor: monthColor }}
+                              >
                                 {monthLabel}
                               </span>
                             )}

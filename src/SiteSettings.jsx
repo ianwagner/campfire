@@ -9,6 +9,7 @@ import { uploadCampfireLogo } from './uploadCampfireLogo';
 import { uploadArtwork } from './uploadArtwork';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import TabButton from './components/TabButton.jsx';
+import { DEFAULT_MONTH_COLORS } from './constants';
 
 const SiteSettings = () => {
   const { isAdmin } = useAdminClaim();
@@ -23,6 +24,7 @@ const SiteSettings = () => {
   const [artworkUrl, setArtworkUrl] = useState('');
   const [artworkFile, setArtworkFile] = useState(null);
   const [accentColor, setAccentColor] = useState('#ea580c');
+  const [monthColors, setMonthColors] = useState(DEFAULT_MONTH_COLORS);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -36,6 +38,7 @@ const SiteSettings = () => {
     setArtworkUrl(settings.artworkUrl || '');
     setArtworkFile(null);
     setAccentColor(settings.accentColor || '#ea580c');
+    setMonthColors(settings.monthColors || DEFAULT_MONTH_COLORS);
   }, [settings]);
 
   const handleFileChange = (e) => {
@@ -107,6 +110,7 @@ const SiteSettings = () => {
         logoUrl: logo,
         iconUrl: icon,
         accentColor,
+        monthColors,
         campfireLogoUrl: campfireLogo,
         artworkUrl: artwork,
       });
@@ -118,6 +122,7 @@ const SiteSettings = () => {
       setIconFile(null);
       setArtworkUrl(artwork);
       setArtworkFile(null);
+      setMonthColors(monthColors);
       setMessage('Settings saved');
     } catch (err) {
       console.error('Failed to save settings', err);
@@ -230,6 +235,37 @@ const SiteSettings = () => {
             className="w-full p-2 border rounded h-10"
           />
         </div>
+        {isAdmin && (
+          <div>
+            <label className="block mb-1 text-sm font-medium">Month Colors</label>
+            <div className="space-y-2">
+              {Object.entries(monthColors).map(([m, color]) => {
+                const label = new Date(2020, Number(m) - 1).toLocaleString('default', {
+                  month: 'short',
+                });
+                return (
+                  <div key={m} className="flex items-center gap-2">
+                    <span className="w-8 text-sm">{label}</span>
+                    <input
+                      type="text"
+                      value={color}
+                      onChange={(e) =>
+                        setMonthColors((prev) => ({ ...prev, [m]: e.target.value }))
+                      }
+                      className="w-24 p-2 border rounded text-sm"
+                    />
+                    <span
+                      className="text-white tag-pill px-2 py-0.5 text-xs"
+                      style={{ backgroundColor: color }}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
           {message && <p className="text-sm">{message}</p>}
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? 'Saving...' : 'Save Settings'}
