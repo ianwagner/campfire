@@ -55,7 +55,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const [bulkValues, setBulkValues] = useState({ type: '', product: '', campaign: '' });
   const [loading, setLoading] = useState(false);
   const [showTagger, setShowTagger] = useState(false);
-  const [showAddMenu, setShowAddMenu] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState('list');
@@ -430,7 +429,7 @@ const AssetLibrary = ({ brandCode = '' }) => {
           <div className="border-l h-6 mx-2" />
           <span className="relative group">
             <IconButton
-              onClick={() => setShowAddMenu((p) => !p)}
+              onClick={() => setShowTagger(true)}
               aria-label="Add Drive Folder"
               className="text-xl"
             >
@@ -440,22 +439,6 @@ const AssetLibrary = ({ brandCode = '' }) => {
               Add Drive Folder
             </div>
           </span>
-          <div className="relative">
-            {showAddMenu && (
-              <div className="absolute right-0 mt-1 bg-white border rounded shadow z-10 dark:bg-[var(--dark-sidebar-bg)]">
-                <button
-                  type="button"
-                  className="btn-action w-full text-left"
-                  onClick={() => {
-                    setShowAddMenu(false);
-                    setShowTagger(true);
-                  }}
-                >
-                  <FiLink /> Drive
-                </button>
-              </div>
-            )}
-          </div>
           <span className="relative group">
             <IconButton onClick={addRow} aria-label="Add Asset" className="text-xl">
               <FiPlus />
