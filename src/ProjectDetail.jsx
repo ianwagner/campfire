@@ -93,6 +93,8 @@ const ProjectDetail = () => {
         };
         setProject(proj);
 
+        let typeIds = Array.isArray(proj.recipeTypes) ? [...proj.recipeTypes] : [];
+
         // fetch ad group for this project
         const gSnap = await getDocs(
           query(collection(db, 'adGroups'), where('projectId', '==', projectId))
@@ -105,9 +107,27 @@ const ProjectDetail = () => {
           );
 
           const rSnap = await getDocs(collection(db, 'adGroups', g.id, 'recipes'));
-          setRecipes(
-            rSnap.docs.map((d, idx) => ({ recipeNo: idx + 1, id: d.id, ...d.data() }))
-          );
+          const recipeList = rSnap.docs.map((d, idx) => ({
+            recipeNo: idx + 1,
+            id: d.id,
+            ...d.data(),
+          }));
+          setRecipes(recipeList);
+
+          if (typeIds.length === 0) {
+            typeIds = [
+              ...new Set(
+                recipeList
+                  .map((r) => r.type)
+                  .filter((t) => typeof t === 'string' && t)
+              ),
+            ];
+            if (typeIds.length > 0) {
+              setProject((prev) =>
+                prev ? { ...prev, recipeTypes: typeIds } : prev
+              );
+            }
+          }
 
           const aSnap = await getDocs(collection(db, 'adGroups', g.id, 'assets'));
           setAssets(aSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -127,11 +147,11 @@ const ProjectDetail = () => {
           }
         }
 
-        if (proj.recipeTypes && proj.recipeTypes.length > 0) {
+        if (typeIds.length > 0) {
           const typeSnap = await getDocs(
             query(
               collection(db, 'recipeTypes'),
-              where('__name__', 'in', proj.recipeTypes.slice(0, 10))
+              where('__name__', 'in', typeIds.slice(0, 10))
             )
           );
           const map = {};
