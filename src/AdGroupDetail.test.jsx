@@ -225,6 +225,10 @@ test('scrubs review history', async () => {
           id: 'asset2',
           data: () => ({ filename: 'ad_V2.png', version: 2, parentAdId: 'asset1', status: 'approved' }),
         },
+        {
+          id: 'asset3',
+          data: () => ({ filename: 'ad3.png', version: 1, status: 'rejected' }),
+        },
       ],
     });
     return jest.fn();
@@ -249,7 +253,16 @@ test('scrubs review history', async () => {
     expect(batch.delete).toHaveBeenCalledWith('adGroups/group1/assets/asset1');
     expect(batch.update).toHaveBeenCalledWith(
       'adGroups/group1/assets/asset2',
-      expect.objectContaining({ version: 1, parentAdId: null, scrubbedFrom: 'asset1' })
+      expect.objectContaining({
+        version: 1,
+        parentAdId: null,
+        scrubbedFrom: 'asset1',
+        status: 'ready',
+      })
+    );
+    expect(batch.update).toHaveBeenCalledWith(
+      'adGroups/group1/assets/asset3',
+      expect.objectContaining({ status: 'archived' })
     );
   });
   confirmSpy.mockRestore();

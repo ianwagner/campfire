@@ -816,39 +816,40 @@ const AdGroupDetail = () => {
       });
       const batch = writeBatch(db);
       Object.entries(chains).forEach(([rootId, list]) => {
-        if (list.length <= 1) return;
         const latest = list.reduce((acc, cur) =>
           cur.version > acc.version ? cur : acc,
         list[0]);
-        list
-          .filter((a) => a.id !== latest.id)
-          .forEach((a) => {
-            const dest = doc(
-              db,
-              "adGroups",
-              id,
-              "scrubbedHistory",
-              rootId,
-              "assets",
-              a.id,
-            );
-            batch.set(dest, { ...a, scrubbedAt: serverTimestamp() });
-            batch.delete(doc(db, "adGroups", id, "assets", a.id));
-          });
-        const update = {
-          version: 1,
-          parentAdId: null,
-          scrubbedFrom: rootId,
-        };
-        if (latest.filename) {
-          const idx = latest.filename.lastIndexOf(".");
-          const ext = idx >= 0 ? latest.filename.slice(idx) : "";
-          update.filename = stripVersion(latest.filename) + ext;
+        const update = {};
+        if (list.length > 1) {
+          list
+            .filter((a) => a.id !== latest.id)
+            .forEach((a) => {
+              const dest = doc(
+                db,
+                "adGroups",
+                id,
+                "scrubbedHistory",
+                rootId,
+                "assets",
+                a.id,
+              );
+              batch.set(dest, { ...a, scrubbedAt: serverTimestamp() });
+              batch.delete(doc(db, "adGroups", id, "assets", a.id));
+            });
+          update.version = 1;
+          update.parentAdId = null;
+          update.scrubbedFrom = rootId;
+          if (latest.filename) {
+            const idx = latest.filename.lastIndexOf(".");
+            const ext = idx >= 0 ? latest.filename.slice(idx) : "";
+            update.filename = stripVersion(latest.filename) + ext;
+          }
         }
-        batch.update(
-          doc(db, "adGroups", id, "assets", latest.id),
-          update,
-        );
+        if (latest.status === "approved") update.status = "ready";
+        if (latest.status === "rejected") update.status = "archived";
+        if (Object.keys(update).length > 0) {
+          batch.update(doc(db, "adGroups", id, "assets", latest.id), update);
+        }
       });
       await batch.commit();
       setAssets((prev) => {
@@ -860,19 +861,22 @@ const AdGroupDetail = () => {
         });
         const result = [];
         Object.entries(groups).forEach(([rootId, list]) => {
-          if (list.length <= 1) {
-            result.push(list[0]);
-            return;
-          }
           const latest = list.reduce((acc, cur) =>
             cur.version > acc.version ? cur : acc,
           list[0]);
-          const updated = { ...latest, version: 1, parentAdId: null, scrubbedFrom: rootId };
-          if (latest.filename) {
-            const idx = latest.filename.lastIndexOf(".");
-            const ext = idx >= 0 ? latest.filename.slice(idx) : "";
-            updated.filename = stripVersion(latest.filename) + ext;
+          const updated = { ...latest };
+          if (list.length > 1) {
+            updated.version = 1;
+            updated.parentAdId = null;
+            updated.scrubbedFrom = rootId;
+            if (latest.filename) {
+              const idx = latest.filename.lastIndexOf(".");
+              const ext = idx >= 0 ? latest.filename.slice(idx) : "";
+              updated.filename = stripVersion(latest.filename) + ext;
+            }
           }
+          if (latest.status === "approved") updated.status = "ready";
+          if (latest.status === "rejected") updated.status = "archived";
           result.push(updated);
         });
         return result;
