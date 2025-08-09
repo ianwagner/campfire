@@ -8,6 +8,7 @@ import IconButton from './components/IconButton.jsx';
 import SaveButton from './components/SaveButton.jsx';
 import MonthSelector from './components/MonthSelector.jsx';
 import { FiRefreshCw } from 'react-icons/fi';
+import useUnsavedChanges from './useUnsavedChanges.js';
 
 const emptyContract = {
   startDate: '',
@@ -25,6 +26,7 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
   const [contracts, setContracts] = useState([{ ...emptyContract }]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!propId && !propCode) setBrandCode(brandCodes[0] || '');
@@ -72,6 +74,7 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
             );
           }
         }
+        setDirty(false);
       } catch (err) {
         console.error('Failed to load brand', err);
       }
@@ -81,13 +84,20 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
 
   const updateContract = (idx, changes) => {
     setContracts((prev) => prev.map((c, i) => (i === idx ? { ...c, ...changes } : c)));
+    setDirty(true);
   };
 
-  const addContract = () => setContracts((p) => [...p, { ...emptyContract }]);
-  const removeContract = (idx) => setContracts((p) => p.filter((_, i) => i !== idx));
+  const addContract = () => {
+    setContracts((p) => [...p, { ...emptyContract }]);
+    setDirty(true);
+  };
+  const removeContract = (idx) => {
+    setContracts((p) => p.filter((_, i) => i !== idx));
+    setDirty(true);
+  };
 
   const handleSave = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!brandId) return;
     setLoading(true);
     setMessage('');
@@ -104,6 +114,7 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
       );
       setContracts(normalized);
       setMessage('Contracts saved');
+      setDirty(false);
     } catch (err) {
       console.error('Failed to save contracts', err);
       setMessage('Failed to save contracts');
@@ -112,9 +123,19 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
     }
   };
 
+  useUnsavedChanges(dirty, handleSave);
+
   return (
     <PageWrapper>
-      <form onSubmit={handleSave} className="space-y-4 max-w-md">
+      <div className="flex justify-end mb-2">
+        <SaveButton
+          form="contracts-form"
+          type="submit"
+          canSave={dirty && !loading}
+          loading={loading}
+        />
+      </div>
+      <form id="contracts-form" onSubmit={handleSave} className="space-y-4 max-w-md">
         {contracts.map((c, idx) => (
           <div key={idx} className="border p-2 rounded space-y-2">
             <FormField label="Start Month">
@@ -180,9 +201,6 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
           Add Contract
         </button>
         {message && <p className="text-sm">{message}</p>}
-        <div className="text-right">
-          <SaveButton type="submit" canSave={!loading} loading={loading} />
-        </div>
       </form>
     </PageWrapper>
   );

@@ -5,6 +5,7 @@ import useUserRole from './useUserRole';
 import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import SaveButton from './components/SaveButton.jsx';
+import useUnsavedChanges from './useUnsavedChanges.js';
 
 const BrandTone = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const user = auth.currentUser;
@@ -19,6 +20,7 @@ const BrandTone = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const [ctaStyle, setCtaStyle] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!propId && !propCode) {
@@ -56,6 +58,7 @@ const BrandTone = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             setCtaStyle(data.ctaStyle || '');
           }
         }
+        setDirty(false);
       } catch (err) {
         console.error('Failed to load brand', err);
       }
@@ -64,7 +67,7 @@ const BrandTone = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   }, [brandCode, propId, propCode]);
 
   const handleSave = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!brandId) return;
     setLoading(true);
     setMessage('');
@@ -85,6 +88,7 @@ const BrandTone = ({ brandId: propId = null, brandCode: propCode = '' }) => {
         { merge: true }
       );
       setMessage('Tone settings saved');
+      setDirty(false);
     } catch (err) {
       console.error('Failed to save tone settings', err);
       setMessage('Failed to save tone settings');
@@ -95,20 +99,36 @@ const BrandTone = ({ brandId: propId = null, brandCode: propCode = '' }) => {
 
   const preview = `---\nWrite in a tone that is: ${voice}.\nUse phrasing that is: ${phrasing}.\nIncorporate brand-specific words when possible: ${wordBank}.\nAvoid the following language or style: ${noGos}.\nCTAs should follow this style: ${ctaStyle}.\n---`;
 
+  useUnsavedChanges(dirty, handleSave);
+
   return (
     <PageWrapper>
-      <form onSubmit={handleSave} className="space-y-4 max-w-md">
+      <div className="flex justify-end mb-2">
+        <SaveButton
+          form="tone-form"
+          type="submit"
+          canSave={dirty && !loading}
+          loading={loading}
+        />
+      </div>
+      <form id="tone-form" onSubmit={handleSave} className="space-y-4 max-w-md">
         <FormField label="Voice">
           <textarea
             value={voice}
-            onChange={(e) => setVoice(e.target.value)}
+            onChange={(e) => {
+              setVoice(e.target.value);
+              setDirty(true);
+            }}
             className="w-full p-2 border rounded"
           />
         </FormField>
         <FormField label="Phrasing">
           <textarea
             value={phrasing}
-            onChange={(e) => setPhrasing(e.target.value)}
+            onChange={(e) => {
+              setPhrasing(e.target.value);
+              setDirty(true);
+            }}
             className="w-full p-2 border rounded"
           />
         </FormField>
@@ -116,7 +136,10 @@ const BrandTone = ({ brandId: propId = null, brandCode: propCode = '' }) => {
           <input
             type="text"
             value={wordBank}
-            onChange={(e) => setWordBank(e.target.value)}
+            onChange={(e) => {
+              setWordBank(e.target.value);
+              setDirty(true);
+            }}
             className="w-full p-2 border rounded"
           />
         </FormField>
@@ -124,21 +147,24 @@ const BrandTone = ({ brandId: propId = null, brandCode: propCode = '' }) => {
           <input
             type="text"
             value={noGos}
-            onChange={(e) => setNoGos(e.target.value)}
+            onChange={(e) => {
+              setNoGos(e.target.value);
+              setDirty(true);
+            }}
             className="w-full p-2 border rounded"
           />
         </FormField>
         <FormField label="CTA Style">
           <textarea
             value={ctaStyle}
-            onChange={(e) => setCtaStyle(e.target.value)}
+            onChange={(e) => {
+              setCtaStyle(e.target.value);
+              setDirty(true);
+            }}
             className="w-full p-2 border rounded"
           />
         </FormField>
         {message && <p className="text-sm">{message}</p>}
-        <div className="text-right">
-          <SaveButton type="submit" canSave={!loading} loading={loading} />
-        </div>
       </form>
       <div className="mt-6 p-4 border rounded bg-accent-10 text-sm whitespace-pre-wrap">
         {preview}

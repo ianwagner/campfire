@@ -14,6 +14,7 @@ import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
 import SaveButton from './components/SaveButton.jsx';
 import { FaMagic } from 'react-icons/fa';
+import useUnsavedChanges from './useUnsavedChanges.js';
 
 const emptyImage = { url: '', file: null };
 const emptyProduct = {
@@ -38,6 +39,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
   const [filter, setFilter] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [editIdx, setEditIdx] = useState(null);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!propId && !propCode) {
@@ -121,6 +123,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
             );
           }
         }
+        setDirty(false);
       } catch (err) {
         console.error('Failed to load brand', err);
       }
@@ -141,20 +144,24 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
           : p
       )
     );
+    setDirty(true);
   };
 
   const updateProduct = (idx, changes) => {
     setProducts((prev) => prev.map((p, i) => (i === idx ? { ...p, ...changes } : p)));
+    setDirty(true);
   };
 
   const addImage = (idx) => {
     setProducts((prev) =>
       prev.map((p, i) => (i === idx ? { ...p, images: [...p.images, { ...emptyImage }] } : p))
     );
+    setDirty(true);
   };
 
   const addImportedProduct = (prod) => {
     setProducts((p) => [...p, { ...prod, archived: false }]);
+    setDirty(true);
   };
 
   const removeProduct = (idx) => {
@@ -166,10 +173,11 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
     } else {
       setProducts((prev) => prev.filter((_, i) => i !== idx));
     }
+    setDirty(true);
   };
 
   const handleSave = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!brandId) return;
     setLoading(true);
     setMessage('');
@@ -208,6 +216,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
         }))
       );
       setMessage('Products saved');
+      setDirty(false);
     } catch (err) {
       console.error('Failed to save products', err);
       setMessage('Failed to save products');
@@ -215,6 +224,8 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
       setLoading(false);
     }
   };
+
+  useUnsavedChanges(dirty, handleSave);
 
   return (
     <PageWrapper>
@@ -237,14 +248,11 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
               onClick={() => {
                 setProducts((p) => [...p, { ...emptyProduct }]);
                 setEditIdx(products.length);
+                setDirty(true);
               }}
               ariaLabel="Add Product"
             />
-            <SaveButton
-              onClick={handleSave}
-              canSave={!loading}
-              loading={loading}
-            />
+            <SaveButton onClick={handleSave} canSave={dirty && !loading} loading={loading} />
           </>
         )}
       />

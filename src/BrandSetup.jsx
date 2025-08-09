@@ -20,6 +20,7 @@ import SaveButton from './components/SaveButton.jsx';
 import IconButton from './components/IconButton.jsx';
 import { FiEdit2 } from 'react-icons/fi';
 import BrandAssetsLayout from './BrandAssetsLayout.jsx';
+import useUnsavedChanges from './useUnsavedChanges.js';
 
 const driveIdRegex = /^[\w-]{10,}$/;
 const isValidDriveId = (id) => driveIdRegex.test(id);
@@ -127,7 +128,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   }, [brandCode, propId, propCode]);
 
   const handleSave = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!brandId) return;
     setLoading(true);
     setMessage('');
@@ -257,6 +258,8 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
       setMessage('Failed to delete font');
     }
   };
+
+  useUnsavedChanges(dirty, handleSave);
 
   return (
     <PageWrapper>
