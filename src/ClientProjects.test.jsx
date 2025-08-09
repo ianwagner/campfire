@@ -241,7 +241,7 @@ test('renders month pill with correct color', async () => {
               brandCode: 'B1',
               status: 'new',
               recipeCount: 2,
-              month: '02',
+              month: '2023-02',
             }),
           },
         ],
