@@ -120,7 +120,6 @@ const Review = forwardRef(
   const advancedRef = useRef(false);
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
-  const [groupStatus, setGroupStatus] = useState(null);
   const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
@@ -264,16 +263,6 @@ const Review = forwardRef(
 
   useEffect(() => {
     if (!groupId) return;
-    const unsub = onSnapshot(doc(db, 'adGroups', groupId), (snap) => {
-      if (!snap.exists()) return;
-      const data = snap.data();
-      setGroupStatus(data.status || 'pending');
-    });
-    return () => unsub();
-  }, [groupId]);
-
-  useEffect(() => {
-    if (!groupId) return;
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => {
@@ -291,39 +280,18 @@ const Review = forwardRef(
   }, [showCopyModal]);
 
 useEffect(() => {
-  if (!started || !groupId || reviewAds.length === 0 || initialStatus === 'reviewed') return;
-
-  updateDoc(doc(db, 'adGroups', groupId), {
-    status: 'in review',
-    reviewProgress: currentIndex,
-  })
-    .then(() => setGroupStatus('in review'))
-    .catch((err) => console.error('Failed to update group status', err));
-}, [started, groupId, reviewAds.length, currentIndex, initialStatus]);
-
-
-useEffect(() => {
-  if (!started || !groupId || initialStatus === 'reviewed') return;
+  if (!started || !groupId || initialStatus === 'done') return;
   updateDoc(doc(db, 'adGroups', groupId), {
     reviewProgress: currentIndex,
   }).catch((err) => console.error('Failed to save progress', err));
 }, [currentIndex, started, groupId, initialStatus]);
 
   const releaseLock = useCallback(() => {
-    if (!groupId) return;
+    if (!groupId || initialStatus === 'done') return;
     const idx = currentIndexRef.current;
     const len = reviewLengthRef.current;
-    let status;
-    let progress;
-    if (initialStatus === 'reviewed') {
-      status = 'reviewed';
-      progress = null;
-    } else {
-      status = idx >= len ? 'reviewed' : 'review pending';
-      progress = idx >= len ? null : idx;
-    }
+    const progress = idx >= len ? null : idx;
     updateDoc(doc(db, 'adGroups', groupId), {
-      status,
       reviewProgress: progress,
     }).catch(() => {});
   }, [groupId, initialStatus]);
@@ -332,7 +300,7 @@ useEffect(() => {
     if (!groupId) return;
     if (currentIndex >= reviewAds.length) {
       updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'reviewed',
+        status: 'done',
         reviewProgress: null,
       }).catch((err) => console.error('Failed to update status', err));
     }
@@ -420,6 +388,8 @@ useEffect(() => {
             if (groupSnap.exists()) {
               const data = groupSnap.data();
               status = data.status || 'pending';
+              if (status === 'reviewed') status = 'done';
+              if (status === 'review pending' || status === 'in review') status = 'ready';
               if (typeof data.reviewProgress === 'number') {
                 startIndex = data.reviewProgress;
               }
@@ -559,7 +529,7 @@ useEffect(() => {
         setVersionMode(versionList.length > 0);
         setReviewAds(target);
         setCurrentIndex(
-          status === 'reviewed'
+          status === 'done'
             ? target.length
             : versionList.length > 0
             ? 0
