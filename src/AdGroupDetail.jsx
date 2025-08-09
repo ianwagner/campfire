@@ -22,6 +22,7 @@ import {
   FiCopy,
   FiPlus,
 } from "react-icons/fi";
+import { Bubbles } from "lucide-react";
 import { FaMagic } from "react-icons/fa";
 import RecipePreview from "./RecipePreview.jsx";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
@@ -2231,8 +2232,7 @@ const AdGroupDetail = () => {
                           aria-label="Scrub Review History"
                           className="bg-transparent"
                         >
-                          <FiClock size={20} />
-                          <span>Scrub Review History</span>
+                          <Bubbles size={20} />
                         </IconButton>
                         <IconButton
                           onClick={archiveGroup}
