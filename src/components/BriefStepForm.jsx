@@ -10,6 +10,7 @@ import AddProductCard from './AddProductCard.jsx';
 import ProductEditModal from './ProductEditModal.jsx';
 import ProductImportModal from '../ProductImportModal.jsx';
 import getMonthString from '../utils/getMonthString.js';
+import useSiteSettings from '../useSiteSettings';
 import { DEFAULT_MONTH_COLORS } from '../constants.js';
 
 export default function BriefStepForm({
@@ -56,6 +57,8 @@ export default function BriefStepForm({
   setDueDate,
   isAgency,
 }) {
+  const { settings } = useSiteSettings();
+  const monthColors = settings.monthColors || DEFAULT_MONTH_COLORS;
   const monthOptions = Array.from({ length: 12 }).map((_, i) => {
     const d = new Date();
     d.setMonth(d.getMonth() + i);
@@ -65,7 +68,7 @@ export default function BriefStepForm({
     };
   });
 
-  const monthColorEntry = DEFAULT_MONTH_COLORS[month?.slice(-2)] || null;
+  const monthColorEntry = monthColors[month?.slice(-2)] || null;
   const monthLabel =
     month
       ? new Date(
