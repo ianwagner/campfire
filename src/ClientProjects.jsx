@@ -12,6 +12,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  Timestamp,
 } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import Modal from './components/Modal.jsx';
@@ -48,7 +49,13 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
   const { agencyId } = useUserRole(auth.currentUser?.uid);
 
-  const handleSave = async (recipes, briefNote, briefAssets) => {
+  const handleSave = async (
+    recipes,
+    briefNote,
+    briefAssets,
+    month,
+    dueDate
+  ) => {
     if (!brandCode) {
       console.warn('handleSave called without brandCode');
     }
@@ -65,6 +72,10 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         createdAt: serverTimestamp(),
         userId: auth.currentUser?.uid || null,
         agencyId: agencyId || null,
+        ...(month ? { month } : {}),
+        ...(dueDate
+          ? { dueDate: Timestamp.fromDate(new Date(dueDate)) }
+          : {}),
       });
 
       const groupRef = await addDoc(collection(db, 'adGroups'), {
@@ -85,6 +96,8 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         requireAuth: false,
         requirePassword: false,
         password: '',
+        month: month || null,
+        dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
         ...(briefNote ? { notes: briefNote } : {}),
       });
 

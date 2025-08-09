@@ -1,5 +1,5 @@
 import React from 'react';
-import { FiPlus, FiInfo, FiUpload, FiImage } from 'react-icons/fi';
+import { FiPlus, FiInfo, FiUpload, FiImage, FiChevronDown } from 'react-icons/fi';
 import IconButton from './IconButton.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
 import TagChecklist from './TagChecklist.jsx';
@@ -66,6 +66,14 @@ export default function BriefStepForm({
   });
 
   const monthColorEntry = DEFAULT_MONTH_COLORS[month?.slice(-2)] || null;
+  const monthLabel =
+    month
+      ? new Date(
+          Number(month.slice(0, 4)),
+          Number(month.slice(-2)) - 1,
+          1
+        ).toLocaleString('default', { month: 'short' })
+      : '';
 
   return (
     <>
@@ -88,30 +96,41 @@ export default function BriefStepForm({
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            aria-label="Due date"
-            className="border tag-pill px-2 py-1 text-sm"
-          />
+        <div className="flex items-end gap-2">
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              Due Date:
+            </span>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              aria-label="Due date"
+              className="border tag-pill px-2 py-1 text-sm"
+            />
+          </div>
           {isAgency && (
-            <select
-              aria-label="Month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="text-white tag-pill px-2 py-1 text-xs"
-              style={{
-                backgroundColor: monthColorEntry?.color,
-              }}
-            >
-              {monthOptions.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                aria-label="Month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              >
+                {monthOptions.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <div
+                className="pointer-events-none text-white tag-pill px-2 py-0.5 pr-3 text-xs flex items-center"
+                style={{ backgroundColor: monthColorEntry?.color }}
+              >
+                {monthLabel}
+                <FiChevronDown className="ml-1" />
+              </div>
+            </div>
           )}
         </div>
       </div>
