@@ -185,36 +185,49 @@ const OpsClientProjects = () => {
                 {expanded[c.id] ? <FiChevronDown /> : <FiChevronRight />}
               </button>
               {expanded[c.id] && (
-                <ul className="px-4 pb-2 space-y-1">
+                <ul className="pb-2 divide-y divide-gray-200 dark:divide-gray-700">
                   {(projects[c.id] || []).length ? (
                     projects[c.id].map((p) => {
                       const status = p.group ? p.group.status : p.status;
                       return (
-                        <li key={p.id} className="flex justify-between items-center">
-                          <span>
-                            {p.title} - {status}
-                          </span>
-                          <span className="space-x-2">
-                            {status !== 'archived' && (
-                              <button
-                                className="text-sm text-blue-600"
-                                onClick={() => handleArchive(c.id, p.id)}
-                              >
-                                Archive
-                              </button>
+                        <li
+                          key={p.id}
+                          className="flex justify-between items-center px-4 py-2 hover:bg-accent-10"
+                        >
+                          <div className="flex items-center gap-2">
+                            {p.brandCode && (
+                              <span className="tag tag-pill bg-gray-200 text-gray-800">
+                                {p.brandCode}
+                              </span>
                             )}
-                            <button
-                              className="text-sm text-red-600"
-                              onClick={() => handleDelete(c.id, p.id)}
-                            >
-                              Delete
-                            </button>
-                          </span>
+                            <span>{p.title}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="tag tag-pill bg-gray-200 text-gray-800 capitalize">
+                              {status}
+                            </span>
+                            <span className="space-x-2">
+                              {status !== 'archived' && (
+                                <button
+                                  className="text-sm text-blue-600"
+                                  onClick={() => handleArchive(c.id, p.id)}
+                                >
+                                  Archive
+                                </button>
+                              )}
+                              <button
+                                className="text-sm text-red-600"
+                                onClick={() => handleDelete(c.id, p.id)}
+                              >
+                                Delete
+                              </button>
+                            </span>
+                          </div>
                         </li>
                       );
                     })
                   ) : (
-                    <li className="text-sm text-gray-500">No projects.</li>
+                    <li className="text-sm text-gray-500 px-4 py-2">No projects.</li>
                   )}
                 </ul>
               )}

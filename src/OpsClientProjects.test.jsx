@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import OpsClientProjects from './OpsClientProjects';
 
@@ -66,7 +66,9 @@ test('project shows ad group status after refresh', async () => {
 
   fireEvent.click(screen.getByText('Client 1'));
 
-  await screen.findByText('Proj1 - briefed');
+  const row = (await screen.findByText('Proj1')).closest('li');
+  expect(within(row).getByText('B1')).toBeInTheDocument();
+  expect(within(row).getByText('briefed')).toBeInTheDocument();
 
   groupCallbacks[0]({
     docs: [
@@ -77,6 +79,6 @@ test('project shows ad group status after refresh', async () => {
     ],
   });
 
-  await waitFor(() => expect(screen.getByText('Proj1 - ready')).toBeInTheDocument());
+  await waitFor(() => expect(within(row).getByText('ready')).toBeInTheDocument());
 });
 
