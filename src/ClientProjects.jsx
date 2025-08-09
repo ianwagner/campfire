@@ -402,9 +402,17 @@ const ClientProjects = ({ brandCodes = [] }) => {
                         month: 'short',
                       })
                     : null;
-                  const monthColor = rawMonth
+                  const monthColorEntry = rawMonth
                     ? monthColors[rawMonth.slice(-2)]
                     : null;
+                  const monthColor =
+                    typeof monthColorEntry === 'string'
+                      ? monthColorEntry
+                      : monthColorEntry?.color;
+                  const monthOpacity =
+                    monthColorEntry && typeof monthColorEntry === 'object'
+                      ? monthColorEntry.opacity
+                      : 1;
                   return (
                     <div
                       key={p.id}
@@ -440,7 +448,10 @@ const ClientProjects = ({ brandCodes = [] }) => {
                             {monthLabel && (
                               <span
                                 className="text-white tag-pill px-2 py-0.5 text-xs"
-                                style={{ backgroundColor: monthColor }}
+                                style={{
+                                  backgroundColor: monthColor,
+                                  opacity: monthOpacity,
+                                }}
                               >
                                 {monthLabel}
                               </span>
