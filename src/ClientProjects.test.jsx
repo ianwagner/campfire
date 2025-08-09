@@ -18,12 +18,14 @@ jest.mock('firebase/firestore', () => ({
   serverTimestamp: jest.fn(),
   writeBatch: jest.fn(),
   doc: jest.fn(),
+  getDocs: jest.fn(),
 }));
 jest.mock('./useSiteSettings', () => jest.fn(() => ({ settings: {}, loading: false })));
 jest.mock('./RecipePreview.jsx', () => () => <div />);
 jest.mock('./DescribeProjectModal.jsx', () => () => <div />);
 jest.mock('./components/OptimizedImage.jsx', () => () => <div />);
 jest.mock('./useUserRole', () => () => ({ agencyId: null }));
+jest.mock('./uploadFile.js', () => ({ uploadFile: jest.fn() }));
 
 import { onSnapshot } from 'firebase/firestore';
 
@@ -45,6 +47,10 @@ test('displays brand code when multiple brand codes provided', () => {
           },
         ],
       });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
       return jest.fn();
     })
     .mockImplementationOnce((q, cb) => {
@@ -93,6 +99,10 @@ test('toggle shows archived projects', () => {
     .mockImplementationOnce((q, cb) => {
       cb({ docs: [] });
       return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
     });
 
   render(
@@ -110,7 +120,7 @@ test('toggle shows archived projects', () => {
   expect(screen.queryByText('P1')).not.toBeInTheDocument();
 });
 
-test('removes project card when navigation state requests removal', async () => {
+test('request-only project shows requested ad count', async () => {
   onSnapshot
     .mockImplementationOnce((q, cb) => {
       cb({
@@ -118,7 +128,7 @@ test('removes project card when navigation state requests removal', async () => 
           {
             id: 'p1',
             data: () => ({
-              title: 'P1',
+              title: 'ReqProj',
               brandCode: 'B1',
               status: 'new',
               createdAt: { toDate: () => new Date() },
@@ -131,16 +141,75 @@ test('removes project card when navigation state requests removal', async () => 
     .mockImplementationOnce((q, cb) => {
       cb({ docs: [] });
       return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'r1',
+            data: () => ({ projectId: 'p1', numAds: 3 }),
+          },
+        ],
+      });
+      return jest.fn();
     });
 
   render(
-    <MemoryRouter
-      initialEntries={[{ pathname: '/projects', state: { removedProject: 'p1' } }]}
-    >
+    <MemoryRouter>
       <ClientProjects brandCodes={['B1']} />
     </MemoryRouter>
   );
 
-  await waitFor(() => expect(screen.queryByText('P1')).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText('3')).toBeInTheDocument());
+  expect(screen.getByText('3')).toHaveClass('tag-pill');
+});
+
+test('group-backed project shows recipe count', async () => {
+  onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'p1',
+            data: () => ({
+              title: 'Proj1',
+              brandCode: 'B1',
+              status: 'new',
+              createdAt: { toDate: () => new Date() },
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'g1',
+            data: () => ({
+              name: 'Proj1',
+              brandCode: 'B1',
+              status: 'new',
+              recipeCount: 5,
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    });
+
+  render(
+    <MemoryRouter>
+      <ClientProjects brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  await waitFor(() => expect(screen.getByText('5')).toBeInTheDocument());
+  expect(screen.getByText('5')).toHaveClass('tag-pill');
 });
 
