@@ -23,8 +23,9 @@ import PageToolbar from './components/PageToolbar.jsx';
 import LoadingOverlay from './LoadingOverlay.jsx';
 import Button from './components/Button.jsx';
 import IconButton from './components/IconButton.jsx';
+import ShareLinkModal from './components/ShareLinkModal.jsx';
 import {
-  FiExternalLink,
+  FiLink,
   FiDownload,
   FiArchive,
   FiFile,
@@ -73,6 +74,8 @@ const ProjectDetail = () => {
   const galleryRef = useRef(null);
   const [columns, setColumns] = useState(0);
   const [request, setRequest] = useState(null);
+  const [group, setGroup] = useState(null);
+  const [shareModal, setShareModal] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -99,9 +102,11 @@ const ProjectDetail = () => {
         );
         if (!gSnap.empty) {
           const g = gSnap.docs[0];
+          const gData = g.data();
           setGroupId(g.id);
+          setGroup({ id: g.id, ...gData });
           setProject((prev) =>
-            prev ? { ...prev, status: g.data().status } : prev
+            prev ? { ...prev, status: gData.status } : prev
           );
 
           const rSnap = await getDocs(collection(db, 'adGroups', g.id, 'recipes'));
@@ -112,7 +117,7 @@ const ProjectDetail = () => {
           const aSnap = await getDocs(collection(db, 'adGroups', g.id, 'assets'));
           setAssets(aSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
-          setBriefNote(g.data().notes || '');
+          setBriefNote(gData.notes || '');
           const bSnap = await getDocs(
             collection(db, 'adGroups', g.id, 'groupAssets')
           );
@@ -155,6 +160,7 @@ const ProjectDetail = () => {
       setProject((prev) =>
         prev ? { ...prev, status: data?.status || prev.status } : prev
       );
+      setGroup((prev) => (data ? { ...prev, ...data } : prev));
     });
     return () => unsub();
   }, [groupId]);
@@ -520,7 +526,7 @@ const ProjectDetail = () => {
     }
   };
 
-  const reviewDisabled = assets.length === 0;
+  const reviewDisabled = assets.length === 0 || !groupId;
   const downloadDisabled = approvedAssets.length === 0;
 
   if (loading) return <div className="min-h-screen p-4">Loading...</div>;
@@ -543,6 +549,7 @@ const ProjectDetail = () => {
     : assets.slice(0, columns || assets.length);
 
   return (
+    <>
     <PageWrapper className="w-full max-w-[60rem] mx-auto">
       <PageToolbar
         left={
@@ -554,12 +561,12 @@ const ProjectDetail = () => {
           <>
             <span className="relative group">
               <IconButton
-                as={Link}
-                to={`/review/${groupId}`}
                 aria-label="Review Link"
-                className={`${reviewDisabled ? 'opacity-50 pointer-events-none' : ''} text-xl`}
+                onClick={() => setShareModal(true)}
+                disabled={reviewDisabled}
+                className={`text-xl ${reviewDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                <FiExternalLink />
+                <FiLink />
               </IconButton>
               <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
                 Review Link
@@ -757,6 +764,18 @@ const ProjectDetail = () => {
         </div>
       </div>
     </PageWrapper>
+    {shareModal && group && (
+      <ShareLinkModal
+        groupId={groupId}
+        visibility={group.visibility}
+        requireAuth={group.requireAuth}
+        requirePassword={group.requirePassword}
+        password={group.password}
+        onClose={() => setShareModal(false)}
+        onUpdate={(u) => setGroup((p) => ({ ...p, ...u }))}
+      />
+    )}
+    </>
   );
 };
 
