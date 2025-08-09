@@ -55,6 +55,8 @@ mockGetDocs.mockImplementation((args) => {
   await waitFor(() => expect(mockGetDocs).toHaveBeenCalled());
 
   fireEvent.click(screen.getByRole('button', { name: 'Type1' }));
+
+  await waitFor(() => screen.getByLabelText('Brand'));
   fireEvent.change(screen.getByLabelText('Brand'), { target: { value: 'B1' } });
 
   await waitFor(() => screen.getByLabelText('Headline'));

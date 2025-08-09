@@ -1231,11 +1231,6 @@ const RecipePreview = ({
         <form onSubmit={handleGenerate} className="space-y-2 max-w-[50rem]">
         {step === 1 && (
           <BriefStepSelect
-            hideBrandSelect={hideBrandSelect}
-            brands={brands}
-            brandCode={brandCode}
-            setBrandCode={setBrandCode}
-            onBrandCodeChange={onBrandCodeChange}
             types={types}
             selectedType={selectedType}
             setSelectedType={setSelectedType}
@@ -1253,6 +1248,11 @@ const RecipePreview = ({
             currentType={currentType}
             onTitleChange={onTitleChange}
             title={title}
+            brands={brands}
+            brandCode={brandCode}
+            setBrandCode={setBrandCode}
+            onBrandCodeChange={onBrandCodeChange}
+            hideBrandSelect={hideBrandSelect}
             assetRows={assetRows}
             filteredAssetRows={filteredAssetRows}
             setShowTagger={setShowTagger}
@@ -1266,7 +1266,6 @@ const RecipePreview = ({
             handleBriefFilesChange={handleBriefFilesChange}
             displayedComponents={displayedComponents}
             allInstances={allInstances}
-            brandCode={brandCode}
             selectedInstances={selectedInstances}
             setSelectedInstances={setSelectedInstances}
             showOptionLists={showOptionLists}
