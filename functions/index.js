@@ -460,37 +460,6 @@ async function runRules(trigger, data) {
   }));
 }
 
-export const notifyAdGroupCreated = onDocumentCreated('adGroups/{id}', async (event) => {
-  const data = event.data.data() || {};
-  await runRules('adGroupCreated', {
-    brandCode: Array.isArray(data.brandCodes) ? data.brandCodes[0] : data.brandCode,
-    brandCodes: Array.isArray(data.brandCodes) ? data.brandCodes : [data.brandCode].filter(Boolean),
-    status: data.status,
-    name: data.name,
-    url: `/ad-group/${event.params.id}`,
-  });
-  return null;
-});
-
-export const notifyAdGroupStatusUpdated = onDocumentUpdated('adGroups/{id}', async (event) => {
-  const before = event.data.before.data() || {};
-  const after = event.data.after.data() || {};
-  if (before.status === after.status) return null;
-  const noisy = new Set(['in review', 'review pending']);
-  if (noisy.has(after.status)) return null;
-  if (after.lastStatusNotified === after.status) return null;
-  await Promise.all([
-    runRules('adGroupStatusUpdated', {
-      brandCode: Array.isArray(after.brandCodes) ? after.brandCodes[0] : after.brandCode,
-      brandCodes: Array.isArray(after.brandCodes) ? after.brandCodes : [after.brandCode].filter(Boolean),
-      status: after.status,
-      name: after.name,
-      url: `/ad-group/${event.params.id}`,
-    }),
-    event.data.after.ref.update({ lastStatusNotified: after.status }),
-  ]);
-  return null;
-});
 
 export const notifyAccountCreated = onDocumentCreated('users/{id}', async (event) => {
   const data = event.data.data() || {};

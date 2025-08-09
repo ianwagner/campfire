@@ -188,12 +188,9 @@ const EditorAdGroups = () => {
     briefed: 2,
     'in design': 3,
     ready: 4,
-    'review pending': 5,
-    'in review': 5,
-    'edit request': 6,
-    reviewed: 7,
-    done: 8,
-    archived: 9,
+    'edit request': 5,
+    done: 6,
+    archived: 7,
   };
   const term = filter.toLowerCase();
   const displayGroups = groups
