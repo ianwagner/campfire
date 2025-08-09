@@ -162,8 +162,7 @@
     color: var(--accent-color);
   }
   .tag-pill {
-    background-color: var(--accent-color-10);
-    color: white;
+    border-radius: 9999px;
     font-weight: var(--font-weight-bold);
   }
   input,

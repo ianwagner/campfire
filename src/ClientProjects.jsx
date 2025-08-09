@@ -371,11 +371,13 @@ const ClientProjects = ({ brandCodes = [] }) => {
                   const adCount = p.group ? p.group.recipeCount : p.request?.numAds;
                   const rawMonth = p.group?.month || p.month;
                   const monthLabel = rawMonth
-                    ? new Date(`2023-${rawMonth}-01`).toLocaleString('default', {
+                    ? new Date(`${rawMonth}-01`).toLocaleString('default', {
                         month: 'short',
                       })
                     : null;
-                  const monthColor = rawMonth ? MONTH_COLORS[rawMonth] : null;
+                  const monthColor = rawMonth
+                    ? MONTH_COLORS[rawMonth.slice(-2)]
+                    : null;
                   return (
                     <div
                       key={p.id}
@@ -409,7 +411,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
                               <span className="tag-pill px-2 py-0.5 text-xs">{adCount}</span>
                             )}
                             {monthLabel && (
-                              <span className={`${monthColor} tag-pill px-2 py-0.5 text-xs`}>
+                              <span className={`${monthColor} text-white tag-pill px-2 py-0.5 text-xs`}>
                                 {monthLabel}
                               </span>
                             )}
