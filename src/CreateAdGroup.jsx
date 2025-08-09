@@ -9,6 +9,7 @@ import {
   writeBatch,
   doc,
   getDoc,
+  Timestamp,
 } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import RecipePreview from './RecipePreview.jsx';
@@ -45,7 +46,7 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
     fetchCodes();
   }, []);
 
-  const handleSave = async (recipes, briefNote, briefAssets, month) => {
+  const handleSave = async (recipes, briefNote, briefAssets, month, dueDate) => {
     if (!brandCode) {
       console.warn('handleSave called without brandCode');
     }
@@ -69,6 +70,7 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
         requirePassword: false,
         password: '',
         month: month || null,
+        dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
         ...(briefNote ? { notes: briefNote } : {}),
       });
 
