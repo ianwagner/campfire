@@ -31,7 +31,7 @@ import { onSnapshot } from 'firebase/firestore';
 
 afterEach(() => jest.clearAllMocks());
 
-test('displays brand code when multiple brand codes provided', () => {
+test('displays brand code tag before project title', () => {
   onSnapshot
     .mockImplementationOnce((q, cb) => {
       cb({
@@ -64,9 +64,10 @@ test('displays brand code when multiple brand codes provided', () => {
     </MemoryRouter>
   );
 
-  expect(screen.getByText('Project 1')).toBeInTheDocument();
-  expect(screen.getByText('B1')).toBeInTheDocument();
-  expect(screen.queryByText('B1 - Project 1')).not.toBeInTheDocument();
+  const brandTag = screen.getByText('B1');
+  expect(brandTag).toHaveClass('tag-pill');
+  const titleEl = screen.getByText('Project 1');
+  expect(brandTag.nextSibling).toBe(titleEl);
 });
 
 test('toggle shows archived projects', () => {
@@ -263,5 +264,42 @@ test('renders month pill with correct color', async () => {
   const monthPill = screen.getByText('Feb');
   expect(monthPill).toHaveStyle('background-color: #f97316');
   expect(monthPill).toHaveClass('tag-pill');
+});
+
+test('shows status as tag', () => {
+  onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'p1',
+            data: () => ({
+              title: 'Proj1',
+              brandCode: 'B1',
+              status: 'new',
+              createdAt: { toDate: () => new Date() },
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    });
+
+  render(
+    <MemoryRouter>
+      <ClientProjects brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  const statusTag = screen.getByText('new');
+  expect(statusTag).toHaveClass('tag-pill');
 });
 

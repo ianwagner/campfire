@@ -388,7 +388,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
             </div>
             </div>
             {displayProjects.length > 0 && (
-              <div className="space-y-3 max-w-xl w-full mx-auto">
+              <div className="max-w-xl w-full mx-auto border border-[var(--table-border-color)] rounded-md divide-y divide-[var(--table-border-color)] overflow-hidden">
                 {displayProjects.map((p) => {
                   const status = p.group ? p.group.status : p.status;
                   const adCount = p.group ? p.group.recipeCount : p.request?.numAds;
@@ -408,44 +408,35 @@ const ClientProjects = ({ brandCodes = [] }) => {
                   return (
                     <div
                       key={p.id}
-                      className="border rounded-xl p-4 flex justify-between items-center cursor-pointer bg-white hover:bg-gray-50 dark:bg-[var(--dark-sidebar-bg)] dark:hover:bg-[var(--dark-sidebar-hover)]"
+                      className="p-4 flex justify-between items-center cursor-pointer bg-white dark:bg-[var(--dark-sidebar-bg)] hover:bg-[var(--accent-color-10)] dark:hover:bg-[var(--accent-color-10)] transition-colors"
                       onClick={() =>
                         navigate(
                           p.group ? `/projects/${p.id}` : `/projects/${p.id}/staging`
                         )
                       }
                     >
-                      <div className="flex flex-col">
-                        <span className="font-medium">{p.title}</span>
-                        {brandCodes.length > 1 && p.brandCode && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{p.brandCode}</span>
+                      <div className="flex items-center gap-2">
+                        {p.brandCode && (
+                          <span className="tag-pill px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700">
+                            {p.brandCode}
+                          </span>
                         )}
+                        <span className="font-medium">{p.title}</span>
                       </div>
-                      <div className="flex flex-col items-end">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {status === 'processing' ? (
-                            <span
-                              className="processing-dots"
-                              aria-label="processing"
-                            />
-                          ) : (
-                            status
-                          )}
+                      <div className="flex items-center gap-2">
+                        <span className="tag-pill px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700">
+                          {status === 'processing' ? 'processing' : status}
                         </span>
-                        {(adCount != null || monthLabel) && (
-                          <div className="flex gap-2 mt-1">
-                            {adCount != null && (
-                              <span className="tag-pill px-2 py-0.5 text-xs">{adCount}</span>
-                            )}
-                            {monthLabel && (
-                              <span
-                                className="text-white tag-pill px-2 py-0.5 text-xs"
-                                style={{ backgroundColor: monthColor }}
-                              >
-                                {monthLabel}
-                              </span>
-                            )}
-                          </div>
+                        {adCount != null && (
+                          <span className="tag-pill px-2 py-0.5 text-xs">{adCount}</span>
+                        )}
+                        {monthLabel && (
+                          <span
+                            className="text-white tag-pill px-2 py-0.5 text-xs"
+                            style={{ backgroundColor: monthColor }}
+                          >
+                            {monthLabel}
+                          </span>
                         )}
                       </div>
                     </div>
