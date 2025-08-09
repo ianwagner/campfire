@@ -802,6 +802,84 @@ const AdGroupDetail = () => {
     }
   };
 
+  const scrubReviewHistory = async () => {
+    if (!group) return;
+    if (!window.confirm("Scrub review history? This will remove older revisions."))
+      return;
+    try {
+      const chains = {};
+      assets.forEach((a) => {
+        const root = a.parentAdId || a.id;
+        if (!chains[root]) chains[root] = [];
+        chains[root].push(a);
+      });
+      const batch = writeBatch(db);
+      Object.entries(chains).forEach(([rootId, list]) => {
+        if (list.length <= 1) return;
+        const latest = list.reduce((acc, cur) =>
+          cur.version > acc.version ? cur : acc,
+        list[0]);
+        list
+          .filter((a) => a.id !== latest.id)
+          .forEach((a) => {
+            const dest = doc(
+              db,
+              "adGroups",
+              id,
+              "scrubbedHistory",
+              rootId,
+              a.id,
+            );
+            batch.set(dest, { ...a, scrubbedAt: serverTimestamp() });
+            batch.delete(doc(db, "adGroups", id, "assets", a.id));
+          });
+        const update = {
+          version: 1,
+          parentAdId: null,
+          scrubbedFrom: rootId,
+        };
+        if (latest.filename) {
+          const idx = latest.filename.lastIndexOf(".");
+          const ext = idx >= 0 ? latest.filename.slice(idx) : "";
+          update.filename = stripVersion(latest.filename) + ext;
+        }
+        batch.update(
+          doc(db, "adGroups", id, "assets", latest.id),
+          update,
+        );
+      });
+      await batch.commit();
+      setAssets((prev) => {
+        const groups = {};
+        prev.forEach((a) => {
+          const root = a.parentAdId || a.id;
+          if (!groups[root]) groups[root] = [];
+          groups[root].push(a);
+        });
+        const result = [];
+        Object.entries(groups).forEach(([rootId, list]) => {
+          if (list.length <= 1) {
+            result.push(list[0]);
+            return;
+          }
+          const latest = list.reduce((acc, cur) =>
+            cur.version > acc.version ? cur : acc,
+          list[0]);
+          const updated = { ...latest, version: 1, parentAdId: null, scrubbedFrom: rootId };
+          if (latest.filename) {
+            const idx = latest.filename.lastIndexOf(".");
+            const ext = idx >= 0 ? latest.filename.slice(idx) : "";
+            updated.filename = stripVersion(latest.filename) + ext;
+          }
+          result.push(updated);
+        });
+        return result;
+      });
+    } catch (err) {
+      console.error("Failed to scrub review history", err);
+    }
+  };
+
   const restoreGroup = async () => {
     if (!group) return;
     try {
@@ -2146,6 +2224,13 @@ const AdGroupDetail = () => {
                           className="bg-transparent"
                         >
                           <FiDownload size={20} />
+                        </IconButton>
+                        <IconButton
+                          onClick={scrubReviewHistory}
+                          aria-label="Scrub History"
+                          className="bg-transparent"
+                        >
+                          <FiClock size={20} />
                         </IconButton>
                         <IconButton
                           onClick={archiveGroup}
