@@ -11,6 +11,7 @@ import {
   writeBatch,
   doc,
   getDoc,
+  getDocs,
 } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import Modal from './components/Modal.jsx';
@@ -195,6 +196,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
   const [projects, setProjects] = useState([]);
   const [projDocs, setProjDocs] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalStep, setModalStep] = useState(null); // null | 'brief' | 'describe'
   const [view, setView] = useState('current');
@@ -227,6 +229,10 @@ const ClientProjects = ({ brandCodes = [] }) => {
       collection(db, 'adGroups'),
       where('uploadedBy', '==', auth.currentUser.uid)
     );
+    const reqQ = query(
+      collection(db, 'requests'),
+      where('createdBy', '==', auth.currentUser.uid)
+    );
 
     const unsubProj = onSnapshot(
       projQ,
@@ -243,12 +249,32 @@ const ClientProjects = ({ brandCodes = [] }) => {
     );
 
     const unsubGroup = onSnapshot(groupQ, (snap) => {
-      setGroups(snap.docs.map((g) => ({ id: g.id, ...g.data() })));
+      Promise.all(
+        snap.docs.map(async (g) => {
+          const data = g.data();
+          let recipeCount = data.recipeCount;
+          if (recipeCount == null) {
+            try {
+              const rSnap = await getDocs(
+                collection(db, 'adGroups', g.id, 'recipes')
+              );
+              recipeCount = rSnap.size;
+            } catch {
+              recipeCount = 0;
+            }
+          }
+          return { id: g.id, ...data, recipeCount };
+        })
+      ).then(setGroups);
+    });
+    const unsubReq = onSnapshot(reqQ, (snap) => {
+      setRequests(snap.docs.map((r) => ({ id: r.id, ...r.data() })));
     });
 
     return () => {
       unsubProj();
       unsubGroup();
+      unsubReq();
     };
   }, []);
 
@@ -257,12 +283,16 @@ const ClientProjects = ({ brandCodes = [] }) => {
     groups.forEach((g) => {
       groupMap[`${g.brandCode}|${g.name}`] = g;
     });
+    const requestMap = {};
+    requests.forEach((r) => {
+      requestMap[r.projectId] = r;
+    });
     const merged = projDocs.map((p) => {
       const key = `${p.brandCode}|${p.title}`;
-      return { ...p, group: groupMap[key] };
+      return { ...p, group: groupMap[key], request: requestMap[p.id] };
     });
     setProjects(uniqueById(merged));
-  }, [projDocs, groups]);
+  }, [projDocs, groups, requests]);
 
   const handleCreated = (proj) => {
     setModalStep(null);
@@ -323,6 +353,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
               <div className="space-y-3 max-w-xl w-full mx-auto">
                 {displayProjects.map((p) => {
                   const status = p.group ? p.group.status : p.status;
+                  const adCount = p.group ? p.group.recipeCount : p.request?.numAds;
                   return (
                     <div
                       key={p.id}
@@ -339,16 +370,21 @@ const ClientProjects = ({ brandCodes = [] }) => {
                           <span className="text-xs text-gray-500 dark:text-gray-400">{p.brandCode}</span>
                         )}
                       </div>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {status === 'processing' ? (
-                          <span
-                            className="processing-dots"
-                            aria-label="processing"
-                          />
-                        ) : (
-                          status
+                      <div className="flex flex-col items-end">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {status === 'processing' ? (
+                            <span
+                              className="processing-dots"
+                              aria-label="processing"
+                            />
+                          ) : (
+                            status
+                          )}
+                        </span>
+                        {adCount != null && (
+                          <span className="tag-pill px-2 py-0.5 text-xs">{adCount}</span>
                         )}
-                      </span>
+                      </div>
                     </div>
                   );
                 })}
