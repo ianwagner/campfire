@@ -46,6 +46,7 @@ const DynamicHeadlineEditor = () => {
   const [productId, setProductId] = useState('');
   const [preview, setPreview] = useState([]);
   const { guardrails } = useHeadlineGuardrails();
+  const firstName = auth.currentUser?.displayName?.split(' ')[0] || '';
 
   useEffect(() => {
     const loadType = async () => {
@@ -158,7 +159,7 @@ const DynamicHeadlineEditor = () => {
     );
   });
 
-  const hydrateTemplate = (tpl) => {
+  const hydrateTemplate = (tpl, name) => {
     let line = tpl.line;
     const brand = brands.find((b) => b.code === brandCode);
     const prod = products.find((p) => p.id === productId);
@@ -176,7 +177,7 @@ const DynamicHeadlineEditor = () => {
       line = line.replace(/\{benefit\}/g, ben);
     }
     if (line.includes('{name?}')) {
-      line = line.replace(/\{name\?\}/g, settings.useName ? 'Alex' : '');
+      line = line.replace(/\{name\?\}/g, settings.useName ? name : '');
     }
     return line.trim();
   };
@@ -282,7 +283,7 @@ const DynamicHeadlineEditor = () => {
     const lines = [];
     let lastGreeting = null;
     for (let i = 0; i < active.length && lines.length < 10; i++) {
-      const hydrated = hydrateTemplate(active[i]);
+      const hydrated = hydrateTemplate(active[i], firstName);
       if (hydrated) {
         const { warns, greeting } = checkGuardrails(hydrated, lastGreeting);
         lines.push({ text: hydrated, warnings: warns });
