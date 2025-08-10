@@ -115,7 +115,11 @@ const AdminDynamicHeadlines = () => {
               <tr key={t.id}>
                 <td>{t.title || t.name}</td>
                 <td>{t.description || '-'}</td>
-                <td>{t.templates || 0}</td>
+                <td>
+                  {Array.isArray(t.templates)
+                    ? t.templates.length
+                    : t.templates || 0}
+                </td>
                 <td>
                   {t.updatedAt?.toDate
                     ? t.updatedAt.toDate().toLocaleString()
