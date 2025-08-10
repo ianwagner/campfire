@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FiChevronDown } from 'react-icons/fi';
 import useSiteSettings from '../useSiteSettings';
 import getMonthString from '../utils/getMonthString.js';
@@ -31,6 +31,12 @@ const DueDateMonthSelector = ({
         ).toLocaleString('default', { month: 'short' })
       : '';
 
+  useEffect(() => {
+    if (!month) {
+      setMonth(getMonthString());
+    }
+  }, [month, setMonth]);
+
   return (
     <div className="flex flex-col items-start gap-2">
       <div className="flex flex-col items-start">
@@ -51,7 +57,8 @@ const DueDateMonthSelector = ({
               aria-label="Month"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              className="absolute inset-0 w-full h-full cursor-pointer appearance-none"
+              style={{ opacity: 0, WebkitAppearance: 'none', MozAppearance: 'none' }}
             >
               {monthOptions.map((m) => (
                 <option key={m.value} value={m.value}>
