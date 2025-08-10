@@ -48,6 +48,7 @@ import AdminRecipeSetup from "./AdminRecipeSetup";
 import AdminCopyRecipes from "./AdminCopyRecipes";
 import AdminDynamicHeadlines from "./AdminDynamicHeadlines";
 import DynamicHeadlinesGuardrails from "./DynamicHeadlinesGuardrails";
+import DynamicHeadlineEditor from "./DynamicHeadlineEditor";
 import AdminNotifications from "./AdminNotifications";
 import ManageMfa from "./ManageMfa";
 import RequireMfa from "./RequireMfa";
@@ -861,6 +862,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminDynamicHeadlines />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/dynamic-headlines/:typeId"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole={["admin", "manager"]}
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <DynamicHeadlineEditor />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
