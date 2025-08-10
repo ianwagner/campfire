@@ -10,8 +10,8 @@ const DueDateMonthSelector = ({
   setMonth,
   isAgency,
 }) => {
-  const { settings } = useSiteSettings();
-  const monthColors = settings.monthColors || {};
+  const { settings, loading: settingsLoading } = useSiteSettings();
+  const monthColors = settingsLoading ? {} : settings.monthColors || {};
   const monthOptions = Array.from({ length: 12 }).map((_, i) => {
     const d = new Date();
     d.setMonth(d.getMonth() + i);

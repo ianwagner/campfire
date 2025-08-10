@@ -20,7 +20,6 @@ import RecipePreview from './RecipePreview.jsx';
 import DescribeProjectModal from './DescribeProjectModal.jsx';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import useSiteSettings from './useSiteSettings';
-import { DEFAULT_MONTH_COLORS } from './constants';
 import { hexToRgba } from './utils/theme.js';
 import { FiFileText } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
@@ -220,8 +219,8 @@ const ClientProjects = ({ brandCodes = [] }) => {
   const [sortField, setSortField] = useState('createdAt');
   const navigate = useNavigate();
   const location = useLocation();
-  const { settings } = useSiteSettings();
-  const monthColors = settings.monthColors || DEFAULT_MONTH_COLORS;
+  const { settings, loading: settingsLoading } = useSiteSettings();
+  const monthColors = settingsLoading ? {} : settings.monthColors || {};
 
   useEffect(() => {
     if (location.state?.removedProject) {
