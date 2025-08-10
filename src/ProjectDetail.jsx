@@ -185,6 +185,17 @@ const ProjectDetail = () => {
     return () => unsub();
   }, [groupId]);
 
+  useEffect(() => {
+    if (!groupId) return;
+    const unsub = onSnapshot(
+      collection(db, 'adGroups', groupId, 'assets'),
+      (snap) => {
+        setAssets(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      }
+    );
+    return () => unsub();
+  }, [groupId]);
+
   const updateLayout = () => {
     if (typeof window === 'undefined') return;
     const gallery = galleryRef.current;
