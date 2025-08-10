@@ -9,7 +9,7 @@ import {
   where,
   setDoc,
 } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { auth, db } from './firebase/config';
 import SaveButton from './components/SaveButton.jsx';
 import Table from './components/common/Table.jsx';
 import Modal from './components/Modal.jsx';
@@ -213,7 +213,71 @@ const DynamicHeadlineEditor = () => {
     return { warns, greeting };
   };
 
-  const showVariations = () => {
+  const generateVariations = async () => {
+    try {
+      const active = templates.filter((t) => t.enabled).map((t) => t.line);
+      const brand = brands.find((b) => b.code === brandCode);
+      const prod = products.find((p) => p.id === productId);
+      const userName =
+        auth.currentUser?.displayName || auth.currentUser?.email || 'User';
+      const guardParts = [];
+      if (guardrails.maxLength)
+        guardParts.push(`max ${guardrails.maxLength} characters`);
+      if (guardrails.noExclamation) guardParts.push('no exclamation marks');
+      if (guardrails.noPrice)
+        guardParts.push('no price or discount language');
+      if (Array.isArray(guardrails.blocklist) && guardrails.blocklist.length) {
+        guardParts.push(`avoid words: ${guardrails.blocklist.join(', ')}`);
+      }
+      if (guardrails.avoidRepeatGreeting) {
+        guardParts.push('avoid repeating greetings');
+      }
+      const prompt =
+        `Using the style of these templates:\n${active.join('\n')}\n` +
+        `Brand: ${brand?.name || ''}\n` +
+        `Product: ${prod?.name || ''}\n` +
+        `Guardrails: ${guardParts.join('; ') || 'none'}\n` +
+        `Current user: ${userName}\n` +
+        'Generate 10 headline variations, each on its own line without numbering.';
+      const response = await fetch(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+          }),
+        }
+      );
+      const data = await response.json();
+      const text = data.choices?.[0]?.message?.content || '';
+      const lines = text
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .slice(0, 10);
+      const output = [];
+      let lastGreeting = null;
+      lines.forEach((line) => {
+        const { warns, greeting } = checkGuardrails(line, lastGreeting);
+        output.push({ text: line, warnings: warns });
+        lastGreeting = greeting;
+      });
+      setPreview(output);
+    } catch (err) {
+      console.error('Failed to generate variations', err);
+    }
+  };
+
+  const showVariations = async () => {
+    if (settings.dynamic) {
+      await generateVariations();
+      return;
+    }
     const active = templates.filter((t) => t.enabled);
     const lines = [];
     let lastGreeting = null;
