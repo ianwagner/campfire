@@ -10,10 +10,14 @@ import debugLog from './utils/debugLog';
 // Guard against browsers where localStorage may be unavailable (e.g. privacy
 // mode). Accessing it can throw a DOMException, so wrap reads in try/catch.
 let storedAccent = null;
+let storedMonthColors = null;
 try {
   storedAccent = localStorage.getItem('accentColor');
+  const mc = localStorage.getItem('monthColors');
+  storedMonthColors = mc ? JSON.parse(mc) : null;
 } catch (e) {
   storedAccent = null;
+  storedMonthColors = null;
 }
 const defaultSettings = {
   logoUrl: '',
@@ -21,7 +25,7 @@ const defaultSettings = {
   campfireLogoUrl: '',
   artworkUrl: '',
   accentColor: storedAccent || DEFAULT_ACCENT_COLOR,
-  monthColors: DEFAULT_MONTH_COLORS,
+  monthColors: storedMonthColors || DEFAULT_MONTH_COLORS,
   creditCosts: {
     projectCreation: 1,
     editRequest: 1,
@@ -47,7 +51,8 @@ const useSiteSettings = (applyAccent = true) => {
         const snap = await getDoc(doc(db, 'settings', 'site'));
         if (snap.exists()) {
           const data = snap.data();
-          setSettings({ ...defaultSettings, ...data });
+          const monthColors = data.monthColors || DEFAULT_MONTH_COLORS;
+          setSettings({ ...defaultSettings, ...data, monthColors });
           const color = data.accentColor || defaultSettings.accentColor;
           if (applyAccent) {
             applyAccentColor(color);
@@ -57,16 +62,28 @@ const useSiteSettings = (applyAccent = true) => {
               /* ignore */
             }
           }
+          try {
+            localStorage.setItem('monthColors', JSON.stringify(monthColors));
+          } catch (e) {
+            /* ignore */
+          }
         } else {
-          await setDoc(doc(db, 'settings', 'site'), defaultSettings);
+          const newDefaults = { ...defaultSettings, monthColors: DEFAULT_MONTH_COLORS };
+          await setDoc(doc(db, 'settings', 'site'), newDefaults);
           if (applyAccent) {
-            applyAccentColor(defaultSettings.accentColor);
+            applyAccentColor(newDefaults.accentColor);
             try {
-              localStorage.setItem('accentColor', defaultSettings.accentColor);
+              localStorage.setItem('accentColor', newDefaults.accentColor);
             } catch (e) {
               /* ignore */
             }
           }
+          try {
+            localStorage.setItem('monthColors', JSON.stringify(newDefaults.monthColors));
+          } catch (e) {
+            /* ignore */
+          }
+          setSettings(newDefaults);
         }
       } catch (err) {
         console.error('Failed to fetch site settings', err);
@@ -96,6 +113,16 @@ const useSiteSettings = (applyAccent = true) => {
     }
   }, [settings.iconUrl]);
 
+  useEffect(() => {
+    if (settings.monthColors) {
+      try {
+        localStorage.setItem('monthColors', JSON.stringify(settings.monthColors));
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  }, [settings.monthColors]);
+
   const saveSettings = async (newSettings) => {
     debugLog('Saving site settings');
     await setDoc(doc(db, 'settings', 'site'), newSettings, { merge: true });
@@ -104,6 +131,13 @@ const useSiteSettings = (applyAccent = true) => {
     if (newSettings.accentColor) {
       try {
         localStorage.setItem('accentColor', newSettings.accentColor);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    if (newSettings.monthColors) {
+      try {
+        localStorage.setItem('monthColors', JSON.stringify(newSettings.monthColors));
       } catch (e) {
         /* ignore */
       }

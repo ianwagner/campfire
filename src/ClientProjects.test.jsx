@@ -21,6 +21,7 @@ jest.mock('firebase/firestore', () => ({
   getDocs: jest.fn(),
 }));
 jest.mock('./useSiteSettings', () => jest.fn(() => ({ settings: {}, loading: false })));
+import useSiteSettings from './useSiteSettings';
 jest.mock('./RecipePreview.jsx', () => () => <div />);
 jest.mock('./DescribeProjectModal.jsx', () => () => <div />);
 jest.mock('./components/OptimizedImage.jsx', () => () => <div />);
@@ -214,6 +215,10 @@ test('group-backed project shows recipe count', async () => {
 });
 
 test('renders month pill with correct color', async () => {
+  useSiteSettings.mockReturnValue({
+    settings: { monthColors: { '02': { color: '#123456', opacity: 1 } } },
+    loading: false,
+  });
   onSnapshot
     .mockImplementationOnce((q, cb) => {
       cb({
@@ -261,7 +266,8 @@ test('renders month pill with correct color', async () => {
 
   await waitFor(() => expect(screen.getByText('Feb')).toBeInTheDocument());
   const monthPill = screen.getByText('Feb');
-  expect(monthPill).toHaveStyle('background-color: #f97316');
+  expect(monthPill).toHaveStyle('background-color: #123456');
+  expect(monthPill).not.toHaveStyle('background-color: #f97316');
   expect(monthPill).toHaveClass('tag-pill');
 });
 
