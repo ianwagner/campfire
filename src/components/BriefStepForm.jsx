@@ -1,5 +1,5 @@
 import React from 'react';
-import { FiPlus, FiInfo, FiUpload, FiImage, FiChevronDown } from 'react-icons/fi';
+import { FiPlus, FiInfo, FiUpload, FiImage, FiPaperclip } from 'react-icons/fi';
 import IconButton from './IconButton.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
 import TagChecklist from './TagChecklist.jsx';
@@ -116,109 +116,117 @@ export default function BriefStepForm({
           />
         </div>
       )}
-      {currentType?.enableAssetCsv && (
-        <div className="space-y-2">
-          <div>
-          <label className="block mb-1 text-sm font-medium">Asset Library</label>
-            {assetRows.length > 0 && (
-              <div className="flex items-center mt-1">
-                <div className="flex items-baseline gap-2">
-                  <p className="text-sm">
-                    <span className="font-semibold text-accent">
-                      {filteredAssetRows.length}
-                    </span>{' '}
-                    assets found
-                  </p>
-                  <IconButton
-                    type="button"
-                    aria-label="Add Assets"
-                    onClick={() => setShowTagger(true)}
-                    className="text-sm"
-                  >
-                    <FiPlus /> Assets
-                  </IconButton>
-                </div>
-                <div className="flex items-center gap-1 ml-auto">
-                  <input
-                    type="text"
-                    placeholder="Filter"
-                    value={assetFilter}
-                    onChange={(e) => setAssetFilter(e.target.value)}
-                    className="p-1 border rounded text-xs"
-                  />
-                  <InfoTooltip text="Type here to narrow down assets for this brief.">
-                    <FiInfo className="text-gray-500" />
-                  </InfoTooltip>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
       {currentType && (
         <div className="space-y-4">
-          {showBriefExtras && (
-            <>
-              <div>
-                <label className="block mb-1 text-sm font-medium">
-                  <span className="inline-flex items-center gap-1">
-                    Brief Note (Optional)
-                    <InfoTooltip text="Add any specific instructions for this brief. These notes will be seen by the designers.">
-                      <FiInfo className="text-gray-500" />
-                    </InfoTooltip>
-                  </span>
-                </label>
-                <textarea
-                  value={briefNote}
-                  onChange={handleBriefNoteChange}
-                  placeholder="E.g. Only use red. Avoid lifestyle imagery."
-                  className="w-full p-2 border rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">
-                  <span className="inline-flex items-center gap-1">
-                    Brief-Specific Assets
-                    <InfoTooltip text="Upload logos, lockups, inspiration, or campaign-specific files for this brief. These are only used for this request. This is different from your brand’s Asset Library, which includes reusable product photos, videos, and brand elements that power your creative recipes.">
-                      <FiInfo className="text-gray-500" />
-                    </InfoTooltip>
-                  </span>
-                </label>
-                <div className="flex items-center gap-2 mb-1">
-                  <input
-                    id="brief-file-input"
-                    type="file"
-                    multiple
-                    ref={briefFileInputRef}
-                    onChange={handleBriefFilesChange}
-                    className="hidden"
-                  />
-                  <label
-                    htmlFor="brief-file-input"
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        briefFileInputRef.current &&
-                          briefFileInputRef.current.click();
-                      }
-                    }}
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300 hover:bg-[var(--accent-color-10)] hover:text-gray-900 dark:hover:text-white focus:outline-none active:bg-[var(--accent-color-10)] cursor-pointer"
-                  >
-                    <FiUpload /> Upload brief assets
+            {showBriefExtras && (
+              <>
+                <div>
+                  <label className="block mb-1 text-sm font-medium">
+                    <span className="inline-flex items-center gap-1">
+                      Brief Note (Optional)
+                      <InfoTooltip text="Add any specific instructions for this brief. These notes will be seen by the designers.">
+                        <FiInfo className="text-gray-500" />
+                      </InfoTooltip>
+                    </span>
                   </label>
+                  <textarea
+                    value={briefNote}
+                    onChange={handleBriefNoteChange}
+                    placeholder="E.g. Only use red. Avoid lifestyle imagery."
+                    className="w-full p-2 border rounded"
+                  />
                 </div>
-                {briefFiles.length > 0 && (
-                  <ul className="text-sm list-disc ml-5">
-                    {briefFiles.map((f, idx) => (
-                      <li key={idx}>{f.name}</li>
-                    ))}
-                  </ul>
+                <div>
+                  <label className="block mb-1 text-sm font-medium">
+                    <span className="inline-flex items-center gap-1">
+                      <FiPaperclip /> Brief Attachments
+                      <InfoTooltip text="Upload logos, lockups, inspiration, or campaign-specific files for this brief. These are only used for this request. This is different from your brand’s Asset Library, which includes reusable product photos, videos, and brand elements that power your creative recipes.">
+                        <FiInfo className="text-gray-500" />
+                      </InfoTooltip>
+                    </span>
+                  </label>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    Files specific to this brief only — e.g., PDF guidelines, logo lockups.
+                  </p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <input
+                      id="brief-file-input"
+                      type="file"
+                      multiple
+                      ref={briefFileInputRef}
+                      onChange={handleBriefFilesChange}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="brief-file-input"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          briefFileInputRef.current &&
+                            briefFileInputRef.current.click();
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-300 hover:bg-[var(--accent-color-10)] hover:text-gray-900 dark:hover:text-white focus:outline-none active:bg-[var(--accent-color-10)] cursor-pointer"
+                    >
+                      <FiUpload /> Upload attachments
+                    </label>
+                  </div>
+                  {briefFiles.length > 0 && (
+                    <ul className="text-sm list-disc ml-5">
+                      {briefFiles.map((f, idx) => (
+                        <li key={idx}>{f.name}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                {currentType?.enableAssetCsv && (
+                  <div className="mt-4 space-y-2">
+                    <label className="block mb-1 text-sm font-medium">
+                      <span className="inline-flex items-center gap-1">
+                        <FiImage /> Brand Asset Library
+                      </span>
+                    </label>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      Auto-tagged assets stored in your brand’s library. Add more assets to pull into any brief.
+                    </p>
+                    {assetRows.length > 0 && (
+                      <div className="flex items-center mt-1">
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-sm">
+                            <span className="font-semibold text-accent">
+                              {filteredAssetRows.length}
+                            </span>{' '}
+                            assets found
+                          </p>
+                          <IconButton
+                            type="button"
+                            aria-label="Add Assets"
+                            onClick={() => setShowTagger(true)}
+                            className="text-sm"
+                          >
+                            <FiPlus /> Assets
+                          </IconButton>
+                        </div>
+                        <div className="flex items-center gap-1 ml-auto">
+                          <input
+                            type="text"
+                            placeholder="Filter"
+                            value={assetFilter}
+                            onChange={(e) => setAssetFilter(e.target.value)}
+                            className="p-1 border rounded text-xs"
+                          />
+                          <InfoTooltip text="Type here to narrow down assets for this brief.">
+                            <FiInfo className="text-gray-500" />
+                          </InfoTooltip>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
-              </div>
-            </>
-          )}
+              </>
+            )}
           {displayedComponents.map((c) => {
             if (c.key === 'brand') return null;
             const instOptions = allInstances.filter(

@@ -110,8 +110,16 @@ const RecipePreview = ({
 
   const handleBriefFilesChange = (e) => {
     const files = Array.from(e.target.files || []);
-    setBriefFiles(files);
-    if (files.length > 0) setDirty(true);
+    let combined = [...briefFiles, ...files];
+    if (combined.length > 10) {
+      window.alert(
+        'Limit: 10 brief attachments. To include more assets in brief generation, upload them to your Brand Asset Library.'
+      );
+      combined = combined.slice(0, 10);
+    }
+    setBriefFiles(combined);
+    if (combined.length > 0) setDirty(true);
+    if (briefFileInputRef.current) briefFileInputRef.current.value = '';
   };
 
   const isUrl = (str) => /^https?:\/\//i.test(str);
