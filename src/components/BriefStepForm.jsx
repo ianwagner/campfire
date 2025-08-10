@@ -485,6 +485,7 @@ export default function BriefStepForm({
                   onChange={(arr) =>
                     setFormData({ ...formData, [f.key]: arr })
                   }
+                  addOnBlur
                 />
               ) : (
                 <input
