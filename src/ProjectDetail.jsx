@@ -11,6 +11,8 @@ import {
   deleteDoc,
   onSnapshot,
   serverTimestamp,
+  addDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
@@ -39,6 +41,7 @@ import createArchiveTicket from './utils/createArchiveTicket';
 import isVideoUrl from './utils/isVideoUrl';
 import stripVersion from './utils/stripVersion';
 import { deductRecipeCredits } from './utils/credits.js';
+import { uploadFile } from './uploadFile.js';
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf('.');
@@ -76,6 +79,8 @@ const ProjectDetail = () => {
   const [request, setRequest] = useState(null);
   const [group, setGroup] = useState(null);
   const [shareModal, setShareModal] = useState(false);
+  const [editingBrief, setEditingBrief] = useState(false);
+  const [newBriefFiles, setNewBriefFiles] = useState([]);
 
   useEffect(() => {
     const load = async () => {
@@ -217,6 +222,8 @@ const ProjectDetail = () => {
     if (showBrief) {
       setShowBrief(false);
       setBriefLoading(false);
+      setEditingBrief(false);
+      setNewBriefFiles([]);
       return;
     }
     setBriefLoading(true);
@@ -247,6 +254,62 @@ const ProjectDetail = () => {
       setShowBrief(false);
     } finally {
       setBriefLoading(false);
+    }
+  };
+
+  const handleBriefFileChange = (e) => {
+    setNewBriefFiles(Array.from(e.target.files || []));
+  };
+
+  const handleSaveBrief = async () => {
+    if (!groupId) return;
+    setBriefLoading(true);
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), {
+        notes: briefNote,
+        lastUpdated: serverTimestamp(),
+      });
+      if (newBriefFiles.length > 0) {
+        for (const file of newBriefFiles) {
+          try {
+            const url = await uploadFile(
+              file,
+              groupId,
+              group?.brandCode || project?.brandCode || '',
+              group?.name || project?.title || ''
+            );
+            await addDoc(collection(db, 'adGroups', groupId, 'groupAssets'), {
+              filename: file.name,
+              firebaseUrl: url,
+              uploadedAt: serverTimestamp(),
+              brandCode: group?.brandCode || project?.brandCode || '',
+              note: '',
+            });
+          } catch (err) {
+            console.error('Brief upload failed', err);
+          }
+        }
+        const bSnap = await getDocs(
+          collection(db, 'adGroups', groupId, 'groupAssets')
+        );
+        setBriefAssets(bSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      }
+      setNewBriefFiles([]);
+      setEditingBrief(false);
+    } catch (err) {
+      console.error('Failed to save brief', err);
+    } finally {
+      setBriefLoading(false);
+    }
+  };
+
+  const handleDeleteBriefAsset = async (id) => {
+    if (!groupId) return;
+    try {
+      await deleteDoc(doc(db, 'adGroups', groupId, 'groupAssets', id));
+      setBriefAssets((list) => list.filter((a) => a.id !== id));
+    } catch (err) {
+      console.error('Failed to delete brief asset', err);
     }
   };
 
@@ -673,10 +736,107 @@ const ProjectDetail = () => {
           <button className="font-medium" onClick={handleToggleBrief}>
             {showBrief ? 'Hide Brief' : 'View Brief'}
           </button>
+          {showBrief && !editingBrief && (
+            <Button
+              variant="secondary"
+              className="ml-2"
+              onClick={() => setEditingBrief(true)}
+            >
+              Edit
+            </Button>
+          )}
           {showBrief && (
             <div className="mt-4 space-y-4">
               {briefLoading ? (
                 <LoadingOverlay />
+              ) : editingBrief ? (
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium mb-1">Notes:</h4>
+                    <textarea
+                      value={briefNote}
+                      onChange={(e) => setBriefNote(e.target.value)}
+                      className="w-full border rounded p-2"
+                    />
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-1">Assets:</h4>
+                    <input type="file" multiple onChange={handleBriefFileChange} />
+                    {newBriefFiles.length > 0 && (
+                      <ul className="mt-2 text-sm">
+                        {newBriefFiles.map((f) => (
+                          <li key={f.name}>{f.name}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {briefAssets.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {briefAssets.map((a) => (
+                          <div key={a.id} className="asset-card">
+                            {(() => {
+                              const ext = fileExt(a.filename || '');
+                              if (a.firebaseUrl && ext === 'svg') {
+                                return (
+                                  <a href={a.firebaseUrl} download>
+                                    <img
+                                      src={a.firebaseUrl}
+                                      alt={a.filename}
+                                      className="object-contain max-w-[10rem] max-h-32"
+                                    />
+                                  </a>
+                                );
+                              }
+                              if (
+                                a.firebaseUrl &&
+                                !['ai', 'pdf'].includes(ext) &&
+                                !['otf', 'ttf', 'woff', 'woff2'].includes(ext)
+                              ) {
+                                return (
+                                  <a href={a.firebaseUrl} download>
+                                    <OptimizedImage
+                                      pngUrl={a.firebaseUrl}
+                                      alt={a.filename}
+                                      className="object-contain max-w-[10rem] max-h-32"
+                                    />
+                                  </a>
+                                );
+                              }
+                              return (
+                                <a href={a.firebaseUrl} download>
+                                  <PlaceholderIcon ext={ext} />
+                                </a>
+                              );
+                            })()}
+                            <button
+                              type="button"
+                              className="absolute top-1 right-1 bg-white rounded-full px-1 text-xs"
+                              onClick={() => handleDeleteBriefAsset(a.id)}
+                            >
+                              ×
+                            </button>
+                            {a.note && (
+                              <div className="absolute bottom-1 right-1 bg-accent text-white rounded-full p-1">
+                                <FiFileText size={14} />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleSaveBrief}>Save</Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setEditingBrief(false);
+                        setNewBriefFiles([]);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <>
                   {briefNote && (
