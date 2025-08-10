@@ -7,6 +7,7 @@ const TagInput = ({
   suggestions = [],
   id = 'tag-input',
   onlySuggestions = false,
+  addOnBlur = false,
 }) => {
   const [input, setInput] = useState('');
 
@@ -21,7 +22,7 @@ const TagInput = ({
   };
 
   const removeTag = (tag) => {
-    onChange(value.filter((t) => t !== tag));
+      onChange(value.filter((t) => t !== tag));
   };
 
   const handleKeyDown = (e) => {
@@ -52,6 +53,7 @@ const TagInput = ({
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
+        onBlur={() => addOnBlur && addTag(input)}
         className="flex-1 p-1 border rounded"
       />
       {suggestions.length > 0 && (
