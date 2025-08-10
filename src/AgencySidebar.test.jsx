@@ -25,6 +25,14 @@ jest.mock('react-router-dom', () => {
   };
 });
 
+beforeEach(() => {
+  Object.defineProperty(window, 'innerWidth', {
+    writable: true,
+    configurable: true,
+    value: 1300,
+  });
+});
+
 test('agency sidebar has md width class', () => {
   const { container } = render(
     <MemoryRouter>

@@ -61,6 +61,12 @@ const Sidebar = ({ agencyId, role }) => {
   const showAnimatedLogo = isManager || isEditor || !agencyId;
   const [collapsed, setCollapsed] = React.useState(false);
   React.useEffect(() => {
+    const handleResize = () => setCollapsed(window.innerWidth < 1200);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  React.useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty('--sidebar-width', collapsed ? '4rem' : '250px');
     return () => {

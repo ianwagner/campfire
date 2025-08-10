@@ -7,6 +7,14 @@ import DesignerSidebar from './DesignerSidebar';
 jest.mock('./firebase/config', () => ({ auth: {}, db: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
 
+beforeEach(() => {
+  Object.defineProperty(window, 'innerWidth', {
+    writable: true,
+    configurable: true,
+    value: 1300,
+  });
+});
+
 test('designer sidebar has md width class', () => {
   const { container } = render(
     <MemoryRouter>
