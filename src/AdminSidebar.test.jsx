@@ -13,6 +13,14 @@ jest.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/current' }),
 }));
 
+beforeEach(() => {
+  Object.defineProperty(window, 'innerWidth', {
+    writable: true,
+    configurable: true,
+    value: 1300,
+  });
+});
+
 test('admin sidebar toggles width when collapse button clicked', () => {
   const { container } = render(
     <MemoryRouter>
@@ -23,6 +31,21 @@ test('admin sidebar toggles width when collapse button clicked', () => {
   expect(sidebarDiv).toHaveClass('w-[250px]');
   expect(sidebarDiv).toHaveClass('md:flex');
   fireEvent.click(screen.getByLabelText('Toggle sidebar'));
+  expect(sidebarDiv).toHaveClass('w-16');
+});
+
+test('collapses by default when screen width is below 1200px', () => {
+  Object.defineProperty(window, 'innerWidth', {
+    writable: true,
+    configurable: true,
+    value: 1000,
+  });
+  const { container } = render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  const sidebarDiv = container.querySelector('.border-r');
   expect(sidebarDiv).toHaveClass('w-16');
 });
 
