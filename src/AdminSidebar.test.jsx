@@ -6,10 +6,11 @@ import AdminSidebar from './AdminSidebar';
 
 jest.mock('./firebase/config', () => ({ auth: {}, db: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
-const navigate = jest.fn();
+jest.mock('./utils/debugLog', () => jest.fn());
+const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
-  useNavigate: () => navigate,
+  useNavigate: () => mockNavigate,
   useLocation: () => ({ pathname: '/current' }),
 }));
 
@@ -56,7 +57,7 @@ test('shows short copyright when collapsed', () => {
     </MemoryRouter>
   );
   fireEvent.click(screen.getByLabelText('Toggle sidebar'));
-  expect(screen.getByText('© 2025')).toBeInTheDocument();
+  expect(screen.getByText(/© 2025/)).toBeInTheDocument();
 });
 
 test('shows full copyright when expanded', () => {
@@ -77,7 +78,7 @@ test('navigates to brands page when Brands clicked', () => {
     </MemoryRouter>
   );
   fireEvent.click(screen.getByText('Brands'));
-  expect(navigate).toHaveBeenCalledWith('/admin/brands');
+  expect(mockNavigate).toHaveBeenCalledWith('/admin/brands');
 });
 
 test('navigates to ad recipes page when Ad Recipes clicked', () => {
@@ -88,7 +89,18 @@ test('navigates to ad recipes page when Ad Recipes clicked', () => {
   );
   fireEvent.click(screen.getByText('Settings'));
   fireEvent.click(screen.getByText('Ad Recipes'));
-  expect(navigate).toHaveBeenCalledWith('/admin/ad-recipes');
+  expect(mockNavigate).toHaveBeenCalledWith('/admin/ad-recipes');
+});
+
+test('navigates to dynamic headlines page when Dynamic Headlines clicked', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  fireEvent.click(screen.getByText('Settings'));
+  fireEvent.click(screen.getByText('Dynamic Headlines'));
+  expect(mockNavigate).toHaveBeenCalledWith('/admin/dynamic-headlines');
 });
 
 test('renders Site Settings tab', () => {

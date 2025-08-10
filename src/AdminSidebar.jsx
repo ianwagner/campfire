@@ -13,6 +13,7 @@ import {
   FiBell,
   FiUser,
   FiTool,
+  FiType,
 } from 'react-icons/fi';
 
 const tabs = [
@@ -28,6 +29,11 @@ const tabs = [
       { label: 'Ad Recipes', path: '/admin/ad-recipes', icon: FiList },
       { label: 'Copy Recipes', path: '/admin/copy-recipes', icon: FiCopy },
       { label: 'Notifications', path: '/admin/notifications', icon: FiBell },
+      {
+        label: 'Dynamic Headlines',
+        path: '/admin/dynamic-headlines',
+        icon: FiType,
+      },
       { label: 'Account Settings', path: '/admin/account-settings', icon: FiUser },
       { label: 'Site Settings', path: '/admin/site-settings', icon: FiTool },
     ],
