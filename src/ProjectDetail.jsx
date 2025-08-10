@@ -13,6 +13,8 @@ import {
   serverTimestamp,
   addDoc,
   updateDoc,
+  Timestamp,
+  deleteField,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
@@ -42,6 +44,7 @@ import isVideoUrl from './utils/isVideoUrl';
 import stripVersion from './utils/stripVersion';
 import { deductRecipeCredits } from './utils/credits.js';
 import { uploadFile } from './uploadFile.js';
+import DueDateMonthSelector from './components/DueDateMonthSelector.jsx';
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf('.');
@@ -626,6 +629,57 @@ const ProjectDetail = () => {
     }
   };
 
+  const handleDueDateChange = async (value) => {
+    if (!groupId) return;
+    const date = value ? Timestamp.fromDate(new Date(value)) : null;
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), { dueDate: date });
+      setGroup((p) => ({ ...p, dueDate: date }));
+      if (group?.requestId) {
+        try {
+          await updateDoc(doc(db, 'requests', group.requestId), { dueDate: date });
+        } catch (err) {
+          console.error('Failed to sync ticket due date', err);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update due date', err);
+    }
+  };
+
+  const handleMonthChange = async (value) => {
+    if (!groupId) return;
+    try {
+      if (value) {
+        await updateDoc(doc(db, 'adGroups', groupId), { month: value });
+        setGroup((p) => ({ ...p, month: value }));
+        if (group?.requestId) {
+          try {
+            await updateDoc(doc(db, 'requests', group.requestId), { month: value });
+          } catch (err) {
+            console.error('Failed to sync ticket month', err);
+          }
+        }
+      } else {
+        await updateDoc(doc(db, 'adGroups', groupId), { month: deleteField() });
+        setGroup((p) => {
+          const u = { ...p };
+          delete u.month;
+          return u;
+        });
+        if (group?.requestId) {
+          try {
+            await updateDoc(doc(db, 'requests', group.requestId), { month: deleteField() });
+          } catch (err) {
+            console.error('Failed to sync ticket month', err);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update month', err);
+    }
+  };
+
   const reviewDisabled = assets.length === 0 || !groupId;
   const downloadDisabled = approvedAssets.length === 0;
 
@@ -643,6 +697,8 @@ const ProjectDetail = () => {
   if (!groupId && request) {
     return <Navigate to={`/projects/${projectId}/staging`} replace />;
   }
+
+  const isAgency = !!project?.agencyId;
 
   const visibleAssets = showAllAssets
     ? assets
@@ -714,7 +770,22 @@ const ProjectDetail = () => {
       />
       <div className="flex flex-col md:flex-row gap-4 mb-4">
         <div className="border rounded p-4 flex-1 max-w-[60rem]">
-          <h1 className="text-xl font-semibold mb-1">{project.title}</h1>
+          <div className="flex justify-between">
+            <h1 className="text-xl font-semibold mb-1">{project.title}</h1>
+            <DueDateMonthSelector
+              dueDate={
+                group?.dueDate
+                  ? group.dueDate.toDate
+                    ? group.dueDate.toDate().toISOString().slice(0, 10)
+                    : new Date(group.dueDate).toISOString().slice(0, 10)
+                  : ''
+              }
+              setDueDate={handleDueDateChange}
+              month={group?.month || ''}
+              setMonth={handleMonthChange}
+              isAgency={isAgency}
+            />
+          </div>
           {project.createdAt && (
             <p className="text-sm text-gray-600 mb-2">
               Submitted {project.createdAt.toLocaleString()}

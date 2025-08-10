@@ -2023,7 +2023,7 @@ const AdGroupDetail = () => {
                 console.error("Failed to update due date", err);
               }
             }}
-          className="border p-1 rounded"
+          className="border tag-pill px-2 py-1 text-sm"
           />
         ) : (
           <span>
@@ -2071,7 +2071,7 @@ const AdGroupDetail = () => {
                   console.error('Failed to update month', err);
                 }
               }}
-              className="border p-1 rounded"
+              className="border tag-pill px-2 py-1 text-sm"
             />
           </>
         )}
