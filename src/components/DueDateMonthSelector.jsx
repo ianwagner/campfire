@@ -1,7 +1,6 @@
 import React from 'react';
 import { FiChevronDown } from 'react-icons/fi';
 import useSiteSettings from '../useSiteSettings';
-import { DEFAULT_MONTH_COLORS } from '../constants.js';
 import getMonthString from '../utils/getMonthString.js';
 
 const DueDateMonthSelector = ({
@@ -12,7 +11,7 @@ const DueDateMonthSelector = ({
   isAgency,
 }) => {
   const { settings } = useSiteSettings();
-  const monthColors = settings.monthColors || DEFAULT_MONTH_COLORS;
+  const monthColors = settings.monthColors || {};
   const monthOptions = Array.from({ length: 12 }).map((_, i) => {
     const d = new Date();
     d.setMonth(d.getMonth() + i);
@@ -33,8 +32,8 @@ const DueDateMonthSelector = ({
       : '';
 
   return (
-    <div className="flex items-end gap-2">
-      <div className="flex flex-col">
+    <div className="flex flex-col items-start gap-2">
+      <div className="flex flex-col items-start">
         <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">Due Date:</span>
         <input
           type="date"
@@ -45,7 +44,7 @@ const DueDateMonthSelector = ({
         />
       </div>
       {isAgency && (
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-start">
           <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">Month:</span>
           <div className="relative">
             <select
