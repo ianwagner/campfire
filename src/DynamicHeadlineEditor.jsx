@@ -13,6 +13,7 @@ import { db } from './firebase/config';
 import SaveButton from './components/SaveButton.jsx';
 import Table from './components/common/Table.jsx';
 import Modal from './components/Modal.jsx';
+import useHeadlineGuardrails from './useHeadlineGuardrails.js';
 
 const emptyTemplate = {
   tone: '',
@@ -44,6 +45,7 @@ const DynamicHeadlineEditor = () => {
   const [products, setProducts] = useState([]);
   const [productId, setProductId] = useState('');
   const [preview, setPreview] = useState([]);
+  const { guardrails } = useHeadlineGuardrails();
 
   useEffect(() => {
     const loadType = async () => {
@@ -179,20 +181,48 @@ const DynamicHeadlineEditor = () => {
     return line.trim();
   };
 
-  const checkGuardrails = (line) => {
+  const checkGuardrails = (line, lastGreeting) => {
     const warns = [];
-    if (line.length > 60) warns.push('Over 60 characters');
+    const max = guardrails.maxLength || 60;
+    if (line.length > max) warns.push(`Over ${max} characters`);
     if (!/[.!?]$/.test(line)) warns.push('Missing ending punctuation');
-    return warns;
+    if (guardrails.noExclamation && /!/.test(line)) {
+      warns.push('Contains exclamation mark');
+    }
+    if (guardrails.noPrice && /(\$\s*\d|\d+%|percent|sale|discount|off)/i.test(line)) {
+      warns.push('Contains price/discount language');
+    }
+    if (Array.isArray(guardrails.blocklist)) {
+      guardrails.blocklist.forEach((w) => {
+        if (w && line.toLowerCase().includes(w.toLowerCase())) {
+          warns.push(`Contains blocked word: ${w}`);
+        }
+      });
+    }
+    let greeting = null;
+    const match = line.match(/^(\w+)/);
+    if (match) greeting = match[1].toLowerCase();
+    if (
+      guardrails.avoidRepeatGreeting &&
+      lastGreeting &&
+      greeting &&
+      greeting === lastGreeting
+    ) {
+      warns.push('Repeats greeting');
+    }
+    return { warns, greeting };
   };
 
   const showVariations = () => {
     const active = templates.filter((t) => t.enabled);
     const lines = [];
+    let lastGreeting = null;
     for (let i = 0; i < active.length && lines.length < 10; i++) {
       const hydrated = hydrateTemplate(active[i]);
       if (hydrated) {
-        lines.push({ text: hydrated, warnings: checkGuardrails(hydrated) });
+        const { warns, greeting } = checkGuardrails(hydrated, lastGreeting);
+        lines.push({ text: hydrated, warnings: warns });
+        lastGreeting = greeting;
       }
     }
     setPreview(lines);
