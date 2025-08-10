@@ -771,7 +771,17 @@ const ProjectDetail = () => {
       <div className="flex flex-col md:flex-row gap-4 mb-4">
         <div className="border rounded p-4 flex-1 max-w-[60rem]">
           <div className="flex justify-between">
-            <h1 className="text-xl font-semibold mb-1">{project.title}</h1>
+            <div className="space-y-1">
+              <h1 className="text-xl font-semibold">{project.title}</h1>
+              {project.createdAt && (
+                <p className="text-sm text-gray-600">
+                  Submitted {project.createdAt.toLocaleString()}
+                </p>
+              )}
+              <p className="text-sm text-gray-600">
+                {recipes.length} recipe{recipes.length === 1 ? '' : 's'}
+              </p>
+            </div>
             <DueDateMonthSelector
               dueDate={
                 group?.dueDate
@@ -786,14 +796,6 @@ const ProjectDetail = () => {
               isAgency={isAgency}
             />
           </div>
-          {project.createdAt && (
-            <p className="text-sm text-gray-600 mb-2">
-              Submitted {project.createdAt.toLocaleString()}
-            </p>
-          )}
-          <p className="text-sm text-gray-600">
-            {recipes.length} recipe{recipes.length === 1 ? '' : 's'}
-          </p>
         </div>
         {project.recipeTypes && project.recipeTypes.length > 0 && (
           <div className="border rounded flex items-center justify-center max-w-[60rem]">
