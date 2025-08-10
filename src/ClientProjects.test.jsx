@@ -29,8 +29,12 @@ jest.mock('./useUserRole', () => () => ({ agencyId: null }));
 jest.mock('./uploadFile.js', () => ({ uploadFile: jest.fn() }));
 
 import { onSnapshot } from 'firebase/firestore';
+import { auth } from './firebase/config';
 
-afterEach(() => jest.clearAllMocks());
+afterEach(() => {
+  jest.clearAllMocks();
+  delete auth.currentUser.displayName;
+});
 
 test('displays brand code when multiple brand codes provided', () => {
   onSnapshot
@@ -269,5 +273,59 @@ test('renders month pill with correct color', async () => {
   expect(monthPill).toHaveStyle('background-color: #123456');
   expect(monthPill).not.toHaveStyle('background-color: #f97316');
   expect(monthPill).toHaveClass('tag-pill');
+});
+
+test('shows personalized greeting when display name is present', () => {
+  auth.currentUser.displayName = 'John Doe';
+  onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    });
+
+  render(
+    <MemoryRouter>
+      <ClientProjects brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  expect(
+    screen.getByText("Hey John, let's create something awesome today.")
+  ).toBeInTheDocument();
+});
+
+test('shows default greeting when display name is absent', () => {
+  delete auth.currentUser.displayName;
+  onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    });
+
+  render(
+    <MemoryRouter>
+      <ClientProjects brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  expect(
+    screen.getByText('How would you like to start?')
+  ).toBeInTheDocument();
 });
 
