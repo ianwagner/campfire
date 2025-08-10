@@ -14,12 +14,13 @@ import { db, auth } from './firebase/config';
 import UrlCheckInput from './components/UrlCheckInput.jsx';
 import useUserRole from './useUserRole';
 import DueDateMonthSelector from './components/DueDateMonthSelector.jsx';
+import getMonthString from './utils/getMonthString.js';
 
 const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
   const [title, setTitle] = useState('');
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
   const [dueDate, setDueDate] = useState('');
-  const [month, setMonth] = useState('');
+  const [month, setMonth] = useState(getMonthString());
   const [numAds, setNumAds] = useState(1);
   const [assetLinks, setAssetLinks] = useState(['']);
   const [details, setDetails] = useState('');
@@ -44,7 +45,7 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
       setNumAds(request.numAds || 1);
       setAssetLinks(request.assetLinks && request.assetLinks.length ? request.assetLinks : ['']);
       setDetails(request.details || '');
-      setMonth(request.month || '');
+      setMonth(request.month || getMonthString());
     }
   }, [request, brandCodes]);
 
