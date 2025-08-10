@@ -9,13 +9,10 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
-import { FiInfo, FiChevronDown } from 'react-icons/fi';
+import { FiInfo } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import UrlCheckInput from './components/UrlCheckInput.jsx';
 import useUserRole from './useUserRole';
-import getMonthString from './utils/getMonthString.js';
-import useSiteSettings from './useSiteSettings';
-import { DEFAULT_MONTH_COLORS } from './constants.js';
 
 const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
   const [title, setTitle] = useState('');
@@ -28,25 +25,6 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
 
   const { role, agencyId } = useUserRole(auth.currentUser?.uid);
   const isAgency = role === 'agency' || !!agencyId;
-  const { settings } = useSiteSettings();
-  const monthColors = settings.monthColors || DEFAULT_MONTH_COLORS;
-  const monthOptions = Array.from({ length: 12 }).map((_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + i);
-    return {
-      value: getMonthString(d),
-      label: d.toLocaleString('default', { month: 'short', year: 'numeric' }),
-    };
-  });
-  const monthColorEntry = monthColors[month?.slice(-2)] || null;
-  const monthLabel =
-    month
-      ? new Date(
-          Number(month.slice(0, 4)),
-          Number(month.slice(-2)) - 1,
-          1
-        ).toLocaleString('default', { month: 'short' })
-      : '';
 
   useEffect(() => {
     if (request) {
@@ -184,41 +162,21 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           <label className="block mb-1 text-sm font-medium">Title</label>
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2 border rounded" />
         </div>
-        <div className="flex items-end gap-2">
-          <div className="flex flex-col">
-            <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">Due Date:</span>
+        <div>
+          <label className="block mb-1 text-sm font-medium">Due Date</label>
+          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full p-2 border rounded" />
+        </div>
+        {isAgency && (
+          <div>
+            <label className="block mb-1 text-sm font-medium">Month</label>
             <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              aria-label="Due date"
-              className="border tag-pill px-2 py-1 text-sm"
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="w-full p-2 border rounded"
             />
           </div>
-          {isAgency && (
-            <div className="relative">
-              <select
-                aria-label="Month"
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              >
-                {monthOptions.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              <div
-                className="pointer-events-none text-white tag-pill px-2 py-0.5 pr-3 text-xs flex items-center"
-                style={{ backgroundColor: monthColorEntry?.color }}
-              >
-                {monthLabel}
-                <FiChevronDown className="ml-1" />
-              </div>
-            </div>
-          )}
-        </div>
+        )}
         <div>
           <label className="block mb-1 text-sm font-medium">Number of Ads</label>
           <input type="number" min="1" value={numAds} onChange={(e) => setNumAds(e.target.value)} className="w-full p-2 border rounded" />

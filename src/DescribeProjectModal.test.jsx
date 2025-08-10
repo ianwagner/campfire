@@ -18,7 +18,6 @@ jest.mock('./components/UrlCheckInput.jsx', () => (props) => (
   <input {...props} />
 ));
 jest.mock('./useUserRole', () => () => ({ role: null, agencyId: null }));
-jest.mock('./useSiteSettings', () => jest.fn(() => ({ settings: {}, loading: false })));
 
 test('alerts when saving without a title', () => {
   window.alert = jest.fn();
