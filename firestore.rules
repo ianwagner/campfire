@@ -228,6 +228,10 @@ allow count: if request.auth != null && (
       allow write: if isAdmin() || isManager();
     }
 
+    match /headlineTypes/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     match /projects/{projectId} {
       allow read: if true;
       allow create: if request.auth != null && (
