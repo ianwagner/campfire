@@ -58,25 +58,15 @@ export default function BriefStepForm({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={onBack}
-        className="btn-arrow mb-2"
-        aria-label="Back"
-      >
-        &lt;
-      </button>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-xl font-semibold">
-            {currentType?.name || 'Generate a Brief'}
-          </h2>
-          {currentType?.description && (
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {currentType.description}
-            </p>
-          )}
-        </div>
+      <div className="flex justify-between mb-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="btn-arrow"
+          aria-label="Back"
+        >
+          &lt;
+        </button>
         <DueDateMonthSelector
           dueDate={dueDate}
           setDueDate={setDueDate}
@@ -84,6 +74,16 @@ export default function BriefStepForm({
           setMonth={setMonth}
           isAgency={isAgency}
         />
+      </div>
+      <div className="mb-4">
+        <h2 className="text-xl font-semibold">
+          {currentType?.name || 'Generate a Brief'}
+        </h2>
+        {currentType?.description && (
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {currentType.description}
+          </p>
+        )}
       </div>
       {!hideBrandSelect && (
         <div className="mb-4">
