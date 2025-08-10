@@ -46,6 +46,8 @@ import ProjectDetail from "./ProjectDetail";
 import ProjectStaging from "./ProjectStaging";
 import AdminRecipeSetup from "./AdminRecipeSetup";
 import AdminCopyRecipes from "./AdminCopyRecipes";
+import AdminDynamicHeadlines from "./AdminDynamicHeadlines";
+import DynamicHeadlinesGuardrails from "./DynamicHeadlinesGuardrails";
 import AdminNotifications from "./AdminNotifications";
 import ManageMfa from "./ManageMfa";
 import RequireMfa from "./RequireMfa";
@@ -843,6 +845,38 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminCopyRecipes />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/dynamic-headlines"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole={["admin", "manager"]}
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <AdminDynamicHeadlines />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/dynamic-headlines/guardrails"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole={["admin", "manager"]}
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <DynamicHeadlinesGuardrails />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
