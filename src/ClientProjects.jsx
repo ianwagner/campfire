@@ -340,6 +340,11 @@ const ClientProjects = ({ brandCodes = [] }) => {
       return (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0);
     });
 
+  const firstName = auth.currentUser?.displayName?.split(' ')[0];
+  const introText = firstName
+    ? `Hey ${firstName}, let's create something awesome today.`
+    : 'How would you like to start?';
+
   return (
     <div className="min-h-screen p-4 flex flex-col items-center overflow-y-auto snap-y snap-mandatory scroll-smooth">
       {loading ? (
@@ -360,7 +365,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
           )}
           <section className="snap-start w-full flex flex-col items-center">
             <div className="max-w-xl w-full flex flex-col items-center text-center mb-6">
-              <h1 className="text-2xl mb-4">How would you like to start?</h1>
+              <h1 className="text-2xl mb-4">{introText}</h1>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full justify-items-center">
                 <OptionButton
                   icon={FiFileText}
