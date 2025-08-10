@@ -1234,7 +1234,7 @@ useEffect(() => {
           <h1 className="text-2xl font-bold">Your ads are ready!</h1>
         ) : (
           <>
-            <h1 className="text-2xl font-bold">Thank you for your feedback!</h1>
+            <h1 className="text-2xl font-bold">Your ads are ready!</h1>
             <h2 className="text-xl">
               You've approved{' '}
               <span style={{ color: 'var(--approved-color)' }}>{summaryCount}</span>{' '}

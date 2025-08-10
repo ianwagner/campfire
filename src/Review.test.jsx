@@ -1074,7 +1074,7 @@ test('returns to start screen after finishing review', async () => {
   fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
-  await screen.findByText(/Thank you for your feedback/i);
+  await screen.findByText(/Your ads are ready/i);
 });
 
 test('updates group status after finishing review', async () => {
@@ -1140,6 +1140,6 @@ test('updates status and shows summary when no ads available', async () => {
   const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
   expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
 
-  expect(await screen.findByText(/Thank you for your feedback/i)).toBeInTheDocument();
+  expect(await screen.findByText(/Your ads are ready/i)).toBeInTheDocument();
 });
 
