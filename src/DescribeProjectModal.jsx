@@ -13,6 +13,7 @@ import { FiInfo } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import UrlCheckInput from './components/UrlCheckInput.jsx';
 import useUserRole from './useUserRole';
+import DueDateMonthSelector from './components/DueDateMonthSelector.jsx';
 
 const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
   const [title, setTitle] = useState('');
@@ -162,21 +163,13 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           <label className="block mb-1 text-sm font-medium">Title</label>
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2 border rounded" />
         </div>
-        <div>
-          <label className="block mb-1 text-sm font-medium">Due Date</label>
-          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full p-2 border rounded" />
-        </div>
-        {isAgency && (
-          <div>
-            <label className="block mb-1 text-sm font-medium">Month</label>
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="w-full p-2 border rounded"
-            />
-          </div>
-        )}
+        <DueDateMonthSelector
+          dueDate={dueDate}
+          setDueDate={setDueDate}
+          month={month}
+          setMonth={setMonth}
+          isAgency={isAgency}
+        />
         <div>
           <label className="block mb-1 text-sm font-medium">Number of Ads</label>
           <input type="number" min="1" value={numAds} onChange={(e) => setNumAds(e.target.value)} className="w-full p-2 border rounded" />

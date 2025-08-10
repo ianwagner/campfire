@@ -9,9 +9,7 @@ import ProductCard from './ProductCard.jsx';
 import AddProductCard from './AddProductCard.jsx';
 import ProductEditModal from './ProductEditModal.jsx';
 import ProductImportModal from '../ProductImportModal.jsx';
-import getMonthString from '../utils/getMonthString.js';
-import useSiteSettings from '../useSiteSettings';
-import { DEFAULT_MONTH_COLORS } from '../constants.js';
+import DueDateMonthSelector from './DueDateMonthSelector.jsx';
 
 export default function BriefStepForm({
   onBack,
@@ -57,26 +55,6 @@ export default function BriefStepForm({
   setDueDate,
   isAgency,
 }) {
-  const { settings } = useSiteSettings();
-  const monthColors = settings.monthColors || DEFAULT_MONTH_COLORS;
-  const monthOptions = Array.from({ length: 12 }).map((_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + i);
-    return {
-      value: getMonthString(d),
-      label: d.toLocaleString('default', { month: 'short', year: 'numeric' }),
-    };
-  });
-
-  const monthColorEntry = monthColors[month?.slice(-2)] || null;
-  const monthLabel =
-    month
-      ? new Date(
-          Number(month.slice(0, 4)),
-          Number(month.slice(-2)) - 1,
-          1
-        ).toLocaleString('default', { month: 'short' })
-      : '';
 
   return (
     <>
@@ -99,43 +77,13 @@ export default function BriefStepForm({
             </p>
           )}
         </div>
-        <div className="flex items-end gap-2">
-          <div className="flex flex-col">
-            <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-              Due Date:
-            </span>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              aria-label="Due date"
-              className="border tag-pill px-2 py-1 text-sm"
-            />
-          </div>
-          {isAgency && (
-            <div className="relative">
-              <select
-                aria-label="Month"
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              >
-                {monthOptions.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              <div
-                className="pointer-events-none text-white tag-pill px-2 py-0.5 pr-3 text-xs flex items-center"
-                style={{ backgroundColor: monthColorEntry?.color }}
-              >
-                {monthLabel}
-                <FiChevronDown className="ml-1" />
-              </div>
-            </div>
-          )}
-        </div>
+        <DueDateMonthSelector
+          dueDate={dueDate}
+          setDueDate={setDueDate}
+          month={month}
+          setMonth={setMonth}
+          isAgency={isAgency}
+        />
       </div>
       {!hideBrandSelect && (
         <div className="mb-4">
