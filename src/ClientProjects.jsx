@@ -342,7 +342,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
 
   const firstName = auth.currentUser?.displayName?.split(' ')[0];
   const introText = firstName
-    ? `Hey ${firstName}, let's create something awesome today.`
+    ? `Hey ${firstName}, how would you like to start?`
     : 'How would you like to start?';
 
   return (
