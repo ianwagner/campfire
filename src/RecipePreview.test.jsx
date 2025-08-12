@@ -207,3 +207,15 @@ test('client users can manage layout assets', async () => {
   openSpy.mockRestore();
 });
 
+test('editor users have access to row action buttons', async () => {
+  mockUseUserRole.mockReturnValue({ role: 'editor', loading: false });
+  mockGetDocs.mockResolvedValue({ docs: [] });
+  render(<RecipePreview initialResults={[{ type: 'Type1', components: {} }]} />);
+
+  const editBtn = await screen.findByLabelText('Edit');
+  expect(editBtn).toBeInTheDocument();
+  expect(screen.getByLabelText('Refresh')).toBeInTheDocument();
+  expect(screen.getByLabelText('Delete')).toBeInTheDocument();
+  expect(screen.queryByLabelText('Toggle Select')).toBeNull();
+});
+
