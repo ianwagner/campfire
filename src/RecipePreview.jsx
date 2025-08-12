@@ -276,7 +276,10 @@ const RecipePreview = ({
   const { role: userRole, agencyId } = useUserRole(auth.currentUser?.uid);
   const isAgencyUser = userRole === 'agency' || !!agencyId;
   const canEditRecipes =
-    userRole === 'admin' || userRole === 'agency' || userRole === 'client';
+    userRole === 'admin' ||
+    userRole === 'agency' ||
+    userRole === 'client' ||
+    userRole === 'editor';
 
   useEffect(() => {
     const fetchData = async () => {
