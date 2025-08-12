@@ -9,7 +9,11 @@ jest.mock('./firebase/config', () => ({ db: {}, auth: {} }));
 const mockUseUserRole = jest.fn(() => ({ role: 'admin', brandCodes: [], loading: false }));
 jest.mock('./useUserRole', () => (...args) => mockUseUserRole(...args));
 
-jest.mock('./RecipePreview.jsx', () => () => <div />);
+jest.mock('./RecipePreview.jsx', () => ({ onSave }) => (
+  <button data-testid="recipe-preview" onClick={() => onSave([{ id: '1', copy: 'hello', components: {} }])}>
+    save recipe
+  </button>
+));
 jest.mock('./CopyRecipePreview.jsx', () => () => <div />);
 jest.mock('./BrandAssets.jsx', () => () => <div />);
 jest.mock('./BrandAssetsLayout.jsx', () => () => <div />);
@@ -24,28 +28,38 @@ const mockCollection = jest.fn((...args) => args);
 const mockQuery = jest.fn((...args) => args);
 const mockWhere = jest.fn((...args) => args);
 const mockArrayUnion = jest.fn((...args) => args);
+var mockBatchSet;
+var mockBatchDelete;
+var mockBatchCommit;
+var mockWriteBatch;
 
-jest.mock('firebase/firestore', () => ({
-  doc: (...args) => mockDoc(...args),
-  getDoc: (...args) => mockGetDoc(...args),
-  onSnapshot: (...args) => mockOnSnapshot(...args),
-  collection: (...args) => mockCollection(...args),
-  updateDoc: (...args) => mockUpdateDoc(...args),
-  setDoc: (...args) => mockSetDoc(...args),
-  serverTimestamp: jest.fn(),
-  writeBatch: jest.fn(() => ({
+jest.mock('firebase/firestore', () => {
+  mockBatchSet = jest.fn();
+  mockBatchDelete = jest.fn();
+  mockBatchCommit = jest.fn();
+  mockWriteBatch = jest.fn(() => ({
     update: jest.fn(),
-    set: jest.fn(),
-    delete: jest.fn(),
-    commit: jest.fn(),
-  })),
-  addDoc: jest.fn(),
-  deleteDoc: jest.fn(),
-  arrayUnion: (...args) => mockArrayUnion(...args),
-  getDocs: (...args) => mockGetDocs(...args),
-  query: (...args) => mockQuery(...args),
-  where: (...args) => mockWhere(...args),
-}));
+    set: mockBatchSet,
+    delete: mockBatchDelete,
+    commit: mockBatchCommit,
+  }));
+  return {
+    doc: (...args) => mockDoc(...args),
+    getDoc: (...args) => mockGetDoc(...args),
+    onSnapshot: (...args) => mockOnSnapshot(...args),
+    collection: (...args) => mockCollection(...args),
+    updateDoc: (...args) => mockUpdateDoc(...args),
+    setDoc: (...args) => mockSetDoc(...args),
+    serverTimestamp: jest.fn(),
+    writeBatch: mockWriteBatch,
+    addDoc: jest.fn(),
+    deleteDoc: jest.fn(),
+    arrayUnion: (...args) => mockArrayUnion(...args),
+    getDocs: (...args) => mockGetDocs(...args),
+    query: (...args) => mockQuery(...args),
+    where: (...args) => mockWhere(...args),
+  };
+});
 
 jest.mock('firebase/storage', () => ({ ref: jest.fn(), deleteObject: jest.fn() }));
 jest.mock('./uploadFile', () => ({ uploadFile: jest.fn() }));
@@ -62,10 +76,40 @@ beforeEach(() => {
     data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'draft' }),
   });
   mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
+  mockUseUserRole.mockReturnValue({ role: 'admin', brandCodes: [], loading: false });
 });
 
 afterEach(() => {
   jest.clearAllMocks();
+  mockUseUserRole.mockReturnValue({ role: 'admin', brandCodes: [], loading: false });
+});
+
+test('editor can open recipe modal and save recipes', async () => {
+  mockUseUserRole.mockReturnValue({ role: 'editor', brandCodes: [], loading: false });
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({ docs: [] });
+    return jest.fn();
+  });
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>
+  );
+
+  const briefTab = await screen.findByRole('button', { name: 'Brief' });
+  fireEvent.click(briefTab);
+
+  const recipesTextNodes = await screen.findAllByText((content) => content.trim() === 'Recipes');
+  const recipesBtn = recipesTextNodes.find((el) => el.closest('button'))?.closest('button');
+  expect(recipesBtn).toBeTruthy();
+  fireEvent.click(recipesBtn);
+
+  const saveBtn = await screen.findByTestId('recipe-preview');
+  fireEvent.click(saveBtn);
+
+  await waitFor(() => expect(mockBatchCommit).toHaveBeenCalled());
+  expect(screen.queryByTestId('recipe-preview')).not.toBeInTheDocument();
 });
 
 test.skip('toggles asset status to ready', async () => {

@@ -2581,7 +2581,7 @@ const AdGroupDetail = () => {
               externalOnly
             />
           )}
-          {userRole === "admin" && savedRecipes.length === 0 && (
+          {(["admin", "editor"].includes(userRole)) && savedRecipes.length === 0 && (
             <div className="mt-4">
               <IconButton onClick={() => setShowRecipes(true)}>
                 <FaMagic /> Recipes
