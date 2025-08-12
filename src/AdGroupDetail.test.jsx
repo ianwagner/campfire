@@ -100,10 +100,10 @@ test('editor can open recipe modal and save recipes', async () => {
   const briefTab = await screen.findByRole('button', { name: 'Brief' });
   fireEvent.click(briefTab);
 
-  const recipesTextNodes = await screen.findAllByText((content) => content.trim() === 'Recipes');
-  const recipesBtn = recipesTextNodes.find((el) => el.closest('button'))?.closest('button');
-  expect(recipesBtn).toBeTruthy();
-  fireEvent.click(recipesBtn);
+  const briefsTextNodes = await screen.findAllByText((content) => content.trim() === 'Briefs');
+  const briefsBtn = briefsTextNodes.find((el) => el.closest('button'))?.closest('button');
+  expect(briefsBtn).toBeTruthy();
+  fireEvent.click(briefsBtn);
 
   const saveBtn = await screen.findByTestId('recipe-preview');
   fireEvent.click(saveBtn);
