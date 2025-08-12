@@ -26,6 +26,7 @@ const SiteSettings = () => {
   const [artworkFile, setArtworkFile] = useState(null);
   const [accentColor, setAccentColor] = useState('#ea580c');
   const [monthColors, setMonthColors] = useState(DEFAULT_MONTH_COLORS);
+  const [tagStrokeWeight, setTagStrokeWeight] = useState(1);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -34,11 +35,12 @@ const SiteSettings = () => {
     Object.entries(DEFAULT_MONTH_COLORS).forEach(([m, def]) => {
       const val = colors?.[m];
       if (typeof val === 'string') {
-        normalized[m] = { color: val, opacity: 1 };
+        normalized[m] = { color: val, opacity: 1, textColor: def.textColor };
       } else if (val) {
         normalized[m] = {
           color: val.color || def.color,
           opacity: val.opacity != null ? val.opacity : def.opacity,
+          textColor: val.textColor || def.textColor,
         };
       } else {
         normalized[m] = { ...def };
@@ -58,6 +60,7 @@ const SiteSettings = () => {
     setArtworkFile(null);
     setAccentColor(settings.accentColor || '#ea580c');
     setMonthColors(normalizeMonthColors(settings.monthColors));
+    setTagStrokeWeight(settings.tagStrokeWeight || 1);
   }, [settings]);
 
   const handleFileChange = (e) => {
@@ -130,6 +133,7 @@ const SiteSettings = () => {
         iconUrl: icon,
         accentColor,
         monthColors,
+        tagStrokeWeight,
         campfireLogoUrl: campfireLogo,
         artworkUrl: artwork,
       });
@@ -142,6 +146,7 @@ const SiteSettings = () => {
       setArtworkUrl(artwork);
       setArtworkFile(null);
       setMonthColors(monthColors);
+      setTagStrokeWeight(tagStrokeWeight);
       setMessage('Settings saved');
     } catch (err) {
       console.error('Failed to save settings', err);
@@ -257,10 +262,21 @@ const SiteSettings = () => {
         {isAdmin && (
           <div>
             <label className="block mb-1 text-sm font-medium">Month Colors</label>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="w-20 text-sm">Stroke</span>
+              <input
+                type="number"
+                min="0"
+                value={tagStrokeWeight}
+                onChange={(e) => setTagStrokeWeight(Number(e.target.value))}
+                className="w-16 p-2 border rounded text-sm"
+              />
+              <span className="text-sm">px</span>
+            </div>
             <div className="space-y-2">
               {Object.entries(monthColors)
                 .sort(([a], [b]) => Number(a) - Number(b))
-                .map(([m, { color, opacity }]) => {
+                .map(([m, { color, opacity, textColor }]) => {
                   const label = new Date(2020, Number(m) - 1).toLocaleString(
                     'default',
                     {
@@ -274,6 +290,17 @@ const SiteSettings = () => {
                   return (
                     <div key={m} className="flex items-center gap-2">
                       <span className="w-8 text-sm">{label}</span>
+                      <input
+                        type="text"
+                        value={textColor}
+                        onChange={(e) =>
+                          setMonthColors((prev) => ({
+                            ...prev,
+                            [m]: { ...prev[m], textColor: e.target.value },
+                          }))
+                        }
+                        className="w-24 p-2 border rounded text-sm"
+                      />
                       <input
                         type="text"
                         value={color}
@@ -305,8 +332,14 @@ const SiteSettings = () => {
                         <span className="text-sm">%</span>
                       </div>
                       <span
-                        className="text-white tag-pill px-2 py-0.5 text-xs"
-                        style={{ backgroundColor: previewBg }}
+                        className="tag-pill px-2 py-0.5 text-xs"
+                        style={{
+                          backgroundColor: previewBg,
+                          color: textColor,
+                          borderColor: textColor,
+                          borderWidth: tagStrokeWeight,
+                          borderStyle: 'solid',
+                        }}
                       >
                         {label}
                       </span>

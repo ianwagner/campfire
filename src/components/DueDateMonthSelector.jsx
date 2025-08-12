@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { FiChevronDown } from 'react-icons/fi';
 import useSiteSettings from '../useSiteSettings';
 import getMonthString from '../utils/getMonthString.js';
+import { hexToRgba } from '../utils/theme.js';
 
 const DueDateMonthSelector = ({
   dueDate,
@@ -12,6 +13,7 @@ const DueDateMonthSelector = ({
 }) => {
   const { settings, loading: settingsLoading } = useSiteSettings();
   const monthColors = settingsLoading ? {} : settings.monthColors || {};
+  const tagStrokeWeight = settings.tagStrokeWeight ?? 1;
   const monthOptions = Array.from({ length: 12 }).map((_, i) => {
     const d = new Date();
     d.setMonth(d.getMonth() + i);
@@ -22,6 +24,13 @@ const DueDateMonthSelector = ({
   });
 
   const monthColorEntry = monthColors[month?.slice(-2)] || null;
+  const monthColor = monthColorEntry?.color;
+  const monthOpacity = monthColorEntry?.opacity ?? 1;
+  const monthTextColor = monthColorEntry?.textColor || '#000000';
+  const bgColor =
+    monthColor && monthOpacity < 1 && monthColor.startsWith('#')
+      ? hexToRgba(monthColor, monthOpacity)
+      : monthColor;
   const monthLabel =
     month
       ? new Date(
@@ -67,8 +76,14 @@ const DueDateMonthSelector = ({
               ))}
             </select>
             <div
-              className="pointer-events-none text-white tag-pill px-2 py-0.5 pr-3 text-xs flex items-center"
-              style={{ backgroundColor: monthColorEntry?.color }}
+              className="pointer-events-none tag-pill px-2 py-0.5 pr-3 text-xs flex items-center"
+              style={{
+                backgroundColor: bgColor,
+                color: monthTextColor,
+                borderColor: monthTextColor,
+                borderWidth: tagStrokeWeight,
+                borderStyle: 'solid',
+              }}
             >
               {monthLabel}
               <FiChevronDown className="ml-1" />
