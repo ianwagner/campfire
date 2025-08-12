@@ -2584,7 +2584,7 @@ const AdGroupDetail = () => {
           {(["admin", "editor"].includes(userRole)) && savedRecipes.length === 0 && (
             <div className="mt-4">
               <IconButton onClick={() => setShowRecipes(true)}>
-                <FaMagic /> Recipes
+                <FaMagic /> Briefs
               </IconButton>
             </div>
           )}
@@ -2974,6 +2974,7 @@ const AdGroupDetail = () => {
             brandCode={group?.brandCode}
             hideBrandSelect
             externalOnly
+            showBriefExtras
           />
         </Modal>
       )}

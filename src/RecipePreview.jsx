@@ -1318,7 +1318,7 @@ const RecipePreview = ({
               {userRole !== 'designer' && onRecipesClick && (
                 <IconButton
                   onClick={onRecipesClick}
-                  aria-label={results.length > 0 ? 'Replace Recipes' : 'Recipes'}
+                  aria-label={results.length > 0 ? 'Replace Briefs' : 'Briefs'}
                 >
                   <FaMagic />
                 </IconButton>
