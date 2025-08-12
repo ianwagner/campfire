@@ -11,13 +11,17 @@ import debugLog from './utils/debugLog';
 // mode). Accessing it can throw a DOMException, so wrap reads in try/catch.
 let storedAccent = null;
 let storedMonthColors = null;
+let storedTagStrokeWeight = null;
 try {
   storedAccent = localStorage.getItem('accentColor');
   const mc = localStorage.getItem('monthColors');
   storedMonthColors = mc ? JSON.parse(mc) : null;
+  const tsw = localStorage.getItem('tagStrokeWeight');
+  storedTagStrokeWeight = tsw ? Number(tsw) : null;
 } catch (e) {
   storedAccent = null;
   storedMonthColors = null;
+  storedTagStrokeWeight = null;
 }
 const defaultSettings = {
   logoUrl: '',
@@ -26,6 +30,7 @@ const defaultSettings = {
   artworkUrl: '',
   accentColor: storedAccent || DEFAULT_ACCENT_COLOR,
   monthColors: storedMonthColors || DEFAULT_MONTH_COLORS,
+  tagStrokeWeight: storedTagStrokeWeight || 1,
   creditCosts: {
     projectCreation: 1,
     editRequest: 1,
@@ -52,7 +57,16 @@ const useSiteSettings = (applyAccent = true) => {
         if (snap.exists()) {
           const data = snap.data();
           const monthColors = data.monthColors || DEFAULT_MONTH_COLORS;
-          setSettings({ ...defaultSettings, ...data, monthColors });
+          const tagStrokeWeight =
+            data.tagStrokeWeight != null
+              ? data.tagStrokeWeight
+              : defaultSettings.tagStrokeWeight;
+          setSettings({
+            ...defaultSettings,
+            ...data,
+            monthColors,
+            tagStrokeWeight,
+          });
           const color = data.accentColor || defaultSettings.accentColor;
           if (applyAccent) {
             applyAccentColor(color);
@@ -67,8 +81,17 @@ const useSiteSettings = (applyAccent = true) => {
           } catch (e) {
             /* ignore */
           }
+          try {
+            localStorage.setItem('tagStrokeWeight', String(tagStrokeWeight));
+          } catch (e) {
+            /* ignore */
+          }
         } else {
-          const newDefaults = { ...defaultSettings, monthColors: DEFAULT_MONTH_COLORS };
+          const newDefaults = {
+            ...defaultSettings,
+            monthColors: DEFAULT_MONTH_COLORS,
+            tagStrokeWeight: defaultSettings.tagStrokeWeight,
+          };
           await setDoc(doc(db, 'settings', 'site'), newDefaults);
           if (applyAccent) {
             applyAccentColor(newDefaults.accentColor);
@@ -80,6 +103,11 @@ const useSiteSettings = (applyAccent = true) => {
           }
           try {
             localStorage.setItem('monthColors', JSON.stringify(newDefaults.monthColors));
+          } catch (e) {
+            /* ignore */
+          }
+          try {
+            localStorage.setItem('tagStrokeWeight', String(newDefaults.tagStrokeWeight));
           } catch (e) {
             /* ignore */
           }
@@ -123,6 +151,16 @@ const useSiteSettings = (applyAccent = true) => {
     }
   }, [settings.monthColors]);
 
+  useEffect(() => {
+    if (settings.tagStrokeWeight != null) {
+      try {
+        localStorage.setItem('tagStrokeWeight', String(settings.tagStrokeWeight));
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  }, [settings.tagStrokeWeight]);
+
   const saveSettings = async (newSettings) => {
     debugLog('Saving site settings');
     await setDoc(doc(db, 'settings', 'site'), newSettings, { merge: true });
@@ -138,6 +176,13 @@ const useSiteSettings = (applyAccent = true) => {
     if (newSettings.monthColors) {
       try {
         localStorage.setItem('monthColors', JSON.stringify(newSettings.monthColors));
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    if (newSettings.tagStrokeWeight != null) {
+      try {
+        localStorage.setItem('tagStrokeWeight', String(newSettings.tagStrokeWeight));
       } catch (e) {
         /* ignore */
       }

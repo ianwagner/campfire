@@ -221,6 +221,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
   const location = useLocation();
   const { settings, loading: settingsLoading } = useSiteSettings();
   const monthColors = settingsLoading ? {} : settings.monthColors || {};
+  const tagStrokeWeight = settings.tagStrokeWeight ?? 1;
 
   useEffect(() => {
     if (location.state?.removedProject) {
@@ -431,6 +432,10 @@ const ClientProjects = ({ brandCodes = [] }) => {
                     monthColorEntry && typeof monthColorEntry === 'object'
                       ? monthColorEntry.opacity
                       : 1;
+                  const monthTextColor =
+                    monthColorEntry && typeof monthColorEntry === 'object'
+                      ? monthColorEntry.textColor
+                      : '#000000';
                   return (
                     <div
                       key={p.id}
@@ -465,7 +470,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
                             )}
                             {monthLabel && (
                               <span
-                                className="text-white tag-pill px-2 py-0.5 text-xs"
+                                className="tag-pill px-2 py-0.5 text-xs"
                                 style={{
                                   backgroundColor:
                                     monthColor &&
@@ -473,6 +478,10 @@ const ClientProjects = ({ brandCodes = [] }) => {
                                     monthColor.startsWith('#')
                                       ? hexToRgba(monthColor, monthOpacity)
                                       : monthColor,
+                                  color: monthTextColor,
+                                  borderColor: monthTextColor,
+                                  borderWidth: tagStrokeWeight,
+                                  borderStyle: 'solid',
                                 }}
                               >
                                 {monthLabel}
