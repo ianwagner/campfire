@@ -31,6 +31,13 @@ const AdminDistribution = () => {
           }
           if (data.brandCode) brandSet.add(data.brandCode);
         });
+        const now = new Date();
+        for (let i = 0; i <= 6; i++) {
+          const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+          const key = monthKey(d);
+          monthSet.add(key);
+          dueMonthSet.add(key);
+        }
         setMonths(Array.from(monthSet).sort());
         setDueMonths(Array.from(dueMonthSet).sort());
         setBrands(Array.from(brandSet).sort());
