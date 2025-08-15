@@ -28,6 +28,8 @@ import LoadingOverlay from './LoadingOverlay.jsx';
 import Button from './components/Button.jsx';
 import IconButton from './components/IconButton.jsx';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
+import Modal from './components/Modal.jsx';
+import CopyRecipePreview from './CopyRecipePreview.jsx';
 import {
   FiLink,
   FiDownload,
@@ -84,6 +86,8 @@ const ProjectDetail = () => {
   const [shareModal, setShareModal] = useState(false);
   const [editingBrief, setEditingBrief] = useState(false);
   const [newBriefFiles, setNewBriefFiles] = useState([]);
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copyCards, setCopyCards] = useState([]);
 
   useEffect(() => {
     const load = async () => {
@@ -202,6 +206,20 @@ const ProjectDetail = () => {
       }
     );
     return () => unsub();
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!groupId) return;
+    const loadCopy = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'adGroups', groupId, 'copyCards'));
+        setCopyCards(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.error('Failed to load copy', err);
+        setCopyCards([]);
+      }
+    };
+    loadCopy();
   }, [groupId]);
 
   const updateLayout = () => {
@@ -1032,8 +1050,37 @@ const ProjectDetail = () => {
             </>
           )}
         </div>
+        <div className="border rounded p-4 max-w-[60rem]">
+          <h2 className="font-medium mb-2">Platform Copy</h2>
+          {copyCards.length === 0 ? (
+            <p>No platform copy available.</p>
+          ) : (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setShowCopyModal(true)}
+            >
+              <FiType className="inline mr-1" /> View Platform Copy
+            </button>
+          )}
+        </div>
       </div>
     </PageWrapper>
+    {showCopyModal && (
+      <Modal sizeClass="max-w-[50rem] w-full max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold">Platform Copy</h2>
+          <IconButton onClick={() => setShowCopyModal(false)}>Close</IconButton>
+        </div>
+        <div className="overflow-auto flex-1">
+          <CopyRecipePreview
+            initialResults={copyCards}
+            showOnlyResults
+            hideBrandSelect
+          />
+        </div>
+      </Modal>
+    )}
     {shareModal && group && (
       <ShareLinkModal
         groupId={groupId}
