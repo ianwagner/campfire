@@ -3,10 +3,14 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 
+const monthKey = (date) => date.toISOString().slice(0, 7);
+
 const AdminDistribution = () => {
   const [months, setMonths] = useState([]);
+  const [dueMonths, setDueMonths] = useState([]);
   const [brands, setBrands] = useState([]);
   const [month, setMonth] = useState('');
+  const [dueMonth, setDueMonth] = useState('');
   const [brand, setBrand] = useState('');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -16,13 +20,19 @@ const AdminDistribution = () => {
       try {
         const agSnap = await getDocs(collection(db, 'adGroups'));
         const monthSet = new Set();
+        const dueMonthSet = new Set();
         const brandSet = new Set();
         agSnap.docs.forEach((d) => {
           const data = d.data();
           if (data.month) monthSet.add(data.month);
+          const dueDate = data.dueDate?.toDate ? data.dueDate.toDate() : data.dueDate;
+          if (dueDate instanceof Date && !isNaN(dueDate)) {
+            dueMonthSet.add(monthKey(dueDate));
+          }
           if (data.brandCode) brandSet.add(data.brandCode);
         });
         setMonths(Array.from(monthSet).sort());
+        setDueMonths(Array.from(dueMonthSet).sort());
         setBrands(Array.from(brandSet).sort());
       } catch (err) {
         console.error('Failed to fetch filter data', err);
@@ -33,18 +43,22 @@ const AdminDistribution = () => {
 
   useEffect(() => {
     const fetchRows = async () => {
-      if (!month || !brand) {
+      if (!brand || (!month && !dueMonth)) {
         setRows([]);
         return;
       }
       setLoading(true);
       try {
-        const q = query(
-          collection(db, 'adGroups'),
-          where('brandCode', '==', brand),
-          where('month', '==', month)
-        );
-        const gSnap = await getDocs(q);
+        const args = [collection(db, 'adGroups'), where('brandCode', '==', brand)];
+        if (month) args.push(where('month', '==', month));
+        if (dueMonth) {
+          const start = new Date(`${dueMonth}-01`);
+          const end = new Date(start);
+          end.setMonth(end.getMonth() + 1);
+          args.push(where('dueDate', '>=', start));
+          args.push(where('dueDate', '<', end));
+        }
+        const gSnap = await getDocs(query(...args));
         const list = [];
         for (const gDoc of gSnap.docs) {
           const gData = gDoc.data();
@@ -54,7 +68,7 @@ const AdminDistribution = () => {
             const product =
               rData.product?.name ||
               rData.product ||
-              rData.components?.product ||
+              rData.components?.['product.name'] ||
               '';
             const angle = rData.angle || rData.components?.angle || '';
             const audience = rData.audience || rData.components?.audience || '';
@@ -77,7 +91,7 @@ const AdminDistribution = () => {
       }
     };
     fetchRows();
-  }, [month, brand]);
+  }, [month, dueMonth, brand]);
 
   return (
     <div className="min-h-screen p-4">
@@ -88,8 +102,23 @@ const AdminDistribution = () => {
           onChange={(e) => setMonth(e.target.value)}
           className="p-1 border rounded"
         >
-          <option value="">Select Month</option>
+          <option value="">Select Month Tag</option>
           {months.map((m) => (
+            <option key={m} value={m}>
+              {new Date(`${m}-01`).toLocaleString('default', {
+                month: 'short',
+                year: 'numeric',
+              })}
+            </option>
+          ))}
+        </select>
+        <select
+          value={dueMonth}
+          onChange={(e) => setDueMonth(e.target.value)}
+          className="p-1 border rounded"
+        >
+          <option value="">Select Due Date Month</option>
+          {dueMonths.map((m) => (
             <option key={m} value={m}>
               {new Date(`${m}-01`).toLocaleString('default', {
                 month: 'short',
@@ -136,7 +165,7 @@ const AdminDistribution = () => {
             ))}
           </tbody>
         </Table>
-      ) : month && brand ? (
+      ) : (month || dueMonth) && brand ? (
         <p>No recipes found.</p>
       ) : null}
     </div>
