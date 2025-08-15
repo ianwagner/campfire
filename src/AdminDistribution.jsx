@@ -5,6 +5,15 @@ import Table from './components/common/Table';
 
 const monthKey = (date) => date.toISOString().slice(0, 7);
 
+const formatMonth = (m) => {
+  const [y, mo] = m.split('-').map(Number);
+  return new Date(Date.UTC(y, mo - 1)).toLocaleString('default', {
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+};
+
 const AdminDistribution = () => {
   const [months, setMonths] = useState([]);
   const [dueMonths, setDueMonths] = useState([]);
@@ -70,7 +79,11 @@ const AdminDistribution = () => {
               rData.product ||
               rData.components?.['product.name'] ||
               '';
-            const angle = rData.angle || rData.components?.angle || '';
+            const angle =
+              rData.metadata?.angle ||
+              rData.components?.angle ||
+              rData.angle ||
+              '';
             const audience = rData.audience || rData.components?.audience || '';
             list.push({
               id: `${gDoc.id}_${rDoc.id}`,
@@ -105,10 +118,7 @@ const AdminDistribution = () => {
           <option value="">Select Month Tag</option>
           {months.map((m) => (
             <option key={m} value={m}>
-              {new Date(`${m}-01`).toLocaleString('default', {
-                month: 'short',
-                year: 'numeric',
-              })}
+              {formatMonth(m)}
             </option>
           ))}
         </select>
@@ -120,10 +130,7 @@ const AdminDistribution = () => {
           <option value="">Select Due Date Month</option>
           {dueMonths.map((m) => (
             <option key={m} value={m}>
-              {new Date(`${m}-01`).toLocaleString('default', {
-                month: 'short',
-                year: 'numeric',
-              })}
+              {formatMonth(m)}
             </option>
           ))}
         </select>
