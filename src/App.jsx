@@ -72,6 +72,7 @@ import { DEFAULT_LOGO_URL } from "./constants";
 import useFcmToken from "./useFcmToken";
 import useTaggerJobWatcher from "./useTaggerJobWatcher";
 import AdminClaimDebug from "./AdminClaimDebug";
+import AdminDistribution from "./AdminDistribution";
 
 const ThemeWatcher = () => {
   useTheme();
@@ -528,6 +529,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminAgencies />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/distribution"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="admin"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <AdminDistribution />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
