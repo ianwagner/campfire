@@ -938,13 +938,26 @@ const AdGroupDetail = () => {
     setUploading(true);
     for (const file of files) {
       try {
+        const info = parseAdFilename(file.name);
+        const recipe = info.recipeCode || '';
+        const recipeAssets = assets.filter((a) => {
+          const aInfo = parseAdFilename(a.filename || "");
+          const rcode = a.recipeCode || aInfo.recipeCode || "";
+          return rcode === recipe;
+        });
+        let recipeStatus = null;
+        if (recipeAssets.length > 0) recipeStatus = getRecipeStatus(recipeAssets);
+        if (["edit_requested", "archived", "rejected"].includes(recipeStatus)) {
+          const display = recipeStatus === "edit_requested" ? "edit request" : recipeStatus;
+          window.alert(`Error. Cannot Upload. Recipe is ${display}.`);
+          continue;
+        }
         const url = await uploadFile(
           file,
           id,
           group?.brandCode,
           group?.name || id,
         );
-        const info = parseAdFilename(file.name);
         let parentId = null;
         if (info.version && info.version > 1) {
           const base = stripVersion(file.name);
@@ -969,7 +982,7 @@ const AdGroupDetail = () => {
           filename: file.name,
           firebaseUrl: url,
           uploadedAt: serverTimestamp(),
-          status: "pending",
+          status: recipeStatus === "approved" ? "approved" : "pending",
           comment: null,
           lastUpdatedBy: null,
           lastUpdatedAt: serverTimestamp(),
