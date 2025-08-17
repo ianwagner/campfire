@@ -11,22 +11,33 @@ const Table = ({ children, className = '', columns = [] }) => {
   const [actionsWidth, setActionsWidth] = useState(null);
 
   useEffect(() => {
-    const el = tableRef.current;
-    if (!el) return;
-    const rows = el.querySelectorAll('tbody tr');
-    let maxActions = 0;
-    rows.forEach((row) => {
-      const btns = row.querySelectorAll('td:last-child button, td:last-child a');
-      if (btns.length > maxActions) {
-        maxActions = btns.length;
+    const calculateWidth = () => {
+      const el = tableRef.current;
+      if (!el) return;
+      // When viewport is narrow allow the actions to stack vertically
+      if (window.innerWidth <= 1000) {
+        setActionsWidth(null);
+        return;
       }
-    });
-    if (maxActions > 0) {
-      // Approximate each action button at 2.5rem including spacing
-      setActionsWidth(`${maxActions * 2.5}rem`);
-    } else {
-      setActionsWidth(null);
-    }
+      const rows = el.querySelectorAll('tbody tr');
+      let maxActions = 0;
+      rows.forEach((row) => {
+        const btns = row.querySelectorAll('td:last-child button, td:last-child a');
+        if (btns.length > maxActions) {
+          maxActions = btns.length;
+        }
+      });
+      if (maxActions > 0) {
+        // Approximate each action button at 2.5rem including spacing
+        setActionsWidth(`${maxActions * 2.5}rem`);
+      } else {
+        setActionsWidth(null);
+      }
+    };
+
+    calculateWidth();
+    window.addEventListener('resize', calculateWidth);
+    return () => window.removeEventListener('resize', calculateWidth);
   }, [children]);
 
   const colWidths = columns.map((width, i) =>
@@ -34,11 +45,7 @@ const Table = ({ children, className = '', columns = [] }) => {
   );
 
   return (
-    <div
-      className={
-        `table-container overflow-hidden rounded-md shadow bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600`
-      }
-    >
+    <div className={`table-container overflow-hidden rounded-md bg-white dark:bg-[var(--dark-sidebar-bg)]`}>
       <table
         ref={tableRef}
         className={`ad-table w-full table-fixed text-sm ${className}`.trim()}
