@@ -21,7 +21,7 @@ import {
   FiType,
   FiCopy,
   FiPlus,
-  FiMoreVertical,
+  FiMoreHorizontal,
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
 import { FaMagic } from "react-icons/fa";
@@ -161,6 +161,7 @@ const AdGroupDetail = () => {
   const [revisionModal, setRevisionModal] = useState(null);
   const [menuRecipe, setMenuRecipe] = useState(null);
   const [inspectRecipe, setInspectRecipe] = useState(null);
+  const menuRef = useRef(null);
   let hasApprovedV2 = false;
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
@@ -737,6 +738,18 @@ const AdGroupDetail = () => {
       });
     }
   }, [metadataRecipe, recipesMeta]);
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuRecipe(null);
+      }
+    };
+    if (menuRecipe) {
+      document.addEventListener("mousedown", handleClick);
+    }
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuRecipe]);
 
   const closeModals = () => {
     setHistoryRecipe(null);
@@ -1736,7 +1749,7 @@ const AdGroupDetail = () => {
     }
   };
 
-  const renderRecipeRow = (g) => {
+  const renderRecipeRow = (g, idx) => {
     const hasRevision = g.assets.some(
       (a) =>
         (a.version || parseAdFilename(a.filename || "").version || 1) > 1 ||
@@ -1747,10 +1760,19 @@ const AdGroupDetail = () => {
       (a) => a.status === "edit_requested" && (a.comment || a.copyEdit),
     );
 
+    const isAlt = idx % 2 === 1;
     return (
-      <tbody key={g.recipeCode} className="table-row-group">
+      <tbody key={g.recipeCode} className={isAlt ? "table-row-group" : undefined}>
         <tr className="recipe-row">
-          <td className="font-semibold">Recipe {g.recipeCode}</td>
+          <td className="font-semibold flex items-center gap-2">
+            Recipe {g.recipeCode}
+            <IconButton
+              aria-label="Inspect Ads"
+              onClick={() => setInspectRecipe(g)}
+            >
+              <FiEye />
+            </IconButton>
+          </td>
           <td className="text-center">
             <StatusBadge status={getRecipeStatus(g.assets)} />
           </td>
@@ -1765,13 +1787,87 @@ const AdGroupDetail = () => {
               </>
             )}
           </td>
-          <td className="text-center">
-            <IconButton
-              aria-label="Menu"
-              onClick={() => setMenuRecipe({ ...g, hasRevision })}
-            >
-              <FiMoreVertical />
-            </IconButton>
+          <td className="text-right">
+            <div className="relative inline-block">
+              <IconButton
+                aria-label="Menu"
+                onClick={() =>
+                  setMenuRecipe((m) =>
+                    m && m.recipeCode === g.recipeCode
+                      ? null
+                      : { ...g, hasRevision },
+                  )
+                }
+              >
+                <FiMoreHorizontal size={20} />
+              </IconButton>
+              {menuRecipe && menuRecipe.recipeCode === g.recipeCode && (
+                <ul
+                  ref={menuRef}
+                  className="absolute right-0 mt-2 w-48 bg-white border rounded shadow-md z-10"
+                >
+                  <li>
+                    <button
+                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
+                      onClick={() => {
+                        if (menuRecipe.hasRevision) {
+                          openRevision(menuRecipe.recipeCode);
+                        }
+                        setMenuRecipe(null);
+                      }}
+                      disabled={!menuRecipe.hasRevision}
+                    >
+                      <FiRefreshCw />
+                      <span>Make Revisions</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
+                      onClick={() => {
+                        openHistory(menuRecipe.recipeCode);
+                        setMenuRecipe(null);
+                      }}
+                    >
+                      <FiClock />
+                      <span>History</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
+                      onClick={() => {
+                        const rawId = menuRecipe.recipeCode;
+                        const normId = normalizeId(rawId);
+                        setMetadataRecipe(
+                          recipesMeta[rawId] ||
+                            recipesMeta[String(rawId).toLowerCase()] ||
+                            recipesMeta[normId] || { id: rawId },
+                        );
+                        setMenuRecipe(null);
+                      }}
+                    >
+                      <FiFileText />
+                      <span>Metadata</span>
+                    </button>
+                  </li>
+                  {!isDesigner && (
+                    <li>
+                      <button
+                        className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100 text-red-600"
+                        onClick={() => {
+                          deleteRecipe(menuRecipe.recipeCode);
+                          setMenuRecipe(null);
+                        }}
+                      >
+                        <FiTrash />
+                        <span>Delete</span>
+                      </button>
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
           </td>
         </tr>
       </tbody>
@@ -2116,7 +2212,7 @@ const AdGroupDetail = () => {
               : showStats
                 ? specialGroups
                 : []
-            ).map((g) => renderRecipeRow(g))}
+            ).map((g, idx) => renderRecipeRow(g, idx))}
           </Table>
         </div>
       )}
@@ -2545,80 +2641,6 @@ const AdGroupDetail = () => {
         </Modal>
       )}
 
-      {menuRecipe && (
-        <Modal sizeClass="max-w-xs w-full">
-          <ul className="space-y-2">
-            <li>
-              <button
-                className="w-full text-left"
-                onClick={() => {
-                  setInspectRecipe(menuRecipe);
-                  setMenuRecipe(null);
-                }}
-              >
-                Inspect Ads
-              </button>
-            </li>
-            <li>
-              <button
-                className={`w-full text-left ${
-                  menuRecipe.hasRevision ? '' : 'opacity-50 cursor-not-allowed'
-                }`}
-                onClick={() => {
-                  if (menuRecipe.hasRevision) {
-                    openRevision(menuRecipe.recipeCode);
-                  }
-                  setMenuRecipe(null);
-                }}
-              >
-                Make Revisions
-              </button>
-            </li>
-            <li>
-              <button
-                className="w-full text-left"
-                onClick={() => {
-                  openHistory(menuRecipe.recipeCode);
-                  setMenuRecipe(null);
-                }}
-              >
-                History
-              </button>
-            </li>
-            <li>
-              <button
-                className="w-full text-left"
-                onClick={() => {
-                  const rawId = menuRecipe.recipeCode;
-                  const normId = normalizeId(rawId);
-                  setMetadataRecipe(
-                    recipesMeta[rawId] ||
-                      recipesMeta[String(rawId).toLowerCase()] ||
-                      recipesMeta[normId] || { id: rawId },
-                  );
-                  setMenuRecipe(null);
-                }}
-              >
-                Metadata
-              </button>
-            </li>
-            {!isDesigner && (
-              <li>
-                <button
-                  className="w-full text-left text-red-600"
-                  onClick={() => {
-                    deleteRecipe(menuRecipe.recipeCode);
-                    setMenuRecipe(null);
-                  }}
-                >
-                  Delete
-                </button>
-              </li>
-            )}
-          </ul>
-        </Modal>
-      )}
-
       {inspectRecipe && (
         <Modal sizeClass="max-w-2xl w-full">
           <h3 className="mb-2 font-semibold">
@@ -2712,9 +2734,9 @@ const AdGroupDetail = () => {
               </li>
             ))}
           </ul>
-          <button onClick={closeModals} className="btn-primary px-3 py-1">
-            Close
-          </button>
+          <div className="mt-3 flex justify-end">
+            <IconButton onClick={() => setHistoryRecipe(null)}>Close</IconButton>
+          </div>
         </Modal>
       )}
 
@@ -2759,9 +2781,9 @@ const AdGroupDetail = () => {
               </li>
             ))}
           </ul>
-          <button onClick={closeModals} className="btn-primary px-3 py-1">
-            Close
-          </button>
+          <div className="mt-3 flex justify-end">
+            <IconButton onClick={() => setHistoryAsset(null)}>Close</IconButton>
+          </div>
         </Modal>
       )}
 
