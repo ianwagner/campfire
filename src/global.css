@@ -326,8 +326,11 @@
         margin-right: var(--space-sm);
       }
     }
-  .table-row-group {
+  .ad-table tbody tr.table-row-group {
     background-color: var(--table-row-alt-bg);
+  }
+  html.dark .ad-table tbody tr.table-row-group {
+    background-color: var(--dark-sidebar-hover);
   }
   .recipe-row {
     font-size: 12px;

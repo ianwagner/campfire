@@ -1775,8 +1775,8 @@ const AdGroupDetail = () => {
 
     const isAlt = idx % 2 === 1;
     return (
-      <tbody key={g.recipeCode} className={isAlt ? "table-row-group" : undefined}>
-        <tr className="recipe-row">
+      <tbody key={g.recipeCode}>
+        <tr className={`recipe-row${isAlt ? " table-row-group" : ""}`}>
           <td className="font-semibold flex items-center gap-2">
             Recipe {g.recipeCode}
             <IconButton
@@ -1800,87 +1800,85 @@ const AdGroupDetail = () => {
               </>
             )}
           </td>
-          <td className="text-right">
-            <div className="relative inline-block">
-              <IconButton
-                aria-label="Menu"
-                onClick={() =>
-                  setMenuRecipe((m) =>
-                    m && m.recipeCode === g.recipeCode
-                      ? null
-                      : { ...g, hasRevision },
-                  )
-                }
+          <td className="text-right relative">
+            <IconButton
+              aria-label="Menu"
+              onClick={() =>
+                setMenuRecipe((m) =>
+                  m && m.recipeCode === g.recipeCode
+                    ? null
+                    : { ...g, hasRevision },
+                )
+              }
+            >
+              <FiMoreHorizontal size={20} />
+            </IconButton>
+            {menuRecipe && menuRecipe.recipeCode === g.recipeCode && (
+              <ul
+                ref={menuRef}
+                className="absolute right-0 mt-2 w-48 bg-white border rounded shadow-md z-10"
               >
-                <FiMoreHorizontal size={20} />
-              </IconButton>
-              {menuRecipe && menuRecipe.recipeCode === g.recipeCode && (
-                <ul
-                  ref={menuRef}
-                  className="absolute right-0 mt-2 w-48 bg-white border rounded shadow-md z-10"
-                >
+                <li>
+                  <button
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
+                    onClick={() => {
+                      if (menuRecipe.hasRevision) {
+                        openRevision(menuRecipe.recipeCode);
+                      }
+                      setMenuRecipe(null);
+                    }}
+                    disabled={!menuRecipe.hasRevision}
+                  >
+                    <FiRefreshCw />
+                    <span>Make Revisions</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
+                    onClick={() => {
+                      openHistory(menuRecipe.recipeCode);
+                      setMenuRecipe(null);
+                    }}
+                  >
+                    <FiClock />
+                    <span>History</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
+                    onClick={() => {
+                      const rawId = menuRecipe.recipeCode;
+                      const normId = normalizeId(rawId);
+                      setMetadataRecipe(
+                        recipesMeta[rawId] ||
+                          recipesMeta[String(rawId).toLowerCase()] ||
+                          recipesMeta[normId] || { id: rawId },
+                      );
+                      setMenuRecipe(null);
+                    }}
+                  >
+                    <FiFileText />
+                    <span>Metadata</span>
+                  </button>
+                </li>
+                {!isDesigner && (
                   <li>
                     <button
-                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
+                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100 text-red-600"
                       onClick={() => {
-                        if (menuRecipe.hasRevision) {
-                          openRevision(menuRecipe.recipeCode);
-                        }
-                        setMenuRecipe(null);
-                      }}
-                      disabled={!menuRecipe.hasRevision}
-                    >
-                      <FiRefreshCw />
-                      <span>Make Revisions</span>
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
-                      onClick={() => {
-                        openHistory(menuRecipe.recipeCode);
+                        deleteRecipe(menuRecipe.recipeCode);
                         setMenuRecipe(null);
                       }}
                     >
-                      <FiClock />
-                      <span>History</span>
+                      <FiTrash />
+                      <span>Delete</span>
                     </button>
                   </li>
-                  <li>
-                    <button
-                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
-                      onClick={() => {
-                        const rawId = menuRecipe.recipeCode;
-                        const normId = normalizeId(rawId);
-                        setMetadataRecipe(
-                          recipesMeta[rawId] ||
-                            recipesMeta[String(rawId).toLowerCase()] ||
-                            recipesMeta[normId] || { id: rawId },
-                        );
-                        setMenuRecipe(null);
-                      }}
-                    >
-                      <FiFileText />
-                      <span>Metadata</span>
-                    </button>
-                  </li>
-                  {!isDesigner && (
-                    <li>
-                      <button
-                        className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100 text-red-600"
-                        onClick={() => {
-                          deleteRecipe(menuRecipe.recipeCode);
-                          setMenuRecipe(null);
-                        }}
-                      >
-                        <FiTrash />
-                        <span>Delete</span>
-                      </button>
-                    </li>
-                  )}
-                </ul>
-              )}
-            </div>
+                )}
+              </ul>
+            )}
           </td>
         </tr>
       </tbody>
