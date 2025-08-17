@@ -331,7 +331,6 @@
   }
   .recipe-row {
     font-size: 12px;
-    background-color: var(--table-row-alt-bg);
     position: relative;
   }
   .ad-table tbody tr.designer-selected {
