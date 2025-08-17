@@ -1007,7 +1007,7 @@ const RecipePreview = ({
   };
 
   const renderAssetList = (list = [], rowIdx = null, key = '') => (
-    <div className="flex justify-center gap-1">
+    <div className="flex flex-wrap justify-center gap-1 w-fit max-w-[7.5rem] mx-auto">
       {list && list.length > 0 ? (
         list.map((a, i) => {
           if (a.needAsset) {

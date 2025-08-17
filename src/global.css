@@ -250,12 +250,13 @@
   .ad-table th:last-child,
   .ad-table td:last-child {
     white-space: normal;
-    /* Allow action columns to size to their content instead of being forced to 1% */
-    width: auto;
+    /* Allow action columns to size based on provided action buttons */
+    width: var(--actions-col-width, auto);
   }
 
   .ad-table td:last-child > div {
     flex-wrap: wrap;
+    width: var(--actions-col-width, auto);
   }
 
   .ad-table td.copy-cell {
