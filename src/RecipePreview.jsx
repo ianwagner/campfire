@@ -789,24 +789,24 @@ const RecipePreview = ({
 
     try {
       const callable = httpsCallable(functions, 'openaiProxy');
-      const result = await callable({
+      const response = await callable({
         model: 'gpt-3.5-turbo',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
       });
-      const data = result.data;
+      const data = response.data;
       const text = data.choices?.[0]?.message?.content?.trim() || 'No result';
-      const result = {
+      const generated = {
         type: selectedType,
         brandCode: brand,
         components: componentsData,
         copy: text,
         assets: selectedAssets.slice(),
       };
-      while (result.assets.length < assetCount) {
-        result.assets.push({ needAsset: true });
+      while (generated.assets.length < assetCount) {
+        generated.assets.push({ needAsset: true });
       }
-      return result;
+      return generated;
     } catch (err) {
       console.error('Failed to call OpenAI', err);
       return null;
