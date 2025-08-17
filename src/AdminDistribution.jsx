@@ -81,6 +81,7 @@ const AdminDistribution = () => {
           const assetMap = {};
           aSnap.docs.forEach((aDoc) => {
             const aData = aDoc.data();
+            if (["archived", "rejected"].includes(aData.status)) return;
             const info = parseAdFilename(aData.filename || '');
             const recipe = String(aData.recipeCode || info.recipeCode || '');
             const url = aData.adUrl || aData.firebaseUrl || aData.url;
@@ -110,7 +111,11 @@ const AdminDistribution = () => {
               rData.angle ||
               '';
             const audience = rData.audience || rData.components?.audience || '';
-            const links = assetMap[String(recipeNo)] || [];
+            const status = rData.status || '';
+            const links =
+              status === 'archived' || status === 'rejected'
+                ? []
+                : assetMap[String(recipeNo)] || [];
             list.push({
               id: `${gDoc.id}_${rDoc.id}`,
               groupName: gData.name || gDoc.id,
@@ -118,6 +123,7 @@ const AdminDistribution = () => {
               product,
               angle,
               audience,
+              status,
               links,
             });
           });
@@ -135,7 +141,7 @@ const AdminDistribution = () => {
 
   const handleExport = () => {
     if (!rows.length) return;
-    const headers = ['Ad Group', 'Recipe #', 'Product', 'Angle', 'Audience', 'Links'];
+    const headers = ['Ad Group', 'Recipe #', 'Product', 'Angle', 'Audience', 'Status', 'Links'];
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const csv = [
       headers.join(','),
@@ -146,7 +152,8 @@ const AdminDistribution = () => {
           r.product,
           r.angle,
           r.audience || '-',
-          (r.links || []).join(' '),
+          r.status || '-',
+          (r.links || []).map((l) => l.url).join(' '),
         ]
           .map(escape)
           .join(','),
@@ -216,7 +223,7 @@ const AdminDistribution = () => {
       {loading ? (
         <p>Loading...</p>
       ) : rows.length > 0 ? (
-        <Table columns={['auto', 'auto', 'auto', 'auto', 'auto', '12rem']}>
+        <Table columns={['auto', 'auto', 'auto', 'auto', 'auto', 'auto', '12rem']}>
           <thead>
             <tr>
               <th>Ad Group</th>
@@ -224,6 +231,7 @@ const AdminDistribution = () => {
               <th>Product</th>
               <th>Angle</th>
               <th>Audience</th>
+              <th>Status</th>
               <th>Links</th>
             </tr>
           </thead>
@@ -235,6 +243,7 @@ const AdminDistribution = () => {
                 <td>{r.product}</td>
                 <td>{r.angle}</td>
                 <td>{r.audience || '-'}</td>
+                <td>{r.status || '-'}</td>
                 <td className="flex flex-wrap gap-2">
                   {r.links && r.links.length > 0
                     ? r.links.map((l, i) => (
