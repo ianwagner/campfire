@@ -9,7 +9,6 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 const auth = new google.auth.GoogleAuth({ scopes: ['https://www.googleapis.com/auth/drive'] });
-const driveClient = auth.getClient().then((client) => google.drive({ version: 'v3', auth: client }));
 
 function sanitize(str) {
   return (str || '').replace(/[\\/]/g, '-').replace(/\s+/g, ' ').trim();
@@ -47,7 +46,7 @@ export const copyAssetToDrive = onDocumentCreated('adGroups/{groupId}/assets/{as
   const rootFolder = brandData.driveFolderId;
   if (!rootFolder) return null;
 
-  const drive = await driveClient;
+  const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
 
   const base = `${sanitize(brandCode)}_${sanitize(groupName)}`;
   const folderName = `${base}_${recipeCode || 'unknown'}`;
@@ -76,7 +75,7 @@ export const cleanupDriveFile = onDocumentUpdated('adGroups/{groupId}/assets/{as
   if (!['archived', 'rejected'].includes(after.status)) return null;
   const fileId = before.driveFileId || after.driveFileId;
   if (!fileId) return null;
-  const drive = await driveClient;
+  const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
   try {
     await drive.files.delete({ fileId, supportsAllDrives: true });
   } catch (err) {
