@@ -298,13 +298,21 @@ useEffect(() => {
 
   useEffect(() => {
     if (!groupId) return;
-    if (currentIndex >= reviewAds.length) {
+    const allReviewed =
+      ads.length > 0 &&
+      ads.every((a) =>
+        ['approved', 'rejected', 'archived'].includes(a.status),
+      );
+    if (
+      allReviewed &&
+      (currentIndex >= reviewAds.length || reviewAds.length === 0)
+    ) {
       updateDoc(doc(db, 'adGroups', groupId), {
         status: 'done',
         reviewProgress: null,
       }).catch((err) => console.error('Failed to update status', err));
     }
-  }, [currentIndex, reviewAds.length, groupId]);
+  }, [currentIndex, reviewAds.length, groupId, ads]);
 
   useEffect(() => {
     if (currentIndex >= reviewAds.length) {
