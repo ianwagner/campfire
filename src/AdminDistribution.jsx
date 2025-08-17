@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { FiDownload } from 'react-icons/fi';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
+import IconButton from './components/IconButton.jsx';
 
 const monthKey = (date) => date.toISOString().slice(0, 7);
 
@@ -106,46 +108,78 @@ const AdminDistribution = () => {
     fetchRows();
   }, [month, dueMonth, brand]);
 
+  const handleExport = () => {
+    if (!rows.length) return;
+    const headers = ['Ad Group', 'Recipe #', 'Product', 'Angle', 'Audience'];
+    const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const csv = [
+      headers.join(','),
+      ...rows.map((r) =>
+        [r.groupName, r.recipeNo, r.product, r.angle, r.audience || '-']
+          .map(escape)
+          .join(','),
+      ),
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    const file = `${brand}_${month || dueMonth}.csv`;
+    link.setAttribute('download', file);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Distribution</h1>
-      <div className="flex space-x-4 mb-4">
-        <select
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
-          className="p-1 border rounded"
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex space-x-4">
+          <select
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="p-1 border rounded"
+          >
+            <option value="">Select Month Tag</option>
+            {months.map((m) => (
+              <option key={m} value={m}>
+                {formatMonth(m)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={dueMonth}
+            onChange={(e) => setDueMonth(e.target.value)}
+            className="p-1 border rounded"
+          >
+            <option value="">Select Due Date Month</option>
+            {dueMonths.map((m) => (
+              <option key={m} value={m}>
+                {formatMonth(m)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
+            className="p-1 border rounded"
+          >
+            <option value="">Select Brand</option>
+            {brands.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+        </div>
+        <IconButton
+          onClick={handleExport}
+          aria-label="Export CSV"
+          disabled={rows.length === 0}
+          className={`text-xl ${rows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <option value="">Select Month Tag</option>
-          {months.map((m) => (
-            <option key={m} value={m}>
-              {formatMonth(m)}
-            </option>
-          ))}
-        </select>
-        <select
-          value={dueMonth}
-          onChange={(e) => setDueMonth(e.target.value)}
-          className="p-1 border rounded"
-        >
-          <option value="">Select Due Date Month</option>
-          {dueMonths.map((m) => (
-            <option key={m} value={m}>
-              {formatMonth(m)}
-            </option>
-          ))}
-        </select>
-        <select
-          value={brand}
-          onChange={(e) => setBrand(e.target.value)}
-          className="p-1 border rounded"
-        >
-          <option value="">Select Brand</option>
-          {brands.map((b) => (
-            <option key={b} value={b}>
-              {b}
-            </option>
-          ))}
-        </select>
+          <FiDownload />
+        </IconButton>
       </div>
       {loading ? (
         <p>Loading...</p>
