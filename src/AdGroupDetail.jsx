@@ -21,6 +21,7 @@ import {
   FiType,
   FiCopy,
   FiPlus,
+  FiMoreVertical,
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
 import { FaMagic } from "react-icons/fa";
@@ -28,7 +29,6 @@ import RecipePreview from "./RecipePreview.jsx";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
 import BrandAssets from "./BrandAssets.jsx";
 import BrandAssetsLayout from "./BrandAssetsLayout.jsx";
-import HoverPreview from "./components/HoverPreview.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
 import {
   doc,
@@ -133,7 +133,6 @@ const AdGroupDetail = () => {
   const [uploading, setUploading] = useState(false);
   const [readyLoading, setReadyLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
-  const [expanded, setExpanded] = useState({});
   const [showTable, setShowTable] = useState(false);
   const [historyRecipe, setHistoryRecipe] = useState(null);
   const [historyAsset, setHistoryAsset] = useState(null);
@@ -160,6 +159,8 @@ const AdGroupDetail = () => {
   const [designers, setDesigners] = useState([]);
   const [designerName, setDesignerName] = useState('');
   const [revisionModal, setRevisionModal] = useState(null);
+  const [menuRecipe, setMenuRecipe] = useState(null);
+  const [inspectRecipe, setInspectRecipe] = useState(null);
   let hasApprovedV2 = false;
   const countsRef = useRef(null);
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
@@ -528,10 +529,6 @@ const AdGroupDetail = () => {
     [recipeGroups],
   );
 
-  const toggleRecipe = (code) => {
-    setExpanded((prev) => ({ ...prev, [code]: !prev[code] }));
-  };
-
   const openHistory = async (recipeCode) => {
     try {
       const groupAssets = assets.filter((a) => {
@@ -746,6 +743,8 @@ const AdGroupDetail = () => {
     setHistoryAsset(null);
     setMetadataRecipe(null);
     setRevisionModal(null);
+    setMenuRecipe(null);
+    setInspectRecipe(null);
   };
 
   const deleteHistoryEntry = async (assetId, entryId) => {
@@ -1744,241 +1743,39 @@ const AdGroupDetail = () => {
         a.status === "edit_requested",
     );
 
+    const editAsset = g.assets.find(
+      (a) => a.status === "edit_requested" && (a.comment || a.copyEdit),
+    );
+
     return (
       <tbody key={g.recipeCode} className="table-row-group">
-      <tr
-        onClick={() => toggleRecipe(g.recipeCode)}
-        className="cursor-pointer recipe-row"
-      >
-        <td colSpan="2" className="font-semibold relative">
-          Recipe {g.recipeCode}
-          <div
-            className={`asset-panel absolute left-0 w-full ${
-              expanded[g.recipeCode] ? "open" : ""
-            }`}
-          >
-            <div className="overflow-x-auto">
-              <Table
-                columns={["60%", "10%", "15%", "15%"]}
-                className="min-w-full"
-              >
-                <tbody>
-                  {g.assets.map((a) => (
-                    <tr key={a.id} className="asset-row">
-                      <td className="break-all">{a.filename}</td>
-                      <td className="text-center">{a.version || 1}</td>
-                      <td className="text-center">
-                        <div className="flex flex-col items-center">
-                          {isAdmin ? (
-                            <select
-                              className={`status-select status-${a.status}`}
-                              value={a.status}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                updateAssetStatus(a.id, e.target.value);
-                              }}
-                            >
-                              <option value="pending">pending</option>
-                              <option value="ready">ready</option>
-                              <option value="approved">approved</option>
-                              <option value="rejected">rejected</option>
-                              <option value="edit_requested">edit_requested</option>
-                              <option value="archived">archived</option>
-                            </select>
-                          ) : (
-                            <StatusBadge status={a.status} />
-                          )}
-                          {a.status === "edit_requested" && a.comment && (
-                            <span className="italic text-xs">{a.comment}</span>
-                          )}
-                          {a.status === "edit_requested" &&
-                            renderCopyEditDiff(g.recipeCode, a.copyEdit) && (
-                              <span className="italic text-xs">
-                                copy edit:{" "}
-                                {renderCopyEditDiff(g.recipeCode, a.copyEdit)}
-                              </span>
-                            )}
-                        </div>
-                      </td>
-                      <td className="text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <IconButton
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openAssetHistory(a);
-                            }}
-                            aria-label="History"
-                            className="px-1.5 text-xs"
-                          >
-                            <FiClock />
-                          </IconButton>
-                          {!isDesigner && (
-                            <IconButton
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteAsset(a);
-                              }}
-                              aria-label="Delete"
-                            >
-                              <FiTrash />
-                            </IconButton>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
-          </div>
-        </td>
-        <td className="flex flex-col">
-          {userRole === "designer" || userRole === "client" ? (
-            getRecipeStatus(g.assets) === "pending" ? (
-              <select
-                className={`status-select status-pending`}
-                value="pending"
-                onChange={(e) => {
-                  e.stopPropagation();
-                  updateRecipeStatus(g.recipeCode, e.target.value);
-                }}
-              >
-                <option value="pending">pending</option>
-                <option value="ready">ready</option>
-              </select>
-            ) : (
-              <StatusBadge status={getRecipeStatus(g.assets)} />
-            )
-          ) : (
-            <select
-              className={`status-select status-${getRecipeStatus(g.assets)}`}
-              value={getRecipeStatus(g.assets)}
-              onChange={(e) => {
-                e.stopPropagation();
-                updateRecipeStatus(g.recipeCode, e.target.value);
-              }}
-            >
-              <option value="pending">pending</option>
-              <option value="ready">ready</option>
-              <option value="approved">approved</option>
-              <option value="rejected">rejected</option>
-              <option value="edit_requested">edit_requested</option>
-              <option value="archived">archived</option>
-              <option value="mixed" disabled>
-                mixed
-              </option>
-            </select>
-          )}
-          {g.assets.find((a) => a.status === "edit_requested" && a.comment) && (
-            <span className="italic text-xs mt-1 max-w-[20rem] block">
-              {
-                g.assets.find((a) => a.status === "edit_requested" && a.comment)
-                  ?.comment
-              }
-            </span>
-          )}
-          {(() => {
-            const ce = g.assets.find(
-              (a) => a.status === "edit_requested" && a.copyEdit,
-            );
-            return (
-              ce &&
-              renderCopyEditDiff(g.recipeCode, ce.copyEdit) && (
-                <span className="italic text-xs mt-1 max-w-[20rem] block">
-                  copy edit: {renderCopyEditDiff(g.recipeCode, ce.copyEdit)}
-                </span>
-              )
-            );
-          })()}
-        </td>
-        <td className="text-center">
-          <div className="flex items-center justify-center">
-            <HoverPreview
-              className="mr-2"
-              preview={
-                <div className="grid grid-cols-2 gap-2">
-                  {g.assets.map((a) => {
-                    const ext = fileExt(a.filename || "");
-                    return /^(svg|png|jpe?g|gif|webp)$/i.test(ext) ? (
-                      <OptimizedImage
-                        key={a.id}
-                        pngUrl={a.thumbnailUrl || a.firebaseUrl}
-                        alt={a.filename}
-                        className="w-full object-contain max-h-[25rem]"
-                      />
-                    ) : (
-                      <PlaceholderIcon key={a.id} ext={ext} />
-                    );
-                  })}
-                </div>
-              }
-            >
-              <IconButton aria-label="View" className="px-1.5 text-xs">
-                <FiEye />
-              </IconButton>
-            </HoverPreview>
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                openHistory(g.recipeCode);
-              }}
-              aria-label="History"
-              className="px-1.5 text-xs mr-2"
-            >
-              <FiClock />
-              <span className="ml-1">History</span>
-            </IconButton>
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                if (hasRevision) openRevision(g.recipeCode);
-              }}
-              disabled={!hasRevision}
-              aria-label="See Revisions"
-              className={`px-1.5 text-xs mr-2 ${
-                hasRevision ? '' : 'opacity-50 cursor-not-allowed'
-              }`}
-            >
-              <FiCopy />
-              <span className="ml-1">See Revisions</span>
-            </IconButton>
-            {!isDesigner && (
+        <tr className="recipe-row">
+          <td className="font-semibold">Recipe {g.recipeCode}</td>
+          <td className="text-center">
+            <StatusBadge status={getRecipeStatus(g.assets)} />
+          </td>
+          <td className="text-sm">
+            {editAsset && (
               <>
-                <IconButton
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const rawId = g.recipeCode;
-                    const normId = normalizeId(rawId);
-                    setMetadataRecipe(
-                      recipesMeta[rawId] ||
-                        recipesMeta[String(rawId).toLowerCase()] ||
-                        recipesMeta[normId] || {
-                          id: rawId,
-                        },
-                    );
-                  }}
-                  aria-label="Metadata"
-                  className="px-1.5 text-xs mr-2"
-                >
-                  <FiBookOpen />
-                  <span className="ml-1">Metadata</span>
-                </IconButton>
-                <IconButton
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteRecipe(g.recipeCode);
-                  }}
-                  className="text-xs" aria-label="Delete"
-                >
-                  <FiTrash />
-                </IconButton>
+                {editAsset.comment && (
+                  <span className="block italic">{editAsset.comment}</span>
+                )}
+                {editAsset.copyEdit &&
+                  renderCopyEditDiff(g.recipeCode, editAsset.copyEdit)}
               </>
             )}
-          </div>
-        </td>
-      </tr>
-    </tbody>
-  );
+          </td>
+          <td className="text-center">
+            <IconButton
+              aria-label="Menu"
+              onClick={() => setMenuRecipe({ ...g, hasRevision })}
+            >
+              <FiMoreVertical />
+            </IconButton>
+          </td>
+        </tr>
+      </tbody>
+    );
   };
 
   if (!group) {
@@ -2303,15 +2100,15 @@ const AdGroupDetail = () => {
       {(tableVisible || (showStats && specialGroups.length > 0)) && (
         <div className="overflow-x-auto">
           <Table
-            columns={["60%", "10%", "15%", "15%"]}
+            columns={["25%", "20%", "40%", "15%"]}
             className="min-w-full"
           >
             <thead>
               <tr>
-                <th>Filename</th>
-                <th>Version</th>
+                <th>Recipe</th>
                 <th>Status</th>
-                <th>Actions</th>
+                <th>Edit Request</th>
+                <th></th>
               </tr>
             </thead>
             {(tableVisible
@@ -2744,6 +2541,130 @@ const AdGroupDetail = () => {
                 Ready
               </button>
             )}
+          </div>
+        </Modal>
+      )}
+
+      {menuRecipe && (
+        <Modal sizeClass="max-w-xs w-full">
+          <ul className="space-y-2">
+            <li>
+              <button
+                className="w-full text-left"
+                onClick={() => {
+                  setInspectRecipe(menuRecipe);
+                  setMenuRecipe(null);
+                }}
+              >
+                Inspect Ads
+              </button>
+            </li>
+            <li>
+              <button
+                className={`w-full text-left ${
+                  menuRecipe.hasRevision ? '' : 'opacity-50 cursor-not-allowed'
+                }`}
+                onClick={() => {
+                  if (menuRecipe.hasRevision) {
+                    openRevision(menuRecipe.recipeCode);
+                  }
+                  setMenuRecipe(null);
+                }}
+              >
+                Make Revisions
+              </button>
+            </li>
+            <li>
+              <button
+                className="w-full text-left"
+                onClick={() => {
+                  openHistory(menuRecipe.recipeCode);
+                  setMenuRecipe(null);
+                }}
+              >
+                History
+              </button>
+            </li>
+            <li>
+              <button
+                className="w-full text-left"
+                onClick={() => {
+                  const rawId = menuRecipe.recipeCode;
+                  const normId = normalizeId(rawId);
+                  setMetadataRecipe(
+                    recipesMeta[rawId] ||
+                      recipesMeta[String(rawId).toLowerCase()] ||
+                      recipesMeta[normId] || { id: rawId },
+                  );
+                  setMenuRecipe(null);
+                }}
+              >
+                Metadata
+              </button>
+            </li>
+            {!isDesigner && (
+              <li>
+                <button
+                  className="w-full text-left text-red-600"
+                  onClick={() => {
+                    deleteRecipe(menuRecipe.recipeCode);
+                    setMenuRecipe(null);
+                  }}
+                >
+                  Delete
+                </button>
+              </li>
+            )}
+          </ul>
+        </Modal>
+      )}
+
+      {inspectRecipe && (
+        <Modal sizeClass="max-w-2xl w-full">
+          <h3 className="mb-2 font-semibold">
+            Recipe {inspectRecipe.recipeCode} Ads
+          </h3>
+          <div className="overflow-x-auto">
+            <Table columns={["60%", "20%", "20%"]} className="min-w-full">
+              <thead>
+                <tr>
+                  <th>Filename</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inspectRecipe.assets.map((a) => (
+                  <tr key={a.id}>
+                    <td className="break-all">{a.filename}</td>
+                    <td className="text-center">
+                      <StatusBadge status={a.status} />
+                    </td>
+                    <td className="text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <IconButton
+                          onClick={() => openAssetHistory(a)}
+                          aria-label="History"
+                        >
+                          <FiClock />
+                        </IconButton>
+                        {!isDesigner && (
+                          <IconButton
+                            onClick={() => deleteAsset(a)}
+                            aria-label="Delete"
+                          >
+                            <FiTrash />
+                          </IconButton>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <IconButton onClick={closeModals}>Close</IconButton>
           </div>
         </Modal>
       )}
