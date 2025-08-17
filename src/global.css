@@ -292,12 +292,6 @@
   html.dark .ad-table tbody tr:nth-child(even) {
     background-color: var(--dark-sidebar-hover);
   }
-  .ad-table tbody tr:hover {
-    background-color: var(--accent-color-10);
-  }
-  html.dark .ad-table tbody tr:hover {
-    background-color: var(--accent-color-10);
-  }
     .ad-table thead {
       background-color: var(--table-head-bg);
     }
@@ -339,6 +333,12 @@
   }
   html.dark .ad-table tbody tr.alt-row {
     background-color: var(--dark-sidebar-hover);
+  }
+  .ad-table tbody tr:hover {
+    background-color: var(--accent-color-10);
+  }
+  html.dark .ad-table tbody tr:hover {
+    background-color: var(--accent-color-10);
   }
   .recipe-row {
     font-size: 12px;
