@@ -52,7 +52,7 @@
     --space-md: 1rem;
   }
   html.dark {
-    --table-border-color: var(--dark-sidebar-hover);
+    --table-border-color: #1c242e;
     --table-head-bg: var(--dark-sidebar-hover);
     --table-row-alt-bg: var(--dark-sidebar-bg);
     --table-text-color: #9ca3af; /* gray-400 */
@@ -209,6 +209,7 @@
   }
   .table-container {
     max-width: 100%;
+    border: 1px solid var(--table-border-color);
   }
   .ad-table {
     width: 100%;
@@ -253,7 +254,7 @@
   .ad-table th:last-child,
   .ad-table td:last-child {
     white-space: normal;
-    /* Allow action columns to size based on provided action buttons */
+    min-width: var(--actions-col-width, auto);
     width: var(--actions-col-width, auto);
   }
 
@@ -285,10 +286,10 @@
     background-color: var(--dark-sidebar-hover);
   }
   .ad-table tbody tr:hover {
-    background-color: var(--table-head-bg);
+    background-color: var(--accent-color-10);
   }
   html.dark .ad-table tbody tr:hover {
-    background-color: var(--dark-sidebar-hover);
+    background-color: var(--accent-color-10);
   }
     .ad-table thead {
       background-color: var(--table-head-bg);
@@ -360,7 +361,7 @@
   }
   .recipe-row:hover,
   .asset-row:hover {
-    background-color: var(--table-head-bg);
+    background-color: var(--accent-color-10);
   }
   html.dark .asset-row {
     background-color: var(--dark-sidebar-hover);
