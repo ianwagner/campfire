@@ -1800,85 +1800,87 @@ const AdGroupDetail = () => {
               </>
             )}
           </td>
-          <td className="text-right relative">
-            <IconButton
-              aria-label="Menu"
-              onClick={() =>
-                setMenuRecipe((m) =>
-                  m && m.recipeCode === g.recipeCode
-                    ? null
-                    : { ...g, hasRevision },
-                )
-              }
-            >
-              <FiMoreHorizontal size={20} />
-            </IconButton>
-            {menuRecipe && menuRecipe.recipeCode === g.recipeCode && (
-              <ul
-                ref={menuRef}
-                className="absolute right-0 mt-2 w-48 bg-white border rounded shadow-md z-10"
+          <td className="relative">
+            <div className="relative ml-auto">
+              <IconButton
+                aria-label="Menu"
+                onClick={() =>
+                  setMenuRecipe((m) =>
+                    m && m.recipeCode === g.recipeCode
+                      ? null
+                      : { ...g, hasRevision },
+                  )
+                }
               >
-                <li>
-                  <button
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
-                    onClick={() => {
-                      if (menuRecipe.hasRevision) {
-                        openRevision(menuRecipe.recipeCode);
-                      }
-                      setMenuRecipe(null);
-                    }}
-                    disabled={!menuRecipe.hasRevision}
-                  >
-                    <FiRefreshCw />
-                    <span>Make Revisions</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
-                    onClick={() => {
-                      openHistory(menuRecipe.recipeCode);
-                      setMenuRecipe(null);
-                    }}
-                  >
-                    <FiClock />
-                    <span>History</span>
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
-                    onClick={() => {
-                      const rawId = menuRecipe.recipeCode;
-                      const normId = normalizeId(rawId);
-                      setMetadataRecipe(
-                        recipesMeta[rawId] ||
-                          recipesMeta[String(rawId).toLowerCase()] ||
-                          recipesMeta[normId] || { id: rawId },
-                      );
-                      setMenuRecipe(null);
-                    }}
-                  >
-                    <FiFileText />
-                    <span>Metadata</span>
-                  </button>
-                </li>
-                {!isDesigner && (
+                <FiMoreHorizontal size={20} />
+              </IconButton>
+              {menuRecipe && menuRecipe.recipeCode === g.recipeCode && (
+                <ul
+                  ref={menuRef}
+                  className="absolute right-0 top-full mt-2 w-48 bg-white border rounded shadow-md z-10"
+                >
                   <li>
                     <button
-                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100 text-red-600"
+                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
                       onClick={() => {
-                        deleteRecipe(menuRecipe.recipeCode);
+                        if (menuRecipe.hasRevision) {
+                          openRevision(menuRecipe.recipeCode);
+                        }
+                        setMenuRecipe(null);
+                      }}
+                      disabled={!menuRecipe.hasRevision}
+                    >
+                      <FiRefreshCw />
+                      <span>Make Revisions</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
+                      onClick={() => {
+                        openHistory(menuRecipe.recipeCode);
                         setMenuRecipe(null);
                       }}
                     >
-                      <FiTrash />
-                      <span>Delete</span>
+                      <FiClock />
+                      <span>History</span>
                     </button>
                   </li>
-                )}
-              </ul>
-            )}
+                  <li>
+                    <button
+                      className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
+                      onClick={() => {
+                        const rawId = menuRecipe.recipeCode;
+                        const normId = normalizeId(rawId);
+                        setMetadataRecipe(
+                          recipesMeta[rawId] ||
+                            recipesMeta[String(rawId).toLowerCase()] ||
+                            recipesMeta[normId] || { id: rawId },
+                        );
+                        setMenuRecipe(null);
+                      }}
+                    >
+                      <FiFileText />
+                      <span>Metadata</span>
+                    </button>
+                  </li>
+                  {!isDesigner && (
+                    <li>
+                      <button
+                        className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100 text-red-600"
+                        onClick={() => {
+                          deleteRecipe(menuRecipe.recipeCode);
+                          setMenuRecipe(null);
+                        }}
+                      >
+                        <FiTrash />
+                        <span>Delete</span>
+                      </button>
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
           </td>
         </tr>
       </tbody>
@@ -2205,27 +2207,25 @@ const AdGroupDetail = () => {
       )}
 
       {(tableVisible || (showStats && specialGroups.length > 0)) && (
-        <div className="overflow-x-auto">
-          <Table
-            columns={["25%", "20%", "40%", "15%"]}
-            className="min-w-full"
-          >
-            <thead>
-              <tr>
-                <th>Recipe</th>
-                <th>Status</th>
-                <th>Edit Request</th>
-                <th></th>
-              </tr>
-            </thead>
-            {(tableVisible
-              ? [...specialGroups, ...normalGroups]
-              : showStats
-                ? specialGroups
-                : []
-            ).map((g, idx) => renderRecipeRow(g, idx))}
-          </Table>
-        </div>
+        <Table
+          columns={["25%", "20%", "40%", "15%"]}
+          className="min-w-full"
+        >
+          <thead>
+            <tr>
+              <th>Recipe</th>
+              <th>Status</th>
+              <th>Edit Request</th>
+              <th></th>
+            </tr>
+          </thead>
+          {(tableVisible
+            ? [...specialGroups, ...normalGroups]
+            : showStats
+              ? specialGroups
+              : []
+          ).map((g, idx) => renderRecipeRow(g, idx))}
+        </Table>
       )}
 
       <div className="flex my-4">
