@@ -214,7 +214,7 @@
     width: 100%;
     max-width: 100%;
     border-collapse: collapse;
-    table-layout: auto;
+    table-layout: fixed;
     font-size: var(--font-size-base);
   }
   @media (max-width: 640px) {
@@ -227,6 +227,18 @@
     border: 1px solid var(--table-border-color);
     padding: var(--space-xs) var(--space-sm);
     text-align: left;
+    overflow: hidden;
+  }
+
+  /* Ensure form controls don't resize table cells when editing */
+  .ad-table td input,
+  .ad-table td select,
+  .ad-table td textarea {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
   }
 
   .ad-table th:not(:last-child),
