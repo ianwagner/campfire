@@ -35,6 +35,7 @@ import TaggerModal from './TaggerModal.jsx';
 import BriefStepSelect from './components/BriefStepSelect.jsx';
 import BriefStepForm from './components/BriefStepForm.jsx';
 import getMonthString from './utils/getMonthString.js';
+import Table from './components/common/Table';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -1393,7 +1394,7 @@ const RecipePreview = ({
           )}
         {results.length > 0 &&
           (columnsReady ? (
-            <table className="ad-table min-w-full table-auto text-sm">
+            <Table className="min-w-full text-sm" columns={['10%', '20%', '20%', '25%', '15%', '10%']}>
             <thead>
               <tr>
                 {visibleColumns['recipeNo'] && <th>Recipe #</th>}
@@ -1593,7 +1594,7 @@ const RecipePreview = ({
                 </tr>
               ))}
             </tbody>
-            </table>
+            </Table>
           ) : (
             <div>Loading...</div>
           ))}
