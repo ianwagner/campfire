@@ -1234,6 +1234,19 @@ const RecipePreview = ({
     setColumnsReady(true);
   }, [columnMeta, currentType, showColumnButton, userRole]);
 
+  const colWidths = useMemo(() => {
+    const widths = [];
+    if (visibleColumns.recipeNo) widths.push('10%');
+    columnMeta.forEach((c) => {
+      if (visibleColumns[c.key]) {
+        widths.push(c.key.endsWith('.assets') ? '15%' : '20%');
+      }
+    });
+    if (visibleColumns.copy) widths.push('30%');
+    widths.push('auto');
+    return widths;
+  }, [visibleColumns, columnMeta]);
+
   return (
     <div>
       {!showOnlyResults && (
@@ -1394,7 +1407,7 @@ const RecipePreview = ({
           )}
         {results.length > 0 &&
           (columnsReady ? (
-            <Table className="min-w-full text-sm" columns={['10%', '20%', '20%', '25%', '15%', '10%']}>
+            <Table className="min-w-full text-sm" columns={colWidths}>
             <thead>
               <tr>
                 {visibleColumns['recipeNo'] && <th>Recipe #</th>}
@@ -1404,7 +1417,7 @@ const RecipePreview = ({
                       <th key={col.key}>{col.label}</th>
                     )
                 )}
-                {visibleColumns['copy'] && <th className="w-80">Copy</th>}
+                {visibleColumns['copy'] && <th>Copy</th>}
                 <th className="text-center">{canEditRecipes ? 'Actions' : ''}</th>
               </tr>
             </thead>
@@ -1526,7 +1539,7 @@ const RecipePreview = ({
                      )
                   )}
                   {visibleColumns['copy'] && (
-                    <td className="whitespace-pre-wrap break-words w-80 align-middle copy-cell">
+                    <td className="whitespace-pre-wrap break-words align-middle copy-cell">
                       {editing === idx ? (
                         <textarea
                           className="w-full p-1 border rounded"
