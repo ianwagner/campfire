@@ -4,6 +4,7 @@ import { FiDownload } from 'react-icons/fi';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
+import Button from './components/Button.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 
 const monthKey = (date) => date.toISOString().slice(0, 7);
@@ -85,11 +86,13 @@ const AdminDistribution = () => {
             const url = aData.adUrl || aData.firebaseUrl || aData.url;
             if (!recipe || !url) return;
             const normalized = recipe.replace(/^0+/, '');
+            const label = info.aspectRatio || 'link';
+            const entry = { url, label };
             if (!assetMap[recipe]) assetMap[recipe] = [];
-            assetMap[recipe].push(url);
+            assetMap[recipe].push(entry);
             if (normalized !== recipe) {
               if (!assetMap[normalized]) assetMap[normalized] = [];
-              assetMap[normalized].push(url);
+              assetMap[normalized].push(entry);
             }
           });
 
@@ -213,7 +216,7 @@ const AdminDistribution = () => {
       {loading ? (
         <p>Loading...</p>
       ) : rows.length > 0 ? (
-        <Table>
+        <Table columns={['auto', 'auto', 'auto', 'auto', 'auto', '12rem']}>
           <thead>
             <tr>
               <th>Ad Group</th>
@@ -232,19 +235,20 @@ const AdminDistribution = () => {
                 <td>{r.product}</td>
                 <td>{r.angle}</td>
                 <td>{r.audience || '-'}</td>
-                <td className="whitespace-pre-line">
+                <td className="flex flex-wrap gap-2">
                   {r.links && r.links.length > 0
                     ? r.links.map((l, i) => (
-                        <a
+                        <Button
+                          as="a"
                           key={i}
-                          href={l}
+                          href={l.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block truncate"
-                          title={l}
+                          variant="secondary"
+                          className="px-2 py-1 text-sm"
                         >
-                          {l}
-                        </a>
+                          {l.label}
+                        </Button>
                       ))
                     : '-'}
                 </td>
