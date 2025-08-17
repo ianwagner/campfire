@@ -1,4 +1,4 @@
-import functions from 'firebase-functions';
+import * as functions from 'firebase-functions';
 
 // Respond to OpenAI requests while handling CORS for campfire.studiotak.co
 export const openaiProxy = functions
