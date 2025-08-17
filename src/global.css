@@ -334,10 +334,10 @@
         margin-right: var(--space-sm);
       }
     }
-  .ad-table tbody tr.table-row-group {
+  .ad-table tbody tr.alt-row {
     background-color: var(--table-row-alt-bg);
   }
-  html.dark .ad-table tbody tr.table-row-group {
+  html.dark .ad-table tbody tr.alt-row {
     background-color: var(--dark-sidebar-hover);
   }
   .recipe-row {
