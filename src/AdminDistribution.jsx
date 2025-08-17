@@ -4,6 +4,7 @@ import { FiDownload } from 'react-icons/fi';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
+import parseAdFilename from './utils/parseAdFilename';
 
 const monthKey = (date) => date.toISOString().slice(0, 7);
 
@@ -74,8 +75,27 @@ const AdminDistribution = () => {
         for (const gDoc of gSnap.docs) {
           const gData = gDoc.data();
           const rSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'recipes'));
+          const aSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'assets'));
+
+          const assetMap = {};
+          aSnap.docs.forEach((aDoc) => {
+            const aData = aDoc.data();
+            const info = parseAdFilename(aData.filename || '');
+            const recipe = String(aData.recipeCode || info.recipeCode || '');
+            const url = aData.adUrl || aData.firebaseUrl || aData.url;
+            if (!recipe || !url) return;
+            const normalized = recipe.replace(/^0+/, '');
+            if (!assetMap[recipe]) assetMap[recipe] = [];
+            assetMap[recipe].push(url);
+            if (normalized !== recipe) {
+              if (!assetMap[normalized]) assetMap[normalized] = [];
+              assetMap[normalized].push(url);
+            }
+          });
+
           rSnap.docs.forEach((rDoc, idx) => {
             const rData = rDoc.data();
+            const recipeNo = rData.recipeNo || rDoc.id || idx + 1;
             const product =
               rData.product?.name ||
               rData.product ||
@@ -87,13 +107,15 @@ const AdminDistribution = () => {
               rData.angle ||
               '';
             const audience = rData.audience || rData.components?.audience || '';
+            const links = assetMap[String(recipeNo)] || [];
             list.push({
               id: `${gDoc.id}_${rDoc.id}`,
               groupName: gData.name || gDoc.id,
-              recipeNo: rData.recipeNo || rDoc.id || idx + 1,
+              recipeNo,
               product,
               angle,
               audience,
+              links,
             });
           });
         }
@@ -110,12 +132,19 @@ const AdminDistribution = () => {
 
   const handleExport = () => {
     if (!rows.length) return;
-    const headers = ['Ad Group', 'Recipe #', 'Product', 'Angle', 'Audience'];
+    const headers = ['Ad Group', 'Recipe #', 'Product', 'Angle', 'Audience', 'Links'];
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const csv = [
       headers.join(','),
       ...rows.map((r) =>
-        [r.groupName, r.recipeNo, r.product, r.angle, r.audience || '-']
+        [
+          r.groupName,
+          r.recipeNo,
+          r.product,
+          r.angle,
+          r.audience || '-',
+          (r.links || []).join(' '),
+        ]
           .map(escape)
           .join(','),
       ),
@@ -192,6 +221,7 @@ const AdminDistribution = () => {
               <th>Product</th>
               <th>Angle</th>
               <th>Audience</th>
+              <th>Links</th>
             </tr>
           </thead>
           <tbody>
@@ -202,6 +232,22 @@ const AdminDistribution = () => {
                 <td>{r.product}</td>
                 <td>{r.angle}</td>
                 <td>{r.audience || '-'}</td>
+                <td className="whitespace-pre-line">
+                  {r.links && r.links.length > 0
+                    ? r.links.map((l, i) => (
+                        <a
+                          key={i}
+                          href={l}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block truncate"
+                          title={l}
+                        >
+                          {l}
+                        </a>
+                      ))
+                    : '-'}
+                </td>
               </tr>
             ))}
           </tbody>
