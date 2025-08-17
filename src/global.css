@@ -222,13 +222,12 @@
       max-width: 97rem;
     }
   }
-  .ad-table th,
-  .ad-table td {
-    border: 1px solid var(--table-border-color);
-    padding: var(--space-xs) var(--space-sm);
-    text-align: left;
-    overflow: hidden;
-  }
+    .ad-table th,
+    .ad-table td {
+      padding: var(--space-xs) var(--space-sm);
+      text-align: left;
+      overflow: hidden;
+    }
 
   .ad-table th {
     white-space: nowrap;
