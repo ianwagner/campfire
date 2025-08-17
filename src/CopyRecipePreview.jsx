@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { db, functions } from './firebase/config';
+import { httpsCallable } from 'firebase/functions';
 import TagInput from './components/TagInput.jsx';
 import { FiEdit2, FiTrash, FiCheck, FiLink } from 'react-icons/fi';
 import RecipeTypeCard from './components/RecipeTypeCard.jsx';
@@ -154,24 +155,13 @@ const CopyRecipePreview = ({
   const fetchCopy = async (prompt) => {
     if (!prompt) return '';
     try {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.7,
-        }),
+      const callable = httpsCallable(functions, 'openaiProxy');
+      const result = await callable({
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        console.error('OpenAI API error', data);
-        return '';
-      }
-      return data.choices?.[0]?.message?.content?.trim() || '';
+      return result.data?.choices?.[0]?.message?.content?.trim() || '';
     } catch (err) {
       console.error('OpenAI request failed', err);
       return '';

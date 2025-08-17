@@ -53,9 +53,9 @@ Write a headline for {{product}} that highlights {{feature}}.
 During generation the placeholders will be replaced with the user's input for
 the matching components.
 
-The generation feature uses OpenAI's ChatGPT API. Provide your API key via the
-`VITE_OPENAI_API_KEY` environment variable so the preview can send requests to
-the language model.
+The generation feature uses OpenAI's ChatGPT API through a Firebase Cloud
+Function. The API key is stored securely on the server, so no client-side
+environment variable is required.
 
 
 ## Firestore Rules
