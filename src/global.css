@@ -261,6 +261,13 @@
     flex-wrap: wrap;
   }
 
+  @media (max-width: 1000px) {
+    .ad-table td:last-child > div {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
   .ad-table td.copy-cell {
     white-space: pre-wrap;
     word-break: break-word;
@@ -275,6 +282,12 @@
     background-color: var(--dark-sidebar-bg);
   }
   html.dark .ad-table tbody tr:nth-child(even) {
+    background-color: var(--dark-sidebar-hover);
+  }
+  .ad-table tbody tr:hover {
+    background-color: var(--table-head-bg);
+  }
+  html.dark .ad-table tbody tr:hover {
     background-color: var(--dark-sidebar-hover);
   }
     .ad-table thead {

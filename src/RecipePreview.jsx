@@ -865,6 +865,14 @@ const RecipePreview = ({
   const [editCopy, setEditCopy] = useState('');
   const [editComponents, setEditComponents] = useState({});
   const [assetPicker, setAssetPicker] = useState(null); // { rowIdx, key, assetIdx, product }
+  const copyRef = useRef(null);
+
+  useEffect(() => {
+    if (editing !== null && copyRef.current) {
+      copyRef.current.style.height = 'auto';
+      copyRef.current.style.height = `${copyRef.current.scrollHeight}px`;
+    }
+  }, [editCopy, editing]);
 
   const handleEditRow = (idx) => {
     if (editing === idx) {
@@ -1421,7 +1429,7 @@ const RecipePreview = ({
             <Table className="min-w-full text-sm" columns={colWidths}>
             <thead>
               <tr>
-                {visibleColumns['recipeNo'] && <th>Recipe #</th>}
+                {visibleColumns['recipeNo'] && <th className="text-center">Recipe #</th>}
                 {columnMeta.map(
                   (col) =>
                     visibleColumns[col.key] && (
@@ -1545,9 +1553,11 @@ const RecipePreview = ({
                     <td className="whitespace-pre-wrap break-words align-middle copy-cell">
                       {editing === idx ? (
                         <textarea
+                          ref={copyRef}
                           className="w-full p-1 border rounded"
                           value={editCopy}
                           onChange={(e) => setEditCopy(e.target.value)}
+                          style={{ resize: 'none', overflow: 'hidden' }}
                         />
                       ) : (
                         <div
