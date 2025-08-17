@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import BrandCard from './components/BrandCard.jsx';
+import Table from './components/common/Table';
 
 const AgencyBrands = () => {
   const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
@@ -186,91 +187,91 @@ const AgencyBrands = () => {
         <p>No brands found.</p>
       ) : (
         <>
-        <div className="overflow-x-auto table-container">
-        <table className="ad-table min-w-max">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Name</th>
-              <th>Tone of Voice</th>
-              <th>Offering</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {brands.map((brand) => (
-              <tr key={brand.id}>
-                <td>
-                  {editId === brand.id ? (
-                    <input
-                      type="text"
-                      value={form.code}
-                      onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-                      className="w-full p-1 border rounded"
-                    />
-                  ) : (
-                    brand.code
-                  )}
-                </td>
-                <td>
-                  {editId === brand.id ? (
-                    <input
-                      type="text"
-                      value={form.name}
-                      onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                      className="w-full p-1 border rounded"
-                    />
-                  ) : (
-                    brand.name
-                  )}
-                </td>
-                <td>
-                  {editId === brand.id ? (
-                    <input
-                      type="text"
-                      value={form.toneOfVoice}
-                      onChange={(e) => setForm((f) => ({ ...f, toneOfVoice: e.target.value }))}
-                      className="w-full p-1 border rounded"
-                    />
-                  ) : (
-                    brand.toneOfVoice || ''
-                  )}
-                </td>
-                <td>
-                  {editId === brand.id ? (
-                    <input
-                      type="text"
-                      value={form.offering}
-                      onChange={(e) => setForm((f) => ({ ...f, offering: e.target.value }))}
-                      className="w-full p-1 border rounded"
-                    />
-                  ) : (
-                    brand.offering || ''
-                  )}
-                </td>
-                <td className="text-center">
-                  {editId === brand.id ? (
-                    <>
-                      <button onClick={() => handleSave(brand.id)} className="underline text-gray-700 mr-2">
-                        Save
-                      </button>
-                      <button onClick={cancelEdit} className="underline">Cancel</button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => startEdit(brand)} className="underline text-gray-700 mr-2">
-                        Edit
-                      </button>
-                      <button onClick={() => handleDelete(brand.id)} className="underline btn-delete">
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </td>
+        <div className="overflow-x-auto">
+          <Table className="min-w-max" columns={['15%', '20%', '25%', '25%', '15%']}>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Tone of Voice</th>
+                <th>Offering</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {brands.map((brand) => (
+                <tr key={brand.id}>
+                  <td>
+                    {editId === brand.id ? (
+                      <input
+                        type="text"
+                        value={form.code}
+                        onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      brand.code
+                    )}
+                  </td>
+                  <td>
+                    {editId === brand.id ? (
+                      <input
+                        type="text"
+                        value={form.name}
+                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      brand.name
+                    )}
+                  </td>
+                  <td>
+                    {editId === brand.id ? (
+                      <input
+                        type="text"
+                        value={form.toneOfVoice}
+                        onChange={(e) => setForm((f) => ({ ...f, toneOfVoice: e.target.value }))}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      brand.toneOfVoice || ''
+                    )}
+                  </td>
+                  <td>
+                    {editId === brand.id ? (
+                      <input
+                        type="text"
+                        value={form.offering}
+                        onChange={(e) => setForm((f) => ({ ...f, offering: e.target.value }))}
+                        className="w-full p-1 border rounded"
+                      />
+                    ) : (
+                      brand.offering || ''
+                    )}
+                  </td>
+                  <td className="text-center">
+                    {editId === brand.id ? (
+                      <>
+                        <button onClick={() => handleSave(brand.id)} className="underline text-gray-700 mr-2">
+                          Save
+                        </button>
+                        <button onClick={cancelEdit} className="underline">Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEdit(brand)} className="underline text-gray-700 mr-2">
+                          Edit
+                        </button>
+                        <button onClick={() => handleDelete(brand.id)} className="underline btn-delete">
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 mt-6">
           {sortedBrands.map((b) => (
