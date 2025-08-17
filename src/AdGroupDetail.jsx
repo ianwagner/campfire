@@ -1800,25 +1800,29 @@ const AdGroupDetail = () => {
               </>
             )}
           </td>
-          <td className="relative">
-            <div className="relative ml-auto">
-              <IconButton
-                aria-label="Menu"
-                onClick={() =>
-                  setMenuRecipe((m) =>
-                    m && m.recipeCode === g.recipeCode
-                      ? null
-                      : { ...g, hasRevision },
-                  )
-                }
+          <td className="relative text-right">
+            <IconButton
+              aria-label="Menu"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setMenuRecipe((m) =>
+                  m && m.recipeCode === g.recipeCode
+                    ? null
+                    : { ...g, hasRevision, rect },
+                );
+              }}
+            >
+              <FiMoreHorizontal size={20} />
+            </IconButton>
+            {menuRecipe && menuRecipe.recipeCode === g.recipeCode && (
+              <ul
+                ref={menuRef}
+                className="fixed w-48 bg-white border rounded shadow-md z-50"
+                style={{
+                  top: menuRecipe.rect.bottom + 8,
+                  right: window.innerWidth - menuRecipe.rect.right,
+                }}
               >
-                <FiMoreHorizontal size={20} />
-              </IconButton>
-              {menuRecipe && menuRecipe.recipeCode === g.recipeCode && (
-                <ul
-                  ref={menuRef}
-                  className="absolute right-0 top-full mt-2 w-48 bg-white border rounded shadow-md z-10"
-                >
                   <li>
                     <button
                       className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
@@ -1880,7 +1884,6 @@ const AdGroupDetail = () => {
                   )}
                 </ul>
               )}
-            </div>
           </td>
         </tr>
       </tbody>
