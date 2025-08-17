@@ -9,7 +9,7 @@ const VersionModal = ({ data, view = 'current', onViewChange, onClose }) => {
   const url = view === 'previous' ? data.previous.firebaseUrl : data.current.firebaseUrl;
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white p-4 rounded shadow max-w-md text-center">
+      <div className="bg-white p-4 rounded-xl shadow max-w-md text-center">
           <div className="mb-2 space-x-2">
             <Button
               onClick={() => onViewChange('current')}
