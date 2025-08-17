@@ -1410,7 +1410,7 @@ const RecipePreview = ({
             <Table className="min-w-full text-sm" columns={colWidths}>
             <thead>
               <tr>
-                {visibleColumns['recipeNo'] && <th className="text-center">Recipe #</th>}
+                {visibleColumns['recipeNo'] && <th>Recipe #</th>}
                 {columnMeta.map(
                   (col) =>
                     visibleColumns[col.key] && (
@@ -1455,8 +1455,7 @@ const RecipePreview = ({
                             <React.Fragment>
                               {editing === idx && col.key.includes('.') ? (
                                 <select
-                                  className="btn-secondary mb-1 px-1.5 py-0.5"
-                                  value={editComponents[col.key] || ''}
+                                  className="p-1 border rounded mb-1"
                                   onChange={(e) =>
                                     handleChangeInstance(col.key.split('.')[0], e.target.value)
                                   }
@@ -1520,9 +1519,7 @@ const RecipePreview = ({
                                   />
                                 ) : null
                               ) : (
-                                editing === idx && col.key.includes('.')
-                                  ? null
-                                  : editing === idx
+                                editing === idx
                                   ? editComponents[col.key]
                                   : isUrl(r.components[col.key]?.toString().trim()) ? (
                                       <a
