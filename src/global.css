@@ -256,7 +256,6 @@
 
   .ad-table td:last-child > div {
     flex-wrap: wrap;
-    width: var(--actions-col-width, auto);
   }
 
   .ad-table td.copy-cell {
