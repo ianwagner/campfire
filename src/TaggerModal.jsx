@@ -10,6 +10,7 @@ import ScrollModal from './components/ScrollModal.jsx';
 import HoverPreview from './components/HoverPreview.jsx';
 import { FiImage, FiLoader } from 'react-icons/fi';
 import SaveButton from './components/SaveButton.jsx';
+import Table from './components/common/Table';
 
 const typeOptions = ['Lifestyle', 'Video', 'POW', 'Background'];
 
@@ -238,7 +239,10 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
           </div>
         </form>
         <div className="overflow-x-auto max-h-96">
-          <table className="ad-table min-w-max text-sm">
+          <Table
+            className="min-w-max text-sm"
+            columns={['20%', '20%', '10%', '10%', '20%', '10%', '10%']}
+          >
             <thead>
               <tr>
                 <th>Name</th>
@@ -331,7 +335,7 @@ const TaggerModal = ({ onClose, brandCode = '' }) => {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         </div>
         <div className="sticky bottom-0 bg-white dark:bg-[var(--dark-sidebar-bg)] text-right space-x-2 px-2 pt-2 pb-0">
           <button onClick={handleClose} className="btn-secondary px-3 py-1">
