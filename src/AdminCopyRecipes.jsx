@@ -17,6 +17,7 @@ import Modal from './components/Modal.jsx';
 import IconButton from './components/IconButton.jsx';
 import SortButton from './components/SortButton.jsx';
 import Button from './components/Button.jsx';
+import Table from './components/common/Table';
 
 const VIEWS = {
   TYPES: 'types',
@@ -175,8 +176,8 @@ const resetForm = () => {
       {filteredTypes.length === 0 ? (
         <p>No recipe types found.</p>
       ) : (
-        <div className="overflow-x-auto table-container mb-4">
-          <table className="ad-table min-w-max text-sm">
+        <div className="overflow-x-auto">
+          <Table className="min-w-max" columns={['15%', '25%', '25%', '25%', '10%']}>
             <thead>
               <tr>
                 <th>Name</th>
@@ -215,7 +216,7 @@ const resetForm = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         </div>
       )}
       {showModal && (
