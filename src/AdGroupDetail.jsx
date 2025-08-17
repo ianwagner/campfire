@@ -1776,7 +1776,7 @@ const AdGroupDetail = () => {
     const isAlt = idx % 2 === 1;
     return (
       <tbody key={g.recipeCode}>
-        <tr className={`recipe-row${isAlt ? " table-row-group" : ""}`}>
+        <tr className={`recipe-row${isAlt ? " alt-row" : ""}`}>
           <td className="font-semibold flex items-center gap-2">
             Recipe {g.recipeCode}
             <IconButton
