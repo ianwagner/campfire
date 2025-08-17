@@ -19,6 +19,7 @@ import { verifyDriveAccess } from './verifyDriveAccess.js';
 import { parsePdp } from './parsePdp.js';
 import { cacheProductImages } from './cacheProductImages.js';
 import { copyAssetToDrive, cleanupDriveFile } from './driveAssets.js';
+import { openaiProxy } from './openaiProxy.js';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -632,4 +633,5 @@ export {
   cacheProductImages,
   copyAssetToDrive,
   cleanupDriveFile,
+  openaiProxy,
 };

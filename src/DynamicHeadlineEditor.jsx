@@ -9,7 +9,8 @@ import {
   where,
   setDoc,
 } from 'firebase/firestore';
-import { auth, db } from './firebase/config';
+import { auth, db, functions } from './firebase/config';
+import { httpsCallable } from 'firebase/functions';
 import SaveButton from './components/SaveButton.jsx';
 import Table from './components/common/Table.jsx';
 import Modal from './components/Modal.jsx';
@@ -240,21 +241,12 @@ const DynamicHeadlineEditor = () => {
         `Guardrails: ${guardParts.join('; ') || 'none'}\n` +
         `Current user: ${userName}\n` +
         'Generate 10 headline variations, each on its own line without numbering.';
-      const response = await fetch(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'user', content: prompt }],
-          }),
-        }
-      );
-      const data = await response.json();
+      const callable = httpsCallable(functions, 'openaiProxy');
+      const result = await callable({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const data = result.data;
       const text = data.choices?.[0]?.message?.content || '';
       const lines = text
         .split('\n')

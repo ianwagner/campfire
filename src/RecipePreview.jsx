@@ -15,7 +15,8 @@ import {
   FiLink,
 } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
-import { auth, db, storage } from './firebase/config';
+import { auth, db, storage, functions } from './firebase/config';
+import { httpsCallable } from 'firebase/functions';
 import useUserRole from './useUserRole';
 import TagInput from './components/TagInput.jsx';
 import selectRandomOption from './utils/selectRandomOption.js';
@@ -787,23 +788,13 @@ const RecipePreview = ({
     prompt = prompt.replace(/{{csv\.context}}/g, csvContext);
 
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.7,
-        }),
+      const callable = httpsCallable(functions, 'openaiProxy');
+      const result = await callable({
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
       });
-      const data = await response.json();
-      if (!response.ok) {
-        console.error('OpenAI API error', data);
-        return null;
-      }
+      const data = result.data;
       const text = data.choices?.[0]?.message?.content?.trim() || 'No result';
       const result = {
         type: selectedType,
