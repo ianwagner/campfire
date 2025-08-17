@@ -145,7 +145,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
       </div>
       {tab === 'setup' && <BrandSetup brandId={brandId} />}
       {tab === 'tone' && <BrandTone brandId={brandId} brandCode={brandCode} />}
-      {tab === 'ai' && <BrandAIArtStyle />}
+      {tab === 'ai' && <BrandAIArtStyle brandId={brandId} brandCode={brandCode} />}
       {tab === 'library' && <AssetLibrary brandCode={brandCode} />}
       {tab === 'reviews' && <ReviewLibrary brandCode={brandCode} />}
       {tab === 'products' && <BrandProducts brandId={brandId} brandCode={brandCode} />}
