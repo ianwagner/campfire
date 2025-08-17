@@ -228,8 +228,6 @@
     padding: var(--space-xs) var(--space-sm);
     text-align: left;
     overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
   }
 
   /* Ensure form controls don't resize table cells when editing */
@@ -242,8 +240,16 @@
     margin: 0;
     padding: 0;
   }
+
+  .ad-table th:not(:last-child),
+  .ad-table td:not(:last-child):not(.copy-cell) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .ad-table th:last-child,
   .ad-table td:last-child {
+    white-space: normal;
     /* Allow action columns to size based on provided action buttons */
     width: var(--actions-col-width, auto);
   }
