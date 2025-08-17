@@ -34,14 +34,14 @@ const TagInput = ({
 
   return (
     <div className="flex flex-wrap items-center gap-1">
-        {value.map((tag) => (
-          <span key={tag} className="tag bg-accent-10 text-accent flex items-center">
-            {tag}
+      {value.map((tag) => (
+        <span key={tag} className="tag bg-accent-10 text-accent">
+          <span>{tag}</span>
           <Button
             type="button"
             variant="delete"
             onClick={() => removeTag(tag)}
-            className="ml-1 text-xs"
+            className="text-xs"
           >
             &times;
           </Button>
