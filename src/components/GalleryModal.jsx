@@ -38,7 +38,7 @@ const GalleryModal = ({ ads = [], onClose }) => {
   const displayAds = ads.filter((a) => a.status !== 'archived');
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
-      <div className="bg-white p-4 rounded shadow max-w-6xl w-full max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+      <div className="bg-white p-4 rounded-xl shadow max-w-6xl w-full max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold">Ad Gallery</h2>
           <Button onClick={onClose} variant="secondary" className="px-3 py-1">Close</Button>

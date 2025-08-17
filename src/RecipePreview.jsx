@@ -1364,7 +1364,7 @@ const RecipePreview = ({
             onClick={() => setShowColumnMenu(false)}
           >
             <div
-              className="bg-white p-4 rounded shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+              className="bg-white p-4 rounded-xl shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="mb-2 font-semibold">Visible Columns</h3>

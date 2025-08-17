@@ -336,7 +336,7 @@ const InstancesView = () => {
       </form>
       {editId && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded shadow max-w-lg w-full relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+          <div className="bg-white p-4 rounded-xl shadow max-w-lg w-full relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
             <form onSubmit={handleSave} className="space-y-2">
               <div>
                 <label className="block text-sm mb-1">Name</label>

@@ -66,7 +66,7 @@ const AssetPickerModal = ({
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white p-4 rounded shadow max-h-[80vh] overflow-y-auto w-full max-w-lg dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+      <div className="bg-white p-4 rounded-xl shadow max-h-[80vh] overflow-y-auto w-full max-w-lg dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           {!propBrandCode && (
             <input
