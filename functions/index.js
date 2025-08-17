@@ -4,7 +4,7 @@ import {
   onDocumentDeleted,
   onDocumentWritten,
 } from 'firebase-functions/v2/firestore';
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import admin from 'firebase-admin';
 import sharp from 'sharp';
@@ -346,19 +346,19 @@ export const processUpload = onObjectFinalized(async (event) => {
   return null;
 });
 
-export const signOutUser = functions.https.onCall(async (data, context) => {
+export const signOutUser = onCall(async (data, context) => {
   if (!context.auth || !context.auth.token.admin) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
+    throw new HttpsError('permission-denied', 'Admin only');
   }
   const uid = data.uid;
   if (!uid) {
-    throw new functions.https.HttpsError('invalid-argument', 'Missing uid');
+    throw new HttpsError('invalid-argument', 'Missing uid');
   }
   await admin.auth().revokeRefreshTokens(uid);
   return { success: true };
 });
 
-export const createStripeCustomer = functions.https.onCall(async (data) => {
+export const createStripeCustomer = onCall(async (data) => {
   console.log('createStripeCustomer payload:', data);
   return { customerId: 'dummy_customer_id' };
 });

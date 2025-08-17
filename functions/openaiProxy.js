@@ -1,9 +1,9 @@
-import * as functions from 'firebase-functions';
+import { onRequest } from 'firebase-functions/v2/https';
 
 // Respond to OpenAI requests while handling CORS for campfire.studiotak.co
-export const openaiProxy = functions
-  .runWith({ secrets: ['OPENAI_API_KEY'] })
-  .https.onRequest(async (req, res) => {
+export const openaiProxy = onRequest(
+  { secrets: ['OPENAI_API_KEY'] },
+  async (req, res) => {
     const allowedOrigin = 'https://campfire.studiotak.co';
     res.set('Access-Control-Allow-Origin', allowedOrigin);
     res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -40,4 +40,5 @@ export const openaiProxy = functions
       console.error('OpenAI proxy error', err);
       res.status(500).json({ error: 'OpenAI request failed' });
     }
-  });
+  }
+);
