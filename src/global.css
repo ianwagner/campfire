@@ -226,7 +226,15 @@
     .ad-table td {
       padding: var(--space-xs) var(--space-sm);
       text-align: left;
+    }
+
+    /* Keep table cells constrained by default but allow dropdowns in relative cells */
+    .ad-table td {
       overflow: hidden;
+    }
+
+    .ad-table td.relative {
+      overflow: visible;
     }
 
   .ad-table th {
