@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db, functions } from './firebase/config';
-import { httpsCallable } from 'firebase/functions';
+import { db } from './firebase/config';
 import TagInput from './components/TagInput.jsx';
 import { FiEdit2, FiTrash, FiCheck, FiLink } from 'react-icons/fi';
 import RecipeTypeCard from './components/RecipeTypeCard.jsx';
@@ -152,16 +151,21 @@ const CopyRecipePreview = ({
     return prompt;
   };
 
+  const OPENAI_PROXY_URL = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/openaiProxy`;
   const fetchCopy = async (prompt) => {
     if (!prompt) return '';
     try {
-      const callable = httpsCallable(functions, 'openaiProxy');
-      const result = await callable({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
+      const response = await fetch(OPENAI_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+        }),
       });
-      return result.data?.choices?.[0]?.message?.content?.trim() || '';
+      const data = await response.json();
+      return data?.choices?.[0]?.message?.content?.trim() || '';
     } catch (err) {
       console.error('OpenAI request failed', err);
       return '';

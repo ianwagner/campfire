@@ -9,8 +9,7 @@ import {
   where,
   setDoc,
 } from 'firebase/firestore';
-import { auth, db, functions } from './firebase/config';
-import { httpsCallable } from 'firebase/functions';
+import { auth, db } from './firebase/config';
 import SaveButton from './components/SaveButton.jsx';
 import Table from './components/common/Table.jsx';
 import Modal from './components/Modal.jsx';
@@ -48,6 +47,7 @@ const DynamicHeadlineEditor = () => {
   const [preview, setPreview] = useState([]);
   const { guardrails } = useHeadlineGuardrails();
   const firstName = auth.currentUser?.displayName?.split(' ')[0] || '';
+  const OPENAI_PROXY_URL = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/openaiProxy`;
 
   useEffect(() => {
     const loadType = async () => {
@@ -241,12 +241,15 @@ const DynamicHeadlineEditor = () => {
         `Guardrails: ${guardParts.join('; ') || 'none'}\n` +
         `Current user: ${userName}\n` +
         'Generate 10 headline variations, each on its own line without numbering.';
-      const callable = httpsCallable(functions, 'openaiProxy');
-      const result = await callable({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
+      const response = await fetch(OPENAI_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+        }),
       });
-      const data = result.data;
+      const data = await response.json();
       const text = data.choices?.[0]?.message?.content || '';
       const lines = text
         .split('\n')

@@ -15,8 +15,7 @@ import {
   FiLink,
 } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
-import { auth, db, storage, functions } from './firebase/config';
-import { httpsCallable } from 'firebase/functions';
+import { auth, db, storage } from './firebase/config';
 import useUserRole from './useUserRole';
 import TagInput from './components/TagInput.jsx';
 import selectRandomOption from './utils/selectRandomOption.js';
@@ -92,6 +91,7 @@ const RecipePreview = ({
   const [assetRows, setAssetRows] = useState([]);
   const [assetMap, setAssetMap] = useState({});
   const [assetUsage, setAssetUsage] = useState({});
+  const OPENAI_PROXY_URL = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/openaiProxy`;
   const [showOptionLists, setShowOptionLists] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
   const [showTagger, setShowTagger] = useState(false);
@@ -788,13 +788,16 @@ const RecipePreview = ({
     prompt = prompt.replace(/{{csv\.context}}/g, csvContext);
 
     try {
-      const callable = httpsCallable(functions, 'openaiProxy');
-      const response = await callable({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
+      const response = await fetch(OPENAI_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+        }),
       });
-      const data = response.data;
+      const data = await response.json();
       const text = data.choices?.[0]?.message?.content?.trim() || 'No result';
       const generated = {
         type: selectedType,
