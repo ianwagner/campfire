@@ -67,6 +67,7 @@ import diffWords from "./utils/diffWords";
 import Modal from "./components/Modal.jsx";
 import IconButton from "./components/IconButton.jsx";
 import TabButton from "./components/TabButton.jsx";
+import Table from "./components/common/Table";
 import stripVersion from "./utils/stripVersion";
 import summarizeByRecipe from "./utils/summarizeByRecipe";
 
@@ -1756,8 +1757,11 @@ const AdGroupDetail = () => {
               expanded[g.recipeCode] ? "open" : ""
             }`}
           >
-            <div className="overflow-x-auto table-container">
-              <table className="ad-table min-w-full w-full">
+            <div className="overflow-x-auto">
+              <Table
+                columns={["60%", "10%", "15%", "15%"]}
+                className="min-w-full"
+              >
                 <tbody>
                   {g.assets.map((a) => (
                     <tr key={a.id} className="asset-row">
@@ -1824,7 +1828,7 @@ const AdGroupDetail = () => {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </Table>
             </div>
           </div>
         </td>
@@ -2297,8 +2301,11 @@ const AdGroupDetail = () => {
       )}
 
       {(tableVisible || (showStats && specialGroups.length > 0)) && (
-        <div className="overflow-x-auto table-container">
-          <table className="ad-table min-w-full">
+        <div className="overflow-x-auto">
+          <Table
+            columns={["60%", "10%", "15%", "15%"]}
+            className="min-w-full"
+          >
             <thead>
               <tr>
                 <th>Filename</th>
@@ -2313,7 +2320,7 @@ const AdGroupDetail = () => {
                 ? specialGroups
                 : []
             ).map((g) => renderRecipeRow(g))}
-          </table>
+          </Table>
         </div>
       )}
 
