@@ -901,6 +901,17 @@ const RecipePreview = ({
     setEditComponents(updated);
   };
 
+  const findInstanceId = (compKey, comps) => {
+    const inst = allInstances.find(
+      (i) =>
+        i.componentKey === compKey &&
+        Object.entries(i.values || {}).every(
+          ([k, v]) => comps[`${compKey}.${k}`] === v,
+        ),
+    );
+    return inst?.id || '';
+  };
+
   const handleAssetSelect = (asset) => {
     if (!assetPicker) return;
     const { rowIdx, key, assetIdx } = assetPicker;
@@ -1451,93 +1462,85 @@ const RecipePreview = ({
                               idx,
                               col.key,
                             )
+                          ) : editing === idx ? (
+                            col.key.includes('.') ? (
+                              <select
+                                className="p-1 border rounded mb-1"
+                                value={findInstanceId(col.key.split('.')[0], editComponents)}
+                                onChange={(e) =>
+                                  handleChangeInstance(col.key.split('.')[0], e.target.value)
+                                }
+                              >
+                                <option value="">Select...</option>
+                                {allInstances
+                                  .filter(
+                                    (i) =>
+                                      i.componentKey === col.key.split('.')[0] &&
+                                      (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
+                                  )
+                                  .map((inst) => (
+                                    <option key={inst.id} value={inst.id}>
+                                      {inst.name}
+                                    </option>
+                                  ))}
+                              </select>
+                            ) : col.inputType === 'textarea' ? (
+                              <textarea
+                                className="p-1 border rounded mb-1 w-full"
+                                value={editComponents[col.key] || ''}
+                                onChange={(e) =>
+                                  setEditComponents({
+                                    ...editComponents,
+                                    [col.key]: e.target.value,
+                                  })
+                                }
+                              />
+                            ) : col.inputType === 'list' ? (
+                              <TagInput
+                                id={`edit-${col.key}`}
+                                value={editComponents[col.key] || []}
+                                onChange={(arr) =>
+                                  setEditComponents({
+                                    ...editComponents,
+                                    [col.key]: arr,
+                                  })
+                                }
+                              />
+                            ) : (
+                              <input
+                                className="p-1 border rounded mb-1 w-full"
+                                type={col.inputType || 'text'}
+                                value={editComponents[col.key] || ''}
+                                onChange={(e) =>
+                                  setEditComponents({
+                                    ...editComponents,
+                                    [col.key]: e.target.value,
+                                  })
+                                }
+                              />
+                            )
+                          ) : col.inputType === 'image' ? (
+                            r.components[col.key] ? (
+                              <img
+                                src={r.components[col.key]}
+                                alt={col.label}
+                                className="max-w-[125px] w-auto h-auto"
+                              />
+                            ) : null
+                          ) : isUrl(r.components[col.key]?.toString().trim()) ? (
+                            <a
+                              href={r.components[col.key]}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <FiLink />
+                            </a>
                           ) : (
-                            <React.Fragment>
-                              {editing === idx && col.key.includes('.') ? (
-                                <select
-                                  className="p-1 border rounded mb-1"
-                                  onChange={(e) =>
-                                    handleChangeInstance(col.key.split('.')[0], e.target.value)
-                                  }
-                                >
-                                  <option value="">Select...</option>
-                                  {allInstances
-                                    .filter(
-                                      (i) =>
-                                        i.componentKey === col.key.split('.')[0] &&
-                                        (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
-                                    )
-                                    .map((inst) => (
-                                      <option key={inst.id} value={inst.id}>
-                                        {inst.name}
-                                      </option>
-                                    ))}
-                                </select>
-                              ) : null}
-                              {editing === idx && !col.key.includes('.') ? (
-                                col.inputType === 'textarea' ? (
-                                  <textarea
-                                    className="p-1 border rounded mb-1 w-full"
-                                    value={editComponents[col.key] || ''}
-                                    onChange={(e) =>
-                                      setEditComponents({
-                                        ...editComponents,
-                                        [col.key]: e.target.value,
-                                      })
-                                    }
-                                  />
-                                ) : col.inputType === 'list' ? (
-                                  <TagInput
-                                    id={`edit-${col.key}`}
-                                    value={editComponents[col.key] || []}
-                                    onChange={(arr) =>
-                                      setEditComponents({
-                                        ...editComponents,
-                                        [col.key]: arr,
-                                      })
-                                    }
-                                  />
-                                ) : (
-                                  <input
-                                    className="p-1 border rounded mb-1 w-full"
-                                    type={col.inputType || 'text'}
-                                    value={editComponents[col.key] || ''}
-                                    onChange={(e) =>
-                                      setEditComponents({
-                                        ...editComponents,
-                                        [col.key]: e.target.value,
-                                      })
-                                    }
-                                  />
-                                )
-                              ) : col.inputType === 'image' ? (
-                                (editing === idx ? editComponents[col.key] : r.components[col.key]) ? (
-                                  <img
-                                    src={editing === idx ? editComponents[col.key] : r.components[col.key]}
-                                    alt={col.label}
-                                    className="max-w-[125px] w-auto h-auto"
-                                  />
-                                ) : null
-                              ) : (
-                                editing === idx
-                                  ? editComponents[col.key]
-                                  : isUrl(r.components[col.key]?.toString().trim()) ? (
-                                      <a
-                                        href={r.components[col.key]}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                      >
-                                        <FiLink />
-                                      </a>
-                                    ) : (
-                                      r.components[col.key]
-                                    )
-                              )}
-                            </React.Fragment>
+                            r.components[col.key]
                           )}
-                       </td>
-                     )
-                  )}
+                        </td>
+                      )
+                   )}
                   {visibleColumns['copy'] && (
                     <td className="whitespace-pre-wrap break-words align-middle copy-cell">
                       {editing === idx ? (

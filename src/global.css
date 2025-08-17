@@ -155,7 +155,7 @@
     @apply text-red-600 hover:text-red-800;
   }
   .tag {
-    @apply text-xs px-2 py-0.5 rounded;
+    @apply text-sm px-3 py-1 rounded flex items-center gap-1;
   }
   .tag-new {
     background-color: var(--accent-color-10);
@@ -230,6 +230,11 @@
     overflow: hidden;
   }
 
+  .ad-table th {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
   /* Ensure form controls don't resize table cells when editing */
   .ad-table td input,
   .ad-table td select,
@@ -241,7 +246,6 @@
     padding: 0;
   }
 
-  .ad-table th:not(:last-child),
   .ad-table td:not(:last-child):not(.copy-cell) {
     white-space: normal;
     overflow-wrap: anywhere;
