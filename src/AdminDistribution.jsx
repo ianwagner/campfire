@@ -154,7 +154,7 @@ const AdminDistribution = () => {
           <thead>
             <tr>
               <th>Ad Group</th>
-              <th>Recipe #</th>
+              <th className="text-center">Recipe #</th>
               <th>Product</th>
               <th>Angle</th>
               <th>Audience</th>
