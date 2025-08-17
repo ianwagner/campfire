@@ -45,7 +45,7 @@ const Table = ({ children, className = '', columns = [] }) => {
   );
 
   return (
-    <div className={`table-container overflow-hidden rounded-md bg-white dark:bg-[var(--dark-sidebar-bg)]`}>
+    <div className={`table-container overflow-hidden rounded-md border border-[var(--table-border-color)] bg-white dark:bg-[var(--dark-sidebar-bg)]`}>
       <table
         ref={tableRef}
         className={`ad-table w-full table-fixed text-sm ${className}`.trim()}

@@ -52,7 +52,7 @@
     --space-md: 1rem;
   }
   html.dark {
-    --table-border-color: var(--dark-sidebar-hover);
+    --table-border-color: #1c242e;
     --table-head-bg: var(--dark-sidebar-hover);
     --table-row-alt-bg: var(--dark-sidebar-bg);
     --table-text-color: #9ca3af; /* gray-400 */
@@ -115,7 +115,7 @@
     @apply btn bg-gray-300 text-gray-700 no-underline hover:brightness-105 dark:bg-[var(--dark-sidebar-hover)] dark:text-white;
   }
 .btn-action {
-  @apply inline-flex items-center gap-1 px-1.5 py-0.5 text-xs rounded text-gray-600 dark:text-gray-300 hover:bg-[var(--accent-color-10)] hover:text-gray-900 dark:hover:text-white;
+  @apply inline-flex items-center gap-1 px-1.5 py-0.5 text-xs rounded text-gray-600 dark:text-gray-300 hover:bg-[var(--accent-color-10)] hover:text-gray-900 dark:hover:text-white transform-none;
 }
   .btn-logout {
     @apply text-sm text-gray-500 hover:text-black underline;
@@ -285,10 +285,10 @@
     background-color: var(--dark-sidebar-hover);
   }
   .ad-table tbody tr:hover {
-    background-color: var(--table-head-bg);
+    background-color: var(--accent-color-10);
   }
   html.dark .ad-table tbody tr:hover {
-    background-color: var(--dark-sidebar-hover);
+    background-color: var(--accent-color-10);
   }
     .ad-table thead {
       background-color: var(--table-head-bg);
