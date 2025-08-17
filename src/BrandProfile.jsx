@@ -19,10 +19,12 @@ import {
   FiFileText,
   FiFeather,
   FiFlag,
+  FiBookOpen,
 } from 'react-icons/fi';
 import BrandTone from './BrandTone.jsx';
 import BrandContracts from './BrandContracts.jsx';
 import BrandAIArtStyle from './BrandAIArtStyle.jsx';
+import BrandNotes from './BrandNotes.jsx';
 
 const BrandProfile = ({ brandId: propId = null }) => {
   const { id } = useParams();
@@ -139,6 +141,9 @@ const BrandProfile = ({ brandId: propId = null }) => {
         <TabButton active={tab === 'campaigns'} onClick={() => setTab('campaigns')}>
           <FiFlag /> <span>Campaigns</span>
         </TabButton>
+        <TabButton active={tab === 'notes'} onClick={() => setTab('notes')}>
+          <FiBookOpen /> <span>Notes</span>
+        </TabButton>
         <TabButton active={tab === 'contracts'} onClick={() => setTab('contracts')}>
           <FiFileText /> <span>Contracts</span>
         </TabButton>
@@ -150,6 +155,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
       {tab === 'reviews' && <ReviewLibrary brandCode={brandCode} />}
       {tab === 'products' && <BrandProducts brandId={brandId} brandCode={brandCode} />}
       {tab === 'campaigns' && <BrandCampaigns brandId={brandId} brandCode={brandCode} />}
+      {tab === 'notes' && <BrandNotes brandId={brandId} />}
       {tab === 'contracts' && (
         <BrandContracts brandId={brandId} brandCode={brandCode} />
       )}
