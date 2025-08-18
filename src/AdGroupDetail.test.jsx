@@ -119,6 +119,14 @@ test('admin can send ad group to client projects', async () => {
     return jest.fn();
   });
   mockAddDoc.mockResolvedValue({ id: 'proj1' });
+  mockGetDocs
+    .mockResolvedValueOnce({ empty: true, docs: [] })
+    .mockResolvedValueOnce({ empty: true, docs: [] })
+    .mockResolvedValueOnce({
+      empty: false,
+      docs: [{ id: 'client1', data: () => ({ fullName: 'Client 1' }) }],
+    });
+  window.alert = jest.fn();
 
   render(
     <MemoryRouter>
@@ -128,9 +136,15 @@ test('admin can send ad group to client projects', async () => {
 
   const sendBtn = await screen.findByLabelText('Send to Projects');
   fireEvent.click(sendBtn);
+  const clientBtn = await screen.findByRole('button', { name: 'Client 1' });
+  fireEvent.click(clientBtn);
 
   await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
-  expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1', { projectId: 'proj1' });
+  expect(mockAddDoc.mock.calls[0][1]).toMatchObject({ userId: 'client1' });
+  expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1', {
+    projectId: 'proj1',
+    uploadedBy: 'client1',
+  });
 });
 
 test.skip('toggles asset status to ready', async () => {
