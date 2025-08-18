@@ -23,6 +23,7 @@ const mockOnSnapshot = jest.fn();
 const mockUpdateDoc = jest.fn();
 const mockSetDoc = jest.fn();
 const mockGetDocs = jest.fn();
+const mockAddDoc = jest.fn();
 const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
 const mockCollection = jest.fn((...args) => args);
 const mockQuery = jest.fn((...args) => args);
@@ -52,7 +53,7 @@ jest.mock('firebase/firestore', () => {
     setDoc: (...args) => mockSetDoc(...args),
     serverTimestamp: jest.fn(),
     writeBatch: mockWriteBatch,
-    addDoc: jest.fn(),
+    addDoc: (...args) => mockAddDoc(...args),
     deleteDoc: jest.fn(),
     arrayUnion: (...args) => mockArrayUnion(...args),
     getDocs: (...args) => mockGetDocs(...args),
@@ -110,6 +111,26 @@ test('editor can open recipe modal and save recipes', async () => {
 
   await waitFor(() => expect(mockBatchCommit).toHaveBeenCalled());
   expect(screen.queryByTestId('recipe-preview')).not.toBeInTheDocument();
+});
+
+test('admin can send ad group to client projects', async () => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({ docs: [] });
+    return jest.fn();
+  });
+  mockAddDoc.mockResolvedValue({ id: 'proj1' });
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>
+  );
+
+  const sendBtn = await screen.findByLabelText('Send to Projects');
+  fireEvent.click(sendBtn);
+
+  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
+  expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1', { projectId: 'proj1' });
 });
 
 test.skip('toggles asset status to ready', async () => {
