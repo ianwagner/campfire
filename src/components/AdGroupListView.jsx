@@ -8,6 +8,7 @@ import IconButton from './IconButton.jsx';
 import PageToolbar from './PageToolbar.jsx';
 import StatusBadge from './StatusBadge.jsx';
 import computeKanbanStatus from '../utils/computeKanbanStatus';
+import MonthTag from './MonthTag.jsx';
 
 const statusOrder = {
   pending: 1,
@@ -100,6 +101,7 @@ const AdGroupListView = ({
                   <tr>
                     <th>Group Name</th>
                     <th>Brand</th>
+                    <th>Month</th>
                     <th className="text-center">Status</th>
                     <th>Actions</th>
                   </tr>
@@ -109,6 +111,9 @@ const AdGroupListView = ({
                     <tr key={g.id}>
                       <td>{g.name}</td>
                       <td>{g.brandCode}</td>
+                      <td>
+                        <MonthTag month={g.month} />
+                      </td>
                       <td className="text-center">
                         <StatusBadge status={g.status} />
                       </td>
