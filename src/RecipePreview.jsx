@@ -92,6 +92,7 @@ const RecipePreview = ({
   const [assetRows, setAssetRows] = useState([]);
   const [assetMap, setAssetMap] = useState({});
   const [assetUsage, setAssetUsage] = useState({});
+  const [refining, setRefining] = useState(false);
   const OPENAI_PROXY_URL = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/openaiProxy`;
   const [showOptionLists, setShowOptionLists] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
@@ -831,6 +832,35 @@ const RecipePreview = ({
       }
     }
   };
+  const handleRefine = async () => {
+    if (results.length === 0) return;
+    setRefining(true);
+    try {
+      const prompt = `Refine the following ad copies to improve quality and ensure each is unique. Return a JSON array of strings in the same order as provided.\n${JSON.stringify(results.map((r) => r.copy))}`;
+      const response = await fetch(OPENAI_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+        }),
+      });
+      const data = await response.json();
+      let text = data?.choices?.[0]?.message?.content || '';
+      text = text.replace(/```json\n?|```/g, '').trim();
+      const arr = JSON.parse(text);
+      if (Array.isArray(arr)) {
+        setResults((prev) =>
+          prev.map((r, idx) => ({ ...r, copy: arr[idx] || r.copy })),
+        );
+      }
+    } catch (err) {
+      console.error('OpenAI refine request failed', err);
+    }
+    setRefining(false);
+  };
+
 
 
   const updateComponentValue = (rowIdx, compKey, attrKey, val) => {
@@ -1345,6 +1375,16 @@ const RecipePreview = ({
           }
           right={
             <>
+              {results.length > 0 && (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleRefine}
+                  disabled={refining}
+                >
+                  {refining ? 'Refining...' : 'Refine'}
+                </button>
+              )}
               {userRole !== 'designer' && onRecipesClick && (
                 <IconButton
                   onClick={onRecipesClick}
