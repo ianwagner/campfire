@@ -1025,10 +1025,12 @@ const RecipePreview = ({
     setDirty(false);
   };
 
-  const renderAssetList = (list = [], rowIdx = null, key = '') => (
+  const renderAssetList = (list = [], rowIdx = null, key = '') => {
+    const assets = Array.isArray(list) ? list : [];
+    return (
     <div className="flex flex-wrap justify-center gap-1 w-fit max-w-[7.5rem] mx-auto">
-      {list && list.length > 0 ? (
-        list.map((a, i) => {
+      {assets.length > 0 ? (
+        assets.map((a, i) => {
           if (a.needAsset) {
             return canEditRecipes && editing === rowIdx ? (
               <button
@@ -1125,6 +1127,7 @@ const RecipePreview = ({
       )}
     </div>
   );
+  };
 
   const handleRefreshRow = async (idx) => {
     const base = results[idx].components;
