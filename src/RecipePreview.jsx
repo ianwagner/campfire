@@ -836,7 +836,11 @@ const RecipePreview = ({
     if (results.length === 0) return;
     setRefining(true);
     try {
-      const prompt = `Refine the following ad copies to improve quality and ensure each is unique. Return a JSON array of strings in the same order as provided.\n${JSON.stringify(results.map((r) => r.copy))}`;
+      const brand = brands.find((b) => b.code === brandCode);
+      const tone = brand?.toneOfVoice
+        ? `\nBrand tone of voice:\n${brand.toneOfVoice}\n`
+        : '';
+      const prompt = `Refine the following ad copies to improve quality and ensure each is unique.${tone}Return a JSON array of strings in the same order as provided.\n${JSON.stringify(results.map((r) => r.copy))}`;
       const response = await fetch(OPENAI_PROXY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
