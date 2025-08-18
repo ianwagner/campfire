@@ -22,6 +22,7 @@ import {
 import { auth } from '../firebase/config';
 import useUserRole from '../useUserRole';
 import IconButton from './IconButton.jsx';
+import MonthTag from './MonthTag.jsx';
 
 
 const AdGroupCard = ({
@@ -185,17 +186,20 @@ const AdGroupCard = ({
               </p>
             )}
           </div>
-          {group.dueDate && (
-            <p
-              className="text-[12px] text-black dark:text-[var(--dark-text)] flex items-center gap-1"
-              data-testid="due-date"
-            >
-              <FiCalendar className="text-gray-600 dark:text-gray-300" />
-              {group.dueDate.toDate
-                ? group.dueDate.toDate().toLocaleDateString()
-                : new Date(group.dueDate).toLocaleDateString()}
-            </p>
-          )}
+          <div className="flex flex-col items-end gap-1">
+            {group.dueDate && (
+              <p
+                className="text-[12px] text-black dark:text-[var(--dark-text)] flex items-center gap-1"
+                data-testid="due-date"
+              >
+                <FiCalendar className="text-gray-600 dark:text-gray-300" />
+                {group.dueDate.toDate
+                  ? group.dueDate.toDate().toLocaleDateString()
+                  : new Date(group.dueDate).toLocaleDateString()}
+              </p>
+            )}
+            <MonthTag month={group.month} />
+          </div>
         </div>
         <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2">
           <div className="grid grid-cols-6 text-center text-sm">
