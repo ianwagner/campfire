@@ -1512,21 +1512,49 @@ const AdGroupDetail = () => {
   };
 
   const [shareModal, setShareModal] = useState(false);
+  const [clientModal, setClientModal] = useState(false);
+  const [clients, setClients] = useState([]);
 
   const handleShare = () => {
     setShareModal(true);
   };
 
-  const handleSendToProjects = async () => {
-    if (!id || !group) return;
+  useEffect(() => {
+    if (!clientModal || !group?.brandCode) return;
+    const fetchClients = async () => {
+      try {
+        const snap = await getDocs(
+          query(
+            collection(db, "users"),
+            where("brandCodes", "array-contains", group.brandCode),
+            where("role", "==", "client"),
+          ),
+        );
+        setClients(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.error("Failed to fetch clients", err);
+        setClients([]);
+      }
+    };
+    fetchClients();
+  }, [clientModal, group?.brandCode]);
+
+  const handleSendToProjects = async (clientId) => {
+    if (!id || !group || !clientId) return;
     try {
       const projRef = await addDoc(collection(db, "projects"), {
         title: group.name || "",
         brandCode: group.brandCode || "",
         status: group.status || "briefed",
+        userId: clientId,
         createdAt: serverTimestamp(),
       });
-      await updateDoc(doc(db, "adGroups", id), { projectId: projRef.id });
+      await updateDoc(doc(db, "adGroups", id), {
+        projectId: projRef.id,
+        uploadedBy: clientId,
+      });
+      window.alert("Ad group added to client projects");
+      setClientModal(false);
     } catch (err) {
       console.error("Failed to add group to projects", err);
     }
@@ -2153,7 +2181,7 @@ const AdGroupDetail = () => {
                     </IconButton>
                     {isAdmin && (
                       <IconButton
-                        onClick={handleSendToProjects}
+                        onClick={() => setClientModal(true)}
                         aria-label="Send to Projects"
                         className="bg-transparent"
                       >
@@ -2993,6 +3021,31 @@ const AdGroupDetail = () => {
               hideBrandSelect
               onCopiesChange={setModalCopies}
             />
+          </div>
+        </Modal>
+      )}
+
+      {clientModal && (
+        <Modal sizeClass="max-w-md w-full">
+          <h2 className="text-lg font-semibold mb-4">Select Client</h2>
+          <div className="mb-4 max-h-60 overflow-auto">
+            {clients.map((c) => (
+              <button
+                key={c.id}
+                className="block w-full text-left px-3 py-2 mb-2 rounded hover:bg-gray-100"
+                onClick={() => handleSendToProjects(c.id)}
+              >
+                {c.fullName || c.email || c.id}
+              </button>
+            ))}
+            {clients.length === 0 && (
+              <p className="text-sm">No clients found.</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <button className="btn" onClick={() => setClientModal(false)}>
+              Cancel
+            </button>
           </div>
         </Modal>
       )}
