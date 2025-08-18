@@ -1509,7 +1509,14 @@ const RecipePreview = ({
                             ) : col.inputType === 'list' ? (
                               <TagInput
                                 id={`edit-${col.key}`}
-                                value={editComponents[col.key] || []}
+                                value={Array.isArray(editComponents[col.key])
+                                  ? editComponents[col.key]
+                                  : typeof editComponents[col.key] === 'string'
+                                  ? editComponents[col.key]
+                                      .split(',')
+                                      .map((s) => s.trim())
+                                      .filter(Boolean)
+                                  : []}
                                 onChange={(arr) =>
                                   setEditComponents({
                                     ...editComponents,
