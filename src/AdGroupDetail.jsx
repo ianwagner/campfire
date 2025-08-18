@@ -8,6 +8,7 @@ import {
   FiRefreshCw,
   FiCheckCircle,
   FiShare2,
+  FiSend,
   FiUpload,
   FiBookOpen,
   FiFileText,
@@ -1516,6 +1517,21 @@ const AdGroupDetail = () => {
     setShareModal(true);
   };
 
+  const handleSendToProjects = async () => {
+    if (!id || !group) return;
+    try {
+      const projRef = await addDoc(collection(db, "projects"), {
+        title: group.name || "",
+        brandCode: group.brandCode || "",
+        status: group.status || "briefed",
+        createdAt: serverTimestamp(),
+      });
+      await updateDoc(doc(db, "adGroups", id), { projectId: projRef.id });
+    } catch (err) {
+      console.error("Failed to add group to projects", err);
+    }
+  };
+
   const toggleInDesign = async () => {
     if (!id) return;
     const newStatus =
@@ -2135,6 +2151,15 @@ const AdGroupDetail = () => {
                     >
                       <FiShare2 size={20} />
                     </IconButton>
+                    {isAdmin && (
+                      <IconButton
+                        onClick={handleSendToProjects}
+                        aria-label="Send to Projects"
+                        className="bg-transparent"
+                      >
+                        <FiSend size={20} />
+                      </IconButton>
+                    )}
                     {(isAdmin || isManager) && (
                       <>
                         <IconButton
