@@ -1180,7 +1180,10 @@ useEffect(() => {
       setAnimating(null);
 
       if (nextIndex >= reviewAds.length) {
-        const approved = getApprovedRecipeCount();
+        const combined = { ...responses, ...addedResponses };
+        const approved = Object.values(combined).filter(
+          (r) => r.response === 'approve',
+        ).length;
         setSummaryCount(approved);
         setStarted(false);
       }
