@@ -104,7 +104,6 @@ const Review = forwardRef(
   const [modalCopies, setModalCopies] = useState([]);
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
-  const [summaryCount, setSummaryCount] = useState(null);
   const [allHeroAds, setAllHeroAds] = useState([]); // hero list for all ads
   const [versionMode, setVersionMode] = useState(false); // reviewing new versions
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
@@ -137,10 +136,6 @@ const Review = forwardRef(
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
 
-  const getApprovedRecipeCount = useCallback(() => {
-    return Object.values(responses).filter((r) => r.response === 'approve')
-      .length;
-  }, [responses]);
 
 
   useImperativeHandle(ref, () => ({
@@ -309,11 +304,9 @@ useEffect(() => {
 
   useEffect(() => {
     if (currentIndex >= reviewAds.length) {
-      const approved = getApprovedRecipeCount();
-      setSummaryCount(approved);
       setStarted(false);
     }
-  }, [currentIndex, reviewAds.length, getApprovedRecipeCount]);
+  }, [currentIndex, reviewAds.length]);
 
   useEffect(() => {
     if (!started) return;
@@ -1180,8 +1173,6 @@ useEffect(() => {
       setAnimating(null);
 
       if (nextIndex >= reviewAds.length) {
-        const approved = getApprovedRecipeCount();
-        setSummaryCount(approved);
         setStarted(false);
       }
     }
@@ -1231,25 +1222,13 @@ useEffect(() => {
             className="mb-2 max-h-16 w-auto"
           />
         )}
-        {summaryCount === null ? (
-          <h1 className="text-2xl font-bold">Your ads are ready!</h1>
-        ) : (
-          <>
-            <h1 className="text-2xl font-bold">Your ads are ready!</h1>
-            <h2 className="text-xl">
-              You've approved{' '}
-              <span style={{ color: 'var(--approved-color)' }}>{summaryCount}</span>{' '}
-              ads.
-            </h2>
-          </>
-        )}
+        <h1 className="text-2xl font-bold">Your ads are ready!</h1>
         <div className="flex flex-col items-center space-y-3">
           <button
             onClick={() => {
               setTimedOut(false);
               setShowGallery(false);
               setShowCopyModal(false);
-              setSummaryCount(null);
               const latest = getLatestAds(ads.filter((a) => a.status !== 'pending'));
               const readyList = latest.filter((a) => a.status === 'ready');
               const readyVers = readyList.filter((a) => getVersion(a) > 1);
