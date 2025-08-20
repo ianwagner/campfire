@@ -138,16 +138,9 @@ const Review = forwardRef(
   }, [reviewAds.length]);
 
   const getApprovedRecipeCount = useCallback(() => {
-    const set = new Set();
-    ads.forEach((a) => {
-      if (a.status === 'approved') {
-        const info = parseAdFilename(a.filename || '');
-        const recipe = a.recipeCode || info.recipeCode || 'unknown';
-        set.add(recipe);
-      }
-    });
-    return set.size;
-  }, [ads]);
+    return Object.values(responses).filter((r) => r.response === 'approve')
+      .length;
+  }, [responses]);
 
 
   useImperativeHandle(ref, () => ({
