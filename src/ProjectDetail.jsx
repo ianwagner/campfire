@@ -13,6 +13,7 @@ import {
   serverTimestamp,
   addDoc,
   updateDoc,
+  setDoc,
   Timestamp,
   deleteField,
 } from 'firebase/firestore';
@@ -28,6 +29,8 @@ import LoadingOverlay from './LoadingOverlay.jsx';
 import Button from './components/Button.jsx';
 import IconButton from './components/IconButton.jsx';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
+import Modal from './components/Modal.jsx';
+import CopyRecipePreview from './CopyRecipePreview.jsx';
 import {
   FiLink,
   FiDownload,
@@ -82,6 +85,8 @@ const ProjectDetail = () => {
   const [request, setRequest] = useState(null);
   const [group, setGroup] = useState(null);
   const [shareModal, setShareModal] = useState(false);
+  const [copyCards, setCopyCards] = useState([]);
+  const [showCopyModal, setShowCopyModal] = useState(false);
   const [editingBrief, setEditingBrief] = useState(false);
   const [newBriefFiles, setNewBriefFiles] = useState([]);
 
@@ -199,6 +204,17 @@ const ProjectDetail = () => {
       collection(db, 'adGroups', groupId, 'assets'),
       (snap) => {
         setAssets(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      }
+    );
+    return () => unsub();
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!groupId) return;
+    const unsub = onSnapshot(
+      collection(db, 'adGroups', groupId, 'copyCards'),
+      (snap) => {
+        setCopyCards(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       }
     );
     return () => unsub();
@@ -324,6 +340,43 @@ const ProjectDetail = () => {
       setBriefAssets((list) => list.filter((a) => a.id !== id));
     } catch (err) {
       console.error('Failed to delete brief asset', err);
+    }
+  };
+
+  const saveCopyCards = async (list) => {
+    if (!groupId || !Array.isArray(list)) return;
+    try {
+      const existingIds = copyCards.map((c) => c.id);
+      const newIds = list.map((c) => c.id).filter(Boolean);
+      const deletions = existingIds.filter((id) => !newIds.includes(id));
+      await Promise.all(
+        deletions.map((cid) =>
+          deleteDoc(doc(db, 'adGroups', groupId, 'copyCards', cid))
+        )
+      );
+      await Promise.all(
+        list.map((c) => {
+          const data = {
+            primary: c.primary || '',
+            headline: c.headline || '',
+            description: c.description || '',
+          };
+          if (c.id) {
+            return setDoc(
+              doc(db, 'adGroups', groupId, 'copyCards', c.id),
+              data,
+              { merge: true }
+            );
+          }
+          return addDoc(
+            collection(db, 'adGroups', groupId, 'copyCards'),
+            data
+          );
+        })
+      );
+      setShowCopyModal(false);
+    } catch (err) {
+      console.error('Failed to save copy cards', err);
     }
   };
 
@@ -743,6 +796,18 @@ const ProjectDetail = () => {
             </span>
             <span className="relative group">
               <IconButton
+                aria-label="Platform Copy"
+                onClick={() => setShowCopyModal(true)}
+                className="text-xl"
+              >
+                <FiType />
+              </IconButton>
+              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                Platform Copy
+              </div>
+            </span>
+            <span className="relative group">
+              <IconButton
                 aria-label="Scrub Review History"
                 onClick={handleScrub}
                 className="text-xl"
@@ -1034,6 +1099,22 @@ const ProjectDetail = () => {
         </div>
       </div>
     </PageWrapper>
+    {showCopyModal && (
+      <Modal sizeClass="max-w-[50rem] w-full max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold">Platform Copy</h2>
+          <IconButton onClick={() => setShowCopyModal(false)}>Close</IconButton>
+        </div>
+        <div className="overflow-auto flex-1">
+          <CopyRecipePreview
+            onSave={saveCopyCards}
+            initialResults={copyCards}
+            brandCode={group?.brandCode || project?.brandCode}
+            hideBrandSelect
+          />
+        </div>
+      </Modal>
+    )}
     {shareModal && group && (
       <ShareLinkModal
         groupId={groupId}
