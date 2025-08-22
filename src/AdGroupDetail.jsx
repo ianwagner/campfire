@@ -916,7 +916,7 @@ const AdGroupDetail = () => {
 
   const handleUpload = async (selectedFiles) => {
     if (!selectedFiles || selectedFiles.length === 0) return;
-    if (group?.status === "archived") {
+    if (group?.status === "archived" && !isAdmin) {
       window.alert("This ad group is archived and cannot accept new ads.");
       return;
     }
@@ -948,8 +948,12 @@ const AdGroupDetail = () => {
         });
         let recipeStatus = null;
         if (recipeAssets.length > 0) recipeStatus = getRecipeStatus(recipeAssets);
-        if (["edit_requested", "archived", "rejected"].includes(recipeStatus)) {
-          const display = recipeStatus === "edit_requested" ? "edit request" : recipeStatus;
+        if (
+          !isAdmin &&
+          ["edit_requested", "archived", "rejected"].includes(recipeStatus)
+        ) {
+          const display =
+            recipeStatus === "edit_requested" ? "edit request" : recipeStatus;
           window.alert(`Error. Cannot Upload. Recipe is ${display}.`);
           continue;
         }
@@ -2105,119 +2109,112 @@ const AdGroupDetail = () => {
         </TabButton>
         </div>
         {(isAdmin || userRole === "agency" || isDesigner) && (
-          <>
-            {group.status === "archived" ? (
-              <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
+            {group.status === "archived" && isAdmin && (
+              <IconButton
+                onClick={restoreGroup}
+                aria-label="Restore Group"
+                className="bg-transparent"
+              >
+                <FiRotateCcw size={20} />
+              </IconButton>
+            )}
+            {tab === "ads" && (group.status !== "archived" || isAdmin) && (
+              <>
+                <input
+                  id="upload-input"
+                  type="file"
+                  multiple
+                  onChange={(e) => {
+                    const sel = e.target.files;
+                    handleUpload(sel);
+                    e.target.value = null;
+                  }}
+                  className="hidden"
+                />
+                <IconButton
+                  onClick={() => document.getElementById("upload-input").click()}
+                  className="bg-transparent"
+                >
+                  <FiUpload size={20} />
+                  Upload
+                </IconButton>
+              </>
+            )}
+            {(isAdmin || userRole === "agency") && (
+              <>
+                <IconButton
+                  onClick={resetGroup}
+                  aria-label="Reset"
+                  className="bg-transparent"
+                >
+                  <FiRefreshCw size={20} />
+                </IconButton>
+                <IconButton
+                  onClick={markReady}
+                  disabled={
+                    readyLoading ||
+                    assets.length === 0 ||
+                    group.status === "ready" ||
+                    group.status === "in review"
+                  }
+                  className="bg-transparent"
+                  aria-label="Ready"
+                >
+                  <FiCheckCircle size={20} />
+                </IconButton>
+                <IconButton
+                  as={Link}
+                  to={`/review/${id}`}
+                  aria-label="Review"
+                  className="bg-transparent"
+                >
+                  <FiBookOpen size={20} />
+                </IconButton>
+                <IconButton
+                  onClick={handleShare}
+                  aria-label="Share"
+                  className="bg-transparent"
+                >
+                  <FiShare2 size={20} />
+                </IconButton>
                 {isAdmin && (
                   <IconButton
-                    onClick={restoreGroup}
-                    aria-label="Restore Group"
+                    onClick={() => setClientModal(true)}
+                    aria-label="Send to Projects"
                     className="bg-transparent"
                   >
-                    <FiRotateCcw size={20} />
+                    <FiSend size={20} />
                   </IconButton>
                 )}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {tab === "ads" && group.status !== "archived" && (
+                {(isAdmin || isManager) && (
                   <>
-                    <input
-                      id="upload-input"
-                      type="file"
-                      multiple
-                      onChange={(e) => {
-                        const sel = e.target.files;
-                        handleUpload(sel);
-                        e.target.value = null;
-                      }}
-                      className="hidden"
-                    />
                     <IconButton
-                      onClick={() => document.getElementById("upload-input").click()}
+                      onClick={() => setExportModal(true)}
+                      aria-label="Export Approved"
                       className="bg-transparent"
                     >
-                      <FiUpload size={20} />
-                      Upload
+                      <FiDownload size={20} />
+                    </IconButton>
+                    <IconButton
+                      onClick={scrubReviewHistory}
+                      aria-label="Scrub Review History"
+                      className="bg-transparent"
+                    >
+                      <Bubbles size={20} />
+                    </IconButton>
+                    <IconButton
+                      onClick={archiveGroup}
+                      aria-label="Archive"
+                      className="bg-transparent"
+                    >
+                      <FiArchive size={20} />
                     </IconButton>
                   </>
                 )}
-                {(isAdmin || userRole === "agency") && (
-                  <>
-                    <IconButton
-                      onClick={resetGroup}
-                      aria-label="Reset"
-                      className="bg-transparent"
-                    >
-                      <FiRefreshCw size={20} />
-                    </IconButton>
-                    <IconButton
-                      onClick={markReady}
-                      disabled={
-                        readyLoading ||
-                        assets.length === 0 ||
-                        group.status === "ready" ||
-                        group.status === "in review"
-                      }
-                      className="bg-transparent"
-                      aria-label="Ready"
-                    >
-                      <FiCheckCircle size={20} />
-                    </IconButton>
-                    <IconButton
-                      as={Link}
-                      to={`/review/${id}`}
-                      aria-label="Review"
-                      className="bg-transparent"
-                    >
-                      <FiBookOpen size={20} />
-                    </IconButton>
-                    <IconButton
-                      onClick={handleShare}
-                      aria-label="Share"
-                      className="bg-transparent"
-                    >
-                      <FiShare2 size={20} />
-                    </IconButton>
-                    {isAdmin && (
-                      <IconButton
-                        onClick={() => setClientModal(true)}
-                        aria-label="Send to Projects"
-                        className="bg-transparent"
-                      >
-                        <FiSend size={20} />
-                      </IconButton>
-                    )}
-                    {(isAdmin || isManager) && (
-                      <>
-                        <IconButton
-                          onClick={() => setExportModal(true)}
-                          aria-label="Export Approved"
-                          className="bg-transparent"
-                        >
-                          <FiDownload size={20} />
-                        </IconButton>
-                        <IconButton
-                          onClick={scrubReviewHistory}
-                          aria-label="Scrub Review History"
-                          className="bg-transparent"
-                        >
-                          <Bubbles size={20} />
-                        </IconButton>
-                        <IconButton
-                          onClick={archiveGroup}
-                          aria-label="Archive"
-                          className="bg-transparent"
-                        >
-                          <FiArchive size={20} />
-                        </IconButton>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
+              </>
             )}
-          </>
+          </div>
         )}
       </div>
 
