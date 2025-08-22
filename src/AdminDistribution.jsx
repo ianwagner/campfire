@@ -18,7 +18,13 @@ const formatMonth = (m) => {
   });
 };
 
-const columnDefs = [
+const formatLabel = (s) =>
+  s
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_.-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+const baseColumnDefs = [
   { key: 'groupName', label: 'Ad Group', width: 'auto' },
   { key: 'recipeNo', label: 'Recipe #', width: 'auto', headerClass: 'text-center', cellClass: 'text-center' },
   { key: 'product', label: 'Product', width: 'auto' },
@@ -37,8 +43,10 @@ const AdminDistribution = () => {
   const [brand, setBrand] = useState('');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [extraCols, setExtraCols] = useState([]);
+  const allColumnDefs = [...baseColumnDefs, ...extraCols];
   const [selectedCols, setSelectedCols] = useState(
-    columnDefs.map((c) => c.key),
+    baseColumnDefs.map((c) => c.key),
   );
   const [showColMenu, setShowColMenu] = useState(false);
 
@@ -87,8 +95,11 @@ const AdminDistribution = () => {
         }
         const gSnap = await getDocs(query(...args));
         const list = [];
+        const metaKeys = new Set();
         for (const gDoc of gSnap.docs) {
           const gData = gDoc.data();
+          const metadata = gData.metadata || {};
+          Object.keys(metadata).forEach((k) => metaKeys.add(k));
           const rSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'recipes'));
           const aSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'assets'));
 
@@ -139,10 +150,18 @@ const AdminDistribution = () => {
               audience,
               status,
               links,
+              ...metadata,
             });
           });
         }
         setRows(list);
+        setExtraCols(
+          Array.from(metaKeys).map((k) => ({
+            key: k,
+            label: formatLabel(k),
+            width: 'auto',
+          })),
+        );
       } catch (err) {
         console.error('Failed to fetch recipes', err);
         setRows([]);
@@ -155,7 +174,7 @@ const AdminDistribution = () => {
 
   const handleExport = () => {
     if (!rows.length) return;
-    const cols = columnDefs.filter((c) => selectedCols.includes(c.key));
+    const cols = allColumnDefs.filter((c) => selectedCols.includes(c.key));
     const headers = cols.map((c) => c.label);
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const csv = [
@@ -179,7 +198,7 @@ const AdminDistribution = () => {
               case 'links':
                 return (r.links || []).map((l) => l.url).join(' ');
               default:
-                return '';
+                return r[c.key] || '';
             }
           })
           .map(escape)
@@ -253,8 +272,8 @@ const AdminDistribution = () => {
             <FiColumns />
           </IconButton>
           {showColMenu && (
-            <div className="absolute right-0 mt-2 bg-white border rounded shadow p-2 z-10 space-y-1">
-              {columnDefs.map((c) => (
+            <div className="absolute left-0 top-full mt-2 bg-white border rounded shadow p-2 z-10 space-y-1">
+              {allColumnDefs.map((c) => (
                 <label key={c.key} className="flex items-center gap-2 whitespace-nowrap">
                   <input
                     type="checkbox"
@@ -280,13 +299,13 @@ const AdminDistribution = () => {
         <p>Loading...</p>
       ) : rows.length > 0 ? (
         <Table
-          columns={columnDefs
+          columns={allColumnDefs
             .filter((c) => selectedCols.includes(c.key))
             .map((c) => c.width)}
         >
           <thead>
             <tr>
-              {columnDefs
+              {allColumnDefs
                 .filter((c) => selectedCols.includes(c.key))
                 .map((c) => (
                   <th key={c.key} className={c.headerClass || ''}>
@@ -298,7 +317,7 @@ const AdminDistribution = () => {
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                {columnDefs
+                {allColumnDefs
                   .filter((c) => selectedCols.includes(c.key))
                   .map((c) => {
                     switch (c.key) {
@@ -339,7 +358,7 @@ const AdminDistribution = () => {
                           </td>
                         );
                       default:
-                        return null;
+                        return <td key={c.key}>{r[c.key] ?? '-'}</td>;
                     }
                   })}
               </tr>
