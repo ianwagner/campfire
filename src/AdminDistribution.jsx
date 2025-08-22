@@ -51,6 +51,12 @@ const AdminDistribution = () => {
   const [showColMenu, setShowColMenu] = useState(false);
 
   useEffect(() => {
+    setSelectedCols((prev) => [
+      ...new Set([...prev, ...extraCols.map((c) => c.key)]),
+    ]);
+  }, [extraCols]);
+
+  useEffect(() => {
     const fetchFilters = async () => {
       try {
         const agSnap = await getDocs(collection(db, 'adGroups'));
@@ -98,8 +104,8 @@ const AdminDistribution = () => {
         const metaKeys = new Set();
         for (const gDoc of gSnap.docs) {
           const gData = gDoc.data();
-          const metadata = gData.metadata || {};
-          Object.keys(metadata).forEach((k) => metaKeys.add(k));
+          const groupMeta = gData.metadata || {};
+          Object.keys(groupMeta).forEach((k) => metaKeys.add(k));
           const rSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'recipes'));
           const aSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'assets'));
 
@@ -124,6 +130,8 @@ const AdminDistribution = () => {
 
           rSnap.docs.forEach((rDoc, idx) => {
             const rData = rDoc.data();
+            const recipeMeta = rData.metadata || {};
+            Object.keys(recipeMeta).forEach((k) => metaKeys.add(k));
             const recipeNo = rData.recipeNo || rDoc.id || idx + 1;
             const product =
               rData.product?.name ||
@@ -150,7 +158,8 @@ const AdminDistribution = () => {
               audience,
               status,
               links,
-              ...metadata,
+              ...groupMeta,
+              ...recipeMeta,
             });
           });
         }
