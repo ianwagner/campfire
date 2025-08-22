@@ -9,7 +9,6 @@ import {
   FiBriefcase,
   FiPackage,
   FiShare2,
-  FiFileText,
   FiSettings,
   FiCopy,
   FiBell,
@@ -26,7 +25,6 @@ const tabs = [
   { label: 'Brands', path: '/admin/brands', icon: FiBriefcase },
   { label: 'Agencies', path: '/admin/agencies', icon: FiPackage },
   { label: 'Distribution', path: '/admin/distribution', icon: FiShare2 },
-  { label: 'Forms', path: '/admin/forms', icon: FiFileText },
   {
     label: 'Settings',
     children: [
