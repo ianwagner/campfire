@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { FiDownload } from 'react-icons/fi';
+import { FiDownload, FiColumns } from 'react-icons/fi';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
@@ -18,6 +18,16 @@ const formatMonth = (m) => {
   });
 };
 
+const columnDefs = [
+  { key: 'groupName', label: 'Ad Group', width: 'auto' },
+  { key: 'recipeNo', label: 'Recipe #', width: 'auto', headerClass: 'text-center', cellClass: 'text-center' },
+  { key: 'product', label: 'Product', width: 'auto' },
+  { key: 'angle', label: 'Angle', width: 'auto' },
+  { key: 'audience', label: 'Audience', width: 'auto' },
+  { key: 'status', label: 'Status', width: 'auto' },
+  { key: 'links', label: 'Links', width: '12rem' },
+];
+
 const AdminDistribution = () => {
   const [months, setMonths] = useState([]);
   const [dueMonths, setDueMonths] = useState([]);
@@ -27,6 +37,10 @@ const AdminDistribution = () => {
   const [brand, setBrand] = useState('');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [selectedCols, setSelectedCols] = useState(
+    columnDefs.map((c) => c.key),
+  );
+  const [showColMenu, setShowColMenu] = useState(false);
 
   useEffect(() => {
     const fetchFilters = async () => {
@@ -141,20 +155,33 @@ const AdminDistribution = () => {
 
   const handleExport = () => {
     if (!rows.length) return;
-    const headers = ['Ad Group', 'Recipe #', 'Product', 'Angle', 'Audience', 'Status', 'Links'];
+    const cols = columnDefs.filter((c) => selectedCols.includes(c.key));
+    const headers = cols.map((c) => c.label);
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const csv = [
       headers.join(','),
       ...rows.map((r) =>
-        [
-          r.groupName,
-          r.recipeNo,
-          r.product,
-          r.angle,
-          r.audience || '-',
-          r.status || '-',
-          (r.links || []).map((l) => l.url).join(' '),
-        ]
+        cols
+          .map((c) => {
+            switch (c.key) {
+              case 'groupName':
+                return r.groupName;
+              case 'recipeNo':
+                return r.recipeNo;
+              case 'product':
+                return r.product;
+              case 'angle':
+                return r.angle;
+              case 'audience':
+                return r.audience || '-';
+              case 'status':
+                return r.status || '-';
+              case 'links':
+                return (r.links || []).map((l) => l.url).join(' ');
+              default:
+                return '';
+            }
+          })
           .map(escape)
           .join(','),
       ),
@@ -167,6 +194,12 @@ const AdminDistribution = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const toggleColumn = (key) => {
+    setSelectedCols((p) =>
+      p.includes(key) ? p.filter((k) => k !== key) : [...p, key],
+    );
   };
 
   return (
@@ -211,56 +244,104 @@ const AdminDistribution = () => {
             ))}
           </select>
         </div>
-        <IconButton
-          onClick={handleExport}
-          aria-label="Export CSV"
-          disabled={rows.length === 0}
-          className={`text-xl ${rows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <FiDownload />
-        </IconButton>
+        <div className="flex items-center gap-2 relative">
+          <IconButton
+            onClick={() => setShowColMenu((p) => !p)}
+            aria-label="Select Columns"
+            className="text-xl"
+          >
+            <FiColumns />
+          </IconButton>
+          {showColMenu && (
+            <div className="absolute right-0 mt-2 bg-white border rounded shadow p-2 z-10 space-y-1">
+              {columnDefs.map((c) => (
+                <label key={c.key} className="flex items-center gap-2 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={selectedCols.includes(c.key)}
+                    onChange={() => toggleColumn(c.key)}
+                  />
+                  <span>{c.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+          <IconButton
+            onClick={handleExport}
+            aria-label="Export CSV"
+            disabled={rows.length === 0}
+            className={`text-xl ${rows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <FiDownload />
+          </IconButton>
+        </div>
       </div>
       {loading ? (
         <p>Loading...</p>
       ) : rows.length > 0 ? (
-        <Table columns={['auto', 'auto', 'auto', 'auto', 'auto', 'auto', '12rem']}>
+        <Table
+          columns={columnDefs
+            .filter((c) => selectedCols.includes(c.key))
+            .map((c) => c.width)}
+        >
           <thead>
             <tr>
-              <th>Ad Group</th>
-              <th className="text-center">Recipe #</th>
-              <th>Product</th>
-              <th>Angle</th>
-              <th>Audience</th>
-              <th>Status</th>
-              <th>Links</th>
+              {columnDefs
+                .filter((c) => selectedCols.includes(c.key))
+                .map((c) => (
+                  <th key={c.key} className={c.headerClass || ''}>
+                    {c.label}
+                  </th>
+                ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td>{r.groupName}</td>
-                <td className="text-center">{r.recipeNo}</td>
-                <td>{r.product}</td>
-                <td>{r.angle}</td>
-                <td>{r.audience || '-'}</td>
-                <td>{r.status || '-'}</td>
-                <td className="flex flex-wrap gap-2">
-                  {r.links && r.links.length > 0
-                    ? r.links.map((l, i) => (
-                        <Button
-                          as="a"
-                          key={i}
-                          href={l.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          variant="secondary"
-                          className="px-2 py-1 text-sm"
-                        >
-                          {l.label}
-                        </Button>
-                      ))
-                    : '-'}
-                </td>
+                {columnDefs
+                  .filter((c) => selectedCols.includes(c.key))
+                  .map((c) => {
+                    switch (c.key) {
+                      case 'groupName':
+                        return <td key={c.key}>{r.groupName}</td>;
+                      case 'recipeNo':
+                        return (
+                          <td key={c.key} className={c.cellClass || ''}>
+                            {r.recipeNo}
+                          </td>
+                        );
+                      case 'product':
+                        return <td key={c.key}>{r.product}</td>;
+                      case 'angle':
+                        return <td key={c.key}>{r.angle}</td>;
+                      case 'audience':
+                        return <td key={c.key}>{r.audience || '-'}</td>;
+                      case 'status':
+                        return <td key={c.key}>{r.status || '-'}</td>;
+                      case 'links':
+                        return (
+                          <td key={c.key} className="flex flex-wrap gap-2">
+                            {r.links && r.links.length > 0
+                              ? r.links.map((l, i) => (
+                                  <Button
+                                    as="a"
+                                    key={i}
+                                    href={l.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    variant="secondary"
+                                    className="px-2 py-1 text-sm"
+                                  >
+                                    {l.label}
+                                  </Button>
+                                ))
+                              : '-'}
+                          </td>
+                        );
+                      default:
+                        return null;
+                    }
+                  })}
               </tr>
             ))}
           </tbody>
