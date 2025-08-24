@@ -884,6 +884,19 @@ const ProjectDetail = () => {
           <>
             <span className="relative group">
               <IconButton
+                aria-label="Review Link"
+                onClick={() => setShareModal(true)}
+                disabled={reviewDisabled}
+                className={`text-xl ${reviewDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <FiLink />
+              </IconButton>
+              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                Review Link
+              </div>
+            </span>
+            <span className="relative group">
+              <IconButton
                 aria-label="Archive"
                 onClick={handleArchive}
                 className="text-xl"
@@ -1178,19 +1191,6 @@ const ProjectDetail = () => {
                 </IconButton>
                 <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
                   Scrub Review History
-                </div>
-              </span>
-              <span className="relative group">
-                <IconButton
-                  aria-label="Review Link"
-                  onClick={() => setShareModal(true)}
-                  disabled={reviewDisabled}
-                  className={`text-xl ${reviewDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <FiLink />
-                </IconButton>
-                <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                  Review Link
                 </div>
               </span>
               <span className="relative group">
