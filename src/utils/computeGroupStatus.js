@@ -12,8 +12,9 @@ export default function computeGroupStatus(
     )
   )
     return 'done';
-  if (assets.some((a) => a.status === 'edit_requested')) return 'edit request';
   const active = assets.filter((a) => a.status !== 'archived');
+  if (active.some((a) => a.status === 'edit_requested')) return 'edit request';
+  if (active.some((a) => a.status === 'pending')) return 'pending';
   if (active.some((a) => a.status === 'ready')) return 'ready';
   return 'pending';
 }

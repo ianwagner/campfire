@@ -360,6 +360,12 @@ test('scrubs review history', async () => {
       expect.objectContaining({ status: 'archived' })
     );
   });
+  await waitFor(() =>
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      'adGroups/group1',
+      expect.objectContaining({ status: 'ready' })
+    )
+  );
   confirmSpy.mockRestore();
 });
 
@@ -428,5 +434,48 @@ test('scrubbing pending or edit requested ads sets status to ready and keeps arc
       expect.objectContaining({ status: 'archived' })
     );
   });
+  await waitFor(() =>
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      'adGroups/group1',
+      expect.objectContaining({ status: 'ready' })
+    )
+  );
+  confirmSpy.mockRestore();
+});
+
+test('scrubbing sets group status to done when all ads archived', async () => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({
+      docs: [
+        {
+          id: 'asset1',
+          data: () => ({ filename: 'ad1.png', version: 1, status: 'rejected' }),
+        },
+        {
+          id: 'asset2',
+          data: () => ({ filename: 'ad2.png', version: 1, status: 'archived' }),
+        },
+      ],
+    });
+    return jest.fn();
+  });
+  mockGetDocs.mockResolvedValue({
+    docs: [],
+    forEach: () => {},
+  });
+  const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>
+  );
+  await screen.findByLabelText('Scrub Review History');
+  fireEvent.click(screen.getByLabelText('Scrub Review History'));
+  await waitFor(() =>
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      'adGroups/group1',
+      expect.objectContaining({ status: 'done' })
+    )
+  );
   confirmSpy.mockRestore();
 });
