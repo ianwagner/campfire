@@ -50,10 +50,12 @@ const AdminDistribution = () => {
   );
   const [showColMenu, setShowColMenu] = useState(false);
 
+  // Keep selected columns limited to those that exist but do not
+  // automatically enable newly discovered metadata columns so they can be
+  // toggled on by the user via the column menu.
   useEffect(() => {
-    setSelectedCols((prev) => [
-      ...new Set([...prev, ...extraCols.map((c) => c.key)]),
-    ]);
+    const valid = new Set([...baseColumnDefs, ...extraCols].map((c) => c.key));
+    setSelectedCols((prev) => prev.filter((k) => valid.has(k)));
   }, [extraCols]);
 
   useEffect(() => {
