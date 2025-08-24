@@ -7,7 +7,6 @@ import {
   FiZap,
   FiImage,
   FiCalendar,
-  FiAlertCircle,
 } from 'react-icons/fi';
 import ScrollModal from './ScrollModal.jsx';
 import IconButton from './IconButton.jsx';
@@ -131,10 +130,8 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
         {request.status && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Status: {request.status}</p>
         )}
-        {request.status === 'info needed' && request.infoNote && (
-          <p className="text-black dark:text-[var(--dark-text)] mb-0 flex items-center gap-1">
-            <FiAlertCircle className="text-yellow-500" /> Info Needed: {request.infoNote}
-          </p>
+        {request.status === 'need info' && request.infoNote && (
+          <p className="text-black dark:text-[var(--dark-text)] mb-0">Info Needed: {request.infoNote}</p>
         )}
         {request.details && (
           <div
