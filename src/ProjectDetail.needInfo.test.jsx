@@ -143,3 +143,35 @@ test('still shows info note when project is pending and request access is denied
   ).toBeInTheDocument();
 });
 
+test('shows request info note when project lacks it', async () => {
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    id: 'p1',
+    data: () => ({
+      title: 'P1',
+      brandCode: 'B1',
+      recipeTypes: [],
+      createdAt: { toDate: () => new Date() },
+      status: 'processing',
+    }),
+  });
+  mockGetDocs.mockResolvedValue({
+    empty: false,
+    docs: [
+      {
+        id: 'r1',
+        data: () => ({ infoNote: 'Need assets', status: 'need info' }),
+      },
+    ],
+  });
+
+  render(
+    <MemoryRouter>
+      <ProjectDetail />
+    </MemoryRouter>
+  );
+
+  await waitFor(() => screen.getByText('Need assets'));
+  expect(screen.getByText('Need assets')).toBeInTheDocument();
+});
+
