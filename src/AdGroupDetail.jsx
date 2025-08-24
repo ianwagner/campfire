@@ -866,10 +866,15 @@ const AdGroupDetail = () => {
           }
         }
         if (hasPendingOrEdit) {
-          update.status = latest.status === "rejected" ? "archived" : "ready";
+          if (latest.status === "rejected" || latest.status === "archived") {
+            update.status = "archived";
+          } else {
+            update.status = "ready";
+          }
         } else {
           if (latest.status === "approved") update.status = "ready";
-          if (latest.status === "rejected") update.status = "archived";
+          if (latest.status === "rejected" || latest.status === "archived")
+            update.status = "archived";
         }
         if (Object.keys(update).length > 0) {
           batch.update(doc(db, "adGroups", id, "assets", latest.id), update);
@@ -911,10 +916,15 @@ const AdGroupDetail = () => {
             }
           }
           if (hasPendingOrEdit) {
-            updated.status = latest.status === "rejected" ? "archived" : "ready";
+            if (latest.status === "rejected" || latest.status === "archived") {
+              updated.status = "archived";
+            } else {
+              updated.status = "ready";
+            }
           } else {
             if (latest.status === "approved") updated.status = "ready";
-            if (latest.status === "rejected") updated.status = "archived";
+            if (latest.status === "rejected" || latest.status === "archived")
+              updated.status = "archived";
           }
           result.push(updated);
         });

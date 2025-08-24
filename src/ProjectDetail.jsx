@@ -661,10 +661,15 @@ const ProjectDetail = () => {
           }
         }
         if (hasPendingOrEdit) {
-          update.status = latest.status === 'rejected' ? 'archived' : 'ready';
+          if (latest.status === 'rejected' || latest.status === 'archived') {
+            update.status = 'archived';
+          } else {
+            update.status = 'ready';
+          }
         } else {
           if (latest.status === 'approved') update.status = 'ready';
-          if (latest.status === 'rejected') update.status = 'archived';
+          if (latest.status === 'rejected' || latest.status === 'archived')
+            update.status = 'archived';
         }
         if (Object.keys(update).length > 0) {
           batch.update(
@@ -709,10 +714,15 @@ const ProjectDetail = () => {
             }
           }
           if (hasPendingOrEdit) {
-            updated.status = latest.status === 'rejected' ? 'archived' : 'ready';
+            if (latest.status === 'rejected' || latest.status === 'archived') {
+              updated.status = 'archived';
+            } else {
+              updated.status = 'ready';
+            }
           } else {
             if (latest.status === 'approved') updated.status = 'ready';
-            if (latest.status === 'rejected') updated.status = 'archived';
+            if (latest.status === 'rejected' || latest.status === 'archived')
+              updated.status = 'archived';
           }
           result.push(updated);
         });
@@ -1134,7 +1144,7 @@ const ProjectDetail = () => {
           {assets.length === 0 ? (
             <p>No assets uploaded yet.</p>
           ) : viewMode === 'table' ? (
-            <Table columns={['5rem', 'auto', '8rem']}>
+            <Table columns={['5rem', '20ch', '8rem']}>
               <thead>
                 <tr>
                   <th>Preview</th>

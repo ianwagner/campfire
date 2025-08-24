@@ -363,7 +363,7 @@ test('scrubs review history', async () => {
   confirmSpy.mockRestore();
 });
 
-test('scrubbing pending or edit requested ads sets status to ready', async () => {
+test('scrubbing pending or edit requested ads sets status to ready and keeps archived ads archived', async () => {
   mockOnSnapshot.mockImplementation((col, cb) => {
     cb({
       docs: [
@@ -378,6 +378,10 @@ test('scrubbing pending or edit requested ads sets status to ready', async () =>
         {
           id: 'asset3',
           data: () => ({ filename: 'ad3.png', version: 1, status: 'rejected' }),
+        },
+        {
+          id: 'asset4',
+          data: () => ({ filename: 'ad4.png', version: 1, status: 'archived' }),
         },
       ],
     });
@@ -417,6 +421,10 @@ test('scrubbing pending or edit requested ads sets status to ready', async () =>
     );
     expect(batch.update).toHaveBeenCalledWith(
       'adGroups/group1/assets/asset3',
+      expect.objectContaining({ status: 'archived' })
+    );
+    expect(batch.update).toHaveBeenCalledWith(
+      'adGroups/group1/assets/asset4',
       expect.objectContaining({ status: 'archived' })
     );
   });
