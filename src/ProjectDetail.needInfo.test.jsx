@@ -106,3 +106,37 @@ test('shows info needed section and opens modal', async () => {
   fireEvent.click(screen.getByText('Add Info'));
   expect(screen.getByTestId('describe-modal')).toBeInTheDocument();
 });
+
+test('shows info needed note when project status is need info', async () => {
+  mockGetDoc.mockReset();
+  mockGetDocs.mockReset();
+  
+  mockGetDoc.mockResolvedValueOnce({
+    exists: () => true,
+    id: 'p1',
+    data: () => ({
+      title: 'P1',
+      brandCode: 'B1',
+      recipeTypes: [],
+      createdAt: { toDate: () => new Date() },
+      status: 'need info',
+    }),
+  });
+  mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
+  mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
+  mockGetDocs.mockResolvedValueOnce({
+    empty: false,
+    docs: [
+      { id: 'r1', data: () => ({ status: 'new', infoNote: 'Need details', title: 'P1', brandCode: 'B1' }) },
+    ],
+  });
+
+  render(
+    <MemoryRouter>
+      <ProjectDetail />
+    </MemoryRouter>
+  );
+
+  await waitFor(() => screen.getByText('Need details'));
+  expect(screen.getByText('Need details')).toBeInTheDocument();
+});

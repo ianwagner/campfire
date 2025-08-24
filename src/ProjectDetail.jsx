@@ -949,10 +949,10 @@ const ProjectDetail = () => {
           <StatusBadge status={project.status} />
         </div>
       </div>
-      {request?.status === 'need info' && (
+      {(request?.status === 'need info' || project?.status === 'need info') && (
         <div className="border rounded p-4 mb-4 bg-yellow-50">
           <p className="mb-2 text-black dark:text-[var(--dark-text)]">
-            {request.infoNote || 'Additional information required.'}
+            {request?.infoNote || project?.infoNote || 'Additional information required.'}
           </p>
           <button
             className="btn-primary"
