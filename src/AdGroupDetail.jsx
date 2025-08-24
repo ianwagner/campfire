@@ -138,6 +138,10 @@ const AdGroupDetail = () => {
   const [historyRecipe, setHistoryRecipe] = useState(null);
   const [historyAsset, setHistoryAsset] = useState(null);
   const [recipesMeta, setRecipesMeta] = useState({});
+  const hasRecipes = useMemo(
+    () => Object.keys(recipesMeta).length > 0,
+    [recipesMeta],
+  );
   const [metadataRecipe, setMetadataRecipe] = useState(null);
   const [metadataForm, setMetadataForm] = useState({
     copy: "",
@@ -436,7 +440,11 @@ const AdGroupDetail = () => {
             ? { thumbnailUrl: summary.thumbnail }
             : {}),
       };
-      const newStatus = computeGroupStatus(assets, group.status);
+      const newStatus = computeGroupStatus(
+        assets,
+        hasRecipes,
+        group.status === 'designing',
+      );
       if (newStatus !== group.status) {
         update.status = newStatus;
       }
@@ -446,7 +454,7 @@ const AdGroupDetail = () => {
       countsRef.current = summary;
       setGroup((p) => ({ ...p, ...update }));
     }
-  }, [assets, group, id]);
+  }, [assets, group, id, hasRecipes]);
 
   const recipeGroups = useMemo(() => {
     const map = {};
@@ -1602,23 +1610,23 @@ const AdGroupDetail = () => {
   const toggleInDesign = async () => {
     if (!id) return;
     const newStatus =
-      group.status === "in design"
-        ? computeGroupStatus(assets, "pending")
-        : "in design";
+      group.status === 'designing'
+        ? computeGroupStatus(assets, hasRecipes, false)
+        : 'designing';
     const update = { status: newStatus };
-    if (newStatus === "in design") {
+    if (newStatus === 'designing') {
       Object.assign(update, {
-        visibility: "private",
+        visibility: 'private',
         requireAuth: false,
         requirePassword: false,
-        password: "",
+        password: '',
       });
     }
     try {
-      await updateDoc(doc(db, "adGroups", id), update);
+      await updateDoc(doc(db, 'adGroups', id), update);
       setGroup((p) => ({ ...p, ...update }));
     } catch (err) {
-      console.error("Failed to update status", err);
+      console.error('Failed to update status', err);
     }
   };
 
@@ -2101,9 +2109,9 @@ const AdGroupDetail = () => {
             <button
               type="button"
               onClick={toggleInDesign}
-              aria-pressed={group.status === 'in design'}
+              aria-pressed={group.status === 'designing'}
               className={`ml-2 px-2 py-1 border rounded ${
-                group.status === 'in design'
+                group.status === 'designing'
                   ? 'bg-[var(--approve-color)] text-white'
                   : 'bg-gray-200 dark:bg-gray-700'
               }`}
