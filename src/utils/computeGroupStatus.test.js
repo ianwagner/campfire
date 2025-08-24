@@ -5,6 +5,11 @@ test('returns briefed when hasRecipes and no assets', () => {
   expect(status).toBe('briefed');
 });
 
+test('returns pending when no recipes and no assets', () => {
+  const status = computeGroupStatus([], false, false);
+  expect(status).toBe('pending');
+});
+
 test('returns designing when inDesign is true', () => {
   const status = computeGroupStatus([{ status: 'pending' }], false, true);
   expect(status).toBe('designing');
