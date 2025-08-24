@@ -6,7 +6,6 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import SortButton from './components/SortButton.jsx';
-import StatusBadge from './components/StatusBadge.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 
 const ClientGallery = ({ brandCodes = [] }) => {
@@ -14,11 +13,7 @@ const ClientGallery = ({ brandCodes = [] }) => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [sortField, setSortField] = useState('createdAt');
-  const [view, setView] = useState('table');
   const galleryRef = useRef(null);
-
-  const getStatusClass = (s) =>
-    s ? `status-${String(s).replace(/\s+/g, '_').toLowerCase()}` : '';
 
   useEffect(() => {
     let unsub = null;
@@ -40,6 +35,7 @@ const ClientGallery = ({ brandCodes = [] }) => {
             getDocs(
               query(
                 collection(db, 'adAssets'),
+                where('status', '==', 'approved'),
                 where('brandCode', 'in', chunk)
               )
             )
@@ -151,34 +147,15 @@ const ClientGallery = ({ brandCodes = [] }) => {
             />
           </>
         )}
-        right={(
-          <div className="flex gap-2">
-            <button
-              className={`${view === 'table' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setView('table')}
-            >
-              Table
-            </button>
-            <button
-              className={`${view === 'gallery' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setView('gallery')}
-            >
-              Gallery
-            </button>
-          </div>
-        )}
       />
       {loading ? (
         <p>Loading assets...</p>
       ) : filtered.length === 0 ? (
         <p>No media found.</p>
-      ) : view === 'gallery' ? (
+      ) : (
         <div className="asset-gallery mt-4" ref={galleryRef}>
           {filtered.map((a) => (
-            <div key={a.id} className="asset-gallery-item relative">
-              <span
-                className={`status-dot ${getStatusClass(a.status)} absolute top-1 right-1`}
-              />
+            <div key={a.id} className="asset-gallery-item">
               {isVideoUrl(a.firebaseUrl || a.url) ? (
                 <VideoPlayer
                   src={a.firebaseUrl || a.url}
@@ -195,46 +172,6 @@ const ClientGallery = ({ brandCodes = [] }) => {
               )}
             </div>
           ))}
-        </div>
-      ) : (
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr>
-                <th className="text-left p-2">Preview</th>
-                <th className="text-left p-2">File Name</th>
-                <th className="text-left p-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((a) => (
-                <tr key={a.id} className="border-t">
-                  <td className="p-2 w-24">
-                    {isVideoUrl(a.firebaseUrl || a.url) ? (
-                      <VideoPlayer
-                        src={a.firebaseUrl || a.url}
-                        className="w-20 h-auto object-contain"
-                        controls
-                      />
-                    ) : (
-                      <OptimizedImage
-                        pngUrl={a.thumbnailUrl || a.url || a.firebaseUrl}
-                        alt={a.name}
-                        className="w-20 h-auto object-contain"
-                      />
-                    )}
-                  </td>
-                  <td className="p-2 align-top">{a.name}</td>
-                  <td className="p-2 align-top">
-                    <StatusBadge status={a.status} />
-                    {a.status === 'edit_requested' && a.comment && (
-                      <div className="mt-1 text-sm">{a.comment}</div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       )}
     </div>

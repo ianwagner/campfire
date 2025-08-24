@@ -37,10 +37,10 @@ beforeEach(() => {
   });
 });
 
-test('loads assets for each brand code and shows table view', async () => {
+test('loads assets for each brand code', async () => {
   getDocs.mockResolvedValue({
     docs: [
-      { id: 'a1', data: () => ({ name: 'a1', firebaseUrl: 'u1', status: 'approved' }) },
+      { id: 'a1', data: () => ({ name: 'a1', firebaseUrl: 'u1' }) },
     ],
   });
 
@@ -49,9 +49,8 @@ test('loads assets for each brand code and shows table view', async () => {
 
   await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(1));
   expect(collectionMock).toHaveBeenCalledWith({}, 'adAssets');
+  expect(whereMock).toHaveBeenCalledWith('status', '==', 'approved');
   expect(whereMock).toHaveBeenCalledWith('brandCode', 'in', codes);
-  expect(whereMock).not.toHaveBeenCalledWith('status', '==', 'approved');
   expect(await screen.findByAltText('a1')).toBeInTheDocument();
-  expect(screen.getByRole('table')).toBeInTheDocument();
 });
 
