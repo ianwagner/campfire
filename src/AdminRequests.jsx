@@ -250,7 +250,11 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
             console.error('Failed to sync ad group due date', err);
           }
         }
-        if (linked?.projectId && data.status === 'need info') {
+        if (
+          linked?.projectId &&
+          linked.status === 'need info' &&
+          linked.infoNote !== data.infoNote
+        ) {
           try {
             await updateDoc(doc(db, 'projects', linked.projectId), {
               infoNote: data.infoNote,
@@ -299,18 +303,25 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       await updateDoc(doc(db, 'requests', id), { status });
       setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
       const req = requests.find((r) => r.id === id);
-      if (req?.projectId && (status === 'need info' || req.status === 'need info')) {
-        const projStatus = status === 'need info' ? 'need info' : status;
-        const projData = { status: projStatus };
+      if (req?.projectId) {
         if (status === 'need info') {
-          projData.infoNote = req.infoNote;
+          try {
+            await updateDoc(doc(db, 'projects', req.projectId), {
+              status: 'need info',
+              infoNote: req.infoNote,
+            });
+          } catch (err) {
+            console.error('Failed to update project status', err);
+          }
         } else if (req.status === 'need info') {
-          projData.infoNote = deleteField();
-        }
-        try {
-          await updateDoc(doc(db, 'projects', req.projectId), projData);
-        } catch (err) {
-          console.error('Failed to update project status', err);
+          try {
+            await updateDoc(doc(db, 'projects', req.projectId), {
+              status,
+              infoNote: deleteField(),
+            });
+          } catch (err) {
+            console.error('Failed to update project status', err);
+          }
         }
       }
     } catch (err) {
