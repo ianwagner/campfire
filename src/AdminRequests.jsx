@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where } from 'firebase/firestore';
-import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal } from 'react-icons/fi';
+import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal, FiAlertCircle } from 'react-icons/fi';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
 import { db, auth } from './firebase/config';
@@ -290,8 +290,8 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       await updateDoc(doc(db, 'requests', id), { status });
       setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
       const req = requests.find((r) => r.id === id);
-      if (req?.projectId && (status === 'need info' || req.status === 'need info')) {
-        const projStatus = status === 'need info' ? 'need info' : status;
+      if (req?.projectId && (status === 'info needed' || req.status === 'info needed')) {
+        const projStatus = status === 'info needed' ? 'info needed' : status;
         try {
           await updateDoc(doc(db, 'projects', req.projectId), { status: projStatus });
         } catch (err) {
@@ -470,10 +470,10 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
 
   const newReq = filteredRequests.filter((r) => r.status === 'new');
   const pending = filteredRequests.filter((r) => r.status === 'pending');
-  const needInfo = filteredRequests.filter((r) => r.status === 'need info');
+  const infoNeeded = filteredRequests.filter((r) => r.status === 'info needed');
   const ready = filteredRequests.filter((r) => r.status === 'ready');
   const done = filteredRequests.filter((r) => r.status === 'done');
-  const grouped = { new: newReq, pending, 'need info': needInfo, ready, done };
+  const grouped = { new: newReq, pending, 'info needed': infoNeeded, ready, done };
 
   return (
     <div className="min-h-screen p-4">
@@ -583,7 +583,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         >
                           <option value="new">New</option>
                           <option value="pending">Pending</option>
-                          <option value="need info">Need Info</option>
+                          <option value="info needed">Info Needed</option>
                           <option value="ready">Ready</option>
                           <option value="done">Done</option>
                         </select>
@@ -640,7 +640,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         >
                           <option value="new">New</option>
                           <option value="pending">Pending</option>
-                          <option value="need info">Need Info</option>
+                          <option value="info needed">Info Needed</option>
                           <option value="ready">Ready</option>
                           <option value="done">Done</option>
                         </select>
@@ -665,10 +665,12 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
             )}
           </div>
           <div className="mb-8">
-            <h2 className="text-xl mb-2">Need Info</h2>
+            <h2 className="text-xl mb-2 flex items-center gap-1">
+              <FiAlertCircle className="text-yellow-500" /> Info Needed
+            </h2>
             {loading ? (
               <p>Loading...</p>
-            ) : needInfo.length === 0 ? (
+            ) : infoNeeded.length === 0 ? (
               <p>No tickets.</p>
             ) : (
               <Table>
@@ -683,7 +685,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                   </tr>
                 </thead>
                 <tbody>
-                  {needInfo.map((req) => (
+                  {infoNeeded.map((req) => (
                     <tr key={req.id}>
                       <td>{req.brandCode}</td>
                       <td>{req.dueDate && typeof req.dueDate.toDate === 'function' ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
@@ -697,7 +699,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         >
                           <option value="new">New</option>
                           <option value="pending">Pending</option>
-                          <option value="need info">Need Info</option>
+                          <option value="info needed">Info Needed</option>
                           <option value="ready">Ready</option>
                           <option value="done">Done</option>
                         </select>
@@ -754,7 +756,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         >
                           <option value="new">New</option>
                           <option value="pending">Pending</option>
-                          <option value="need info">Need Info</option>
+                          <option value="info needed">Info Needed</option>
                           <option value="ready">Ready</option>
                           <option value="done">Done</option>
                         </select>
@@ -809,7 +811,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         >
                           <option value="new">New</option>
                           <option value="pending">Pending</option>
-                          <option value="need info">Need Info</option>
+                          <option value="info needed">Info Needed</option>
                           <option value="ready">Ready</option>
                           <option value="done">Done</option>
                         </select>
@@ -837,14 +839,20 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       ) : view === 'kanban' ? (
         <div className="overflow-x-auto mt-[0.8rem]">
           <div className="min-w-max flex gap-4">
-          {['new', 'pending', 'need info', 'ready', 'done'].map((status) => (
+          {['new', 'pending', 'info needed', 'ready', 'done'].map((status) => (
             <div
               key={status}
               className="flex-shrink-0 w-[240px] sm:w-[320px]"
               onDragOver={allowDrop}
               onDrop={() => handleDrop(status)}
             >
-              <h2 className="text-xl mb-2 capitalize">{status}</h2>
+              {status === 'info needed' ? (
+                <h2 className="text-xl mb-2 flex items-center gap-1">
+                  <FiAlertCircle className="text-yellow-500" /> Info Needed
+                </h2>
+              ) : (
+                <h2 className="text-xl mb-2 capitalize">{status}</h2>
+              )}
               <div
                 className="bg-[#F7F7F7] dark:bg-[var(--dark-bg)] border border-gray-300 dark:border-gray-600 rounded-t-[1rem] rounded-b-[1rem] flex flex-col items-center gap-4 p-[0.6rem] overflow-y-auto"
                 style={{ maxHeight: 'calc(100vh - 13rem)' }}
@@ -1182,7 +1190,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
               </div>
             </>
           )}
-        {editStatus === 'need info' && (
+        {editStatus === 'info needed' && (
           <div>
             <label className="block mb-1 text-sm font-medium">Info Needed</label>
             <textarea
