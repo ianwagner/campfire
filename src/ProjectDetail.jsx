@@ -51,6 +51,7 @@ import stripVersion from './utils/stripVersion';
 import { deductRecipeCredits } from './utils/credits.js';
 import { uploadFile } from './uploadFile.js';
 import DueDateMonthSelector from './components/DueDateMonthSelector.jsx';
+import computeGroupStatus from './utils/computeGroupStatus';
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf('.');
@@ -689,45 +690,46 @@ const ProjectDetail = () => {
         });
       }
       await batch.commit();
-      setAssets((prev) => {
-        const groups = {};
-        prev.forEach((a) => {
-          const root = a.parentAdId || a.id;
-          if (!groups[root]) groups[root] = [];
-          groups[root].push(a);
-        });
-        const result = [];
-        Object.entries(groups).forEach(([rootId, list]) => {
-          const latest = list.reduce(
-            (acc, cur) => (cur.version > acc.version ? cur : acc),
-            list[0]
-          );
-          const updated = { ...latest };
-          if (list.length > 1) {
-            updated.version = 1;
-            updated.parentAdId = null;
-            updated.scrubbedFrom = rootId;
-            if (latest.filename) {
-              const idx = latest.filename.lastIndexOf('.');
-              const ext = idx >= 0 ? latest.filename.slice(idx) : '';
-              updated.filename = stripVersion(latest.filename) + ext;
-            }
-          }
-          if (hasPendingOrEdit) {
-            if (latest.status === 'rejected' || latest.status === 'archived') {
-              updated.status = 'archived';
-            } else {
-              updated.status = 'ready';
-            }
-          } else {
-            if (latest.status === 'approved') updated.status = 'ready';
-            if (latest.status === 'rejected' || latest.status === 'archived')
-              updated.status = 'archived';
-          }
-          result.push(updated);
-        });
-        return result;
+      const groupsMap = {};
+      assets.forEach((a) => {
+        const root = a.parentAdId || a.id;
+        if (!groupsMap[root]) groupsMap[root] = [];
+        groupsMap[root].push(a);
       });
+      const updatedAssets = [];
+      Object.entries(groupsMap).forEach(([rootId, list]) => {
+        const latest = list.reduce(
+          (acc, cur) => (cur.version > acc.version ? cur : acc),
+          list[0]
+        );
+        const updated = { ...latest };
+        if (list.length > 1) {
+          updated.version = 1;
+          updated.parentAdId = null;
+          updated.scrubbedFrom = rootId;
+          if (latest.filename) {
+            const idx = latest.filename.lastIndexOf('.');
+            const ext = idx >= 0 ? latest.filename.slice(idx) : '';
+            updated.filename = stripVersion(latest.filename) + ext;
+          }
+        }
+        if (hasPendingOrEdit) {
+          if (latest.status === 'rejected' || latest.status === 'archived') {
+            updated.status = 'archived';
+          } else {
+            updated.status = 'ready';
+          }
+        } else {
+          if (latest.status === 'approved') updated.status = 'ready';
+          if (latest.status === 'rejected' || latest.status === 'archived')
+            updated.status = 'archived';
+        }
+        updatedAssets.push(updated);
+      });
+      setAssets(updatedAssets);
+      const newStatus = computeGroupStatus(updatedAssets, false, false);
+      await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
+      setGroup((p) => ({ ...p, status: newStatus }));
     } catch (err) {
       console.error('Failed to scrub review history', err);
     }

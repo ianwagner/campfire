@@ -42,6 +42,15 @@ test('returns ready when any ad is ready', () => {
   expect(status).toBe('ready');
 });
 
+test('returns pending when both pending and ready ads exist', () => {
+  const status = computeGroupStatus(
+    [{ status: 'ready' }, { status: 'pending' }],
+    false,
+    false,
+  );
+  expect(status).toBe('pending');
+});
+
 test('uses status of non-archived ads', () => {
   const status = computeGroupStatus(
     [{ status: 'archived' }, { status: 'ready' }],
