@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where, deleteField } from 'firebase/firestore';
 import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal } from 'react-icons/fi';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
@@ -250,7 +250,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
             console.error('Failed to sync ad group due date', err);
           }
         }
-        if (linked?.projectId) {
+        if (linked?.projectId && data.status === 'need info') {
           try {
             await updateDoc(doc(db, 'projects', linked.projectId), {
               infoNote: data.infoNote,
@@ -299,12 +299,16 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       await updateDoc(doc(db, 'requests', id), { status });
       setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
       const req = requests.find((r) => r.id === id);
-      if (req?.projectId) {
+      if (req?.projectId && (status === 'need info' || req.status === 'need info')) {
+        const projStatus = status === 'need info' ? 'need info' : status;
+        const projData = { status: projStatus };
+        if (status === 'need info') {
+          projData.infoNote = req.infoNote;
+        } else if (req.status === 'need info') {
+          projData.infoNote = deleteField();
+        }
         try {
-          await updateDoc(doc(db, 'projects', req.projectId), {
-            status,
-            infoNote: req.infoNote,
-          });
+          await updateDoc(doc(db, 'projects', req.projectId), projData);
         } catch (err) {
           console.error('Failed to update project status', err);
         }
