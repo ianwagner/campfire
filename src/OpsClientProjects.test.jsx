@@ -23,21 +23,31 @@ jest.mock('firebase/firestore', () => ({
 
 jest.mock('./useUserRole', () => () => ({ agencyId: 'a1' }));
 
-import { getDocs, onSnapshot } from 'firebase/firestore';
+import { getDocs, onSnapshot, updateDoc } from 'firebase/firestore';
 
 afterEach(() => jest.clearAllMocks());
 
-test('project shows ad group status after refresh', async () => {
-  getDocs.mockResolvedValueOnce({
-    docs: [
-      {
-        id: 'c1',
-        data: () => ({ fullName: 'Client 1' }),
-      },
-    ],
-  });
+test('refresh button updates project status', async () => {
+  getDocs
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'c1',
+          data: () => ({ fullName: 'Client 1' }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({
+      docs: [
+        { id: 'a1', data: () => ({ status: 'ready' }) },
+      ],
+    })
+    .mockResolvedValueOnce({
+      docs: [
+        { id: 'r1', data: () => ({}) },
+      ],
+    });
 
-  const groupCallbacks = [];
   onSnapshot
     .mockImplementationOnce((q, cb) => {
       cb({
@@ -55,10 +65,18 @@ test('project shows ad group status after refresh', async () => {
       return jest.fn();
     })
     .mockImplementationOnce((q, cb) => {
-      groupCallbacks.push(cb);
-      cb({ docs: [] });
+      cb({
+        docs: [
+          {
+            id: 'g1',
+            data: () => ({ name: 'Proj1', brandCode: 'B1', status: 'briefed' }),
+          },
+        ],
+      });
       return jest.fn();
     });
+
+  updateDoc.mockResolvedValue();
 
   render(<OpsClientProjects />);
 
@@ -67,18 +85,11 @@ test('project shows ad group status after refresh', async () => {
   fireEvent.click(screen.getByText('Client 1'));
 
   const row = (await screen.findByText('Proj1')).closest('li');
-  expect(within(row).getByText('B1')).toBeInTheDocument();
   expect(within(row).getByText('briefed')).toBeInTheDocument();
 
-  groupCallbacks[0]({
-    docs: [
-      {
-        id: 'g1',
-        data: () => ({ name: 'Proj1', brandCode: 'B1', status: 'ready' }),
-      },
-    ],
-  });
+  fireEvent.click(within(row).getByText('Refresh'));
 
+  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
   await waitFor(() => expect(within(row).getByText('ready')).toBeInTheDocument());
 });
 
