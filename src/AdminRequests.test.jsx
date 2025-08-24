@@ -12,30 +12,30 @@ jest.mock('./firebase/config', () => ({
   auth: { currentUser: { uid: 'admin', displayName: 'Admin', email: 'a@a.com' } },
 }));
 
-const getDocs = jest.fn();
-const addDoc = jest.fn(() => ({ id: 'r1' }));
-const updateDoc = jest.fn();
-const deleteDoc = jest.fn();
-const docMock = jest.fn(() => ({}));
-const collectionMock = jest.fn();
-const serverTimestamp = jest.fn(() => ({}));
-const queryMock = jest.fn((...args) => args);
-const whereMock = jest.fn();
+const mockGetDocs = jest.fn();
+const mockAddDoc = jest.fn(() => ({ id: 'r1' }));
+const mockUpdateDoc = jest.fn();
+const mockDeleteDoc = jest.fn();
+const mockDoc = jest.fn(() => ({}));
+const mockCollection = jest.fn();
+const mockServerTimestamp = jest.fn(() => ({}));
+const mockQuery = jest.fn((...args) => args);
+const mockWhere = jest.fn();
 
 const callableFn = jest.fn();
 const httpsCallable = jest.fn(() => callableFn);
 
 jest.mock('firebase/firestore', () => ({
-  collection: (...args) => collectionMock(...args),
-  getDocs: (...args) => getDocs(...args),
-  addDoc: (...args) => addDoc(...args),
-  updateDoc: (...args) => updateDoc(...args),
-  deleteDoc: (...args) => deleteDoc(...args),
-  doc: (...args) => docMock(...args),
+  collection: (...args) => mockCollection(...args),
+  getDocs: (...args) => mockGetDocs(...args),
+  addDoc: (...args) => mockAddDoc(...args),
+  updateDoc: (...args) => mockUpdateDoc(...args),
+  deleteDoc: (...args) => mockDeleteDoc(...args),
+  doc: (...args) => mockDoc(...args),
   Timestamp: { fromDate: () => ({}) },
-  serverTimestamp: (...args) => serverTimestamp(...args),
-  query: (...args) => queryMock(...args),
-  where: (...args) => whereMock(...args),
+  serverTimestamp: (...args) => mockServerTimestamp(...args),
+  query: (...args) => mockQuery(...args),
+  where: (...args) => mockWhere(...args),
 }));
 
 jest.mock('firebase/functions', () => ({
@@ -49,7 +49,7 @@ afterEach(() => {
 });
 
 test('opens modal when Add Ticket clicked', async () => {
-  getDocs.mockResolvedValue({ docs: [] });
+  mockGetDocs.mockResolvedValue({ docs: [] });
   render(
     <MemoryRouter>
       <AdminRequests />
@@ -60,22 +60,22 @@ test('opens modal when Add Ticket clicked', async () => {
 });
 
 test('saving ticket adds item to pending table', async () => {
-  getDocs.mockResolvedValue({ docs: [] });
+  mockGetDocs.mockResolvedValue({ docs: [] });
   render(
     <MemoryRouter>
       <AdminRequests />
     </MemoryRouter>
   );
 
-  await waitFor(() => expect(screen.getAllByText('No tickets.').length).toBe(4));
+  await waitFor(() => expect(screen.getAllByText('No tickets.').length).toBe(5));
   fireEvent.click(screen.getByText('Add Ticket'));
   fireEvent.click(screen.getByText('Save'));
-  await waitFor(() => expect(addDoc).toHaveBeenCalled());
-  await waitFor(() => expect(screen.getAllByText('No tickets.').length).toBe(3));
+  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
+  await waitFor(() => expect(screen.getAllByText('No tickets.').length).toBe(4));
 });
 
 test('shows tooltip when asset link cannot be accessed', async () => {
-  getDocs.mockResolvedValue({ docs: [] });
+  mockGetDocs.mockResolvedValue({ docs: [] });
   callableFn.mockRejectedValue(new Error('403'));
   render(
     <MemoryRouter>
@@ -100,7 +100,7 @@ test('shows tooltip when asset link cannot be accessed', async () => {
 });
 
 test('includes project managers in editor list', async () => {
-  getDocs
+  mockGetDocs
     .mockResolvedValueOnce({ docs: [] })
     .mockResolvedValueOnce({ docs: [] })
     .mockResolvedValueOnce({ docs: [] })

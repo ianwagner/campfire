@@ -130,6 +130,9 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
         {request.status && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Status: {request.status}</p>
         )}
+        {request.status === 'need info' && request.infoNote && (
+          <p className="text-black dark:text-[var(--dark-text)] mb-0">Info Needed: {request.infoNote}</p>
+        )}
         {request.details && (
           <div
             className="text-sm text-black dark:text-[var(--dark-text)]"

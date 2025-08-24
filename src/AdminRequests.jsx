@@ -36,6 +36,7 @@ const emptyForm = {
   offering: '',
   designerId: '',
   editorId: '',
+  infoNote: '',
 };
 
 const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true } = {}) => {
@@ -58,6 +59,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const menuBtnRef = useRef(null);
   const menuRef = useRef(null);
   const calendarRef = useRef(null);
+  const editStatus = editId ? requests.find((r) => r.id === editId)?.status : null;
   const navigate = useNavigate();
   const { agencies } = useAgencies();
   const { role } = useUserRole(auth.currentUser?.uid);
@@ -198,6 +200,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       offering: req.offering || '',
       designerId: req.designerId || '',
       editorId: req.editorId || '',
+      infoNote: req.infoNote || '',
     });
     const b = brands.find((br) => br.code === req.brandCode);
     setAiArtStyle(b?.aiArtStyle || '');
@@ -225,6 +228,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       editorId: canAssignEditor
         ? form.editorId
         : filterEditorId || auth.currentUser?.uid || form.editorId,
+      infoNote: form.infoNote,
       status: editId ? (requests.find((r) => r.id === editId)?.status || 'new') : 'new',
     };
     if (!editId) {
@@ -285,6 +289,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     try {
       await updateDoc(doc(db, 'requests', id), { status });
       setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+      const req = requests.find((r) => r.id === id);
+      if (req?.projectId && (status === 'need info' || req.status === 'need info')) {
+        const projStatus = status === 'need info' ? 'need info' : status;
+        try {
+          await updateDoc(doc(db, 'projects', req.projectId), { status: projStatus });
+        } catch (err) {
+          console.error('Failed to update project status', err);
+        }
+      }
     } catch (err) {
       console.error('Failed to update status', err);
     }
@@ -457,9 +470,10 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
 
   const newReq = filteredRequests.filter((r) => r.status === 'new');
   const pending = filteredRequests.filter((r) => r.status === 'pending');
+  const needInfo = filteredRequests.filter((r) => r.status === 'need info');
   const ready = filteredRequests.filter((r) => r.status === 'ready');
   const done = filteredRequests.filter((r) => r.status === 'done');
-  const grouped = { new: newReq, pending, ready, done };
+  const grouped = { new: newReq, pending, 'need info': needInfo, ready, done };
 
   return (
     <div className="min-h-screen p-4">
@@ -569,6 +583,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         >
                           <option value="new">New</option>
                           <option value="pending">Pending</option>
+                          <option value="need info">Need Info</option>
                           <option value="ready">Ready</option>
                           <option value="done">Done</option>
                         </select>
@@ -625,6 +640,64 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         >
                           <option value="new">New</option>
                           <option value="pending">Pending</option>
+                          <option value="need info">Need Info</option>
+                          <option value="ready">Ready</option>
+                          <option value="done">Done</option>
+                        </select>
+                      </td>
+                      <td className="text-center">
+                        <div className="flex items-center justify-center">
+                          <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
+                            <FiEdit2 />
+                          </IconButton>
+                          <IconButton onClick={() => handleDelete(req.id)} aria-label="Delete">
+                            <FiTrash />
+                          </IconButton>
+                          <IconButton onClick={() => handleArchive(req.id)} className="ml-2" aria-label="Archive">
+                            <FiArchive />
+                          </IconButton>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </div>
+          <div className="mb-8">
+            <h2 className="text-xl mb-2">Need Info</h2>
+            {loading ? (
+              <p>Loading...</p>
+            ) : needInfo.length === 0 ? (
+              <p>No tickets.</p>
+            ) : (
+              <Table>
+                <thead>
+                  <tr>
+                    <th>Brand</th>
+                    <th>Due Date</th>
+                    <th># Items</th>
+                    <th>Details</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {needInfo.map((req) => (
+                    <tr key={req.id}>
+                      <td>{req.brandCode}</td>
+                      <td>{req.dueDate && typeof req.dueDate.toDate === 'function' ? req.dueDate.toDate().toLocaleDateString() : ''}</td>
+                      <td>{req.numAds ?? req.numAssets}</td>
+                      <td dangerouslySetInnerHTML={{ __html: formatDetails(req.details) }}></td>
+                      <td>
+                        <select
+                          value={req.status}
+                          onChange={(e) => handleStatusChange(req.id, e.target.value)}
+                          className={`status-select status-${req.status.replace(/\s+/g, '_')}`}
+                        >
+                          <option value="new">New</option>
+                          <option value="pending">Pending</option>
+                          <option value="need info">Need Info</option>
                           <option value="ready">Ready</option>
                           <option value="done">Done</option>
                         </select>
@@ -681,6 +754,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         >
                           <option value="new">New</option>
                           <option value="pending">Pending</option>
+                          <option value="need info">Need Info</option>
                           <option value="ready">Ready</option>
                           <option value="done">Done</option>
                         </select>
@@ -735,6 +809,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         >
                           <option value="new">New</option>
                           <option value="pending">Pending</option>
+                          <option value="need info">Need Info</option>
                           <option value="ready">Ready</option>
                           <option value="done">Done</option>
                         </select>
@@ -762,7 +837,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       ) : view === 'kanban' ? (
         <div className="overflow-x-auto mt-[0.8rem]">
           <div className="min-w-max flex gap-4">
-          {['new', 'pending', 'ready', 'done'].map((status) => (
+          {['new', 'pending', 'need info', 'ready', 'done'].map((status) => (
             <div
               key={status}
               className="flex-shrink-0 w-[240px] sm:w-[320px]"
@@ -1107,8 +1182,19 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
               </div>
             </>
           )}
+        {editStatus === 'need info' && (
+          <div>
+            <label className="block mb-1 text-sm font-medium">Info Needed</label>
+            <textarea
+              value={form.infoNote}
+              onChange={(e) => setForm((f) => ({ ...f, infoNote: e.target.value }))}
+              className="w-full p-2 border rounded"
+              rows={3}
+            />
           </div>
-          <div className="text-right mt-4 space-x-2">
+        )}
+        </div>
+        <div className="text-right mt-4 space-x-2">
             <button onClick={handleSave} className="btn-primary">Save</button>
             <button
               onClick={() => { setShowModal(false); resetForm(); }}
