@@ -44,6 +44,8 @@ import {
   FiGrid,
   FiList,
   FiCheck,
+  FiEye,
+  FiEyeOff,
 } from 'react-icons/fi';
 import { Bubbles } from 'lucide-react';
 import { archiveGroup } from './utils/archiveGroup';
@@ -122,6 +124,7 @@ const ProjectDetail = () => {
   const [infoResponse, setInfoResponse] = useState('');
   const [showCopyForm, setShowCopyForm] = useState(false);
   const [showCopySection, setShowCopySection] = useState(true);
+  const [showAdsSection, setShowAdsSection] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -979,18 +982,24 @@ const ProjectDetail = () => {
       </div>
       <div className="space-y-4">
         <div className="border rounded p-4 max-w-[60rem]">
-          <button className="font-medium" onClick={handleToggleBrief}>
-            {showBrief ? 'Hide Brief' : 'View Brief'}
-          </button>
-          {showBrief && !editingBrief && (
-            <Button
-              variant="secondary"
-              className="ml-2"
-              onClick={() => setEditingBrief(true)}
+          <div className="flex items-center gap-2 mb-2">
+            <h2 className="font-medium">Brief</h2>
+            <IconButton
+              aria-label={showBrief ? 'Hide Brief' : 'View Brief'}
+              onClick={handleToggleBrief}
+              className="text-xl"
             >
-              Edit
-            </Button>
-          )}
+              {showBrief ? <FiEye /> : <FiEyeOff />}
+            </IconButton>
+            {showBrief && !editingBrief && (
+              <Button
+                variant="secondary"
+                onClick={() => setEditingBrief(true)}
+              >
+                Edit
+              </Button>
+            )}
+          </div>
           {showBrief && (
             <div className="mt-4 space-y-4">
               {briefLoading ? (
@@ -1156,167 +1165,182 @@ const ProjectDetail = () => {
           )}
         </div>
         <div className="border rounded p-4 max-w-[60rem]">
-          <div className="flex items-center justify-between mb-2">
+          <div className="relative flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <h2 className="font-medium">Ads</h2>
-              <TabButton
-                active={viewMode === 'table'}
-                onClick={() => setViewMode('table')}
-                aria-label="Table view"
+              <IconButton
+                aria-label={showAdsSection ? 'Hide Ads' : 'View Ads'}
+                onClick={() => setShowAdsSection((p) => !p)}
+                className="text-xl"
               >
-                <FiList />
-              </TabButton>
-              <TabButton
-                active={viewMode === 'gallery'}
-                onClick={() => setViewMode('gallery')}
-                aria-label="Gallery view"
-              >
-                <FiGrid />
-              </TabButton>
+                {showAdsSection ? <FiEye /> : <FiEyeOff />}
+              </IconButton>
             </div>
-            <div className="flex gap-2">
-              <span className="relative group">
-                <IconButton
-                  aria-label="Mark all pending as ready"
-                  onClick={handleMarkReady}
-                  disabled={markReadyDisabled}
-                  className={`text-xl ${markReadyDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <FiCheck />
-                </IconButton>
-                <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                  Mark All Pending as Ready
+            {showAdsSection && (
+              <>
+                <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+                  <TabButton
+                    active={viewMode === 'table'}
+                    onClick={() => setViewMode('table')}
+                    aria-label="Table view"
+                  >
+                    <FiList />
+                  </TabButton>
+                  <TabButton
+                    active={viewMode === 'gallery'}
+                    onClick={() => setViewMode('gallery')}
+                    aria-label="Gallery view"
+                  >
+                    <FiGrid />
+                  </TabButton>
                 </div>
-              </span>
-              <span className="relative group">
-                <IconButton
-                  aria-label="Scrub Review History"
-                  onClick={handleScrub}
-                  className="text-xl"
-                >
-                  <Bubbles />
-                </IconButton>
-                <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                  Scrub Review History
+                <div className="flex gap-2">
+                  <span className="relative group">
+                    <IconButton
+                      aria-label="Mark all pending as ready"
+                      onClick={handleMarkReady}
+                      disabled={markReadyDisabled}
+                      className={`text-xl ${markReadyDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <FiCheck />
+                    </IconButton>
+                    <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                      Mark All Pending as Ready
+                    </div>
+                  </span>
+                  <span className="relative group">
+                    <IconButton
+                      aria-label="Scrub Review History"
+                      onClick={handleScrub}
+                      className="text-xl"
+                    >
+                      <Bubbles />
+                    </IconButton>
+                    <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                      Scrub Review History
+                    </div>
+                  </span>
+                  <span className="relative group">
+                    <IconButton
+                      aria-label="Download approved assets"
+                      onClick={handleDownload}
+                      disabled={downloadDisabled}
+                      className={`text-xl ${downloadDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <FiDownload />
+                    </IconButton>
+                    <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                      Download Approved
+                    </div>
+                  </span>
                 </div>
-              </span>
-              <span className="relative group">
-                <IconButton
-                  aria-label="Download approved assets"
-                  onClick={handleDownload}
-                  disabled={downloadDisabled}
-                  className={`text-xl ${downloadDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <FiDownload />
-                </IconButton>
-                <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                  Download Approved
-                </div>
-              </span>
-            </div>
+              </>
+            )}
           </div>
-          {assets.length === 0 ? (
-            <p>No assets uploaded yet.</p>
-          ) : viewMode === 'table' ? (
-            <Table columns={['5rem', '20ch', '8rem']}>
-              <thead>
-                <tr>
-                  <th>Preview</th>
-                  <th>Filename</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {galleryAssets.map((a) => (
-                  <tr key={a.id}>
-                    <td className="text-center">
+          {showAdsSection && (
+            assets.length === 0 ? (
+              <p>No assets uploaded yet.</p>
+            ) : viewMode === 'table' ? (
+              <Table columns={['5rem', '20ch', '8rem']}>
+                <thead>
+                  <tr>
+                    <th>Preview</th>
+                    <th>Filename</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {galleryAssets.map((a) => (
+                    <tr key={a.id}>
+                      <td className="text-center">
+                        {isVideoUrl(a.firebaseUrl || a.url) ? (
+                          <VideoPlayer
+                            src={a.firebaseUrl || a.url}
+                            poster={a.thumbnailUrl}
+                            className="w-16 h-16 object-contain"
+                            controls={false}
+                          />
+                        ) : (
+                          <OptimizedImage
+                            pngUrl={a.thumbnailUrl || a.url || a.firebaseUrl}
+                            alt={a.filename || a.name || 'asset'}
+                            className="w-16 h-16 object-contain"
+                          />
+                        )}
+                      </td>
+                      <td
+                        className="max-w-[20ch] truncate"
+                        title={a.filename || a.name}
+                      >
+                        {a.filename || a.name}
+                      </td>
+                      <td className="align-top">
+                        <StatusBadge status={a.status} />
+                        {a.status === 'edit_requested' && (a.comment || a.copyEdit) && (
+                          <div className="text-xs italic mt-1">
+                            Edit: {a.comment || a.copyEdit}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            ) : (
+              <>
+                <div className="asset-gallery mt-2" ref={galleryRef}>
+                  {visibleAssets.map((a) => (
+                    <div key={a.id} className="asset-gallery-item">
+                      <span className="absolute top-1 right-1 z-10 group">
+                        <span
+                          className="block w-3 h-3 rounded-full border-2 border-white"
+                          style={{ backgroundColor: getStatusColor(a.status) }}
+                        />
+                        <span className="absolute right-0 mt-1 px-1 py-0.5 text-xs bg-black text-white rounded whitespace-nowrap opacity-0 group-hover:opacity-100">
+                          {a.status}
+                        </span>
+                      </span>
                       {isVideoUrl(a.firebaseUrl || a.url) ? (
                         <VideoPlayer
                           src={a.firebaseUrl || a.url}
                           poster={a.thumbnailUrl}
-                          className="w-16 h-16 object-contain"
-                          controls={false}
+                          className="w-full h-auto object-contain"
+                          onLoadedData={updateLayout}
                         />
                       ) : (
                         <OptimizedImage
                           pngUrl={a.thumbnailUrl || a.url || a.firebaseUrl}
-                          alt={a.filename || a.name || 'asset'}
-                          className="w-16 h-16 object-contain"
+                          alt={a.name || 'asset'}
+                          className="w-full h-auto object-contain"
+                          onLoad={updateLayout}
                         />
                       )}
-                    </td>
-                    <td
-                      className="max-w-[20ch] truncate"
-                      title={a.filename || a.name}
-                    >
-                      {a.filename || a.name}
-                    </td>
-                    <td className="align-top">
-                      <StatusBadge status={a.status} />
-                      {a.status === 'edit_requested' && (a.comment || a.copyEdit) && (
-                        <div className="text-xs italic mt-1">
-                          Edit: {a.comment || a.copyEdit}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          ) : (
-            <>
-              <div className="asset-gallery mt-2" ref={galleryRef}>
-                {visibleAssets.map((a) => (
-                  <div key={a.id} className="asset-gallery-item">
-                    <span className="absolute top-1 right-1 z-10 group">
-                      <span
-                        className="block w-3 h-3 rounded-full border-2 border-white"
-                        style={{ backgroundColor: getStatusColor(a.status) }}
-                      />
-                      <span className="absolute right-0 mt-1 px-1 py-0.5 text-xs bg-black text-white rounded whitespace-nowrap opacity-0 group-hover:opacity-100">
-                        {a.status}
-                      </span>
-                    </span>
-                    {isVideoUrl(a.firebaseUrl || a.url) ? (
-                      <VideoPlayer
-                        src={a.firebaseUrl || a.url}
-                        poster={a.thumbnailUrl}
-                        className="w-full h-auto object-contain"
-                        onLoadedData={updateLayout}
-                      />
-                    ) : (
-                      <OptimizedImage
-                        pngUrl={a.thumbnailUrl || a.url || a.firebaseUrl}
-                        alt={a.name || 'asset'}
-                        className="w-full h-auto object-contain"
-                        onLoad={updateLayout}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-              {!showAllAssets && galleryAssets.length > visibleAssets.length && (
-                <button
-                  type="button"
-                  className="text-sm text-accent mt-2"
-                  onClick={() => setShowAllAssets(true)}
-                >
-                  View More
-                </button>
-              )}
-            </>
+                    </div>
+                  ))}
+                </div>
+                {!showAllAssets && galleryAssets.length > visibleAssets.length && (
+                  <button
+                    type="button"
+                    className="text-sm text-accent mt-2"
+                    onClick={() => setShowAllAssets(true)}
+                  >
+                    View More
+                  </button>
+                )}
+              </>
+            )
           )}
         </div>
         <div className="border rounded p-4 max-w-[60rem]">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 mb-2">
             <h2 className="font-medium">Platform Copy</h2>
-            <button
-              type="button"
-              className="text-sm text-accent"
+            <IconButton
+              aria-label={showCopySection ? 'Hide Platform Copy' : 'View Platform Copy'}
               onClick={() => setShowCopySection((p) => !p)}
+              className="text-xl"
             >
-              {showCopySection ? 'Hide' : 'View'}
-            </button>
+              {showCopySection ? <FiEye /> : <FiEyeOff />}
+            </IconButton>
           </div>
           {showCopySection && (
             <>
