@@ -542,7 +542,10 @@ const ProjectDetail = () => {
     return new Blob([zip], { type: 'application/zip' });
   };
 
-  const approvedAssets = assets.filter((a) => a.status === 'approved');
+  const galleryAssets = assets.filter(
+    (a) => a.status !== 'archived' && a.status !== 'pending'
+  );
+  const approvedAssets = galleryAssets.filter((a) => a.status === 'approved');
 
   const handleDownload = async () => {
     if (approvedAssets.length === 0) return;
@@ -743,7 +746,7 @@ const ProjectDetail = () => {
     }
   };
 
-  const reviewDisabled = assets.length === 0 || !groupId;
+  const reviewDisabled = galleryAssets.length === 0 || !groupId;
   const downloadDisabled = approvedAssets.length === 0;
 
   if (loading) return <div className="min-h-screen p-4">Loading...</div>;
@@ -764,8 +767,8 @@ const ProjectDetail = () => {
   const isAgency = !!project?.agencyId;
 
   const visibleAssets = showAllAssets
-    ? assets
-    : assets.slice(0, columns || assets.length);
+    ? galleryAssets
+    : galleryAssets.slice(0, columns || galleryAssets.length);
 
   return (
     <>
@@ -1095,7 +1098,7 @@ const ProjectDetail = () => {
                   </div>
                 ))}
               </div>
-              {!showAllAssets && assets.length > visibleAssets.length && (
+              {!showAllAssets && galleryAssets.length > visibleAssets.length && (
                 <button
                   type="button"
                   className="text-sm text-accent mt-2"
