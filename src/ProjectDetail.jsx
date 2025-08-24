@@ -28,6 +28,7 @@ import PageToolbar from './components/PageToolbar.jsx';
 import LoadingOverlay from './LoadingOverlay.jsx';
 import Button from './components/Button.jsx';
 import IconButton from './components/IconButton.jsx';
+import TabButton from './components/TabButton.jsx';
 import Table from './components/common/Table.jsx';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
 import Modal from './components/Modal.jsx';
@@ -42,6 +43,7 @@ import {
   FiType,
   FiGrid,
   FiList,
+  FiCheck,
 } from 'react-icons/fi';
 import { Bubbles } from 'lucide-react';
 import { archiveGroup } from './utils/archiveGroup';
@@ -612,6 +614,26 @@ const ProjectDetail = () => {
     }
   };
 
+  const handleMarkReady = async () => {
+    if (!groupId) return;
+    const pending = assets.filter((a) => a.status === 'pending');
+    if (pending.length === 0) return;
+    try {
+      const batch = writeBatch(db);
+      pending.forEach((a) => {
+        batch.update(doc(db, 'adGroups', groupId, 'assets', a.id), {
+          status: 'ready',
+        });
+      });
+      await batch.commit();
+      setAssets((prev) =>
+        prev.map((a) => (a.status === 'pending' ? { ...a, status: 'ready' } : a))
+      );
+    } catch (err) {
+      console.error('Failed to mark pending ads ready', err);
+    }
+  };
+
   const handleScrub = async () => {
     if (!groupId) return;
     const hasPendingOrEdit = assets.some(
@@ -798,6 +820,7 @@ const ProjectDetail = () => {
 
   const reviewDisabled = galleryAssets.length === 0 || !groupId;
   const downloadDisabled = approvedAssets.length === 0;
+  const markReadyDisabled = !assets.some((a) => a.status === 'pending');
 
   if (loading) return <div className="min-h-screen p-4">Loading...</div>;
   if (!project)
@@ -833,32 +856,6 @@ const ProjectDetail = () => {
           <>
             <span className="relative group">
               <IconButton
-                aria-label="Review Link"
-                onClick={() => setShareModal(true)}
-                disabled={reviewDisabled}
-                className={`text-xl ${reviewDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <FiLink />
-              </IconButton>
-              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                Review Link
-              </div>
-            </span>
-            <span className="relative group">
-              <IconButton
-                aria-label="Download approved assets"
-                onClick={handleDownload}
-                disabled={downloadDisabled}
-                className={`text-xl ${downloadDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <FiDownload />
-              </IconButton>
-              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                Download Approved
-              </div>
-            </span>
-            <span className="relative group">
-              <IconButton
                 aria-label="Platform Copy"
                 onClick={() => setShowCopyModal(true)}
                 className="text-xl"
@@ -867,18 +864,6 @@ const ProjectDetail = () => {
               </IconButton>
               <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
                 Platform Copy
-              </div>
-            </span>
-            <span className="relative group">
-              <IconButton
-                aria-label="Scrub Review History"
-                onClick={handleScrub}
-                className="text-xl"
-              >
-                <Bubbles />
-              </IconButton>
-              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                Scrub Review History
               </div>
             </span>
             <span className="relative group">
@@ -1123,22 +1108,75 @@ const ProjectDetail = () => {
         </div>
         <div className="border rounded p-4 max-w-[60rem]">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="font-medium">Ads</h2>
-            <div className="flex gap-2">
-              <IconButton
-                aria-label="Table view"
+            <div className="flex items-center gap-2">
+              <h2 className="font-medium">Ads</h2>
+              <TabButton
+                active={viewMode === 'table'}
                 onClick={() => setViewMode('table')}
-                className={viewMode === 'table' ? 'bg-accent text-white' : ''}
+                aria-label="Table view"
               >
                 <FiList />
-              </IconButton>
-              <IconButton
-                aria-label="Gallery view"
+              </TabButton>
+              <TabButton
+                active={viewMode === 'gallery'}
                 onClick={() => setViewMode('gallery')}
-                className={viewMode === 'gallery' ? 'bg-accent text-white' : ''}
+                aria-label="Gallery view"
               >
                 <FiGrid />
-              </IconButton>
+              </TabButton>
+            </div>
+            <div className="flex gap-2">
+              <span className="relative group">
+                <IconButton
+                  aria-label="Mark all pending as ready"
+                  onClick={handleMarkReady}
+                  disabled={markReadyDisabled}
+                  className={`text-xl ${markReadyDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <FiCheck />
+                </IconButton>
+                <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                  Mark All Pending as Ready
+                </div>
+              </span>
+              <span className="relative group">
+                <IconButton
+                  aria-label="Scrub Review History"
+                  onClick={handleScrub}
+                  className="text-xl"
+                >
+                  <Bubbles />
+                </IconButton>
+                <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                  Scrub Review History
+                </div>
+              </span>
+              <span className="relative group">
+                <IconButton
+                  aria-label="Review Link"
+                  onClick={() => setShareModal(true)}
+                  disabled={reviewDisabled}
+                  className={`text-xl ${reviewDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <FiLink />
+                </IconButton>
+                <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                  Review Link
+                </div>
+              </span>
+              <span className="relative group">
+                <IconButton
+                  aria-label="Download approved assets"
+                  onClick={handleDownload}
+                  disabled={downloadDisabled}
+                  className={`text-xl ${downloadDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <FiDownload />
+                </IconButton>
+                <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                  Download Approved
+                </div>
+              </span>
             </div>
           </div>
           {assets.length === 0 ? (
