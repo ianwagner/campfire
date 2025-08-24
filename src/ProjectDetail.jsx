@@ -45,6 +45,8 @@ import {
   FiGrid,
   FiList,
   FiCheck,
+  FiEye,
+  FiEyeOff,
 } from 'react-icons/fi';
 import { Bubbles } from 'lucide-react';
 import { archiveGroup } from './utils/archiveGroup';
@@ -117,12 +119,13 @@ const ProjectDetail = () => {
   const [group, setGroup] = useState(null);
   const [shareModal, setShareModal] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
+  const [copyDraft, setCopyDraft] = useState([]);
   const [editingBrief, setEditingBrief] = useState(false);
+  const [editingCopy, setEditingCopy] = useState(false);
   const [newBriefFiles, setNewBriefFiles] = useState([]);
   const [viewMode, setViewMode] = useState('table');
   const [editRequest, setEditRequest] = useState(false);
-  const [showCopyForm, setShowCopyForm] = useState(false);
-  const [showCopySection, setShowCopySection] = useState(true);
+  const [showCopySection, setShowCopySection] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -255,7 +258,8 @@ const ProjectDetail = () => {
   }, [groupId]);
 
   useEffect(() => {
-    setShowCopyForm(copyCards.length === 0);
+    setEditingCopy(copyCards.length === 0);
+    setCopyDraft(copyCards);
   }, [copyCards]);
 
   useEffect(() => {
@@ -424,7 +428,7 @@ const ProjectDetail = () => {
           );
         })
       );
-      setShowCopyForm(false);
+      setEditingCopy(false);
     } catch (err) {
       console.error('Failed to save copy cards', err);
     }
@@ -964,18 +968,25 @@ const ProjectDetail = () => {
       )}
       <div className="space-y-4">
         <div className="border rounded p-4 max-w-[60rem]">
-          <button className="font-medium" onClick={handleToggleBrief}>
-            {showBrief ? 'Hide Brief' : 'View Brief'}
-          </button>
-          {showBrief && !editingBrief && (
-            <Button
-              variant="secondary"
-              className="ml-2"
-              onClick={() => setEditingBrief(true)}
-            >
-              Edit
-            </Button>
-          )}
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-medium text-lg">Brief</h2>
+            <div className="flex items-center gap-2">
+              {showBrief && !editingBrief && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setEditingBrief(true)}
+                >
+                  Edit
+                </Button>
+              )}
+              <IconButton
+                aria-label={showBrief ? 'Hide Brief' : 'View Brief'}
+                onClick={handleToggleBrief}
+              >
+                {showBrief ? <FiEye /> : <FiEyeOff />}
+              </IconButton>
+            </div>
+          </div>
           {showBrief && (
             <div className="mt-4 space-y-4">
               {briefLoading ? (
@@ -1142,6 +1153,60 @@ const ProjectDetail = () => {
         </div>
         <div className="border rounded p-4 max-w-[60rem]">
           <div className="flex items-center justify-between mb-2">
+            <h2 className="font-medium text-lg">Platform Copy</h2>
+            <div className="flex items-center gap-2">
+              {showCopySection && !editingCopy && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setEditingCopy(true)}
+                >
+                  Edit
+                </Button>
+              )}
+              <IconButton
+                aria-label={showCopySection ? 'Hide Platform Copy' : 'View Platform Copy'}
+                onClick={() => setShowCopySection((p) => !p)}
+              >
+                {showCopySection ? <FiEye /> : <FiEyeOff />}
+              </IconButton>
+            </div>
+          </div>
+          {showCopySection && (
+            <div className="mt-4 space-y-4">
+              {editingCopy ? (
+                <>
+                  <CopyRecipePreview
+                    onCopiesChange={setCopyDraft}
+                    initialResults={copyDraft}
+                    brandCode={group?.brandCode || project?.brandCode}
+                    hideBrandSelect
+                  />
+                  <div className="flex gap-2">
+                    <Button onClick={() => saveCopyCards(copyDraft)}>Save</Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setEditingCopy(false);
+                        setCopyDraft(copyCards);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <CopyRecipePreview
+                  initialResults={copyCards}
+                  brandCode={group?.brandCode || project?.brandCode}
+                  hideBrandSelect
+                  showOnlyResults
+                />
+              )}
+            </div>
+          )}
+        </div>
+        <div className="border rounded p-4 max-w-[60rem]">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <h2 className="font-medium">Ads</h2>
               <TabButton
@@ -1288,48 +1353,6 @@ const ProjectDetail = () => {
                 >
                   View More
                 </button>
-              )}
-            </>
-          )}
-        </div>
-        <div className="border rounded p-4 max-w-[60rem]">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-medium">Platform Copy</h2>
-            <button
-              type="button"
-              className="text-sm text-accent"
-              onClick={() => setShowCopySection((p) => !p)}
-            >
-              {showCopySection ? 'Hide' : 'View'}
-            </button>
-          </div>
-          {showCopySection && (
-            <>
-              {showCopyForm ? (
-                <CopyRecipePreview
-                  onSave={saveCopyCards}
-                  initialResults={copyCards}
-                  brandCode={group?.brandCode || project?.brandCode}
-                  hideBrandSelect
-                />
-              ) : (
-                <>
-                  <CopyRecipePreview
-                    onSave={saveCopyCards}
-                    initialResults={copyCards}
-                    brandCode={group?.brandCode || project?.brandCode}
-                    hideBrandSelect
-                    showOnlyResults
-                    showSave
-                  />
-                  <button
-                    type="button"
-                    className="btn-secondary mt-2"
-                    onClick={() => setShowCopyForm(true)}
-                  >
-                    Generate More
-                  </button>
-                </>
               )}
             </>
           )}
