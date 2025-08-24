@@ -315,10 +315,11 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           }
         } else if (req.status === 'need info') {
           try {
-            await updateDoc(doc(db, 'projects', req.projectId), {
-              status: status === 'new' ? 'processing' : status,
-              infoNote: deleteField(),
-            });
+            const update = { infoNote: deleteField() };
+            if (status !== 'ready') {
+              update.status = status === 'new' ? 'processing' : status;
+            }
+            await updateDoc(doc(db, 'projects', req.projectId), update);
           } catch (err) {
             console.error('Failed to update project status', err);
           }
@@ -439,7 +440,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           uploadedBy: req.createdBy || null,
           projectId: req.projectId || null,
           createdAt: serverTimestamp(),
-          status: 'pending',
+          status: 'processing',
           reviewedCount: 0,
           approvedCount: 0,
           editCount: 0,

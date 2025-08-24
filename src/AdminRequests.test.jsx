@@ -232,3 +232,34 @@ test('changing status from need info to new sets project to processing', async (
   expect(mockUpdateDoc.mock.calls[0][1]).toEqual({ status: 'new' });
   expect(mockUpdateDoc.mock.calls[1][1]).toMatchObject({ status: 'processing' });
 });
+
+test('changing status from need info to ready leaves project status unchanged', async () => {
+  mockGetDocs.mockResolvedValue({ docs: [] });
+  mockGetDocs.mockResolvedValueOnce({
+    docs: [
+      {
+        id: 'r1',
+        data: () => ({
+          brandCode: 'B1',
+          status: 'need info',
+          infoNote: 'Need details',
+          projectId: 'p1',
+        }),
+      },
+    ],
+  });
+
+  render(
+    <MemoryRouter>
+      <AdminRequests />
+    </MemoryRouter>
+  );
+
+  fireEvent.click(await screen.findByLabelText('Table view'));
+  const select = await screen.findByRole('combobox');
+  mockUpdateDoc.mockClear();
+  fireEvent.change(select, { target: { value: 'ready' } });
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalledTimes(2));
+  expect(mockUpdateDoc.mock.calls[0][1]).toEqual({ status: 'ready' });
+  expect(mockUpdateDoc.mock.calls[1][1]).toEqual({ infoNote: undefined });
+});
