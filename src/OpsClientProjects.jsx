@@ -14,6 +14,7 @@ import {
 import { FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
+import computeGroupStatus from './utils/computeGroupStatus';
 
 const OpsClientProjects = () => {
   const { agencyId } = useUserRole(auth.currentUser?.uid);
@@ -134,6 +135,37 @@ const OpsClientProjects = () => {
     };
   }, []);
 
+  const handleRefresh = async (clientId, project) => {
+    const groupId = project?.group?.id;
+    if (!groupId) return;
+    try {
+      const [assetSnap, recipeSnap] = await Promise.all([
+        getDocs(collection(db, 'adGroups', groupId, 'assets')),
+        getDocs(collection(db, 'adGroups', groupId, 'recipes')),
+      ]);
+      const assets = assetSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const newStatus = computeGroupStatus(assets, !recipeSnap.empty, false);
+      await Promise.all([
+        updateDoc(doc(db, 'adGroups', groupId), { status: newStatus }),
+        updateDoc(doc(db, 'projects', project.id), { status: newStatus }),
+      ]);
+      setProjects((prev) => ({
+        ...prev,
+        [clientId]: prev[clientId].map((p) =>
+          p.id === project.id
+            ? {
+                ...p,
+                status: newStatus,
+                group: p.group ? { ...p.group, status: newStatus } : p.group,
+              }
+            : p,
+        ),
+      }));
+    } catch (err) {
+      console.error('Failed to refresh project status', err);
+    }
+  };
+
   const handleArchive = async (clientId, projectId) => {
     try {
       await updateDoc(doc(db, 'projects', projectId), {
@@ -207,6 +239,12 @@ const OpsClientProjects = () => {
                               {status}
                             </span>
                             <span className="space-x-2">
+                              <button
+                                className="text-sm text-blue-600"
+                                onClick={() => handleRefresh(c.id, p)}
+                              >
+                                Refresh
+                              </button>
                               {status !== 'archived' && (
                                 <button
                                   className="text-sm text-blue-600"
