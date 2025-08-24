@@ -44,6 +44,7 @@ import {
   FiGrid,
   FiList,
   FiCheck,
+  FiAlertCircle,
 } from 'react-icons/fi';
 import { Bubbles } from 'lucide-react';
 import { archiveGroup } from './utils/archiveGroup';
@@ -791,11 +792,11 @@ const ProjectDetail = () => {
     try {
       await updateDoc(doc(db, 'requests', request.id), {
         clientInfoResponse: infoResponse,
-        status: 'pending',
+        status: 'new',
       });
-      await updateDoc(doc(db, 'projects', project.id), { status: 'pending' });
-      setRequest((p) => (p ? { ...p, status: 'pending', clientInfoResponse: infoResponse } : p));
-      setProject((p) => (p ? { ...p, status: 'pending' } : p));
+      await updateDoc(doc(db, 'projects', project.id), { status: 'new' });
+      setRequest((p) => (p ? { ...p, status: 'new', clientInfoResponse: infoResponse } : p));
+      setProject((p) => (p ? { ...p, status: 'new' } : p));
       setInfoResponse('');
     } catch (err) {
       console.error('Failed to submit info response', err);
@@ -917,19 +918,6 @@ const ProjectDetail = () => {
           </>
         }
       />
-      {request?.status === 'need info' && (
-        <div className="border rounded p-4 mb-4 bg-yellow-50">
-          <p className="mb-2 text-black dark:text-[var(--dark-text)]">{request.infoNote || 'Additional information required.'}</p>
-          <textarea
-            value={infoResponse}
-            onChange={(e) => setInfoResponse(e.target.value)}
-            className="w-full p-2 border rounded"
-            rows={3}
-            placeholder="Your response"
-          />
-          <button onClick={handleInfoResponse} className="btn-primary mt-2">Submit</button>
-        </div>
-      )}
       <div className="flex flex-col md:flex-row gap-4 mb-4">
         <div className="border rounded p-4 flex-1 max-w-[60rem]">
           <div className="flex justify-between items-start">
@@ -977,6 +965,25 @@ const ProjectDetail = () => {
           <StatusBadge status={project.status} />
         </div>
       </div>
+      {request?.status === 'info needed' && (
+        <div className="border rounded p-4 mb-4 bg-yellow-50">
+          <div className="flex items-start gap-2 mb-2">
+            <FiAlertCircle className="text-yellow-500 mt-1" />
+            <h2 className="font-semibold text-black dark:text-[var(--dark-text)]">Info Needed</h2>
+          </div>
+          <p className="mb-2 text-black dark:text-[var(--dark-text)]">
+            {request.infoNote || 'Additional information required.'}
+          </p>
+          <textarea
+            value={infoResponse}
+            onChange={(e) => setInfoResponse(e.target.value)}
+            className="w-full p-2 border rounded"
+            rows={3}
+            placeholder="Your response"
+          />
+          <button onClick={handleInfoResponse} className="btn-primary mt-2">Submit</button>
+        </div>
+      )}
       <div className="space-y-4">
         <div className="border rounded p-4 max-w-[60rem]">
           <button className="font-medium" onClick={handleToggleBrief}>
