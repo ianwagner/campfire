@@ -789,7 +789,7 @@ const AdGroupDetail = () => {
 
   const resetGroup = async () => {
     if (!group) return;
-    const confirmReset = window.confirm("Reset this group to pending?");
+    const confirmReset = window.confirm("Reset this group to processing?");
     if (!confirmReset) return;
     try {
       const batch = writeBatch(db);
@@ -800,10 +800,10 @@ const AdGroupDetail = () => {
           lastUpdatedAt: serverTimestamp(),
         });
       });
-      batch.update(doc(db, "adGroups", id), { status: "pending" });
+      batch.update(doc(db, "adGroups", id), { status: "processing" });
       await batch.commit();
       setAssets((prev) => prev.map((a) => ({ ...a, status: "pending" })));
-      setGroup((p) => ({ ...p, status: "pending" }));
+      setGroup((p) => ({ ...p, status: "processing" }));
     } catch (err) {
       console.error("Failed to reset group", err);
     }
@@ -948,11 +948,11 @@ const AdGroupDetail = () => {
     if (!group) return;
     try {
       await updateDoc(doc(db, "adGroups", id), {
-        status: "pending",
+        status: "processing",
         archivedAt: null,
         archivedBy: null,
       });
-      setGroup((p) => ({ ...p, status: "pending" }));
+      setGroup((p) => ({ ...p, status: "processing" }));
     } catch (err) {
       console.error("Failed to restore group", err);
     }
@@ -1348,7 +1348,7 @@ const AdGroupDetail = () => {
         );
       });
       await batch.commit();
-      if (group?.status === "pending") {
+      if (group?.status === "pending" || group?.status === "processing") {
         try {
           await updateDoc(doc(db, "adGroups", id), { status: "briefed" });
           setGroup((prev) => ({ ...prev, status: "briefed" }));

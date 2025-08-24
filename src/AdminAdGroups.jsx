@@ -212,12 +212,12 @@ const AdminAdGroups = () => {
   const handleRestoreGroup = async (groupId) => {
     try {
       await updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'pending',
+        status: 'processing',
         archivedAt: null,
         archivedBy: null,
       });
       setGroups((prev) =>
-        prev.map((g) => (g.id === groupId ? { ...g, status: 'pending' } : g))
+        prev.map((g) => (g.id === groupId ? { ...g, status: 'processing' } : g))
       );
     } catch (err) {
       console.error('Failed to restore group', err);
