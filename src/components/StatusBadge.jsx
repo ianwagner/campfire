@@ -1,5 +1,4 @@
 import React from "react";
-import { FiAlertTriangle } from "react-icons/fi";
 
 const knownStatuses = new Set([
   "new",
@@ -15,7 +14,6 @@ const knownStatuses = new Set([
   "mixed",
   "in_design",
   "edit_request",
-  "info_needed",
   "done",
 ]);
 
@@ -25,13 +23,8 @@ const StatusBadge = ({ status, className = "" }) => {
   const statusClass = knownStatuses.has(sanitized)
     ? `status-${sanitized}`
     : "status-default";
-  const iconMap = {
-    info_needed: FiAlertTriangle,
-  };
-  const Icon = iconMap[sanitized];
   return (
-    <span className={`status-badge ${statusClass} ${className} inline-flex items-center gap-1`.trim()}>
-      {Icon && <Icon />}
+    <span className={`status-badge ${statusClass} ${className}`.trim()}>
       {status}
     </span>
   );

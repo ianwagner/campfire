@@ -430,10 +430,6 @@
     background-color: var(--edit-color-10);
     color: var(--edit-color);
   }
-  .status-info_needed {
-    background-color: var(--edit-color-10);
-    color: var(--edit-color);
-  }
   .status-done {
     background-color: var(--approve-color-10);
     color: var(--approve-color);
@@ -487,10 +483,6 @@
     color: var(--accent-color);
   }
   .status-select.status-edit_request {
-    background-color: var(--edit-color-10);
-    color: var(--edit-color);
-  }
-  .status-select.status-info_needed {
     background-color: var(--edit-color-10);
     color: var(--edit-color);
   }
