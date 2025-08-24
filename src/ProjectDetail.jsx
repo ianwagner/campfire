@@ -31,8 +31,8 @@ import IconButton from './components/IconButton.jsx';
 import TabButton from './components/TabButton.jsx';
 import Table from './components/common/Table.jsx';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
-import Modal from './components/Modal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
+import DescribeProjectModal from './DescribeProjectModal.jsx';
 import {
   FiLink,
   FiDownload,
@@ -121,10 +121,10 @@ const ProjectDetail = () => {
   const [editingBrief, setEditingBrief] = useState(false);
   const [newBriefFiles, setNewBriefFiles] = useState([]);
   const [viewMode, setViewMode] = useState('table');
-  const [infoResponse, setInfoResponse] = useState('');
   const [showCopyForm, setShowCopyForm] = useState(false);
   const [showCopySection, setShowCopySection] = useState(true);
   const [showAdsSection, setShowAdsSection] = useState(true);
+  const [showDescribeModal, setShowDescribeModal] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -789,19 +789,25 @@ const ProjectDetail = () => {
     }
   };
 
-  const handleInfoResponse = async () => {
-    if (!request) return;
-    try {
-      await updateDoc(doc(db, 'requests', request.id), {
-        clientInfoResponse: infoResponse,
-        status: 'pending',
-      });
-      await updateDoc(doc(db, 'projects', project.id), { status: 'pending' });
-      setRequest((p) => (p ? { ...p, status: 'pending', clientInfoResponse: infoResponse } : p));
-      setProject((p) => (p ? { ...p, status: 'pending' } : p));
-      setInfoResponse('');
-    } catch (err) {
-      console.error('Failed to submit info response', err);
+  const handleDescribeClose = (proj) => {
+    setShowDescribeModal(false);
+    if (proj) {
+      setProject((p) => (p ? { ...p, ...proj } : proj));
+      setRequest((r) =>
+        r
+          ? {
+              ...r,
+              title: proj.title,
+              brandCode: proj.brandCode,
+              dueDate: proj.dueDate,
+              numAds: proj.numAds,
+              assetLinks: proj.assetLinks,
+              details: proj.details,
+              month: proj.month,
+              status: 'new',
+            }
+          : r
+      );
     }
   };
 
@@ -920,19 +926,6 @@ const ProjectDetail = () => {
           </>
         }
       />
-      {request?.status === 'need info' && (
-        <div className="border rounded p-4 mb-4 bg-yellow-50">
-          <p className="mb-2 text-black dark:text-[var(--dark-text)]">{request.infoNote || 'Additional information required.'}</p>
-          <textarea
-            value={infoResponse}
-            onChange={(e) => setInfoResponse(e.target.value)}
-            className="w-full p-2 border rounded"
-            rows={3}
-            placeholder="Your response"
-          />
-          <button onClick={handleInfoResponse} className="btn-primary mt-2">Submit</button>
-        </div>
-      )}
       <div className="flex flex-col md:flex-row gap-4 mb-4">
         <div className="border rounded p-4 flex-1 max-w-[60rem]">
           <div className="flex justify-between items-start">
@@ -981,6 +974,15 @@ const ProjectDetail = () => {
         </div>
       </div>
       <div className="space-y-4">
+        {request?.status === 'need info' && (
+          <div className="border rounded p-4 max-w-[60rem]">
+            <h2 className="font-medium mb-2">Info Needed</h2>
+            <p className="mb-2 text-black dark:text-[var(--dark-text)]">
+              {request.infoNote || 'Additional information required.'}
+            </p>
+            <Button onClick={() => setShowDescribeModal(true)}>Add Info</Button>
+          </div>
+        )}
         <div className="border rounded p-4 max-w-[60rem]">
           <div className="flex items-center gap-2 mb-2">
             <h2 className="font-medium">Brief</h2>
@@ -1384,6 +1386,13 @@ const ProjectDetail = () => {
         password={group.password}
         onClose={() => setShareModal(false)}
         onUpdate={(u) => setGroup((p) => ({ ...p, ...u }))}
+      />
+    )}
+    {showDescribeModal && request && (
+      <DescribeProjectModal
+        onClose={handleDescribeClose}
+        brandCodes={[project.brandCode]}
+        request={request}
       />
     )}
     </>

@@ -89,6 +89,7 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           assetLinks: (assetLinks || []).filter((l) => l),
           details,
           month: month || null,
+          status: 'new',
         });
         if (projectId) {
           await updateDoc(doc(db, 'projects', projectId), {
