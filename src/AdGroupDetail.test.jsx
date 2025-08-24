@@ -312,6 +312,16 @@ test('scrubs review history', async () => {
     });
     return jest.fn();
   });
+  mockGetDocs.mockImplementation((colRef) => {
+    if (Array.isArray(colRef) && colRef.includes('history')) {
+      const docs = [{ id: 'h1' }, { id: 'h2' }];
+      return Promise.resolve({
+        docs,
+        forEach: (cb) => docs.forEach((d) => cb(d)),
+      });
+    }
+    return Promise.resolve({ empty: true, docs: [], forEach: () => {} });
+  });
   const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
   render(
     <MemoryRouter>
@@ -330,6 +340,12 @@ test('scrubs review history', async () => {
       expect.objectContaining({ version: 1 })
     );
     expect(batch.delete).toHaveBeenCalledWith('adGroups/group1/assets/asset1');
+    expect(batch.delete).toHaveBeenCalledWith('adGroups/group1/assets/asset1/history/h1');
+    expect(batch.delete).toHaveBeenCalledWith('adGroups/group1/assets/asset1/history/h2');
+    expect(batch.delete).toHaveBeenCalledWith('adGroups/group1/assets/asset2/history/h1');
+    expect(batch.delete).toHaveBeenCalledWith('adGroups/group1/assets/asset2/history/h2');
+    expect(batch.delete).toHaveBeenCalledWith('adGroups/group1/assets/asset3/history/h1');
+    expect(batch.delete).toHaveBeenCalledWith('adGroups/group1/assets/asset3/history/h2');
     expect(batch.update).toHaveBeenCalledWith(
       'adGroups/group1/assets/asset2',
       expect.objectContaining({

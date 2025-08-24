@@ -865,6 +865,16 @@ const AdGroupDetail = () => {
           batch.update(doc(db, "adGroups", id, "assets", latest.id), update);
         }
       });
+      for (const a of assets) {
+        const snap = await getDocs(
+          collection(db, "adGroups", id, "assets", a.id, "history")
+        );
+        snap.forEach((h) => {
+          batch.delete(
+            doc(db, "adGroups", id, "assets", a.id, "history", h.id)
+          );
+        });
+      }
       await batch.commit();
       setAssets((prev) => {
         const groups = {};
