@@ -26,7 +26,13 @@ const formatLabel = (s) =>
 
 const baseColumnDefs = [
   { key: 'groupName', label: 'Ad Group', width: 'auto' },
-  { key: 'recipeNo', label: 'Recipe #', width: 'auto', headerClass: 'text-center', cellClass: 'text-center' },
+  {
+    key: 'recipeNo',
+    label: 'Recipe #',
+    width: 'auto',
+    headerClass: 'text-center',
+    cellClass: 'text-center',
+  },
   { key: 'product', label: 'Product', width: 'auto' },
   { key: 'angle', label: 'Angle', width: 'auto' },
   { key: 'audience', label: 'Audience', width: 'auto' },
@@ -35,6 +41,20 @@ const baseColumnDefs = [
 ];
 
 const baseColumnKeys = new Set(baseColumnDefs.map((c) => c.key));
+const structuralKeys = new Set([
+  'components',
+  'metadata',
+  'assets',
+  'type',
+  'selected',
+  'brandCode',
+]);
+
+const shouldOmitKey = (k) => {
+  const match = (set) =>
+    Array.from(set).some((b) => k === b || k.startsWith(`${b}.`));
+  return match(baseColumnKeys) || match(structuralKeys);
+};
 
 const flattenMeta = (obj, prefix = '', res = {}) => {
   Object.entries(obj || {}).forEach(([k, v]) => {
@@ -56,7 +76,7 @@ const flattenMeta = (obj, prefix = '', res = {}) => {
     }
   });
   Object.keys(res).forEach((k) => {
-    if (baseColumnKeys.has(k)) delete res[k];
+    if (shouldOmitKey(k)) delete res[k];
   });
   return res;
 };
@@ -163,7 +183,12 @@ const AdminDistribution = () => {
 
           rSnap.docs.forEach((rDoc, idx) => {
             const rData = rDoc.data();
-            const recipeMeta = flattenMeta(rData.metadata || {});
+            const merged = {
+              ...rData,
+              ...(rData.components || {}),
+              ...(rData.metadata || {}),
+            };
+            const recipeMeta = flattenMeta(merged);
             Object.keys(recipeMeta).forEach((k) => metaKeys.add(k));
             const recipeNo = rData.recipeNo || rDoc.id || idx + 1;
             const product =
