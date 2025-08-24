@@ -14,6 +14,7 @@ const CopyRecipePreview = ({
   hideBrandSelect = false,
   onCopyClick = null,
   onCopiesChange = null,
+  showSave = !showOnlyResults,
 }) => {
   const [types, setTypes] = useState([]);
   const [selectedType, setSelectedType] = useState('');
@@ -420,7 +421,7 @@ const CopyRecipePreview = ({
           </div>
         ))}
       </div>
-      {!showOnlyResults && onSave && copies.length > 0 && (
+      {showSave && onSave && copies.length > 0 && (
         <div className="mt-4 text-right">
           <button
             type="button"

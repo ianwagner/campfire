@@ -120,6 +120,8 @@ const ProjectDetail = () => {
   const [newBriefFiles, setNewBriefFiles] = useState([]);
   const [viewMode, setViewMode] = useState('table');
   const [infoResponse, setInfoResponse] = useState('');
+  const [showCopyForm, setShowCopyForm] = useState(false);
+  const [showCopySection, setShowCopySection] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -245,11 +247,15 @@ const ProjectDetail = () => {
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => {
-        setCopyCards(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setCopyCards(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); 
       }
     );
     return () => unsub();
   }, [groupId]);
+
+  useEffect(() => {
+    setShowCopyForm(copyCards.length === 0);
+  }, [copyCards]);
 
   useEffect(() => {
     if (!groupId || assets.length === 0) return;
@@ -417,6 +423,7 @@ const ProjectDetail = () => {
           );
         })
       );
+      setShowCopyForm(false);
     } catch (err) {
       console.error('Failed to save copy cards', err);
     }
@@ -1301,13 +1308,46 @@ const ProjectDetail = () => {
           )}
         </div>
         <div className="border rounded p-4 max-w-[60rem]">
-          <h2 className="font-medium mb-2">Platform Copy</h2>
-          <CopyRecipePreview
-            onSave={saveCopyCards}
-            initialResults={copyCards}
-            brandCode={group?.brandCode || project?.brandCode}
-            hideBrandSelect
-          />
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-medium">Platform Copy</h2>
+            <button
+              type="button"
+              className="text-sm text-accent"
+              onClick={() => setShowCopySection((p) => !p)}
+            >
+              {showCopySection ? 'Hide' : 'View'}
+            </button>
+          </div>
+          {showCopySection && (
+            <>
+              {showCopyForm ? (
+                <CopyRecipePreview
+                  onSave={saveCopyCards}
+                  initialResults={copyCards}
+                  brandCode={group?.brandCode || project?.brandCode}
+                  hideBrandSelect
+                />
+              ) : (
+                <>
+                  <CopyRecipePreview
+                    onSave={saveCopyCards}
+                    initialResults={copyCards}
+                    brandCode={group?.brandCode || project?.brandCode}
+                    hideBrandSelect
+                    showOnlyResults
+                    showSave
+                  />
+                  <button
+                    type="button"
+                    className="btn-secondary mt-2"
+                    onClick={() => setShowCopyForm(true)}
+                  >
+                    Generate More
+                  </button>
+                </>
+              )}
+            </>
+          )}
         </div>
       </div>
     </PageWrapper>
