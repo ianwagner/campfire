@@ -24,7 +24,7 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: (...args) => mockUpdateDoc(...args),
   writeBatch: jest.fn(),
   deleteDoc: jest.fn(),
-  onSnapshot: jest.fn(),
+  onSnapshot: jest.fn(() => jest.fn()),
   serverTimestamp: jest.fn(),
   addDoc: jest.fn(),
   setDoc: jest.fn(),
@@ -82,6 +82,12 @@ beforeEach(() => {
     }),
   });
   mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
+  mockGetDocs.mockResolvedValueOnce({
+    empty: false,
+    docs: [{ id: 'g1', data: () => ({ status: 'new', notes: '' }) }],
+  });
+  mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
+  mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
   mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
   mockGetDocs.mockResolvedValueOnce({
     empty: false,
@@ -101,7 +107,10 @@ test('shows info needed section and opens modal', async () => {
       <ProjectDetail />
     </MemoryRouter>
   );
-  await waitFor(() => screen.getByText('Need details'));
+  await waitFor(() => screen.getByRole('heading', { name: /info needed/i }));
+  expect(
+    screen.getByRole('heading', { name: /info needed/i })
+  ).toBeInTheDocument();
   expect(screen.getByText('Need details')).toBeInTheDocument();
   fireEvent.click(screen.getByText('Add Info'));
   expect(screen.getByTestId('describe-modal')).toBeInTheDocument();
@@ -110,7 +119,7 @@ test('shows info needed section and opens modal', async () => {
 test('shows info needed note when project status is need info', async () => {
   mockGetDoc.mockReset();
   mockGetDocs.mockReset();
-  
+
   mockGetDoc.mockResolvedValueOnce({
     exists: () => true,
     id: 'p1',
@@ -123,6 +132,12 @@ test('shows info needed note when project status is need info', async () => {
     }),
   });
   mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
+  mockGetDocs.mockResolvedValueOnce({
+    empty: false,
+    docs: [{ id: 'g1', data: () => ({ status: 'need info', notes: '' }) }],
+  });
+  mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
+  mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
   mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
   mockGetDocs.mockResolvedValueOnce({
     empty: false,
@@ -136,7 +151,9 @@ test('shows info needed note when project status is need info', async () => {
       <ProjectDetail />
     </MemoryRouter>
   );
-
-  await waitFor(() => screen.getByText('Need details'));
+  await waitFor(() => screen.getByRole('heading', { name: /info needed/i }));
+  expect(
+    screen.getByRole('heading', { name: /info needed/i })
+  ).toBeInTheDocument();
   expect(screen.getByText('Need details')).toBeInTheDocument();
 });
