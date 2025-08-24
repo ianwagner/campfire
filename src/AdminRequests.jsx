@@ -316,7 +316,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
         } else if (req.status === 'need info') {
           try {
             await updateDoc(doc(db, 'projects', req.projectId), {
-              status,
+              status: status === 'new' ? 'processing' : status,
               infoNote: deleteField(),
             });
           } catch (err) {
