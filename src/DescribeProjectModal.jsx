@@ -8,6 +8,7 @@ import {
   doc,
   serverTimestamp,
   Timestamp,
+  deleteField,
 } from 'firebase/firestore';
 import { FiInfo } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
@@ -16,7 +17,7 @@ import useUserRole from './useUserRole';
 import DueDateMonthSelector from './components/DueDateMonthSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
 
-const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
+const DescribeProjectModal = ({ onClose, brandCodes = [], request = null, resetStatus = false }) => {
   const [title, setTitle] = useState('');
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
   const [dueDate, setDueDate] = useState('');
@@ -89,6 +90,7 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null }) => {
           assetLinks: (assetLinks || []).filter((l) => l),
           details,
           month: month || null,
+          ...(resetStatus ? { status: 'new', clientInfoResponse: deleteField() } : {}),
         });
         if (projectId) {
           await updateDoc(doc(db, 'projects', projectId), {
