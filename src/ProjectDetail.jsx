@@ -28,6 +28,7 @@ import PageToolbar from './components/PageToolbar.jsx';
 import LoadingOverlay from './LoadingOverlay.jsx';
 import Button from './components/Button.jsx';
 import IconButton from './components/IconButton.jsx';
+import Table from './components/common/Table.jsx';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
 import Modal from './components/Modal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
@@ -39,6 +40,8 @@ import {
   FiPenTool,
   FiFileText,
   FiType,
+  FiGrid,
+  FiList,
 } from 'react-icons/fi';
 import { Bubbles } from 'lucide-react';
 import { archiveGroup } from './utils/archiveGroup';
@@ -66,6 +69,29 @@ const PlaceholderIcon = ({ ext }) => {
   );
 };
 
+const statusColorMap = {
+  new: 'var(--pending-color)',
+  pending: 'var(--pending-color)',
+  processing: 'var(--pending-color)',
+  briefed: 'var(--pending-color)',
+  ready: 'var(--accent-color)',
+  approved: 'var(--approve-color)',
+  rejected: 'var(--reject-color)',
+  edit_requested: 'var(--edit-color)',
+  archived: 'var(--table-row-alt-bg)',
+  draft: 'var(--pending-color)',
+  in_design: 'var(--accent-color)',
+  edit_request: 'var(--edit-color)',
+  done: 'var(--approve-color)',
+  mixed: 'var(--edit-color)',
+};
+
+const getStatusColor = (status) => {
+  if (!status) return 'var(--pending-color)';
+  const sanitized = String(status).replace(/\s+/g, '_').toLowerCase();
+  return statusColorMap[sanitized] || 'var(--pending-color)';
+};
+
 const ProjectDetail = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -89,6 +115,7 @@ const ProjectDetail = () => {
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [editingBrief, setEditingBrief] = useState(false);
   const [newBriefFiles, setNewBriefFiles] = useState([]);
+  const [viewMode, setViewMode] = useState('table');
 
   useEffect(() => {
     const load = async () => {
@@ -1072,14 +1099,77 @@ const ProjectDetail = () => {
           )}
         </div>
         <div className="border rounded p-4 max-w-[60rem]">
-          <h2 className="font-medium mb-2">Gallery</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-medium">Ads</h2>
+            <div className="flex gap-2">
+              <IconButton
+                aria-label="Table view"
+                onClick={() => setViewMode('table')}
+                className={viewMode === 'table' ? 'bg-accent text-white' : ''}
+              >
+                <FiList />
+              </IconButton>
+              <IconButton
+                aria-label="Gallery view"
+                onClick={() => setViewMode('gallery')}
+                className={viewMode === 'gallery' ? 'bg-accent text-white' : ''}
+              >
+                <FiGrid />
+              </IconButton>
+            </div>
+          </div>
           {assets.length === 0 ? (
             <p>No assets uploaded yet.</p>
+          ) : viewMode === 'table' ? (
+            <Table columns={['5rem', 'auto', '8rem']}>
+              <thead>
+                <tr>
+                  <th>Preview</th>
+                  <th>Filename</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {galleryAssets.map((a) => (
+                  <tr key={a.id}>
+                    <td className="text-center">
+                      {isVideoUrl(a.firebaseUrl || a.url) ? (
+                        <VideoPlayer
+                          src={a.firebaseUrl || a.url}
+                          poster={a.thumbnailUrl}
+                          className="w-16 h-16 object-contain"
+                          controls={false}
+                        />
+                      ) : (
+                        <OptimizedImage
+                          pngUrl={a.thumbnailUrl || a.url || a.firebaseUrl}
+                          alt={a.filename || a.name || 'asset'}
+                          className="w-16 h-16 object-contain"
+                        />
+                      )}
+                    </td>
+                    <td className="break-all">{a.filename || a.name}</td>
+                    <td className="align-top">
+                      <StatusBadge status={a.status} />
+                      {a.status === 'edit_requested' && (a.comment || a.copyEdit) && (
+                        <div className="text-xs italic mt-1">
+                          Edit: {a.comment || a.copyEdit}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
           ) : (
             <>
               <div className="asset-gallery mt-2" ref={galleryRef}>
                 {visibleAssets.map((a) => (
                   <div key={a.id} className="asset-gallery-item">
+                    <span
+                      className="absolute top-1 right-1 z-10 w-3 h-3 rounded-full border-2 border-white"
+                      style={{ backgroundColor: getStatusColor(a.status) }}
+                    />
                     {isVideoUrl(a.firebaseUrl || a.url) ? (
                       <VideoPlayer
                         src={a.firebaseUrl || a.url}
