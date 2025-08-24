@@ -115,7 +115,6 @@ const ProjectDetail = () => {
   const [group, setGroup] = useState(null);
   const [shareModal, setShareModal] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
-  const [showCopyModal, setShowCopyModal] = useState(false);
   const [editingBrief, setEditingBrief] = useState(false);
   const [newBriefFiles, setNewBriefFiles] = useState([]);
   const [viewMode, setViewMode] = useState('table');
@@ -416,7 +415,6 @@ const ProjectDetail = () => {
           );
         })
       );
-      setShowCopyModal(false);
     } catch (err) {
       console.error('Failed to save copy cards', err);
     }
@@ -868,18 +866,6 @@ const ProjectDetail = () => {
           <>
             <span className="relative group">
               <IconButton
-                aria-label="Platform Copy"
-                onClick={() => setShowCopyModal(true)}
-                className="text-xl"
-              >
-                <FiType />
-              </IconButton>
-              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                Platform Copy
-              </div>
-            </span>
-            <span className="relative group">
-              <IconButton
                 aria-label="Archive"
                 onClick={handleArchive}
                 className="text-xl"
@@ -1283,15 +1269,8 @@ const ProjectDetail = () => {
             </>
           )}
         </div>
-      </div>
-    </PageWrapper>
-    {showCopyModal && (
-      <Modal sizeClass="max-w-[50rem] w-full max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold">Platform Copy</h2>
-          <IconButton onClick={() => setShowCopyModal(false)}>Close</IconButton>
-        </div>
-        <div className="overflow-auto flex-1">
+        <div className="border rounded p-4 max-w-[60rem]">
+          <h2 className="font-medium mb-2">Platform Copy</h2>
           <CopyRecipePreview
             onSave={saveCopyCards}
             initialResults={copyCards}
@@ -1299,8 +1278,8 @@ const ProjectDetail = () => {
             hideBrandSelect
           />
         </div>
-      </Modal>
-    )}
+      </div>
+    </PageWrapper>
     {shareModal && group && (
       <ShareLinkModal
         groupId={groupId}
