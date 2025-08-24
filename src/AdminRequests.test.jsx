@@ -163,3 +163,41 @@ test('status change to need info copies note to project', async () => {
     infoNote: 'Need details',
   });
 });
+
+test('adding info note in need info status updates project', async () => {
+  mockGetDocs.mockResolvedValue({ docs: [] });
+  mockGetDocs.mockResolvedValueOnce({
+    docs: [
+      {
+        id: 'r1',
+        data: () => ({
+          brandCode: 'B1',
+          status: 'new',
+          infoNote: '',
+          projectId: 'p1',
+        }),
+      },
+    ],
+  });
+
+  render(
+    <MemoryRouter>
+      <AdminRequests />
+    </MemoryRouter>
+  );
+
+  fireEvent.click(await screen.findByLabelText('Table view'));
+  const select = await screen.findByRole('combobox');
+  fireEvent.change(select, { target: { value: 'need info' } });
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalledTimes(2));
+  mockUpdateDoc.mockClear();
+
+  fireEvent.click(await screen.findByLabelText('Edit'));
+  const label = await screen.findByText('Info Needed');
+  const note = label.parentElement.querySelector('textarea');
+  fireEvent.change(note, { target: { value: 'Need assets' } });
+  fireEvent.click(screen.getByText('Save'));
+
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalledTimes(2));
+  expect(mockUpdateDoc.mock.calls[1][1]).toEqual({ infoNote: 'Need assets' });
+});
