@@ -192,18 +192,14 @@ const ProjectDetail = () => {
             collection(db, 'adGroups', g.id, 'groupAssets')
           );
           setBriefAssets(bSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        }
-
-        const reqSnap = await getDocs(
-          query(collection(db, 'requests'), where('projectId', '==', projectId))
-        );
-        if (!reqSnap.empty) {
-          const r = reqSnap.docs[0];
-          const rData = r.data();
-          setRequest({ id: r.id, ...rData });
-          setProject((prev) =>
-            prev ? { ...prev, infoNote: rData.infoNote } : prev
+        } else {
+          const reqSnap = await getDocs(
+            query(collection(db, 'requests'), where('projectId', '==', projectId))
           );
+          if (!reqSnap.empty) {
+            const r = reqSnap.docs[0];
+            setRequest({ id: r.id, ...r.data() });
+          }
         }
 
         if (typeIds.length > 0) {
@@ -959,7 +955,6 @@ const ProjectDetail = () => {
       </div>
       {(request?.status === 'need info' || project?.status === 'need info') && (
         <div className="border rounded p-4 mb-4 bg-yellow-50">
-          <h2 className="text-lg font-semibold mb-2">Info Needed</h2>
           <p className="mb-2 text-black dark:text-[var(--dark-text)]">
             {request?.infoNote || project?.infoNote || 'Additional information required.'}
           </p>
