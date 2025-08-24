@@ -70,6 +70,10 @@ jest.mock('react-router-dom', () => ({
 }));
 
 beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+test('shows persisted info note when status is updated', async () => {
   mockGetDoc.mockResolvedValue({
     exists: () => true,
     id: 'p1',
@@ -78,24 +82,55 @@ beforeEach(() => {
       brandCode: 'B1',
       recipeTypes: [],
       createdAt: { toDate: () => new Date() },
-      status: 'need info',
+      status: 'approved',
       infoNote: 'Need details',
     }),
   });
   mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
-});
 
-afterEach(() => {
-  jest.clearAllMocks();
-});
-
-test('shows info needed note in project detail', async () => {
   render(
     <MemoryRouter>
       <ProjectDetail />
     </MemoryRouter>
   );
+
   await waitFor(() => screen.getByText('Need details'));
   expect(screen.getByText('Need details')).toBeInTheDocument();
+});
+
+test('ignores request note when project lacks one', async () => {
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    id: 'p1',
+    data: () => ({
+      title: 'P1',
+      brandCode: 'B1',
+      recipeTypes: [],
+      createdAt: { toDate: () => new Date() },
+      status: 'new',
+    }),
+  });
+
+  mockGetDocs
+    .mockResolvedValueOnce({ empty: true, docs: [] })
+    .mockResolvedValueOnce({
+      empty: false,
+      docs: [
+        {
+          id: 'r1',
+          data: () => ({ infoNote: 'Request note' }),
+        },
+      ],
+    });
+
+  render(
+    <MemoryRouter>
+      <ProjectDetail />
+    </MemoryRouter>
+  );
+
+  await waitFor(() => {
+    expect(screen.queryByText('Request note')).toBeNull();
+  });
 });
 
