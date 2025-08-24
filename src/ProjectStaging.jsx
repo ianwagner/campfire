@@ -148,7 +148,8 @@ const ProjectStaging = () => {
           onClose={async (updated) => {
             setEditRequest(false);
             if (updated) {
-              setRequest((r) => ({ ...r, ...updated }));
+              const { id: _pid, status: _status, ...rest } = updated;
+              setRequest((r) => ({ ...r, ...rest, status: 'new' }));
               setProject((p) => ({
                 ...p,
                 title: updated.title,
@@ -158,6 +159,7 @@ const ProjectStaging = () => {
           }}
           brandCodes={[project.brandCode]}
           request={{ ...request, projectId: project.id, id: request.id }}
+          resetStatus
         />
       )}
     </div>
