@@ -158,7 +158,13 @@ const ProjectDetail = () => {
           setGroupId(g.id);
           setGroup({ id: g.id, ...gData });
           setProject((prev) =>
-            prev ? { ...prev, status: gData.status } : prev
+            prev
+              ? {
+                  ...prev,
+                  status:
+                    prev.status === 'need info' ? prev.status : gData.status,
+                }
+              : prev
           );
 
           const rSnap = await getDocs(collection(db, 'adGroups', g.id, 'recipes'));
@@ -192,14 +198,14 @@ const ProjectDetail = () => {
             collection(db, 'adGroups', g.id, 'groupAssets')
           );
           setBriefAssets(bSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        } else {
-          const reqSnap = await getDocs(
-            query(collection(db, 'requests'), where('projectId', '==', projectId))
-          );
-          if (!reqSnap.empty) {
-            const r = reqSnap.docs[0];
-            setRequest({ id: r.id, ...r.data() });
-          }
+        }
+
+        const reqSnap = await getDocs(
+          query(collection(db, 'requests'), where('projectId', '==', projectId))
+        );
+        if (!reqSnap.empty) {
+          const r = reqSnap.docs[0];
+          setRequest({ id: r.id, ...r.data() });
         }
 
         if (typeIds.length > 0) {
@@ -953,7 +959,7 @@ const ProjectDetail = () => {
           <StatusBadge status={project.status} />
         </div>
       </div>
-      {(request?.status === 'need info' || project?.status === 'need info') && (
+      {(request?.status === 'need info' || project?.status === 'need info' || project?.infoNote) && (
         <div className="border rounded p-4 mb-4 bg-yellow-50">
           <p className="mb-2 text-black dark:text-[var(--dark-text)]">
             {request?.infoNote || project?.infoNote || 'Additional information required.'}
