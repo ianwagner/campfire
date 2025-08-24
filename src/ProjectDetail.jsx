@@ -250,6 +250,18 @@ const ProjectDetail = () => {
     return () => unsub();
   }, [groupId]);
 
+  useEffect(() => {
+    if (!groupId || assets.length === 0) return;
+    const newStatus = computeGroupStatus(assets, false, false);
+    if (newStatus !== group?.status) {
+      updateDoc(doc(db, 'adGroups', groupId), { status: newStatus }).catch(
+        (err) => console.error('Failed to update group status', err)
+      );
+      setGroup((p) => (p ? { ...p, status: newStatus } : p));
+      setProject((p) => (p ? { ...p, status: newStatus } : p));
+    }
+  }, [assets, groupId, group?.status]);
+
   const updateLayout = () => {
     if (typeof window === 'undefined') return;
     const gallery = galleryRef.current;
@@ -572,9 +584,7 @@ const ProjectDetail = () => {
     return new Blob([zip], { type: 'application/zip' });
   };
 
-  const galleryAssets = assets.filter(
-    (a) => a.status !== 'archived' && a.status !== 'pending'
-  );
+  const galleryAssets = assets.filter((a) => a.status !== 'archived');
   const approvedAssets = galleryAssets.filter((a) => a.status === 'approved');
 
   const handleDownload = async () => {
