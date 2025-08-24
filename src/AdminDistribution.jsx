@@ -339,9 +339,9 @@ const AdminDistribution = () => {
             <FiColumns />
           </IconButton>
           {showColMenu && (
-            <div className="absolute left-0 top-full mt-2 bg-white border rounded shadow p-2 z-10 space-y-1">
+            <div className="absolute right-0 top-full mt-2 bg-white border rounded shadow p-2 z-10 space-y-1 max-h-96 overflow-y-auto w-max">
               {allColumnDefs.map((c) => (
-                <label key={c.key} className="flex items-center gap-2 whitespace-nowrap">
+                <label key={c.key} className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={selectedCols.includes(c.key)}
