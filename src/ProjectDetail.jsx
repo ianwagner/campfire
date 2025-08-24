@@ -33,6 +33,7 @@ import Table from './components/common/Table.jsx';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
 import Modal from './components/Modal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
+import DescribeProjectModal from './DescribeProjectModal.jsx';
 import {
   FiLink,
   FiDownload,
@@ -85,7 +86,7 @@ const statusColorMap = {
   draft: 'var(--pending-color)',
   in_design: 'var(--accent-color)',
   edit_request: 'var(--edit-color)',
-  need_info: 'var(--edit-color)',
+  info_needed: 'var(--edit-color)',
   done: 'var(--approve-color)',
   mixed: 'var(--edit-color)',
 };
@@ -119,9 +120,9 @@ const ProjectDetail = () => {
   const [editingBrief, setEditingBrief] = useState(false);
   const [newBriefFiles, setNewBriefFiles] = useState([]);
   const [viewMode, setViewMode] = useState('table');
-  const [infoResponse, setInfoResponse] = useState('');
   const [showCopyForm, setShowCopyForm] = useState(false);
   const [showCopySection, setShowCopySection] = useState(true);
+  const [showRequestModal, setShowRequestModal] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -786,22 +787,6 @@ const ProjectDetail = () => {
     }
   };
 
-  const handleInfoResponse = async () => {
-    if (!request) return;
-    try {
-      await updateDoc(doc(db, 'requests', request.id), {
-        clientInfoResponse: infoResponse,
-        status: 'pending',
-      });
-      await updateDoc(doc(db, 'projects', project.id), { status: 'pending' });
-      setRequest((p) => (p ? { ...p, status: 'pending', clientInfoResponse: infoResponse } : p));
-      setProject((p) => (p ? { ...p, status: 'pending' } : p));
-      setInfoResponse('');
-    } catch (err) {
-      console.error('Failed to submit info response', err);
-    }
-  };
-
   const handleDueDateChange = async (value) => {
     if (!groupId) return;
     const date = value ? Timestamp.fromDate(new Date(value)) : null;
@@ -917,19 +902,6 @@ const ProjectDetail = () => {
           </>
         }
       />
-      {request?.status === 'need info' && (
-        <div className="border rounded p-4 mb-4 bg-yellow-50">
-          <p className="mb-2 text-black dark:text-[var(--dark-text)]">{request.infoNote || 'Additional information required.'}</p>
-          <textarea
-            value={infoResponse}
-            onChange={(e) => setInfoResponse(e.target.value)}
-            className="w-full p-2 border rounded"
-            rows={3}
-            placeholder="Your response"
-          />
-          <button onClick={handleInfoResponse} className="btn-primary mt-2">Submit</button>
-        </div>
-      )}
       <div className="flex flex-col md:flex-row gap-4 mb-4">
         <div className="border rounded p-4 flex-1 max-w-[60rem]">
           <div className="flex justify-between items-start">
@@ -977,6 +949,12 @@ const ProjectDetail = () => {
           <StatusBadge status={project.status} />
         </div>
       </div>
+      {request?.status === 'info needed' && request.infoNote && (
+        <div className="border rounded p-4 mb-4 bg-yellow-50">
+          <p className="mb-2 text-black dark:text-[var(--dark-text)]">{request.infoNote}</p>
+          <Button onClick={() => setShowRequestModal(true)}>Add Info</Button>
+        </div>
+      )}
       <div className="space-y-4">
         <div className="border rounded p-4 max-w-[60rem]">
           <button className="font-medium" onClick={handleToggleBrief}>
@@ -1360,6 +1338,25 @@ const ProjectDetail = () => {
         password={group.password}
         onClose={() => setShareModal(false)}
         onUpdate={(u) => setGroup((p) => ({ ...p, ...u }))}
+      />
+    )}
+    {showRequestModal && request && (
+      <DescribeProjectModal
+        request={request}
+        brandCodes={[project?.brandCode || '']}
+        onClose={async (updated) => {
+          setShowRequestModal(false);
+          if (updated) {
+            try {
+              await updateDoc(doc(db, 'requests', request.id), { status: 'new' });
+              await updateDoc(doc(db, 'projects', project.id), { status: 'pending' });
+              setRequest((p) => (p ? { ...p, ...updated, status: 'new' } : p));
+              setProject((p) => (p ? { ...p, ...updated, status: 'pending' } : p));
+            } catch (err) {
+              console.error('Failed to submit info response', err);
+            }
+          }
+        }}
       />
     )}
     </>
