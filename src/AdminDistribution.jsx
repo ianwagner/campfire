@@ -34,6 +34,33 @@ const baseColumnDefs = [
   { key: 'links', label: 'Links', width: '12rem' },
 ];
 
+const baseColumnKeys = new Set(baseColumnDefs.map((c) => c.key));
+
+const flattenMeta = (obj, prefix = '', res = {}) => {
+  Object.entries(obj || {}).forEach(([k, v]) => {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (v && typeof v === 'object') {
+      if (Array.isArray(v)) {
+        v.forEach((item, idx) => {
+          if (item && typeof item === 'object') {
+            flattenMeta(item, `${key}.${idx}`, res);
+          } else {
+            res[`${key}.${idx}`] = item;
+          }
+        });
+      } else {
+        flattenMeta(v, key, res);
+      }
+    } else {
+      res[key] = v;
+    }
+  });
+  Object.keys(res).forEach((k) => {
+    if (baseColumnKeys.has(k)) delete res[k];
+  });
+  return res;
+};
+
 const AdminDistribution = () => {
   const [months, setMonths] = useState([]);
   const [dueMonths, setDueMonths] = useState([]);
@@ -106,10 +133,14 @@ const AdminDistribution = () => {
         const metaKeys = new Set();
         for (const gDoc of gSnap.docs) {
           const gData = gDoc.data();
-          const groupMeta = gData.metadata || {};
+          const groupMeta = flattenMeta(gData.metadata || {});
           Object.keys(groupMeta).forEach((k) => metaKeys.add(k));
-          const rSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'recipes'));
-          const aSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'assets'));
+          const rSnap = await getDocs(
+            collection(db, 'adGroups', gDoc.id, 'recipes'),
+          );
+          const aSnap = await getDocs(
+            collection(db, 'adGroups', gDoc.id, 'assets'),
+          );
 
           const assetMap = {};
           aSnap.docs.forEach((aDoc) => {
@@ -132,7 +163,7 @@ const AdminDistribution = () => {
 
           rSnap.docs.forEach((rDoc, idx) => {
             const rData = rDoc.data();
-            const recipeMeta = rData.metadata || {};
+            const recipeMeta = flattenMeta(rData.metadata || {});
             Object.keys(recipeMeta).forEach((k) => metaKeys.add(k));
             const recipeNo = rData.recipeNo || rDoc.id || idx + 1;
             const product =
