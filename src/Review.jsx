@@ -49,6 +49,7 @@ import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
 import useSiteSettings from './useSiteSettings';
 import { deductCredits } from './utils/credits';
+import computeGroupStatus from './utils/computeGroupStatus';
 
 const getVersion = (ad) =>
   ad.version || parseAdFilename(ad.filename || '').version || 1;
@@ -1027,8 +1028,9 @@ useEffect(() => {
             }),
           );
 
-          setAds((prev) =>
-            prev.map((a) =>
+          let updatedAdsState = [];
+          setAds((prev) => {
+            const updated = prev.map((a) =>
               a.assetId === asset.assetId
                 ? {
                     ...a,
@@ -1041,9 +1043,11 @@ useEffect(() => {
                       ? { isResolved: false }
                       : {}),
                   }
-                : a
-            )
-          );
+                : a,
+            );
+            updatedAdsState = updated;
+            return updated;
+          });
           setReviewAds((prev) =>
             prev.map((a) =>
               a.assetId === asset.assetId
@@ -1082,15 +1086,39 @@ useEffect(() => {
 
           const groupRef = doc(db, 'adGroups', asset.adGroupId);
           const gSnap = await getDoc(groupRef);
+          const recipeStatusMap = {};
+          (updatedAdsState || []).forEach((a) => {
+            const info = parseAdFilename(a.filename || '');
+            const recipe = a.recipeCode || info.recipeCode || 'unknown';
+            if (!recipe) return;
+            const priority = {
+              approved: 4,
+              edit_requested: 3,
+              rejected: 2,
+              ready: 1,
+              pending: 0,
+              archived: 2,
+            };
+            const prev = recipeStatusMap[recipe];
+            const curr = a.status;
+            if (!prev || (priority[curr] || 0) > (priority[prev] || 0)) {
+              recipeStatusMap[recipe] = curr;
+            }
+          });
+          const groupStatus = computeGroupStatus(
+            Object.values(recipeStatusMap).map((s) => ({ status: s })),
+          );
           const updateObj = {
             ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
             ...(incApproved ? { approvedCount: increment(incApproved) } : {}),
             ...(incRejected ? { rejectedCount: increment(incRejected) } : {}),
             ...(incEdit ? { editCount: increment(incEdit) } : {}),
             lastUpdated: serverTimestamp(),
-            ...(gSnap.exists() && !gSnap.data().thumbnailUrl ? { thumbnailUrl: asset.firebaseUrl } : {}),
+            status: groupStatus,
+            ...(gSnap.exists() && !gSnap.data().thumbnailUrl
+              ? { thumbnailUrl: asset.firebaseUrl }
+              : {}),
           };
-          // avoid changing the overall ad group status mid-review
           updates.push(updateDoc(groupRef, updateObj));
 
           if (responseType === 'approve' && asset.parentAdId) {
