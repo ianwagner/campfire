@@ -443,6 +443,38 @@
     color: var(--pending-color);
   }
 
+  .status-dot {
+    @apply w-4 h-4 rounded-full border-2 border-white;
+    display: inline-block;
+  }
+  .status-dot.status-new,
+  .status-dot.status-pending,
+  .status-dot.status-processing,
+  .status-dot.status-briefed,
+  .status-dot.status-draft,
+  .status-dot.status-default {
+    background-color: var(--pending-color);
+  }
+  .status-dot.status-ready,
+  .status-dot.status-in_design {
+    background-color: var(--accent-color);
+  }
+  .status-dot.status-approved,
+  .status-dot.status-done {
+    background-color: var(--approve-color);
+  }
+  .status-dot.status-rejected {
+    background-color: var(--reject-color);
+  }
+  .status-dot.status-edit_requested,
+  .status-dot.status-edit_request,
+  .status-dot.status-mixed {
+    background-color: var(--edit-color);
+  }
+  .status-dot.status-archived {
+    background-color: var(--table-row-alt-bg);
+  }
+
   .status-select {
     @apply p-1 border rounded;
   }
