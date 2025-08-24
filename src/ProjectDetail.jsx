@@ -1148,7 +1148,12 @@ const ProjectDetail = () => {
                         />
                       )}
                     </td>
-                    <td className="break-all">{a.filename || a.name}</td>
+                    <td
+                      className="max-w-[20ch] truncate"
+                      title={a.filename || a.name}
+                    >
+                      {a.filename || a.name}
+                    </td>
                     <td className="align-top">
                       <StatusBadge status={a.status} />
                       {a.status === 'edit_requested' && (a.comment || a.copyEdit) && (
@@ -1166,10 +1171,15 @@ const ProjectDetail = () => {
               <div className="asset-gallery mt-2" ref={galleryRef}>
                 {visibleAssets.map((a) => (
                   <div key={a.id} className="asset-gallery-item">
-                    <span
-                      className="absolute top-1 right-1 z-10 w-3 h-3 rounded-full border-2 border-white"
-                      style={{ backgroundColor: getStatusColor(a.status) }}
-                    />
+                    <span className="absolute top-1 right-1 z-10 group">
+                      <span
+                        className="block w-3 h-3 rounded-full border-2 border-white"
+                        style={{ backgroundColor: getStatusColor(a.status) }}
+                      />
+                      <span className="absolute right-0 mt-1 px-1 py-0.5 text-xs bg-black text-white rounded whitespace-nowrap opacity-0 group-hover:opacity-100">
+                        {a.status}
+                      </span>
+                    </span>
                     {isVideoUrl(a.firebaseUrl || a.url) ? (
                       <VideoPlayer
                         src={a.firebaseUrl || a.url}
