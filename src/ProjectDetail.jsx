@@ -127,11 +127,6 @@ const ProjectDetail = () => {
   const [editRequest, setEditRequest] = useState(false);
   const [showCopySection, setShowCopySection] = useState(false);
 
-  const infoNote = request?.infoNote || project?.infoNote || "";
-  const showNeedInfo =
-    infoNote || request?.status === "need info" || project?.status === "need info";
-
-
   useEffect(() => {
     const load = async () => {
       try {
@@ -964,13 +959,14 @@ const ProjectDetail = () => {
           <StatusBadge status={project.status} />
         </div>
       </div>
-      {showNeedInfo && (
+      {(request?.status === 'need info' ||
+        project?.status === 'need info' ||
+        request?.infoNote ||
+        project?.infoNote) && (
         <div className="border rounded p-4 mb-4 bg-yellow-50">
-          {infoNote && (
-            <p className="mb-2 text-black dark:text-[var(--dark-text)]">
-              {infoNote}
-            </p>
-          )}
+          <p className="mb-2 text-black dark:text-[var(--dark-text)]">
+            {request?.infoNote ?? project?.infoNote ?? 'Additional information required.'}
+          </p>
           <button
             className="btn-primary"
             onClick={() => setEditRequest(true)}
