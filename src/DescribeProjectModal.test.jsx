@@ -26,3 +26,16 @@ test('alerts when saving without a title', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   expect(window.alert).toHaveBeenCalledWith('Please enter a title before saving.');
 });
+
+test('shows info needed note when provided', () => {
+  render(
+    <DescribeProjectModal
+      onClose={jest.fn()}
+      brandCodes={['B1']}
+      request={{ infoNote: 'Need assets' }}
+    />
+  );
+  expect(
+    screen.getByText('Info Needed: Need assets')
+  ).toBeInTheDocument();
+});

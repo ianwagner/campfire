@@ -152,6 +152,13 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null, resetS
       header={<h2 className="text-xl font-semibold p-2">Describe Project</h2>}
     >
       <div className="space-y-3 p-2">
+        {request?.infoNote && (
+          <div className="bg-yellow-50 border rounded p-2">
+            <p className="text-black dark:text-[var(--dark-text)] mb-0">
+              Info Needed: {request.infoNote}
+            </p>
+          </div>
+        )}
         {brandCodes.length > 1 && (
           <div>
             <label className="block mb-1 text-sm font-medium">Brand</label>
