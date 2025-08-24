@@ -11,6 +11,7 @@ jest.mock('firebase/firestore', () => ({
   doc: jest.fn(),
   serverTimestamp: jest.fn(),
   Timestamp: { fromDate: jest.fn() },
+  deleteField: jest.fn(),
 }));
 jest.mock('./components/ScrollModal.jsx', () => ({ children }) => <div>{children}</div>);
 jest.mock('./components/InfoTooltip.jsx', () => () => <div />);
