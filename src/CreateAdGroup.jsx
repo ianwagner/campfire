@@ -55,7 +55,7 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
       const groupRef = await addDoc(collection(db, 'adGroups'), {
         name: title.trim(),
         brandCode,
-        status: 'briefed',
+        status: 'processing',
         uploadedBy: auth.currentUser?.uid || null,
         createdAt: serverTimestamp(),
         lastUpdated: serverTimestamp(),

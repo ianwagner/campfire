@@ -57,7 +57,7 @@ test('refresh button updates project status', async () => {
             data: () => ({
               title: 'Proj1',
               brandCode: 'B1',
-              status: 'briefed',
+              status: 'processing',
             }),
           },
         ],
@@ -69,7 +69,7 @@ test('refresh button updates project status', async () => {
         docs: [
           {
             id: 'g1',
-            data: () => ({ name: 'Proj1', brandCode: 'B1', status: 'briefed' }),
+            data: () => ({ name: 'Proj1', brandCode: 'B1', status: 'processing' }),
           },
         ],
       });
@@ -85,7 +85,7 @@ test('refresh button updates project status', async () => {
   fireEvent.click(screen.getByText('Client 1'));
 
   const row = (await screen.findByText('Proj1')).closest('li');
-  expect(within(row).getByText('briefed')).toBeInTheDocument();
+  expect(within(row).getByText('processing')).toBeInTheDocument();
 
   fireEvent.click(within(row).getByText('Refresh'));
 

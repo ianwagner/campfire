@@ -315,8 +315,9 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           }
         } else if (req.status === 'need info') {
           try {
+            const projStatus = status === 'ready' ? 'processing' : status;
             await updateDoc(doc(db, 'projects', req.projectId), {
-              status,
+              status: projStatus,
               infoNote: deleteField(),
             });
           } catch (err) {
@@ -439,7 +440,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           uploadedBy: req.createdBy || null,
           projectId: req.projectId || null,
           createdAt: serverTimestamp(),
-          status: 'pending',
+          status: 'processing',
           reviewedCount: 0,
           approvedCount: 0,
           editCount: 0,

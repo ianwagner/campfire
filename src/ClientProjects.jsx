@@ -80,7 +80,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
       const groupRef = await addDoc(collection(db, 'adGroups'), {
         name: title.trim(),
         brandCode,
-        status: 'briefed',
+        status: 'processing',
         uploadedBy: auth.currentUser?.uid || null,
         projectId: projRef.id,
         createdAt: serverTimestamp(),
