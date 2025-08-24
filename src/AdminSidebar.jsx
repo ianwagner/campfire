@@ -9,6 +9,7 @@ import {
   FiBriefcase,
   FiPackage,
   FiShare2,
+  FiFolder,
   FiSettings,
   FiCopy,
   FiBell,
@@ -24,6 +25,7 @@ const tabs = [
   { label: 'Accounts', path: '/admin/accounts', icon: FiUsers },
   { label: 'Brands', path: '/admin/brands', icon: FiBriefcase },
   { label: 'Agencies', path: '/admin/agencies', icon: FiPackage },
+  { label: 'Client Projects', path: '/ops/projects', icon: FiFolder },
   { label: 'Distribution', path: '/admin/distribution', icon: FiShare2 },
   {
     label: 'Settings',

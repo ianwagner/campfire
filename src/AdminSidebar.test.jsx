@@ -91,6 +91,16 @@ test('navigates to distribution page when Distribution clicked', () => {
   expect(mockNavigate).toHaveBeenCalledWith('/admin/distribution');
 });
 
+test('navigates to client projects page when Client Projects clicked', () => {
+  render(
+    <MemoryRouter>
+      <AdminSidebar />
+    </MemoryRouter>
+  );
+  fireEvent.click(screen.getByText('Client Projects'));
+  expect(mockNavigate).toHaveBeenCalledWith('/ops/projects');
+});
+
 test('navigates to ad recipes page when Ad Recipes clicked', () => {
   render(
     <MemoryRouter>
