@@ -634,6 +634,16 @@ const ProjectDetail = () => {
           );
         }
       });
+      for (const a of assets) {
+        const snap = await getDocs(
+          collection(db, 'adGroups', groupId, 'assets', a.id, 'history')
+        );
+        snap.forEach((h) => {
+          batch.delete(
+            doc(db, 'adGroups', groupId, 'assets', a.id, 'history', h.id)
+          );
+        });
+      }
       await batch.commit();
       setAssets((prev) => {
         const groups = {};
