@@ -8,7 +8,7 @@ jest.mock('./firebase/config', () => ({ db: {}, auth: { currentUser: {} } }));
 
 const mockGetDoc = jest.fn();
 const mockGetDocs = jest.fn();
-const mockCollection = jest.fn();
+const mockCollection = jest.fn((...args) => args);
 const mockQuery = jest.fn((...args) => args);
 const mockWhere = jest.fn();
 const mockUpdateDoc = jest.fn();
@@ -48,8 +48,18 @@ jest.mock('./components/ShareLinkModal.jsx', () => () => <div />);
 jest.mock('./components/Modal.jsx', () => ({ children }) => <div>{children}</div>);
 jest.mock('./CopyRecipePreview.jsx', () => () => <div />);
 jest.mock('react-icons/fi', () => ({
-  FiLink: () => <div />, FiDownload: () => <div />, FiArchive: () => <div />, FiFile: () => <div />,
-  FiPenTool: () => <div />, FiFileText: () => <div />, FiType: () => <div />, FiGrid: () => <div />, FiList: () => <div />, FiCheck: () => <div />,
+  FiLink: () => <div />,
+  FiDownload: () => <div />,
+  FiArchive: () => <div />,
+  FiFile: () => <div />,
+  FiPenTool: () => <div />,
+  FiFileText: () => <div />,
+  FiType: () => <div />,
+  FiGrid: () => <div />,
+  FiList: () => <div />,
+  FiCheck: () => <div />,
+  FiEye: () => <div />,
+  FiEyeOff: () => <div />,
 }));
 jest.mock('lucide-react', () => ({ Bubbles: () => <div /> }));
 jest.mock('./utils/archiveGroup', () => jest.fn());
@@ -97,5 +107,39 @@ test('shows info needed note in project detail', async () => {
   );
   await waitFor(() => screen.getByText('Need details'));
   expect(screen.getByText('Need details')).toBeInTheDocument();
+});
+
+test('still shows info note when project is pending and request access is denied', async () => {
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    id: 'p1',
+    data: () => ({
+      title: 'P1',
+      brandCode: 'B1',
+      recipeTypes: [],
+      createdAt: { toDate: () => new Date() },
+      status: 'pending',
+      infoNote: 'Need details',
+    }),
+  });
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) && Array.isArray(args[0]) ? args[0][1] : args[1];
+    if (col === 'requests') {
+      return Promise.reject({ code: 'permission-denied' });
+    }
+    return Promise.resolve({ empty: true, docs: [] });
+  });
+
+  render(
+    <MemoryRouter>
+      <ProjectDetail />
+    </MemoryRouter>
+  );
+
+  await waitFor(() => screen.getByText('Need details'));
+  expect(screen.getByText('Need details')).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Add Info' })
+  ).toBeInTheDocument();
 });
 
