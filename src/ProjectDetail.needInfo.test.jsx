@@ -49,7 +49,7 @@ jest.mock('./components/Modal.jsx', () => ({ children }) => <div>{children}</div
 jest.mock('./CopyRecipePreview.jsx', () => () => <div />);
 jest.mock('react-icons/fi', () => ({
   FiLink: () => <div />, FiDownload: () => <div />, FiArchive: () => <div />, FiFile: () => <div />,
-  FiPenTool: () => <div />, FiFileText: () => <div />, FiType: () => <div />, FiGrid: () => <div />, FiList: () => <div />, FiCheck: () => <div />, FiEye: () => <div />, FiEyeOff: () => <div />,
+  FiPenTool: () => <div />, FiFileText: () => <div />, FiType: () => <div />, FiGrid: () => <div />, FiList: () => <div />, FiCheck: () => <div />,
 }));
 jest.mock('lucide-react', () => ({ Bubbles: () => <div /> }));
 jest.mock('./utils/archiveGroup', () => jest.fn());
