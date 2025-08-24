@@ -362,3 +362,63 @@ test('scrubs review history', async () => {
   });
   confirmSpy.mockRestore();
 });
+
+test('scrubbing pending or edit requested ads sets status to ready', async () => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({
+      docs: [
+        {
+          id: 'asset1',
+          data: () => ({ filename: 'ad_V1.png', version: 1, status: 'pending' }),
+        },
+        {
+          id: 'asset2',
+          data: () => ({ filename: 'ad_V2.png', version: 2, parentAdId: 'asset1', status: 'edit_requested' }),
+        },
+        {
+          id: 'asset3',
+          data: () => ({ filename: 'ad3.png', version: 1, status: 'rejected' }),
+        },
+      ],
+    });
+    return jest.fn();
+  });
+  mockGetDocs.mockImplementation((colRef) => {
+    if (Array.isArray(colRef) && colRef.includes('history')) {
+      const docs = [{ id: 'h1' }];
+      return Promise.resolve({
+        docs,
+        forEach: (cb) => docs.forEach((d) => cb(d)),
+      });
+    }
+    return Promise.resolve({ empty: true, docs: [], forEach: () => {} });
+  });
+  const confirmSpy = jest
+    .spyOn(window, 'confirm')
+    .mockReturnValue(true);
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>,
+  );
+
+  await screen.findByLabelText('Scrub Review History');
+  fireEvent.click(screen.getByLabelText('Scrub Review History'));
+
+  expect(confirmSpy).toHaveBeenCalledWith(
+    'One or more ads are pending or have an active edit request. Would you still like to scrub them?'
+  );
+
+  await waitFor(() => {
+    const batch = require('firebase/firestore').writeBatch.mock.results[0].value;
+    expect(batch.update).toHaveBeenCalledWith(
+      'adGroups/group1/assets/asset2',
+      expect.objectContaining({ status: 'ready' })
+    );
+    expect(batch.update).toHaveBeenCalledWith(
+      'adGroups/group1/assets/asset3',
+      expect.objectContaining({ status: 'archived' })
+    );
+  });
+  confirmSpy.mockRestore();
+});

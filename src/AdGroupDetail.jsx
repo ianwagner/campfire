@@ -819,8 +819,13 @@ const AdGroupDetail = () => {
 
   const scrubReviewHistory = async () => {
     if (!group) return;
-    if (!window.confirm("Scrub review history? This will remove older revisions."))
-      return;
+    const hasPendingOrEdit = assets.some(
+      (a) => a.status === "pending" || a.status === "edit_requested"
+    );
+    const confirmMsg = hasPendingOrEdit
+      ? "One or more ads are pending or have an active edit request. Would you still like to scrub them?"
+      : "Scrub review history? This will remove older revisions.";
+    if (!window.confirm(confirmMsg)) return;
     try {
       const chains = {};
       assets.forEach((a) => {
@@ -830,9 +835,10 @@ const AdGroupDetail = () => {
       });
       const batch = writeBatch(db);
       Object.entries(chains).forEach(([rootId, list]) => {
-        const latest = list.reduce((acc, cur) =>
-          cur.version > acc.version ? cur : acc,
-        list[0]);
+        const latest = list.reduce(
+          (acc, cur) => (cur.version > acc.version ? cur : acc),
+          list[0]
+        );
         const update = {};
         if (list.length > 1) {
           list
@@ -859,8 +865,12 @@ const AdGroupDetail = () => {
             update.filename = stripVersion(latest.filename) + ext;
           }
         }
-        if (latest.status === "approved") update.status = "ready";
-        if (latest.status === "rejected") update.status = "archived";
+        if (hasPendingOrEdit) {
+          update.status = latest.status === "rejected" ? "archived" : "ready";
+        } else {
+          if (latest.status === "approved") update.status = "ready";
+          if (latest.status === "rejected") update.status = "archived";
+        }
         if (Object.keys(update).length > 0) {
           batch.update(doc(db, "adGroups", id, "assets", latest.id), update);
         }
@@ -885,9 +895,10 @@ const AdGroupDetail = () => {
         });
         const result = [];
         Object.entries(groups).forEach(([rootId, list]) => {
-          const latest = list.reduce((acc, cur) =>
-            cur.version > acc.version ? cur : acc,
-          list[0]);
+          const latest = list.reduce(
+            (acc, cur) => (cur.version > acc.version ? cur : acc),
+            list[0]
+          );
           const updated = { ...latest };
           if (list.length > 1) {
             updated.version = 1;
@@ -899,8 +910,12 @@ const AdGroupDetail = () => {
               updated.filename = stripVersion(latest.filename) + ext;
             }
           }
-          if (latest.status === "approved") updated.status = "ready";
-          if (latest.status === "rejected") updated.status = "archived";
+          if (hasPendingOrEdit) {
+            updated.status = latest.status === "rejected" ? "archived" : "ready";
+          } else {
+            if (latest.status === "approved") updated.status = "ready";
+            if (latest.status === "rejected") updated.status = "archived";
+          }
           result.push(updated);
         });
         return result;
