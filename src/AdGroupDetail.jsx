@@ -1568,13 +1568,12 @@ const AdGroupDetail = () => {
   };
 
   useEffect(() => {
-    if (!clientModal || !group?.brandCode) return;
+    if (!clientModal) return;
     const fetchClients = async () => {
       try {
         const snap = await getDocs(
           query(
             collection(db, "users"),
-            where("brandCodes", "array-contains", group.brandCode),
             where("role", "==", "client"),
           ),
         );
@@ -1585,7 +1584,7 @@ const AdGroupDetail = () => {
       }
     };
     fetchClients();
-  }, [clientModal, group?.brandCode]);
+  }, [clientModal]);
 
   const handleSendToProjects = async (clientId) => {
     if (!id || !group || !clientId) return;
