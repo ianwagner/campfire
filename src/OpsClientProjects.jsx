@@ -14,10 +14,14 @@ import {
 import { FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
+import useAgencies from './useAgencies';
 import computeGroupStatus from './utils/computeGroupStatus';
 
 const OpsClientProjects = () => {
   const { agencyId } = useUserRole(auth.currentUser?.uid);
+  const { agencies } = useAgencies();
+  const [agencyOverride, setAgencyOverride] = useState('');
+  const activeAgencyId = agencyId || agencyOverride;
   const [clients, setClients] = useState([]);
   const [expanded, setExpanded] = useState({});
   const [projects, setProjects] = useState({});
@@ -28,14 +32,17 @@ const OpsClientProjects = () => {
   const groupUnsubs = useRef({});
 
   useEffect(() => {
-    if (!agencyId) return;
+    if (!activeAgencyId) {
+      setClients([]);
+      return;
+    }
     const fetchClients = async () => {
       setLoading(true);
       try {
         const q = query(
           collection(db, 'users'),
           where('role', '==', 'client'),
-          where('agencyId', '==', agencyId)
+          where('agencyId', '==', activeAgencyId)
         );
         const snap = await getDocs(q);
         setClients(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -47,7 +54,7 @@ const OpsClientProjects = () => {
       }
     };
     fetchClients();
-  }, [agencyId]);
+  }, [activeAgencyId]);
 
   useEffect(() => {
     const merged = {};
@@ -75,7 +82,7 @@ const OpsClientProjects = () => {
         const projQ = query(
           collection(db, 'projects'),
           where('userId', '==', id),
-          where('agencyId', '==', agencyId),
+          where('agencyId', '==', activeAgencyId),
           orderBy('createdAt', 'desc')
         );
         projUnsubs.current[id] = onSnapshot(
@@ -196,14 +203,32 @@ const OpsClientProjects = () => {
     }
   };
 
-  if (!agencyId) {
-    return <p className="p-4">No agency assigned.</p>;
-  }
-
   return (
     <div className="p-4 max-w-4xl mx-auto">
       <h1 className="text-2xl mb-4">Client Projects</h1>
-      {loading ? (
+      {!agencyId && (
+        <div className="mb-4">
+          <label htmlFor="agency-select" className="block mb-2">
+            Agency
+          </label>
+          <select
+            id="agency-select"
+            className="border p-2 rounded"
+            value={agencyOverride}
+            onChange={(e) => setAgencyOverride(e.target.value)}
+          >
+            <option value="">Select agency</option>
+            {agencies.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name || a.id}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {!activeAgencyId ? (
+        <p>Select an agency to view projects.</p>
+      ) : loading ? (
         <p>Loading...</p>
       ) : (
         <div className="space-y-2">
@@ -245,14 +270,14 @@ const OpsClientProjects = () => {
                               >
                                 Refresh
                               </button>
-                              {status !== 'archived' && (
-                                <button
-                                  className="text-sm text-blue-600"
-                                  onClick={() => handleArchive(c.id, p.id)}
-                                >
-                                  Archive
-                                </button>
-                              )}
+                                {status !== 'archived' && (
+                                  <button
+                                    className="text-sm text-blue-600"
+                                    onClick={() => handleArchive(c.id, p.id)}
+                                  >
+                                    Archive
+                                  </button>
+                                )}
                               <button
                                 className="text-sm text-red-600"
                                 onClick={() => handleDelete(c.id, p.id)}

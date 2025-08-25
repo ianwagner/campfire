@@ -1,7 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import OpsClientProjects from './OpsClientProjects';
 
 jest.mock('./firebase/config', () => ({
   db: {},
@@ -21,13 +20,20 @@ jest.mock('firebase/firestore', () => ({
   serverTimestamp: jest.fn(),
 }));
 
-jest.mock('./useUserRole', () => () => ({ agencyId: 'a1' }));
+jest.mock('./useUserRole', () => jest.fn());
+jest.mock('./useAgencies', () => jest.fn());
 
 import { getDocs, onSnapshot, updateDoc } from 'firebase/firestore';
+import useUserRole from './useUserRole';
+import useAgencies from './useAgencies';
+import OpsClientProjects from './OpsClientProjects';
 
 afterEach(() => jest.clearAllMocks());
 
 test('refresh button updates project status', async () => {
+  useUserRole.mockReturnValue({ agencyId: 'a1' });
+  useAgencies.mockReturnValue({ agencies: [] });
+
   getDocs
     .mockResolvedValueOnce({
       docs: [
@@ -91,5 +97,25 @@ test('refresh button updates project status', async () => {
 
   await waitFor(() => expect(updateDoc).toHaveBeenCalled());
   await waitFor(() => expect(within(row).getByText('ready')).toBeInTheDocument());
+});
+
+test('admin can select agency to view client projects', async () => {
+  useUserRole.mockReturnValue({ agencyId: null });
+  useAgencies.mockReturnValue({ agencies: [{ id: 'a1', name: 'Agency 1' }] });
+
+  getDocs.mockResolvedValueOnce({
+    docs: [
+      {
+        id: 'c1',
+        data: () => ({ fullName: 'Client 1' }),
+      },
+    ],
+  });
+
+  render(<OpsClientProjects />);
+
+  fireEvent.change(screen.getByLabelText('Agency'), { target: { value: 'a1' } });
+
+  await screen.findByText('Client 1');
 });
 
