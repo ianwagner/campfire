@@ -1568,33 +1568,32 @@ const AdGroupDetail = () => {
   };
 
   useEffect(() => {
-    if (!clientModal || !group?.brandCode) return;
-    const fetchClients = async () => {
-      try {
-        const snap = await getDocs(
-          query(
-            collection(db, "users"),
-            where("brandCodes", "array-contains", group.brandCode),
-            where("role", "==", "client"),
-          ),
-        );
+    if (!clientModal) return;
+    const q = query(collection(db, "users"), where("role", "==", "client"));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
         setClients(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (err) {
+      },
+      (err) => {
         console.error("Failed to fetch clients", err);
         setClients([]);
-      }
-    };
-    fetchClients();
-  }, [clientModal, group?.brandCode]);
+      },
+    );
+    return () => unsub();
+  }, [clientModal]);
 
   const handleSendToProjects = async (clientId) => {
     if (!id || !group || !clientId) return;
     try {
+      const userSnap = await getDoc(doc(db, "users", clientId));
+      const clientData = userSnap.exists() ? userSnap.data() : {};
       const projRef = await addDoc(collection(db, "projects"), {
         title: group.name || "",
         brandCode: group.brandCode || "",
         status: group.status || "briefed",
         userId: clientId,
+        agencyId: clientData.agencyId || null,
         createdAt: serverTimestamp(),
       });
       await updateDoc(doc(db, "adGroups", id), {

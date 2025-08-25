@@ -71,11 +71,16 @@ jest.mock('react-router-dom', () => ({
 }));
 
 beforeEach(() => {
-  mockGetDoc.mockResolvedValue({
-    exists: () => true,
-    id: 'group1',
-    data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'draft' }),
-  });
+  mockGetDoc
+    .mockResolvedValueOnce({
+      exists: () => true,
+      id: 'group1',
+      data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'draft' }),
+    })
+    .mockResolvedValue({
+      exists: () => true,
+      data: () => ({ agencyId: 'ag1' }),
+    });
   mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
   mockUseUserRole.mockReturnValue({ role: 'admin', brandCodes: [], loading: false });
 });
@@ -114,18 +119,15 @@ test('editor can open recipe modal and save recipes', async () => {
 });
 
 test('admin can send ad group to client projects', async () => {
-  mockOnSnapshot.mockImplementation((col, cb) => {
-    cb({ docs: [] });
+  mockOnSnapshot.mockImplementation((target, cb) => {
+    if (Array.isArray(target) && target[0][1] === 'users') {
+      cb({ docs: [{ id: 'client1', data: () => ({ fullName: 'Client 1', agencyId: 'ag1' }) }] });
+    } else {
+      cb({ docs: [] });
+    }
     return jest.fn();
   });
   mockAddDoc.mockResolvedValue({ id: 'proj1' });
-  mockGetDocs
-    .mockResolvedValueOnce({ empty: true, docs: [] })
-    .mockResolvedValueOnce({ empty: true, docs: [] })
-    .mockResolvedValueOnce({
-      empty: false,
-      docs: [{ id: 'client1', data: () => ({ fullName: 'Client 1' }) }],
-    });
   window.alert = jest.fn();
 
   render(
@@ -140,7 +142,7 @@ test('admin can send ad group to client projects', async () => {
   fireEvent.click(clientBtn);
 
   await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
-  expect(mockAddDoc.mock.calls[0][1]).toMatchObject({ userId: 'client1' });
+  expect(mockAddDoc.mock.calls[0][1]).toMatchObject({ userId: 'client1', agencyId: 'ag1' });
   expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1', {
     projectId: 'proj1',
     uploadedBy: 'client1',
