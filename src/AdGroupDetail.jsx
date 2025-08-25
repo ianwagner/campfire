@@ -1601,6 +1601,7 @@ const AdGroupDetail = () => {
         status: group.status || "briefed",
         recipeTypes: Array.isArray(group.recipeTypes) ? group.recipeTypes : [],
         agencyId: group.agencyId || null,
+        groupId: id,
         userId: clientId,
         createdAt: serverTimestamp(),
       });

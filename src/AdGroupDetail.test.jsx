@@ -20,7 +20,7 @@ jest.mock('./BrandAssetsLayout.jsx', () => () => <div />);
 
 const mockGetDoc = jest.fn();
 const mockOnSnapshot = jest.fn();
-const mockUpdateDoc = jest.fn();
+const mockUpdateDoc = jest.fn(() => Promise.resolve());
 const mockSetDoc = jest.fn();
 const mockGetDocs = jest.fn();
 const mockAddDoc = jest.fn();
@@ -165,7 +165,10 @@ test('admin can send ad group to client projects', async () => {
   fireEvent.click(clientBtn);
 
   await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
-  expect(mockAddDoc.mock.calls[0][1]).toMatchObject({ userId: 'client1' });
+  expect(mockAddDoc.mock.calls[0][1]).toMatchObject({
+    userId: 'client1',
+    groupId: 'group1',
+  });
   expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1', {
     projectId: 'proj1',
     uploadedBy: 'client1',
