@@ -1572,22 +1572,24 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     if (!clientModal) return;
-    const q = query(
-      collection(db, "users"),
-      where("role", "==", "client"),
-      orderBy("createdAt", "desc")
-    );
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        setClients(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      },
-      (err) => {
+    const fetchClients = async () => {
+      try {
+        const snap = await getDocs(
+          query(collection(db, "users"), where("role", "==", "client"))
+        );
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        list.sort(
+          (a, b) =>
+            (b.createdAt?.toMillis?.() ?? 0) -
+            (a.createdAt?.toMillis?.() ?? 0),
+        );
+        setClients(list);
+      } catch (err) {
         console.error("Failed to fetch clients", err);
         setClients([]);
       }
-    );
-    return () => unsub();
+    };
+    fetchClients();
   }, [clientModal]);
 
   const handleSendToProjects = async (clientId) => {

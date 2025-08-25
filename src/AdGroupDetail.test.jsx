@@ -142,13 +142,15 @@ test('admin can send ad group to client projects', async () => {
     return jest.fn();
   });
   mockAddDoc.mockResolvedValue({ id: 'proj1' });
-  mockGetDocs
-    .mockResolvedValueOnce({ empty: true, docs: [] })
-    .mockResolvedValueOnce({ empty: true, docs: [] })
-    .mockResolvedValueOnce({
-      empty: false,
-      docs: [{ id: 'client1', data: () => ({ fullName: 'Client 1' }) }],
-    });
+  mockGetDocs.mockImplementation((q) => {
+    if (Array.isArray(q) && Array.isArray(q[0]) && q[0][1] === 'users') {
+      return Promise.resolve({
+        empty: false,
+        docs: [{ id: 'client1', data: () => ({ fullName: 'Client 1' }) }],
+      });
+    }
+    return Promise.resolve({ empty: true, docs: [] });
+  });
   window.alert = jest.fn();
 
   render(
