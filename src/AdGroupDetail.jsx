@@ -22,6 +22,7 @@ import {
   FiType,
   FiCopy,
   FiPlus,
+  FiGrid,
   FiMoreHorizontal,
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
@@ -56,6 +57,7 @@ import useUserRole from "./useUserRole";
 import createArchiveTicket from "./utils/createArchiveTicket";
 import { uploadFile } from "./uploadFile";
 import ShareLinkModal from "./components/ShareLinkModal.jsx";
+import GalleryModal from "./components/GalleryModal.jsx";
 import parseAdFilename from "./utils/parseAdFilename";
 import StatusBadge from "./components/StatusBadge.jsx";
 import LoadingOverlay from "./LoadingOverlay";
@@ -157,6 +159,7 @@ const AdGroupDetail = () => {
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [modalCopies, setModalCopies] = useState([]);
   const [showBrandAssets, setShowBrandAssets] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   const [tab, setTab] = useState("stats");
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState("");
@@ -2151,7 +2154,7 @@ const AdGroupDetail = () => {
           Ads
         </TabButton>
         </div>
-        {(isAdmin || userRole === "agency" || isDesigner) && (
+        {(isAdmin || userRole === "agency" || isDesigner) ? (
           <div className="flex flex-wrap gap-2">
             {group.status === "archived" && isAdmin && (
               <IconButton
@@ -2258,7 +2261,17 @@ const AdGroupDetail = () => {
               </>
             )}
           </div>
-        )}
+        ) : userRole === "editor" ? (
+          <div className="flex flex-wrap gap-2">
+            <IconButton
+              onClick={() => setShowGallery(true)}
+              aria-label="See Gallery"
+              className="bg-transparent"
+            >
+              <FiGrid size={20} />
+            </IconButton>
+          </div>
+        ) : null}
       </div>
 
       {uploading && (
@@ -3088,6 +3101,10 @@ const AdGroupDetail = () => {
             </button>
           </div>
         </Modal>
+      )}
+
+      {showGallery && (
+        <GalleryModal ads={assets} onClose={() => setShowGallery(false)} />
       )}
 
       {shareModal && (

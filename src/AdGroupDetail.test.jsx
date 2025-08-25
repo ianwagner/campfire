@@ -113,6 +113,29 @@ test('editor can open recipe modal and save recipes', async () => {
   expect(screen.queryByTestId('recipe-preview')).not.toBeInTheDocument();
 });
 
+test('editor can open gallery modal', async () => {
+  mockUseUserRole.mockReturnValue({ role: 'editor', brandCodes: [], loading: false });
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    const last = col[col.length - 1];
+    if (last === 'assets') {
+      cb({ docs: [{ id: 'a1', data: () => ({ filename: 'ad1.png', firebaseUrl: 'https://example.com/ad1.png', status: 'ready' }) }] });
+    } else {
+      cb({ docs: [] });
+    }
+    return jest.fn();
+  });
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>
+  );
+
+  const galleryBtn = await screen.findByLabelText('See Gallery');
+  fireEvent.click(galleryBtn);
+  expect(await screen.findByText('Ad Gallery')).toBeInTheDocument();
+});
+
 test('admin can send ad group to client projects', async () => {
   mockOnSnapshot.mockImplementation((col, cb) => {
     cb({ docs: [] });
