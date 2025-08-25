@@ -1572,21 +1572,22 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     if (!clientModal) return;
-    const fetchClients = async () => {
-      try {
-        const snap = await getDocs(
-          query(
-            collection(db, "users"),
-            where("role", "==", "client"),
-          ),
-        );
+    const q = query(
+      collection(db, "users"),
+      where("role", "==", "client"),
+      orderBy("createdAt", "desc")
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
         setClients(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (err) {
+      },
+      (err) => {
         console.error("Failed to fetch clients", err);
         setClients([]);
       }
-    };
-    fetchClients();
+    );
+    return () => unsub();
   }, [clientModal]);
 
   const handleSendToProjects = async (clientId) => {
@@ -1596,6 +1597,8 @@ const AdGroupDetail = () => {
         title: group.name || "",
         brandCode: group.brandCode || "",
         status: group.status || "briefed",
+        recipeTypes: Array.isArray(group.recipeTypes) ? group.recipeTypes : [],
+        agencyId: group.agencyId || null,
         userId: clientId,
         createdAt: serverTimestamp(),
       });
