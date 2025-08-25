@@ -169,7 +169,7 @@ test('request-only project shows requested ad count', async () => {
   expect(screen.getByText('3')).toHaveClass('tag-pill');
 });
 
-test('group-backed project shows recipe count', async () => {
+test('merges project and group by groupId even if title or brand differ', async () => {
   onSnapshot
     .mockImplementationOnce((q, cb) => {
       cb({
@@ -195,6 +195,8 @@ test('group-backed project shows recipe count', async () => {
             id: 'g1',
             data: () => ({
               recipeCount: 5,
+              name: 'Different',
+              brandCode: 'B2',
             }),
           },
         ],

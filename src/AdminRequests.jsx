@@ -458,6 +458,11 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           editorId: req.editorId || null,
           requestId: req.id,
         });
+        if (req.projectId) {
+          await updateDoc(doc(db, 'projects', req.projectId), {
+            groupId: docRef.id,
+          });
+        }
         await updateDoc(doc(db, 'requests', req.id), {
           status: 'done',
           adGroupId: docRef.id,

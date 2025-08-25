@@ -13,6 +13,7 @@ import {
   getDoc,
   getDocs,
   Timestamp,
+  updateDoc,
 } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import Modal from './components/Modal.jsx';
@@ -100,6 +101,8 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         ...(briefNote ? { notes: briefNote } : {}),
       });
 
+      await updateDoc(projRef, { groupId: groupRef.id });
+
       if (Array.isArray(briefAssets) && briefAssets.length > 0) {
         for (const file of briefAssets) {
           try {
@@ -173,6 +176,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
         status: 'briefed',
         recipeTypes: Array.isArray(recipes) ? recipes.map((r) => r.type) : [],
         createdAt: new Date(),
+        groupId: groupRef.id,
       });
     } catch (err) {
       console.error('Failed to create project', err);
