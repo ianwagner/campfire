@@ -51,9 +51,15 @@ const structuralKeys = new Set([
 ]);
 
 const shouldOmitKey = (k) => {
-  const match = (set) =>
-    Array.from(set).some((b) => k === b || k.startsWith(`${b}.`));
-  return match(baseColumnKeys) || match(structuralKeys);
+  const matchBase = Array.from(baseColumnKeys).some((b) => {
+    // Allow nested product fields like product.description or product.benefits
+    if (b === 'product') return k === b;
+    return k === b || k.startsWith(`${b}.`);
+  });
+  const matchStructural = Array.from(structuralKeys).some(
+    (b) => k === b || k.startsWith(`${b}.`),
+  );
+  return matchBase || matchStructural;
 };
 
 const flattenMeta = (obj, prefix = '', res = {}) => {
