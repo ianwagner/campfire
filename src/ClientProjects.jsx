@@ -300,15 +300,14 @@ const ClientProjects = ({ brandCodes = [] }) => {
   useEffect(() => {
     const groupMap = {};
     groups.forEach((g) => {
-      groupMap[`${g.brandCode}|${g.name}`] = g;
+      groupMap[g.id] = g;
     });
     const requestMap = {};
     requests.forEach((r) => {
       requestMap[r.projectId] = r;
     });
     const merged = projDocs.map((p) => {
-      const key = `${p.brandCode}|${p.title}`;
-      return { ...p, group: groupMap[key], request: requestMap[p.id] };
+      return { ...p, group: groupMap[p.groupId], request: requestMap[p.id] };
     });
     setProjects(uniqueById(merged));
   }, [projDocs, groups, requests]);

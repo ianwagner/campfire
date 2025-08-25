@@ -181,6 +181,7 @@ test('group-backed project shows recipe count', async () => {
               brandCode: 'B1',
               status: 'new',
               createdAt: { toDate: () => new Date() },
+              groupId: 'g1',
             }),
           },
         ],
@@ -193,9 +194,6 @@ test('group-backed project shows recipe count', async () => {
           {
             id: 'g1',
             data: () => ({
-              name: 'Proj1',
-              brandCode: 'B1',
-              status: 'new',
               recipeCount: 5,
             }),
           },
@@ -234,6 +232,7 @@ test('renders month pill with correct color', async () => {
               brandCode: 'B1',
               status: 'new',
               createdAt: { toDate: () => new Date() },
+              groupId: 'g1',
             }),
           },
         ],
@@ -298,7 +297,7 @@ test('shows personalized greeting when display name is present', () => {
   );
 
   expect(
-    screen.getByText("Hey John, let's create something awesome today.")
+    screen.getByText('Hey John, how would you like to start?')
   ).toBeInTheDocument();
 });
 
