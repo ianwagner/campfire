@@ -422,26 +422,29 @@ const ProjectDetail = () => {
           deleteDoc(doc(db, 'adGroups', groupId, 'copyCards', cid))
         )
       );
-      await Promise.all(
-        list.map((c) => {
+      const saved = await Promise.all(
+        list.map(async (c) => {
           const data = {
             primary: c.primary || '',
             headline: c.headline || '',
             description: c.description || '',
           };
           if (c.id) {
-            return setDoc(
+            await setDoc(
               doc(db, 'adGroups', groupId, 'copyCards', c.id),
               data,
               { merge: true }
             );
+            return c;
           }
-          return addDoc(
+          const ref = await addDoc(
             collection(db, 'adGroups', groupId, 'copyCards'),
             data
           );
+          return { ...c, id: ref.id };
         })
       );
+      setCopyCards(saved);
       setEditingCopy(false);
     } catch (err) {
       console.error('Failed to save copy cards', err);
