@@ -5,6 +5,7 @@ import '@testing-library/jest-dom';
 import ProjectDetail from './ProjectDetail.jsx';
 
 jest.mock('./firebase/config', () => ({ db: {}, auth: { currentUser: {} } }));
+jest.mock('./useUserRole', () => () => ({ role: null }));
 
 const mockGetDoc = jest.fn();
 const mockGetDocs = jest.fn();
