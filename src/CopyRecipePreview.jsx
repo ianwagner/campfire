@@ -188,6 +188,12 @@ const CopyRecipePreview = ({
       ...arr,
       { id, primary: p, headline: h, description: d, editing: false },
     ]);
+    if (typeof onCopiesChange === 'function') {
+      onCopiesChange([
+        ...copies,
+        { id, primary: p, headline: h, description: d, editing: false },
+      ]);
+    }
     setLoading(false);
   };
 
