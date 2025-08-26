@@ -113,6 +113,34 @@ test('editor can open recipe modal and save recipes', async () => {
   expect(screen.queryByTestId('recipe-preview')).not.toBeInTheDocument();
 });
 
+test('project manager can open recipe modal and save recipes', async () => {
+  mockUseUserRole.mockReturnValue({ role: 'project-manager', brandCodes: [], loading: false });
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({ docs: [] });
+    return jest.fn();
+  });
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>
+  );
+
+  const briefTab = await screen.findByRole('button', { name: 'Brief' });
+  fireEvent.click(briefTab);
+
+  const briefsTextNodes = await screen.findAllByText((content) => content.trim() === 'Briefs');
+  const briefsBtn = briefsTextNodes.find((el) => el.closest('button'))?.closest('button');
+  expect(briefsBtn).toBeTruthy();
+  fireEvent.click(briefsBtn);
+
+  const saveBtn = await screen.findByTestId('recipe-preview');
+  fireEvent.click(saveBtn);
+
+  await waitFor(() => expect(mockBatchCommit).toHaveBeenCalled());
+  expect(screen.queryByTestId('recipe-preview')).not.toBeInTheDocument();
+});
+
 test('editor can open gallery modal', async () => {
   mockUseUserRole.mockReturnValue({ role: 'editor', brandCodes: [], loading: false });
   mockOnSnapshot.mockImplementation((col, cb) => {

@@ -176,7 +176,10 @@ const AdGroupDetail = () => {
   const location = useLocation();
   const isDesigner = userRole === "designer";
   const isAdmin = userRole === "admin";
-  const isManager = userRole === "manager" || userRole === "editor";
+  const isManager =
+    userRole === "manager" ||
+    userRole === "editor" ||
+    userRole === "project-manager";
   const usesTabs = isAdmin || isDesigner || isManager;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
@@ -225,6 +228,9 @@ const AdGroupDetail = () => {
         break;
       case "editor":
         base = "/editor/ad-groups";
+        break;
+      case "project-manager":
+        base = "/pm/ad-groups";
         break;
       case "agency":
         base = "/agency/ad-groups";
@@ -2267,7 +2273,7 @@ const AdGroupDetail = () => {
               </>
             )}
           </div>
-        ) : userRole === "editor" ? (
+        ) : userRole === "editor" || userRole === "project-manager" ? (
           <div className="flex flex-wrap gap-2">
             <IconButton
               onClick={() => setShowGallery(true)}
@@ -2607,7 +2613,8 @@ const AdGroupDetail = () => {
               externalOnly
             />
           )}
-          {(["admin", "editor"].includes(userRole)) && savedRecipes.length === 0 && (
+          {(["admin", "editor", "project-manager"].includes(userRole)) &&
+            savedRecipes.length === 0 && (
             <div className="mt-4">
               <IconButton onClick={() => setShowRecipes(true)}>
                 <FaMagic /> Briefs

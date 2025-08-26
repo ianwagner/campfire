@@ -282,7 +282,8 @@ const RecipePreview = ({
     userRole === 'admin' ||
     userRole === 'agency' ||
     userRole === 'client' ||
-    userRole === 'editor';
+    userRole === 'editor' ||
+    userRole === 'project-manager';
 
   useEffect(() => {
     const fetchData = async () => {
