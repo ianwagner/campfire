@@ -17,7 +17,8 @@ import {
   Timestamp,
   deleteField,
 } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { db, auth } from './firebase/config';
+import useUserRole from './useUserRole';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import RecipeTypeCard from './components/RecipeTypeCard.jsx';
 import RecipePreview from './RecipePreview.jsx';
@@ -125,7 +126,11 @@ const ProjectDetail = () => {
   const [newBriefFiles, setNewBriefFiles] = useState([]);
   const [viewMode, setViewMode] = useState('table');
   const [editRequest, setEditRequest] = useState(false);
-  const [showCopySection, setShowCopySection] = useState(false);
+  const { role } = useUserRole(auth.currentUser?.uid);
+  const [showCopySection, setShowCopySection] = useState(role === 'client');
+  useEffect(() => {
+    setShowCopySection(role === 'client');
+  }, [role]);
 
   useEffect(() => {
     const load = async () => {
@@ -1206,13 +1211,15 @@ const ProjectDetail = () => {
                     </Button>
                   </div>
                 </>
-              ) : (
+              ) : copyCards.length > 0 ? (
                 <CopyRecipePreview
                   initialResults={copyCards}
                   brandCode={group?.brandCode || project?.brandCode}
                   hideBrandSelect
                   showOnlyResults
                 />
+              ) : (
+                <p>No platform copy available</p>
               )}
             </div>
           )}
