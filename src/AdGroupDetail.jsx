@@ -1619,6 +1619,9 @@ const AdGroupDetail = () => {
       window.alert("Ad group added to client projects");
       setClientModal(false);
     } catch (err) {
+      window.alert(
+        `Failed to add group to projects: ${err?.message || err}`,
+      );
       console.error("Failed to add group to projects", err);
     }
   };
