@@ -201,6 +201,51 @@ test('admin can send ad group to client projects', async () => {
     projectId: 'proj1',
     uploadedBy: 'client1',
   });
+  await waitFor(() =>
+    expect(window.alert).toHaveBeenCalledWith(
+      'Ad group added to client projects',
+    ),
+  );
+  await waitFor(() =>
+    expect(screen.queryByText('Select Client')).not.toBeInTheDocument(),
+  );
+});
+
+test('shows error when sending to projects fails and keeps modal open', async () => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({ docs: [] });
+    return jest.fn();
+  });
+  mockAddDoc.mockRejectedValue(new Error('server down'));
+  mockGetDocs.mockImplementation((q) => {
+    if (Array.isArray(q) && Array.isArray(q[0]) && q[0][1] === 'users') {
+      return Promise.resolve({
+        empty: false,
+        docs: [{ id: 'client1', data: () => ({ fullName: 'Client 1' }) }],
+      });
+    }
+    return Promise.resolve({ empty: true, docs: [] });
+  });
+  window.alert = jest.fn();
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>,
+  );
+
+  const sendBtn = await screen.findByLabelText('Send to Projects');
+  fireEvent.click(sendBtn);
+  const clientBtn = await screen.findByRole('button', { name: 'Client 1' });
+  fireEvent.click(clientBtn);
+
+  await waitFor(() =>
+    expect(window.alert).toHaveBeenCalledWith(
+      'Failed to add group to projects: server down',
+    ),
+  );
+  expect(mockUpdateDoc).not.toHaveBeenCalled();
+  expect(screen.getByText('Select Client')).toBeInTheDocument();
 });
 
 test.skip('toggles asset status to ready', async () => {
