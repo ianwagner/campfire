@@ -1172,7 +1172,7 @@ const ProjectDetail = () => {
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-medium text-lg">Platform Copy</h2>
             <div className="flex items-center gap-2">
-              {showCopySection && !editingCopy && (
+              {!editingCopy && (
                 <Button
                   variant="secondary"
                   onClick={() => setEditingCopy(true)}
@@ -1188,41 +1188,41 @@ const ProjectDetail = () => {
               </IconButton>
             </div>
           </div>
-          {showCopySection && (
-            <div className="mt-4 space-y-4">
-              {editingCopy ? (
-                <>
-                  <CopyRecipePreview
-                    onCopiesChange={setCopyDraft}
-                    initialResults={copyDraft}
-                    brandCode={group?.brandCode || project?.brandCode}
-                    hideBrandSelect
-                  />
-                  <div className="flex gap-2">
-                    <Button onClick={() => saveCopyCards(copyDraft)}>Save</Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        setEditingCopy(false);
-                        setCopyDraft(copyCards);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </>
-              ) : copyCards.length > 0 ? (
+          <div
+            className={`mt-4 space-y-4 ${showCopySection ? '' : 'hidden'}`}
+          >
+            {editingCopy ? (
+              <>
                 <CopyRecipePreview
-                  initialResults={copyCards}
+                  onCopiesChange={setCopyDraft}
+                  initialResults={copyDraft}
                   brandCode={group?.brandCode || project?.brandCode}
                   hideBrandSelect
-                  showOnlyResults
                 />
-              ) : (
-                <p>No platform copy available</p>
-              )}
-            </div>
-          )}
+                <div className="flex gap-2">
+                  <Button onClick={() => saveCopyCards(copyDraft)}>Save</Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setEditingCopy(false);
+                      setCopyDraft(copyCards);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </>
+            ) : copyCards.length > 0 ? (
+              <CopyRecipePreview
+                initialResults={copyCards}
+                brandCode={group?.brandCode || project?.brandCode}
+                hideBrandSelect
+                showOnlyResults
+              />
+            ) : (
+              <p>No platform copy available</p>
+            )}
+          </div>
         </div>
         <div className="border rounded p-4 max-w-[60rem]">
           <div className="flex items-center justify-between mb-2">
