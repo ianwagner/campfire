@@ -71,10 +71,26 @@ jest.mock('react-router-dom', () => ({
 }));
 
 beforeEach(() => {
-  mockGetDoc.mockResolvedValue({
-    exists: () => true,
-    id: 'group1',
-    data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'draft' }),
+  mockGetDoc.mockImplementation((path) => {
+    if (path === 'adGroups/group1') {
+      return Promise.resolve({
+        exists: () => true,
+        id: 'group1',
+        data: () => ({
+          name: 'Group 1',
+          brandCode: 'BR1',
+          status: 'draft',
+          agencyId: null,
+        }),
+      });
+    }
+    if (path === 'brands/BR1') {
+      return Promise.resolve({
+        exists: () => true,
+        data: () => ({ agencyId: 'agency1', recipeTypes: [] }),
+      });
+    }
+    return Promise.resolve({ exists: () => false });
   });
   mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
   mockUseUserRole.mockReturnValue({ role: 'admin', brandCodes: [], loading: false });
@@ -196,11 +212,16 @@ test('admin can send ad group to client projects', async () => {
   expect(mockAddDoc.mock.calls[0][1]).toMatchObject({
     userId: 'client1',
     groupId: 'group1',
+    agencyId: 'agency1',
   });
-  expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1', {
-    projectId: 'proj1',
-    uploadedBy: 'client1',
-  });
+  expect(mockUpdateDoc).toHaveBeenCalledWith(
+    'adGroups/group1',
+    expect.objectContaining({
+      projectId: 'proj1',
+      uploadedBy: 'client1',
+      agencyId: 'agency1',
+    }),
+  );
   await waitFor(() =>
     expect(window.alert).toHaveBeenCalledWith(
       'Ad group added to client projects',
