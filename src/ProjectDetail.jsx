@@ -266,6 +266,9 @@ const ProjectDetail = () => {
   useEffect(() => {
     setEditingCopy(copyCards.length === 0);
     setCopyDraft(copyCards);
+    if (copyCards.length > 0) {
+      setShowCopySection(true);
+    }
   }, [copyCards]);
 
   useEffect(() => {
