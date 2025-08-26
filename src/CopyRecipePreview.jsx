@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import TagInput from './components/TagInput.jsx';
@@ -29,7 +29,13 @@ const CopyRecipePreview = ({
 
   const isUrl = (str) => /^https?:\/\//i.test(str);
 
+  const skipSync = useRef(false);
+
   useEffect(() => {
+    if (skipSync.current) {
+      skipSync.current = false;
+      return;
+    }
     if (typeof onCopiesChange === 'function') {
       onCopiesChange(copies);
     }
@@ -37,6 +43,7 @@ const CopyRecipePreview = ({
 
   useEffect(() => {
     if (initialResults && Array.isArray(initialResults)) {
+      skipSync.current = true;
       setCopies(
         initialResults.map((c) => ({
           id: c.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -188,12 +195,6 @@ const CopyRecipePreview = ({
       ...arr,
       { id, primary: p, headline: h, description: d, editing: false },
     ]);
-    if (typeof onCopiesChange === 'function') {
-      onCopiesChange([
-        ...copies,
-        { id, primary: p, headline: h, description: d, editing: false },
-      ]);
-    }
     setLoading(false);
   };
 
