@@ -180,7 +180,8 @@ const AdGroupDetail = () => {
     userRole === "manager" ||
     userRole === "editor" ||
     userRole === "project-manager";
-  const usesTabs = isAdmin || isDesigner || isManager;
+  const isClient = userRole === "client";
+  const usesTabs = isAdmin || isDesigner || isManager || isClient;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
   const showStats = usesTabs ? tab === "stats" : !showTable;
@@ -2151,7 +2152,7 @@ const AdGroupDetail = () => {
             <FiFileText size={18} />
             Brief
           </TabButton>
-        {(isAdmin || isManager) && (
+        {(isAdmin || isManager || isClient) && (
           <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
             <FiType size={18} />
             Platform Copy
@@ -2624,23 +2625,27 @@ const AdGroupDetail = () => {
         </div>
       )}
 
-      {(isAdmin || isManager) && tab === 'copy' && (
+      {(isAdmin || isManager || isClient) && tab === 'copy' && (
         <div className="my-4">
           {copyCards.length > 0 ? (
             <CopyRecipePreview
-              onSave={saveCopyCards}
+              onSave={(isAdmin || isManager) ? saveCopyCards : undefined}
               initialResults={copyCards}
               showOnlyResults
-              onCopyClick={() => setShowCopyModal(true)}
+              onCopyClick={(isAdmin || isManager) ? () => setShowCopyModal(true) : undefined}
               brandCode={group?.brandCode}
               hideBrandSelect
             />
           ) : (
-            <div className="mt-4">
-              <IconButton onClick={() => setShowCopyModal(true)}>
-                <FiType /> Platform Copy
-              </IconButton>
-            </div>
+            (isAdmin || isManager) ? (
+              <div className="mt-4">
+                <IconButton onClick={() => setShowCopyModal(true)}>
+                  <FiType /> Platform Copy
+                </IconButton>
+              </div>
+            ) : (
+              <p className="mt-4">No platform copy available.</p>
+            )
           )}
         </div>
       )}
