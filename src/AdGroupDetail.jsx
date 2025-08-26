@@ -1603,24 +1603,24 @@ const AdGroupDetail = () => {
     if (!id || !group || !clientId) return;
     try {
       let { agencyId, recipeTypes } = group;
-      if (agencyId === undefined || recipeTypes === undefined) {
+      if (agencyId == null || recipeTypes == null) {
         try {
           const snap = await getDoc(doc(db, "brands", group.brandCode));
           if (snap.exists()) {
             const data = snap.data() || {};
-            if (agencyId === undefined) agencyId = data.agencyId ?? null;
-            if (recipeTypes === undefined)
+            if (agencyId == null) agencyId = data.agencyId ?? null;
+            if (recipeTypes == null)
               recipeTypes = Array.isArray(data.recipeTypes)
                 ? data.recipeTypes
                 : [];
           } else {
-            if (agencyId === undefined) agencyId = null;
-            if (recipeTypes === undefined) recipeTypes = [];
+            if (agencyId == null) agencyId = null;
+            if (recipeTypes == null) recipeTypes = [];
           }
         } catch (err) {
           console.error("Failed to fetch brand defaults", err);
-          if (agencyId === undefined) agencyId = null;
-          if (recipeTypes === undefined) recipeTypes = [];
+          if (agencyId == null) agencyId = null;
+          if (recipeTypes == null) recipeTypes = [];
         }
       }
 
@@ -1629,7 +1629,7 @@ const AdGroupDetail = () => {
         brandCode: group.brandCode || "",
         status: group.status || "briefed",
         recipeTypes: Array.isArray(recipeTypes) ? recipeTypes : [],
-        agencyId: agencyId || null,
+        agencyId: agencyId ?? null,
         month: group.month || null,
       };
 
