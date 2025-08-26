@@ -269,15 +269,12 @@ const ProjectDetail = () => {
   }, [groupId]);
 
   useEffect(() => {
-    if (editingCopy) return;
+    setEditingCopy(copyCards.length === 0);
     if (copyCards.length > 0) {
       setCopyDraft(copyCards);
       setShowCopySection(true);
-      setEditingCopy(false);
-    } else {
-      setEditingCopy(true);
     }
-  }, [copyCards, editingCopy]);
+  }, [copyCards]);
 
   useEffect(() => {
     if (!groupId || assets.length === 0) return;
