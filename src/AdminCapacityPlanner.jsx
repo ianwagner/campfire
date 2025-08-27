@@ -155,11 +155,10 @@ const AdminCapacityPlanner = () => {
       <div className="mb-4 flex justify-end">
         <MonthSelector value={month} onChange={setMonth} />
       </div>
-      <Table columns={['2fr', '3fr', '1fr', '1fr', '1fr']}>
+      <Table columns={['2fr', '1fr', '1fr', '1fr']}>
         <thead>
           <tr className="text-left">
             <th className="p-2">Brand</th>
-            <th className="p-2">Units</th>
             <th className="p-2 text-center">Cap</th>
             <th className="p-2 text-center">Allocated</th>
             <th className="p-2 text-center">Remaining</th>
@@ -169,29 +168,24 @@ const AdminCapacityPlanner = () => {
           {brands.map((b) => (
             <tr key={b.code} className="border-t">
               <td className="p-2">{b.code}</td>
-              <td className="p-2">
-                <div className="flex flex-wrap gap-1">
-                  {Array.from({ length: b.remaining }).map((_, i) => (
-                    <div
-                      key={i}
-                      draggable={b.remaining > 0}
-                      onDragStart={() => handleDragStart(b.code)}
-                      className="h-5 w-5 rounded-full bg-blue-300 hover:bg-blue-400 cursor-move"
-                      title="Drag to allocate"
-                    />
-                  ))}
-                </div>
-              </td>
               <td className="p-2 text-center">{b.cap}</td>
               <td className="p-2 text-center">{b.allocated}</td>
-              <td className="p-2 text-center">
+              <td
+                className={`p-2 text-center ${
+                  b.remaining === 0
+                    ? 'bg-red-100 text-red-800'
+                    : b.remaining <= 10
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : ''
+                }`}
+              >
                 {b.remaining === 0 ? 'Done' : b.remaining}
               </td>
             </tr>
           ))}
           {brands.length === 0 && (
             <tr>
-              <td colSpan="5" className="p-4 text-center">
+              <td colSpan="4" className="p-4 text-center">
                 No contracts found
               </td>
             </tr>
