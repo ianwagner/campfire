@@ -1,89 +1,61 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import PageWrapper from './components/PageWrapper.jsx';
 import MonthSelector from './components/MonthSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
 import { db } from './firebase/config';
 
-// Compute the number of contracted units for a given month
-const getCapForMonth = (contracts = [], month) => {
-  const selected = new Date(`${month}-01`);
-  let cap = 0;
-  contracts.forEach((c) => {
-    const startStr = c.startDate ? c.startDate.slice(0, 7) : '';
-    if (!startStr) return;
-    const start = new Date(`${startStr}-01`);
-    let end;
-    const endStr = c.endDate ? c.endDate.slice(0, 7) : '';
-    if (endStr) {
-      end = new Date(`${endStr}-01`);
-    } else if (c.renews || c.repeat) {
-      end = new Date(start);
-      end.setMonth(end.getMonth() + 60);
-    } else {
-      end = new Date(`${startStr}-01`);
-    }
-    if (selected >= start && selected <= end) {
-      cap += Number(c.stills || 0) + Number(c.videos || 0);
-    }
-  });
-  return cap;
-};
-
 const AdminCapacityPlanner = () => {
   const [month, setMonth] = useState(getMonthString());
-  const [brands, setBrands] = useState([]); // {code, cap, allocated, remaining}
+  const [brands, setBrands] = useState([]); // {code}
   const [dragCode, setDragCode] = useState(null);
-  const [cells, setCells] = useState({}); // { 'week-day': [code] }
+  const [cells, setCells] = useState({}); // { 'week-day': [ {code, value} ] }
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       try {
         const snap = await getDocs(collection(db, 'brands'));
-        const rows = snap.docs.map((doc) => {
-          const data = doc.data() || {};
-          const code = data.code || doc.id;
-          const contracts = Array.isArray(data.contracts) ? data.contracts : [];
-          const cap = getCapForMonth(contracts, month);
-          return { code, cap, allocated: 0, remaining: cap };
-        });
-        setBrands(rows.filter((b) => b.cap > 0));
+        const rows = snap.docs.map((d) => ({ code: d.data().code || d.id }));
+        setBrands(rows);
+        const saved = await getDoc(doc(db, 'capacity-planner', month));
+        setCells(saved.exists() ? saved.data().cells || {} : {});
       } catch (err) {
-        console.error('Failed to load contracts', err);
+        console.error('Failed to load capacity planner', err);
         setBrands([]);
+        setCells({});
       }
     };
     load();
-    setCells({});
   }, [month]);
 
-  const allocate = (code) => {
-    setBrands((prev) =>
-      prev.map((b) =>
-        b.code === code && b.remaining > 0
-          ? { ...b, allocated: b.allocated + 1, remaining: b.remaining - 1 }
-          : b,
-      ),
-    );
-  };
-
   const handleDragStart = (code) => setDragCode(code);
-
   const allowDrop = (e) => e.preventDefault();
 
   const handleDrop = (cellKey) => {
     if (!dragCode) return;
-    const brand = brands.find((b) => b.code === dragCode);
-    if (!brand || brand.remaining <= 0) {
+    const valStr = prompt('Enter number', '1');
+    const value = Number(valStr);
+    if (!valStr || Number.isNaN(value)) {
       setDragCode(null);
       return;
     }
     setCells((prev) => {
       const blocks = prev[cellKey] || [];
-      return { ...prev, [cellKey]: [...blocks, dragCode] };
+      return { ...prev, [cellKey]: [...blocks, { code: dragCode, value }] };
     });
-    allocate(dragCode);
     setDragCode(null);
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await setDoc(doc(db, 'capacity-planner', month), { cells });
+    } catch (err) {
+      console.error('Failed to save capacity planner', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const renderGrid = () => {
@@ -110,12 +82,9 @@ const AdminCapacityPlanner = () => {
                   onDrop={() => handleDrop(key)}
                 >
                   <div className="space-y-1">
-                    {blocks.map((code, idx) => (
-                      <div
-                        key={idx}
-                        className="rounded bg-blue-200 p-1 text-xs"
-                      >
-                        {code}
+                    {blocks.map((b, idx) => (
+                      <div key={idx} className="rounded bg-blue-200 p-1 text-xs">
+                        {b.code} ({b.value})
                       </div>
                     ))}
                   </div>
@@ -128,16 +97,52 @@ const AdminCapacityPlanner = () => {
     );
   };
 
+  const renderTable = () => {
+    const tally = {};
+    Object.values(cells).forEach((blocks) => {
+      blocks.forEach((b) => {
+        tally[b.code] = (tally[b.code] || 0) + Number(b.value || 0);
+      });
+    });
+    const rows = Object.entries(tally);
+    if (rows.length === 0) return null;
+    return (
+      <table className="mt-4 w-full border">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="border p-2 text-left">Brand</th>
+            <th className="border p-2 text-left">Tally</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([code, total]) => (
+            <tr key={code}>
+              <td className="border p-2">{code}</td>
+              <td className="border p-2">{total}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
   return (
     <PageWrapper title="Capacity Planner">
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-between">
         <MonthSelector value={month} onChange={setMonth} />
+        <button
+          onClick={handleSave}
+          className="btn-primary px-3 py-1"
+          disabled={saving}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
       </div>
       <div className="flex gap-4">
         <div className="w-48">
           <h2 className="mb-2 font-semibold">Brand Bank</h2>
           <div className="flex flex-col gap-2">
-            {brands.filter((b) => b.remaining > 0).map((b) => (
+            {brands.map((b) => (
               <div
                 key={b.code}
                 draggable
@@ -147,16 +152,15 @@ const AdminCapacityPlanner = () => {
                 {b.code}
               </div>
             ))}
-            {brands.filter((b) => b.remaining > 0).length === 0 && (
-              <div className="text-sm text-gray-500">No remaining brands</div>
-            )}
           </div>
         </div>
-        <div className="flex-1 overflow-auto">{renderGrid()}</div>
+        <div className="flex-1 overflow-auto">
+          {renderGrid()}
+          {renderTable()}
+        </div>
       </div>
     </PageWrapper>
   );
 };
 
 export default AdminCapacityPlanner;
-
