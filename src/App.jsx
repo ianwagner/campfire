@@ -73,6 +73,7 @@ import useFcmToken from "./useFcmToken";
 import useTaggerJobWatcher from "./useTaggerJobWatcher";
 import AdminClaimDebug from "./AdminClaimDebug";
 import AdminDistribution from "./AdminDistribution";
+import AdminCapacityPlanner from "./AdminCapacityPlanner";
 
 const ThemeWatcher = () => {
   useTheme();
@@ -545,6 +546,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminDistribution />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/capacity-planner"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole={["admin", "manager"]}
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <AdminCapacityPlanner />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
