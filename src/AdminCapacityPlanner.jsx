@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import PageWrapper from './components/PageWrapper.jsx';
 import MonthSelector from './components/MonthSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
@@ -49,7 +56,11 @@ const AdminCapacityPlanner = () => {
   const handleSave = async () => {
     try {
       setSaving(true);
-      await setDoc(doc(db, 'capacity-planner', month), { cells });
+      await setDoc(
+        doc(db, 'capacity-planner', month),
+        { cells, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
     } catch (err) {
       console.error('Failed to save capacity planner', err);
     } finally {
