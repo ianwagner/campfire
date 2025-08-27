@@ -22,7 +22,6 @@ const AdminCapacityPlanner = () => {
         setCells(saved.exists() ? saved.data().cells || {} : {});
       } catch (err) {
         console.error('Failed to load capacity planner', err);
-        setBrands([]);
         setCells({});
       }
     };
