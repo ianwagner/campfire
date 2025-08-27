@@ -34,6 +34,8 @@ const getCapForMonth = (contracts = [], month) => {
 const AdminCapacityPlanner = () => {
   const [month, setMonth] = useState(getMonthString());
   const [brands, setBrands] = useState([]); // {code, cap, allocated, remaining}
+  const [dragCode, setDragCode] = useState(null);
+  const [cells, setCells] = useState({}); // { 'YYYY-MM-DD': [{code, qty}] }
 
   useEffect(() => {
     const load = async () => {
@@ -53,15 +55,98 @@ const AdminCapacityPlanner = () => {
       }
     };
     load();
+    setCells({});
   }, [month]);
 
-  const allocate = (code) => {
+  const allocate = (code, qty) => {
+    if (!qty) return;
     setBrands((prev) =>
       prev.map((b) =>
-        b.code === code && b.remaining > 0
-          ? { ...b, allocated: b.allocated + 1, remaining: b.remaining - 1 }
+        b.code === code && b.remaining >= qty
+          ? { ...b, allocated: b.allocated + qty, remaining: b.remaining - qty }
           : b,
       ),
+    );
+  };
+
+  const handleDragStart = (code) => setDragCode(code);
+
+  const allowDrop = (e) => e.preventDefault();
+
+  const handleDrop = (dateKey) => {
+    if (!dragCode) return;
+    const brand = brands.find((b) => b.code === dragCode);
+    if (!brand || brand.remaining <= 0) {
+      setDragCode(null);
+      return;
+    }
+    const qtyStr = prompt('Enter quantity');
+    const qty = parseInt(qtyStr, 10);
+    if (!qty || qty <= 0 || qty > brand.remaining) {
+      setDragCode(null);
+      return;
+    }
+    setCells((prev) => {
+      const blocks = prev[dateKey] || [];
+      return { ...prev, [dateKey]: [...blocks, { code: dragCode, qty }] };
+    });
+    allocate(dragCode, qty);
+    setDragCode(null);
+  };
+
+  const renderCalendar = () => {
+    const selected = new Date(`${month}-01`);
+    const year = selected.getFullYear();
+    const monthIdx = selected.getMonth();
+
+    const start = new Date(year, monthIdx, 1);
+    const end = new Date(year, monthIdx + 1, 0);
+    const startDay = start.getDay();
+    const daysInMonth = end.getDate();
+
+    const slots = [];
+    for (let i = 0; i < startDay; i++) slots.push(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+      slots.push(new Date(year, monthIdx, d));
+    }
+    while (slots.length % 7 !== 0) slots.push(null);
+
+    return (
+      <div className="mt-8">
+        <div className="grid grid-cols-7 gap-1 text-center text-sm font-semibold mb-2">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+            <div key={d}>{d}</div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {slots.map((date, i) => {
+            if (!date)
+              return <div key={i} className="border min-h-20" />;
+            const key = date.toISOString().slice(0, 10);
+            const blocks = cells[key] || [];
+            return (
+              <div
+                key={i}
+                className="border p-1 min-h-20 text-xs"
+                onDragOver={allowDrop}
+                onDrop={() => handleDrop(key)}
+              >
+                <div className="mb-1 font-bold">{date.getDate()}</div>
+                <div className="space-y-1">
+                  {blocks.map((b, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded bg-blue-200 p-1"
+                    >
+                      {b.code} ({b.qty})
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
   };
 
@@ -87,11 +172,12 @@ const AdminCapacityPlanner = () => {
               <td className="p-2">
                 <div className="flex flex-wrap gap-1">
                   {Array.from({ length: b.remaining }).map((_, i) => (
-                    <button
+                    <div
                       key={i}
-                      onClick={() => allocate(b.code)}
-                      className="h-5 w-5 rounded-full bg-blue-300 hover:bg-blue-400"
-                      title="Allocate"
+                      draggable={b.remaining > 0}
+                      onDragStart={() => handleDragStart(b.code)}
+                      className="h-5 w-5 rounded-full bg-blue-300 hover:bg-blue-400 cursor-move"
+                      title="Drag to allocate"
                     />
                   ))}
                 </div>
@@ -112,6 +198,7 @@ const AdminCapacityPlanner = () => {
           )}
         </tbody>
       </Table>
+      {renderCalendar()}
     </PageWrapper>
   );
 };
