@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import PageWrapper from './components/PageWrapper.jsx';
 import MonthSelector from './components/MonthSelector.jsx';
-import Table from './components/common/Table';
 import getMonthString from './utils/getMonthString.js';
 import { db } from './firebase/config';
 
@@ -35,7 +34,7 @@ const AdminCapacityPlanner = () => {
   const [month, setMonth] = useState(getMonthString());
   const [brands, setBrands] = useState([]); // {code, cap, allocated, remaining}
   const [dragCode, setDragCode] = useState(null);
-  const [cells, setCells] = useState({}); // { 'YYYY-MM-DD': [{code, qty}] }
+  const [cells, setCells] = useState({}); // { 'week-day': [code] }
 
   useEffect(() => {
     const load = async () => {
@@ -58,12 +57,11 @@ const AdminCapacityPlanner = () => {
     setCells({});
   }, [month]);
 
-  const allocate = (code, qty) => {
-    if (!qty) return;
+  const allocate = (code) => {
     setBrands((prev) =>
       prev.map((b) =>
-        b.code === code && b.remaining >= qty
-          ? { ...b, allocated: b.allocated + qty, remaining: b.remaining - qty }
+        b.code === code && b.remaining > 0
+          ? { ...b, allocated: b.allocated + 1, remaining: b.remaining - 1 }
           : b,
       ),
     );
@@ -73,79 +71,59 @@ const AdminCapacityPlanner = () => {
 
   const allowDrop = (e) => e.preventDefault();
 
-  const handleDrop = (dateKey) => {
+  const handleDrop = (cellKey) => {
     if (!dragCode) return;
     const brand = brands.find((b) => b.code === dragCode);
     if (!brand || brand.remaining <= 0) {
       setDragCode(null);
       return;
     }
-    const qtyStr = prompt('Enter quantity');
-    const qty = parseInt(qtyStr, 10);
-    if (!qty || qty <= 0 || qty > brand.remaining) {
-      setDragCode(null);
-      return;
-    }
     setCells((prev) => {
-      const blocks = prev[dateKey] || [];
-      return { ...prev, [dateKey]: [...blocks, { code: dragCode, qty }] };
+      const blocks = prev[cellKey] || [];
+      return { ...prev, [cellKey]: [...blocks, dragCode] };
     });
-    allocate(dragCode, qty);
+    allocate(dragCode);
     setDragCode(null);
   };
 
-  const renderCalendar = () => {
-    const selected = new Date(`${month}-01`);
-    const year = selected.getFullYear();
-    const monthIdx = selected.getMonth();
-
-    const start = new Date(year, monthIdx, 1);
-    const end = new Date(year, monthIdx + 1, 0);
-    const startDay = start.getDay();
-    const daysInMonth = end.getDate();
-
-    const slots = [];
-    for (let i = 0; i < startDay; i++) slots.push(null);
-    for (let d = 1; d <= daysInMonth; d++) {
-      slots.push(new Date(year, monthIdx, d));
-    }
-    while (slots.length % 7 !== 0) slots.push(null);
-
+  const renderGrid = () => {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
     return (
-      <div className="mt-8">
-        <div className="grid grid-cols-7 gap-1 text-center text-sm font-semibold mb-2">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-            <div key={d}>{d}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {slots.map((date, i) => {
-            if (!date)
-              return <div key={i} className="border min-h-20" />;
-            const key = date.toISOString().slice(0, 10);
-            const blocks = cells[key] || [];
-            return (
-              <div
-                key={i}
-                className="border p-1 min-h-20 text-xs"
-                onDragOver={allowDrop}
-                onDrop={() => handleDrop(key)}
-              >
-                <div className="mb-1 font-bold">{date.getDate()}</div>
-                <div className="space-y-1">
-                  {blocks.map((b, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded bg-blue-200 p-1"
-                    >
-                      {b.code} ({b.qty})
-                    </div>
-                  ))}
+      <div className="grid grid-cols-6 gap-2">
+        <div />
+        {days.map((d) => (
+          <div key={d} className="text-center font-semibold">
+            {d}
+          </div>
+        ))}
+        {Array.from({ length: 4 }).map((_, week) => (
+          <React.Fragment key={week}>
+            <div className="flex items-center font-semibold">Week {week + 1}</div>
+            {Array.from({ length: 5 }).map((_, day) => {
+              const key = `${week}-${day}`;
+              const blocks = cells[key] || [];
+              return (
+                <div
+                  key={key}
+                  className="border h-24 p-1"
+                  onDragOver={allowDrop}
+                  onDrop={() => handleDrop(key)}
+                >
+                  <div className="space-y-1">
+                    {blocks.map((code, idx) => (
+                      <div
+                        key={idx}
+                        className="rounded bg-blue-200 p-1 text-xs"
+                      >
+                        {code}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </React.Fragment>
+        ))}
       </div>
     );
   };
@@ -155,50 +133,27 @@ const AdminCapacityPlanner = () => {
       <div className="mb-4 flex justify-end">
         <MonthSelector value={month} onChange={setMonth} />
       </div>
-      <Table columns={['2fr', '3fr', '1fr', '1fr', '1fr']}>
-        <thead>
-          <tr className="text-left">
-            <th className="p-2">Brand</th>
-            <th className="p-2">Units</th>
-            <th className="p-2 text-center">Cap</th>
-            <th className="p-2 text-center">Allocated</th>
-            <th className="p-2 text-center">Remaining</th>
-          </tr>
-        </thead>
-        <tbody>
-          {brands.map((b) => (
-            <tr key={b.code} className="border-t">
-              <td className="p-2">{b.code}</td>
-              <td className="p-2">
-                <div className="flex flex-wrap gap-1">
-                  {Array.from({ length: b.remaining }).map((_, i) => (
-                    <div
-                      key={i}
-                      draggable={b.remaining > 0}
-                      onDragStart={() => handleDragStart(b.code)}
-                      className="h-5 w-5 rounded-full bg-blue-300 hover:bg-blue-400 cursor-move"
-                      title="Drag to allocate"
-                    />
-                  ))}
-                </div>
-              </td>
-              <td className="p-2 text-center">{b.cap}</td>
-              <td className="p-2 text-center">{b.allocated}</td>
-              <td className="p-2 text-center">
-                {b.remaining === 0 ? 'Done' : b.remaining}
-              </td>
-            </tr>
-          ))}
-          {brands.length === 0 && (
-            <tr>
-              <td colSpan="5" className="p-4 text-center">
-                No contracts found
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </Table>
-      {renderCalendar()}
+      <div className="flex gap-4">
+        <div className="w-48">
+          <h2 className="mb-2 font-semibold">Brand Bank</h2>
+          <div className="flex flex-col gap-2">
+            {brands.filter((b) => b.remaining > 0).map((b) => (
+              <div
+                key={b.code}
+                draggable
+                onDragStart={() => handleDragStart(b.code)}
+                className="cursor-move rounded bg-blue-300 p-2 text-center"
+              >
+                {b.code}
+              </div>
+            ))}
+            {brands.filter((b) => b.remaining > 0).length === 0 && (
+              <div className="text-sm text-gray-500">No remaining brands</div>
+            )}
+          </div>
+        </div>
+        <div className="flex-1 overflow-auto">{renderGrid()}</div>
+      </div>
     </PageWrapper>
   );
 };
