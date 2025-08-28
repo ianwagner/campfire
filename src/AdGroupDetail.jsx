@@ -1136,6 +1136,28 @@ const AdGroupDetail = () => {
     }
   };
 
+  const replaceAdAsset = async (asset, file) => {
+    if (!file) return;
+    try {
+      const url = await uploadFile(
+        file,
+        id,
+        group?.brandCode,
+        group?.name || id,
+      );
+      await updateDoc(doc(db, "adGroups", id, "assets", asset.id), {
+        filename: file.name,
+        firebaseUrl: url,
+        uploadedAt: serverTimestamp(),
+        status: asset.status,
+        lastUpdatedBy: auth.currentUser?.uid || null,
+        lastUpdatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error("Failed to replace ad", err);
+    }
+  };
+
   const downloadBriefAll = async () => {
     const files = [];
     for (const asset of briefAssets) {
@@ -2831,14 +2853,37 @@ const AdGroupDetail = () => {
                     <td className="text-center">
                       <StatusBadge status={a.status} />
                     </td>
-                    <td className="text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <IconButton
-                          onClick={() => openAssetHistory(a)}
-                          aria-label="History"
-                        >
-                          <FiClock />
-                        </IconButton>
+                  <td className="text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      {isAdmin && (
+                        <>
+                          <input
+                            id={`replace-ad-${a.id}`}
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => {
+                              replaceAdAsset(a, e.target.files[0]);
+                              e.target.value = null;
+                            }}
+                          />
+                          <IconButton
+                            onClick={() =>
+                              document
+                                .getElementById(`replace-ad-${a.id}`)
+                                .click()
+                            }
+                            aria-label="Replace"
+                          >
+                            <FiRefreshCw />
+                          </IconButton>
+                        </>
+                      )}
+                      <IconButton
+                        onClick={() => openAssetHistory(a)}
+                        aria-label="History"
+                      >
+                        <FiClock />
+                      </IconButton>
                         {!isDesigner && (
                           <IconButton
                             onClick={() => deleteAsset(a)}
