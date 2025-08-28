@@ -6,6 +6,7 @@ import {
   getDocs,
   collection,
   query,
+  orderBy,
   where,
   writeBatch,
   deleteDoc,
@@ -48,6 +49,9 @@ import {
   FiCheck,
   FiEye,
   FiEyeOff,
+  FiMoreHorizontal,
+  FiRefreshCw,
+  FiClock,
 } from 'react-icons/fi';
 import { Bubbles } from 'lucide-react';
 import { archiveGroup } from './utils/archiveGroup';
@@ -58,6 +62,7 @@ import { deductRecipeCredits } from './utils/credits.js';
 import { uploadFile } from './uploadFile.js';
 import DueDateMonthSelector from './components/DueDateMonthSelector.jsx';
 import computeGroupStatus from './utils/computeGroupStatus';
+import parseAdFilename from './utils/parseAdFilename';
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf('.');
@@ -128,6 +133,21 @@ const ProjectDetail = () => {
   const [editRequest, setEditRequest] = useState(false);
   const { role } = useUserRole(auth.currentUser?.uid);
   const [showCopySection, setShowCopySection] = useState(role === 'client');
+  const [menuAsset, setMenuAsset] = useState(null);
+  const menuRef = useRef(null);
+  const [revisionAsset, setRevisionAsset] = useState(null);
+  const [historyAsset, setHistoryAsset] = useState(null);
+  const [metadataAsset, setMetadataAsset] = useState(null);
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuAsset(null);
+      }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [menuAsset]);
   useEffect(() => {
     setShowCopySection(role === 'client');
   }, [role]);
@@ -796,6 +816,110 @@ const ProjectDetail = () => {
     }
   };
 
+  const openRevision = async (asset) => {
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, 'adGroups', groupId, 'assets', asset.id, 'history'),
+          orderBy('updatedAt', 'desc')
+        )
+      );
+      const history = [];
+      snap.docs.forEach((d) => {
+        const h = d.data() || {};
+        history.push({
+          id: d.id,
+          lastUpdatedAt: h.updatedAt,
+          status: h.status,
+          comment: h.comment || '',
+          copyEdit: h.copyEdit || '',
+          origCopy: h.origCopy || '',
+        });
+      });
+      setRevisionAsset({ asset, history, comment: asset.comment || '', copy: asset.copy || '' });
+    } catch (err) {
+      console.error('Failed to open revision', err);
+    }
+  };
+
+  const saveRevision = async () => {
+    if (!revisionAsset) return;
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId, 'assets', revisionAsset.asset.id), {
+        status: 'edit_requested',
+        comment: revisionAsset.comment,
+        updatedAt: serverTimestamp(),
+        updatedBy: auth.currentUser?.uid || null,
+      });
+      setAssets((prev) =>
+        prev.map((a) =>
+          a.id === revisionAsset.asset.id
+            ? { ...a, status: 'edit_requested', comment: revisionAsset.comment }
+            : a
+        )
+      );
+      setRevisionAsset(null);
+    } catch (err) {
+      console.error('Failed to save revision', err);
+    }
+  };
+
+  const openHistory = async (asset) => {
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, 'adGroups', groupId, 'assets', asset.id, 'history'),
+          orderBy('updatedAt', 'desc')
+        )
+      );
+      const list = [];
+      const uids = new Set();
+      snap.docs.forEach((d) => {
+        const data = d.data();
+        const uid = data.updatedBy;
+        if (uid) uids.add(uid);
+        list.push({
+          id: d.id,
+          lastUpdatedAt: data.updatedAt,
+          email: uid || 'N/A',
+          status: data.status,
+          comment: data.comment || '',
+          copyEdit: data.copyEdit || '',
+          origCopy: data.origCopy || '',
+        });
+      });
+      const userMap = {};
+      await Promise.all(
+        Array.from(uids).map(async (uid) => {
+          try {
+            const snap = await getDoc(doc(db, 'users', uid));
+            userMap[uid] = snap.exists()
+              ? snap.data().fullName || snap.data().email || uid
+              : uid;
+          } catch (e) {
+            userMap[uid] = uid;
+          }
+        })
+      );
+      list.forEach((obj) => {
+        if (userMap[obj.email]) obj.email = userMap[obj.email];
+      });
+      const info = parseAdFilename(asset.filename || '');
+      setHistoryAsset({
+        filename: asset.filename,
+        assetId: asset.id,
+        recipeCode: info.recipeCode || '',
+        assets: list,
+      });
+    } catch (err) {
+      console.error('Failed to load ad history', err);
+    }
+  };
+
+  const openMetadata = (asset) => {
+    setMetadataAsset(asset);
+  };
+
   const handleArchive = async () => {
     if (!groupId) return;
     if (!window.confirm('Archive this project?')) return;
@@ -1290,12 +1414,13 @@ const ProjectDetail = () => {
           {assets.length === 0 ? (
             <p>No assets uploaded yet.</p>
           ) : viewMode === 'table' ? (
-            <Table columns={['5rem', '20ch', '8rem']}>
+            <Table columns={['5rem', '20ch', '8rem', '2rem']}>
               <thead>
                 <tr>
                   <th>Preview</th>
                   <th>Filename</th>
                   <th>Status</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -1329,6 +1454,64 @@ const ProjectDetail = () => {
                         <div className="text-xs italic mt-1">
                           Edit: {a.comment || a.copyEdit}
                         </div>
+                      )}
+                    </td>
+                    <td className="relative text-center">
+                      <IconButton
+                        aria-label="Ad options"
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setMenuAsset({ id: a.id, rect });
+                        }}
+                      >
+                        <FiMoreHorizontal />
+                      </IconButton>
+                      {menuAsset && menuAsset.id === a.id && (
+                        <ul
+                          ref={menuRef}
+                          className="fixed w-48 bg-white border rounded shadow-md z-50"
+                          style={{
+                            top: menuAsset.rect.bottom + 8,
+                            right: window.innerWidth - menuAsset.rect.right,
+                          }}
+                        >
+                          <li>
+                            <button
+                              className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
+                              onClick={() => {
+                                openRevision(a);
+                                setMenuAsset(null);
+                              }}
+                            >
+                              <FiRefreshCw />
+                              <span>Make Revisions</span>
+                            </button>
+                          </li>
+                          <li>
+                            <button
+                              className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
+                              onClick={() => {
+                                openHistory(a);
+                                setMenuAsset(null);
+                              }}
+                            >
+                              <FiClock />
+                              <span>History</span>
+                            </button>
+                          </li>
+                          <li>
+                            <button
+                              className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
+                              onClick={() => {
+                                openMetadata(a);
+                                setMenuAsset(null);
+                              }}
+                            >
+                              <FiFileText />
+                              <span>Metadata</span>
+                            </button>
+                          </li>
+                        </ul>
                       )}
                     </td>
                   </tr>
@@ -1381,6 +1564,64 @@ const ProjectDetail = () => {
         </div>
       </div>
     </PageWrapper>
+    {revisionAsset && (
+      <Modal sizeClass="max-w-md">
+        <h3 className="mb-2 font-semibold">Request Revision</h3>
+        <div className="mb-2 text-sm break-all">{revisionAsset.asset.filename}</div>
+        <textarea
+          className="w-full border rounded p-1 text-sm text-black dark:text-black"
+          value={revisionAsset.comment}
+          onChange={(e) =>
+            setRevisionAsset({ ...revisionAsset, comment: e.target.value })
+          }
+        />
+        <div className="mt-3 flex justify-end gap-2">
+          <IconButton onClick={() => setRevisionAsset(null)}>Cancel</IconButton>
+          <button onClick={saveRevision} className="btn-primary px-3 py-1">
+            Save
+          </button>
+        </div>
+      </Modal>
+    )}
+    {historyAsset && (
+      <Modal sizeClass="max-w-md">
+        <h3 className="mb-2 font-semibold">History for {historyAsset.filename}</h3>
+        <ul className="mb-2 space-y-2 max-h-[60vh] overflow-auto">
+          {historyAsset.assets.map((h, idx) => (
+            <li
+              key={idx}
+              className="border-b pb-2 last:border-none flex justify-between items-start"
+            >
+              <div>
+                <div>{h.status}</div>
+                {(h.comment || h.copyEdit) && (
+                  <div className="text-xs italic mt-1">
+                    {h.comment || h.copyEdit}
+                  </div>
+                )}
+              </div>
+              <span className="text-xs text-gray-500 ml-2">{h.email}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-3 flex justify-end">
+          <IconButton onClick={() => setHistoryAsset(null)}>Close</IconButton>
+        </div>
+      </Modal>
+    )}
+    {metadataAsset && (
+      <Modal sizeClass="max-w-md">
+        <h3 className="mb-2 font-semibold">
+          Metadata for {metadataAsset.filename || metadataAsset.name}
+        </h3>
+        <pre className="max-h-[60vh] overflow-auto text-xs">
+          {JSON.stringify(metadataAsset, null, 2)}
+        </pre>
+        <div className="mt-3 flex justify-end">
+          <IconButton onClick={() => setMetadataAsset(null)}>Close</IconButton>
+        </div>
+      </Modal>
+    )}
     {shareModal && group && (
       <ShareLinkModal
         groupId={groupId}
