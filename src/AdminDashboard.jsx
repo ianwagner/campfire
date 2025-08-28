@@ -15,6 +15,7 @@ import { getAuth } from 'firebase/auth';
 import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
 import MonthSelector from './components/MonthSelector.jsx';
+import TabButton from './components/TabButton.jsx';
 import getMonthString from './utils/getMonthString.js';
 
 function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = {}) {
@@ -22,6 +23,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   const [month, setMonth] = useState(thisMonth);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [includeArchived, setIncludeArchived] = useState(false);
 
   useEffect(() => {
     const auth = getAuth();
@@ -186,17 +188,20 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               });
               const adDocs = [...monthSnap.docs, ...dueDocs];
               for (const g of adDocs) {
+                const statusList = [
+                  'ready',
+                  'approved',
+                  'rejected',
+                  'edit_requested',
+                  'pending',
+                ];
+                if (includeArchived) statusList.push('archived');
                 const [rSnap, aSnap] = await Promise.all([
                   getCountFromServer(collection(db, 'adGroups', g.id, 'recipes')),
                   getDocs(
                     query(
                       collection(db, 'adGroups', g.id, 'assets'),
-                      where('status', 'in', [
-                        'ready',
-                        'approved',
-                        'rejected',
-                        'edit_requested',
-                      ])
+                      where('status', 'in', statusList)
                     )
                   ),
                 ]);
@@ -251,49 +256,70 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           }
         };
 
-        const resultPromises = statDocs.map(async (docSnap) => {
-          const data = docSnap.data() || {};
-          const counts = data.counts || {};
-          let contracted = 0;
-          let briefed = 0;
-          let delivered = 0;
-          let approved = 0;
+        let merged = [];
+        if (includeArchived) {
+          const brandList = [
+            ...statDocs.map((d) => ({
+              id: d.id,
+              code: (d.data() || {}).code,
+              name: (d.data() || {}).name,
+            })),
+            ...extraBrands,
+          ];
+          merged = (
+            await Promise.all(brandList.map((b) => computeCounts(b)))
+          ).filter(Boolean);
+        } else {
+          const resultPromises = statDocs.map(async (docSnap) => {
+            const data = docSnap.data() || {};
+            const counts = data.counts || {};
+            let contracted = 0;
+            let briefed = 0;
+            let delivered = 0;
+            let approved = 0;
 
-          for (const [m, v] of Object.entries(counts)) {
-            if (m === month) {
-              contracted += Number(v.contracted || 0);
-              briefed += Number(v.briefed || 0);
-              delivered += Number(v.delivered || 0);
-              approved += Number(v.approved || 0);
+            for (const [m, v] of Object.entries(counts)) {
+              if (m === month) {
+                contracted += Number(v.contracted || 0);
+                briefed += Number(v.briefed || 0);
+                delivered += Number(v.delivered || 0);
+                approved += Number(v.approved || 0);
+              }
             }
-          }
 
-          if (
-            data.code &&
-            (contracted === 0 || (briefed === 0 && delivered === 0 && approved === 0))
-          ) {
-            return await computeCounts({ id: docSnap.id, code: data.code, name: data.name });
-          }
+            if (
+              data.code &&
+              (contracted === 0 || (briefed === 0 && delivered === 0 && approved === 0))
+            ) {
+              return await computeCounts({
+                id: docSnap.id,
+                code: data.code,
+                name: data.name,
+              });
+            }
 
-          if (contracted === 0) return null;
+            if (contracted === 0) return null;
 
-          return {
-            id: docSnap.id,
-            code: data.code,
-            name: data.name,
-            contracted,
-            briefed,
-            delivered,
-            approved,
-            needed:
-              contracted > delivered ? contracted - delivered : 0,
-          };
-        });
-        const fallbackPromises = extraBrands.map((brand) => computeCounts(brand));
+            return {
+              id: docSnap.id,
+              code: data.code,
+              name: data.name,
+              contracted,
+              briefed,
+              delivered,
+              approved,
+              needed:
+                contracted > delivered ? contracted - delivered : 0,
+            };
+          });
+          const fallbackPromises = extraBrands.map((brand) => computeCounts(brand));
 
-        const results = (await Promise.all(resultPromises)).filter(Boolean);
-        const fallbackResults = (await Promise.all(fallbackPromises)).filter(Boolean);
-        const merged = [...results, ...fallbackResults];
+          const results = (await Promise.all(resultPromises)).filter(Boolean);
+          const fallbackResults = (
+            await Promise.all(fallbackPromises)
+          ).filter(Boolean);
+          merged = [...results, ...fallbackResults];
+        }
         if (active) setRows(merged);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
@@ -306,11 +332,20 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     return () => {
       active = false;
     };
-  }, [month, agencyId, brandCodes]);
+  }, [month, agencyId, brandCodes, includeArchived]);
 
   return (
     <PageWrapper title="Dashboard">
-      <MonthSelector value={month} onChange={setMonth} className="mb-4" />
+      <div className="flex items-center gap-2 mb-4">
+        <MonthSelector value={month} onChange={setMonth} />
+        <TabButton
+          type="button"
+          active={includeArchived}
+          onClick={() => setIncludeArchived((p) => !p)}
+        >
+          Include archived ads
+        </TabButton>
+      </div>
         {loading ? (
           <p>Loading...</p>
         ) : rows.length === 0 ? (

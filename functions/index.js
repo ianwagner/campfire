@@ -117,7 +117,11 @@ async function recomputeBrandStats(brandId) {
     recipeSnap.docs.forEach((r) => {
       const rData = r.data() || {};
       const key = `${g.id}-${r.id}`;
-      if (['ready', 'approved', 'rejected', 'edit_requested'].includes(rData.status)) {
+      if (
+        ['ready', 'approved', 'rejected', 'edit_requested', 'pending'].includes(
+          rData.status
+        )
+      ) {
         deliveredSet.add(key);
       }
       if (rData.status === 'approved') {
@@ -134,7 +138,11 @@ async function recomputeBrandStats(brandId) {
       const groupCode = data.adGroupCode || info.adGroupCode || g.id;
       const key = `${groupCode}-${recipe}`;
       assetRecipes.add(key);
-      if (['ready', 'approved', 'rejected', 'edit_requested'].includes(data.status)) {
+      if (
+        ['ready', 'approved', 'rejected', 'edit_requested', 'pending'].includes(
+          data.status
+        )
+      ) {
         deliveredSet.add(key);
       }
       if (data.status === 'approved') {
