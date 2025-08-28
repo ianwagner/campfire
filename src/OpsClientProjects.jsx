@@ -11,12 +11,13 @@ import {
   serverTimestamp,
   onSnapshot,
 } from 'firebase/firestore';
-import { FiChevronDown, FiChevronRight } from 'react-icons/fi';
+import { FiChevronDown, FiChevronRight, FiRefreshCw, FiArchive, FiTrash } from 'react-icons/fi';
 import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import useAgencies from './useAgencies';
 import computeGroupStatus from './utils/computeGroupStatus';
 import MonthTag from './components/MonthTag.jsx';
+import IconButton from './components/IconButton.jsx';
 
 const OpsClientProjects = () => {
   const { agencyId } = useUserRole(auth.currentUser?.uid);
@@ -321,27 +322,30 @@ const OpsClientProjects = () => {
                               </span>
                             )}
                             {rawMonth && <MonthTag month={rawMonth} />}
-                            <span className="space-x-2">
-                              <button
-                                className="text-sm text-blue-600"
+                            <span className="flex items-center gap-2">
+                              <IconButton
+                                className="text-blue-600"
                                 onClick={() => handleRefresh(c.id, p)}
+                                aria-label="Refresh"
                               >
-                                Refresh
-                              </button>
-                                {status !== 'archived' && (
-                                  <button
-                                    className="text-sm text-blue-600"
-                                    onClick={() => handleArchive(c.id, p.id)}
-                                  >
-                                    Archive
-                                  </button>
-                                )}
-                              <button
-                                className="text-sm text-red-600"
+                                <FiRefreshCw />
+                              </IconButton>
+                              {status !== 'archived' && (
+                                <IconButton
+                                  className="text-blue-600"
+                                  onClick={() => handleArchive(c.id, p.id)}
+                                  aria-label="Archive"
+                                >
+                                  <FiArchive />
+                                </IconButton>
+                              )}
+                              <IconButton
+                                className="btn-delete"
                                 onClick={() => handleDelete(c.id, p.id)}
+                                aria-label="Delete"
                               >
-                                Delete
-                              </button>
+                                <FiTrash />
+                              </IconButton>
                             </span>
                           </div>
                         </li>
