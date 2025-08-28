@@ -135,7 +135,6 @@ const ProjectDetail = () => {
   const [showCopySection, setShowCopySection] = useState(role === 'client');
   const [menuAsset, setMenuAsset] = useState(null);
   const menuRef = useRef(null);
-  const menuButtonRef = useRef(null);
   const [revisionAsset, setRevisionAsset] = useState(null);
   const [historyAsset, setHistoryAsset] = useState(null);
   const [metadataAsset, setMetadataAsset] = useState(null);
@@ -143,16 +142,11 @@ const ProjectDetail = () => {
   const closeMenu = () => {
     setMenuAsset(null);
     menuRef.current = null;
-    menuButtonRef.current = null;
   };
 
   useEffect(() => {
     const handleClick = (e) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target) &&
-        (!menuButtonRef.current || !menuButtonRef.current.contains(e.target))
-      ) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
         closeMenu();
       }
     };
@@ -1468,17 +1462,15 @@ const ProjectDetail = () => {
                       )}
                     </td>
                     <td className="relative text-center">
-                    <IconButton
-                      aria-label="Ad options"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setMenuAsset({ id: a.id, rect });
-                        menuButtonRef.current = e.currentTarget;
-                      }}
-                    >
-                      <FiMoreHorizontal />
-                    </IconButton>
+                      <IconButton
+                        aria-label="Ad options"
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setMenuAsset({ id: a.id, rect });
+                        }}
+                      >
+                        <FiMoreHorizontal />
+                      </IconButton>
                       {menuAsset && menuAsset.id === a.id && (
                         <ul
                           ref={menuRef}
