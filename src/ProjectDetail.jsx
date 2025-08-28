@@ -139,10 +139,15 @@ const ProjectDetail = () => {
   const [historyAsset, setHistoryAsset] = useState(null);
   const [metadataAsset, setMetadataAsset] = useState(null);
 
+  const closeMenu = () => {
+    setMenuAsset(null);
+    menuRef.current = null;
+  };
+
   useEffect(() => {
     const handleClick = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuAsset(null);
+        closeMenu();
       }
     };
     document.addEventListener('click', handleClick);
@@ -1480,7 +1485,7 @@ const ProjectDetail = () => {
                               className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
                               onClick={() => {
                                 openRevision(a);
-                                setMenuAsset(null);
+                                closeMenu();
                               }}
                             >
                               <FiRefreshCw />
@@ -1492,7 +1497,7 @@ const ProjectDetail = () => {
                               className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
                               onClick={() => {
                                 openHistory(a);
-                                setMenuAsset(null);
+                                closeMenu();
                               }}
                             >
                               <FiClock />
@@ -1504,7 +1509,7 @@ const ProjectDetail = () => {
                               className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-gray-100"
                               onClick={() => {
                                 openMetadata(a);
-                                setMenuAsset(null);
+                                closeMenu();
                               }}
                             >
                               <FiFileText />
