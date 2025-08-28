@@ -48,6 +48,9 @@ import {
   FiCheck,
   FiEye,
   FiEyeOff,
+  FiMoreHorizontal,
+  FiRefreshCw,
+  FiClock,
 } from 'react-icons/fi';
 import { Bubbles } from 'lucide-react';
 import { archiveGroup } from './utils/archiveGroup';
@@ -128,6 +131,7 @@ const ProjectDetail = () => {
   const [editRequest, setEditRequest] = useState(false);
   const { role } = useUserRole(auth.currentUser?.uid);
   const [showCopySection, setShowCopySection] = useState(role === 'client');
+  const [assetMenu, setAssetMenu] = useState(null);
   useEffect(() => {
     setShowCopySection(role === 'client');
   }, [role]);
@@ -639,6 +643,18 @@ const ProjectDetail = () => {
     } catch (err) {
       console.error('Export failed', err);
     }
+  };
+
+  const handleMakeRevision = (asset) => {
+    console.log('Make revisions', asset);
+  };
+
+  const handleHistory = (asset) => {
+    console.log('History', asset);
+  };
+
+  const handleMetadata = (asset) => {
+    console.log('Metadata', asset);
   };
 
   const handleDelete = async () => {
@@ -1290,12 +1306,13 @@ const ProjectDetail = () => {
           {assets.length === 0 ? (
             <p>No assets uploaded yet.</p>
           ) : viewMode === 'table' ? (
-            <Table columns={['5rem', '20ch', '8rem']}>
+            <Table columns={['5rem', '20ch', '8rem', '3rem']}>
               <thead>
                 <tr>
                   <th>Preview</th>
                   <th>Filename</th>
                   <th>Status</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -1328,6 +1345,51 @@ const ProjectDetail = () => {
                       {a.status === 'edit_requested' && (a.comment || a.copyEdit) && (
                         <div className="text-xs italic mt-1">
                           Edit: {a.comment || a.copyEdit}
+                        </div>
+                      )}
+                    </td>
+                    <td className="relative text-right">
+                      <IconButton
+                        aria-label="Menu"
+                        onClick={() =>
+                          setAssetMenu((m) => (m === a.id ? null : a.id))
+                        }
+                        className="bg-transparent hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                      >
+                        <FiMoreHorizontal />
+                      </IconButton>
+                      {assetMenu === a.id && (
+                        <div className="absolute right-0 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
+                          <button
+                            className="flex items-center gap-2 w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                            onClick={() => {
+                              handleMakeRevision(a);
+                              setAssetMenu(null);
+                            }}
+                          >
+                            <FiRefreshCw />
+                            <span>Make Revisions</span>
+                          </button>
+                          <button
+                            className="flex items-center gap-2 w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                            onClick={() => {
+                              handleHistory(a);
+                              setAssetMenu(null);
+                            }}
+                          >
+                            <FiClock />
+                            <span>History</span>
+                          </button>
+                          <button
+                            className="flex items-center gap-2 w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                            onClick={() => {
+                              handleMetadata(a);
+                              setAssetMenu(null);
+                            }}
+                          >
+                            <FiFileText />
+                            <span>Metadata</span>
+                          </button>
                         </div>
                       )}
                     </td>

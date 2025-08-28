@@ -61,6 +61,9 @@ jest.mock('react-icons/fi', () => ({
   FiCheck: () => <div />,
   FiEye: () => <div />,
   FiEyeOff: () => <div />,
+  FiMoreHorizontal: () => <div />,
+  FiRefreshCw: () => <div />,
+  FiClock: () => <div />,
 }));
 jest.mock('lucide-react', () => ({ Bubbles: () => <div /> }));
 jest.mock('./utils/archiveGroup', () => jest.fn());
