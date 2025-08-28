@@ -299,6 +299,7 @@ const OpsClientProjects = () => {
                       const status = p.group ? p.group.status : p.status;
                       const adCount = p.group ? p.group.recipeCount : p.request?.numAds;
                       const rawMonth = p.group?.month || p.month || p.request?.month;
+                      const infoNote = p.request?.infoNote ?? p.infoNote;
                       return (
                         <li
                           key={p.id}
@@ -313,7 +314,10 @@ const OpsClientProjects = () => {
                             <span>{p.title}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="tag tag-pill bg-gray-200 text-gray-800 capitalize">
+                            <span
+                              className="tag tag-pill bg-gray-200 text-gray-800 capitalize"
+                              title={status === 'need info' && infoNote ? infoNote : undefined}
+                            >
                               {status}
                             </span>
                             {adCount != null && (
