@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FiCheck } from 'react-icons/fi';
+import { FiCheck, FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import {
   collection,
   getDocs,
@@ -15,6 +15,7 @@ import { getAuth } from 'firebase/auth';
 import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
 import MonthSelector from './components/MonthSelector.jsx';
+import MonthTag from './components/MonthTag.jsx';
 import getMonthString from './utils/getMonthString.js';
 
 function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = {}) {
@@ -22,6 +23,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   const [month, setMonth] = useState(thisMonth);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState({});
+  const [projects, setProjects] = useState({});
 
   useEffect(() => {
     const auth = getAuth();
@@ -233,8 +236,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               briefed,
               delivered,
               approved,
-              needed:
-                contracted > delivered ? contracted - delivered : 0,
             };
           } catch (err) {
             console.error('Failed to compute counts', err);
@@ -246,7 +247,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               briefed: '?',
               delivered: '?',
               approved: '?',
-              needed: '?',
             };
           }
         };
@@ -285,8 +285,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             briefed,
             delivered,
             approved,
-            needed:
-              contracted > delivered ? contracted - delivered : 0,
           };
         });
         const fallbackPromises = extraBrands.map((brand) => computeCounts(brand));
@@ -308,6 +306,27 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     };
   }, [month, agencyId, brandCodes]);
 
+  const toggle = async (id, brandCode) => {
+    const willExpand = !expanded[id];
+    setExpanded((prev) => ({ ...prev, [id]: willExpand }));
+    if (willExpand && !projects[id]) {
+      try {
+        const q = query(
+          collection(db, 'projects'),
+          where('brandCode', '==', brandCode)
+        );
+        const snap = await getDocs(q);
+        setProjects((prev) => ({
+          ...prev,
+          [id]: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        }));
+      } catch (err) {
+        console.error('Failed to fetch projects', err);
+        setProjects((prev) => ({ ...prev, [id]: [] }));
+      }
+    }
+  };
+
   return (
     <PageWrapper title="Dashboard">
       <MonthSelector value={month} onChange={setMonth} className="mb-4" />
@@ -324,7 +343,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               <th>Briefed</th>
               <th>Delivered</th>
               <th>Approved</th>
-              <th>Needed</th>
             </tr>
           </thead>
             <tbody>
@@ -334,11 +352,20 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 const deliveredMatch = Number(r.delivered) >= contracted;
                 const approvedMatch = Number(r.approved) >= contracted;
                 return (
-                  <tr key={r.id}>
-                    <td data-label="Brand">{r.code || r.name}</td>
-                    <td className="text-center" data-label="Contracted">
-                      {r.contracted}
-                    </td>
+                  <React.Fragment key={r.id}>
+                    <tr>
+                      <td data-label="Brand">
+                        <button
+                          onClick={() => toggle(r.id, r.code)}
+                          className="flex items-center gap-1"
+                        >
+                          {expanded[r.id] ? <FiChevronDown /> : <FiChevronRight />}
+                          {r.code || r.name}
+                        </button>
+                      </td>
+                      <td className="text-center" data-label="Contracted">
+                        {r.contracted}
+                      </td>
                     <td
                       className={`text-center ${briefedMatch ? 'bg-approve-10' : ''}`}
                       data-label="Briefed"
@@ -366,10 +393,41 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                         <FiCheck className="inline ml-1 text-approve" />
                       )}
                     </td>
-                    <td className="text-center" data-label="Needed">
-                      {r.needed}
-                    </td>
                   </tr>
+                  {expanded[r.id] && (
+                    <tr>
+                      <td colSpan={5} className="bg-gray-50 dark:bg-gray-900 p-0">
+                        <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {projects[r.id]?.length ? (
+                            projects[r.id].map((p) => (
+                              <li
+                                key={p.id}
+                                className="flex justify-between items-center px-4 py-2 hover:bg-accent-10"
+                              >
+                                <div className="flex items-center gap-2">
+                                  {p.brandCode && (
+                                    <span className="tag tag-pill bg-gray-200 text-gray-800">
+                                      {p.brandCode}
+                                    </span>
+                                  )}
+                                  <span>{p.title}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="tag tag-pill bg-gray-200 text-gray-800 capitalize">
+                                    {p.status}
+                                  </span>
+                                  {p.month && <MonthTag month={p.month} />}
+                                </div>
+                              </li>
+                            ))
+                          ) : (
+                            <li className="text-sm text-gray-500 px-4 py-2">No projects.</li>
+                          )}
+                        </ul>
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
