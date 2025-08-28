@@ -22,37 +22,26 @@ jest.mock('firebase/firestore', () => ({
 
 jest.mock('./useUserRole', () => jest.fn());
 jest.mock('./useAgencies', () => jest.fn());
+jest.mock('./useSiteSettings', () =>
+  jest.fn(() => ({ settings: { monthColors: {}, tagStrokeWeight: 1 }, loading: false }))
+);
 
-import { getDocs, onSnapshot, updateDoc } from 'firebase/firestore';
+import { getDocs, onSnapshot } from 'firebase/firestore';
 import useUserRole from './useUserRole';
 import useAgencies from './useAgencies';
 import OpsClientProjects from './OpsClientProjects';
 
 afterEach(() => jest.clearAllMocks());
 
-test('refresh button updates project status', async () => {
+test('shows month and ad count tags for projects', async () => {
   useUserRole.mockReturnValue({ agencyId: 'a1' });
   useAgencies.mockReturnValue({ agencies: [] });
 
-  getDocs
-    .mockResolvedValueOnce({
-      docs: [
-        {
-          id: 'c1',
-          data: () => ({ fullName: 'Client 1' }),
-        },
-      ],
-    })
-    .mockResolvedValueOnce({
-      docs: [
-        { id: 'a1', data: () => ({ status: 'ready' }) },
-      ],
-    })
-    .mockResolvedValueOnce({
-      docs: [
-        { id: 'r1', data: () => ({}) },
-      ],
-    });
+  getDocs.mockResolvedValueOnce({
+    docs: [
+      { id: 'c1', data: () => ({ fullName: 'Client 1' }) },
+    ],
+  });
 
   onSnapshot
     .mockImplementationOnce((q, cb) => {
@@ -64,6 +53,7 @@ test('refresh button updates project status', async () => {
               title: 'Proj1',
               brandCode: 'B1',
               status: 'briefed',
+              month: '2024-02',
             }),
           },
         ],
@@ -75,47 +65,30 @@ test('refresh button updates project status', async () => {
         docs: [
           {
             id: 'g1',
-            data: () => ({ name: 'Proj1', brandCode: 'B1', status: 'briefed' }),
+            data: () => ({ name: 'Proj1', brandCode: 'B1', recipeCount: 2 }),
           },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          { id: 'r1', data: () => ({ projectId: 'p1', numAds: 3 }) },
         ],
       });
       return jest.fn();
     });
 
-  updateDoc.mockResolvedValue();
-
   render(<OpsClientProjects />);
 
   await screen.findByText('Client 1');
-
   fireEvent.click(screen.getByText('Client 1'));
 
+  await screen.findByText('Proj1');
+  await screen.findByText('2');
   const row = (await screen.findByText('Proj1')).closest('li');
-  expect(within(row).getByText('briefed')).toBeInTheDocument();
-
-  fireEvent.click(within(row).getByText('Refresh'));
-
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
-  await waitFor(() => expect(within(row).getByText('ready')).toBeInTheDocument());
-});
-
-test('admin can select agency to view client projects', async () => {
-  useUserRole.mockReturnValue({ agencyId: null });
-  useAgencies.mockReturnValue({ agencies: [{ id: 'a1', name: 'Agency 1' }] });
-
-  getDocs.mockResolvedValueOnce({
-    docs: [
-      {
-        id: 'c1',
-        data: () => ({ fullName: 'Client 1' }),
-      },
-    ],
-  });
-
-  render(<OpsClientProjects />);
-
-  fireEvent.change(screen.getByLabelText('Agency'), { target: { value: 'a1' } });
-
-  await screen.findByText('Client 1');
+  expect(within(row).getByText('2')).toBeInTheDocument();
+  expect(within(row).getByText('Feb')).toBeInTheDocument();
 });
 

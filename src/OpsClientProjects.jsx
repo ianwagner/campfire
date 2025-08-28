@@ -16,6 +16,7 @@ import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import useAgencies from './useAgencies';
 import computeGroupStatus from './utils/computeGroupStatus';
+import MonthTag from './components/MonthTag.jsx';
 
 const OpsClientProjects = () => {
   const { agencyId } = useUserRole(auth.currentUser?.uid);
@@ -27,9 +28,11 @@ const OpsClientProjects = () => {
   const [projects, setProjects] = useState({});
   const [projDocs, setProjDocs] = useState({});
   const [groups, setGroups] = useState({});
+  const [requests, setRequests] = useState({});
   const [loading, setLoading] = useState(true);
   const projUnsubs = useRef({});
   const groupUnsubs = useRef({});
+  const requestUnsubs = useRef({});
 
   useEffect(() => {
     if (!activeAgencyId) {
@@ -61,17 +64,23 @@ const OpsClientProjects = () => {
     Object.keys(projDocs).forEach((cid) => {
       const projList = projDocs[cid] || [];
       const groupList = groups[cid] || [];
+      const requestList = requests[cid] || [];
       const groupMap = {};
       groupList.forEach((g) => {
         groupMap[`${g.brandCode}|${g.name}`] = g;
       });
+      const requestMap = {};
+      requestList.forEach((r) => {
+        requestMap[r.projectId] = r;
+      });
       merged[cid] = projList.map((p) => ({
         ...p,
         group: groupMap[`${p.brandCode}|${p.title}`],
+        request: requestMap[p.id],
       }));
     });
     setProjects(merged);
-  }, [projDocs, groups]);
+  }, [projDocs, groups, requests]);
 
   const toggle = (id) => {
     const willExpand = !expanded[id];
@@ -102,10 +111,41 @@ const OpsClientProjects = () => {
         groupUnsubs.current[id] = onSnapshot(
           groupQ,
           (snap) => {
-            const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            setGroups((prev) => ({ ...prev, [id]: list }));
+            Promise.all(
+              snap.docs.map(async (d) => {
+                const data = d.data();
+                let recipeCount = data.recipeCount;
+                if (recipeCount == null) {
+                  try {
+                    const rSnap = await getDocs(
+                      collection(db, 'adGroups', d.id, 'recipes')
+                    );
+                    recipeCount = rSnap.size;
+                  } catch {
+                    recipeCount = 0;
+                  }
+                }
+                return { id: d.id, ...data, recipeCount };
+              })
+            ).then((list) => {
+              setGroups((prev) => ({ ...prev, [id]: list }));
+            });
           },
           (err) => console.error('Ad group listener failed', err)
+        );
+      }
+      if (!requestUnsubs.current[id]) {
+        const reqQ = query(
+          collection(db, 'requests'),
+          where('createdBy', '==', id)
+        );
+        requestUnsubs.current[id] = onSnapshot(
+          reqQ,
+          (snap) => {
+            const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            setRequests((prev) => ({ ...prev, [id]: list }));
+          },
+          (err) => console.error('Request listener failed', err)
         );
       }
     } else {
@@ -117,12 +157,21 @@ const OpsClientProjects = () => {
         groupUnsubs.current[id]();
         delete groupUnsubs.current[id];
       }
+      if (requestUnsubs.current[id]) {
+        requestUnsubs.current[id]();
+        delete requestUnsubs.current[id];
+      }
       setProjDocs((prev) => {
         const copy = { ...prev };
         delete copy[id];
         return copy;
       });
       setGroups((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+      setRequests((prev) => {
         const copy = { ...prev };
         delete copy[id];
         return copy;
@@ -139,6 +188,7 @@ const OpsClientProjects = () => {
     return () => {
       Object.values(projUnsubs.current).forEach((unsub) => unsub());
       Object.values(groupUnsubs.current).forEach((unsub) => unsub());
+      Object.values(requestUnsubs.current).forEach((unsub) => unsub());
     };
   }, []);
 
@@ -246,6 +296,8 @@ const OpsClientProjects = () => {
                   {(projects[c.id] || []).length ? (
                     projects[c.id].map((p) => {
                       const status = p.group ? p.group.status : p.status;
+                      const adCount = p.group ? p.group.recipeCount : p.request?.numAds;
+                      const rawMonth = p.group?.month || p.month || p.request?.month;
                       return (
                         <li
                           key={p.id}
@@ -263,6 +315,12 @@ const OpsClientProjects = () => {
                             <span className="tag tag-pill bg-gray-200 text-gray-800 capitalize">
                               {status}
                             </span>
+                            {adCount != null && (
+                              <span className="tag tag-pill bg-gray-200 text-gray-800">
+                                {adCount}
+                              </span>
+                            )}
+                            {rawMonth && <MonthTag month={rawMonth} />}
                             <span className="space-x-2">
                               <button
                                 className="text-sm text-blue-600"
