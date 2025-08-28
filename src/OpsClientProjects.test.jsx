@@ -92,3 +92,52 @@ test('shows month and ad count tags for projects', async () => {
   expect(within(row).getByText('Feb')).toBeInTheDocument();
 });
 
+test('need info status shows info note on hover', async () => {
+  useUserRole.mockReturnValue({ agencyId: 'a1' });
+  useAgencies.mockReturnValue({ agencies: [] });
+
+  getDocs.mockResolvedValueOnce({
+    docs: [
+      { id: 'c1', data: () => ({ fullName: 'Client 1' }) },
+    ],
+  });
+
+  onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'p1',
+            data: () => ({ title: 'Proj1', status: 'need info' }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'r1',
+            data: () => ({ projectId: 'p1', infoNote: 'Need assets' }),
+          },
+        ],
+      });
+      return jest.fn();
+    });
+
+  render(<OpsClientProjects />);
+
+  await screen.findByText('Client 1');
+  fireEvent.click(screen.getByText('Client 1'));
+
+  await screen.findByText('Proj1');
+  const row = (await screen.findByText('Proj1')).closest('li');
+  const statusTag = within(row).getByText(/need info/i);
+  expect(statusTag).toHaveAttribute('title', 'Need assets');
+});
+
