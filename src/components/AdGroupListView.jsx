@@ -33,6 +33,7 @@ const AdGroupListView = ({
   onGallery,
   onCopy,
   onDownload,
+  linkToDetail = false,
 }) => {
   const term = (filter || '').toLowerCase();
   const displayGroups = groups
@@ -90,7 +91,7 @@ const AdGroupListView = ({
                 onGallery={onGallery ? () => onGallery(g.id) : undefined}
                 onCopy={onCopy ? () => onCopy(g.id) : undefined}
                 onDownload={onDownload ? () => onDownload(g.id) : undefined}
-                triggerClickMenu
+                triggerClickMenu={!linkToDetail}
               />
             ))}
           </div>
@@ -109,7 +110,13 @@ const AdGroupListView = ({
                 <tbody>
                   {displayGroups.map((g) => (
                     <tr key={g.id}>
-                      <td>{g.name}</td>
+                      <td>
+                        {linkToDetail ? (
+                          <Link to={`/ad-group/${g.id}`}>{g.name}</Link>
+                        ) : (
+                          g.name
+                        )}
+                      </td>
                       <td>{g.brandCode}</td>
                       <td>
                         <MonthTag month={g.month} />
@@ -159,7 +166,7 @@ const AdGroupListView = ({
                             onGallery={onGallery ? () => onGallery(g.id) : undefined}
                             onCopy={onCopy ? () => onCopy(g.id) : undefined}
                             onDownload={onDownload ? () => onDownload(g.id) : undefined}
-                            triggerClickMenu
+                            triggerClickMenu={!linkToDetail}
                           />
                         ))}
                     </div>

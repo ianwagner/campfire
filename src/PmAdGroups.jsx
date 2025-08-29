@@ -81,6 +81,7 @@ const PmAdGroups = () => {
         onGallery={handleGallery}
         onCopy={handleCopy}
         onDownload={handleDownload}
+        linkToDetail
       />
       {showGallery && (
         <GalleryModal ads={galleryAds} onClose={() => setShowGallery(false)} />
