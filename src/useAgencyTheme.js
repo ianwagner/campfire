@@ -4,7 +4,13 @@ import { db } from './firebase/config';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
 
-const defaultAgency = { logoUrl: '', themeColor: DEFAULT_ACCENT_COLOR };
+const defaultAgency = {
+  logoUrl: '',
+  themeColor: DEFAULT_ACCENT_COLOR,
+  enableDescribeProject: false,
+  enableGenerateBrief: false,
+  enabledRecipeTypes: null,
+};
 
 const getStoredAgency = (id) => {
   if (!id) return null;
