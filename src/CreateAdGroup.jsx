@@ -144,7 +144,7 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
 
   return (
     <div className={`${asModal ? '' : 'min-h-screen mt-10'} p-4 max-w-[50rem] mx-auto`}>
-      {step === 1 && <h2 className="text-xl font-semibold mb-4">Generate a Brief</h2>}
+      {step === 1 && <h2 className="text-xl font-semibold mb-4">Create Project</h2>}
       <RecipePreview
         onSave={handleSave}
         brandCode={brandCode}
