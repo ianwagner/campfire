@@ -69,7 +69,7 @@ export default function BriefStepForm({
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-semibold">
-            {currentType?.name || 'Generate a Brief'}
+            {currentType?.name || 'Create Project'}
           </h2>
           {currentType?.description && (
             <p className="text-sm text-gray-600 dark:text-gray-400">

@@ -14,18 +14,19 @@ jest.mock('firebase/firestore', () => ({
   getDoc: jest.fn(() => Promise.resolve({ exists: () => false, data: () => ({}) })),
   writeBatch: jest.fn(() => ({ set: jest.fn(), commit: jest.fn() })),
 }));
+jest.mock('./RecipePreview.jsx', () => () => <div />);
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => jest.fn(),
 }));
 
-test('renders Generate a Brief heading', () => {
+test('renders Create Project heading', () => {
   render(
     <MemoryRouter>
       <CreateAdGroup />
     </MemoryRouter>
   );
-  expect(screen.getByText(/Generate a Brief/i)).toBeInTheDocument();
+  expect(screen.getByText(/Create Project/i)).toBeInTheDocument();
 });
 
 test('renders when sidebar hidden', () => {
@@ -34,5 +35,5 @@ test('renders when sidebar hidden', () => {
       <CreateAdGroup showSidebar={false} />
     </MemoryRouter>
   );
-  expect(screen.getByText(/Generate a Brief/i)).toBeInTheDocument();
+  expect(screen.getByText(/Create Project/i)).toBeInTheDocument();
 });

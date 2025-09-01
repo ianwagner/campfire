@@ -23,7 +23,7 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import useSiteSettings from './useSiteSettings';
 import { hexToRgba } from './utils/theme.js';
 import { FiFileText } from 'react-icons/fi';
-import { FaMagic } from 'react-icons/fa';
+import { FilePlus } from 'lucide-react';
 import TabButton from './components/TabButton.jsx';
 import SortButton from './components/SortButton.jsx';
 import { uploadFile } from './uploadFile.js';
@@ -378,24 +378,36 @@ const ClientProjects = ({ brandCodes = [] }) => {
           <section className="snap-start w-full flex flex-col items-center">
             <div className="max-w-xl w-full flex flex-col items-center text-center mb-6">
               <h1 className="text-2xl mb-4">{introText}</h1>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full justify-items-center">
-                {agency.enableDescribeProject !== false && (
-                  <OptionButton
-                    icon={FiFileText}
-                    title="Describe Project"
-                    desc="Just tell us what you need. We'll generate a brief"
-                    onClick={() => setModalStep('describe')}
-                  />
-                )}
-                {agency.enableGenerateBrief !== false && (
-                  <OptionButton
-                    icon={FaMagic}
-                    title="Generate a Brief"
-                    desc="Craft your own brief. Choose copy, visuals and layouts"
-                    onClick={() => setModalStep('brief')}
-                  />
-                )}
-              </div>
+              {(() => {
+                const describeEnabled = agency.enableDescribeProject !== false;
+                const briefEnabled = agency.enableGenerateBrief !== false;
+                const optionCount = (describeEnabled ? 1 : 0) + (briefEnabled ? 1 : 0);
+                return (
+                  <div
+                    className={`grid grid-cols-1 gap-4 w-full justify-items-center ${
+                      optionCount > 1 ? 'sm:grid-cols-2' : ''
+                    }`}
+                  >
+                    {describeEnabled && (
+                      <OptionButton
+                        icon={FiFileText}
+                        title="Describe Project"
+                        desc="Just tell us what you need. We'll generate a brief"
+                        onClick={() => setModalStep('describe')}
+                      />
+                    )}
+                    {briefEnabled && (
+                      <OptionButton
+                        icon={FilePlus}
+                        title="Create Project"
+                        desc="Craft your own brief. Choose copy, visuals and layouts"
+                        onClick={() => setModalStep('brief')}
+                      />
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
             <div className="flex flex-wrap items-center gap-2 mt-6 justify-center">
               <TabButton active={view === 'current'} onClick={() => setView('current')}>
                 Current
@@ -419,7 +431,6 @@ const ClientProjects = ({ brandCodes = [] }) => {
                   { value: 'status', label: 'Status' },
                 ]}
               />
-            </div>
             </div>
             {displayProjects.length > 0 && (
               <div className="space-y-3 max-w-xl w-full mx-auto">

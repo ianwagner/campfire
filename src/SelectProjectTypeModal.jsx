@@ -1,7 +1,7 @@
 import React from 'react';
 import Modal from './components/Modal.jsx';
 import { FiFileText } from 'react-icons/fi';
-import { FaMagic } from 'react-icons/fa';
+import { FilePlus } from 'lucide-react';
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
@@ -24,12 +24,12 @@ const SelectProjectTypeModal = ({ onSelect, onClose }) => (
         desc="Just tell us what you need. We'll generate a brief"
         onClick={() => onSelect('describe')}
       />
-        <OptionButton
-          icon={FaMagic}
-          title="Generate a Brief"
-          desc="Craft your own brief. Choose copy, visuals and layouts"
-          onClick={() => onSelect('brief')}
-        />
+      <OptionButton
+        icon={FilePlus}
+        title="Create Project"
+        desc="Craft your own brief. Choose copy, visuals and layouts"
+        onClick={() => onSelect('brief')}
+      />
     </div>
     <div className="flex justify-end gap-2">
       <button className="btn" onClick={onClose}>Cancel</button>
