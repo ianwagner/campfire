@@ -94,7 +94,7 @@ const resetForm = () => {
   setPrimaryPrompt('');
   setHeadlinePrompt('');
   setDescriptionPrompt('');
-  setWriteFields([{ label: '', key: '', inputType: 'text' }]);
+  setWriteFields([{ label: '', key: '', inputType: 'text', required: false }]);
 };
 
   const openCreate = () => {
@@ -109,7 +109,13 @@ const resetForm = () => {
       primaryPrompt,
       headlinePrompt,
       descriptionPrompt,
-      writeInFields: writeFields,
+      writeInFields: writeFields.map((f) => ({
+        label: f.label.trim(),
+        key: f.key.trim(),
+        inputType: f.inputType || 'text',
+        options: f.options,
+        required: !!f.required,
+      })),
     };
     try {
       if (editId) {
@@ -134,8 +140,8 @@ const resetForm = () => {
     setDescriptionPrompt(t.descriptionPrompt || '');
     setWriteFields(
       t.writeInFields && t.writeInFields.length > 0
-        ? t.writeInFields
-        : [{ label: '', key: '', inputType: 'text' }]
+        ? t.writeInFields.map((f) => ({ required: false, ...f }))
+        : [{ label: '', key: '', inputType: 'text', required: false }]
     );
     setShowModal(true);
   };
@@ -294,6 +300,19 @@ const resetForm = () => {
                 <option value="image">Image</option>
                 <option value="list">List</option>
               </select>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  className="mr-1"
+                  checked={!!f.required}
+                  onChange={(e) => {
+                    const arr = [...writeFields];
+                    arr[idx].required = e.target.checked;
+                    setWriteFields(arr);
+                  }}
+                />
+                Required
+              </label>
               {f.inputType === 'list' && (
                 <TagInput
                   id={`list-${idx}`}
@@ -316,7 +335,12 @@ const resetForm = () => {
           ))}
           <button
             type="button"
-            onClick={() => setWriteFields([...writeFields, { label: '', key: '', inputType: 'text' }])}
+            onClick={() =>
+              setWriteFields([
+                ...writeFields,
+                { label: '', key: '', inputType: 'text', required: false },
+              ])
+            }
             className="btn-secondary px-2 py-0.5"
           >
             Add Field

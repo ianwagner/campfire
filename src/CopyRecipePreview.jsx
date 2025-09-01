@@ -184,6 +184,20 @@ const CopyRecipePreview = ({
     e.preventDefault();
     const type = types.find((t) => t.id === selectedType);
     if (!type) return;
+    const missing = (type.writeInFields || [])
+      .filter((f) => f.required)
+      .filter((f) => {
+        const val = formData[f.key];
+        if (f.inputType === 'list') {
+          return !Array.isArray(val) || val.length === 0;
+        }
+        return val === undefined || val === '';
+      })
+      .map((f) => f.label || f.key);
+    if (missing.length > 0) {
+      window.alert(`Please fill out required fields: ${missing.join(', ')}`);
+      return;
+    }
     setLoading(true);
     const [p, h, d] = await Promise.all([
       fetchCopy(buildPrompt(type.primaryPrompt, type)),
@@ -276,6 +290,7 @@ const CopyRecipePreview = ({
                     className="w-full p-2 border rounded"
                     value={formData[f.key] || ''}
                     onChange={(e) => setFormData({ ...formData, [f.key]: e.target.value })}
+                    required={f.required}
                   />
                 ) : f.inputType === 'list' ? (
                   <TagInput
@@ -289,6 +304,7 @@ const CopyRecipePreview = ({
                     type={f.inputType}
                     value={formData[f.key] || ''}
                     onChange={(e) => setFormData({ ...formData, [f.key]: e.target.value })}
+                    required={f.required}
                   />
                 )}
               </div>

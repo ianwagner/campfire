@@ -821,6 +821,20 @@ const RecipePreview = ({
 
   const handleGenerate = async (e) => {
     e.preventDefault();
+    const missing = (currentType?.writeInFields || [])
+      .filter((f) => f.required)
+      .filter((f) => {
+        const val = formData[f.key];
+        if (f.inputType === 'list') {
+          return !Array.isArray(val) || val.length === 0;
+        }
+        return val === undefined || val === '';
+      })
+      .map((f) => f.label || f.key);
+    if (missing.length > 0) {
+      window.alert(`Please fill out required fields: ${missing.join(', ')}`);
+      return;
+    }
     const times = Number(generateCount) || 1;
     for (let i = 0; i < times; i++) {
       // eslint-disable-next-line no-await-in-loop
