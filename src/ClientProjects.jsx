@@ -408,7 +408,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
                 );
               })()}
             </div>
-            <div className="flex flex-wrap items-center gap-2 mt-6 justify-center">
+            <div className="flex flex-wrap items-center gap-2 my-4 justify-center">
               <TabButton active={view === 'current'} onClick={() => setView('current')}>
                 Current
               </TabButton>
