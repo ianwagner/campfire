@@ -40,7 +40,7 @@ import AdminBrandForm from "./AdminBrandForm";
 import AdminBrands from "./AdminBrands";
 import AdminBrandDetail from "./AdminBrandDetail";
 import EditorBrands from "./EditorBrands";
-import AdminAgencies from "./AdminAgencies";
+import AdminAgencyProfile from "./AdminAgencyProfile";
 import ClientProjects from "./ClientProjects";
 import ProjectDetail from "./ProjectDetail";
 import ProjectStaging from "./ProjectStaging";
@@ -530,6 +530,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminAgencies />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/agencies/:agencyId"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole={["admin", "manager"]}
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <AdminAgencyProfile />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
