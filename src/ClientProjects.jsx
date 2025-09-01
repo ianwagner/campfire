@@ -28,7 +28,7 @@ import TabButton from './components/TabButton.jsx';
 import SortButton from './components/SortButton.jsx';
 import { uploadFile } from './uploadFile.js';
 import { deductRecipeCredits } from './utils/credits.js';
-import useAgencyTheme from './useAgencyTheme';
+import useUserRole from './useUserRole';
 
 const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   <button
@@ -43,7 +43,7 @@ const OptionButton = ({ icon: Icon, title, desc, onClick }) => (
   </button>
 );
 
-const CreateProjectModal = ({ onClose, brandCodes = [], allowedRecipeTypes = [] }) => {
+const CreateProjectModal = ({ onClose, brandCodes = [] }) => {
   const [title, setTitle] = useState('');
   const [step, setStep] = useState(1);
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
@@ -196,7 +196,6 @@ const CreateProjectModal = ({ onClose, brandCodes = [], allowedRecipeTypes = [] 
         onTitleChange={setTitle}
         onStepChange={setStep}
         onBrandCodeChange={setBrandCode}
-        allowedRecipeTypes={allowedRecipeTypes},
         showBriefExtras
       />
       <div className="flex justify-end gap-2 pt-2">
@@ -224,13 +223,9 @@ const ClientProjects = ({ brandCodes = [] }) => {
   const [sortField, setSortField] = useState('createdAt');
   const navigate = useNavigate();
   const location = useLocation();
-  const { agencyId } = useUserRole(auth.currentUser?.uid);
-  const { agency, loading: agencyLoading } = useAgencyTheme(agencyId);
   const { settings, loading: settingsLoading } = useSiteSettings();
   const monthColors = settingsLoading ? {} : settings.monthColors || {};
-    const allowedRecipes = agency.recipeTypes || [];
-  const showDescribe = agency.enableDescribeProject !== false;
-  const showBrief = agency.enableGenerateBrief !== false && allowedRecipes.length > 0;
+  const tagStrokeWeight = settings.tagStrokeWeight ?? 1;
 
   useEffect(() => {
     if (location.state?.removedProject) {
@@ -376,22 +371,18 @@ const ClientProjects = ({ brandCodes = [] }) => {
             <div className="max-w-xl w-full flex flex-col items-center text-center mb-6">
               <h1 className="text-2xl mb-4">{introText}</h1>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full justify-items-center">
-                {showDescribe && (
-                  <OptionButton
-                    icon={FiFileText}
-                    title="Describe Project"
-                    desc="Just tell us what you need. We'll generate a brief"
-                    onClick={() => setModalStep('describe')}
-                  />
-                )}
-                {showBrief && (
-                  <OptionButton
-                    icon={FaMagic}
-                    title="Generate a Brief"
-                    desc="Craft your own brief. Choose copy, visuals and layouts"
-                    onClick={() => setModalStep('brief')}
-                  />
-                )}
+                <OptionButton
+                  icon={FiFileText}
+                  title="Describe Project"
+                  desc="Just tell us what you need. We'll generate a brief"
+                  onClick={() => setModalStep('describe')}
+                />
+                <OptionButton
+                  icon={FaMagic}
+                  title="Generate a Brief"
+                  desc="Craft your own brief. Choose copy, visuals and layouts"
+                  onClick={() => setModalStep('brief')}
+                />
               </div>
             <div className="flex flex-wrap items-center gap-2 mt-6 justify-center">
               <TabButton active={view === 'current'} onClick={() => setView('current')}>
@@ -511,7 +502,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
         </div>
       )}
       {modalStep === 'brief' && (
-        <CreateProjectModal onClose={handleCreated} brandCodes={brandCodes}  allowedRecipeTypes={allowedRecipes} />
+        <CreateProjectModal onClose={handleCreated} brandCodes={brandCodes} />
       )}
       {modalStep === 'describe' && (
         <DescribeProjectModal onClose={handleCreated} brandCodes={brandCodes} />
