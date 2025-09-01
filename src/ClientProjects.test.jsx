@@ -25,7 +25,10 @@ import useSiteSettings from './useSiteSettings';
 jest.mock('./RecipePreview.jsx', () => () => <div />);
 jest.mock('./DescribeProjectModal.jsx', () => () => <div />);
 jest.mock('./components/OptimizedImage.jsx', () => () => <div />);
-jest.mock('./useUserRole', () => () => ({ agencyId: null }));
+jest.mock('./useUserRole', () => jest.fn(() => ({ agencyId: null })));
+import useUserRole from './useUserRole';
+jest.mock('./useAgencyTheme', () => jest.fn(() => ({ agency: {}, loading: false })));
+import useAgencyTheme from './useAgencyTheme';
 jest.mock('./uploadFile.js', () => ({ uploadFile: jest.fn() }));
 
 import { onSnapshot } from 'firebase/firestore';
@@ -33,6 +36,8 @@ import { auth } from './firebase/config';
 
 afterEach(() => {
   jest.clearAllMocks();
+  useUserRole.mockReturnValue({ agencyId: null });
+  useAgencyTheme.mockReturnValue({ agency: {}, loading: false });
   delete auth.currentUser.displayName;
 });
 
@@ -328,5 +333,35 @@ test('shows default greeting when display name is absent', () => {
   expect(
     screen.getByText('How would you like to start?')
   ).toBeInTheDocument();
+});
+
+test('agency settings hide creation options', () => {
+  useUserRole.mockReturnValue({ agencyId: 'a1' });
+  useAgencyTheme.mockReturnValue({
+    agency: { enableDescribeProject: false, enableGenerateBrief: true },
+    loading: false,
+  });
+  onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    });
+
+  render(
+    <MemoryRouter>
+      <ClientProjects brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  expect(screen.queryByText('Describe Project')).not.toBeInTheDocument();
+  expect(screen.getByText('Generate a Brief')).toBeInTheDocument();
 });
 

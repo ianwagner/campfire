@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import useAgencies from './useAgencies';
-import Table from './components/common/Table';
+import AgencyCard from './components/AgencyCard.jsx';
 
 const AdminAgencies = () => {
   const { agencies, loading } = useAgencies();
@@ -14,29 +14,13 @@ const AdminAgencies = () => {
       ) : agencies.length === 0 ? (
         <p>No agencies found.</p>
       ) : (
-        <Table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>ID</th>
-            </tr>
-          </thead>
-          <tbody>
-            {agencies.map((agency) => (
-              <tr key={agency.id}>
-                <td>
-                  <Link
-                    to={`/agency/theme?agencyId=${agency.id}`}
-                    className="text-blue-600 underline"
-                  >
-                    {agency.name || agency.id}
-                  </Link>
-                </td>
-                <td>{agency.id}</td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {agencies.map((agency) => (
+            <Link key={agency.id} to={`/admin/agencies/${agency.id}`}>
+              <AgencyCard agency={agency} />
+            </Link>
+          ))}
+        </div>
       )}
     </div>
   );

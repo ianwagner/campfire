@@ -17,6 +17,7 @@ import {
 import { FaMagic } from 'react-icons/fa';
 import { auth, db, storage } from './firebase/config';
 import useUserRole from './useUserRole';
+import useAgencyTheme from './useAgencyTheme';
 import TagInput from './components/TagInput.jsx';
 import selectRandomOption from './utils/selectRandomOption.js';
 import parseContextTags from './utils/parseContextTags.js';
@@ -277,6 +278,7 @@ const RecipePreview = ({
     loadCampaigns();
   }, [brandCode]);
   const { role: userRole, agencyId } = useUserRole(auth.currentUser?.uid);
+  const { agency } = useAgencyTheme(agencyId);
   const isAgencyUser = userRole === 'agency' || !!agencyId;
   const canEditRecipes =
     userRole === 'admin' ||
@@ -302,7 +304,7 @@ const RecipePreview = ({
             return url;
           }
         };
-        const typeList = await Promise.all(
+        let typeList = await Promise.all(
           typeSnap.docs.map(async (d) => {
             const data = d.data();
             const iconUrl = await resolveUrl(data.iconUrl);
@@ -313,6 +315,11 @@ const RecipePreview = ({
             return { id: d.id, ...data, iconUrl, iconUrls };
           })
         );
+        if (externalOnly && Array.isArray(agency.enabledRecipeTypes)) {
+          typeList = typeList.filter((t) =>
+            agency.enabledRecipeTypes.includes(t.id)
+          );
+        }
         setTypes(typeList);
         const compSnap = await getDocs(collection(db, 'componentTypes'));
         const list = compSnap.docs.map((d) => {
@@ -365,7 +372,7 @@ const RecipePreview = ({
       }
     };
     fetchData();
-  }, [externalOnly]);
+  }, [externalOnly, agency.enabledRecipeTypes]);
 
   useEffect(() => {
     if (initialResults && Array.isArray(initialResults)) {

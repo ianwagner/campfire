@@ -5,8 +5,9 @@ import { uploadLogo } from './uploadLogo';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import OptimizedImage from './components/OptimizedImage.jsx';
 
-const AgencyThemeSettings = () => {
-  const agencyId = new URLSearchParams(useLocation().search).get('agencyId');
+const AgencyThemeSettings = ({ agencyId: propAgencyId = null }) => {
+  const agencyId =
+    propAgencyId || new URLSearchParams(useLocation().search).get('agencyId');
   const { agency, saveAgency } = useAgencyTheme(agencyId);
   const [logoUrl, setLogoUrl] = useState('');
   const [logoFile, setLogoFile] = useState(null);
