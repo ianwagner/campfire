@@ -21,7 +21,6 @@ import RecipePreview from './RecipePreview.jsx';
 import DescribeProjectModal from './DescribeProjectModal.jsx';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import useSiteSettings from './useSiteSettings';
-import useAgencyTheme from './useAgencyTheme';
 import { hexToRgba } from './utils/theme.js';
 import { FiFileText } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
@@ -224,11 +223,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
   const [sortField, setSortField] = useState('createdAt');
   const navigate = useNavigate();
   const location = useLocation();
-  const { agencyId } = useUserRole(auth.currentUser?.uid);
-  const { agency } = useAgencyTheme(agencyId);
-  const { settings, loading: settingsLoading } = useSiteSettings(!agencyId);
-  const allowDescribe = agencyId ? !!agency.enableDescribeProject : true;
-  const allowBrief = agencyId ? !!agency.enableGenerateBrief : true;
+  const { settings, loading: settingsLoading } = useSiteSettings();
   const monthColors = settingsLoading ? {} : settings.monthColors || {};
   const tagStrokeWeight = settings.tagStrokeWeight ?? 1;
 
@@ -375,31 +370,20 @@ const ClientProjects = ({ brandCodes = [] }) => {
           <section className="snap-start w-full flex flex-col items-center">
             <div className="max-w-xl w-full flex flex-col items-center text-center mb-6">
               <h1 className="text-2xl mb-4">{introText}</h1>
-              {(allowDescribe || allowBrief) ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full justify-items-center">
-                  {allowDescribe && (
-                    <OptionButton
-                      icon={FiFileText}
-                      title="Describe Project"
-                      desc="Just tell us what you need. We'll generate a brief"
-                      onClick={() => setModalStep('describe')}
-                    />
-                  )}
-                  {allowBrief && (
-                    <OptionButton
-                      icon={FaMagic}
-                      title="Generate a Brief"
-                      desc="Craft your own brief. Choose copy, visuals and layouts"
-                      onClick={() => setModalStep('brief')}
-                    />
-                  )}
-                </div>
-              ) : (
-                <p className="text-gray-600">
-                  Project creation is disabled for your agency.
-                </p>
-              )}
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full justify-items-center">
+                <OptionButton
+                  icon={FiFileText}
+                  title="Describe Project"
+                  desc="Just tell us what you need. We'll generate a brief"
+                  onClick={() => setModalStep('describe')}
+                />
+                <OptionButton
+                  icon={FaMagic}
+                  title="Generate a Brief"
+                  desc="Craft your own brief. Choose copy, visuals and layouts"
+                  onClick={() => setModalStep('brief')}
+                />
+              </div>
             <div className="flex flex-wrap items-center gap-2 mt-6 justify-center">
               <TabButton active={view === 'current'} onClick={() => setView('current')}>
                 Current
@@ -517,10 +501,10 @@ const ClientProjects = ({ brandCodes = [] }) => {
           </section>
         </div>
       )}
-      {modalStep === 'brief' && allowBrief && (
+      {modalStep === 'brief' && (
         <CreateProjectModal onClose={handleCreated} brandCodes={brandCodes} />
       )}
-      {modalStep === 'describe' && allowDescribe && (
+      {modalStep === 'describe' && (
         <DescribeProjectModal onClose={handleCreated} brandCodes={brandCodes} />
       )}
     </div>

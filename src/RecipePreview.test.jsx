@@ -17,7 +17,6 @@ jest.mock('firebase/firestore', () => ({
 
 const mockUseUserRole = jest.fn(() => ({ role: 'admin', agencyId: null, loading: false }));
 jest.mock('./useUserRole', () => (...args) => mockUseUserRole(...args));
-jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 
 afterEach(() => {
   jest.clearAllMocks();
