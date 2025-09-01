@@ -68,7 +68,6 @@ const RecipePreview = ({
   onTitleChange = null,
   onStepChange = null,
   onBrandCodeChange = null,
-  allowedRecipeTypes = null,
   showBriefExtras = false,
 }) => {
   const [types, setTypes] = useState([]);
@@ -303,8 +302,7 @@ const RecipePreview = ({
             return url;
           }
         };
-
-        let typeList = await Promise.all(
+        const typeList = await Promise.all(
           typeSnap.docs.map(async (d) => {
             const data = d.data();
             const iconUrl = await resolveUrl(data.iconUrl);
@@ -315,13 +313,6 @@ const RecipePreview = ({
             return { id: d.id, ...data, iconUrl, iconUrls };
           })
         );
-        if (Array.isArray(allowedRecipeTypes)) {
-          if (allowedRecipeTypes.length > 0) {
-            typeList = typeList.filter((t) => allowedRecipeTypes.includes(t.id));
-          } else {
-            typeList = [];
-          }
-        }
         setTypes(typeList);
         const compSnap = await getDocs(collection(db, 'componentTypes'));
         const list = compSnap.docs.map((d) => {
@@ -374,7 +365,7 @@ const RecipePreview = ({
       }
     };
     fetchData();
-  }, [externalOnly, allowedRecipeTypes]);
+  }, [externalOnly]);
 
   useEffect(() => {
     if (initialResults && Array.isArray(initialResults)) {
