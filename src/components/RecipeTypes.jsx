@@ -562,6 +562,8 @@ const RecipeTypes = () => {
               >
                 <option value="text">Text</option>
                 <option value="number">Number</option>
+                <option value="date">Date</option>
+                <option value="url">URL</option>
                 <option value="textarea">Textarea</option>
                 <option value="image">Image</option>
                 <option value="list">List</option>
