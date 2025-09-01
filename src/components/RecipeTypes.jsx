@@ -27,7 +27,9 @@ const RecipeTypes = () => {
   const [assetPrompt, setAssetPrompt] = useState('');
   const [componentOrder, setComponentOrder] = useState([]);
   const [clientComponents, setClientComponents] = useState([]);
-  const [fields, setFields] = useState([{ label: '', key: '', inputType: 'text' }]);
+  const [fields, setFields] = useState([
+    { label: '', key: '', inputType: 'text', required: false },
+  ]);
   const [enableAssetCsv, setEnableAssetCsv] = useState(false);
   const [assetFields, setAssetFields] = useState([]);
   const [defaultColumns, setDefaultColumns] = useState([]);
@@ -60,7 +62,7 @@ const RecipeTypes = () => {
     setAssetPrompt('');
     setComponentOrder([]);
     setClientComponents([]);
-    setFields([{ label: '', key: '', inputType: 'text' }]);
+    setFields([{ label: '', key: '', inputType: 'text', required: false }]);
     setEnableAssetCsv(false);
     setAssetFields([]);
     setDefaultColumns([]);
@@ -96,6 +98,7 @@ const RecipeTypes = () => {
         label: f.label.trim(),
         key: f.key.trim(),
         inputType: f.inputType || 'text',
+        required: !!f.required,
       }))
       .filter((f) => f.label && f.key);
     try {
@@ -205,8 +208,8 @@ const RecipeTypes = () => {
     setIconFile(null);
     setFields(
       t.writeInFields && t.writeInFields.length > 0
-        ? t.writeInFields
-        : [{ label: '', key: '', inputType: 'text' }]
+        ? t.writeInFields.map((f) => ({ required: false, ...f }))
+        : [{ label: '', key: '', inputType: 'text', required: false }]
     );
     setShowModal(true);
   };
@@ -563,6 +566,19 @@ const RecipeTypes = () => {
                 <option value="image">Image</option>
                 <option value="list">List</option>
               </select>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  className="mr-1"
+                  checked={!!f.required}
+                  onChange={(e) => {
+                    const arr = [...fields];
+                    arr[idx].required = e.target.checked;
+                    setFields(arr);
+                  }}
+                />
+                Required
+              </label>
               <Button
                 type="button"
                 variant="secondary"
@@ -576,7 +592,12 @@ const RecipeTypes = () => {
           <Button
             type="button"
             variant="secondary"
-            onClick={() => setFields([...fields, { label: '', key: '', inputType: 'text' }])}
+            onClick={() =>
+              setFields([
+                ...fields,
+                { label: '', key: '', inputType: 'text', required: false },
+              ])
+            }
             className="px-2 py-0.5"
           >
             Add Field

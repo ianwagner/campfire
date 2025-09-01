@@ -12,7 +12,9 @@ const ComponentsView = () => {
   const [label, setLabel] = useState('');
   const [keyVal, setKeyVal] = useState('');
   const [selectionMode, setSelectionMode] = useState('dropdown');
-  const [attributes, setAttributes] = useState([{ label: '', key: '', inputType: 'text' }]);
+  const [attributes, setAttributes] = useState([
+    { label: '', key: '', inputType: 'text', required: false },
+  ]);
   const [editId, setEditId] = useState(null);
 
   useEffect(() => {
@@ -33,7 +35,7 @@ const ComponentsView = () => {
     setLabel('');
     setKeyVal('');
     setSelectionMode('dropdown');
-    setAttributes([{ label: '', key: '', inputType: 'text' }]);
+    setAttributes([{ label: '', key: '', inputType: 'text', required: false }]);
   };
 
   const handleSave = async (e) => {
@@ -43,6 +45,7 @@ const ComponentsView = () => {
         label: a.label.trim(),
         key: a.key.trim(),
         inputType: a.inputType || 'text',
+        required: !!a.required,
       }))
       .filter((a) => a.label && a.key);
     try {
@@ -83,7 +86,11 @@ const ComponentsView = () => {
     setLabel(c.label);
     setKeyVal(c.key);
     setSelectionMode(c.selectionMode || 'dropdown');
-    setAttributes(c.attributes && c.attributes.length > 0 ? c.attributes : [{ label: '', key: '', inputType: 'text' }]);
+    setAttributes(
+      c.attributes && c.attributes.length > 0
+        ? c.attributes.map((a) => ({ required: false, ...a }))
+        : [{ label: '', key: '', inputType: 'text', required: false }]
+    );
   };
 
   const handleDelete = async (id) => {
@@ -197,12 +204,35 @@ const ComponentsView = () => {
                 <option value="image">Image</option>
                 <option value="list">List</option>
               </select>
-              <Button type="button" variant="secondary" onClick={() => setAttributes(attributes.filter((_, i) => i !== idx))} className="px-2 py-0.5">
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  className="mr-1"
+                  checked={!!a.required}
+                  onChange={(e) => {
+                    const arr = [...attributes];
+                    arr[idx].required = e.target.checked;
+                    setAttributes(arr);
+                  }}
+                />
+                Required
+              </label>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setAttributes(attributes.filter((_, i) => i !== idx))}
+                className="px-2 py-0.5"
+              >
                 <FiTrash />
               </Button>
             </div>
           ))}
-          <Button type="button" variant="secondary" onClick={() => setAttributes([...attributes, { label: '', key: '', inputType: 'text' }])} className="px-2 py-0.5">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setAttributes([...attributes, { label: '', key: '', inputType: 'text', required: false }])}
+            className="px-2 py-0.5"
+          >
             Add Attribute
           </Button>
         </div>

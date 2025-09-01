@@ -471,6 +471,7 @@ export default function BriefStepForm({
                         onChange={(e) =>
                           setFormData({ ...formData, [`${c.key}.${a.key}`]: e.target.value })
                         }
+                        required={a.required}
                       />
                     </div>
                   ))}
@@ -485,6 +486,7 @@ export default function BriefStepForm({
                   className="w-full p-2 border rounded"
                   value={formData[f.key] || ''}
                   onChange={(e) => setFormData({ ...formData, [f.key]: e.target.value })}
+                  required={f.required}
                 />
               ) : f.inputType === 'list' ? (
                 <TagInput
@@ -501,6 +503,7 @@ export default function BriefStepForm({
                   type={f.inputType}
                   value={formData[f.key] || ''}
                   onChange={(e) => setFormData({ ...formData, [f.key]: e.target.value })}
+                  required={f.required}
                 />
               )}
             </div>
