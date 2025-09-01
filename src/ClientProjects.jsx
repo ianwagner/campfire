@@ -196,7 +196,7 @@ const CreateProjectModal = ({ onClose, brandCodes = [], allowedRecipeTypes = [] 
         onTitleChange={setTitle}
         onStepChange={setStep}
         onBrandCodeChange={setBrandCode}
-        allowedRecipeTypes={allowedRecipeTypes}
+        allowedRecipeTypes={allowedRecipeTypes},
         showBriefExtras
       />
       <div className="flex justify-end gap-2 pt-2">
