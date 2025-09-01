@@ -25,7 +25,7 @@ import useSiteSettings from './useSiteSettings';
 jest.mock('./RecipePreview.jsx', () => () => <div />);
 jest.mock('./DescribeProjectModal.jsx', () => () => <div />);
 jest.mock('./components/OptimizedImage.jsx', () => () => <div />);
-jest.mock('./useUserRole', () => () => ({ agencyId: null }));
+jest.mock('./useAgencyTheme', () => () => ({ agency: { enableDescribeProject: true, enableGenerateBrief: true, recipeTypes: ['t1'] }, loading: false }));
 jest.mock('./uploadFile.js', () => ({ uploadFile: jest.fn() }));
 
 import { onSnapshot } from 'firebase/firestore';
