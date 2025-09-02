@@ -6,12 +6,16 @@ import React, { useEffect, useRef, useState } from 'react';
 // cells switch to edit mode. The component now automatically sizes the
 // final "actions" column based on the number of action buttons in each
 // row so that buttons do not wrap unexpectedly.
-const Table = ({ children, className = '', columns = [] }) => {
+const Table = ({ children, className = '', columns = [], actionsWidthOverride = null }) => {
   const tableRef = useRef(null);
-  const [actionsWidth, setActionsWidth] = useState(null);
+  const [actionsWidth, setActionsWidth] = useState(actionsWidthOverride);
 
   useEffect(() => {
     const calculateWidth = () => {
+      if (actionsWidthOverride) {
+        setActionsWidth(actionsWidthOverride);
+        return;
+      }
       const el = tableRef.current;
       if (!el) return;
       // When viewport is narrow allow the actions to stack vertically
@@ -38,7 +42,7 @@ const Table = ({ children, className = '', columns = [] }) => {
     calculateWidth();
     window.addEventListener('resize', calculateWidth);
     return () => window.removeEventListener('resize', calculateWidth);
-  }, [children]);
+  }, [children, actionsWidthOverride]);
 
   const colWidths = columns.map((width, i) =>
     actionsWidth && i === columns.length - 1 ? actionsWidth : width,

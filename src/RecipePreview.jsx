@@ -13,6 +13,7 @@ import {
   FiSave,
   FiColumns,
   FiLink,
+  FiInfo,
 } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import { auth, db, storage } from './firebase/config';
@@ -36,6 +37,7 @@ import BriefStepSelect from './components/BriefStepSelect.jsx';
 import BriefStepForm from './components/BriefStepForm.jsx';
 import getMonthString from './utils/getMonthString.js';
 import Table from './components/common/Table';
+import InfoTooltip from './components/InfoTooltip.jsx';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -1321,11 +1323,17 @@ const RecipePreview = ({
     if (visibleColumns.recipeNo) widths.push('10%');
     columnMeta.forEach((c) => {
       if (visibleColumns[c.key]) {
-        widths.push(c.key.endsWith('.assets') ? '15%' : '20%');
+        widths.push(
+          c.key.toLowerCase().includes('url')
+            ? '50px'
+            : c.key.endsWith('.assets')
+            ? '15%'
+            : '20%'
+        );
       }
     });
     if (visibleColumns.copy) widths.push('30%');
-    widths.push('auto');
+    widths.push('50px');
     return widths;
   }, [visibleColumns, columnMeta]);
 
@@ -1499,18 +1507,49 @@ const RecipePreview = ({
           )}
         {results.length > 0 &&
           (columnsReady ? (
-            <Table className="min-w-full text-sm" columns={colWidths}>
+            <Table className="min-w-full text-sm" columns={colWidths} actionsWidthOverride="50px">
             <thead>
               <tr>
-                {visibleColumns['recipeNo'] && <th className="text-center">Recipe #</th>}
+                {visibleColumns['recipeNo'] && (
+                  <th className="text-center">
+                    <InfoTooltip text="Recipe #" maxWidth="80rem">
+                      <button type="button" aria-label="Recipe #">
+                        <FiInfo />
+                      </button>
+                    </InfoTooltip>
+                  </th>
+                )}
                 {columnMeta.map(
                   (col) =>
                     visibleColumns[col.key] && (
-                      <th key={col.key}>{col.label}</th>
+                      <th key={col.key} className="text-center">
+                        <InfoTooltip text={col.label} maxWidth="80rem">
+                          <button type="button" aria-label={col.label}>
+                            <FiInfo />
+                          </button>
+                        </InfoTooltip>
+                      </th>
                     )
                 )}
-                {visibleColumns['copy'] && <th>Copy</th>}
-                <th className="text-center">{canEditRecipes ? 'Actions' : ''}</th>
+                {visibleColumns['copy'] && (
+                  <th className="text-center">
+                    <InfoTooltip text="Copy" maxWidth="80rem">
+                      <button type="button" aria-label="Copy">
+                        <FiInfo />
+                      </button>
+                    </InfoTooltip>
+                  </th>
+                )}
+                <th className="text-center">
+                  <InfoTooltip
+                    text={canEditRecipes ? 'Actions' : 'Select'}
+                    maxWidth="80rem"
+                  >
+                    <button type="button" aria-label={canEditRecipes ? 'Actions' : 'Select'}>
+                      <FiInfo />
+                    </button>
+                  </InfoTooltip>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -1527,6 +1566,10 @@ const RecipePreview = ({
                           className={`align-middle ${
                             col.key === 'product.name'
                               ? 'max-w-[20ch] truncate'
+                              : ''
+                          } ${
+                            col.key.toLowerCase().includes('url')
+                              ? 'w-[50px] max-w-[50px] text-center'
                               : ''
                           }`}
                           style={
@@ -1620,6 +1663,7 @@ const RecipePreview = ({
                               href={r.components[col.key]}
                               target="_blank"
                               rel="noreferrer"
+                              className="text-accent"
                             >
                               <FiLink />
                             </a>
@@ -1645,7 +1689,12 @@ const RecipePreview = ({
                           onClick={() => navigator.clipboard.writeText(r.copy)}
                         >
                           {isUrl(r.copy.trim()) ? (
-                            <a href={r.copy.trim()} target="_blank" rel="noreferrer">
+                            <a
+                              href={r.copy.trim()}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-accent"
+                            >
                               <FiLink />
                             </a>
                           ) : (
@@ -1655,9 +1704,9 @@ const RecipePreview = ({
                       )}
                     </td>
                   )}
-                  <td className="text-center align-middle">
+                  <td className="text-center align-middle w-[50px] max-w-[50px]">
                     {canEditRecipes ? (
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex flex-col items-center justify-center gap-1">
                         <IconButton
                           onClick={() => handleEditRow(idx)}
                           aria-label={editing === idx ? 'Save' : 'Edit'}
