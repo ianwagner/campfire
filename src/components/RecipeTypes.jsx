@@ -396,12 +396,12 @@ const RecipeTypes = () => {
       )}
       {showModal && (
         <ScrollModal
-          sizeClass="max-w-[80rem] w-full"
+          sizeClass="max-w-2xl w-full"
           header={
             <h3 className="p-2 font-semibold">{editId ? 'Edit Recipe Type' : 'Add Recipe Type'}</h3>
           }
         >
-      <form onSubmit={handleSave} className="space-y-2 max-w-[80rem] p-2">
+      <form onSubmit={handleSave} className="space-y-2 max-w-[50rem] p-2">
         <div>
           <label className="block text-sm mb-1">Name</label>
           <input className="w-full p-2 border rounded" value={name} onChange={(e) => setName(e.target.value)} required />

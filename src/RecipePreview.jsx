@@ -1321,15 +1321,11 @@ const RecipePreview = ({
     if (visibleColumns.recipeNo) widths.push('10%');
     columnMeta.forEach((c) => {
       if (visibleColumns[c.key]) {
-        if (c.label?.toLowerCase() === 'url' || c.key.toLowerCase().includes('url')) {
-          widths.push('30px');
-        } else {
-          widths.push(c.key.endsWith('.assets') ? '15%' : '20%');
-        }
+        widths.push(c.key.endsWith('.assets') ? '15%' : '20%');
       }
     });
     if (visibleColumns.copy) widths.push('30%');
-    widths.push('30px');
+    widths.push('auto');
     return widths;
   }, [visibleColumns, columnMeta]);
 
@@ -1510,21 +1506,11 @@ const RecipePreview = ({
                 {columnMeta.map(
                   (col) =>
                     visibleColumns[col.key] && (
-                      <th
-                        key={col.key}
-                        className={`truncate ${
-                          col.label?.toLowerCase() === 'url' ||
-                          col.key.toLowerCase().includes('url')
-                            ? 'url-col'
-                            : ''
-                        }`}
-                      >
-                        {col.label}
-                      </th>
+                      <th key={col.key}>{col.label}</th>
                     )
                 )}
-                {visibleColumns['copy'] && <th className="truncate">Copy</th>}
-                <th className="text-center actions-col">{canEditRecipes ? 'Actions' : ''}</th>
+                {visibleColumns['copy'] && <th>Copy</th>}
+                <th className="text-center">{canEditRecipes ? 'Actions' : ''}</th>
               </tr>
             </thead>
             <tbody>
@@ -1541,11 +1527,6 @@ const RecipePreview = ({
                           className={`align-middle ${
                             col.key === 'product.name'
                               ? 'max-w-[20ch] truncate'
-                              : ''
-                          } ${
-                            col.label?.toLowerCase() === 'url' ||
-                            col.key.toLowerCase().includes('url')
-                              ? 'url-col text-center'
                               : ''
                           }`}
                           style={
@@ -1674,9 +1655,9 @@ const RecipePreview = ({
                       )}
                     </td>
                   )}
-                  <td className="text-center align-middle actions-col">
+                  <td className="text-center align-middle">
                     {canEditRecipes ? (
-                      <div className="flex flex-col items-center gap-1">
+                      <div className="flex items-center justify-center gap-1">
                         <IconButton
                           onClick={() => handleEditRow(idx)}
                           aria-label={editing === idx ? 'Save' : 'Edit'}
