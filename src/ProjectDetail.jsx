@@ -135,9 +135,9 @@ const ProjectDetail = () => {
   const [showCopySection, setShowCopySection] = useState(role === 'client');
   const [menuAsset, setMenuAsset] = useState(null);
   const menuRef = useRef(null);
-  const [revisionAsset, setRevisionAsset] = useState(null);
+  const [revisionModal, setRevisionModal] = useState(null);
   const [historyAsset, setHistoryAsset] = useState(null);
-  const [metadataAsset, setMetadataAsset] = useState(null);
+  const [metadataRecipe, setMetadataRecipe] = useState(null);
 
   const closeMenu = () => {
     setMenuAsset(null);
@@ -270,7 +270,9 @@ const ProjectDetail = () => {
       );
       setGroup((prev) => (data ? { ...prev, ...data } : prev));
     });
-    return () => unsub();
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
   }, [groupId]);
 
   useEffect(() => {
@@ -281,7 +283,9 @@ const ProjectDetail = () => {
         setAssets(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       }
     );
-    return () => unsub();
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
   }, [groupId]);
 
   useEffect(() => {
@@ -289,10 +293,12 @@ const ProjectDetail = () => {
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => {
-        setCopyCards(snap.docs.map((d) => ({ id: d.id, ...d.data() }))); 
+        setCopyCards(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       }
     );
-    return () => unsub();
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
   }, [groupId]);
 
   useEffect(() => {
@@ -307,9 +313,11 @@ const ProjectDetail = () => {
     if (!groupId || assets.length === 0) return;
     const newStatus = computeGroupStatus(assets, false, false);
     if (newStatus !== group?.status) {
-      updateDoc(doc(db, 'adGroups', groupId), { status: newStatus }).catch(
-        (err) => console.error('Failed to update group status', err)
-      );
+      try {
+        updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
+      } catch (err) {
+        console.error('Failed to update group status', err);
+      }
       setGroup((p) => (p ? { ...p, status: newStatus } : p));
       setProject((p) => (p ? { ...p, status: newStatus } : p));
     }
@@ -826,49 +834,53 @@ const ProjectDetail = () => {
 
   const openRevision = async (asset) => {
     try {
-      const snap = await getDocs(
-        query(
-          collection(db, 'adGroups', groupId, 'assets', asset.id, 'history'),
-          orderBy('updatedAt', 'desc')
-        )
-      );
+      const info = parseAdFilename(asset.filename || '');
+      const recipeCode = info.recipeCode || '';
+      const groupAssets = assets.filter((a) => {
+        const inf = parseAdFilename(a.filename || '');
+        return (inf.recipeCode || 'unknown') === recipeCode;
+      });
       const history = [];
-      snap.docs.forEach((d) => {
-        const h = d.data() || {};
-        history.push({
-          id: d.id,
-          lastUpdatedAt: h.updatedAt,
-          status: h.status,
-          comment: h.comment || '',
-          copyEdit: h.copyEdit || '',
-          origCopy: h.origCopy || '',
+      for (const ga of groupAssets) {
+        const snap = await getDocs(
+          query(
+            collection(db, 'adGroups', groupId, 'assets', ga.id, 'history'),
+            orderBy('updatedAt', 'desc')
+          )
+        );
+        snap.docs.forEach((d) => {
+          const h = d.data() || {};
+          history.push({
+            id: d.id,
+            assetId: ga.id,
+            lastUpdatedAt: h.updatedAt,
+            status: h.status,
+            comment: h.comment || '',
+            copyEdit: h.copyEdit || '',
+            origCopy: h.origCopy || '',
+          });
         });
+      }
+      history.sort((a, b) => {
+        const t = (x) => x?.toMillis?.() ?? (typeof x === 'number' ? x : 0);
+        return t(b.lastUpdatedAt) - t(a.lastUpdatedAt);
       });
-      setRevisionAsset({ asset, history, comment: asset.comment || '', copy: asset.copy || '' });
-    } catch (err) {
-      console.error('Failed to open revision', err);
-    }
-  };
-
-  const saveRevision = async () => {
-    if (!revisionAsset) return;
-    try {
-      await updateDoc(doc(db, 'adGroups', groupId, 'assets', revisionAsset.asset.id), {
-        status: 'edit_requested',
-        comment: revisionAsset.comment,
-        updatedAt: serverTimestamp(),
-        updatedBy: auth.currentUser?.uid || null,
-      });
-      setAssets((prev) =>
-        prev.map((a) =>
-          a.id === revisionAsset.asset.id
-            ? { ...a, status: 'edit_requested', comment: revisionAsset.comment }
-            : a
-        )
+      const sorted = [...groupAssets].sort(
+        (a, b) =>
+          (a.version || parseAdFilename(a.filename || '').version || 1) -
+          (b.version || parseAdFilename(b.filename || '').version || 1)
       );
-      setRevisionAsset(null);
+      let copy = '';
+      try {
+        const snap = await getDoc(doc(db, 'adGroups', groupId, 'recipes', recipeCode));
+        if (snap.exists()) {
+          const data = snap.data();
+          copy = data.latestCopy || data.copy || '';
+        }
+      } catch (e) {}
+      setRevisionModal({ recipeCode, assets: sorted, history, copy });
     } catch (err) {
-      console.error('Failed to save revision', err);
+      console.error('Failed to open revision modal', err);
     }
   };
 
@@ -924,8 +936,19 @@ const ProjectDetail = () => {
     }
   };
 
-  const openMetadata = (asset) => {
-    setMetadataAsset(asset);
+  const openMetadata = async (asset) => {
+    try {
+      const info = parseAdFilename(asset.filename || '');
+      const recipeCode = info.recipeCode || '';
+      if (!groupId || !recipeCode) return;
+      const snap = await getDoc(doc(db, 'adGroups', groupId, 'recipes', recipeCode));
+      if (snap.exists()) {
+        const data = snap.data();
+        setMetadataRecipe({ id: recipeCode, ...data });
+      }
+    } catch (err) {
+      console.error('Failed to load metadata', err);
+    }
   };
 
   const handleArchive = async () => {
@@ -1572,22 +1595,68 @@ const ProjectDetail = () => {
         </div>
       </div>
     </PageWrapper>
-    {revisionAsset && (
-      <Modal sizeClass="max-w-md">
-        <h3 className="mb-2 font-semibold">Request Revision</h3>
-        <div className="mb-2 text-sm break-all">{revisionAsset.asset.filename}</div>
-        <textarea
-          className="w-full border rounded p-1 text-sm text-black dark:text-black"
-          value={revisionAsset.comment}
-          onChange={(e) =>
-            setRevisionAsset({ ...revisionAsset, comment: e.target.value })
-          }
-        />
-        <div className="mt-3 flex justify-end gap-2">
-          <IconButton onClick={() => setRevisionAsset(null)}>Cancel</IconButton>
-          <button onClick={saveRevision} className="btn-primary px-3 py-1">
-            Save
-          </button>
+    {revisionModal && (
+      <Modal sizeClass="max-w-3xl">
+        <h3 className="mb-2 font-semibold">
+          Recipe {revisionModal.recipeCode} Revision
+        </h3>
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-auto max-h-[25rem]">
+            {revisionModal.assets.map((a) => (
+              <div key={a.id} className="relative">
+                <span className="absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded">
+                  V{a.version || parseAdFilename(a.filename || '').version || 1}
+                </span>
+                {isVideoUrl(a.firebaseUrl || a.url) ? (
+                  <VideoPlayer
+                    src={a.firebaseUrl || a.url}
+                    poster={a.thumbnailUrl}
+                    className="w-full object-contain max-h-[25rem]"
+                  />
+                ) : (
+                  <OptimizedImage
+                    pngUrl={a.thumbnailUrl || a.url || a.firebaseUrl}
+                    alt={a.filename}
+                    className="w-full object-contain max-h-[25rem]"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="w-full md:w-60 overflow-auto max-h-[25rem]">
+            <ul className="space-y-2">
+              {revisionModal.history.map((h, idx) => (
+                <li key={idx} className="border-b pb-1 last:border-none text-sm">
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-medium">{h.email}</span>
+                    {h.lastUpdatedAt && (
+                      <span className="text-xs text-gray-500">
+                        {h.lastUpdatedAt.toDate
+                          ? h.lastUpdatedAt.toDate().toLocaleString()
+                          : new Date(h.lastUpdatedAt).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <StatusBadge status={h.status} className="mt-1" />
+                  {h.comment && <p className="italic">{h.comment}</p>}
+                  {h.copyEdit && <p className="italic">Edit: {h.copyEdit}</p>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        {revisionModal.copy && (
+          <label className="block text-sm mt-2">
+            Copy
+            <textarea
+              className="mt-1 w-full border rounded p-1 text-black dark:text-black"
+              value={revisionModal.copy}
+              readOnly
+            />
+          </label>
+        )}
+        <div className="mt-3 flex justify-end">
+          <IconButton onClick={() => setRevisionModal(null)}>Close</IconButton>
         </div>
       </Modal>
     )}
@@ -1617,16 +1686,32 @@ const ProjectDetail = () => {
         </div>
       </Modal>
     )}
-    {metadataAsset && (
+    {metadataRecipe && (
       <Modal sizeClass="max-w-md">
         <h3 className="mb-2 font-semibold">
-          Metadata for {metadataAsset.filename || metadataAsset.name}
+          Metadata for Recipe {metadataRecipe.id}
         </h3>
-        <pre className="max-h-[60vh] overflow-auto text-xs">
-          {JSON.stringify(metadataAsset, null, 2)}
-        </pre>
+        {metadataRecipe.components && (
+          <ul className="mb-2 list-disc list-inside text-sm">
+            {Object.entries(metadataRecipe.components).map(([k, v]) => (
+              <li key={k}>
+                <span className="font-medium">{k}:</span> {String(v)}
+              </li>
+            ))}
+          </ul>
+        )}
+        {metadataRecipe.copy && (
+          <label className="block text-sm">
+            Copy
+            <textarea
+              className="mt-1 w-full border rounded p-1 text-black dark:text-black"
+              value={metadataRecipe.copy}
+              readOnly
+            />
+          </label>
+        )}
         <div className="mt-3 flex justify-end">
-          <IconButton onClick={() => setMetadataAsset(null)}>Close</IconButton>
+          <IconButton onClick={() => setMetadataRecipe(null)}>Close</IconButton>
         </div>
       </Modal>
     )}
