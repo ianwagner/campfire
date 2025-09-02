@@ -150,8 +150,10 @@ const ProjectDetail = () => {
         closeMenu();
       }
     };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
+    if (menuAsset) {
+      document.addEventListener('mousedown', handleClick);
+    }
+    return () => document.removeEventListener('mousedown', handleClick);
   }, [menuAsset]);
   useEffect(() => {
     setShowCopySection(role === 'client');
@@ -1490,7 +1492,7 @@ const ProjectDetail = () => {
                               }}
                             >
                               <FiRefreshCw />
-                              <span>Make Revisions</span>
+                              <span>Review Edits</span>
                             </button>
                           </li>
                           <li>
