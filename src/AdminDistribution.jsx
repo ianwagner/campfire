@@ -37,7 +37,6 @@ const baseColumnDefs = [
   { key: 'angle', label: 'Angle', width: 'auto' },
   { key: 'audience', label: 'Audience', width: 'auto' },
   { key: 'status', label: 'Status', width: 'auto' },
-  { key: 'links', label: 'Links', width: '12rem' },
 ];
 
 const baseColumnKeys = new Set(baseColumnDefs.map((c) => c.key));
@@ -96,20 +95,31 @@ const AdminDistribution = () => {
   const [brand, setBrand] = useState('');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [assetCols, setAssetCols] = useState([]);
   const [extraCols, setExtraCols] = useState([]);
-  const allColumnDefs = [...baseColumnDefs, ...extraCols];
+  const allColumnDefs = [...baseColumnDefs, ...assetCols, ...extraCols];
   const [selectedCols, setSelectedCols] = useState(
     baseColumnDefs.map((c) => c.key),
   );
   const [showColMenu, setShowColMenu] = useState(false);
+  const assetKeySet = new Set(assetCols.map((c) => c.key));
 
   // Keep selected columns limited to those that exist but do not
   // automatically enable newly discovered metadata columns so they can be
   // toggled on by the user via the column menu.
   useEffect(() => {
-    const valid = new Set([...baseColumnDefs, ...extraCols].map((c) => c.key));
-    setSelectedCols((prev) => prev.filter((k) => valid.has(k)));
-  }, [extraCols]);
+    const valid = new Set(
+      [...baseColumnDefs, ...assetCols, ...extraCols].map((c) => c.key),
+    );
+    setSelectedCols((prev) => {
+      const filtered = prev.filter((k) => valid.has(k));
+      assetCols.forEach((c) => {
+        if (!filtered.includes(c.key)) filtered.push(c.key);
+      });
+      return filtered;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetCols, extraCols]);
 
   useEffect(() => {
     const fetchFilters = async () => {
@@ -157,6 +167,7 @@ const AdminDistribution = () => {
         const gSnap = await getDocs(query(...args));
         const list = [];
         const metaKeys = new Set();
+        const aspectKeys = new Set();
         for (const gDoc of gSnap.docs) {
           const gData = gDoc.data();
           const groupMeta = flattenMeta(gData.metadata || {});
@@ -209,11 +220,11 @@ const AdminDistribution = () => {
               '';
             const audience = rData.audience || rData.components?.audience || '';
             const status = rData.status || '';
-            const links =
+            const assets =
               status === 'archived' || status === 'rejected'
                 ? []
                 : assetMap[String(recipeNo)] || [];
-            list.push({
+            const row = {
               id: `${gDoc.id}_${rDoc.id}`,
               groupName: gData.name || gDoc.id,
               recipeNo,
@@ -221,13 +232,28 @@ const AdminDistribution = () => {
               angle,
               audience,
               status,
-              links,
               ...groupMeta,
               ...recipeMeta,
+            };
+            assets.forEach(({ url, label }) => {
+              if (!row[label]) row[label] = url;
+              aspectKeys.add(label);
             });
+            list.push(row);
           });
         }
         setRows(list);
+        setAssetCols(
+          Array.from(aspectKeys)
+            .sort()
+            .map((k) => ({
+              key: k,
+              label: k,
+              width: '8rem',
+              headerClass: 'text-center',
+              cellClass: 'text-center',
+            })),
+        );
         setExtraCols(
           Array.from(metaKeys).map((k) => ({
             key: k,
@@ -255,25 +281,23 @@ const AdminDistribution = () => {
       ...rows.map((r) =>
         cols
           .map((c) => {
-            switch (c.key) {
-              case 'groupName':
-                return r.groupName;
-              case 'recipeNo':
-                return r.recipeNo;
-              case 'product':
-                return r.product;
-              case 'angle':
-                return r.angle;
-              case 'audience':
-                return r.audience || '-';
-              case 'status':
-                return r.status || '-';
-              case 'links':
-                return (r.links || []).map((l) => l.url).join(' ');
-              default:
-                return r[c.key] || '';
-            }
-          })
+          switch (c.key) {
+            case 'groupName':
+              return r.groupName;
+            case 'recipeNo':
+              return r.recipeNo;
+            case 'product':
+              return r.product;
+            case 'angle':
+              return r.angle;
+            case 'audience':
+              return r.audience || '-';
+            case 'status':
+              return r.status || '-';
+            default:
+              return r[c.key] || '';
+          }
+        })
           .map(escape)
           .join(','),
       ),
@@ -410,27 +434,28 @@ const AdminDistribution = () => {
                         return <td key={c.key}>{r.audience || '-'}</td>;
                       case 'status':
                         return <td key={c.key}>{r.status || '-'}</td>;
-                      case 'links':
-                        return (
-                          <td key={c.key} className="flex flex-wrap gap-2">
-                            {r.links && r.links.length > 0
-                              ? r.links.map((l, i) => (
-                                  <Button
-                                    as="a"
-                                    key={i}
-                                    href={l.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    variant="secondary"
-                                    className="px-2 py-1 text-sm"
-                                  >
-                                    {l.label}
-                                  </Button>
-                                ))
-                              : '-'}
-                          </td>
-                        );
                       default:
+                        if (assetKeySet.has(c.key)) {
+                          const url = r[c.key];
+                          return (
+                            <td key={c.key} className="text-center">
+                              {url ? (
+                                <Button
+                                  as="a"
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  variant="secondary"
+                                  className="px-2 py-1 text-sm"
+                                >
+                                  Link
+                                </Button>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                          );
+                        }
                         return <td key={c.key}>{r[c.key] ?? '-'}</td>;
                     }
                   })}
