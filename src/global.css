@@ -240,7 +240,6 @@
   .ad-table th {
     white-space: nowrap;
     text-overflow: ellipsis;
-    overflow: hidden;
   }
 
   /* Ensure form controls don't resize table cells when editing */
@@ -262,22 +261,19 @@
   .ad-table th:last-child,
   .ad-table td:last-child {
     white-space: normal;
+    /* Allow action columns to size based on provided action buttons */
     width: var(--actions-col-width, auto);
   }
 
   .ad-table td:last-child > div {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
+    flex-wrap: wrap;
   }
 
-  .ad-table th.url-col,
-  .ad-table td.url-col,
-  .ad-table th.actions-col,
-  .ad-table td.actions-col {
-    max-width: 30px;
-    width: 30px;
+  @media (max-width: 1000px) {
+    .ad-table td:last-child > div {
+      flex-direction: column;
+      align-items: flex-start;
+    }
   }
 
   .ad-table td.copy-cell {
