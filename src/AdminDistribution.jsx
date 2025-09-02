@@ -188,8 +188,13 @@ const AdminDistribution = () => {
             const url = aData.adUrl || aData.firebaseUrl || aData.url;
             if (!recipe || !url) return;
             const normalized = recipe.replace(/^0+/, '');
-            let aspect = aData.aspectRatio || info.aspectRatio || '';
-            aspect = aspect.replace(/s$/, '');
+            let aspect = info.aspectRatio || aData.aspectRatio || '';
+            if (!aspect && aData.filename) {
+              const base = aData.filename.replace(/\.[^/.]+$/, '');
+              const match = base.match(/_(\d+x\d+)(?:_V\d+)?$/i);
+              if (match) aspect = match[1];
+            }
+            aspect = aspect.replace(/_V\d+$/i, '').replace(/s$/, '');
             if (!aspect && /9x16/i.test(url)) aspect = '9x16';
             const label = aspect || 'link';
             const entry = { url, label, status: aData.status || '' };
