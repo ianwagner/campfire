@@ -453,6 +453,7 @@ const ProjectDetail = () => {
             primary: c.primary || '',
             headline: c.headline || '',
             description: c.description || '',
+            product: c.product || '',
           };
           if (c.id) {
             await setDoc(

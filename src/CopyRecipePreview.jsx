@@ -50,6 +50,7 @@ const CopyRecipePreview = ({
           primary: c.primary || '',
           headline: c.headline || '',
           description: c.description || '',
+          product: c.product || '',
           editing: false,
         }))
       );
@@ -205,9 +206,18 @@ const CopyRecipePreview = ({
       fetchCopy(buildPrompt(type.descriptionPrompt, type)),
     ]);
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const prod = brandProducts.find((p) => p.id === selectedProduct);
+    const productName = prod?.values?.name || prod?.name || '';
     setCopies((arr) => [
       ...arr,
-      { id, primary: p, headline: h, description: d, editing: false },
+      {
+        id,
+        primary: p,
+        headline: h,
+        description: d,
+        product: productName,
+        editing: false,
+      },
     ]);
     setLoading(false);
   };

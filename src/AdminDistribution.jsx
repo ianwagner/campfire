@@ -184,8 +184,13 @@ const AdminDistribution = () => {
           const cSnap = await getDocs(
             collection(db, 'adGroups', gDoc.id, 'copyCards'),
           );
-          const copies = cSnap.docs.map((d) => d.data());
-          const productIdxMap = {};
+          const copiesByProduct = {};
+          cSnap.docs.forEach((d) => {
+            const data = d.data();
+            const prodName = data.product || '';
+            if (!copiesByProduct[prodName]) copiesByProduct[prodName] = [];
+            copiesByProduct[prodName].push(data);
+          });
 
           const assetMap = {};
           aSnap.docs.forEach((aDoc) => {
@@ -229,10 +234,11 @@ const AdminDistribution = () => {
               rData.product ||
               rData.components?.['product.name'] ||
               '';
-            if (!(product in productIdxMap)) {
-              productIdxMap[product] = Object.keys(productIdxMap).length;
-            }
-            const copy = copies[productIdxMap[product]] || {};
+            const copyList = copiesByProduct[product] || [];
+            const copy =
+              copyList.length > 0
+                ? copyList[Math.floor(Math.random() * copyList.length)]
+                : {};
             const angle =
               rData.metadata?.angle ||
               rData.components?.angle ||
