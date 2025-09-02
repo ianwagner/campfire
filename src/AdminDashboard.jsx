@@ -294,6 +294,9 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
         const results = (await Promise.all(resultPromises)).filter(Boolean);
         const fallbackResults = (await Promise.all(fallbackPromises)).filter(Boolean);
         const merged = [...results, ...fallbackResults];
+        merged.sort((a, b) =>
+          (a.name || a.code || '').localeCompare(b.name || b.code || '')
+        );
         if (active) setRows(merged);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
