@@ -188,8 +188,11 @@ const AdminDistribution = () => {
             const url = aData.adUrl || aData.firebaseUrl || aData.url;
             if (!recipe || !url) return;
             const normalized = recipe.replace(/^0+/, '');
-            const label = info.aspectRatio || 'link';
-            const entry = { url, label };
+            let aspect = aData.aspectRatio || info.aspectRatio || '';
+            aspect = aspect.replace(/s$/, '');
+            if (!aspect && /9x16/i.test(url)) aspect = '9x16';
+            const label = aspect || 'link';
+            const entry = { url, label, status: aData.status || '' };
             if (!assetMap[recipe]) assetMap[recipe] = [];
             assetMap[recipe].push(entry);
             if (normalized !== recipe) {
@@ -219,11 +222,11 @@ const AdminDistribution = () => {
               rData.angle ||
               '';
             const audience = rData.audience || rData.components?.audience || '';
-            const status = rData.status || '';
             const assets =
-              status === 'archived' || status === 'rejected'
+              rData.status === 'archived' || rData.status === 'rejected'
                 ? []
                 : assetMap[String(recipeNo)] || [];
+            const status = assets[0]?.status || rData.status || '';
             const row = {
               id: `${gDoc.id}_${rDoc.id}`,
               groupName: gData.name || gDoc.id,
