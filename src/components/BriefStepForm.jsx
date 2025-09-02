@@ -10,6 +10,7 @@ import AddProductCard from './AddProductCard.jsx';
 import ProductEditModal from './ProductEditModal.jsx';
 import ProductImportModal from '../ProductImportModal.jsx';
 import DueDateMonthSelector from './DueDateMonthSelector.jsx';
+import saveBrandProducts from '../utils/saveBrandProducts.js';
 
 export default function BriefStepForm({
   onBack,
@@ -307,11 +308,14 @@ export default function BriefStepForm({
                           },
                           relationships: { brandCode },
                         };
-                        setBrandProducts((arr) => [...arr, newProd]);
+                        const updated = [...brandProducts, newProd];
+                        setBrandProducts(updated);
                         setSelectedInstances((prev) => ({
                           ...prev,
                           [c.key]: [...currentList, id],
                         }));
+                        const brand = brands.find((b) => b.code === brandCode);
+                        saveBrandProducts(brand?.id, updated);
                       }}
                       onClose={() => setShowProductModal(false)}
                     />
@@ -336,11 +340,14 @@ export default function BriefStepForm({
                           },
                           relationships: { brandCode },
                         };
-                        setBrandProducts((arr) => [...arr, newProd]);
+                        const updated = [...brandProducts, newProd];
+                        setBrandProducts(updated);
                         setSelectedInstances((prev) => ({
                           ...prev,
                           [c.key]: [...currentList, id],
                         }));
+                        const brand = brands.find((b) => b.code === brandCode);
+                        saveBrandProducts(brand?.id, updated);
                       }}
                       onClose={() => setShowImportModal(false)}
                     />
