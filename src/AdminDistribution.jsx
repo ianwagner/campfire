@@ -195,8 +195,8 @@ const AdminDistribution = () => {
               if (match) aspect = match[1];
             }
             aspect = aspect.replace(/_V\d+$/i, '').replace(/s$/, '');
-            if (!aspect && /9x16/i.test(url)) aspect = '9x16';
-            const label = aspect || 'link';
+            if (!aspect) aspect = '9x16';
+            const label = aspect;
             const entry = { url, label, status: aData.status || '' };
             if (!assetMap[recipe]) assetMap[recipe] = [];
             assetMap[recipe].push(entry);
