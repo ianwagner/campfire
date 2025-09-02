@@ -929,6 +929,7 @@ useEffect(() => {
             primary: c.primary || '',
             headline: c.headline || '',
             description: c.description || '',
+            product: c.product || '',
           };
           if (c.id) {
             return setDoc(

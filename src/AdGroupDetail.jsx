@@ -1395,6 +1395,7 @@ const AdGroupDetail = () => {
             primary: c.primary || '',
             headline: c.headline || '',
             description: c.description || '',
+            product: c.product || '',
           };
           if (c.id) {
             return setDoc(doc(db, 'adGroups', id, 'copyCards', c.id), data, {
