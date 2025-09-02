@@ -290,7 +290,7 @@ export default function BriefStepForm({
                         images: [],
                       }}
                       brandCode={brandCode}
-                      onAdd={(p) => {
+                      onSave={(p) => {
                         const id = `product-${brandProducts.length}`;
                         const newProd = {
                           id,
