@@ -37,6 +37,9 @@ const baseColumnDefs = [
   { key: 'angle', label: 'Angle', width: 'auto' },
   { key: 'audience', label: 'Audience', width: 'auto' },
   { key: 'status', label: 'Status', width: 'auto' },
+  { key: 'primary', label: 'Primary', width: 'auto' },
+  { key: 'headline', label: 'Headline', width: 'auto' },
+  { key: 'description', label: 'Description', width: 'auto' },
 ];
 
 const baseColumnKeys = new Set(baseColumnDefs.map((c) => c.key));
@@ -178,6 +181,11 @@ const AdminDistribution = () => {
           const aSnap = await getDocs(
             collection(db, 'adGroups', gDoc.id, 'assets'),
           );
+          const cSnap = await getDocs(
+            collection(db, 'adGroups', gDoc.id, 'copyCards'),
+          );
+          const copies = cSnap.docs.map((d) => d.data());
+          const productIdxMap = {};
 
           const assetMap = {};
           aSnap.docs.forEach((aDoc) => {
@@ -221,6 +229,10 @@ const AdminDistribution = () => {
               rData.product ||
               rData.components?.['product.name'] ||
               '';
+            if (!(product in productIdxMap)) {
+              productIdxMap[product] = Object.keys(productIdxMap).length;
+            }
+            const copy = copies[productIdxMap[product]] || {};
             const angle =
               rData.metadata?.angle ||
               rData.components?.angle ||
@@ -240,6 +252,9 @@ const AdminDistribution = () => {
               angle,
               audience,
               status,
+              primary: copy.primary || '',
+              headline: copy.headline || '',
+              description: copy.description || '',
               ...groupMeta,
               ...recipeMeta,
             };
