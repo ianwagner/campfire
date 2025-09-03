@@ -649,7 +649,24 @@ const ProjectDetail = () => {
     return new Blob([zip], { type: 'application/zip' });
   };
 
-  const galleryAssets = assets.filter((a) => a.status !== 'archived');
+  const adUnits = useMemo(() => {
+    const groups = {};
+    assets.forEach((a) => {
+      const root = a.parentAdId || a.id;
+      const v = a.version || parseAdFilename(a.filename || '').version || 1;
+      if (!groups[root]) {
+        groups[root] = { ...a, versions: [a.filename], version: v };
+      } else {
+        groups[root].versions.push(a.filename);
+        if (v > groups[root].version) {
+          groups[root] = { ...a, versions: groups[root].versions, version: v };
+        }
+      }
+    });
+    return Object.values(groups);
+  }, [assets]);
+
+  const galleryAssets = adUnits.filter((a) => a.status !== 'archived');
   const approvedAssets = galleryAssets.filter((a) => a.status === 'approved');
 
   const handleDownload = async () => {
@@ -1475,9 +1492,9 @@ const ProjectDetail = () => {
                     </td>
                     <td
                       className="max-w-[20ch] truncate"
-                      title={a.filename || a.name}
+                      title={a.versions ? a.versions.join(', ') : a.filename || a.name}
                     >
-                      {a.filename || a.name}
+                      {a.versions ? a.versions.join(' / ') : a.filename || a.name}
                     </td>
                     <td className="align-top">
                       <StatusBadge status={a.status} />
