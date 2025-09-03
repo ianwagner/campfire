@@ -1656,11 +1656,12 @@ const AdGroupDetail = () => {
     }
   };
 
-  const markBriefed = async () => {
+  const toggleBriefed = async () => {
     if (!id) return;
     try {
-      await updateDoc(doc(db, 'adGroups', id), { status: 'briefed' });
-      setGroup((p) => ({ ...p, status: 'briefed' }));
+      const newStatus = group.status === 'briefed' ? 'new' : 'briefed';
+      await updateDoc(doc(db, 'adGroups', id), { status: newStatus });
+      setGroup((p) => ({ ...p, status: newStatus }));
     } catch (err) {
       console.error('Failed to update status', err);
     }
@@ -2141,13 +2142,14 @@ const AdGroupDetail = () => {
           ) : (
             <span>{designerName || 'Unassigned'}</span>
           )}
-        {isEditor && group.status === 'new' && (
+        {((isEditor && group.status === 'new') ||
+          (isAdmin && ['new', 'briefed'].includes(group.status))) && (
           <button
             type="button"
-            onClick={markBriefed}
+            onClick={toggleBriefed}
             className="ml-2 px-2 py-1 border rounded bg-gray-200 dark:bg-gray-700"
           >
-            Briefed
+            {group.status === 'briefed' ? 'New' : 'Briefed'}
           </button>
         )}
       </p>
