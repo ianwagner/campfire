@@ -32,6 +32,7 @@ const AdGroupListView = ({
   onGallery,
   onCopy,
   onDownload,
+  onStatusChange,
   linkToDetail = false,
   designers = [],
   designerFilter,
@@ -157,7 +158,11 @@ const AdGroupListView = ({
                         <MonthTag month={g.month} />
                       </td>
                       <td className="text-center">
-                        <StatusBadge status={g.status} />
+                        <StatusBadge
+                          status={g.status}
+                          editable={!!onStatusChange}
+                          onChange={(s) => onStatusChange && onStatusChange(g.id, s)}
+                        />
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
