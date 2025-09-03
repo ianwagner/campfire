@@ -1484,32 +1484,36 @@ useEffect(() => {
         <div className="flex justify-center relative">
           {reviewVersion === 2 ? (
             <div className="bg-gray-100 p-4 rounded flex flex-wrap justify-center gap-4">
-              {(currentRecipeGroup?.assets || []).map((a, idx) =>
-                isVideoUrl(a.firebaseUrl) ? (
-                  <VideoPlayer
-                    key={idx}
-                    src={a.firebaseUrl}
-                    className="max-w-[90%] mx-auto rounded shadow"
-                    style={{
-                      aspectRatio: String(a.aspectRatio || '').replace('x', '/') || undefined,
-                    }}
-                  />
-                ) : (
-                  <OptimizedImage
-                    key={idx}
-                    pngUrl={a.firebaseUrl}
-                    webpUrl={
-                      a.firebaseUrl ? a.firebaseUrl.replace(/\.png$/, '.webp') : undefined
-                    }
-                    alt={a.filename}
-                    cacheKey={a.firebaseUrl}
-                    className="max-w-[90%] mx-auto rounded shadow"
-                    style={{
-                      aspectRatio: String(a.aspectRatio || '').replace('x', '/') || undefined,
-                    }}
-                  />
-                )
-              )}
+              {(currentRecipeGroup?.assets || []).map((a, idx) => (
+                <div key={idx} className="max-w-[750px]">
+                  {isVideoUrl(a.firebaseUrl) ? (
+                    <VideoPlayer
+                      src={a.firebaseUrl}
+                      className="max-w-full rounded shadow"
+                      style={{
+                        aspectRatio:
+                          String(a.aspectRatio || '').replace('x', '/') || undefined,
+                      }}
+                    />
+                  ) : (
+                    <OptimizedImage
+                      pngUrl={a.firebaseUrl}
+                      webpUrl={
+                        a.firebaseUrl
+                          ? a.firebaseUrl.replace(/\.png$/, '.webp')
+                          : undefined
+                      }
+                      alt={a.filename}
+                      cacheKey={a.firebaseUrl}
+                      className="max-w-full rounded shadow"
+                      style={{
+                        aspectRatio:
+                          String(a.aspectRatio || '').replace('x', '/') || undefined,
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           ) : (
           <div
