@@ -332,6 +332,16 @@ const AdGroupDetail = () => {
     return () => unsub();
   }, [id]);
 
+  const toggleReviewV2 = async () => {
+    const newVal = group?.reviewVersion === 2 ? 1 : 2;
+    try {
+      await updateDoc(doc(db, 'adGroups', id), { reviewVersion: newVal });
+      setGroup((p) => ({ ...p, reviewVersion: newVal }));
+    } catch (err) {
+      console.error('Failed to update review version', err);
+    }
+  };
+
   useEffect(() => {
     if (showCopyModal) {
       setModalCopies(copyCards);
@@ -2073,6 +2083,19 @@ const AdGroupDetail = () => {
               : "N/A"}
           </span>
           )}
+        {assets.length === 0 && (
+          <>
+            <span className="hidden sm:inline">|</span>
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={group.reviewVersion === 2}
+                onChange={toggleReviewV2}
+              />
+              Review 2.0
+            </label>
+          </>
+        )}
         {(brandHasAgency || userRole === 'admin') && (
           <>
             <span className="hidden sm:inline">|</span>
