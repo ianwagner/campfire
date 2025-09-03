@@ -1483,9 +1483,9 @@ useEffect(() => {
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 2 ? (
-            <div className="bg-gray-100 p-4 rounded flex flex-wrap justify-center gap-4">
+            <div className="p-4 rounded flex flex-wrap justify-center gap-4">
               {(currentRecipeGroup?.assets || []).map((a, idx) => (
-                <div key={idx} className="max-w-[750px]">
+                <div key={idx} className="max-w-[300px]">
                   {isVideoUrl(a.firebaseUrl) ? (
                     <VideoPlayer
                       src={a.firebaseUrl}
