@@ -18,6 +18,9 @@ const PmAdGroups = () => {
   const [galleryAds, setGalleryAds] = useState([]);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
+  const [designers, setDesigners] = useState([]);
+  const [designerFilter, setDesignerFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState('');
 
   const user = auth.currentUser;
   const { agencyId, brandCodes: roleCodes } = useUserRole(user?.uid);
@@ -39,6 +42,26 @@ const PmAdGroups = () => {
   }, [agencyId, roleCodes]);
 
   const { groups, loading } = useAdGroups(codes, showArchived);
+
+  useEffect(() => {
+    const fetchDesigners = async () => {
+      try {
+        const snap = await getDocs(
+          query(collection(db, 'users'), where('role', '==', 'designer'))
+        );
+        setDesigners(
+          snap.docs.map((d) => ({
+            id: d.id,
+            name: d.data().fullName || d.data().email || d.id,
+          }))
+        );
+      } catch (err) {
+        console.error('Failed to fetch designers', err);
+        setDesigners([]);
+      }
+    };
+    fetchDesigners();
+  }, []);
 
   const handleGallery = async (id) => {
     try {
@@ -81,6 +104,11 @@ const PmAdGroups = () => {
         onGallery={handleGallery}
         onCopy={handleCopy}
         onDownload={handleDownload}
+        designers={designers}
+        designerFilter={designerFilter}
+        onDesignerFilterChange={setDesignerFilter}
+        monthFilter={monthFilter}
+        onMonthFilterChange={setMonthFilter}
         linkToDetail
       />
       {showGallery && (
