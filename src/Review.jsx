@@ -103,6 +103,7 @@ const Review = forwardRef(
   const [copyCards, setCopyCards] = useState([]);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [modalCopies, setModalCopies] = useState([]);
+  const [reviewVersion, setReviewVersion] = useState(1);
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
   const [allHeroAds, setAllHeroAds] = useState([]); // hero list for all ads
@@ -378,11 +379,13 @@ useEffect(() => {
         let list = [];
         let startIndex = 0;
         let status = 'pending';
+        let rv = 1;
         if (groupId) {
             const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
             if (groupSnap.exists()) {
               const data = groupSnap.data();
               status = data.status || 'pending';
+              rv = data.reviewVersion || 1;
               if (status === 'reviewed') status = 'done';
               if (status === 'review pending' || status === 'in review') status = 'ready';
               if (typeof data.reviewProgress === 'number') {
@@ -409,6 +412,7 @@ useEffect(() => {
                 });
           }
           setInitialStatus(status);
+          setReviewVersion(rv);
         } else {
           const q = query(
             collectionGroup(db, 'assets'),
@@ -1478,6 +1482,36 @@ useEffect(() => {
           </div>
         </div>
         <div className="flex justify-center relative">
+          {reviewVersion === 2 ? (
+            <div className="bg-gray-100 p-4 rounded flex flex-wrap justify-center gap-4">
+              {(currentRecipeGroup?.assets || []).map((a, idx) =>
+                isVideoUrl(a.firebaseUrl) ? (
+                  <VideoPlayer
+                    key={idx}
+                    src={a.firebaseUrl}
+                    className="max-w-[90%] mx-auto rounded shadow"
+                    style={{
+                      aspectRatio: String(a.aspectRatio || '').replace('x', '/') || undefined,
+                    }}
+                  />
+                ) : (
+                  <OptimizedImage
+                    key={idx}
+                    pngUrl={a.firebaseUrl}
+                    webpUrl={
+                      a.firebaseUrl ? a.firebaseUrl.replace(/\.png$/, '.webp') : undefined
+                    }
+                    alt={a.filename}
+                    cacheKey={a.firebaseUrl}
+                    className="max-w-[90%] mx-auto rounded shadow"
+                    style={{
+                      aspectRatio: String(a.aspectRatio || '').replace('x', '/') || undefined,
+                    }}
+                  />
+                )
+              )}
+            </div>
+          ) : (
           <div
             onTouchStart={!isSafari ? handleTouchStart : undefined}
             onTouchMove={!isSafari ? handleTouchMove : undefined}
@@ -1616,7 +1650,8 @@ useEffect(() => {
                   />
                 )
               ))}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
