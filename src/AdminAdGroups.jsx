@@ -225,17 +225,6 @@ const AdminAdGroups = () => {
     }
   };
 
-  const handleStatusChange = async (groupId, newStatus) => {
-    try {
-      await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
-      setGroups((prev) =>
-        prev.map((g) => (g.id === groupId ? { ...g, status: newStatus } : g))
-      );
-    } catch (err) {
-      console.error('Failed to update group status', err);
-    }
-  };
-
   const handleGallery = async (id) => {
     try {
       const snap = await getDocs(collection(db, 'adGroups', id, 'assets'));
@@ -538,11 +527,7 @@ const AdminAdGroups = () => {
                   <td>{g.brandCode}</td>
                   <td className="text-center">{g.recipeCount}</td>
                   <td className="text-center">
-                    <StatusBadge
-                      status={g.status}
-                      editable={isAdmin}
-                      onChange={(s) => handleStatusChange(g.id, s)}
-                    />
+                    <StatusBadge status={g.status} />
                   </td>
                   <td className="text-center text-approve">{g.counts.approved}</td>
                   <td className="text-center text-reject">{g.counts.rejected}</td>
