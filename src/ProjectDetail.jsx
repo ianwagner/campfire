@@ -63,6 +63,7 @@ import { uploadFile } from './uploadFile.js';
 import DueDateMonthSelector from './components/DueDateMonthSelector.jsx';
 import computeGroupStatus from './utils/computeGroupStatus';
 import parseAdFilename from './utils/parseAdFilename';
+import pickHeroAsset from './utils/pickHeroAsset';
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf('.');
@@ -650,35 +651,44 @@ const ProjectDetail = () => {
   };
 
   const adUnits = useMemo(() => {
-    const groups = {};
+    const map = {};
     assets.forEach((a) => {
-      const root = a.parentAdId || a.id;
-      const v = a.version || parseAdFilename(a.filename || '').version || 1;
-      if (!groups[root]) {
-        groups[root] = { ...a, versions: [a.filename], version: v };
-      } else {
-        groups[root].versions.push(a.filename);
-        if (v > groups[root].version) {
-          groups[root] = { ...a, versions: groups[root].versions, version: v };
-        }
-      }
+      const info = parseAdFilename(a.filename || '');
+      const recipe = a.recipeCode || info.recipeCode || a.id;
+      if (!map[recipe]) map[recipe] = [];
+      map[recipe].push(a);
     });
-    return Object.values(groups);
+    return Object.values(map).map((list) => {
+      const hero = pickHeroAsset(list) || list[0];
+      return {
+        ...hero,
+        versions: list.map((x) => x.filename),
+        assets: list,
+        status: computeGroupStatus(list, false, false),
+      };
+    });
   }, [assets]);
 
-  const galleryAssets = adUnits.filter((a) => a.status !== 'archived');
-  const approvedAssets = galleryAssets.filter((a) => a.status === 'approved');
+  const galleryAssets = adUnits.filter((a) =>
+    a.assets.some((x) => x.status !== 'archived'),
+  );
+  const approvedAssets = galleryAssets.filter((a) =>
+    a.assets.some((x) => x.status === 'approved'),
+  );
 
   const handleDownload = async () => {
     if (approvedAssets.length === 0) return;
     try {
       const files = [];
       const base = `${sanitize(project?.brandCode)}_${sanitize(project?.title)}`;
-      for (const a of approvedAssets) {
-        const resp = await fetch(a.firebaseUrl || a.url);
-        const buf = await resp.arrayBuffer();
-        const fname = sanitize(a.filename || a.name || a.id);
-        files.push({ path: fname, data: buf });
+      for (const unit of approvedAssets) {
+        const approvedList = unit.assets.filter((x) => x.status === 'approved');
+        for (const a of approvedList) {
+          const resp = await fetch(a.firebaseUrl || a.url);
+          const buf = await resp.arrayBuffer();
+          const fname = sanitize(a.filename || a.name || a.id);
+          files.push({ path: fname, data: buf });
+        }
       }
       const blob = await makeZip(files);
       const url = URL.createObjectURL(blob);
