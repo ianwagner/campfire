@@ -34,8 +34,14 @@ const AdGroupListView = ({
   onCopy,
   onDownload,
   linkToDetail = false,
+  designers = [],
+  designerFilter,
+  onDesignerFilterChange,
+  monthFilter,
+  onMonthFilterChange,
 }) => {
   const term = (filter || '').toLowerCase();
+  const months = Array.from(new Set(groups.map((g) => g.month).filter(Boolean))).sort();
   const displayGroups = groups
     .filter(
       (g) =>
@@ -43,6 +49,8 @@ const AdGroupListView = ({
         g.name?.toLowerCase().includes(term) ||
         g.brandCode?.toLowerCase().includes(term)
     )
+    .filter((g) => !designerFilter || g.designerId === designerFilter)
+    .filter((g) => !monthFilter || g.month === monthFilter)
     .sort((a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99));
 
   return (
@@ -57,6 +65,34 @@ const AdGroupListView = ({
               onChange={(e) => onFilterChange(e.target.value)}
               className="p-1 border rounded"
             />
+            {onDesignerFilterChange && (
+              <select
+                value={designerFilter}
+                onChange={(e) => onDesignerFilterChange(e.target.value)}
+                className="p-1 border rounded"
+              >
+                <option value="">All designers</option>
+                {designers.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {onMonthFilterChange && (
+              <select
+                value={monthFilter}
+                onChange={(e) => onMonthFilterChange(e.target.value)}
+                className="p-1 border rounded"
+              >
+                <option value="">All months</option>
+                {months.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            )}
             {typeof showArchived !== 'undefined' && (
               <TabButton
                 type="button"

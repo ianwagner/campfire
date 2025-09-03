@@ -59,6 +59,7 @@ const AdminAdGroups = () => {
   const [sortField, setSortField] = useState('status');
   const [designers, setDesigners] = useState([]);
   const [designerFilter, setDesignerFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState('');
   const [view, setView] = useState('kanban');
   const [showGallery, setShowGallery] = useState(false);
   const [galleryAds, setGalleryAds] = useState([]);
@@ -375,6 +376,7 @@ const AdminAdGroups = () => {
     { label: 'Edit Request', status: 'edit request' },
     { label: 'Done', status: 'done' },
   ];
+  const months = Array.from(new Set(groups.map((g) => g.month).filter(Boolean))).sort();
   const term = filter.toLowerCase();
   const displayGroups = groups
     .filter(
@@ -384,6 +386,7 @@ const AdminAdGroups = () => {
         g.brandCode?.toLowerCase().includes(term),
     )
     .filter((g) => !designerFilter || g.designerId === designerFilter)
+    .filter((g) => !monthFilter || g.month === monthFilter)
     .sort((a, b) => {
       if (sortField === 'name') return (a.name || '').localeCompare(b.name || '');
       if (sortField === 'brand') return (a.brandCode || '').localeCompare(b.brandCode || '');
@@ -405,6 +408,16 @@ const AdminAdGroups = () => {
                 onChange={(e) => setFilter(e.target.value)}
                 className="p-1 border rounded"
               />
+              <select
+                value={monthFilter}
+                onChange={(e) => setMonthFilter(e.target.value)}
+                className="p-1 border rounded"
+              >
+                <option value="">All months</option>
+                {months.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
               {view === 'kanban' ? (
                 <select
                   value={designerFilter}
