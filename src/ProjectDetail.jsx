@@ -664,7 +664,7 @@ const ProjectDetail = () => {
         ...hero,
         versions: list.map((x) => x.filename),
         assets: list,
-        status: computeGroupStatus(list, false, false),
+        status: hero.status,
       };
     });
   }, [assets]);
