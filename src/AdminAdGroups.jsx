@@ -363,15 +363,15 @@ const AdminAdGroups = () => {
   const statusOrder = {
     pending: 1,
     briefed: 2,
-    'in design': 3,
-    ready: 4,
-    'edit request': 5,
-    done: 6,
-    archived: 7,
+    ready: 3,
+    'edit request': 4,
+    done: 5,
+    archived: 6,
   };
 
   const kanbanColumns = [
     { label: 'New', status: 'new' },
+    { label: 'Briefed', status: 'briefed' },
     { label: 'Designed', status: 'designed' },
     { label: 'Edit Request', status: 'edit request' },
     { label: 'Done', status: 'done' },

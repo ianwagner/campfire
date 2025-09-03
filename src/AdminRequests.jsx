@@ -440,7 +440,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           uploadedBy: req.createdBy || null,
           projectId: req.projectId || null,
           createdAt: serverTimestamp(),
-          status: 'processing',
+          status: 'new',
           reviewedCount: 0,
           approvedCount: 0,
           editCount: 0,
