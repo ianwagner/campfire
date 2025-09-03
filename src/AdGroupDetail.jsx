@@ -176,6 +176,7 @@ const AdGroupDetail = () => {
   const location = useLocation();
   const isDesigner = userRole === "designer";
   const isAdmin = userRole === "admin";
+  const isEditor = userRole === "editor";
   const isManager =
     userRole === "manager" ||
     userRole === "editor" ||
@@ -1358,7 +1359,7 @@ const AdGroupDetail = () => {
         );
       });
       await batch.commit();
-      if (group?.status === "pending" || group?.status === "processing") {
+      if (["pending", "processing", "new"].includes(group?.status)) {
         try {
           await updateDoc(doc(db, "adGroups", id), { status: "briefed" });
           setGroup((prev) => ({ ...prev, status: "briefed" }));
@@ -1628,7 +1629,7 @@ const AdGroupDetail = () => {
       const payload = {
         title: group.name || "",
         brandCode: group.brandCode || "",
-        status: group.status || "briefed",
+        status: group.status || "new",
         recipeTypes: Array.isArray(recipeTypes) ? recipeTypes : [],
         agencyId: agencyId ?? null,
         month: group.month || null,
@@ -1655,24 +1656,11 @@ const AdGroupDetail = () => {
     }
   };
 
-  const toggleInDesign = async () => {
+  const markBriefed = async () => {
     if (!id) return;
-    const newStatus =
-      group.status === 'designing'
-        ? computeGroupStatus(assets, hasRecipes, false)
-        : 'designing';
-    const update = { status: newStatus };
-    if (newStatus === 'designing') {
-      Object.assign(update, {
-        visibility: 'private',
-        requireAuth: false,
-        requirePassword: false,
-        password: '',
-      });
-    }
     try {
-      await updateDoc(doc(db, 'adGroups', id), update);
-      setGroup((p) => ({ ...p, ...update }));
+      await updateDoc(doc(db, 'adGroups', id), { status: 'briefed' });
+      setGroup((p) => ({ ...p, status: 'briefed' }));
     } catch (err) {
       console.error('Failed to update status', err);
     }
@@ -2153,21 +2141,16 @@ const AdGroupDetail = () => {
           ) : (
             <span>{designerName || 'Unassigned'}</span>
           )}
-          {((isDesigner && auth.currentUser?.uid === group.designerId) || isAdmin || isManager) && (
-            <button
-              type="button"
-              onClick={toggleInDesign}
-              aria-pressed={group.status === 'designing'}
-              className={`ml-2 px-2 py-1 border rounded ${
-                group.status === 'designing'
-                  ? 'bg-[var(--approve-color)] text-white'
-                  : 'bg-gray-200 dark:bg-gray-700'
-              }`}
-            >
-              Design In Progress
-            </button>
-          )}
-        </p>
+        {isEditor && group.status === 'new' && (
+          <button
+            type="button"
+            onClick={markBriefed}
+            className="ml-2 px-2 py-1 border rounded bg-gray-200 dark:bg-gray-700"
+          >
+            Briefed
+          </button>
+        )}
+      </p>
       {group.status === "archived" && (
         <p className="text-red-500 text-sm mb-2">
           This ad group is archived and read-only.

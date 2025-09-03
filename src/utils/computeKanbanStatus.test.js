@@ -1,5 +1,10 @@
 import computeKanbanStatus from './computeKanbanStatus';
 
+test('returns briefed when group status is briefed', () => {
+  const status = computeKanbanStatus({ status: 'briefed', assetCount: 0, counts: {} });
+  expect(status).toBe('briefed');
+});
+
 test('returns new when no assets', () => {
   const status = computeKanbanStatus({ assetCount: 0, counts: {} });
   expect(status).toBe('new');
