@@ -547,6 +547,68 @@ test('two-version toggle cycles correctly', async () => {
   );
 });
 
+test('ad unit shows only latest version and toggles', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'orig9',
+        data: () => ({
+          filename: 'BR1_G1_RC_9x16_V1.png',
+          firebaseUrl: 'v1-9x16.png',
+          version: 1,
+          status: 'approved',
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'orig1',
+        data: () => ({
+          filename: 'BR1_G1_RC_1x1_V1.png',
+          firebaseUrl: 'v1-1x1.png',
+          version: 1,
+          status: 'approved',
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'rev1',
+        data: () => ({
+          filename: 'BR1_G1_RC_1x1_V2.png',
+          firebaseUrl: 'v2-1x1.png',
+          version: 2,
+          parentAdId: 'orig1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  getDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'v2-1x1.png')
+  );
+  expect(screen.getAllByRole('img').length).toBe(1);
+
+  fireEvent.click(screen.getByText('V2'));
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'v1-1x1.png')
+  );
+});
+
 test('shows group summary after reviewing ads', async () => {
   const assetSnapshot = {
     docs: [

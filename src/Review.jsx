@@ -456,10 +456,28 @@ useEffect(() => {
           return (order[aAsp] ?? 99) - (order[bAsp] ?? 99);
         });
 
-        // keep highest version per ad for the review list
-        const versionMap = {};
+        // determine latest version for each ad unit (recipe + group)
+        const unitVersionMap = {};
+        const unitKey = (a) => {
+          const info = parseAdFilename(a.filename || '');
+          const recipe = a.recipeCode || info.recipeCode || '';
+          return `${a.adGroupId || ''}|${recipe}`;
+        };
         list.forEach((a) => {
-          const root = a.parentAdId || stripVersion(a.filename);
+          const key = unitKey(a);
+          const ver = getVersion(a);
+          if (!unitVersionMap[key] || unitVersionMap[key] < ver) {
+            unitVersionMap[key] = ver;
+          }
+        });
+        const latestUnits = list.filter(
+          (a) => getVersion(a) === unitVersionMap[unitKey(a)]
+        );
+
+        // keep highest version per asset for the review list
+        const versionMap = {};
+        latestUnits.forEach((a) => {
+          const root = a.parentAdId || a.assetId || stripVersion(a.filename);
           if (!versionMap[root] || getVersion(versionMap[root]) < getVersion(a)) {
             versionMap[root] = a;
           }
@@ -608,16 +626,24 @@ useEffect(() => {
   const currentAd = reviewAds[currentIndex];
   const versions = useMemo(() => {
     if (!currentAd) return [];
-    const rootId = currentAd.parentAdId || stripVersion(currentAd.filename);
+    const rootId = currentAd.parentAdId || currentAd.assetId || stripVersion(currentAd.filename);
     const related = allAds.filter((a) => {
-      if (currentAd.parentAdId) {
-        return a.parentAdId === rootId || a.assetId === rootId;
-      }
-      return stripVersion(a.filename) === rootId;
+      const r = a.parentAdId || a.assetId || stripVersion(a.filename);
+      return r === rootId;
     });
     const all = [currentAd, ...related.filter((a) => a.assetId !== currentAd.assetId)];
-    all.sort((a, b) => getVersion(b) - getVersion(a));
-    return all;
+    const curAspect = parseAdFilename(currentAd.filename || '').aspectRatio || '';
+    const verMap = {};
+    all.forEach((a) => {
+      const ver = getVersion(a);
+      const asp = parseAdFilename(a.filename || '').aspectRatio || '';
+      if (!verMap[ver] || (asp === curAspect && parseAdFilename(verMap[ver].filename || '').aspectRatio !== curAspect)) {
+        verMap[ver] = a;
+      }
+    });
+    const uniq = Object.values(verMap);
+    uniq.sort((a, b) => getVersion(b) - getVersion(a));
+    return uniq;
   }, [currentAd, allAds]);
 
   const displayAd = versions[versionIndex] || currentAd;
