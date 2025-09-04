@@ -547,6 +547,53 @@ test('two-version toggle cycles correctly', async () => {
   );
 });
 
+test('fetches previous versions when only latest is loaded', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'rev2',
+        data: () => ({
+          firebaseUrl: 'v2.png',
+          version: 2,
+          parentAdId: 'orig',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+  const parentSnap = {
+    exists: () => true,
+    data: () => ({
+      firebaseUrl: 'v1.png',
+      version: 1,
+      status: 'approved',
+      adGroupId: 'group1',
+      brandCode: 'BR1',
+    }),
+  };
+
+  getDocs.mockResolvedValueOnce(assetSnapshot);
+  getDocs.mockResolvedValueOnce({ docs: [] });
+  getDoc.mockResolvedValue(parentSnap);
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png')
+  );
+  await waitFor(() => expect(screen.getByText('V2')).toBeInTheDocument());
+
+  fireEvent.click(screen.getByText('V2'));
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'v1.png')
+  );
+  await waitFor(() => expect(screen.getByText('V1')).toBeInTheDocument());
+});
+
 test('ad unit shows only latest version and toggles', async () => {
   const assetSnapshot = {
     docs: [
