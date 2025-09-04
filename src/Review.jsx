@@ -57,6 +57,12 @@ const getVersion = (ad) =>
 const stripVersion = (filename = '') =>
   filename.replace(/_V\d+/i, '').replace(/\.[^/.]+$/, '');
 
+const unitKey = (a) => {
+  const info = parseAdFilename(a.filename || '');
+  const recipe = a.recipeCode || info.recipeCode || '';
+  return `${a.adGroupId || ''}|${recipe}`;
+};
+
 const isSafari =
   typeof navigator !== 'undefined' &&
   /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -686,27 +692,38 @@ useEffect(() => {
   const currentAd = reviewAds[currentIndex];
   const versions = useMemo(() => {
     if (!currentAd) return [];
-    const rootId = currentAd.parentAdId || currentAd.assetId || stripVersion(currentAd.filename);
-    const related = allAds.filter((a) => {
-      const r = a.parentAdId || a.assetId || stripVersion(a.filename);
-      return r === rootId;
-    });
-    const all = [currentAd, ...related.filter((a) => a.assetId !== currentAd.assetId)];
-    const curAspect = parseAdFilename(currentAd.filename || '').aspectRatio || '';
+    const key = unitKey(currentAd);
+    const related = allAds.filter((a) => unitKey(a) === key);
     const verMap = {};
-    all.forEach((a) => {
+    related.forEach((a) => {
       const ver = getVersion(a);
-      const asp = parseAdFilename(a.filename || '').aspectRatio || '';
-      if (!verMap[ver] || (asp === curAspect && parseAdFilename(verMap[ver].filename || '').aspectRatio !== curAspect)) {
-        verMap[ver] = a;
-      }
+      if (!verMap[ver]) verMap[ver] = [];
+      verMap[ver].push(a);
     });
-    const uniq = Object.values(verMap);
-    uniq.sort((a, b) => getVersion(b) - getVersion(a));
-    return uniq;
+    const order = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
+    const groups = Object.values(verMap).sort(
+      (a, b) => getVersion(b[0]) - getVersion(a[0])
+    );
+    groups.forEach((g) => {
+      g.sort((a, b) => {
+        const aspA = a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
+        const aspB = b.aspectRatio || parseAdFilename(b.filename || '').aspectRatio || '';
+        return (order[aspA] ?? 99) - (order[aspB] ?? 99);
+      });
+    });
+    return groups;
   }, [currentAd, allAds]);
 
-  const displayAd = versions[versionIndex] || currentAd;
+  const currentVersionAssets = versions[versionIndex] || [];
+  const currentInfo = currentAd ? parseAdFilename(currentAd.filename || '') : {};
+  const currentAspectRaw =
+    currentAd?.aspectRatio || currentInfo.aspectRatio || '';
+  const displayAd =
+    currentVersionAssets.find(
+      (a) =>
+        (a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '') ===
+        currentAspectRaw,
+    ) || currentVersionAssets[0] || currentAd;
 
   useEffect(() => {
     setVersionIndex(0);
@@ -743,10 +760,11 @@ useEffect(() => {
 
 
   const openVersionModal = (ver) => {
-    if (!currentAd) return;
-    const rootId = currentAd.parentAdId || stripVersion(currentAd.filename);
+    const base = displayAd || currentAd;
+    if (!base) return;
+    const rootId = base.parentAdId || stripVersion(base.filename);
     const siblings = allAds.filter((a) => {
-      if (currentAd.parentAdId) {
+      if (base.parentAdId) {
         return a.parentAdId === rootId || a.assetId === rootId;
       }
       return stripVersion(a.filename) === rootId;
@@ -756,12 +774,12 @@ useEffect(() => {
       prev = siblings.find((a) => getVersion(a) === ver);
     } else {
       prev = siblings
-        .filter((a) => getVersion(a) < getVersion(currentAd))
+        .filter((a) => getVersion(a) < getVersion(base))
         .sort((a, b) => getVersion(b) - getVersion(a))[0];
     }
     if (!prev) return;
-    setVersionModal({ current: currentAd, previous: prev });
-    setVersionView(ver && ver !== getVersion(currentAd) ? 'previous' : 'current');
+    setVersionModal({ current: base, previous: prev });
+    setVersionView(ver && ver !== getVersion(base) ? 'previous' : 'current');
   };
 
   const closeVersionModal = () => setVersionModal(null);
@@ -777,19 +795,19 @@ useEffect(() => {
       setReviewAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
     });
 
-    const rootId = currentAd.parentAdId || stripVersion(currentAd.filename);
+    const rootId = displayAd.parentAdId || stripVersion(displayAd.filename);
     const related = allAds.filter((a) => {
-      if (currentAd.parentAdId) {
+      if (displayAd.parentAdId) {
         return a.assetId === rootId || a.parentAdId === rootId;
       }
       return stripVersion(a.filename) === rootId;
     });
-    const versions = {};
+    const versionMap = {};
     [...related, displayAd].forEach((a) => {
-      versions[a.assetId] = a;
+      versionMap[a.assetId] = a;
     });
 
-    const unsubs = Object.values(versions).map((ad) => {
+    const unsubs = Object.values(versionMap).map((ad) => {
       const q = query(
         collection(doc(db, 'adGroups', ad.adGroupId, 'assets', ad.assetId), 'history'),
         orderBy('updatedAt', 'asc'),
@@ -938,22 +956,19 @@ useEffect(() => {
     edit: 'text-black',
   };
 
-  const currentInfo = currentAd ? parseAdFilename(currentAd.filename || '') : {};
   const currentRecipe = currentAd?.recipeCode || currentInfo.recipeCode;
-  const currentRecipeGroup = recipeGroups.find(
-    (g) => g.recipeCode === currentRecipe
+  const currentRecipeGroup = useMemo(
+    () => ({ recipeCode: currentRecipe, assets: currentVersionAssets }),
+    [currentRecipe, currentVersionAssets],
   );
-  const otherSizes = currentRecipeGroup
-    ? currentRecipeGroup.assets.filter(
-        (a) => (a.adUrl || a.firebaseUrl) !== adUrl
-      )
-    : [];
+  const otherSizes = currentVersionAssets.filter(
+    (a) => (a.adUrl || a.firebaseUrl) !== adUrl,
+  );
 
-  const currentAspect = String(
-    currentAd?.aspectRatio ||
-      currentInfo.aspectRatio ||
-      '9x16'
-  ).replace('x', '/');
+  const currentAspect = String(currentAspectRaw || '9x16').replace(
+    'x',
+    '/',
+  );
 
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
@@ -1690,7 +1705,7 @@ useEffect(() => {
                   }}
                   className="block w-full text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
                 >
-                  V{getVersion(v)}
+                  V{getVersion(v[0])}
                 </button>
               ))}
             </div>
