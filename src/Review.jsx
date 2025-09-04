@@ -50,12 +50,8 @@ import { applyAccentColor } from './utils/theme';
 import useSiteSettings from './useSiteSettings';
 import { deductCredits } from './utils/credits';
 import computeGroupStatus from './utils/computeGroupStatus';
-
-const getVersion = (ad) =>
-  ad.version || parseAdFilename(ad.filename || '').version || 1;
-
-const stripVersion = (filename = '') =>
-  filename.replace(/_V\d+/i, '').replace(/\.[^/.]+$/, '');
+import getVersion from './utils/getVersion';
+import stripVersion from './utils/stripVersion';
 
 const unitKey = (a) => {
   const info = parseAdFilename(a.filename || '');
