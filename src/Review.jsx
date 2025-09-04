@@ -708,6 +708,16 @@ useEffect(() => {
 
   const displayAd = versions[versionIndex] || currentAd;
 
+  const currentAssets = useMemo(() => {
+    if (!displayAd) return [];
+    const root = displayAd.parentAdId || stripVersion(displayAd.filename);
+    const ver = getVersion(displayAd);
+    return allAds.filter((a) => {
+      const r = a.parentAdId || stripVersion(a.filename);
+      return r === root && getVersion(a) === ver;
+    });
+  }, [allAds, displayAd?.parentAdId, displayAd?.filename, displayAd?.version]);
+
   useEffect(() => {
     setVersionIndex(0);
   }, [currentAd?.assetId]);
@@ -1568,9 +1578,9 @@ useEffect(() => {
           </div>
         </div>
         <div className="flex justify-center relative">
-          {reviewVersion === 2 ? (
-            <div className="p-4 rounded flex flex-wrap justify-center gap-4">
-              {(currentRecipeGroup?.assets || []).map((a, idx) => (
+            {reviewVersion === 2 ? (
+              <div className="p-4 rounded flex flex-wrap justify-center gap-4">
+                {currentAssets.map((a, idx) => (
                 <div key={idx} className="max-w-[300px]">
                   {isVideoUrl(a.firebaseUrl) ? (
                     <VideoPlayer
