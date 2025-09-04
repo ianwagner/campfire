@@ -442,6 +442,66 @@ useEffect(() => {
             })
           );
         }
+        // if we only received the latest revision, fetch older versions
+        const rootsToFetch = {};
+        list.forEach((a) => {
+          if (a.parentAdId) {
+            const rootId = a.parentAdId;
+            const hasRoot = list.some(
+              (b) => b.assetId === rootId || b.parentAdId === rootId,
+            );
+            if (!hasRoot) {
+              rootsToFetch[rootId] = { groupId: a.adGroupId, groupName: a.groupName };
+            }
+          }
+        });
+
+        if (Object.keys(rootsToFetch).length > 0) {
+          const extraLists = await Promise.all(
+            Object.entries(rootsToFetch).map(async ([rootId, info]) => {
+              const { groupId, groupName } = info;
+              const parentRef = doc(db, 'adGroups', groupId, 'assets', rootId);
+              const [parentSnap, siblingSnap] = await Promise.all([
+                getDoc(parentRef),
+                getDocs(
+                  query(
+                    collection(db, 'adGroups', groupId, 'assets'),
+                    where('parentAdId', '==', rootId),
+                  ),
+                ),
+              ]);
+              const extras = [];
+              if (parentSnap.exists()) {
+                const data = parentSnap.data();
+                const info = parseAdFilename(data.filename || '');
+                extras.push({
+                  ...data,
+                  version: data.version ?? info.version ?? 1,
+                  assetId: rootId,
+                  adGroupId: groupId,
+                  groupName,
+                  firebaseUrl: data.firebaseUrl,
+                });
+              }
+              siblingSnap.docs.forEach((d) => {
+                if (!list.some((a) => a.assetId === d.id)) {
+                  const data = d.data();
+                  const info = parseAdFilename(data.filename || '');
+                  extras.push({
+                    ...data,
+                    version: data.version ?? info.version ?? 1,
+                    assetId: d.id,
+                    adGroupId: groupId,
+                    groupName,
+                    firebaseUrl: data.firebaseUrl,
+                  });
+                }
+              });
+              return extras;
+            }),
+          );
+          list = [...list, ...extraLists.flat()];
+        }
 
         const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
         list.sort((a, b) => {
