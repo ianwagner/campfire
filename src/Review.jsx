@@ -1580,7 +1580,7 @@ useEffect(() => {
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 2 ? (
-            <div className="p-4 rounded flex flex-wrap justify-center gap-4">
+            <div className="p-4 rounded flex flex-wrap justify-center gap-4 relative">
               {(currentRecipeGroup?.assets || []).map((a, idx) => (
                 <div key={idx} className="max-w-[300px]">
                   {isVideoUrl(a.firebaseUrl) ? (
@@ -1611,6 +1611,47 @@ useEffect(() => {
                   )}
                 </div>
               ))}
+              {(getVersion(displayAd) > 1 || versions.length > 1) && (
+                versions.length > 1 ? (
+                  versions.length === 2 ? (
+                    <span
+                      onClick={() =>
+                        setVersionIndex((i) => (i + 1) % versions.length)
+                      }
+                      className="version-badge cursor-pointer absolute top-0 left-0"
+                    >
+                      V{getVersion(displayAd)}
+                    </span>
+                  ) : (
+                    <div className="absolute top-0 left-0">
+                      <span
+                        onClick={() => setShowVersionMenu((o) => !o)}
+                        className="version-badge cursor-pointer select-none"
+                      >
+                        V{getVersion(displayAd)}
+                      </span>
+                      {showVersionMenu && (
+                        <div className="absolute left-0 top-full mt-1 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
+                          {versions.map((v, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                setVersionIndex(idx);
+                                setShowVersionMenu(false);
+                              }}
+                              className="block w-full text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                            >
+                              V{getVersion(v[0])}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                ) : (
+                  <span className="version-badge absolute top-0 left-0">V{getVersion(displayAd)}</span>
+                )
+              )}
             </div>
           ) : (
           <div
