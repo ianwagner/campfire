@@ -450,24 +450,8 @@ const ProjectDetail = () => {
   };
 
   const handleCopyChange = (copies) => {
-    if (!Array.isArray(copies)) return;
-    const sanitized = copies
-      .map(
-        ({ id, primary = '', headline = '', description = '', product = '' }) => ({
-          id,
-          primary,
-          headline,
-          description,
-          product,
-        })
-      )
-      .sort((a, b) => (a.id || '').localeCompare(b.id || ''));
-    const draftSorted = [...copyDraft].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
-    const savedSorted = [...copyCards].sort((a, b) => (a.id || '').localeCompare(b.id || ''));
-    const sameDraft = JSON.stringify(sanitized) === JSON.stringify(draftSorted);
-    const sameSaved = JSON.stringify(sanitized) === JSON.stringify(savedSorted);
-    if (!sameDraft) setCopyDraft(sanitized);
-    setCopyDirty(!sameSaved);
+    setCopyDraft(copies);
+    setCopyDirty(true);
   };
 
   const saveCopyCards = async (list) => {
