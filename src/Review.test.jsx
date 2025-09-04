@@ -594,6 +594,44 @@ test('fetches previous versions when only latest is loaded', async () => {
   await waitFor(() => expect(screen.getByText('V1')).toBeInTheDocument());
 });
 
+test('shows badge for single higher version without older versions', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'rev2',
+        data: () => ({
+          firebaseUrl: 'v2.png',
+          version: 2,
+          parentAdId: 'orig',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  getDocs.mockResolvedValueOnce(assetSnapshot);
+  getDocs.mockResolvedValue({ docs: [] });
+  getDoc.mockResolvedValue({ exists: () => false });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png')
+  );
+
+  const badge = screen.getByText('V2');
+  expect(badge).toBeInTheDocument();
+  expect(badge).not.toHaveClass('cursor-pointer');
+
+  fireEvent.click(badge);
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png')
+  );
+});
+
 test('ad unit shows only latest version and toggles', async () => {
   const assetSnapshot = {
     docs: [
