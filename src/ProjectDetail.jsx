@@ -128,8 +128,7 @@ const ProjectDetail = () => {
   const [copyCards, setCopyCards] = useState([]);
   const [copyDraft, setCopyDraft] = useState([]);
   const [editingBrief, setEditingBrief] = useState(false);
-  const [generateCopy, setGenerateCopy] = useState(false);
-  const [copyDirty, setCopyDirty] = useState(false);
+  const [editingCopy, setEditingCopy] = useState(false);
   const [newBriefFiles, setNewBriefFiles] = useState([]);
   const [viewMode, setViewMode] = useState('table');
   const [editRequest, setEditRequest] = useState(false);
@@ -304,10 +303,9 @@ const ProjectDetail = () => {
   }, [groupId]);
 
   useEffect(() => {
-    setGenerateCopy(copyCards.length === 0);
-    setCopyDraft(copyCards);
-    setCopyDirty(false);
+    setEditingCopy(copyCards.length === 0);
     if (copyCards.length > 0) {
+      setCopyDraft(copyCards);
       setShowCopySection(true);
     }
   }, [copyCards]);
@@ -449,11 +447,6 @@ const ProjectDetail = () => {
     }
   };
 
-  const handleCopyChange = (copies) => {
-    setCopyDraft(copies);
-    setCopyDirty(true);
-  };
-
   const saveCopyCards = async (list) => {
     if (!groupId || !Array.isArray(list)) return;
     try {
@@ -489,8 +482,7 @@ const ProjectDetail = () => {
         })
       );
       setCopyCards(saved);
-      setGenerateCopy(false);
-      setCopyDirty(false);
+      setEditingCopy(false);
     } catch (err) {
       console.error('Failed to save copy cards', err);
     }
@@ -1365,12 +1357,12 @@ const ProjectDetail = () => {
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-medium text-lg">Platform Copy</h2>
             <div className="flex items-center gap-2">
-              {!generateCopy && (
+              {!editingCopy && (
                 <Button
                   variant="secondary"
-                  onClick={() => setGenerateCopy(true)}
+                  onClick={() => setEditingCopy(true)}
                 >
-                  Generate
+                  Edit
                 </Button>
               )}
               <IconButton
@@ -1384,31 +1376,34 @@ const ProjectDetail = () => {
           <div
             className={`mt-4 space-y-4 ${showCopySection ? '' : 'hidden'}`}
           >
-            {generateCopy || copyCards.length > 0 ? (
+            {editingCopy ? (
               <>
                 <CopyRecipePreview
-                  onCopiesChange={handleCopyChange}
+                  onCopiesChange={setCopyDraft}
                   initialResults={copyDraft}
                   brandCode={group?.brandCode || project?.brandCode}
                   hideBrandSelect
-                  showOnlyResults={!generateCopy}
                 />
-                {copyDirty && (
-                  <div className="flex gap-2">
-                    <Button onClick={() => saveCopyCards(copyDraft)}>Save</Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        setCopyDraft(copyCards);
-                        setCopyDirty(false);
-                        setGenerateCopy(false);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <Button onClick={() => saveCopyCards(copyDraft)}>Save</Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setEditingCopy(false);
+                      setCopyDraft(copyCards);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </>
+            ) : copyCards.length > 0 ? (
+              <CopyRecipePreview
+                initialResults={copyCards}
+                brandCode={group?.brandCode || project?.brandCode}
+                hideBrandSelect
+                showOnlyResults
+              />
             ) : (
               <p>No platform copy available</p>
             )}
