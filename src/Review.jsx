@@ -708,19 +708,6 @@ useEffect(() => {
 
   const displayAd = versions[versionIndex] || currentAd;
 
-  const unitAssets = useMemo(() => {
-    if (!displayAd) return [];
-    const rootId =
-      displayAd.parentAdId ||
-      displayAd.assetId ||
-      stripVersion(displayAd.filename);
-    const ver = getVersion(displayAd);
-    return allAds.filter((a) => {
-      const r = a.parentAdId || a.assetId || stripVersion(a.filename);
-      return r === rootId && getVersion(a) === ver;
-    });
-  }, [displayAd, allAds]);
-
   useEffect(() => {
     setVersionIndex(0);
   }, [currentAd?.assetId]);
@@ -1582,53 +1569,37 @@ useEffect(() => {
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 2 ? (
-            <div className="relative">
-              <div className="p-4 rounded flex flex-wrap justify-center gap-4">
-                {unitAssets.map((a, idx) => (
-                  <div key={idx} className="max-w-[300px]">
-                    {isVideoUrl(a.firebaseUrl) ? (
-                      <VideoPlayer
-                        src={a.firebaseUrl}
-                        className="max-w-full rounded shadow"
-                        style={{
-                          aspectRatio:
-                            String(a.aspectRatio || '').replace('x', '/') || undefined,
-                        }}
-                      />
-                    ) : (
-                      <OptimizedImage
-                        pngUrl={a.firebaseUrl}
-                        webpUrl={
-                          a.firebaseUrl
-                            ? a.firebaseUrl.replace(/\.png$/, '.webp')
-                            : undefined
-                        }
-                        alt={a.filename}
-                        cacheKey={a.firebaseUrl}
-                        className="max-w-full rounded shadow"
-                        style={{
-                          aspectRatio:
-                            String(a.aspectRatio || '').replace('x', '/') || undefined,
-                        }}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-              {(getVersion(displayAd) > 1 || versions.length > 1) && (
-                <span
-                  onClick=
-                    {versions.length > 1
-                      ? () =>
-                          setVersionIndex((i) => (i + 1) % versions.length)
-                      : undefined}
-                  className={`version-badge ${
-                    versions.length > 1 ? 'cursor-pointer' : ''
-                  }`}
-                >
-                  V{getVersion(displayAd)}
-                </span>
-              )}
+            <div className="p-4 rounded flex flex-wrap justify-center gap-4">
+              {(currentRecipeGroup?.assets || []).map((a, idx) => (
+                <div key={idx} className="max-w-[300px]">
+                  {isVideoUrl(a.firebaseUrl) ? (
+                    <VideoPlayer
+                      src={a.firebaseUrl}
+                      className="max-w-full rounded shadow"
+                      style={{
+                        aspectRatio:
+                          String(a.aspectRatio || '').replace('x', '/') || undefined,
+                      }}
+                    />
+                  ) : (
+                    <OptimizedImage
+                      pngUrl={a.firebaseUrl}
+                      webpUrl={
+                        a.firebaseUrl
+                          ? a.firebaseUrl.replace(/\.png$/, '.webp')
+                          : undefined
+                      }
+                      alt={a.filename}
+                      cacheKey={a.firebaseUrl}
+                      className="max-w-full rounded shadow"
+                      style={{
+                        aspectRatio:
+                          String(a.aspectRatio || '').replace('x', '/') || undefined,
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           ) : (
           <div
