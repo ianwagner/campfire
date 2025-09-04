@@ -6,6 +6,7 @@ export default async function saveBrandProducts(brandId, products) {
   try {
     const productData = products.map((p) => ({
       name: p.values?.name || '',
+      url: p.values?.url || '',
       description: Array.isArray(p.values?.description)
         ? p.values.description
         : [],

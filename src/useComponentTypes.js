@@ -31,6 +31,7 @@ export default function useComponentTypes() {
             selectionMode: 'checklist',
             attributes: [
               { label: 'Name', key: 'name', inputType: 'text' },
+              { label: 'Url', key: 'url', inputType: 'text' },
               { label: 'Description', key: 'description', inputType: 'text' },
               { label: 'Benefits', key: 'benefits', inputType: 'text' },
             ],

@@ -18,6 +18,7 @@ describe('saveBrandProducts', () => {
       {
         values: {
           name: 'Prod',
+          url: 'https://example.com',
           description: ['desc'],
           benefits: ['ben'],
           featuredImage: 'img1',
@@ -33,6 +34,7 @@ describe('saveBrandProducts', () => {
         products: [
           {
             name: 'Prod',
+            url: 'https://example.com',
             description: ['desc'],
             benefits: ['ben'],
             featuredImage: 'img1',

@@ -4,7 +4,7 @@ import '@testing-library/jest-dom';
 import ProductEditModal from './ProductEditModal.jsx';
 
 describe('ProductEditModal', () => {
-  const product = { name: 'Test', description: [], benefits: [], images: [] };
+  const product = { name: 'Test', url: '', description: [], benefits: [], images: [] };
 
   test('calls onDelete after confirmation', () => {
     const onDelete = jest.fn();

@@ -285,6 +285,7 @@ export default function BriefStepForm({
                     <ProductEditModal
                       product={{
                         name: '',
+                        url: '',
                         description: [],
                         benefits: [],
                         featuredImage: '',
@@ -299,6 +300,7 @@ export default function BriefStepForm({
                           name: p.name,
                           values: {
                             name: p.name,
+                            url: p.url || '',
                             description: p.description,
                             benefits: p.benefits,
                             featuredImage: p.featuredImage || p.images?.[0]?.url || '',
@@ -331,6 +333,7 @@ export default function BriefStepForm({
                           name: p.name,
                           values: {
                             name: p.name,
+                            url: p.url || '',
                             description: p.description,
                             benefits: p.benefits,
                             featuredImage: p.featuredImage || p.images?.[0]?.url || '',
