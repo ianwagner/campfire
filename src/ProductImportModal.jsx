@@ -28,6 +28,7 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
         : [{ ...emptyImage }];
       setProduct({
         name: data.name || '',
+        url: data.url || url,
         description: Array.isArray(data.description) ? data.description : [],
         benefits: Array.isArray(data.benefits) ? data.benefits : [],
         images: imgs,
@@ -87,6 +88,7 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
 
       onAdd({
         name: product.name,
+        url: product.url || url,
         description: product.description,
         benefits: product.benefits,
         images: uploaded.map((u) => ({ url: u.url, file: null })),
@@ -158,6 +160,14 @@ const ProductImportModal = ({ brandCode = '', onAdd, onClose }) => {
             type="text"
             value={product.name}
             onChange={(e) => setProduct({ ...product, name: e.target.value })}
+            className="w-full p-2 border rounded"
+          />
+        </FormField>
+        <FormField label="URL">
+          <input
+            type="text"
+            value={product.url}
+            onChange={(e) => setProduct({ ...product, url: e.target.value })}
             className="w-full p-2 border rounded"
           />
         </FormField>

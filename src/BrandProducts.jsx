@@ -19,6 +19,7 @@ import useUnsavedChanges from './useUnsavedChanges.js';
 const emptyImage = { url: '', file: null };
 const emptyProduct = {
   name: '',
+  url: '',
   description: [],
   benefits: [],
   images: [{ ...emptyImage }],
@@ -60,6 +61,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
               Array.isArray(data.products) && data.products.length
                 ? data.products.map((p) => ({
                     name: p.name || '',
+                    url: p.url || '',
                     description: Array.isArray(p.description)
                       ? p.description
                       : typeof p.description === 'string'
@@ -97,6 +99,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
               Array.isArray(data.products) && data.products.length
                 ? data.products.map((p) => ({
                     name: p.name || '',
+                    url: p.url || '',
                     description: Array.isArray(p.description)
                       ? p.description
                       : typeof p.description === 'string'
@@ -196,6 +199,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
         }
         productData.push({
           name: prod.name.trim(),
+          url: (prod.url || '').trim(),
           description: prod.description
             .map((d) => d.trim())
             .filter(Boolean),

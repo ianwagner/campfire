@@ -34,6 +34,7 @@ const baseColumnDefs = [
     cellClass: 'text-center',
   },
   { key: 'product', label: 'Product', width: 'auto' },
+  { key: 'url', label: 'Url', width: 'auto' },
   { key: 'angle', label: 'Angle', width: 'auto' },
   { key: 'audience', label: 'Audience', width: 'auto' },
   { key: 'status', label: 'Status', width: 'auto' },
@@ -234,6 +235,12 @@ const AdminDistribution = () => {
               rData.product ||
               rData.components?.['product.name'] ||
               '';
+            const url =
+              rData.url ||
+              rData.product?.url ||
+              rData.components?.product?.url ||
+              rData.components?.['product.url'] ||
+              '';
             const copyList = copiesByProduct[product] || [];
             const copy =
               copyList.length > 0
@@ -255,6 +262,7 @@ const AdminDistribution = () => {
               groupName: gData.name || gDoc.id,
               recipeNo,
               product,
+              url,
               angle,
               audience,
               status,

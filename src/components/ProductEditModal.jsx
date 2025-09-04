@@ -49,19 +49,27 @@ const ProductEditModal = ({ product, brandCode = '', onSave, onClose, onDelete }
     >
       <div className="space-y-2 p-2">
         <FormField label="Name">
-        <input
-          type="text"
-          value={local.name}
-          onChange={(e) => update({ name: e.target.value })}
-          className="w-full p-2 border rounded"
-        />
-      </FormField>
-      <FormField label="Description">
-        <TagInput value={local.description} onChange={(arr) => update({ description: arr })} />
-      </FormField>
-      <FormField label="Benefits">
-        <TagInput value={local.benefits} onChange={(arr) => update({ benefits: arr })} />
-      </FormField>
+          <input
+            type="text"
+            value={local.name}
+            onChange={(e) => update({ name: e.target.value })}
+            className="w-full p-2 border rounded"
+          />
+        </FormField>
+        <FormField label="URL">
+          <input
+            type="text"
+            value={local.url || ''}
+            onChange={(e) => update({ url: e.target.value })}
+            className="w-full p-2 border rounded"
+          />
+        </FormField>
+        <FormField label="Description">
+          <TagInput value={local.description} onChange={(arr) => update({ description: arr })} />
+        </FormField>
+        <FormField label="Benefits">
+          <TagInput value={local.benefits} onChange={(arr) => update({ benefits: arr })} />
+        </FormField>
       <FormField label="Featured Image">
         {local.featuredImage && (
           <img src={local.featuredImage} alt="featured" className="h-24 w-auto mb-2" />

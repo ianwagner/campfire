@@ -205,6 +205,7 @@ const RecipePreview = ({
               name: p.name,
               values: {
                 name: p.name,
+                url: p.url || '',
                 description: Array.isArray(p.description)
                   ? p.description
                   : typeof p.description === 'string'
