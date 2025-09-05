@@ -2912,7 +2912,21 @@ const AdGroupDetail = () => {
                   <tr key={a.id}>
                     <td className="break-all">{a.filename}</td>
                     <td className="text-center">
-                      <StatusBadge status={a.status} />
+                      {isAdmin ? (
+                        <select
+                          value={a.status}
+                          onChange={(e) => updateAssetStatus(a.id, e.target.value)}
+                          className={`status-select status-${a.status.replace(/\s+/g, '_')}`}
+                        >
+                          {['pending', 'ready', 'approved', 'rejected', 'edit_requested', 'archived'].map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <StatusBadge status={a.status} />
+                      )}
                     </td>
                     <td className="text-center">
                       <div className="flex items-center justify-center gap-2">
