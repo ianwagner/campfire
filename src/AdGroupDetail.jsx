@@ -16,6 +16,7 @@ import {
   FiArchive,
   FiDownload,
   FiRotateCcw,
+  FiRotateCw,
   FiBarChart2,
   FiFile,
   FiPenTool,
@@ -143,6 +144,10 @@ const AdGroupDetail = () => {
   const hasRecipes = useMemo(
     () => Object.keys(recipesMeta).length > 0,
     [recipesMeta],
+  );
+  const hasScrubbed = useMemo(
+    () => assets.some((a) => a.scrubbedFrom),
+    [assets],
   );
   const [metadataRecipe, setMetadataRecipe] = useState(null);
   const [metadataForm, setMetadataForm] = useState({
@@ -962,6 +967,70 @@ const AdGroupDetail = () => {
       setGroup((p) => ({ ...p, status: newStatus }));
     } catch (err) {
       console.error("Failed to scrub review history", err);
+    }
+  };
+
+  const undoScrubReviewHistory = async () => {
+    if (!group) return;
+    try {
+      const rootsSnap = await getDocs(
+        collection(db, "adGroups", id, "scrubbedHistory"),
+      );
+      if (rootsSnap.empty) return;
+      const batch = writeBatch(db);
+      const updatedAssets = [...assets];
+      for (const root of rootsSnap.docs) {
+        const rootId = root.id;
+        const latestIdx = updatedAssets.findIndex(
+          (a) => a.scrubbedFrom === rootId,
+        );
+        if (latestIdx === -1) continue;
+        const latest = updatedAssets[latestIdx];
+        const historySnap = await getDocs(
+          collection(db, "adGroups", id, "scrubbedHistory", rootId, "assets"),
+        );
+        let maxVersion = 0;
+        let prevId = null;
+        historySnap.forEach((a) => {
+          const data = a.data();
+          batch.set(
+            doc(db, "adGroups", id, "assets", a.id),
+            { ...data, scrubbedAt: deleteField() },
+          );
+          batch.delete(
+            doc(db, "adGroups", id, "scrubbedHistory", rootId, "assets", a.id),
+          );
+          updatedAssets.push({ id: a.id, ...data });
+          const v = data.version || 1;
+          if (v > maxVersion) {
+            maxVersion = v;
+            prevId = a.id;
+          }
+        });
+        const newVersion = maxVersion + 1;
+        const update = {
+          scrubbedFrom: deleteField(),
+          version: newVersion,
+          parentAdId: prevId,
+        };
+        if (latest.filename) {
+          const idx = latest.filename.lastIndexOf(".");
+          const ext = idx >= 0 ? latest.filename.slice(idx) : "";
+          update.filename = `${stripVersion(latest.filename)}_v${newVersion}${ext}`;
+        }
+        batch.update(
+          doc(db, "adGroups", id, "assets", latest.id),
+          update,
+        );
+        updatedAssets[latestIdx] = { ...latest, ...update };
+      }
+      await batch.commit();
+      const newStatus = computeGroupStatus(updatedAssets, hasRecipes, false);
+      await updateDoc(doc(db, "adGroups", id), { status: newStatus });
+      setGroup((p) => ({ ...p, status: newStatus }));
+      setAssets(updatedAssets);
+    } catch (err) {
+      console.error("Failed to undo scrub", err);
     }
   };
 
@@ -2291,6 +2360,15 @@ const AdGroupDetail = () => {
                     >
                       <FiDownload size={20} />
                     </IconButton>
+                    {hasScrubbed && (
+                      <IconButton
+                        onClick={undoScrubReviewHistory}
+                        aria-label="Undo Scrub"
+                        className="bg-transparent"
+                      >
+                        <FiRotateCw size={20} />
+                      </IconButton>
+                    )}
                     <IconButton
                       onClick={scrubReviewHistory}
                       aria-label="Scrub Review History"
