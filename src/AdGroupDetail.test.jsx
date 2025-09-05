@@ -269,6 +269,58 @@ test('shows error when sending to projects fails and keeps modal open', async ()
   expect(screen.getByText('Select Client')).toBeInTheDocument();
 });
 
+test('allows toggling review version when assets exist', async () => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    if (Array.isArray(col) && col.includes('assets')) {
+      cb({ docs: [{ id: 'asset1', data: () => ({ filename: 'ad1.png', status: 'ready' }) }] });
+    } else {
+      cb({ docs: [] });
+    }
+    return jest.fn();
+  });
+  mockGetDoc.mockImplementation((path) => {
+    if (path === 'adGroups/group1') {
+      return Promise.resolve({
+        exists: () => true,
+        id: 'group1',
+        data: () => ({
+          name: 'Group 1',
+          brandCode: 'BR1',
+          status: 'draft',
+          agencyId: null,
+          reviewVersion: 1,
+        }),
+      });
+    }
+    if (path === 'brands/BR1') {
+      return Promise.resolve({
+        exists: () => true,
+        data: () => ({ agencyId: 'agency1', recipeTypes: [] }),
+      });
+    }
+    return Promise.resolve({ exists: () => false });
+  });
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>
+  );
+
+  const checkbox = await screen.findByLabelText('Review 2.0');
+  expect(checkbox).toBeInTheDocument();
+  expect(checkbox).not.toBeChecked();
+
+  fireEvent.click(checkbox);
+
+  await waitFor(() =>
+    expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1', {
+      reviewVersion: 2,
+    }),
+  );
+  await waitFor(() => expect(screen.getByLabelText('Review 2.0')).toBeChecked());
+});
+
 test.skip('toggles asset status to ready', async () => {
   mockOnSnapshot.mockImplementation((col, cb) => {
     cb({ docs: [{ id: 'asset1', data: () => ({ filename: 'f1.png', status: 'pending' }) }] });
