@@ -2083,19 +2083,15 @@ const AdGroupDetail = () => {
               : "N/A"}
           </span>
           )}
-        {assets.length === 0 && (
-          <>
-            <span className="hidden sm:inline">|</span>
-            <label className="flex items-center gap-1">
-              <input
-                type="checkbox"
-                checked={group.reviewVersion === 2}
-                onChange={toggleReviewV2}
-              />
-              Review 2.0
-            </label>
-          </>
-        )}
+        <span className="hidden sm:inline">|</span>
+        <label className="flex items-center gap-1">
+          <input
+            type="checkbox"
+            checked={group.reviewVersion === 2}
+            onChange={toggleReviewV2}
+          />
+          Review 2.0
+        </label>
         {(brandHasAgency || userRole === 'admin') && (
           <>
             <span className="hidden sm:inline">|</span>
