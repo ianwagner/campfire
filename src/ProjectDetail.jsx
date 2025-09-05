@@ -52,6 +52,7 @@ import {
   FiMoreHorizontal,
   FiRefreshCw,
   FiClock,
+  FiRotateCw,
 } from 'react-icons/fi';
 import { Bubbles } from 'lucide-react';
 import { archiveGroup } from './utils/archiveGroup';
@@ -139,6 +140,10 @@ const ProjectDetail = () => {
   const [revisionModal, setRevisionModal] = useState(null);
   const [historyAsset, setHistoryAsset] = useState(null);
   const [metadataRecipe, setMetadataRecipe] = useState(null);
+  const hasScrubbed = useMemo(
+    () => assets.some((a) => a.scrubbedFrom),
+    [assets],
+  );
 
   const closeMenu = () => {
     setMenuAsset(null);
@@ -859,6 +864,70 @@ const ProjectDetail = () => {
     }
   };
 
+  const handleUndoScrub = async () => {
+    if (!groupId) return;
+    try {
+      const rootsSnap = await getDocs(
+        collection(db, 'adGroups', groupId, 'scrubbedHistory'),
+      );
+      if (rootsSnap.empty) return;
+      const batch = writeBatch(db);
+      const updatedAssets = [...assets];
+      for (const root of rootsSnap.docs) {
+        const rootId = root.id;
+        const latestIdx = updatedAssets.findIndex(
+          (a) => a.scrubbedFrom === rootId,
+        );
+        if (latestIdx === -1) continue;
+        const latest = updatedAssets[latestIdx];
+        const historySnap = await getDocs(
+          collection(db, 'adGroups', groupId, 'scrubbedHistory', rootId, 'assets'),
+        );
+        let maxVersion = 0;
+        let prevId = null;
+        historySnap.forEach((a) => {
+          const data = a.data();
+          batch.set(
+            doc(db, 'adGroups', groupId, 'assets', a.id),
+            { ...data, scrubbedAt: deleteField() },
+          );
+          batch.delete(
+            doc(db, 'adGroups', groupId, 'scrubbedHistory', rootId, 'assets', a.id),
+          );
+          updatedAssets.push({ id: a.id, ...data });
+          const v = data.version || 1;
+          if (v > maxVersion) {
+            maxVersion = v;
+            prevId = a.id;
+          }
+        });
+        const newVersion = maxVersion + 1;
+        const update = {
+          scrubbedFrom: deleteField(),
+          version: newVersion,
+          parentAdId: prevId,
+        };
+        if (latest.filename) {
+          const idx = latest.filename.lastIndexOf('.');
+          const ext = idx >= 0 ? latest.filename.slice(idx) : '';
+          update.filename = `${stripVersion(latest.filename)}_v${newVersion}${ext}`;
+        }
+        batch.update(
+          doc(db, 'adGroups', groupId, 'assets', latest.id),
+          update,
+        );
+        updatedAssets[latestIdx] = { ...latest, ...update };
+      }
+      await batch.commit();
+      const newStatus = computeGroupStatus(updatedAssets, false, false);
+      await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
+      setGroup((p) => ({ ...p, status: newStatus }));
+      setAssets(updatedAssets);
+    } catch (err) {
+      console.error('Failed to undo scrub', err);
+    }
+  };
+
   const openRevision = async (asset) => {
     try {
       const info = parseAdFilename(asset.filename || '');
@@ -1442,6 +1511,20 @@ const ProjectDetail = () => {
                   Mark All Pending as Ready
                 </div>
               </span>
+              {hasScrubbed && (
+                <span className="relative group">
+                  <IconButton
+                    aria-label="Undo Scrub"
+                    onClick={handleUndoScrub}
+                    className="text-xl"
+                  >
+                    <FiRotateCw />
+                  </IconButton>
+                  <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
+                    Undo Scrub
+                  </div>
+                </span>
+              )}
               <span className="relative group">
                 <IconButton
                   aria-label="Scrub Review History"

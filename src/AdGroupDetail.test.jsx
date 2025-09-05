@@ -653,3 +653,62 @@ test('scrubbing sets group status to done when all ads archived', async () => {
   );
   confirmSpy.mockRestore();
 });
+
+test('undo scrub restores review history', async () => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({
+      docs: [
+        {
+          id: 'asset2',
+          data: () => ({ filename: 'ad.png', version: 1, status: 'ready', scrubbedFrom: 'asset1' }),
+        },
+      ],
+    });
+    return jest.fn();
+  });
+  mockGetDocs.mockImplementation((ref) => {
+    if (Array.isArray(ref) && ref.includes('scrubbedHistory') && !ref.includes('assets')) {
+      return Promise.resolve({ docs: [{ id: 'asset1' }] });
+    }
+    if (Array.isArray(ref) && ref.includes('scrubbedHistory') && ref.includes('assets')) {
+      const docs = [
+        {
+          id: 'asset1',
+          data: () => ({ filename: 'ad_V1.png', version: 1, status: 'approved' }),
+        },
+      ];
+      return Promise.resolve({
+        docs,
+        forEach: (cb) => docs.forEach((d) => cb(d)),
+      });
+    }
+    return Promise.resolve({ empty: true, docs: [], forEach: () => {} });
+  });
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>,
+  );
+  await screen.findByLabelText('Undo Scrub');
+  fireEvent.click(screen.getByLabelText('Undo Scrub'));
+  await waitFor(() => {
+    const batch = require('firebase/firestore').writeBatch.mock.results[0].value;
+    expect(batch.set).toHaveBeenCalledWith(
+      'adGroups/group1/assets/asset1',
+      expect.objectContaining({ version: 1 }),
+    );
+    expect(batch.delete).toHaveBeenCalledWith(
+      'adGroups/group1/scrubbedHistory/asset1/assets/asset1',
+    );
+    expect(batch.update).toHaveBeenCalledWith(
+      'adGroups/group1/assets/asset2',
+      expect.objectContaining({ version: 2, parentAdId: 'asset1' }),
+    );
+  });
+  await waitFor(() =>
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      'adGroups/group1',
+      expect.objectContaining({ status: 'ready' }),
+    ),
+  );
+});
