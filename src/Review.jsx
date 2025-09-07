@@ -108,7 +108,7 @@ const Review = forwardRef(
   const [copyCards, setCopyCards] = useState([]);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [modalCopies, setModalCopies] = useState([]);
-  const [reviewVersion, setReviewVersion] = useState(1);
+  const [reviewVersion, setReviewVersion] = useState(null);
   const [briefComment, setBriefComment] = useState('');
   const [briefFeedback, setBriefFeedback] = useState('');
   const [timedOut, setTimedOut] = useState(false);
@@ -1349,7 +1349,12 @@ useEffect(() => {
     }
   };
 
-  if (!logoReady || (started && !firstAdLoaded)) {
+  if (
+    reviewVersion === null ||
+    !logoReady ||
+    (started && !firstAdLoaded) ||
+    (reviewVersion === 3 && recipes.length === 0)
+  ) {
     return <LoadingOverlay />;
   }
 
@@ -1607,16 +1612,19 @@ useEffect(() => {
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
-            <div className="w-full max-w-4xl space-y-4">
-              <RecipePreview
-                initialResults={recipes}
-                showOnlyResults
-                brandCode={groupBrandCode}
-                hideBrandSelect
-                showColumnButton={false}
-                externalOnly
-              />
-              <div>
+            <div className="w-full max-w-5xl flex flex-col md:flex-row md:items-start md:gap-4">
+              <div className="flex-1">
+                <RecipePreview
+                  initialResults={recipes}
+                  showOnlyResults
+                  brandCode={groupBrandCode}
+                  hideBrandSelect
+                  showColumnButton={false}
+                  externalOnly
+                  hideActions
+                />
+              </div>
+              <div className="mt-4 md:mt-0 md:w-80">
                 <textarea
                   value={briefComment}
                   onChange={(e) => setBriefComment(e.target.value)}
@@ -1634,13 +1642,13 @@ useEffect(() => {
                 >
                   Submit Comment
                 </button>
+                {briefFeedback && (
+                  <div className="feedback-panel mt-4 p-2 border rounded">
+                    <h3 className="font-semibold mb-1">Feedback</h3>
+                    <p>{briefFeedback}</p>
+                  </div>
+                )}
               </div>
-              {briefFeedback && (
-                <div className="feedback-panel mt-4 p-2 border rounded">
-                  <h3 className="font-semibold mb-1">Feedback</h3>
-                  <p>{briefFeedback}</p>
-                </div>
-              )}
             </div>
           ) : reviewVersion === 2 ? (
             <div className="p-4 rounded flex flex-wrap justify-center gap-4 relative">

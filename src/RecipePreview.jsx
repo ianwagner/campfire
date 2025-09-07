@@ -72,6 +72,7 @@ const RecipePreview = ({
   onStepChange = null,
   onBrandCodeChange = null,
   showBriefExtras = false,
+  hideActions = false,
 }) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
@@ -1334,9 +1335,9 @@ const RecipePreview = ({
       }
     });
     if (visibleColumns.copy) widths.push('30%');
-    widths.push('50px');
+    if (!hideActions) widths.push('50px');
     return widths;
-  }, [visibleColumns, columnMeta]);
+  }, [visibleColumns, columnMeta, hideActions]);
 
   return (
     <div>
@@ -1414,7 +1415,7 @@ const RecipePreview = ({
           }
           right={
             <>
-              {results.length > 0 && (
+              {results.length > 0 && !hideActions && (
                 <button
                   type="button"
                   className="btn-secondary"
@@ -1508,7 +1509,11 @@ const RecipePreview = ({
           )}
         {results.length > 0 &&
           (columnsReady ? (
-            <Table className="min-w-full text-sm" columns={colWidths} actionsWidthOverride="50px">
+            <Table
+              className="min-w-full text-sm"
+              columns={colWidths}
+              actionsWidthOverride={hideActions ? undefined : '50px'}
+            >
             <thead>
               <tr>
                 {visibleColumns['recipeNo'] && (
@@ -1541,16 +1546,21 @@ const RecipePreview = ({
                     </InfoTooltip>
                   </th>
                 )}
-                <th className="text-center">
-                  <InfoTooltip
-                    text={canEditRecipes ? 'Actions' : 'Select'}
-                    maxWidth="80rem"
-                  >
-                    <button type="button" aria-label={canEditRecipes ? 'Actions' : 'Select'}>
-                      <FiInfo />
-                    </button>
-                  </InfoTooltip>
-                </th>
+                {!hideActions && (
+                  <th className="text-center">
+                    <InfoTooltip
+                      text={canEditRecipes ? 'Actions' : 'Select'}
+                      maxWidth="80rem"
+                    >
+                      <button
+                        type="button"
+                        aria-label={canEditRecipes ? 'Actions' : 'Select'}
+                      >
+                        <FiInfo />
+                      </button>
+                    </InfoTooltip>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -1705,48 +1715,50 @@ const RecipePreview = ({
                       )}
                     </td>
                   )}
-                  <td className="text-center align-middle w-[50px] max-w-[50px]">
-                    {canEditRecipes ? (
-                      <div className="flex flex-col items-center justify-center gap-1">
-                        <IconButton
-                          onClick={() => handleEditRow(idx)}
-                          aria-label={editing === idx ? 'Save' : 'Edit'}
-                          className="p-0 flex-shrink-0"
+                  {!hideActions && (
+                    <td className="text-center align-middle w-[50px] max-w-[50px]">
+                      {canEditRecipes ? (
+                        <div className="flex flex-col items-center justify-center gap-1">
+                          <IconButton
+                            onClick={() => handleEditRow(idx)}
+                            aria-label={editing === idx ? 'Save' : 'Edit'}
+                            className="p-0 flex-shrink-0"
+                          >
+                            {editing === idx ? <FiCheckSquare /> : <FiEdit2 />}
+                          </IconButton>
+                          <IconButton
+                            onClick={() => handleRefreshRow(idx)}
+                            aria-label="Refresh"
+                            className="p-0 flex-shrink-0"
+                          >
+                            <FaMagic />
+                          </IconButton>
+                          <IconButton
+                            onClick={() => handleDeleteRow(idx)}
+                            aria-label="Delete"
+                            className="p-0 flex-shrink-0 btn-delete"
+                          >
+                            <FiTrash />
+                          </IconButton>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const arr = [...results];
+                            arr[idx].selected = !arr[idx].selected;
+                            setResults(arr);
+                            if (onSelectChange) {
+                              onSelectChange(arr[idx].recipeNo, arr[idx].selected);
+                            }
+                          }}
+                          aria-label="Toggle Select"
                         >
-                          {editing === idx ? <FiCheckSquare /> : <FiEdit2 />}
-                        </IconButton>
-                        <IconButton
-                          onClick={() => handleRefreshRow(idx)}
-                          aria-label="Refresh"
-                          className="p-0 flex-shrink-0"
-                        >
-                          <FaMagic />
-                        </IconButton>
-                        <IconButton
-                          onClick={() => handleDeleteRow(idx)}
-                          aria-label="Delete"
-                          className="p-0 flex-shrink-0 btn-delete"
-                        >
-                          <FiTrash />
-                        </IconButton>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const arr = [...results];
-                          arr[idx].selected = !arr[idx].selected;
-                          setResults(arr);
-                          if (onSelectChange) {
-                            onSelectChange(arr[idx].recipeNo, arr[idx].selected);
-                          }
-                        }}
-                        aria-label="Toggle Select"
-                      >
-                        {r.selected ? <FiCheckSquare /> : <FiSquare />}
-                      </button>
-                    )}
-                  </td>
+                          {r.selected ? <FiCheckSquare /> : <FiSquare />}
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
