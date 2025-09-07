@@ -55,6 +55,8 @@ test('loads ads from subcollections', async () => {
   mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'recipes')
+      return Promise.resolve({ docs: [{ id: 'r1', data: () => ({ type: 'T1', components: {} }) }] });
     return Promise.resolve({ docs: [] });
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
@@ -1348,6 +1350,8 @@ test('brief review collects feedback', async () => {
   mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'recipes')
+      return Promise.resolve({ docs: [{ id: 'r1', data: () => ({ type: 'T1', components: {} }) }] });
     return Promise.resolve({ docs: [] });
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1', reviewVersion: 3 }) });

@@ -219,3 +219,17 @@ test('editor users have access to row action buttons', async () => {
   expect(screen.queryByLabelText('Toggle Select')).toBeNull();
 });
 
+test('hides actions and refine button when hideActions is true', async () => {
+  mockGetDocs.mockResolvedValue({ docs: [] });
+  render(
+    <RecipePreview
+      initialResults={[{ type: 'Type1', components: {} }]}
+      showOnlyResults
+      hideActions
+    />,
+  );
+  await waitFor(() => expect(mockGetDocs).toHaveBeenCalled());
+  expect(screen.queryByText('Refine')).toBeNull();
+  expect(screen.queryByLabelText('Toggle Select')).toBeNull();
+});
+
