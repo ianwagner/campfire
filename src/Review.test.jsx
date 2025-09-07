@@ -8,27 +8,27 @@ jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 jest.mock('./CopyRecipePreview.jsx', () => () => null);
 jest.mock('./utils/debugLog', () => jest.fn());
 
-const getDocs = jest.fn();
-const getDoc = jest.fn();
-const updateDoc = jest.fn();
-const addDoc = jest.fn();
-const docMock = jest.fn((...args) => args.slice(1).join('/'));
-const arrayUnion = jest.fn((val) => val);
-const increment = jest.fn((val) => val);
+const mockGetDocs = jest.fn();
+const mockGetDoc = jest.fn();
+const mockUpdateDoc = jest.fn();
+const mockAddDoc = jest.fn();
+const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
+const mockArrayUnion = jest.fn((val) => val);
+const mockIncrement = jest.fn((val) => val);
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
   collectionGroup: jest.fn((...args) => args),
   query: jest.fn((...args) => args),
   where: jest.fn(),
-  getDocs: (...args) => getDocs(...args),
-  getDoc: (...args) => getDoc(...args),
-  addDoc: (...args) => addDoc(...args),
+  getDocs: (...args) => mockGetDocs(...args),
+  getDoc: (...args) => mockGetDoc(...args),
+  addDoc: (...args) => mockAddDoc(...args),
   serverTimestamp: jest.fn(),
-  doc: (...args) => docMock(...args),
-  updateDoc: (...args) => updateDoc(...args),
-  arrayUnion: (...args) => arrayUnion(...args),
-  increment: (...args) => increment(...args),
+  doc: (...args) => mockDoc(...args),
+  updateDoc: (...args) => mockUpdateDoc(...args),
+  arrayUnion: (...args) => mockArrayUnion(...args),
+  increment: (...args) => mockIncrement(...args),
 }));
 
 afterEach(() => {
@@ -51,12 +51,12 @@ test('loads ads from subcollections', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -81,12 +81,12 @@ test('Review Ads button disabled until ads load', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -112,12 +112,12 @@ test('submitResponse updates asset status', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -127,9 +127,9 @@ test('submitResponse updates asset status', async () => {
 
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
-  expect(updateDoc).toHaveBeenCalledWith(
+  expect(mockUpdateDoc).toHaveBeenCalledWith(
     'adGroups/group1/assets/asset1',
     expect.objectContaining({
       status: 'approved',
@@ -156,12 +156,12 @@ test('submitResponse includes reviewer name', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(
     <Review user={{ uid: 'u1', email: 'e@test.com' }} reviewerName="Alice" brandCodes={['BR1']} />
@@ -173,12 +173,12 @@ test('submitResponse includes reviewer name', async () => {
 
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
-  const respCall = addDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][3] === 'responses');
+  const respCall = mockAddDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][3] === 'responses');
   expect(respCall[1]).toEqual(expect.objectContaining({ reviewerName: 'Alice' }));
 
-  const update = updateDoc.mock.calls[0][1];
+  const update = mockUpdateDoc.mock.calls[0][1];
   expect(update.lastUpdatedBy).toBe('u1');
 });
 
@@ -200,12 +200,12 @@ test('request edit creates new version doc', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -219,9 +219,9 @@ test('request edit creates new version doc', async () => {
   });
   fireEvent.click(screen.getByText('Submit'));
 
-  await waitFor(() => expect(addDoc).toHaveBeenCalled());
+  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
 
-  const call = addDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][1] === 'adGroups');
+  const call = mockAddDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][1] === 'adGroups');
   expect(call).toBeTruthy();
   expect(call[1]).toEqual(
     expect.objectContaining({ parentAdId: 'asset1', version: 2, status: 'pending', isResolved: false })
@@ -247,12 +247,12 @@ test('revision inherits root parentId when requesting another edit', async () =>
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -264,9 +264,9 @@ test('revision inherits root parentId when requesting another edit', async () =>
   });
   fireEvent.click(screen.getByText('Submit'));
 
-  await waitFor(() => expect(addDoc).toHaveBeenCalled());
+  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
 
-  const call = addDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][1] === 'adGroups');
+  const call = mockAddDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][1] === 'adGroups');
   expect(call).toBeTruthy();
   expect(call[1]).toEqual(
     expect.objectContaining({ parentAdId: 'asset1', version: 3, status: 'pending', isResolved: false })
@@ -299,12 +299,12 @@ test('request edit advances to next ad', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -318,7 +318,7 @@ test('request edit advances to next ad', async () => {
   });
   fireEvent.click(screen.getByText('Submit'));
 
-  await waitFor(() => expect(addDoc).toHaveBeenCalled());
+  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
@@ -346,14 +346,14 @@ test('approving a revision resolves all related docs', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets')
       return Promise.resolve(relatedSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -361,9 +361,9 @@ test('approving a revision resolves all related docs', async () => {
 
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
-  const paths = updateDoc.mock.calls.map((c) => c[0]);
+  const paths = mockUpdateDoc.mock.calls.map((c) => c[0]);
   expect(paths).toContain('adGroups/group1/assets/rev2');
   expect(paths).toContain('adGroups/group1/assets/orig1');
 });
@@ -398,14 +398,14 @@ test('approving a revision does not change archived versions', async () => {
 
   const relatedSnapshot = { docs: [] };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets')
       return Promise.resolve(relatedSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -413,9 +413,9 @@ test('approving a revision does not change archived versions', async () => {
 
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
-  const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1/assets/orig1');
+  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1/assets/orig1');
   expect(call[1].status).toBeUndefined();
 });
 
@@ -458,12 +458,12 @@ test('version selector changes revisions', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -521,12 +521,12 @@ test('two-version toggle cycles correctly', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -575,9 +575,9 @@ test('fetches previous versions when only latest is loaded', async () => {
     }),
   };
 
-  getDocs.mockResolvedValueOnce(assetSnapshot);
-  getDocs.mockResolvedValueOnce({ docs: [] });
-  getDoc.mockResolvedValue(parentSnap);
+  mockGetDocs.mockResolvedValueOnce(assetSnapshot);
+  mockGetDocs.mockResolvedValueOnce({ docs: [] });
+  mockGetDoc.mockResolvedValue(parentSnap);
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -612,9 +612,9 @@ test('shows badge for single higher version without older versions', async () =>
     ],
   };
 
-  getDocs.mockResolvedValueOnce(assetSnapshot);
-  getDocs.mockResolvedValue({ docs: [] });
-  getDoc.mockResolvedValue({ exists: () => false });
+  mockGetDocs.mockResolvedValueOnce(assetSnapshot);
+  mockGetDocs.mockResolvedValue({ docs: [] });
+  mockGetDoc.mockResolvedValue({ exists: () => false });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -673,12 +673,12 @@ test('ad unit shows only latest version and toggles', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -720,12 +720,12 @@ test('shows group summary after reviewing ads', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -777,12 +777,12 @@ test('filters ads by last login and still shows summary', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(
     <Review
@@ -827,13 +827,13 @@ test('resolved ads are excluded from pending review', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets')
       return Promise.resolve({ docs: assetSnapshot.docs.filter((d) => !d.data().isResolved) });
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -857,8 +857,8 @@ test('shows all ads for group review when none new', async () => {
     ],
   };
 
-  getDoc.mockResolvedValue(groupDoc);
-  getDocs.mockImplementation((args) => {
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
       return Promise.resolve(assetSnapshot);
@@ -892,8 +892,8 @@ test('pending ads are hidden from group review', async () => {
     ],
   };
 
-  getDoc.mockResolvedValue(groupDoc);
-  getDocs.mockImplementation((args) => {
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
       return Promise.resolve(assetSnapshot);
@@ -923,8 +923,8 @@ test('shows pending message when only pending ads', async () => {
     ],
   };
 
-  getDoc.mockResolvedValue(groupDoc);
-  getDocs.mockImplementation((args) => {
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
       return Promise.resolve(assetSnapshot);
@@ -952,8 +952,8 @@ test('submitResponse records last viewed time for group', async () => {
     ],
   };
 
-  getDoc.mockResolvedValue(groupDoc);
-  getDocs.mockImplementation((args) => {
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
       return Promise.resolve(assetSnapshot);
@@ -998,8 +998,8 @@ test('shows final status without change option', async () => {
     ],
   };
 
-  getDoc.mockResolvedValue(groupDoc);
-  getDocs.mockImplementation((args) => {
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
       return Promise.resolve(assetSnapshot);
@@ -1026,12 +1026,12 @@ test('progress bar reflects current index', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -1072,12 +1072,12 @@ test('ad container is not remounted when currentIndex changes', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -1110,16 +1110,16 @@ test('shows alert when locking fails due to permissions', async () => {
     ],
   };
 
-  getDocs.mockImplementation((args) => {
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1', status: 'pending' }) });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1', status: 'pending' }) });
 
   const err = new Error('nope');
   err.code = 'permission-denied';
-  updateDoc.mockRejectedValue(err);
+  mockUpdateDoc.mockRejectedValue(err);
 
   window.alert = jest.fn();
 
@@ -1157,8 +1157,8 @@ test('opening and exiting completed group keeps status', async () => {
     ],
   };
 
-  getDoc.mockResolvedValue(groupDoc);
-  getDocs.mockImplementation((args) => {
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
       return Promise.resolve(assetSnapshot);
@@ -1175,12 +1175,12 @@ test('opening and exiting completed group keeps status', async () => {
 
   unmount();
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
-  const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
+  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
   expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
   expect(
-    updateDoc.mock.calls.some((c) => c[1].status === 'in review')
+    mockUpdateDoc.mock.calls.some((c) => c[1].status === 'in review')
   ).toBe(false);
 });
 
@@ -1203,8 +1203,8 @@ test('returns to start screen after finishing review', async () => {
     ],
   };
 
-  getDoc.mockResolvedValue(groupDoc);
-  getDocs.mockImplementation((args) => {
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
       return Promise.resolve(assetSnapshot);
@@ -1241,8 +1241,8 @@ test('updates group status after finishing review', async () => {
     ],
   };
 
-  getDoc.mockResolvedValue(groupDoc);
-  getDocs.mockImplementation((args) => {
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
       return Promise.resolve(assetSnapshot);
@@ -1257,9 +1257,9 @@ test('updates group status after finishing review', async () => {
   fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
-  const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
+  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
   expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
 });
 
@@ -1270,8 +1270,8 @@ test('updates status and shows summary when no ads available', async () => {
   };
   const assetSnapshot = { docs: [] };
 
-  getDoc.mockResolvedValue(groupDoc);
-  getDocs.mockImplementation((args) => {
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
       return Promise.resolve(assetSnapshot);
@@ -1281,8 +1281,8 @@ test('updates status and shows summary when no ads available', async () => {
 
   render(<Review user={{ uid: 'u1' }} groupId="group1" />);
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
-  const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
+  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
   expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
 
   expect(await screen.findByText(/Your ads are ready/i)).toBeInTheDocument();
@@ -1307,8 +1307,8 @@ test('client approval updates group status', async () => {
     ],
   };
 
-  getDoc.mockResolvedValue(groupDoc);
-  getDocs.mockImplementation((args) => {
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
       return Promise.resolve(assetSnapshot);
@@ -1322,8 +1322,42 @@ test('client approval updates group status', async () => {
   await screen.findByRole('img');
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
-  const call = updateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
+  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
   expect(call[1]).toEqual(expect.objectContaining({ status: 'done' }));
+});
+
+test('brief review collects feedback', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+          recipeCode: 'R1',
+        }),
+      },
+    ],
+  };
+
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1', reviewVersion: 3 }) });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
+
+  await screen.findByText('Your brief is ready!');
+  fireEvent.click(screen.getByText('Review Brief'));
+  const textarea = screen.getByPlaceholderText('Leave a comment');
+  fireEvent.change(textarea, { target: { value: 'Looks good' } });
+  fireEvent.click(screen.getByText('Submit Comment'));
+  expect(screen.getByText('Looks good')).toBeInTheDocument();
 });
 

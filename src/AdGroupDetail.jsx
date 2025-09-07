@@ -337,8 +337,8 @@ const AdGroupDetail = () => {
     return () => unsub();
   }, [id]);
 
-  const toggleReviewV2 = async () => {
-    const newVal = group?.reviewVersion === 2 ? 1 : 2;
+  const handleReviewTypeChange = async (e) => {
+    const newVal = Number(e.target.value);
     try {
       await updateDoc(doc(db, 'adGroups', id), { reviewVersion: newVal });
       setGroup((p) => ({ ...p, reviewVersion: newVal }));
@@ -2152,15 +2152,24 @@ const AdGroupDetail = () => {
               : "N/A"}
           </span>
           )}
-        <span className="hidden sm:inline">|</span>
-        <label className="flex items-center gap-1">
-          <input
-            type="checkbox"
-            checked={group.reviewVersion === 2}
-            onChange={toggleReviewV2}
-          />
-          Review 2.0
-        </label>
+        {(isAdmin || isEditor) && (
+          <>
+            <span className="hidden sm:inline">|</span>
+            <label className="flex items-center gap-1">
+              <span className="hidden sm:inline">Review Type:</span>
+              <select
+                aria-label="Review Type"
+                value={group.reviewVersion || 1}
+                onChange={handleReviewTypeChange}
+                className="border p-1 text-sm"
+              >
+                <option value={1}>Legacy</option>
+                <option value={2}>2.0</option>
+                <option value={3}>Brief</option>
+              </select>
+            </label>
+          </>
+        )}
         {(brandHasAgency || userRole === 'admin') && (
           <>
             <span className="hidden sm:inline">|</span>

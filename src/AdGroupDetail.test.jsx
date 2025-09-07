@@ -269,7 +269,7 @@ test('shows error when sending to projects fails and keeps modal open', async ()
   expect(screen.getByText('Select Client')).toBeInTheDocument();
 });
 
-test('allows toggling review version when assets exist', async () => {
+test('allows changing review type when assets exist', async () => {
   mockOnSnapshot.mockImplementation((col, cb) => {
     if (Array.isArray(col) && col.includes('assets')) {
       cb({ docs: [{ id: 'asset1', data: () => ({ filename: 'ad1.png', status: 'ready' }) }] });
@@ -307,18 +307,18 @@ test('allows toggling review version when assets exist', async () => {
     </MemoryRouter>
   );
 
-  const checkbox = await screen.findByLabelText('Review 2.0');
-  expect(checkbox).toBeInTheDocument();
-  expect(checkbox).not.toBeChecked();
+  const select = await screen.findByLabelText('Review Type');
+  expect(select).toBeInTheDocument();
+  expect(select.value).toBe('1');
 
-  fireEvent.click(checkbox);
+  fireEvent.change(select, { target: { value: '2' } });
 
   await waitFor(() =>
     expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1', {
       reviewVersion: 2,
     }),
   );
-  await waitFor(() => expect(screen.getByLabelText('Review 2.0')).toBeChecked());
+  await waitFor(() => expect(screen.getByLabelText('Review Type').value).toBe('2'));
 });
 
 test.skip('toggles asset status to ready', async () => {
