@@ -72,8 +72,6 @@ const RecipePreview = ({
   onStepChange = null,
   onBrandCodeChange = null,
   showBriefExtras = false,
-  showRefineButton = true,
-  showActionsColumn = true,
 }) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
@@ -1405,54 +1403,53 @@ const RecipePreview = ({
         )}
       </form>
       )}
-      {results.length > 0 && (
-        <div className="overflow-x-auto table-container mt-6">
-          <PageToolbar
-            left={
-              results.length > 0 && showColumnButton ? (
-                <TabButton onClick={() => setShowColumnMenu(true)} aria-label="Columns">
-                  <FiColumns />
-                </TabButton>
-              ) : null
-            }
-            right={
-              <>
-                {results.length > 0 && showRefineButton && (
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={handleRefine}
-                    disabled={refining}
-                  >
-                    {refining ? 'Refining...' : 'Refine'}
-                  </button>
-                )}
-                {userRole !== 'designer' && onRecipesClick && (
-                  <IconButton
-                    onClick={onRecipesClick}
-                    aria-label={results.length > 0 ? 'Replace Briefs' : 'Briefs'}
-                  >
-                    <FaMagic />
-                  </IconButton>
-                )}
-                {results.length > 0 && userRole !== 'designer' && !showOnlyResults && (
-                  <IconButton onClick={addRecipeRow} aria-label="Add Recipe Row">
-                    <FiPlus />
-                  </IconButton>
-                )}
-              </>
-            }
-          />
-          {results.length > 0 && showColumnMenu && showColumnButton && (
+      <div className="overflow-x-auto table-container mt-6">
+        <PageToolbar
+          left={
+            results.length > 0 && showColumnButton ? (
+              <TabButton onClick={() => setShowColumnMenu(true)} aria-label="Columns">
+                <FiColumns />
+              </TabButton>
+            ) : null
+          }
+          right={
+            <>
+              {results.length > 0 && (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleRefine}
+                  disabled={refining}
+                >
+                  {refining ? 'Refining...' : 'Refine'}
+                </button>
+              )}
+              {userRole !== 'designer' && onRecipesClick && (
+                <IconButton
+                  onClick={onRecipesClick}
+                  aria-label={results.length > 0 ? 'Replace Briefs' : 'Briefs'}
+                >
+                  <FaMagic />
+                </IconButton>
+              )}
+              {results.length > 0 && userRole !== 'designer' && !showOnlyResults && (
+                <IconButton onClick={addRecipeRow} aria-label="Add Recipe Row">
+                  <FiPlus />
+                </IconButton>
+              )}
+            </>
+          }
+        />
+        {results.length > 0 && showColumnMenu && showColumnButton && (
+          <div
+            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+            onClick={() => setShowColumnMenu(false)}
+          >
             <div
-              className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
-              onClick={() => setShowColumnMenu(false)}
+              className="bg-white p-4 rounded-xl shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+              onClick={(e) => e.stopPropagation()}
             >
-              <div
-                className="bg-white p-4 rounded-xl shadow max-w-sm w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <h3 className="mb-2 font-semibold">Visible Columns</h3>
+              <h3 className="mb-2 font-semibold">Visible Columns</h3>
                 <label className="block whitespace-nowrap">
                   <input
                     type="checkbox"
@@ -1509,13 +1506,9 @@ const RecipePreview = ({
               </div>
             </div>
           )}
-          {results.length > 0 &&
-            (columnsReady ? (
-              <Table
-                className="min-w-full text-sm"
-                columns={colWidths}
-                actionsWidthOverride={showActionsColumn ? '50px' : undefined}
-              >
+        {results.length > 0 &&
+          (columnsReady ? (
+            <Table className="min-w-full text-sm" columns={colWidths} actionsWidthOverride="50px">
             <thead>
               <tr>
                 {visibleColumns['recipeNo'] && (
@@ -1548,18 +1541,16 @@ const RecipePreview = ({
                     </InfoTooltip>
                   </th>
                 )}
-                {showActionsColumn && (
-                  <th className="text-center">
-                    <InfoTooltip
-                      text={canEditRecipes ? 'Actions' : 'Select'}
-                      maxWidth="80rem"
-                    >
-                      <button type="button" aria-label={canEditRecipes ? 'Actions' : 'Select'}>
-                        <FiInfo />
-                      </button>
-                    </InfoTooltip>
-                  </th>
-                )}
+                <th className="text-center">
+                  <InfoTooltip
+                    text={canEditRecipes ? 'Actions' : 'Select'}
+                    maxWidth="80rem"
+                  >
+                    <button type="button" aria-label={canEditRecipes ? 'Actions' : 'Select'}>
+                      <FiInfo />
+                    </button>
+                  </InfoTooltip>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -1714,50 +1705,48 @@ const RecipePreview = ({
                       )}
                     </td>
                   )}
-                  {showActionsColumn && (
-                    <td className="text-center align-middle w-[50px] max-w-[50px]">
-                      {canEditRecipes ? (
-                        <div className="flex flex-col items-center justify-center gap-1">
-                          <IconButton
-                            onClick={() => handleEditRow(idx)}
-                            aria-label={editing === idx ? 'Save' : 'Edit'}
-                            className="p-0 flex-shrink-0"
-                          >
-                            {editing === idx ? <FiCheckSquare /> : <FiEdit2 />}
-                          </IconButton>
-                          <IconButton
-                            onClick={() => handleRefreshRow(idx)}
-                            aria-label="Refresh"
-                            className="p-0 flex-shrink-0"
-                          >
-                            <FaMagic />
-                          </IconButton>
-                          <IconButton
-                            onClick={() => handleDeleteRow(idx)}
-                            aria-label="Delete"
-                            className="p-0 flex-shrink-0 btn-delete"
-                          >
-                            <FiTrash />
-                          </IconButton>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const arr = [...results];
-                            arr[idx].selected = !arr[idx].selected;
-                            setResults(arr);
-                            if (onSelectChange) {
-                              onSelectChange(arr[idx].recipeNo, arr[idx].selected);
-                            }
-                          }}
-                          aria-label="Toggle Select"
+                  <td className="text-center align-middle w-[50px] max-w-[50px]">
+                    {canEditRecipes ? (
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <IconButton
+                          onClick={() => handleEditRow(idx)}
+                          aria-label={editing === idx ? 'Save' : 'Edit'}
+                          className="p-0 flex-shrink-0"
                         >
-                          {r.selected ? <FiCheckSquare /> : <FiSquare />}
-                        </button>
-                      )}
-                    </td>
-                  )}
+                          {editing === idx ? <FiCheckSquare /> : <FiEdit2 />}
+                        </IconButton>
+                        <IconButton
+                          onClick={() => handleRefreshRow(idx)}
+                          aria-label="Refresh"
+                          className="p-0 flex-shrink-0"
+                        >
+                          <FaMagic />
+                        </IconButton>
+                        <IconButton
+                          onClick={() => handleDeleteRow(idx)}
+                          aria-label="Delete"
+                          className="p-0 flex-shrink-0 btn-delete"
+                        >
+                          <FiTrash />
+                        </IconButton>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const arr = [...results];
+                          arr[idx].selected = !arr[idx].selected;
+                          setResults(arr);
+                          if (onSelectChange) {
+                            onSelectChange(arr[idx].recipeNo, arr[idx].selected);
+                          }
+                        }}
+                        aria-label="Toggle Select"
+                      >
+                        {r.selected ? <FiCheckSquare /> : <FiSquare />}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -1782,25 +1771,26 @@ const RecipePreview = ({
           }}
         />
       )}
-      {results.length > 0 && userRole !== 'designer' && onSave && (
-        <div className="sticky bottom-0 bg-white dark:bg-[var(--dark-sidebar-bg)] p-2 pb-0 flex justify-between items-center">
-          <button
-            type="button"
-            className="text-sm text-accent underline"
-            onClick={handleReset}
-            aria-label="Discard generated recipe changes"
-          >
-            Discard Changes
-          </button>
-          <SaveButton
-            onClick={handleSave}
-            canSave={dirty && (showOnlyResults || !onTitleChange || !!title.trim())}
-            loading={saving}
-          />
-        </div>
-      )}
     </div>
-  );
+    {results.length > 0 && userRole !== 'designer' && onSave && (
+      <div className="sticky bottom-0 bg-white dark:bg-[var(--dark-sidebar-bg)] p-2 pb-0 flex justify-between items-center">
+        <button
+          type="button"
+          className="text-sm text-accent underline"
+          onClick={handleReset}
+          aria-label="Discard generated recipe changes"
+        >
+          Discard Changes
+        </button>
+        <SaveButton
+          onClick={handleSave}
+          canSave={dirty && (showOnlyResults || !onTitleChange || !!title.trim())}
+          loading={saving}
+        />
+      </div>
+    )}
+  </div>
+);
 };
 
 export default RecipePreview;
