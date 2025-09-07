@@ -106,6 +106,8 @@ const Review = forwardRef(
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [modalCopies, setModalCopies] = useState([]);
   const [reviewVersion, setReviewVersion] = useState(1);
+  const [briefComment, setBriefComment] = useState('');
+  const [briefFeedback, setBriefFeedback] = useState('');
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
   const [allHeroAds, setAllHeroAds] = useState([]); // hero list for all ads
@@ -1352,13 +1354,19 @@ useEffect(() => {
             className="mb-2 max-h-16 w-auto"
           />
         )}
-        <h1 className="text-2xl font-bold">Your ads are ready!</h1>
+        <h1 className="text-2xl font-bold">
+          {reviewVersion === 3 ? 'Your brief is ready!' : 'Your ads are ready!'}
+        </h1>
         <div className="flex flex-col items-center space-y-3">
           <button
             onClick={() => {
               setTimedOut(false);
               setShowGallery(false);
               setShowCopyModal(false);
+              if (reviewVersion === 3) {
+                setStarted(true);
+                return;
+              }
               const latest = getLatestAds(ads.filter((a) => a.status !== 'pending'));
               const readyList = latest.filter((a) => a.status === 'ready');
               const readyVers = readyList.filter((a) => getVersion(a) > 1);
@@ -1376,7 +1384,8 @@ useEffect(() => {
               loading || ads.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
-            <FiCheck className="mr-2" /> Review Ads
+            <FiCheck className="mr-2" />{' '}
+            {reviewVersion === 3 ? 'Review Brief' : 'Review Ads'}
           </button>
           <div className="flex space-x-2">
             <button
@@ -1579,7 +1588,72 @@ useEffect(() => {
           </div>
         </div>
         <div className="flex justify-center relative">
-          {reviewVersion === 2 ? (
+          {reviewVersion === 3 ? (
+            <div className="w-full max-w-xl space-y-4">
+              {recipeGroups.map((g) => (
+                <div key={g.recipeCode}>
+                  <h2 className="font-semibold mb-2">{g.recipeCode}</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {(g.assets || []).map((a, idx) => (
+                      <div key={idx} className="max-w-[150px]">
+                        {isVideoUrl(a.firebaseUrl) ? (
+                          <VideoPlayer
+                            src={a.firebaseUrl}
+                            className="max-w-full rounded shadow"
+                            style={{
+                              aspectRatio:
+                                String(a.aspectRatio || '').replace('x', '/') || undefined,
+                            }}
+                          />
+                        ) : (
+                          <OptimizedImage
+                            pngUrl={a.firebaseUrl}
+                            webpUrl={
+                              a.firebaseUrl
+                                ? a.firebaseUrl.replace(/\.png$/, '.webp')
+                                : undefined
+                            }
+                            alt={a.filename}
+                            cacheKey={a.firebaseUrl}
+                            className="max-w-full rounded shadow"
+                            style={{
+                              aspectRatio:
+                                String(a.aspectRatio || '').replace('x', '/') || undefined,
+                            }}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div>
+                <textarea
+                  value={briefComment}
+                  onChange={(e) => setBriefComment(e.target.value)}
+                  placeholder="Leave a comment"
+                  className="w-full border p-2"
+                />
+                <button
+                  className="btn-primary mt-2"
+                  onClick={() => {
+                    if (briefComment.trim()) {
+                      setBriefFeedback(briefComment.trim());
+                      setBriefComment('');
+                    }
+                  }}
+                >
+                  Submit Comment
+                </button>
+              </div>
+              {briefFeedback && (
+                <div className="feedback-panel mt-4 p-2 border rounded">
+                  <h3 className="font-semibold mb-1">Feedback</h3>
+                  <p>{briefFeedback}</p>
+                </div>
+              )}
+            </div>
+          ) : reviewVersion === 2 ? (
             <div className="p-4 rounded flex flex-wrap justify-center gap-4 relative">
               {(currentRecipeGroup?.assets || []).map((a, idx) => (
                 <div key={idx} className="max-w-[300px]">
