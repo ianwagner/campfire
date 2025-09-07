@@ -2230,8 +2230,8 @@ const AdGroupDetail = () => {
           ) : (
             <span>{designerName || 'Unassigned'}</span>
           )}
-        {((isEditor && group.status === 'pending') ||
-          (isAdmin && ['pending', 'briefed'].includes(group.status))) && (
+        {((isEditor && ['pending', 'new'].includes(group.status)) ||
+          (isAdmin && ['pending', 'briefed', 'new'].includes(group.status))) && (
           <button
             type="button"
             onClick={toggleBriefed}

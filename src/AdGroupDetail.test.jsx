@@ -617,6 +617,46 @@ test('scrubbing pending or edit requested ads sets status to ready and keeps arc
   confirmSpy.mockRestore();
 });
 
+test('admin can change new ad group to briefed', async () => {
+  mockGetDoc.mockImplementation((path) => {
+    if (path === 'adGroups/group1') {
+      return Promise.resolve({
+        exists: () => true,
+        id: 'group1',
+        data: () => ({
+          name: 'Group 1',
+          brandCode: 'BR1',
+          status: 'new',
+          agencyId: null,
+        }),
+      });
+    }
+    if (path === 'brands/BR1') {
+      return Promise.resolve({
+        exists: () => true,
+        data: () => ({ agencyId: 'agency1', recipeTypes: [] }),
+      });
+    }
+    return Promise.resolve({ exists: () => false });
+  });
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({ docs: [] });
+    return jest.fn();
+  });
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>,
+  );
+  const briefedBtn = await screen.findByRole('button', { name: 'Briefed' });
+  fireEvent.click(briefedBtn);
+  await waitFor(() =>
+    expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1', {
+      status: 'briefed',
+    }),
+  );
+});
+
 test('scrubbing sets group status to done when all ads archived', async () => {
   mockOnSnapshot.mockImplementation((col, cb) => {
     cb({
