@@ -6,6 +6,7 @@ import Review from './Review';
 jest.mock('./firebase/config', () => ({ db: {} }));
 jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 jest.mock('./CopyRecipePreview.jsx', () => () => null);
+jest.mock('./RecipePreview.jsx', () => () => <div />);
 jest.mock('./utils/debugLog', () => jest.fn());
 
 const mockGetDocs = jest.fn();

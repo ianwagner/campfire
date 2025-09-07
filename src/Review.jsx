@@ -38,6 +38,7 @@ import GalleryModal from './components/GalleryModal.jsx';
 import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
+import RecipePreview from './RecipePreview.jsx';
 import FeedbackPanel from './components/FeedbackPanel.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
@@ -99,6 +100,8 @@ const Review = forwardRef(
   const [versionModal, setVersionModal] = useState(null); // {current, previous}
   const [versionView, setVersionView] = useState('current');
   const [versionIndex, setVersionIndex] = useState(0); // index into versions array
+  const [recipes, setRecipes] = useState([]); // ad recipes for brief review
+  const [groupBrandCode, setGroupBrandCode] = useState('');
   const [finalGallery, setFinalGallery] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
@@ -390,6 +393,19 @@ useEffect(() => {
               const data = groupSnap.data();
               status = data.status || 'pending';
               rv = data.reviewVersion || 1;
+              setGroupBrandCode(data.brandCode || '');
+              if (rv === 3) {
+                const rSnap = await getDocs(
+                  collection(db, 'adGroups', groupId, 'recipes')
+                );
+                setRecipes(
+                  rSnap.docs.map((d, idx) => ({
+                    recipeNo: idx + 1,
+                    id: d.id,
+                    ...d.data(),
+                  }))
+                );
+              }
               if (status === 'reviewed') status = 'done';
               if (status === 'review pending' || status === 'in review') status = 'ready';
               if (typeof data.reviewProgress === 'number') {
@@ -1574,59 +1590,32 @@ useEffect(() => {
           >
             <FiX />
           </button>
-          <div
-            className="progress-bar"
-            role="progressbar"
-            aria-valuenow={progress}
-            aria-valuemin="0"
-            aria-valuemax="100"
-          >
+          {reviewVersion !== 3 && (
             <div
-              className="progress-bar-inner"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+              className="progress-bar"
+              role="progressbar"
+              aria-valuenow={progress}
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              <div
+                className="progress-bar-inner"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
-            <div className="w-full max-w-xl space-y-4">
-              {recipeGroups.map((g) => (
-                <div key={g.recipeCode}>
-                  <h2 className="font-semibold mb-2">{g.recipeCode}</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {(g.assets || []).map((a, idx) => (
-                      <div key={idx} className="max-w-[150px]">
-                        {isVideoUrl(a.firebaseUrl) ? (
-                          <VideoPlayer
-                            src={a.firebaseUrl}
-                            className="max-w-full rounded shadow"
-                            style={{
-                              aspectRatio:
-                                String(a.aspectRatio || '').replace('x', '/') || undefined,
-                            }}
-                          />
-                        ) : (
-                          <OptimizedImage
-                            pngUrl={a.firebaseUrl}
-                            webpUrl={
-                              a.firebaseUrl
-                                ? a.firebaseUrl.replace(/\.png$/, '.webp')
-                                : undefined
-                            }
-                            alt={a.filename}
-                            cacheKey={a.firebaseUrl}
-                            className="max-w-full rounded shadow"
-                            style={{
-                              aspectRatio:
-                                String(a.aspectRatio || '').replace('x', '/') || undefined,
-                            }}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+            <div className="w-full max-w-4xl space-y-4">
+              <RecipePreview
+                initialResults={recipes}
+                showOnlyResults
+                brandCode={groupBrandCode}
+                hideBrandSelect
+                showColumnButton={false}
+                externalOnly
+              />
               <div>
                 <textarea
                   value={briefComment}
@@ -1875,7 +1864,7 @@ useEffect(() => {
         </div>
       </div>
 
-      {!showSizes && (showSecondView ? (
+        {!showSizes && reviewVersion !== 3 && (showSecondView ? (
         <div className="flex items-center space-x-4">
           {currentIndex > 0 && (
             <button
@@ -2010,12 +1999,14 @@ useEffect(() => {
         </div>
       )}
       </div>
-      <FeedbackPanel
-        entries={panelEntries}
-        onVersionClick={openVersionModal}
-        origCopy={recipeCopyMap[currentRecipe] || ''}
-        className="mt-4 md:mt-0 w-full md:w-60 max-h-[70vh] overflow-y-auto"
-      />
+      {reviewVersion !== 3 && (
+        <FeedbackPanel
+          entries={panelEntries}
+          onVersionClick={openVersionModal}
+          origCopy={recipeCopyMap[currentRecipe] || ''}
+          className="mt-4 md:mt-0 w-full md:w-60 max-h-[70vh] overflow-y-auto"
+        />
+      )}
     </div>
     </div>
   );
