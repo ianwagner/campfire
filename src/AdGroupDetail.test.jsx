@@ -180,6 +180,28 @@ test('editor can open gallery modal', async () => {
   expect(await screen.findByText('Ad Gallery')).toBeInTheDocument();
 });
 
+test('shows feedback tab with entries for admin', async () => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    const last = col[col.length - 1];
+    if (last === 'feedback') {
+      cb({ docs: [{ id: 'f1', data: () => ({ comment: 'Great work', updatedBy: 'User' }) }] });
+    } else {
+      cb({ docs: [] });
+    }
+    return jest.fn();
+  });
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>
+  );
+
+  const feedbackTab = await screen.findByRole('button', { name: 'Feedback' });
+  fireEvent.click(feedbackTab);
+  expect(await screen.findByText('Great work')).toBeInTheDocument();
+});
+
 test('admin can send ad group to client projects', async () => {
   mockOnSnapshot.mockImplementation((col, cb) => {
     cb({ docs: [] });
