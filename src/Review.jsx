@@ -2027,7 +2027,8 @@ useEffect(() => {
           entries={panelEntries}
           onVersionClick={openVersionModal}
           origCopy={recipeCopyMap[currentRecipe] || ''}
-          className="mt-4 md:mt-0 w-full md:w-60 max-h-[70vh] overflow-y-auto"
+          className="mt-4 md:mt-0"
+          collapsible={reviewVersion === 2}
         />
       )}
     </div>
