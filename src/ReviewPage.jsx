@@ -33,6 +33,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(!auth.currentUser);
   const [copyCount, setCopyCount] = useState(0);
+  const [adCount, setAdCount] = useState(0);
   const reviewRef = useRef(null);
 
   useEffect(() => {
@@ -97,6 +98,15 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => setCopyCount(snap.size),
+    );
+    return () => unsub();
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!groupId) return;
+    const unsub = onSnapshot(
+      collection(db, 'adGroups', groupId, 'assets'),
+      (snap) => setAdCount(snap.size),
     );
     return () => unsub();
   }, [groupId]);
@@ -260,14 +270,16 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
             <FiType />
           </button>
         )}
-        <button
-          type="button"
-          aria-label="See gallery"
-          onClick={() => reviewRef.current?.openGallery()}
-          className="p-2 rounded"
-        >
-          <FiGrid />
-        </button>
+        {adCount > 0 && (
+          <button
+            type="button"
+            aria-label="See gallery"
+            onClick={() => reviewRef.current?.openGallery()}
+            className="p-2 rounded"
+          >
+            <FiGrid />
+          </button>
+        )}
       </div>
       <Review
         ref={reviewRef}

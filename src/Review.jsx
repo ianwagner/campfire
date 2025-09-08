@@ -9,7 +9,7 @@ import React, {
   forwardRef,
   useCallback,
 } from 'react';
-import { FiEdit, FiX, FiGrid, FiCheck, FiType } from 'react-icons/fi';
+import { FiEdit, FiX, FiGrid, FiCheck, FiType, FiMessageSquare } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
   collection,
@@ -111,6 +111,7 @@ const Review = forwardRef(
   const [reviewVersion, setReviewVersion] = useState(null);
   const [briefComment, setBriefComment] = useState('');
   const [briefFeedback, setBriefFeedback] = useState('');
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
   const [allHeroAds, setAllHeroAds] = useState([]); // hero list for all ads
@@ -1409,12 +1410,14 @@ useEffect(() => {
             {reviewVersion === 3 ? 'Review Brief' : 'Review Ads'}
           </button>
           <div className="flex space-x-2">
-            <button
-              onClick={() => setShowGallery(true)}
-              className="btn-secondary"
-            >
-              <FiGrid className="mr-1" /> Ad Gallery
-            </button>
+            {ads.length > 0 && (
+              <button
+                onClick={() => setShowGallery(true)}
+                className="btn-secondary"
+              >
+                <FiGrid className="mr-1" /> Ad Gallery
+              </button>
+            )}
             {copyCards.length > 0 && (
               <button
                 onClick={() => setShowCopyModal(true)}
@@ -1570,31 +1573,40 @@ useEffect(() => {
       )}
       <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
         <div className="flex flex-col items-center">
-          <div className="relative flex flex-col items-center w-fit mx-auto">
-          {agencyId && (
-            <OptimizedImage
-              pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-              alt={`${agency.name || 'Agency'} logo`}
-              loading="eager"
-              cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
-              onLoad={() => setLogoReady(true)}
-              className="mb-2 max-h-16 w-auto"
-            />
-          )}
-        {/* Gallery view removed */}
-        {/* Show exit button even during change review */}
-        <div className="relative w-full max-w-md mb-2.5 flex justify-center">
-          <button
-            type="button"
-            onClick={() => {
-              releaseLock();
-              setStarted(false);
-            }}
-            aria-label="Exit Review"
-            className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
-          >
-            <FiX />
-          </button>
+          <div className="relative w-full max-w-md mb-2.5 flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                releaseLock();
+                setStarted(false);
+              }}
+              aria-label="Exit Review"
+              className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
+            >
+              <FiX />
+            </button>
+            {agencyId && (
+              <OptimizedImage
+                pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+                alt={`${agency.name || 'Agency'} logo`}
+                loading="eager"
+                cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+                onLoad={() => setLogoReady(true)}
+                className="max-h-16 w-auto"
+              />
+            )}
+            {reviewVersion === 3 && (
+              <button
+                type="button"
+                aria-label="Leave Feedback"
+                title="Leave Feedback"
+                onClick={() => setShowFeedbackModal(true)}
+                className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
+              >
+                <FiMessageSquare />
+              </button>
+            )}
+          </div>
           {reviewVersion !== 3 && (
             <div
               className="progress-bar"
@@ -1603,10 +1615,7 @@ useEffect(() => {
               aria-valuemin="0"
               aria-valuemax="100"
             >
-              <div
-                className="progress-bar-inner"
-                style={{ width: `${progress}%` }}
-              />
+              <div className="progress-bar-inner" style={{ width: `${progress}%` }} />
             </div>
           )}
         </div>
@@ -1623,31 +1632,6 @@ useEffect(() => {
                   externalOnly
                   hideActions
                 />
-              </div>
-              <div className="mt-4 md:mt-0 md:w-80">
-                <textarea
-                  value={briefComment}
-                  onChange={(e) => setBriefComment(e.target.value)}
-                  placeholder="Leave a comment"
-                  className="w-full border p-2"
-                />
-                <button
-                  className="btn-primary mt-2"
-                  onClick={() => {
-                    if (briefComment.trim()) {
-                      setBriefFeedback(briefComment.trim());
-                      setBriefComment('');
-                    }
-                  }}
-                >
-                  Submit Comment
-                </button>
-                {briefFeedback && (
-                  <div className="feedback-panel mt-4 p-2 border rounded">
-                    <h3 className="font-semibold mb-1">Feedback</h3>
-                    <p>{briefFeedback}</p>
-                  </div>
-                )}
               </div>
             </div>
           ) : reviewVersion === 2 ? (
@@ -1977,6 +1961,45 @@ useEffect(() => {
         />
       )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
+      {showFeedbackModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
+          <div className="bg-white p-4 rounded-xl shadow max-w-md w-full dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold">Feedback</h2>
+              <button
+                onClick={() => setShowFeedbackModal(false)}
+                aria-label="Close"
+                className="text-gray-500 hover:text-black dark:hover:text-white"
+              >
+                <FiX />
+              </button>
+            </div>
+            <textarea
+              value={briefComment}
+              onChange={(e) => setBriefComment(e.target.value)}
+              placeholder="Leave a comment"
+              className="w-full border p-2"
+            />
+            <button
+              className="btn-primary mt-2"
+              onClick={() => {
+                if (briefComment.trim()) {
+                  setBriefFeedback(briefComment.trim());
+                  setBriefComment('');
+                }
+              }}
+            >
+              Submit Comment
+            </button>
+            {briefFeedback && (
+              <div className="feedback-panel mt-4 p-2 border rounded">
+                <h3 className="font-semibold mb-1">Feedback</h3>
+                <p>{briefFeedback}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {showCopyModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto p-4">
           <div className="bg-white p-4 rounded-xl shadow max-w-[50rem] w-full overflow-auto max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">

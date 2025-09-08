@@ -1360,6 +1360,8 @@ test('brief review collects feedback', async () => {
 
   await screen.findByText('Your brief is ready!');
   fireEvent.click(screen.getByText('Review Brief'));
+  const fbBtn = await screen.findByLabelText('Leave Feedback');
+  fireEvent.click(fbBtn);
   const textarea = screen.getByPlaceholderText('Leave a comment');
   fireEvent.change(textarea, { target: { value: 'Looks good' } });
   fireEvent.click(screen.getByText('Submit Comment'));

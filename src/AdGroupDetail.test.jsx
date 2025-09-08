@@ -17,6 +17,7 @@ jest.mock('./RecipePreview.jsx', () => ({ onSave }) => (
 jest.mock('./CopyRecipePreview.jsx', () => () => <div />);
 jest.mock('./BrandAssets.jsx', () => () => <div />);
 jest.mock('./BrandAssetsLayout.jsx', () => () => <div />);
+jest.mock('./components/FeedbackPanel.jsx', () => () => <div data-testid="feedback-panel" />);
 
 const mockGetDoc = jest.fn();
 const mockOnSnapshot = jest.fn();
@@ -751,4 +752,17 @@ test('undo scrub restores review history', async () => {
       expect.objectContaining({ status: 'ready' }),
     ),
   );
+});
+
+test('admin sees Feedback tab', async () => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({ docs: [] });
+    return jest.fn();
+  });
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>,
+  );
+  expect(await screen.findByText('Feedback')).toBeInTheDocument();
 });

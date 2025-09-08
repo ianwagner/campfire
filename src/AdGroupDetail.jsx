@@ -74,6 +74,7 @@ import TabButton from "./components/TabButton.jsx";
 import Table from "./components/common/Table";
 import stripVersion from "./utils/stripVersion";
 import summarizeByRecipe from "./utils/summarizeByRecipe";
+import FeedbackPanel from "./components/FeedbackPanel.jsx";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -166,6 +167,7 @@ const AdGroupDetail = () => {
   const [showBrandAssets, setShowBrandAssets] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [tab, setTab] = useState("stats");
+  const [feedbackEntries, setFeedbackEntries] = useState([]);
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState("");
   const [briefDrag, setBriefDrag] = useState(false);
@@ -187,6 +189,8 @@ const AdGroupDetail = () => {
     userRole === "editor" ||
     userRole === "project-manager";
   const isClient = userRole === "client";
+  const isProjectManager = userRole === "project-manager";
+  const showFeedbackTab = isAdmin || isEditor || isDesigner || isProjectManager;
   const usesTabs = isAdmin || isDesigner || isManager || isClient;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
@@ -198,6 +202,50 @@ const AdGroupDetail = () => {
       setExportModal(true);
     }
   }, [location.search]);
+
+  useEffect(() => {
+    const loadFeedback = async () => {
+      try {
+        const entries = [];
+        const uids = new Set();
+        for (const a of assets) {
+          const snap = await getDocs(
+            collection(db, 'adGroups', id, 'assets', a.id, 'history'),
+          );
+          snap.forEach((d) => {
+            const h = d.data() || {};
+            if (h.comment || h.copyEdit) {
+              entries.push({ id: d.id, ...h });
+              if (h.updatedBy) uids.add(h.updatedBy);
+            }
+          });
+        }
+        const userMap = {};
+        await Promise.all(
+          Array.from(uids).map(async (uid) => {
+            try {
+              const snap = await getDoc(doc(db, 'users', uid));
+              userMap[uid] = snap.exists()
+                ? snap.data().fullName || snap.data().email || uid
+                : uid;
+            } catch {
+              userMap[uid] = uid;
+            }
+          }),
+        );
+        entries.forEach((e) => {
+          if (userMap[e.updatedBy]) e.updatedBy = userMap[e.updatedBy];
+        });
+        setFeedbackEntries(entries);
+      } catch (err) {
+        console.error('Failed to load feedback', err);
+        setFeedbackEntries([]);
+      }
+    };
+    if (tab === 'feedback' && assets.length > 0) {
+      loadFeedback();
+    }
+  }, [tab, assets, id]);
 
   const renderCopyEditDiff = (recipeCode, edit, origOverride) => {
     const orig = origOverride ?? (recipesMeta[recipeCode]?.copy || "");
@@ -2280,6 +2328,12 @@ const AdGroupDetail = () => {
           <FiEye size={18} />
           Ads
         </TabButton>
+        {showFeedbackTab && (
+          <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
+            <Bubbles size={18} />
+            Feedback
+          </TabButton>
+        )}
         </div>
         {(isAdmin || userRole === "agency" || isDesigner) ? (
           <div className="flex flex-wrap gap-2">
@@ -2773,6 +2827,11 @@ const AdGroupDetail = () => {
         </div>
       )}
 
+      {showFeedbackTab && tab === 'feedback' && (
+        <div className="my-4">
+          <FeedbackPanel entries={feedbackEntries} />
+        </div>
+      )}
 
       {revisionModal && (
         <Modal sizeClass="max-w-3xl">
