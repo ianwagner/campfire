@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiGrid, FiType, FiDownload, FiList, FiColumns, FiArchive } from 'react-icons/fi';
 import Table from './common/Table';
@@ -41,6 +41,7 @@ const AdGroupListView = ({
 }) => {
   const term = (filter || '').toLowerCase();
   const months = Array.from(new Set(groups.map((g) => g.month).filter(Boolean))).sort();
+  const [sortField, setSortField] = useState('title');
   const displayGroups = groups
     .filter(
       (g) =>
@@ -50,7 +51,33 @@ const AdGroupListView = ({
     )
     .filter((g) => !designerFilter || g.designerId === designerFilter)
     .filter((g) => !monthFilter || g.month === monthFilter)
-    .sort((a, b) => (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99));
+    .sort((a, b) => {
+      switch (sortField) {
+        case 'title':
+          return (a.name || '').localeCompare(b.name || '');
+        case 'month':
+          return (parseInt(a.month, 10) || 0) - (parseInt(b.month, 10) || 0);
+        case 'dueDate': {
+          const ad = a.dueDate
+            ? typeof a.dueDate.toDate === 'function'
+              ? a.dueDate.toDate()
+              : new Date(a.dueDate)
+            : null;
+          const bd = b.dueDate
+            ? typeof b.dueDate.toDate === 'function'
+              ? b.dueDate.toDate()
+              : new Date(b.dueDate)
+            : null;
+          const adTime = ad ? ad.getTime() : Infinity;
+          const bdTime = bd ? bd.getTime() : Infinity;
+          return adTime - bdTime;
+        }
+        case 'brand':
+          return (a.brandCode || '').localeCompare(b.brandCode || '');
+        default:
+          return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+      }
+    });
 
   return (
     <div className="mb-8">
@@ -92,6 +119,17 @@ const AdGroupListView = ({
                 ))}
               </select>
             )}
+            <select
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value)}
+              className="p-1 border rounded"
+              aria-label="Sort by"
+            >
+              <option value="title">Title</option>
+              <option value="month">Month</option>
+              <option value="dueDate">Due Date</option>
+              <option value="brand">Brand</option>
+            </select>
             {typeof showArchived !== 'undefined' && (
               <TabButton
                 type="button"
