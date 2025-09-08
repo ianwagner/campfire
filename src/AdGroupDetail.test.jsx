@@ -59,6 +59,7 @@ jest.mock('firebase/firestore', () => {
     getDocs: (...args) => mockGetDocs(...args),
     query: (...args) => mockQuery(...args),
     where: (...args) => mockWhere(...args),
+    orderBy: jest.fn((...args) => args),
   };
 });
 
