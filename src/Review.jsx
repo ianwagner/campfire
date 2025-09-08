@@ -9,14 +9,7 @@ import React, {
   forwardRef,
   useCallback,
 } from 'react';
-import {
-  FiEdit,
-  FiX,
-  FiGrid,
-  FiCheck,
-  FiType,
-  FiMessageSquare,
-} from 'react-icons/fi';
+import { FiEdit, FiX, FiGrid, FiCheck, FiType } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
   collection,
@@ -47,7 +40,6 @@ import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
 import FeedbackPanel from './components/FeedbackPanel.jsx';
-import Modal from './components/Modal.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
 import diffWords from './utils/diffWords';
@@ -116,7 +108,6 @@ const Review = forwardRef(
   const [copyCards, setCopyCards] = useState([]);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [modalCopies, setModalCopies] = useState([]);
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [reviewVersion, setReviewVersion] = useState(null);
   const [briefComment, setBriefComment] = useState('');
   const [briefFeedback, setBriefFeedback] = useState('');
@@ -1605,17 +1596,6 @@ useEffect(() => {
             <FiX />
           </button>
           {reviewVersion !== 3 && (
-            <button
-              type="button"
-              onClick={() => setShowFeedbackModal(true)}
-              aria-label="Leave Feedback"
-              title="Leave Feedback"
-              className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
-            >
-              <FiMessageSquare />
-            </button>
-          )}
-          {reviewVersion !== 3 && (
             <div
               className="progress-bar"
               role="progressbar"
@@ -2023,27 +2003,17 @@ useEffect(() => {
               hideBrandSelect
               onCopiesChange={setModalCopies}
             />
-        </div>
+          </div>
         </div>
       )}
       </div>
-      {showFeedbackModal && (
-        <Modal sizeClass="max-w-md w-full max-h-[90vh] overflow-auto">
-          <div className="relative">
-            <button
-              onClick={() => setShowFeedbackModal(false)}
-              className="absolute top-2 right-2 text-gray-500 hover:text-black dark:hover:text-white"
-              aria-label="Close"
-            >
-              <FiX />
-            </button>
-            <FeedbackPanel
-              entries={panelEntries}
-              onVersionClick={openVersionModal}
-              origCopy={recipeCopyMap[currentRecipe] || ''}
-            />
-          </div>
-        </Modal>
+      {reviewVersion !== 3 && (
+        <FeedbackPanel
+          entries={panelEntries}
+          onVersionClick={openVersionModal}
+          origCopy={recipeCopyMap[currentRecipe] || ''}
+          className="mt-4 md:mt-0 w-full md:w-60 max-h-[70vh] overflow-y-auto"
+        />
       )}
     </div>
     </div>
