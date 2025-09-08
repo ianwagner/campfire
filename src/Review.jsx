@@ -9,7 +9,7 @@ import React, {
   forwardRef,
   useCallback,
 } from 'react';
-import { FiEdit, FiX, FiGrid, FiCheck, FiType } from 'react-icons/fi';
+import { FiEdit, FiX, FiGrid, FiCheck, FiType, FiMessageSquare } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
   collection,
@@ -40,6 +40,7 @@ import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
 import FeedbackPanel from './components/FeedbackPanel.jsx';
+import FeedbackModal from './components/FeedbackModal.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
 import diffWords from './utils/diffWords';
@@ -109,8 +110,9 @@ const Review = forwardRef(
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [modalCopies, setModalCopies] = useState([]);
   const [reviewVersion, setReviewVersion] = useState(null);
-  const [briefComment, setBriefComment] = useState('');
-  const [briefFeedback, setBriefFeedback] = useState('');
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
   const [allHeroAds, setAllHeroAds] = useState([]); // hero list for all ads
@@ -170,6 +172,24 @@ const Review = forwardRef(
       JSON.stringify(clean(copyCards)) !== JSON.stringify(clean(modalCopies))
     );
   }, [copyCards, modalCopies]);
+
+  const submitFeedback = async () => {
+    if (!feedbackComment.trim() || !groupId) return;
+    try {
+      setFeedbackSubmitting(true);
+      await addDoc(collection(db, 'adGroups', groupId, 'feedback'), {
+        comment: feedbackComment.trim(),
+        updatedBy: reviewerName || user.email || 'anonymous',
+        updatedAt: serverTimestamp(),
+      });
+      setFeedbackComment('');
+      setShowFeedbackModal(false);
+    } catch (err) {
+      console.error('Failed to submit feedback', err);
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
   useDebugTrace('Review', {
     groupId,
     agencyId,
@@ -1595,6 +1615,15 @@ useEffect(() => {
           >
             <FiX />
           </button>
+          <button
+            type="button"
+            aria-label="Leave Feedback"
+            title="Leave Feedback"
+            onClick={() => setShowFeedbackModal(true)}
+            className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
+          >
+            <FiMessageSquare />
+          </button>
           {reviewVersion !== 3 && (
             <div
               className="progress-bar"
@@ -1612,43 +1641,16 @@ useEffect(() => {
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
-            <div className="w-full max-w-5xl flex flex-col md:flex-row md:items-start md:gap-4">
-              <div className="flex-1">
-                <RecipePreview
-                  initialResults={recipes}
-                  showOnlyResults
-                  brandCode={groupBrandCode}
-                  hideBrandSelect
-                  showColumnButton={false}
-                  externalOnly
-                  hideActions
-                />
-              </div>
-              <div className="mt-4 md:mt-0 md:w-80">
-                <textarea
-                  value={briefComment}
-                  onChange={(e) => setBriefComment(e.target.value)}
-                  placeholder="Leave a comment"
-                  className="w-full border p-2"
-                />
-                <button
-                  className="btn-primary mt-2"
-                  onClick={() => {
-                    if (briefComment.trim()) {
-                      setBriefFeedback(briefComment.trim());
-                      setBriefComment('');
-                    }
-                  }}
-                >
-                  Submit Comment
-                </button>
-                {briefFeedback && (
-                  <div className="feedback-panel mt-4 p-2 border rounded">
-                    <h3 className="font-semibold mb-1">Feedback</h3>
-                    <p>{briefFeedback}</p>
-                  </div>
-                )}
-              </div>
+            <div className="w-full max-w-5xl">
+              <RecipePreview
+                initialResults={recipes}
+                showOnlyResults
+                brandCode={groupBrandCode}
+                hideBrandSelect
+                showColumnButton={false}
+                externalOnly
+                hideActions
+              />
             </div>
           ) : reviewVersion === 2 ? (
             <div className="p-4 rounded flex flex-wrap justify-center gap-4 relative">
@@ -2005,6 +2007,15 @@ useEffect(() => {
             />
           </div>
         </div>
+      )}
+      {showFeedbackModal && (
+        <FeedbackModal
+          comment={feedbackComment}
+          onCommentChange={setFeedbackComment}
+          onSubmit={submitFeedback}
+          onClose={() => setShowFeedbackModal(false)}
+          submitting={feedbackSubmitting}
+        />
       )}
       </div>
       {reviewVersion !== 3 && (

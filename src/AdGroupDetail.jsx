@@ -25,6 +25,7 @@ import {
   FiPlus,
   FiGrid,
   FiMoreHorizontal,
+  FiMessageSquare,
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
 import { FaMagic } from "react-icons/fa";
@@ -74,6 +75,7 @@ import TabButton from "./components/TabButton.jsx";
 import Table from "./components/common/Table";
 import stripVersion from "./utils/stripVersion";
 import summarizeByRecipe from "./utils/summarizeByRecipe";
+import FeedbackPanel from "./components/FeedbackPanel.jsx";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -165,6 +167,7 @@ const AdGroupDetail = () => {
   const [modalCopies, setModalCopies] = useState([]);
   const [showBrandAssets, setShowBrandAssets] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [feedback, setFeedback] = useState([]);
   const [tab, setTab] = useState("stats");
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState("");
@@ -198,6 +201,17 @@ const AdGroupDetail = () => {
       setExportModal(true);
     }
   }, [location.search]);
+
+  useEffect(() => {
+    if (!id) return;
+    const unsub = onSnapshot(
+      collection(db, 'adGroups', id, 'feedback'),
+      (snap) => {
+        setFeedback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
+    );
+    return () => unsub();
+  }, [id]);
 
   const renderCopyEditDiff = (recipeCode, edit, origOverride) => {
     const orig = origOverride ?? (recipesMeta[recipeCode]?.copy || "");
@@ -2280,6 +2294,12 @@ const AdGroupDetail = () => {
           <FiEye size={18} />
           Ads
         </TabButton>
+        {(isAdmin || isEditor || isDesigner || isManager) && (
+          <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
+            <FiMessageSquare size={18} />
+            Feedback
+          </TabButton>
+        )}
         </div>
         {(isAdmin || userRole === "agency" || isDesigner) ? (
           <div className="flex flex-wrap gap-2">
@@ -2770,6 +2790,12 @@ const AdGroupDetail = () => {
               <p className="mt-4">No platform copy available.</p>
             )
           )}
+        </div>
+      )}
+
+      {(isAdmin || isEditor || isDesigner || isManager) && tab === 'feedback' && (
+        <div className="my-4">
+          <FeedbackPanel entries={feedback} />
         </div>
       )}
 

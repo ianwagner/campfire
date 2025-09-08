@@ -1360,9 +1360,11 @@ test('brief review collects feedback', async () => {
 
   await screen.findByText('Your brief is ready!');
   fireEvent.click(screen.getByText('Review Brief'));
-  const textarea = screen.getByPlaceholderText('Leave a comment');
+  const fbBtn = screen.getByLabelText('Leave Feedback');
+  fireEvent.click(fbBtn);
+  const textarea = await screen.findByPlaceholderText('Leave feedback...');
   fireEvent.change(textarea, { target: { value: 'Looks good' } });
-  fireEvent.click(screen.getByText('Submit Comment'));
-  expect(screen.getByText('Looks good')).toBeInTheDocument();
+  fireEvent.click(screen.getByText('Submit'));
+  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
 });
 

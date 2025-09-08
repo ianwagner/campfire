@@ -23,6 +23,7 @@ const getDoc = jest.fn();
 const getDocs = jest.fn();
 const docMock = jest.fn((...args) => args.slice(1).join('/'));
 const collectionMock = jest.fn((...args) => args);
+const onSnapshot = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   doc: (...args) => docMock(...args),
@@ -31,10 +32,18 @@ jest.mock('firebase/firestore', () => ({
   collection: (...args) => collectionMock(...args),
   query: jest.fn((...args) => args),
   where: jest.fn(),
+  onSnapshot: (...args) => onSnapshot(...args),
 }));
 
 afterEach(() => {
   jest.clearAllMocks();
+});
+
+beforeEach(() => {
+  onSnapshot.mockImplementation((col, cb) => {
+    cb({ size: 0, docs: [] });
+    return jest.fn();
+  });
 });
 
 test('shows error when anonymous sign-in fails', async () => {
