@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import StatusBadge from './StatusBadge.jsx';
 import diffWords from '../utils/diffWords';
 
@@ -7,15 +7,25 @@ const FeedbackPanel = ({
   className = '',
   onVersionClick,
   origCopy = '',
+  collapsible = false,
 }) => {
-  const isGrouped = !Array.isArray(entries) && entries && typeof entries === 'object';
-  const versions = isGrouped ? Object.keys(entries).sort((a, b) => (parseInt(a, 10) - parseInt(b, 10))) : [];
+  const [expanded, setExpanded] = useState(!collapsible);
+
+  const isGrouped =
+    !Array.isArray(entries) && entries && typeof entries === 'object';
+  const versions = isGrouped
+    ? Object.keys(entries).sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
+    : [];
   const lists = isGrouped ? entries : { 1: Array.isArray(entries) ? entries : [] };
   const hasMultiple = isGrouped && versions.length > 1;
 
   const allEmpty = versions.length
     ? versions.every((v) => (lists[v] || []).length === 0)
     : (lists[1] || []).length === 0;
+
+  const latestVersion = versions.length ? versions[versions.length - 1] : 1;
+  const latestList = lists[latestVersion] || [];
+  const latestEntry = latestList[latestList.length - 1];
 
   const renderList = (list) => (
     <ul className="space-y-2">
@@ -38,7 +48,7 @@ const FeedbackPanel = ({
             {e.comment && <p className="italic">{e.comment}</p>}
             {e.copyEdit && (
               <p className="italic">
-                Copy edit:{' '}
+                Copy edit{' '}
                 {(() => {
                   if (!origCopy) return e.copyEdit;
                   const diff = diffWords(origCopy, e.copyEdit);
@@ -71,36 +81,57 @@ const FeedbackPanel = ({
 
   return (
     <aside className={`w-full md:w-60 max-h-[70vh] overflow-y-auto ${className}`}>
-      <h3 className="font-semibold mb-2">Feedback</h3>
-      {allEmpty ? (
-        <p className="text-sm text-gray-500">No feedback yet.</p>
-      ) : hasMultiple ? (
-        versions.map((v) => (
-          <div key={v} className="mb-4 last:mb-0">
+      <div className={collapsible ? 'bg-[#efefef] rounded p-3' : ''}>
+        <h3 className="font-semibold mb-2">Feedback</h3>
+        {allEmpty ? (
+          <p className="text-sm text-gray-500">No feedback yet.</p>
+        ) : collapsible && !expanded ? (
+          <>
+            {latestEntry ? renderList([latestEntry]) : null}
+            <button
+              onClick={() => setExpanded(true)}
+              className="mt-2 text-sm text-blue-600"
+            >
+              See all
+            </button>
+          </>
+        ) : hasMultiple ? (
+          versions.map((v) => (
+            <div key={v} className="mb-4 last:mb-0">
+              <h4
+                className="font-semibold mb-1 cursor-pointer"
+                onClick={() => onVersionClick && onVersionClick(parseInt(v, 10))}
+              >
+                V{v} History
+              </h4>
+              {renderList(lists[v] || [])}
+            </div>
+          ))
+        ) : (
+          <div>
             <h4
               className="font-semibold mb-1 cursor-pointer"
-              onClick={() => onVersionClick && onVersionClick(parseInt(v, 10))}
+              onClick={() =>
+                onVersionClick && onVersionClick(parseInt(versions[0] || 1, 10))
+              }
             >
-              V{v} History
+              V{versions[0] || 1} History
             </h4>
-            {renderList(lists[v] || [])}
+            {renderList(lists[versions[0] || 1] || [])}
           </div>
-        ))
-      ) : (
-        <div>
-          <h4
-            className="font-semibold mb-1 cursor-pointer"
-            onClick={() =>
-              onVersionClick && onVersionClick(parseInt(versions[0] || 1, 10))
-            }
+        )}
+        {collapsible && expanded && (
+          <button
+            onClick={() => setExpanded(false)}
+            className="mt-2 text-sm text-blue-600"
           >
-            V{versions[0] || 1} History
-          </h4>
-          {renderList(lists[versions[0] || 1] || [])}
-        </div>
-      )}
+            Hide
+          </button>
+        )}
+      </div>
     </aside>
   );
 };
 
 export default FeedbackPanel;
+
