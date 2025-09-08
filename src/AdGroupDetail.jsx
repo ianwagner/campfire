@@ -25,7 +25,6 @@ import {
   FiPlus,
   FiGrid,
   FiMoreHorizontal,
-  FiMessageSquare,
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
 import { FaMagic } from "react-icons/fa";
@@ -75,7 +74,6 @@ import TabButton from "./components/TabButton.jsx";
 import Table from "./components/common/Table";
 import stripVersion from "./utils/stripVersion";
 import summarizeByRecipe from "./utils/summarizeByRecipe";
-import FeedbackPanel from "./components/FeedbackPanel.jsx";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -168,7 +166,6 @@ const AdGroupDetail = () => {
   const [showBrandAssets, setShowBrandAssets] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [tab, setTab] = useState("stats");
-  const [feedback, setFeedback] = useState([]);
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState("");
   const [briefDrag, setBriefDrag] = useState(false);
@@ -194,24 +191,6 @@ const AdGroupDetail = () => {
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
   const showStats = usesTabs ? tab === "stats" : !showTable;
-  const feedbackEntries = useMemo(
-    () =>
-      feedback.map((f) => ({
-        id: f.id,
-        updatedBy: f.reviewerName || f.userEmail || f.userId || "Unknown",
-        updatedAt: f.timestamp,
-        status:
-          f.response === "approve"
-            ? "approved"
-            : f.response === "reject"
-            ? "rejected"
-            : "edit_requested",
-        comment: f.comment || "",
-        copyEdit: f.copyEdit || "",
-      })),
-    [feedback],
-  );
-  const hasFeedback = feedbackEntries.length > 0;
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -353,20 +332,6 @@ const AdGroupDetail = () => {
       (snap) => {
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setCopyCards(list);
-      },
-    );
-    return () => unsub();
-  }, [id]);
-
-  useEffect(() => {
-    const unsub = onSnapshot(
-      query(
-        collection(db, "adGroups", id, "responses"),
-        orderBy("timestamp", "desc"),
-      ),
-      (snap) => {
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setFeedback(list);
       },
     );
     return () => unsub();
@@ -2315,16 +2280,6 @@ const AdGroupDetail = () => {
           <FiEye size={18} />
           Ads
         </TabButton>
-        {(isAdmin || isEditor || isDesigner || userRole === "project-manager") &&
-          hasFeedback && (
-            <TabButton
-              active={tab === 'feedback'}
-              onClick={() => setTab('feedback')}
-            >
-              <FiMessageSquare size={18} />
-              Feedback
-            </TabButton>
-          )}
         </div>
         {(isAdmin || userRole === "agency" || isDesigner) ? (
           <div className="flex flex-wrap gap-2">
@@ -2442,8 +2397,7 @@ const AdGroupDetail = () => {
               </>
             )}
           </div>
-        ) : (userRole === "editor" || userRole === "project-manager") &&
-          assets.length > 0 ? (
+        ) : userRole === "editor" || userRole === "project-manager" ? (
           <div className="flex flex-wrap gap-2">
             <IconButton
               onClick={() => setShowGallery(true)}
@@ -2818,13 +2772,6 @@ const AdGroupDetail = () => {
           )}
         </div>
       )}
-
-      {(isAdmin || isEditor || isDesigner || userRole === 'project-manager') &&
-        tab === 'feedback' && (
-          <div className="my-4">
-            <FeedbackPanel entries={feedbackEntries} />
-          </div>
-        )}
 
 
       {revisionModal && (
