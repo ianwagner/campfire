@@ -41,6 +41,7 @@ import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
 import FeedbackPanel from './components/FeedbackPanel.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
+import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
 import diffWords from './utils/diffWords';
@@ -1604,26 +1605,29 @@ useEffect(() => {
         {/* Gallery view removed */}
         {/* Show exit button even during change review */}
         <div className="relative w-full max-w-md mb-2.5 flex justify-center">
-          <button
-            type="button"
-            onClick={() => {
-              releaseLock();
-              setStarted(false);
-            }}
-            aria-label="Exit Review"
-            className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
-          >
-            <FiX />
-          </button>
-          <button
-            type="button"
-            aria-label="Leave Feedback"
-            title="Leave Feedback"
-            onClick={() => setShowFeedbackModal(true)}
-            className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
-          >
-            <FiMessageSquare />
-          </button>
+          <InfoTooltip text="exit review" placement="bottom">
+            <button
+              type="button"
+              onClick={() => {
+                releaseLock();
+                setStarted(false);
+              }}
+              aria-label="exit review"
+              className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
+            >
+              <FiX />
+            </button>
+          </InfoTooltip>
+          <InfoTooltip text="leave overall feedback" placement="bottom">
+            <button
+              type="button"
+              aria-label="leave overall feedback"
+              onClick={() => setShowFeedbackModal(true)}
+              className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black dark:hover:text-white"
+            >
+              <FiMessageSquare />
+            </button>
+          </InfoTooltip>
           {reviewVersion !== 3 && (
             <div
               className="progress-bar"

@@ -1,7 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
-const InfoTooltip = ({ text, children, maxWidth = 200 }) => {
+const InfoTooltip = ({
+  text,
+  children,
+  maxWidth = 200,
+  placement = 'top',
+}) => {
   const [visible, setVisible] = useState(false);
   const [coords, setCoords] = useState({ x: 0, y: 0 });
   const ref = useRef(null);
@@ -12,10 +17,13 @@ const InfoTooltip = ({ text, children, maxWidth = 200 }) => {
     if (rect) {
       setCoords({
         x: rect.left + rect.width / 2 + window.scrollX,
-        y: rect.top + window.scrollY - 4,
+        y:
+          placement === 'bottom'
+            ? rect.bottom + window.scrollY + 4
+            : rect.top + window.scrollY - 4,
       });
     }
-  }, [visible]);
+  }, [visible, placement]);
 
   return (
     <span
@@ -32,7 +40,10 @@ const InfoTooltip = ({ text, children, maxWidth = 200 }) => {
               position: 'absolute',
               top: coords.y,
               left: coords.x,
-              transform: 'translate(-50%, -100%)',
+              transform:
+                placement === 'bottom'
+                  ? 'translate(-50%, 0)'
+                  : 'translate(-50%, -100%)',
               zIndex: 1000,
               maxWidth: typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth,
             }}
