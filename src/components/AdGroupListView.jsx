@@ -44,6 +44,7 @@ const AdGroupListView = ({
   onDownload,
   linkToDetail = false,
   designers = [],
+  editors = [],
   designerFilter,
   onDesignerFilterChange,
   monthFilter,
@@ -264,7 +265,7 @@ const AdGroupListView = ({
             </div>
           ) : (
             <div className="hidden sm:block">
-              <AdGroupGantt groups={displayGroups} />
+              <AdGroupGantt groups={displayGroups} designers={designers} editors={editors} />
             </div>
           )}
         </>

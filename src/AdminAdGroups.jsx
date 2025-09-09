@@ -353,6 +353,38 @@ const AdminAdGroups = () => {
     }
   };
 
+  const handleGanttDateChange = async (groupId, data) => {
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), data);
+      setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, ...data } : g)));
+    } catch (err) {
+      console.error('Failed to update date', err);
+    }
+  };
+
+  const handleGanttAssign = async (groupId, role, personId, date) => {
+    const list = role === 'designer' ? designers : editors;
+    const person = list.find((p) => p.id === personId);
+    const data =
+      role === 'designer'
+        ? {
+            designerId: personId,
+            designerName: person?.name || '',
+            designDueDate: date,
+          }
+        : {
+            editorId: personId,
+            editorName: person?.name || '',
+            editorDueDate: date,
+          };
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), data);
+      setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, ...data } : g)));
+    } catch (err) {
+      console.error('Failed to assign', err);
+    }
+  };
+
   const startRename = (group) => {
     setRenameId(group.id);
     setRenameName(group.name || '');
@@ -722,7 +754,13 @@ const AdminAdGroups = () => {
             </div>
           ) : (
             <div className="hidden sm:block">
-              <AdGroupGantt groups={displayGroups} />
+              <AdGroupGantt
+                groups={displayGroups}
+                designers={designers}
+                editors={editors}
+                onDateChange={handleGanttDateChange}
+                onAssign={handleGanttAssign}
+              />
             </div>
           )}
           </>

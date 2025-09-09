@@ -20,6 +20,7 @@ const PmAdGroups = () => {
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
   const [designers, setDesigners] = useState([]);
+  const [editors, setEditors] = useState([]);
   const [designerFilter, setDesignerFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
 
@@ -68,7 +69,24 @@ const PmAdGroups = () => {
         setDesigners([]);
       }
     };
+    const fetchEditors = async () => {
+      try {
+        const snap = await getDocs(
+          query(collection(db, 'users'), where('role', '==', 'editor'))
+        );
+        setEditors(
+          snap.docs.map((d) => ({
+            id: d.id,
+            name: d.data().fullName || d.data().email || d.id,
+          }))
+        );
+      } catch (err) {
+        console.error('Failed to fetch editors', err);
+        setEditors([]);
+      }
+    };
     fetchDesigners();
+    fetchEditors();
   }, []);
 
   const handleGallery = async (id) => {
@@ -113,6 +131,7 @@ const PmAdGroups = () => {
         onCopy={handleCopy}
         onDownload={handleDownload}
         designers={designers}
+        editors={editors}
         designerFilter={designerFilter}
         onDesignerFilterChange={setDesignerFilter}
         monthFilter={monthFilter}
