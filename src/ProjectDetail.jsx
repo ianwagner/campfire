@@ -1234,10 +1234,10 @@ const ProjectDetail = () => {
         </div>
       </div>
       {group?.status === 'blocked' && (
-        <div className="border rounded p-4 mb-4 bg-yellow-50 flex items-start gap-2">
+        <div className="border border-yellow-200 dark:border-yellow-700 rounded p-4 mb-4 bg-yellow-50 dark:bg-yellow-900 flex items-start gap-2">
           <FiAlertTriangle className="text-red-500 mt-1" />
           <div>
-            <p className="font-semibold mb-1">Blocked</p>
+            <p className="font-semibold mb-1 text-black dark:text-yellow-100">Blocked</p>
             <p className="mb-0 text-black dark:text-[var(--dark-text)]">{group.blocker}</p>
           </div>
         </div>
