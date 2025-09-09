@@ -670,8 +670,8 @@ test('admin can change new ad group to briefed', async () => {
       <AdGroupDetail />
     </MemoryRouter>,
   );
-  const briefedBtn = await screen.findByRole('button', { name: 'Briefed' });
-  fireEvent.click(briefedBtn);
+  const statusSelect = await screen.findByLabelText('Status');
+  fireEvent.change(statusSelect, { target: { value: 'briefed' } });
   await waitFor(() =>
     expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1', {
       status: 'briefed',

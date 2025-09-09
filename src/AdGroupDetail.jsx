@@ -1773,10 +1773,20 @@ const AdGroupDetail = () => {
     }
   };
 
-  const toggleBriefed = async () => {
+  const statusOptions = [
+    'new',
+    'pending',
+    'briefed',
+    'ready',
+    'edit request',
+    'done',
+    'blocked',
+  ];
+
+  const handleStatusChange = async (e) => {
     if (!id) return;
+    const newStatus = e.target.value;
     try {
-      const newStatus = group.status === 'briefed' ? 'pending' : 'briefed';
       await updateDoc(doc(db, 'adGroups', id), { status: newStatus });
       setGroup((p) => ({ ...p, status: newStatus }));
     } catch (err) {
@@ -2150,7 +2160,23 @@ const AdGroupDetail = () => {
       <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
         Brand: {group.brandCode}
         <span className="hidden sm:inline">|</span>
-        Status: <StatusBadge status={group.status} />
+        Status:
+        {isAdmin || isEditor ? (
+          <select
+            aria-label="Status"
+            value={group.status}
+            onChange={handleStatusChange}
+            className={`status-select status-${(group.status || '').replace(/\s+/g, '_')}`}
+          >
+            {statusOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <StatusBadge status={group.status} />
+        )}
         <span className="hidden sm:inline">|</span>
         Due Date:
         {userRole === "admin" || userRole === "agency" ? (
@@ -2277,16 +2303,6 @@ const AdGroupDetail = () => {
           ) : (
             <span>{designerName || 'Unassigned'}</span>
           )}
-        {((isEditor && ['pending', 'new'].includes(group.status)) ||
-          (isAdmin && ['pending', 'briefed', 'new'].includes(group.status))) && (
-          <button
-            type="button"
-            onClick={toggleBriefed}
-            className="ml-2 px-2 py-1 border rounded bg-gray-200 dark:bg-gray-700"
-          >
-            {group.status === 'briefed' ? 'New' : 'Briefed'}
-          </button>
-        )}
       </p>
       {group.status === "archived" && (
         <p className="text-red-500 text-sm mb-2">
