@@ -115,6 +115,7 @@ const DesignerDashboard = () => {
             }
 
             const designerName = data.designerId ? await getUserName(data.designerId) : '';
+            const editorName = data.editorId ? await getUserName(data.editorId) : '';
 
             return {
               id: d.id,
@@ -129,6 +130,7 @@ const DesignerDashboard = () => {
                 edit: editCount,
               },
               designerName,
+              editorName,
             };
           })
         );

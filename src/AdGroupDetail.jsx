@@ -176,6 +176,8 @@ const AdGroupDetail = () => {
   const [briefDrag, setBriefDrag] = useState(false);
   const [designers, setDesigners] = useState([]);
   const [designerName, setDesignerName] = useState('');
+  const [editors, setEditors] = useState([]);
+  const [editorName, setEditorName] = useState('');
   const [revisionModal, setRevisionModal] = useState(null);
   const [menuRecipe, setMenuRecipe] = useState(null);
   const [inspectRecipe, setInspectRecipe] = useState(null);
@@ -400,12 +402,11 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     if (!isAdmin && !isManager) return;
-    const fetchDesigners = async () => {
+    const fetchAssignments = async () => {
       try {
-        const q = query(collection(db, 'users'), where('role', '==', 'designer'));
-        const snap = await getDocs(q);
+        const dSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'designer')));
         setDesigners(
-          snap.docs.map((d) => ({
+          dSnap.docs.map((d) => ({
             id: d.id,
             name: d.data().fullName || d.data().email || d.id,
           }))
@@ -414,8 +415,20 @@ const AdGroupDetail = () => {
         console.error('Failed to fetch designers', err);
         setDesigners([]);
       }
+      try {
+        const eSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'editor')));
+        setEditors(
+          eSnap.docs.map((d) => ({
+            id: d.id,
+            name: d.data().fullName || d.data().email || d.id,
+          }))
+        );
+      } catch (err) {
+        console.error('Failed to fetch editors', err);
+        setEditors([]);
+      }
     };
-    fetchDesigners();
+    fetchAssignments();
   }, [isAdmin, isManager]);
 
   useEffect(() => {
@@ -444,6 +457,33 @@ const AdGroupDetail = () => {
       cancelled = true;
     };
   }, [group?.designerId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadEditor = async () => {
+      if (!group?.editorId) {
+        setEditorName('');
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, 'users', group.editorId));
+        if (!cancelled) {
+          setEditorName(
+            snap.exists()
+              ? snap.data().fullName || snap.data().email || snap.id
+              : group.editorId
+          );
+        }
+      } catch (err) {
+        console.error('Failed to fetch editor name', err);
+        if (!cancelled) setEditorName(group.editorId);
+      }
+    };
+    loadEditor();
+    return () => {
+      cancelled = true;
+    };
+  }, [group?.editorId]);
 
   useEffect(() => {
     setBlockerText(group?.blocker || "");
@@ -2282,32 +2322,127 @@ const AdGroupDetail = () => {
             />
           </>
         )}
-        <span className="hidden sm:inline">|</span>
+      </p>
+      <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
         Designer:
         {isAdmin || isManager ? (
           <select
             value={group.designerId || ''}
-              onChange={async (e) => {
-                const value = e.target.value || null;
-                try {
-                  await updateDoc(doc(db, 'adGroups', id), { designerId: value });
-                  setGroup((p) => ({ ...p, designerId: value }));
-                } catch (err) {
-                  console.error('Failed to update designer', err);
-                }
-              }}
-              className="border p-1 rounded"
-            >
-              <option value="">Unassigned</option>
-              {designers.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span>{designerName || 'Unassigned'}</span>
-          )}
+            onChange={async (e) => {
+              const value = e.target.value || null;
+              try {
+                await updateDoc(doc(db, 'adGroups', id), { designerId: value });
+                setGroup((p) => ({ ...p, designerId: value }));
+              } catch (err) {
+                console.error('Failed to update designer', err);
+              }
+            }}
+            className="border p-1 rounded"
+          >
+            <option value="">Unassigned</option>
+            {designers.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span>{designerName || 'Unassigned'}</span>
+        )}
+        <span className="hidden sm:inline">|</span>
+        Design Due Date:
+        {isAdmin || isManager ? (
+          <input
+            type="date"
+            value={
+              group.designDueDate
+                ? (group.designDueDate.toDate
+                    ? group.designDueDate.toDate().toISOString().slice(0, 10)
+                    : new Date(group.designDueDate).toISOString().slice(0, 10))
+                : ''
+            }
+            onChange={async (e) => {
+              const date = e.target.value
+                ? Timestamp.fromDate(new Date(e.target.value))
+                : null;
+              try {
+                await updateDoc(doc(db, 'adGroups', id), { designDueDate: date });
+                setGroup((p) => ({ ...p, designDueDate: date }));
+              } catch (err) {
+                console.error('Failed to update design due date', err);
+              }
+            }}
+            className="border tag-pill px-2 py-1 text-sm"
+          />
+        ) : (
+          <span>
+            {group.designDueDate
+              ? (group.designDueDate.toDate
+                  ? group.designDueDate.toDate().toLocaleDateString()
+                  : new Date(group.designDueDate).toLocaleDateString())
+              : 'N/A'}
+          </span>
+        )}
+        <span className="hidden sm:inline">|</span>
+        Editor:
+        {isAdmin || isManager ? (
+          <select
+            value={group.editorId || ''}
+            onChange={async (e) => {
+              const value = e.target.value || null;
+              try {
+                await updateDoc(doc(db, 'adGroups', id), { editorId: value });
+                setGroup((p) => ({ ...p, editorId: value }));
+              } catch (err) {
+                console.error('Failed to update editor', err);
+              }
+            }}
+            className="border p-1 rounded"
+          >
+            <option value="">Unassigned</option>
+            {editors.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span>{editorName || 'Unassigned'}</span>
+        )}
+        <span className="hidden sm:inline">|</span>
+        Editor Due Date:
+        {isAdmin || isManager ? (
+          <input
+            type="date"
+            value={
+              group.editorDueDate
+                ? (group.editorDueDate.toDate
+                    ? group.editorDueDate.toDate().toISOString().slice(0, 10)
+                    : new Date(group.editorDueDate).toISOString().slice(0, 10))
+                : ''
+            }
+            onChange={async (e) => {
+              const date = e.target.value
+                ? Timestamp.fromDate(new Date(e.target.value))
+                : null;
+              try {
+                await updateDoc(doc(db, 'adGroups', id), { editorDueDate: date });
+                setGroup((p) => ({ ...p, editorDueDate: date }));
+              } catch (err) {
+                console.error('Failed to update editor due date', err);
+              }
+            }}
+            className="border tag-pill px-2 py-1 text-sm"
+          />
+        ) : (
+          <span>
+            {group.editorDueDate
+              ? (group.editorDueDate.toDate
+                  ? group.editorDueDate.toDate().toLocaleDateString()
+                  : new Date(group.editorDueDate).toLocaleDateString())
+              : 'N/A'}
+          </span>
+        )}
       </p>
       {group.status === "archived" && (
         <p className="text-red-500 text-sm mb-2">
