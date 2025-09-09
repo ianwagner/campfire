@@ -126,52 +126,63 @@ const AdGroupGantt = ({
     d1.getFullYear() === d2.getFullYear() &&
     d1.getMonth() === d2.getMonth() &&
     d1.getDate() === d2.getDate();
+  const filtered = sorted.filter((g) => {
+    const due = g.dueDate
+      ? typeof g.dueDate.toDate === 'function'
+        ? g.dueDate.toDate()
+        : new Date(g.dueDate)
+      : null;
+    return !due || due >= start;
+  });
 
   return (
-    <div className="overflow-x-auto mt-4">
-      <div className="flex items-center space-x-2 mb-2">
-        <button
-          className="px-2 py-1 border rounded bg-white dark:bg-[var(--dark-bg)] dark:text-gray-200"
-          onClick={() => shift(-7)}
-          aria-label="Previous week"
-        >
-          ◀
-        </button>
-        <button
-          className="px-2 py-1 border rounded bg-white dark:bg-[var(--dark-bg)] dark:text-gray-200"
-          onClick={() => shift(7)}
-          aria-label="Next week"
-        >
-          ▶
-        </button>
+    <div className="mt-4">
+      <div className="sticky top-0 z-20 bg-white dark:bg-[var(--dark-bg)] pb-2">
+        <div className="flex items-center space-x-2">
+          <button
+            className="px-2 py-1 border rounded bg-white dark:bg-[var(--dark-bg)] dark:text-gray-200"
+            onClick={() => shift(-7)}
+            aria-label="Previous week"
+          >
+            ◀
+          </button>
+          <button
+            className="px-2 py-1 border rounded bg-white dark:bg-[var(--dark-bg)] dark:text-gray-200"
+            onClick={() => shift(7)}
+            aria-label="Next week"
+          >
+            ▶
+          </button>
+        </div>
       </div>
-      <table className="min-w-max border-collapse text-sm">
-        <thead>
-          <tr>
-            <th className="sticky left-0 z-10 bg-white dark:bg-[var(--dark-bg)] text-left p-2 border border-gray-300 dark:border-gray-600">
-              Ad Group
-            </th>
-            {days.map((d) => (
-              <th
-                key={d.toISOString()}
-                className="p-2 border border-gray-300 dark:border-gray-600 text-center whitespace-nowrap"
-              >
-                {d.toLocaleDateString(undefined, {
-                  weekday: 'short',
-                  month: 'numeric',
-                  day: 'numeric',
-                })}
+      <div className="overflow-x-auto">
+        <table className="min-w-max border-collapse text-sm">
+          <thead className="sticky top-10 z-10 bg-white dark:bg-[var(--dark-bg)]">
+            <tr>
+              <th className="sticky left-0 z-10 bg-white dark:bg-[var(--dark-bg)] text-left p-2 border border-gray-300 dark:border-gray-600">
+                Ad Group
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((g) => {
-            const designDate = g.designDueDate
-              ? typeof g.designDueDate.toDate === 'function'
-                ? g.designDueDate.toDate()
-                : new Date(g.designDueDate)
-              : null;
+              {days.map((d) => (
+                <th
+                  key={d.toISOString()}
+                  className="p-2 border border-gray-300 dark:border-gray-600 text-center whitespace-nowrap"
+                >
+                  {d.toLocaleDateString(undefined, {
+                    weekday: 'short',
+                    month: 'numeric',
+                    day: 'numeric',
+                  })}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((g) => {
+              const designDate = g.designDueDate
+                ? typeof g.designDueDate.toDate === 'function'
+                  ? g.designDueDate.toDate()
+                  : new Date(g.designDueDate)
+                : null;
             const editorDate = g.editorDueDate
               ? typeof g.editorDueDate.toDate === 'function'
                 ? g.editorDueDate.toDate()
@@ -278,9 +289,10 @@ const AdGroupGantt = ({
                 })}
               </tr>
             );
-          })}
-        </tbody>
-      </table>
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
