@@ -8,7 +8,7 @@ const FeedbackModal = ({ comment, onCommentChange, onSubmit, onClose, submitting
       <textarea
         value={comment}
         onChange={(e) => onCommentChange(e.target.value)}
-        className="w-full p-2 border rounded"
+        className="w-full p-2 border rounded bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] dark:text-[var(--dark-text)]"
         placeholder="leave overall feedback..."
         rows={4}
       />

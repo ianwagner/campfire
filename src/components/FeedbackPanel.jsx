@@ -37,7 +37,7 @@ const FeedbackPanel = ({
             <div className="flex justify-between items-baseline">
               <span className="font-medium">{e.updatedBy}</span>
               {e.updatedAt && (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   {e.updatedAt.toDate
                     ? e.updatedAt.toDate().toLocaleString()
                     : new Date(e.updatedAt).toLocaleString()}
@@ -59,13 +59,13 @@ const FeedbackPanel = ({
                     if (type === 'same') return text + space;
                     if (type === 'removed')
                       return (
-                        <span key={idx} className="text-red-600 line-through">
+                        <span key={idx} className="text-red-600 line-through dark:text-red-400">
                           {text}
                           {space}
                         </span>
                       );
                     return (
-                      <span key={idx} className="text-green-600 italic">
+                      <span key={idx} className="text-green-600 italic dark:text-green-400">
                         {text}
                         {space}
                       </span>
@@ -80,17 +80,25 @@ const FeedbackPanel = ({
   );
 
   return (
-    <aside className={`w-full md:w-60 max-h-[70vh] overflow-y-auto ${className}`}>
-      <div className={collapsible ? 'bg-[#efefef] rounded p-3' : ''}>
+    <aside
+      className={`w-full md:w-60 max-h-[70vh] overflow-y-auto dark:text-[var(--dark-text)] ${className}`}
+    >
+      <div
+        className={
+          collapsible
+            ? 'bg-[#efefef] rounded p-3 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]'
+            : ''
+        }
+      >
         <h3 className="font-semibold mb-2">Feedback</h3>
         {allEmpty ? (
-          <p className="text-sm text-gray-500">No feedback yet.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No feedback yet.</p>
         ) : collapsible && !expanded ? (
           <>
             {latestEntry ? renderList([latestEntry]) : null}
             <button
               onClick={() => setExpanded(true)}
-              className="mt-2 text-sm text-blue-600"
+              className="mt-2 text-sm text-blue-600 dark:text-blue-400"
             >
               See all
             </button>
@@ -123,7 +131,7 @@ const FeedbackPanel = ({
         {collapsible && expanded && (
           <button
             onClick={() => setExpanded(false)}
-            className="mt-2 text-sm text-blue-600"
+            className="mt-2 text-sm text-blue-600 dark:text-blue-400"
           >
             Hide
           </button>
