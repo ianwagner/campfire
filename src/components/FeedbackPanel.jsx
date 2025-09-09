@@ -86,7 +86,7 @@ const FeedbackPanel = ({
       <div
         className={
           collapsible
-            ? 'bg-[#efefef] rounded p-3 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]'
+            ? 'rounded p-3 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]'
             : ''
         }
       >
