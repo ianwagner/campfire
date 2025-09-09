@@ -5,6 +5,11 @@ test('returns briefed when group status is briefed', () => {
   expect(status).toBe('briefed');
 });
 
+test('returns blocked when group status is blocked', () => {
+  const status = computeKanbanStatus({ status: 'blocked', assetCount: 1, counts: {} });
+  expect(status).toBe('blocked');
+});
+
 test('returns new when no assets', () => {
   const status = computeKanbanStatus({ assetCount: 0, counts: {} });
   expect(status).toBe('new');

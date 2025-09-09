@@ -53,6 +53,7 @@ import {
   FiRefreshCw,
   FiClock,
   FiRotateCw,
+  FiAlertTriangle,
 } from 'react-icons/fi';
 import { Bubbles } from 'lucide-react';
 import { archiveGroup } from './utils/archiveGroup';
@@ -99,6 +100,7 @@ const statusColorMap = {
   need_info: 'var(--edit-color)',
   done: 'var(--approve-color)',
   mixed: 'var(--edit-color)',
+  blocked: 'var(--reject-color)',
 };
 
 const getStatusColor = (status) => {
@@ -317,7 +319,7 @@ const ProjectDetail = () => {
 
   useEffect(() => {
     if (!groupId || assets.length === 0) return;
-    const newStatus = computeGroupStatus(assets, false, false);
+    const newStatus = computeGroupStatus(assets, false, false, group?.status);
     if (newStatus !== group?.status) {
       try {
         updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
@@ -856,7 +858,12 @@ const ProjectDetail = () => {
         updatedAssets.push(updated);
       });
       setAssets(updatedAssets);
-      const newStatus = computeGroupStatus(updatedAssets, false, false);
+      const newStatus = computeGroupStatus(
+        updatedAssets,
+        false,
+        false,
+        group?.status,
+      );
       await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
       setGroup((p) => ({ ...p, status: newStatus }));
     } catch (err) {
@@ -919,7 +926,12 @@ const ProjectDetail = () => {
         updatedAssets[latestIdx] = { ...latest, ...update };
       }
       await batch.commit();
-      const newStatus = computeGroupStatus(updatedAssets, false, false);
+      const newStatus = computeGroupStatus(
+        updatedAssets,
+        false,
+        false,
+        group?.status,
+      );
       await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
       setGroup((p) => ({ ...p, status: newStatus }));
       setAssets(updatedAssets);
@@ -1221,6 +1233,15 @@ const ProjectDetail = () => {
           <StatusBadge status={project.status} />
         </div>
       </div>
+      {group?.status === 'blocked' && (
+        <div className="border rounded p-4 mb-4 bg-yellow-50 flex items-start gap-2">
+          <FiAlertTriangle className="text-red-500 mt-1" />
+          <div>
+            <p className="font-semibold mb-1">Blocked</p>
+            <p className="mb-0 text-black dark:text-[var(--dark-text)]">{group.blocker}</p>
+          </div>
+        </div>
+      )}
       {(project?.infoNote ||
         request?.status === 'need info' ||
         project?.status === 'need info' ||

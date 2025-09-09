@@ -26,6 +26,7 @@ import {
   FiGrid,
   FiMoreHorizontal,
   FiMessageSquare,
+  FiAlertTriangle,
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
 import { FaMagic } from "react-icons/fa";
@@ -169,6 +170,7 @@ const AdGroupDetail = () => {
   const [showGallery, setShowGallery] = useState(false);
   const [feedback, setFeedback] = useState([]);
   const [tab, setTab] = useState("stats");
+  const [blockerText, setBlockerText] = useState("");
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState("");
   const [briefDrag, setBriefDrag] = useState(false);
@@ -444,6 +446,14 @@ const AdGroupDetail = () => {
   }, [group?.designerId]);
 
   useEffect(() => {
+    setBlockerText(group?.blocker || "");
+  }, [group?.blocker]);
+
+  useEffect(() => {
+    if (group?.status === 'blocked') setTab('blocker');
+  }, [group?.status]);
+
+  useEffect(() => {
     if (group) {
       countsRef.current = {
         reviewed: group.reviewedCount || 0,
@@ -484,6 +494,7 @@ const AdGroupDetail = () => {
         assets,
         hasRecipes,
         group.status === 'designing',
+        group.status,
       );
       if (
         newStatus !== group.status &&
@@ -979,7 +990,12 @@ const AdGroupDetail = () => {
         updatedAssets.push(updated);
       });
       setAssets(updatedAssets);
-      const newStatus = computeGroupStatus(updatedAssets, hasRecipes, false);
+      const newStatus = computeGroupStatus(
+        updatedAssets,
+        hasRecipes,
+        false,
+        group.status,
+      );
       await updateDoc(doc(db, "adGroups", id), { status: newStatus });
       setGroup((p) => ({ ...p, status: newStatus }));
     } catch (err) {
@@ -1042,7 +1058,12 @@ const AdGroupDetail = () => {
         updatedAssets[latestIdx] = { ...latest, ...update };
       }
       await batch.commit();
-      const newStatus = computeGroupStatus(updatedAssets, hasRecipes, false);
+      const newStatus = computeGroupStatus(
+        updatedAssets,
+        hasRecipes,
+        false,
+        group.status,
+      );
       await updateDoc(doc(db, "adGroups", id), { status: newStatus });
       setGroup((p) => ({ ...p, status: newStatus }));
       setAssets(updatedAssets);
@@ -2303,6 +2324,12 @@ const AdGroupDetail = () => {
             Feedback
           </TabButton>
         )}
+        {group.status === 'blocked' && (
+          <TabButton active={tab === 'blocker'} onClick={() => setTab('blocker')}>
+            <FiAlertTriangle size={18} />
+            Blocker
+          </TabButton>
+        )}
         </div>
         {(isAdmin || userRole === "agency" || isDesigner) ? (
           <div className="flex flex-wrap gap-2">
@@ -2799,6 +2826,38 @@ const AdGroupDetail = () => {
       {(isAdmin || isEditor || isDesigner || isManager) && tab === 'feedback' && (
         <div className="my-4">
           <FeedbackPanel entries={feedback} />
+        </div>
+      )}
+
+      {group.status === 'blocked' && tab === 'blocker' && (
+        <div className="my-4">
+          <textarea
+            value={blockerText}
+            onChange={(e) => setBlockerText(e.target.value)}
+            rows={4}
+            className="w-full mb-2"
+          />
+          <div className="flex gap-2">
+            <button
+              className="btn-primary"
+              onClick={async () => {
+                try {
+                  await updateDoc(doc(db, 'adGroups', id), { blocker: blockerText });
+                  setGroup((p) => ({ ...p, blocker: blockerText }));
+                } catch (err) {
+                  console.error('Failed to save blocker', err);
+                }
+              }}
+            >
+              Save
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={() => setBlockerText(group.blocker || '')}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 

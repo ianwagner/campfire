@@ -2,7 +2,9 @@ export default function computeGroupStatus(
   assets = [],
   hasRecipes = false,
   inDesign = false,
+  currentStatus,
 ) {
+  if (currentStatus === 'blocked') return 'blocked';
   if (hasRecipes && assets.length === 0) return 'briefed';
   if (inDesign) return 'designing';
   if (

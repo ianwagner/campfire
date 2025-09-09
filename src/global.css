@@ -402,6 +402,10 @@
     background-color: var(--accent-color-10);
     color: var(--accent-color);
   }
+  .status-blocked {
+    background-color: var(--reject-color-10);
+    color: var(--reject-color);
+  }
   .status-approved {
     background-color: var(--approve-color-10);
     color: var(--approve-color);
@@ -465,6 +469,10 @@
   .status-select.status-ready {
     background-color: var(--accent-color-10);
     color: var(--accent-color);
+  }
+  .status-select.status-blocked {
+    background-color: var(--reject-color-10);
+    color: var(--reject-color);
   }
   .status-select.status-approved {
     background-color: var(--approve-color-10);

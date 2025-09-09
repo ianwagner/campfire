@@ -361,6 +361,7 @@ const AdminAdGroups = () => {
   };
 
   const statusOrder = {
+    blocked: 0,
     pending: 1,
     briefed: 2,
     ready: 3,
@@ -370,6 +371,7 @@ const AdminAdGroups = () => {
   };
 
   const kanbanColumns = [
+    { label: 'Blocked', status: 'blocked' },
     { label: 'New', status: 'new' },
     { label: 'Briefed', status: 'briefed' },
     { label: 'Designed', status: 'designed' },
