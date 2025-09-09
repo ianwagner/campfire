@@ -679,6 +679,52 @@ test('admin can change new ad group to briefed', async () => {
   );
 });
 
+test('editor status options limited to new, briefed, and blocked', async () => {
+  mockUseUserRole.mockReturnValue({ role: 'editor', brandCodes: [], loading: false });
+  mockGetDoc.mockImplementation((path) => {
+    if (path === 'adGroups/group1') {
+      return Promise.resolve({
+        exists: () => true,
+        id: 'group1',
+        data: () => ({
+          name: 'Group 1',
+          brandCode: 'BR1',
+          status: 'new',
+          agencyId: null,
+        }),
+      });
+    }
+    if (path === 'brands/BR1') {
+      return Promise.resolve({
+        exists: () => true,
+        data: () => ({ agencyId: 'agency1', recipeTypes: [] }),
+      });
+    }
+    return Promise.resolve({ exists: () => false });
+  });
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({ docs: [] });
+    return jest.fn();
+  });
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>,
+  );
+
+  const statusSelect = await screen.findByLabelText('Status');
+  const optionValues = Array.from(statusSelect.options).map((o) => o.value);
+  expect(optionValues).toEqual(['new', 'briefed', 'blocked']);
+
+  fireEvent.change(statusSelect, { target: { value: 'blocked' } });
+  await waitFor(() =>
+    expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1', {
+      status: 'blocked',
+    }),
+  );
+});
+
 test('scrubbing sets group status to done when all ads archived', async () => {
   mockOnSnapshot.mockImplementation((col, cb) => {
     cb({

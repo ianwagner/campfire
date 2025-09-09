@@ -1773,7 +1773,7 @@ const AdGroupDetail = () => {
     }
   };
 
-  const statusOptions = [
+  const allStatusOptions = [
     'new',
     'pending',
     'briefed',
@@ -1783,9 +1783,14 @@ const AdGroupDetail = () => {
     'blocked',
   ];
 
+  const editorStatusOptions = ['new', 'briefed', 'blocked'];
+
+  const statusOptions = isAdmin ? allStatusOptions : editorStatusOptions;
+
   const handleStatusChange = async (e) => {
     if (!id) return;
     const newStatus = e.target.value;
+    if (!statusOptions.includes(newStatus)) return;
     try {
       await updateDoc(doc(db, 'adGroups', id), { status: newStatus });
       setGroup((p) => ({ ...p, status: newStatus }));
