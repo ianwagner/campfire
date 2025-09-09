@@ -1248,6 +1248,9 @@ useEffect(() => {
           });
           const groupStatus = computeGroupStatus(
             Object.values(recipeStatusMap).map((s) => ({ status: s })),
+            false,
+            false,
+            gSnap.data().status,
           );
           const updateObj = {
             ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),

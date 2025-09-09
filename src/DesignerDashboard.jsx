@@ -27,6 +27,7 @@ const DesignerDashboard = () => {
   const [shareInfo, setShareInfo] = useState(null);
 
   const kanbanColumns = [
+    { label: 'Blocked', status: 'blocked' },
     { label: 'New', status: 'new' },
     { label: 'Briefed', status: 'briefed' },
     { label: 'Designed', status: 'designed' },

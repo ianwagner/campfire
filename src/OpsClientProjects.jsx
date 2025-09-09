@@ -202,7 +202,12 @@ const OpsClientProjects = () => {
         getDocs(collection(db, 'adGroups', groupId, 'recipes')),
       ]);
       const assets = assetSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const newStatus = computeGroupStatus(assets, !recipeSnap.empty, false);
+      const newStatus = computeGroupStatus(
+        assets,
+        !recipeSnap.empty,
+        false,
+        project?.group?.status,
+      );
       await Promise.all([
         updateDoc(doc(db, 'adGroups', groupId), { status: newStatus }),
         updateDoc(doc(db, 'projects', project.id), { status: newStatus }),
