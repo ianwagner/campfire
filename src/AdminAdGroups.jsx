@@ -760,6 +760,7 @@ const AdminAdGroups = () => {
                 editors={editors}
                 onDateChange={handleGanttDateChange}
                 onAssign={handleGanttAssign}
+                allowDueDateChange
               />
             </div>
           )}
