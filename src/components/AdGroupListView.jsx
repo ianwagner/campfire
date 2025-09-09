@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiGrid, FiType, FiDownload, FiList, FiColumns, FiArchive } from 'react-icons/fi';
+import {
+  FiGrid,
+  FiType,
+  FiDownload,
+  FiList,
+  FiColumns,
+  FiArchive,
+  FiCalendar,
+} from 'react-icons/fi';
 import Table from './common/Table';
 import AdGroupCard from './AdGroupCard.jsx';
 import TabButton from './TabButton.jsx';
@@ -9,6 +17,7 @@ import PageToolbar from './PageToolbar.jsx';
 import StatusBadge from './StatusBadge.jsx';
 import computeKanbanStatus from '../utils/computeKanbanStatus';
 import MonthTag from './MonthTag.jsx';
+import AdGroupGantt from './AdGroupGantt.jsx';
 
 const statusOrder = {
   blocked: 0,
@@ -148,6 +157,9 @@ const AdGroupListView = ({
             <TabButton active={view === 'kanban'} onClick={() => onViewChange('kanban')} aria-label="Kanban view">
               <FiColumns />
             </TabButton>
+            <TabButton active={view === 'gantt'} onClick={() => onViewChange('gantt')} aria-label="Gantt view">
+              <FiCalendar />
+            </TabButton>
           </>
         )}
       />
@@ -216,7 +228,7 @@ const AdGroupListView = ({
                 </tbody>
               </Table>
             </div>
-          ) : (
+          ) : view === 'kanban' ? (
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
               <div className="min-w-max flex gap-4">
                 {[
@@ -249,6 +261,10 @@ const AdGroupListView = ({
                   </div>
                 ))}
               </div>
+            </div>
+          ) : (
+            <div className="hidden sm:block">
+              <AdGroupGantt groups={displayGroups} />
             </div>
           )}
         </>
