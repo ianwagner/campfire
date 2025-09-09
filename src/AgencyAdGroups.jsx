@@ -148,6 +148,7 @@ const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [
             }
 
             const designerName = data.designerId ? await getUserName(data.designerId) : '';
+            const editorName = data.editorId ? await getUserName(data.editorId) : '';
 
             return {
               id: d.id,
@@ -162,6 +163,7 @@ const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [
                 edit: editCount,
               },
               designerName,
+              editorName,
             };
           })
         );

@@ -135,6 +135,7 @@ const EditorAdGroups = () => {
             }
 
             const designerName = data.designerId ? await getUserName(data.designerId) : '';
+            const editorName = data.editorId ? await getUserName(data.editorId) : '';
 
             return {
               id: d.id,
@@ -149,6 +150,7 @@ const EditorAdGroups = () => {
                 edit: editCount,
               },
               designerName,
+              editorName,
             };
           })
         );

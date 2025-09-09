@@ -44,6 +44,14 @@ const AdGroupCard = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
+  const dueField =
+    role === 'designer'
+      ? group.designDueDate
+      : role === 'editor'
+      ? group.editorDueDate
+      : role === 'project-manager' || role === 'admin'
+      ? group.dueDate
+      : null;
 
   const handleClick = (e, cb) => {
     e.preventDefault();
@@ -185,17 +193,22 @@ const AdGroupCard = ({
                 {group.designerName}
               </p>
             )}
+            {group.editorName && role !== 'ops' && (
+              <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
+                {group.editorName}
+              </p>
+            )}
           </div>
           <div className="flex flex-col items-end gap-1">
-            {group.dueDate && (
+            {dueField && (
               <p
                 className="text-[12px] text-black dark:text-[var(--dark-text)] flex items-center gap-1"
                 data-testid="due-date"
               >
                 <FiCalendar className="text-gray-600 dark:text-gray-300" />
-                {group.dueDate.toDate
-                  ? group.dueDate.toDate().toLocaleDateString()
-                  : new Date(group.dueDate).toLocaleDateString()}
+                {dueField.toDate
+                  ? dueField.toDate().toLocaleDateString()
+                  : new Date(dueField).toLocaleDateString()}
               </p>
             )}
             <MonthTag month={group.month} />
