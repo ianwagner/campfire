@@ -485,7 +485,10 @@ const AdGroupDetail = () => {
         hasRecipes,
         group.status === 'designing',
       );
-      if (newStatus !== group.status) {
+      if (
+        newStatus !== group.status &&
+        !(group.status === 'briefed' && assets.length === 0)
+      ) {
         update.status = newStatus;
       }
       updateDoc(doc(db, "adGroups", id), update).catch((err) =>
