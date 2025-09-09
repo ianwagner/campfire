@@ -371,8 +371,8 @@ const AdminAdGroups = () => {
   };
 
   const kanbanColumns = [
-    { label: 'Blocked', status: 'blocked' },
     { label: 'New', status: 'new' },
+    { label: 'Blocked', status: 'blocked' },
     { label: 'Briefed', status: 'briefed' },
     { label: 'Designed', status: 'designed' },
     { label: 'Edit Request', status: 'edit request' },

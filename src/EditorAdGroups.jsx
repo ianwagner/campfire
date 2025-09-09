@@ -356,8 +356,8 @@ const EditorAdGroups = () => {
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
               <div className="min-w-max flex gap-4">
                 {[
-                  { label: 'Blocked', status: 'blocked' },
                   { label: 'New', status: 'new' },
+                  { label: 'Blocked', status: 'blocked' },
                   { label: 'Briefed', status: 'briefed' },
                   { label: 'Designed', status: 'designed' },
                   { label: 'Edit Request', status: 'edit request' },
