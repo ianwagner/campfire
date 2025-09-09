@@ -155,7 +155,7 @@ const AdGroupGantt = ({
           </button>
         </div>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-auto max-h-[70vh]">
         <table className="min-w-max border-collapse text-xs">
           <thead>
             <tr className="sticky top-0 z-10 bg-white dark:bg-[var(--dark-bg)]">
@@ -204,12 +204,16 @@ const AdGroupGantt = ({
                   let bg = '';
                   let draggable = false;
                   let dragType = null;
-                  if (designDate && isSameDay(d, designDate)) {
+                  const isDesignDay = designDate && isSameDay(d, designDate);
+                  const isEditorDay = editorDate && isSameDay(d, editorDate);
+                  const unassignedDesigner = isDesignDay && !g.designerId;
+                  const unassignedEditor = isEditorDay && !g.editorId;
+                  if (isDesignDay) {
                     content = g.designerName;
                     bg = 'bg-blue-100 dark:bg-blue-900';
                     draggable = true;
                     dragType = 'design';
-                  } else if (editorDate && isSameDay(d, editorDate)) {
+                  } else if (isEditorDay) {
                     content = g.editorName;
                     bg = 'bg-green-100 dark:bg-green-900';
                     draggable = true;
@@ -226,9 +230,14 @@ const AdGroupGantt = ({
                       className={`p-2 border min-w-[5rem] relative border-gray-300 dark:border-gray-600 ${bg}`}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => handleDrop(e, g, d)}
-                      onClick={() =>
-                        !content && setMenu({ groupId: g.id, date: d, step: 'type' })
-                      }
+                      onClick={() => {
+                        if (content) return;
+                        if (unassignedDesigner)
+                          setMenu({ groupId: g.id, date: d, step: 'designer' });
+                        else if (unassignedEditor)
+                          setMenu({ groupId: g.id, date: d, step: 'editor' });
+                        else setMenu({ groupId: g.id, date: d, step: 'type' });
+                      }}
                     >
                       {content && (
                         <div
@@ -245,7 +254,10 @@ const AdGroupGantt = ({
                         </div>
                       )}
                       {showMenu && menu.step === 'type' && (
-                        <div className="absolute z-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded shadow p-2 space-y-1">
+                        <div
+                          className="absolute z-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded shadow p-2 space-y-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             className="block w-full text-left hover:bg-gray-100 dark:hover:bg-gray-700"
                             onClick={(e) => {
@@ -267,7 +279,10 @@ const AdGroupGantt = ({
                         </div>
                       )}
                       {showMenu && menu.step && menu.step !== 'type' && (
-                        <div className="absolute z-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded shadow p-2">
+                        <div
+                          className="absolute z-20 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded shadow p-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <select
                             className="bg-transparent"
                             onChange={(e) => {
