@@ -58,13 +58,15 @@ const AdminAdGroups = () => {
   const [renameName, setRenameName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState('');
-  const [sortField, setSortField] = useState('status');
-  const [designers, setDesigners] = useState([]);
-  const [designerFilter, setDesignerFilter] = useState('');
-  const [monthFilter, setMonthFilter] = useState('');
-  const [view, setView] = useState('kanban');
-  const [showGallery, setShowGallery] = useState(false);
-  const [galleryAds, setGalleryAds] = useState([]);
+    const [sortField, setSortField] = useState('status');
+    const [designers, setDesigners] = useState([]);
+    const [designerFilter, setDesignerFilter] = useState('');
+    const [editors, setEditors] = useState([]);
+    const [editorFilter, setEditorFilter] = useState('');
+    const [monthFilter, setMonthFilter] = useState('');
+    const [view, setView] = useState('kanban');
+    const [showGallery, setShowGallery] = useState(false);
+    const [galleryAds, setGalleryAds] = useState([]);
 
   const handleShare = async (id) => {
     let url = `${window.location.origin}/review/${id}`;
@@ -184,6 +186,25 @@ const AdminAdGroups = () => {
       }
     };
     fetchDesigners();
+  }, []);
+
+  useEffect(() => {
+    const fetchEditors = async () => {
+      try {
+        const q = query(collection(db, 'users'), where('role', '==', 'editor'));
+        const snap = await getDocs(q);
+        setEditors(
+          snap.docs.map((d) => ({
+            id: d.id,
+            name: d.data().fullName || d.data().email || d.id,
+          }))
+        );
+      } catch (err) {
+        console.error('Failed to fetch editors', err);
+        setEditors([]);
+      }
+    };
+    fetchEditors();
   }, []);
 
   const handleDeleteGroup = async (groupId, brandCode, groupName) => {
@@ -392,6 +413,7 @@ const AdminAdGroups = () => {
         g.brandCode?.toLowerCase().includes(term),
     )
     .filter((g) => !designerFilter || g.designerId === designerFilter)
+    .filter((g) => !editorFilter || g.editorId === editorFilter)
     .filter((g) => !monthFilter || g.month === monthFilter)
     .sort((a, b) => {
       if (sortField === 'name') return (a.name || '').localeCompare(b.name || '');
@@ -425,16 +447,28 @@ const AdminAdGroups = () => {
                 ))}
               </select>
               {view === 'kanban' ? (
-                <select
-                  value={designerFilter}
-                  onChange={(e) => setDesignerFilter(e.target.value)}
-                  className="p-1 border rounded"
-                >
-                  <option value="">All designers</option>
-                  {designers.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    value={designerFilter}
+                    onChange={(e) => setDesignerFilter(e.target.value)}
+                    className="p-1 border rounded"
+                  >
+                    <option value="">All designers</option>
+                    {designers.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={editorFilter}
+                    onChange={(e) => setEditorFilter(e.target.value)}
+                    className="p-1 border rounded"
+                  >
+                    <option value="">All editors</option>
+                    {editors.map((e) => (
+                      <option key={e.id} value={e.id}>{e.name}</option>
+                    ))}
+                  </select>
+                </>
               ) : (
                 <>
                   <SortButton
