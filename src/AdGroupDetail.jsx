@@ -277,6 +277,11 @@ const AdGroupDetail = () => {
     return base;
   }, [userRole, location.search]);
 
+  const ganttPath = useMemo(
+    () => `${backPath}${backPath.includes('?') ? '&' : '?'}view=gantt`,
+    [backPath]
+  );
+
   const copyChanges = useMemo(() => {
     const clean = (arr) =>
       arr.map((c) => ({
@@ -2213,11 +2218,20 @@ const AdGroupDetail = () => {
 
   return (
     <div className="min-h-screen p-4 ">
-      <div className="flex items-center mb-2">
-        <Link to={backPath} className="btn-arrow mr-2" aria-label="Back">
+      <div className="flex items-center mb-2 gap-2">
+        <Link to={backPath} className="btn-arrow" aria-label="Back">
           &lt;
         </Link>
-        <h1 className="text-2xl mb-0">{group.name}</h1>
+        <h1 className="text-2xl mb-0 flex-1">{group.name}</h1>
+        {userRole === "project-manager" && (
+          <Link
+            to={ganttPath}
+            className="btn-secondary"
+            aria-label="View Gantt Chart"
+          >
+            Gantt
+          </Link>
+        )}
       </div>
       <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
         Brand: {group.brandCode}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
+import { useLocation } from 'react-router-dom';
 import { auth, db } from './firebase/config';
 import useUserRole from './useUserRole';
 import AdGroupListView from './components/AdGroupListView.jsx';
@@ -24,6 +25,7 @@ const PmAdGroups = () => {
 
   const user = auth.currentUser;
   const { agencyId, brandCodes: roleCodes } = useUserRole(user?.uid);
+  const location = useLocation();
 
   useEffect(() => {
     const fetchCodes = async () => {
@@ -42,6 +44,12 @@ const PmAdGroups = () => {
   }, [agencyId, roleCodes]);
 
   const { groups, loading } = useAdGroups(codes, showArchived);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const initialView = params.get('view');
+    if (initialView) setView(initialView);
+  }, [location.search]);
 
   useEffect(() => {
     const fetchDesigners = async () => {
