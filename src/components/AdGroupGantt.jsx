@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { FiCheck } from 'react-icons/fi';
 
 /**
  * Displays ad groups on a simple Gantt style timeline.
@@ -15,6 +16,7 @@ const AdGroupGantt = ({
   editors = [],
   onDateChange = () => {},
   onAssign = () => {},
+  allowDueDateChange = false,
 }) => {
   const startOfWeek = (d) => {
     const s = new Date(d);
@@ -87,6 +89,11 @@ const AdGroupGantt = ({
         if (data.type === 'editor') {
           const res = { ...g, editorDueDate: nd };
           onDateChange(group.id, { editorDueDate: nd });
+          return res;
+        }
+        if (data.type === 'due' && allowDueDateChange) {
+          const res = { ...g, dueDate: nd };
+          onDateChange(group.id, { dueDate: nd });
           return res;
         }
         return g;
@@ -197,7 +204,9 @@ const AdGroupGantt = ({
               <tr key={g.id}>
                 <td className="sticky left-0 z-10 bg-white dark:bg-[var(--dark-bg)] p-2 border border-gray-300 dark:border-gray-600 whitespace-nowrap max-w-[16rem] w-[16rem] overflow-hidden text-ellipsis outline outline-1 outline-gray-300">
                   <div className="font-semibold text-xs truncate">{g.name}</div>
-                  <div className="text-[10px] text-gray-600 dark:text-gray-400 truncate">{g.brandCode}</div>
+                  <div className="text-[10px] text-gray-600 dark:text-gray-400 truncate">
+                    {g.brandCode} ({g.recipeCount ?? 0})
+                  </div>
                 </td>
                 {days.map((d) => {
                   let content = null;
@@ -209,18 +218,36 @@ const AdGroupGantt = ({
                   const unassignedDesigner = isDesignDay && !g.designerId;
                   const unassignedEditor = isEditorDay && !g.editorId;
                   if (isDesignDay) {
-                    content = g.designerName;
+                    content = (
+                      <span className="flex items-center">
+                        {g.designerName}
+                        {['designed', 'edit request', 'done'].includes(g.status) && (
+                          <FiCheck className="ml-1" />
+                        )}
+                      </span>
+                    );
                     bg = 'bg-blue-100 dark:bg-blue-900';
                     draggable = true;
                     dragType = 'design';
                   } else if (isEditorDay) {
-                    content = g.editorName;
+                    content = (
+                      <span className="flex items-center">
+                        {g.editorName}
+                        {['briefed', 'designed', 'edit request', 'done'].includes(g.status) && (
+                          <FiCheck className="ml-1" />
+                        )}
+                      </span>
+                    );
                     bg = 'bg-green-100 dark:bg-green-900';
                     draggable = true;
                     dragType = 'editor';
                   } else if (dueDate && isSameDay(d, dueDate)) {
                     content = 'Due';
                     bg = 'bg-red-100 dark:bg-red-900';
+                    if (allowDueDateChange) {
+                      draggable = true;
+                      dragType = 'due';
+                    }
                   }
                   const showMenu =
                     menu && menu.groupId === g.id && isSameDay(menu.date, d);
@@ -243,12 +270,13 @@ const AdGroupGantt = ({
                         <div
                           draggable={draggable}
                           onDragStart={(e) =>
+                            draggable &&
                             e.dataTransfer.setData(
                               'text/plain',
                               JSON.stringify({ id: g.id, type: dragType })
                             )
                           }
-                          className="cursor-move"
+                          className={draggable ? 'cursor-move' : ''}
                         >
                           {content}
                         </div>
