@@ -6,6 +6,7 @@ export default function computeKanbanStatus(group) {
   const rejected = counts.rejected || 0;
   const edit = counts.edit || 0;
 
+  if (group?.status === 'blocked') return 'blocked';
   if (group?.status === 'briefed') return 'briefed';
   if (assetCount === 0) return 'new';
   if (edit > 0) return 'edit request';

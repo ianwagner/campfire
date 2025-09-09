@@ -11,6 +11,7 @@ import computeKanbanStatus from '../utils/computeKanbanStatus';
 import MonthTag from './MonthTag.jsx';
 
 const statusOrder = {
+  blocked: 0,
   pending: 1,
   briefed: 2,
   ready: 3,
@@ -219,6 +220,7 @@ const AdGroupListView = ({
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
               <div className="min-w-max flex gap-4">
                 {[
+                  { label: 'Blocked', status: 'blocked' },
                   { label: 'New', status: 'new' },
                   { label: 'Briefed', status: 'briefed' },
                   { label: 'Designed', status: 'designed' },

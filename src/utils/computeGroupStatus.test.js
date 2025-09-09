@@ -64,3 +64,8 @@ test('returns pending otherwise', () => {
   const status = computeGroupStatus([{ status: 'pending' }], false, false);
   expect(status).toBe('pending');
 });
+
+test('returns blocked when current status is blocked', () => {
+  const status = computeGroupStatus([{ status: 'approved' }], false, false, 'blocked');
+  expect(status).toBe('blocked');
+});
