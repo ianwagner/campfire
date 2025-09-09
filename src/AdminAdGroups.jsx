@@ -12,6 +12,7 @@ import {
   FiPlus,
   FiList,
   FiColumns,
+  FiCalendar,
   FiCheckCircle,
   FiThumbsUp,
   FiThumbsDown,
@@ -40,6 +41,7 @@ import CreateButton from './components/CreateButton.jsx';
 import ScrollModal from './components/ScrollModal.jsx';
 import CloseButton from './components/CloseButton.jsx';
 import GalleryModal from './components/GalleryModal.jsx';
+import AdGroupGantt from './components/AdGroupGantt.jsx';
 
 const AdminAdGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -461,6 +463,9 @@ const AdminAdGroups = () => {
               <TabButton active={view === 'kanban'} onClick={() => setView('kanban')} aria-label="Kanban view">
                 <FiColumns />
               </TabButton>
+              <TabButton active={view === 'gantt'} onClick={() => setView('gantt')} aria-label="Gantt view">
+                <FiCalendar />
+              </TabButton>
             </>
           )}
           right={<CreateButton onClick={() => setShowCreate(true)} ariaLabel="Create Ad Group" />}
@@ -636,7 +641,7 @@ const AdminAdGroups = () => {
             </tbody>
               </Table>
             </div>
-          ) : (
+          ) : view === 'kanban' ? (
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
               <div className="min-w-max flex gap-4">
                 {kanbanColumns.map((col) => (
@@ -680,6 +685,10 @@ const AdminAdGroups = () => {
                   </div>
                 ))}
               </div>
+            </div>
+          ) : (
+            <div className="hidden sm:block">
+              <AdGroupGantt groups={displayGroups} />
             </div>
           )}
           </>
