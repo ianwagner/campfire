@@ -40,6 +40,7 @@ const AdGroupCard = ({
   onChangeDueDate,
   onChangeDesigner,
   triggerClickMenu,
+  hideMenu = false,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const user = auth.currentUser;
@@ -62,7 +63,7 @@ const AdGroupCard = ({
 
   return (
     <div className="relative bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded-lg text-inherit shadow-md w-full">
-      {!triggerClickMenu && (
+      {!hideMenu && !triggerClickMenu && (
         <IconButton
           onClick={(e) => {
             e.preventDefault();
@@ -75,7 +76,7 @@ const AdGroupCard = ({
           <FiMoreHorizontal />
         </IconButton>
       )}
-      {menuOpen && (
+      {!hideMenu && menuOpen && (
         <div className="absolute right-1 top-7 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
           {onReview && (
             <button
