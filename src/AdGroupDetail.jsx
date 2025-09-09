@@ -77,6 +77,7 @@ import Table from "./components/common/Table";
 import stripVersion from "./utils/stripVersion";
 import summarizeByRecipe from "./utils/summarizeByRecipe";
 import FeedbackPanel from "./components/FeedbackPanel.jsx";
+import detectMissingRatios from "./utils/detectMissingRatios";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -179,6 +180,7 @@ const AdGroupDetail = () => {
   const [editors, setEditors] = useState([]);
   const [editorName, setEditorName] = useState('');
   const [revisionModal, setRevisionModal] = useState(null);
+  const [uploadSummary, setUploadSummary] = useState(null);
   const [menuRecipe, setMenuRecipe] = useState(null);
   const [inspectRecipe, setInspectRecipe] = useState(null);
   const menuRef = useRef(null);
@@ -1126,28 +1128,7 @@ const AdGroupDetail = () => {
     }
   };
 
-  const handleUpload = async (selectedFiles) => {
-    if (!selectedFiles || selectedFiles.length === 0) return;
-    if (group?.status === "archived" && !isAdmin) {
-      window.alert("This ad group is archived and cannot accept new ads.");
-      return;
-    }
-    const existing = new Set(assets.map((a) => a.filename));
-    const used = new Set();
-    const files = [];
-    const dupes = [];
-    for (const f of Array.from(selectedFiles)) {
-      if (existing.has(f.name) || used.has(f.name)) {
-        dupes.push(f.name);
-      } else {
-        used.add(f.name);
-        files.push(f);
-      }
-    }
-    if (dupes.length > 0) {
-      window.alert(`Duplicate files skipped: ${dupes.join(", ")}`);
-    }
-    if (files.length === 0) return;
+  const uploadFiles = async (files) => {
     setUploading(true);
     for (const file of files) {
       try {
@@ -1212,6 +1193,42 @@ const AdGroupDetail = () => {
       }
     }
     setUploading(false);
+  };
+
+  const handleUpload = async (selectedFiles) => {
+    if (!selectedFiles || selectedFiles.length === 0) return;
+    if (group?.status === "archived" && !isAdmin) {
+      window.alert("This ad group is archived and cannot accept new ads.");
+      return;
+    }
+    const existing = new Set(assets.map((a) => a.filename));
+    const used = new Set();
+    const files = [];
+    const dupes = [];
+    for (const f of Array.from(selectedFiles)) {
+      if (existing.has(f.name) || used.has(f.name)) {
+        dupes.push(f.name);
+      } else {
+        used.add(f.name);
+        files.push(f);
+      }
+    }
+    if (dupes.length > 0) {
+      window.alert(`Duplicate files skipped: ${dupes.join(", ")}`);
+    }
+    if (files.length === 0) return;
+    const missing = detectMissingRatios(files, assets);
+    if (Object.keys(missing).length > 0) {
+      setUploadSummary({ files, missing, choices: {}, applyAll: false });
+      return;
+    }
+    await uploadFiles(files);
+  };
+
+  const confirmUpload = async () => {
+    if (!uploadSummary) return;
+    await uploadFiles(uploadSummary.files);
+    setUploadSummary(null);
   };
 
   const handleBriefUpload = async (selectedFiles) => {
@@ -3017,6 +3034,92 @@ const AdGroupDetail = () => {
         </div>
       )}
 
+      {uploadSummary && (
+        <Modal sizeClass="max-w-xl">
+          <h3 className="mb-2 font-semibold">Missing Aspect Ratios</h3>
+          <table className="w-full mb-4 text-sm">
+            <thead>
+              <tr>
+                <th className="text-left p-1">Recipe</th>
+                <th className="text-left p-1">Missing Ratios</th>
+                <th className="text-left p-1">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(uploadSummary.missing).map(([recipe, ratios]) => (
+                <tr key={recipe} className="border-t">
+                  <td className="p-1">{recipe}</td>
+                  <td className="p-1">{ratios.join(', ')}</td>
+                  <td className="p-1">
+                    <label className="mr-2">
+                      <input
+                        type="radio"
+                        name={`act-${recipe}`}
+                        checked={uploadSummary.choices[recipe] === 'carry'}
+                        onChange={() =>
+                          setUploadSummary((p) => ({
+                            ...p,
+                            choices: { ...p.choices, [recipe]: 'carry' },
+                          }))
+                        }
+                      />{' '}
+                      Carry forward previous version
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name={`act-${recipe}`}
+                        checked={uploadSummary.choices[recipe] === 'supply'}
+                        onChange={() =>
+                          setUploadSummary((p) => ({
+                            ...p,
+                            choices: { ...p.choices, [recipe]: 'supply' },
+                          }))
+                        }
+                      />{' '}
+                      I\'ll supply new files
+                    </label>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="flex items-center mb-4">
+            <input
+              id="apply-all"
+              type="checkbox"
+              className="mr-2"
+              checked={uploadSummary.applyAll}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setUploadSummary((p) => ({
+                  ...p,
+                  applyAll: checked,
+                  choices: Object.fromEntries(
+                    Object.keys(p.missing).map((k) => [k, checked ? 'carry' : p.choices[k]]),
+                  ),
+                }));
+              }}
+            />
+            <label htmlFor="apply-all">Apply to all</label>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              className="btn-secondary px-2 py-0.5"
+              onClick={() => setUploadSummary(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn-primary px-2 py-0.5"
+              onClick={confirmUpload}
+              disabled={Object.keys(uploadSummary.missing).some((k) => !uploadSummary.choices[k])}
+            >
+              Continue
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {revisionModal && (
         <Modal sizeClass="max-w-3xl">
