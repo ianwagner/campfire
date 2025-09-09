@@ -156,16 +156,16 @@ const AdGroupGantt = ({
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-max border-collapse text-sm">
-          <thead className="sticky top-10 z-10 bg-white dark:bg-[var(--dark-bg)]">
-            <tr>
-              <th className="sticky left-0 z-10 bg-white dark:bg-[var(--dark-bg)] text-left p-2 border border-gray-300 dark:border-gray-600">
+        <table className="min-w-max border-collapse text-xs">
+          <thead>
+            <tr className="sticky top-0 z-10 bg-white dark:bg-[var(--dark-bg)]">
+              <th className="sticky top-0 left-0 z-10 bg-white dark:bg-[var(--dark-bg)] text-left p-2 border border-gray-300 dark:border-gray-600 max-w-[16rem] w-[16rem] outline outline-1 outline-gray-300">
                 Ad Group
               </th>
               {days.map((d) => (
                 <th
                   key={d.toISOString()}
-                  className="p-2 border border-gray-300 dark:border-gray-600 text-center whitespace-nowrap"
+                  className="sticky top-0 p-2 border border-gray-300 dark:border-gray-600 text-center whitespace-nowrap bg-white dark:bg-[var(--dark-bg)]"
                 >
                   {d.toLocaleDateString(undefined, {
                     weekday: 'short',
@@ -195,9 +195,9 @@ const AdGroupGantt = ({
               : null;
             return (
               <tr key={g.id}>
-                <td className="sticky left-0 z-10 bg-white dark:bg-[var(--dark-bg)] p-2 border border-gray-300 dark:border-gray-600 whitespace-nowrap">
-                  <div className="font-semibold">{g.name}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">{g.brandCode}</div>
+                <td className="sticky left-0 z-10 bg-white dark:bg-[var(--dark-bg)] p-2 border border-gray-300 dark:border-gray-600 whitespace-nowrap max-w-[16rem] w-[16rem] overflow-hidden text-ellipsis outline outline-1 outline-gray-300">
+                  <div className="font-semibold text-xs truncate">{g.name}</div>
+                  <div className="text-[10px] text-gray-600 dark:text-gray-400 truncate">{g.brandCode}</div>
                 </td>
                 {days.map((d) => {
                   let content = null;
