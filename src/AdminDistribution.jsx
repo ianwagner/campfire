@@ -203,12 +203,13 @@ const AdminDistribution = () => {
             if (!recipe || !url) return;
             const normalized = recipe.replace(/^0+/, '');
             let aspect = info.aspectRatio || aData.aspectRatio || '';
-            if (!aspect && aData.filename) {
+            const aspectValid = /^\d+x\d+$/.test(aspect);
+            if (!aspectValid && aData.filename) {
               const base = aData.filename.replace(/\.[^/.]+$/, '');
-              const match = base.match(/_(\d+x\d+)(?:_V\d+)?$/i);
+              const match = base.match(/(\d+x\d+)/);
               if (match) aspect = match[1];
             }
-            aspect = aspect.replace(/_V\d+$/i, '').replace(/s$/, '');
+            aspect = aspect.replace(/_?V\d+$/i, '').replace(/s$/, '');
             if (!aspect) aspect = '9x16';
             const label = aspect;
             const entry = { url, label, status: aData.status || '' };
