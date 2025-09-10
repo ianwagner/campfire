@@ -138,7 +138,11 @@ allow count: if request.auth != null && (
            'requirePassword',
            'password'
          ])
-        );
+        ) ||
+        (isEditor() &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+           'status'
+         ]));
       allow delete: if isAdmin();
 
       match /assets/{assetId} {
