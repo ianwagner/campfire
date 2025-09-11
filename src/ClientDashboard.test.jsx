@@ -113,3 +113,44 @@ test('shows warning when credits are negative', async () => {
     await screen.findByText(/credit balance is negative/i)
   ).toBeInTheDocument();
 });
+
+test('renders brand logo with default styling and no status badge', async () => {
+  const groupSnap = {
+    docs: [
+      {
+        id: 'g1',
+        data: () => ({
+          brandCode: 'B1',
+          status: 'pending',
+          visibility: 'private',
+          name: 'Group 1',
+        }),
+      },
+    ],
+  };
+  const previewSnap = { docs: [] };
+  const assetSnap = { docs: [] };
+  const brandSnap = {
+    docs: [{ data: () => ({ credits: 0, code: 'B1', logos: ['logo.png'] }) }],
+  };
+  doc.mockImplementation((...args) => args.slice(1).join('/'));
+  getDocs
+    .mockResolvedValueOnce(brandSnap)
+    .mockResolvedValueOnce(previewSnap)
+    .mockResolvedValueOnce(assetSnap);
+  onSnapshot.mockImplementation((q, cb) => {
+    cb(groupSnap);
+    return jest.fn();
+  });
+
+  render(
+    <MemoryRouter>
+      <ClientDashboard user={{ uid: 'u1', metadata: {} }} brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  const img = await screen.findByAltText('Group 1');
+  const container = img.closest('div');
+  expect(container).toHaveStyle('background: #efefef; padding: 40px');
+  expect(screen.queryByText(/pending/i)).not.toBeInTheDocument();
+});
