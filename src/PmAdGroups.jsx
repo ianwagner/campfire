@@ -22,6 +22,7 @@ const PmAdGroups = () => {
   const [designers, setDesigners] = useState([]);
   const [editors, setEditors] = useState([]);
   const [designerFilter, setDesignerFilter] = useState('');
+  const [editorFilter, setEditorFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
 
   const user = auth.currentUser;
@@ -134,6 +135,8 @@ const PmAdGroups = () => {
         editors={editors}
         designerFilter={designerFilter}
         onDesignerFilterChange={setDesignerFilter}
+        editorFilter={editorFilter}
+        onEditorFilterChange={setEditorFilter}
         monthFilter={monthFilter}
         onMonthFilterChange={setMonthFilter}
         linkToDetail
