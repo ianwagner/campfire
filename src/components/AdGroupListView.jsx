@@ -47,6 +47,8 @@ const AdGroupListView = ({
   editors = [],
   designerFilter,
   onDesignerFilterChange,
+  editorFilter,
+  onEditorFilterChange,
   monthFilter,
   onMonthFilterChange,
 }) => {
@@ -61,6 +63,7 @@ const AdGroupListView = ({
         g.brandCode?.toLowerCase().includes(term)
     )
     .filter((g) => !designerFilter || g.designerId === designerFilter)
+    .filter((g) => !editorFilter || g.editorId === editorFilter)
     .filter((g) => !monthFilter || g.month === monthFilter)
     .sort((a, b) => {
       switch (sortField) {
@@ -102,7 +105,7 @@ const AdGroupListView = ({
               onChange={(e) => onFilterChange(e.target.value)}
               className="p-1 border rounded"
             />
-            {onDesignerFilterChange && (
+            {view === 'kanban' && onDesignerFilterChange && (
               <select
                 value={designerFilter}
                 onChange={(e) => onDesignerFilterChange(e.target.value)}
@@ -112,6 +115,20 @@ const AdGroupListView = ({
                 {designers.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {view === 'kanban' && onEditorFilterChange && (
+              <select
+                value={editorFilter}
+                onChange={(e) => onEditorFilterChange(e.target.value)}
+                className="p-1 border rounded"
+              >
+                <option value="">All editors</option>
+                {editors.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
                   </option>
                 ))}
               </select>
