@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import OptimizedImage from './components/OptimizedImage.jsx';
-import StatusBadge from './components/StatusBadge.jsx';
 import MonthTag from './components/MonthTag.jsx';
 import parseAdFilename from './utils/parseAdFilename.js';
 import summarizeByRecipe from './utils/summarizeByRecipe.js';
@@ -30,9 +29,13 @@ const GroupCard = ({ group }) => {
     ? "1/1"
     : (first.aspectRatio || info.aspectRatio || "9x16").replace("x", "/");
 
+  const containerStyle = showLogo
+    ? { aspectRatio: aspect, background: '#efefef', padding: '40px' }
+    : { aspectRatio: aspect };
+
   return (
     <Link to={`/review/${group.id}`} className="block text-center p-3">
-      <div className="relative mb-2" style={{ aspectRatio: aspect }}>
+      <div className="relative mb-2" style={containerStyle}>
         {showLogo ? (
           <OptimizedImage
             key="logo"
@@ -56,9 +59,6 @@ const GroupCard = ({ group }) => {
             />
           ))
         )}
-      </div>
-      <div className="flex justify-center items-center gap-2 mb-1 text-sm">
-        {group.status !== 'ready' && <StatusBadge status={group.status} />}
       </div>
       <h3 className="font-medium text-gray-700 dark:text-white">{group.name}</h3>
       <div className="flex justify-center items-center gap-2 mt-1 text-sm">
