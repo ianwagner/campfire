@@ -34,29 +34,46 @@ beforeEach(() => {
 test('computes summary for groups missing data', async () => {
   const groupSnap = {
     docs: [
-      { id: 'g1', data: () => ({ brandCode: 'B1', status: 'ready', name: 'Group 1' }) },
+      {
+        id: 'g1',
+        data: () => ({
+          brandCode: 'B1',
+          status: 'ready',
+          visibility: 'private',
+          name: 'Group 1',
+        }),
+      },
     ],
   };
+  const previewSnap = { docs: [] };
   const assetSnap = {
     docs: [
       {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'approved',
-          filename: 'B1_G1_1_9x16_V1.png',
+          filename: 'B1_G1_1_1x1_V1.png',
+          aspectRatio: '1x1',
         }),
       },
       {
         data: () => ({
           firebaseUrl: 'url2',
           status: 'rejected',
-          filename: 'B1_G1_2_9x16_V1.png',
+          filename: 'B1_G1_2_1x1_V1.png',
+          aspectRatio: '1x1',
         }),
       },
     ],
   };
+  const brandSnap = {
+    docs: [{ data: () => ({ credits: 0, code: 'B1', logos: ['logo.png'] }) }],
+  };
   doc.mockImplementation((...args) => args.slice(1).join('/'));
-  getDocs.mockResolvedValue(assetSnap);
+  getDocs
+    .mockResolvedValueOnce(brandSnap)
+    .mockResolvedValueOnce(previewSnap)
+    .mockResolvedValueOnce(assetSnap);
   onSnapshot.mockImplementation((q, cb) => {
     cb(groupSnap);
     return jest.fn();
@@ -77,7 +94,7 @@ test('computes summary for groups missing data', async () => {
 
 test('shows warning when credits are negative', async () => {
   const brandSnap = {
-    docs: [{ data: () => ({ credits: -5 }) }],
+    docs: [{ data: () => ({ credits: -5, code: 'B1', logos: ['l.png'] }) }],
   };
 
   getDocs.mockResolvedValueOnce(brandSnap);

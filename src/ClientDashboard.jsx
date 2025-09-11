@@ -23,30 +23,39 @@ const GroupCard = ({ group }) => {
     [group.id, group.previewAds.length]
   );
 
+  const showLogo = group.showLogo;
   const first = group.previewAds[0] || {};
   const info = parseAdFilename(first.filename || "");
-  const aspect = (first.aspectRatio || info.aspectRatio || "9x16").replace(
-    "x",
-    "/"
-  );
+  const aspect = showLogo
+    ? "1/1"
+    : (first.aspectRatio || info.aspectRatio || "9x16").replace("x", "/");
 
   return (
     <Link to={`/review/${group.id}`} className="block text-center p-3">
       <div className="relative mb-2" style={{ aspectRatio: aspect }}>
-        {group.previewAds.map((ad, i) => (
+        {showLogo ? (
           <OptimizedImage
-            key={ad.id}
-            pngUrl={ad.thumbnailUrl || ad.firebaseUrl}
+            key="logo"
+            pngUrl={group.brandLogo}
             alt={group.name}
-            className="absolute inset-0 w-full h-full object-cover rounded shadow"
-            style={{
-              transform: `rotate(${rotations[i]}deg)`,
-              zIndex: i + 1,
-              top: `${-i * 4}px`,
-              left: `${i * 4}px`,
-            }}
+            className="absolute inset-0 w-full h-full object-contain rounded shadow"
           />
-        ))}
+        ) : (
+          group.previewAds.map((ad, i) => (
+            <OptimizedImage
+              key={ad.id}
+              pngUrl={ad.thumbnailUrl || ad.firebaseUrl}
+              alt={group.name}
+              className="absolute inset-0 w-full h-full object-cover rounded shadow"
+              style={{
+                transform: `rotate(${rotations[i]}deg)`,
+                zIndex: i + 1,
+                top: `${-i * 4}px`,
+                left: `${i * 4}px`,
+              }}
+            />
+          ))
+        )}
       </div>
       <div className="flex justify-center items-center gap-2 mb-1 text-sm">
         {group.status !== 'ready' && <StatusBadge status={group.status} />}
@@ -69,6 +78,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasNegativeCredits, setHasNegativeCredits] = useState(false);
+  const [brandLogos, setBrandLogos] = useState({});
   const [filter, setFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
 
@@ -90,6 +100,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
   useEffect(() => {
     if (brandCodes.length === 0) {
       setHasNegativeCredits(false);
+      setBrandLogos({});
       return;
     }
     const checkCredits = async () => {
@@ -101,9 +112,16 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
           (d) => (d.data().credits ?? 0) < 0
         );
         setHasNegativeCredits(negative);
+        const logos = {};
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          logos[data.code] = data.logos?.[0] || data.logoUrl || '';
+        });
+        setBrandLogos(logos);
       } catch (err) {
         console.error('Failed to check brand credits', err);
         setHasNegativeCredits(false);
+        setBrandLogos({});
       }
     };
     checkCredits();
@@ -118,8 +136,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
     setLoading(true);
     const q = query(
       collection(db, 'adGroups'),
-      where('brandCode', 'in', brandCodes),
-      where('status', '==', 'ready')
+      where('brandCode', 'in', brandCodes)
     );
 
     const unsub = onSnapshot(
@@ -148,7 +165,11 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
             let previewSnap;
             try {
               previewSnap = await getDocs(
-                query(collection(db, 'adGroups', d.id, 'assets'), limit(3))
+                query(
+                  collection(db, 'adGroups', d.id, 'assets'),
+                  where('aspectRatio', '==', '1x1'),
+                  limit(3)
+                )
               );
             } catch (err) {
               console.error('Failed to load preview ads', err);
@@ -158,6 +179,10 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
               id: adDoc.id,
               ...adDoc.data(),
             }));
+            group.showLogo =
+              group.previewAds.length === 0 ||
+              group.previewAds.every((a) => a.status === 'pending');
+            group.brandLogo = brandLogos[group.brandCode] || '';
 
             const assetSnap = await getDocs(
               collection(db, 'adGroups', d.id, 'assets')
@@ -204,7 +229,13 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
             return group;
           })
         );
-          setGroups(list.filter((g) => g.status !== 'archived'));
+          setGroups(
+            list.filter(
+              (g) =>
+                g.status !== 'archived' &&
+                (g.status === 'ready' || g.visibility === 'public')
+            )
+          );
           setLoading(false);
         } catch (err) {
           console.error('Failed to fetch groups', err);
@@ -221,6 +252,16 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
 
     return () => unsub();
   }, [brandCodes, user]);
+
+  useEffect(() => {
+    if (Object.keys(brandLogos).length === 0) return;
+    setGroups((prev) =>
+      prev.map((g) => ({
+        ...g,
+        brandLogo: brandLogos[g.brandCode] || g.brandLogo || '',
+      }))
+    );
+  }, [brandLogos]);
 
   return (
     <div className="min-h-screen p-4">
