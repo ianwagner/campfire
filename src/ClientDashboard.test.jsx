@@ -15,6 +15,9 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: jest.fn(),
   limit: jest.fn((n) => n),
 }));
+jest.mock('./useSiteSettings', () =>
+  jest.fn(() => ({ settings: { monthColors: {}, tagStrokeWeight: 1 }, loading: false }))
+);
 
 import {
   collection,
