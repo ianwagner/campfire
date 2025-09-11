@@ -18,6 +18,7 @@ import DesignerDashboard from "./DesignerDashboard";
 import ClientDashboard from "./ClientDashboard";
 import ClientGallery from "./ClientGallery";
 import MediaLibrary from "./MediaLibrary";
+import ClientData from "./ClientData";
 import AdminAdGroups from "./AdminAdGroups";
 import EditorAdGroups from "./EditorAdGroups";
 import AdminRequests from "./AdminRequests";
@@ -355,6 +356,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <MediaLibrary brandCodes={brandCodes} />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/data"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <ClientData brandCodes={brandCodes} />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

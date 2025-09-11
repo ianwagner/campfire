@@ -11,12 +11,14 @@ import {
   FiGrid,
   FiFileText,
   FiImage,
+  FiDatabase,
 } from 'react-icons/fi';
 import { FiFolder } from 'react-icons/fi';
 
 const defaultTabs = [
   { label: 'Projects', path: '/projects', icon: FiFolder },
   { label: 'Media Library', path: '/media-library', icon: FiImage },
+  { label: 'Data', path: '/data', icon: FiDatabase },
   { label: 'Brand Profile', path: '/brand-profile', icon: FiBriefcase },
   { label: 'Account Settings', path: '/account-settings', icon: FiUser },
 ];
