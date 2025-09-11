@@ -59,11 +59,6 @@ const GroupCard = ({ group }) => {
       </div>
       <div className="flex justify-center items-center gap-2 mb-1 text-sm">
         {group.status !== 'ready' && <StatusBadge status={group.status} />}
-        {group.counts.approved > 0 && (
-          <span className="tag bg-green-500 text-white">
-            {group.counts.approved} Approved
-          </span>
-        )}
       </div>
       <h3 className="font-medium text-gray-700 dark:text-white">{group.name}</h3>
       <div className="flex justify-center items-center gap-2 mt-1 text-sm">
@@ -183,6 +178,22 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
               group.previewAds.length === 0 ||
               group.previewAds.every((a) => a.status === 'pending');
             group.brandLogo = brandLogos[group.brandCode] || '';
+            if (!group.brandLogo && group.showLogo) {
+              try {
+                const brandSnap = await getDocs(
+                  query(
+                    collection(db, 'brands'),
+                    where('code', '==', group.brandCode),
+                    limit(1)
+                  )
+                );
+                const brandData = brandSnap.docs[0]?.data();
+                group.brandLogo =
+                  brandData?.logos?.[0] || brandData?.logoUrl || '';
+              } catch (err) {
+                console.error('Failed to load brand logo', err);
+              }
+            }
 
             const assetSnap = await getDocs(
               collection(db, 'adGroups', d.id, 'assets')
