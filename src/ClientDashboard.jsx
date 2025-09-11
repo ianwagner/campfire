@@ -2,9 +2,10 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
+import MonthTag from './components/MonthTag.jsx';
 import parseAdFilename from './utils/parseAdFilename.js';
 import summarizeByRecipe from './utils/summarizeByRecipe.js';
-import { db, auth } from './firebase/config';
+import { db } from './firebase/config';
 import {
   collection,
   getDocs,
@@ -13,11 +14,10 @@ import {
   doc,
   updateDoc,
   limit,
-  serverTimestamp,
   onSnapshot,
 } from 'firebase/firestore';
 
-const GroupCard = ({ group, onArchive }) => {
+const GroupCard = ({ group }) => {
   const rotations = useMemo(
     () => group.previewAds.map(() => Math.random() * 10 - 5),
     [group.id, group.previewAds.length]
@@ -49,28 +49,18 @@ const GroupCard = ({ group, onArchive }) => {
         ))}
       </div>
       <div className="flex justify-center items-center gap-2 mb-1 text-sm">
-        {group.status !== "ready" && <StatusBadge status={group.status} />}
-        {group.hasReady ? (
-          <span className="tag tag-new">New!</span>
-        ) : group.counts.approved > 0 ? (
+        {group.status !== 'ready' && <StatusBadge status={group.status} />}
+        {group.counts.approved > 0 && (
           <span className="tag bg-green-500 text-white">
             {group.counts.approved} Approved
           </span>
-        ) : null}
+        )}
       </div>
       <h3 className="font-medium text-gray-700 dark:text-white">{group.name}</h3>
-      {onArchive && (
-        <button
-          className="btn-secondary mt-2"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onArchive();
-          }}
-        >
-          Archive
-        </button>
-      )}
+      <div className="flex justify-center items-center gap-2 mt-1 text-sm">
+        {group.month && <MonthTag month={group.month} />}
+        <span className="text-gray-500 dark:text-gray-300">{group.totalAds} ads</span>
+      </div>
     </Link>
   );
 };
@@ -79,20 +69,23 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasNegativeCredits, setHasNegativeCredits] = useState(false);
+  const [filter, setFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState('');
 
-  const handleArchive = async (id) => {
-    if (!window.confirm('Archive this group?')) return;
-    try {
-      await updateDoc(doc(db, 'adGroups', id), {
-        status: 'archived',
-        archivedAt: serverTimestamp(),
-        archivedBy: auth.currentUser?.uid || null,
-      });
-      setGroups((prev) => prev.filter((g) => g.id !== id));
-    } catch (err) {
-      console.error('Failed to archive group', err);
-    }
-  };
+  const months = useMemo(
+    () =>
+      Array.from(new Set(groups.map((g) => g.month).filter(Boolean))).sort(),
+    [groups]
+  );
+  const filteredGroups = useMemo(
+    () =>
+      groups.filter(
+        (g) =>
+          g.name.toLowerCase().includes(filter.toLowerCase()) &&
+          (!monthFilter || g.month === monthFilter)
+      ),
+    [groups, filter, monthFilter]
+  );
 
   useEffect(() => {
     if (brandCodes.length === 0) {
@@ -166,27 +159,14 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
               ...adDoc.data(),
             }));
 
-            let hasReady = false;
-            try {
-              const readySnap = await getDocs(
-                query(
-                  collection(db, 'adGroups', d.id, 'assets'),
-                  where('status', '==', 'ready'),
-                  limit(1)
-                )
-              );
-              hasReady = !readySnap.empty;
-            } catch (err) {
-              console.error('Failed to check ready status', err);
-            }
-            group.hasReady = hasReady;
-
             const assetSnap = await getDocs(
               collection(db, 'adGroups', d.id, 'assets')
             );
             const summary = summarizeByRecipe(
               assetSnap.docs.map((adDoc) => adDoc.data())
             );
+
+            group.totalAds = assetSnap.docs.length;
 
             group.thumbnail = group.thumbnail || summary.thumbnail;
             group.counts = {
@@ -249,14 +229,42 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
           Your credit balance is negative. Please add more credits.
         </div>
       )}
+      <div className="flex items-center gap-2 mb-4">
+        <input
+          type="text"
+          placeholder="Search groups"
+          className="border px-2 py-1 rounded flex-1"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+        <select
+          className="border px-2 py-1 rounded"
+          value={monthFilter}
+          onChange={(e) => setMonthFilter(e.target.value)}
+        >
+          <option value="">All months</option>
+          {months.map((m) => {
+            const label = new Date(
+              Number(m.slice(0, 4)),
+              Number(m.slice(-2)) - 1,
+              1
+            ).toLocaleString('default', { month: 'short', year: 'numeric' });
+            return (
+              <option key={m} value={m}>
+                {label}
+              </option>
+            );
+          })}
+        </select>
+      </div>
       {loading ? (
         <p>Loading groups...</p>
-      ) : groups.length === 0 ? (
+      ) : filteredGroups.length === 0 ? (
         <p>No ad groups found.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {groups.map((g) => (
-            <GroupCard key={g.id} group={g} onArchive={() => handleArchive(g.id)} />
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
+          {filteredGroups.map((g) => (
+            <GroupCard key={g.id} group={g} />
           ))}
         </div>
       )}
