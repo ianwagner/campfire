@@ -256,6 +256,8 @@ const ClientProjects = ({ brandCodes = [] }) => {
       where('userId', '==', auth.currentUser.uid),
       orderBy('createdAt', 'desc')
     );
+    // This query requires a Firestore composite index on projects
+    // with fields: userId (ASC) and createdAt (DESC)
     const groupQ = query(
       collection(db, 'adGroups'),
       where('uploadedBy', '==', auth.currentUser.uid)
