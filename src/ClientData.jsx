@@ -209,7 +209,13 @@ const ClientData = ({ brandCodes = [] }) => {
               if (match) aspect = match[1];
             }
             aspect = aspect.replace(/_?V\d+$/i, '').replace(/s$/, '');
-            if (!['1x1', '9x16'].includes(aspect)) return;
+            if (!['1x1', '9x16'].includes(aspect)) {
+              if (!aspect) {
+                aspect = '9x16';
+              } else {
+                return;
+              }
+            }
             const label = aspect;
             const entry = { url, label, status: aData.status || '' };
             if (!assetMap[recipe]) assetMap[recipe] = [];
