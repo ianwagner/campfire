@@ -283,7 +283,7 @@ const ClientData = ({ brandCodes = [] }) => {
                 : assetMap[String(recipeNo)] || [];
             const status = assets[0]?.status || rData.status || '';
             const row = {
-              id: `${gDoc.id}_${rDoc.id}`,
+              id: `${gDoc.id}|${rDoc.id}`,
               groupName: gData.name || gDoc.id,
               recipeNo,
               product,
@@ -330,7 +330,7 @@ const ClientData = ({ brandCodes = [] }) => {
   const handleSave = async () => {
     const updates = [];
     Object.entries(editedRows).forEach(([rowId, changes]) => {
-      const [groupId, recipeId] = rowId.split('_');
+      const [groupId, recipeId] = rowId.split('|');
       if (!groupId || !recipeId) return;
       const payload = {};
       Object.entries(changes).forEach(([k, v]) => {
