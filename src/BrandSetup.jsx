@@ -40,6 +40,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const [name, setName] = useState('');
   const [agencyId, setAgencyId] = useState('');
   const [offering, setOffering] = useState('');
+  const [storeId, setStoreId] = useState('');
   const [driveFolderId, setDriveFolderId] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -65,6 +66,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             setName(data.name || '');
             setAgencyId(data.agencyId || '');
             setOffering(data.offering || '');
+            setStoreId(data.storeId || '');
             setDriveFolderId(data.driveFolderId || '');
             setGuidelines({ url: data.guidelinesUrl || '', file: null });
             setLogos(
@@ -97,6 +99,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             setName(data.name || '');
             setAgencyId(data.agencyId || '');
             setOffering(data.offering || '');
+            setStoreId(data.storeId || '');
             setDriveFolderId(data.driveFolderId || '');
             setGuidelines({ url: data.guidelinesUrl || '', file: null });
             setLogos(
@@ -176,6 +179,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
           palette,
           fonts: fontData,
           offering,
+          storeId: storeId.trim(),
           driveFolderId: trimmedId,
         },
         { merge: true }
@@ -184,6 +188,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
       setLogos(logoUrls.map((u) => ({ url: u, file: null })));
       setFonts(fontData.map((f) => ({ ...f, file: null })));
       setDriveFolderId(trimmedId);
+      setStoreId(storeId.trim());
       setMessage('Brand assets saved');
       setDirty(false);
       setEditing(false);
@@ -314,6 +319,17 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             value={offering}
             onChange={(e) => {
               setOffering(e.target.value);
+              setDirty(true);
+            }}
+            className="w-full p-2 border rounded"
+          />
+        </FormField>
+        <FormField label="Store ID">
+          <input
+            type="text"
+            value={storeId}
+            onChange={(e) => {
+              setStoreId(e.target.value);
               setDirty(true);
             }}
             className="w-full p-2 border rounded"
