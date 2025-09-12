@@ -1332,19 +1332,7 @@ test('client approval updates group status', async () => {
 
 test('brief review collects feedback', async () => {
   const assetSnapshot = {
-    docs: [
-      {
-        id: 'asset1',
-        data: () => ({
-          firebaseUrl: 'url1',
-          status: 'ready',
-          isResolved: false,
-          adGroupId: 'group1',
-          brandCode: 'BR1',
-          recipeCode: 'R1',
-        }),
-      },
-    ],
+    docs: [],
   };
 
   mockGetDocs.mockImplementation((args) => {
@@ -1359,7 +1347,10 @@ test('brief review collects feedback', async () => {
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
 
   await screen.findByText('Your brief is ready!');
-  fireEvent.click(screen.getByText('Review Brief'));
+  const briefBtn = screen.getByText('See Brief');
+  expect(briefBtn).toBeEnabled();
+  expect(screen.queryByText('Ad Gallery')).not.toBeInTheDocument();
+  fireEvent.click(briefBtn);
   const fbBtn = screen.getByLabelText('leave overall feedback');
   fireEvent.click(fbBtn);
   const textarea = await screen.findByPlaceholderText('leave overall feedback...');
