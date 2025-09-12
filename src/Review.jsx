@@ -103,6 +103,7 @@ const Review = forwardRef(
   const [versionView, setVersionView] = useState('current');
   const [versionIndex, setVersionIndex] = useState(0); // index into versions array
   const [recipes, setRecipes] = useState([]); // ad recipes for brief review
+  const [recipesLoaded, setRecipesLoaded] = useState(false);
   const [groupBrandCode, setGroupBrandCode] = useState('');
   const [finalGallery, setFinalGallery] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
@@ -416,16 +417,22 @@ useEffect(() => {
               rv = data.reviewVersion || 1;
               setGroupBrandCode(data.brandCode || '');
               if (rv === 3) {
-                const rSnap = await getDocs(
-                  collection(db, 'adGroups', groupId, 'recipes')
-                );
-                setRecipes(
-                  rSnap.docs.map((d, idx) => ({
-                    recipeNo: idx + 1,
-                    id: d.id,
-                    ...d.data(),
-                  }))
-                );
+                try {
+                  const rSnap = await getDocs(
+                    collection(db, 'adGroups', groupId, 'recipes')
+                  );
+                  setRecipes(
+                    rSnap.docs.map((d, idx) => ({
+                      recipeNo: idx + 1,
+                      id: d.id,
+                      ...d.data(),
+                    }))
+                  );
+                } finally {
+                  setRecipesLoaded(true);
+                }
+              } else {
+                setRecipesLoaded(true);
               }
               if (status === 'reviewed') status = 'done';
               if (status === 'review pending' || status === 'in review') status = 'ready';
@@ -1377,7 +1384,7 @@ useEffect(() => {
     reviewVersion === null ||
     !logoReady ||
     (started && !firstAdLoaded) ||
-    (reviewVersion === 3 && recipes.length === 0)
+    (reviewVersion === 3 && !recipesLoaded)
   ) {
     return <LoadingOverlay />;
   }

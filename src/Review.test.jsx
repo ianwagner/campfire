@@ -1359,3 +1359,26 @@ test('brief review collects feedback', async () => {
   await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
 });
 
+test('brief review displays when no recipes', async () => {
+  const assetSnapshot = {
+    docs: [],
+  };
+
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    if (col[1] === 'recipes') return Promise.resolve({ docs: [] });
+    return Promise.resolve({ docs: [] });
+  });
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 3 }),
+  });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
+
+  await screen.findByText('Your brief is ready!');
+  const briefBtn = screen.getByText('See Brief');
+  expect(briefBtn).toBeEnabled();
+});
+
