@@ -1496,7 +1496,13 @@ useEffect(() => {
     );
   }
 
-  if (!ads || ads.length === 0) {
+  if (reviewVersion === 3 && (!recipes || recipes.length === 0)) {
+    return (
+      <div className="text-center mt-10">No briefs assigned to your account.</div>
+    );
+  }
+
+  if (reviewVersion !== 3 && (!ads || ads.length === 0)) {
     return (
       <div className="text-center mt-10">
         {hasPending ? 'ads are pending' : 'No ads assigned to your account.'}
