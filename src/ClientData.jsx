@@ -117,7 +117,19 @@ const ClientData = ({ brandCodes = [] }) => {
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editedRows, setEditedRows] = useState({});
-  const nonEditable = new Set(['recipeNo', '1x1', '9x16', 'storeId', 'groupName']);
+  const [showApprovedOnly, setShowApprovedOnly] = useState(false);
+  const nonEditable = new Set([
+    'recipeNo',
+    '1x1',
+    '9x16',
+    'storeId',
+    'groupName',
+    'product',
+    'status',
+  ]);
+  const displayedRows = showApprovedOnly
+    ? rows.filter((r) => (r.status || '').toLowerCase() === 'approved')
+    : rows;
 
   useEffect(() => {
     const fetchFilters = async () => {
@@ -343,12 +355,12 @@ const ClientData = ({ brandCodes = [] }) => {
   };
 
   const handleExport = () => {
-    if (!rows.length) return;
+    if (!displayedRows.length) return;
     const headers = allColumnDefs.map((c) => c.label);
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const csv = [
       headers.join(','),
-      ...rows.map((r) =>
+      ...displayedRows.map((r) =>
         allColumnDefs
           .map((c) => {
             switch (c.key) {
@@ -416,21 +428,33 @@ const ClientData = ({ brandCodes = [] }) => {
               </option>
             ))}
           </select>
+          <label className="flex items-center space-x-1">
+            <input
+              type="checkbox"
+              checked={showApprovedOnly}
+              onChange={(e) => setShowApprovedOnly(e.target.checked)}
+            />
+            <span>Approved Only</span>
+          </label>
         </div>
         <div className="flex space-x-2">
           <IconButton
             onClick={editMode ? handleSave : () => setEditMode(true)}
             aria-label={editMode ? 'Save' : 'Edit'}
-            disabled={rows.length === 0}
-            className={`text-xl ${rows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={displayedRows.length === 0}
+            className={`text-xl ${
+              displayedRows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           >
             {editMode ? <FiSave /> : <FiEdit2 />}
           </IconButton>
           <IconButton
             onClick={handleExport}
             aria-label="Export CSV"
-            disabled={rows.length === 0}
-            className={`text-xl ${rows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={displayedRows.length === 0}
+            className={`text-xl ${
+              displayedRows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           >
             <FiDownload />
           </IconButton>
@@ -438,7 +462,7 @@ const ClientData = ({ brandCodes = [] }) => {
       </div>
       {loading ? (
         <p>Loading...</p>
-      ) : rows.length > 0 ? (
+      ) : displayedRows.length > 0 ? (
         <Table columns={allColumnDefs.map((c) => c.width)}>
           <thead>
             <tr>
@@ -450,7 +474,7 @@ const ClientData = ({ brandCodes = [] }) => {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {displayedRows.map((r) => (
               <tr key={r.id}>
                 {allColumnDefs.map((c) => {
                   switch (c.key) {
@@ -484,8 +508,7 @@ const ClientData = ({ brandCodes = [] }) => {
                     default:
                       const original = r[c.key] ?? '';
                       const value = editedRows[r.id]?.[c.key] ?? original;
-                      const editable =
-                        editMode && !nonEditable.has(c.key) && original !== '';
+                      const editable = editMode && !nonEditable.has(c.key);
                       return (
                         <td key={c.key} className={c.cellClass || ''}>
                           {editable ? (
