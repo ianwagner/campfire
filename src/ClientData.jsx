@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { FiDownload } from 'react-icons/fi';
+import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { FiDownload, FiEdit2, FiSave } from 'react-icons/fi';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 import Button from './components/Button.jsx';
@@ -20,6 +20,7 @@ const formatMonth = (m) => {
 
 const baseColumnDefs = [
   { key: 'storeId', label: 'Store ID', width: 'auto' },
+  { key: 'groupName', label: 'Ad Group', width: 'auto' },
   {
     key: 'recipeNo',
     label: 'Recipe #',
@@ -44,14 +45,14 @@ const assetCols = [
   {
     key: '1x1',
     label: '1x1',
-    width: '8rem',
+    width: '48px',
     headerClass: 'text-center',
     cellClass: 'text-center',
   },
   {
     key: '9x16',
     label: '9x16',
-    width: '8rem',
+    width: '48px',
     headerClass: 'text-center',
     cellClass: 'text-center',
   },
@@ -114,6 +115,9 @@ const ClientData = ({ brandCodes = [] }) => {
   const [brand, setBrand] = useState('');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editedRows, setEditedRows] = useState({});
+  const nonEditable = new Set(['recipeNo', '1x1', '9x16', 'storeId', 'groupName']);
 
   useEffect(() => {
     const fetchFilters = async () => {
@@ -268,6 +272,7 @@ const ClientData = ({ brandCodes = [] }) => {
             const status = assets[0]?.status || rData.status || '';
             const row = {
               id: `${gDoc.id}_${rDoc.id}`,
+              groupName: gData.name || gDoc.id,
               recipeNo,
               product,
               url,
@@ -302,6 +307,40 @@ const ClientData = ({ brandCodes = [] }) => {
     };
     fetchRows();
   }, [brand, month, dueMonth, brandCodes]);
+
+  const handleCellChange = (rowId, key, value) => {
+    setEditedRows((prev) => ({
+      ...prev,
+      [rowId]: { ...(prev[rowId] || {}), [key]: value },
+    }));
+  };
+
+  const handleSave = async () => {
+    const updates = [];
+    Object.entries(editedRows).forEach(([rowId, changes]) => {
+      const [groupId, recipeId] = rowId.split('_');
+      if (!groupId || !recipeId) return;
+      const payload = {};
+      Object.entries(changes).forEach(([k, v]) => {
+        if (!nonEditable.has(k)) {
+          payload[k] = v;
+        }
+      });
+      if (Object.keys(payload).length > 0) {
+        updates.push(updateDoc(doc(db, 'adGroups', groupId, 'recipes', recipeId), payload));
+      }
+    });
+    try {
+      await Promise.all(updates);
+      setRows((prev) =>
+        prev.map((r) => (editedRows[r.id] ? { ...r, ...editedRows[r.id] } : r)),
+      );
+      setEditMode(false);
+      setEditedRows({});
+    } catch (err) {
+      console.error('Failed to save edits', err);
+    }
+  };
 
   const handleExport = () => {
     if (!rows.length) return;
@@ -378,14 +417,24 @@ const ClientData = ({ brandCodes = [] }) => {
             ))}
           </select>
         </div>
-        <IconButton
-          onClick={handleExport}
-          aria-label="Export CSV"
-          disabled={rows.length === 0}
-          className={`text-xl ${rows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <FiDownload />
-        </IconButton>
+        <div className="flex space-x-2">
+          <IconButton
+            onClick={editMode ? handleSave : () => setEditMode(true)}
+            aria-label={editMode ? 'Save' : 'Edit'}
+            disabled={rows.length === 0}
+            className={`text-xl ${rows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {editMode ? <FiSave /> : <FiEdit2 />}
+          </IconButton>
+          <IconButton
+            onClick={handleExport}
+            aria-label="Export CSV"
+            disabled={rows.length === 0}
+            className={`text-xl ${rows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <FiDownload />
+          </IconButton>
+        </div>
       </div>
       {loading ? (
         <p>Loading...</p>
@@ -433,7 +482,25 @@ const ClientData = ({ brandCodes = [] }) => {
                         </td>
                       );
                     default:
-                      return <td key={c.key}>{r[c.key] ?? '-'}</td>;
+                      const original = r[c.key] ?? '';
+                      const value = editedRows[r.id]?.[c.key] ?? original;
+                      const editable =
+                        editMode && !nonEditable.has(c.key) && original !== '';
+                      return (
+                        <td key={c.key} className={c.cellClass || ''}>
+                          {editable ? (
+                            <input
+                              className="w-full p-1 border rounded"
+                              value={value}
+                              onChange={(e) =>
+                                handleCellChange(r.id, c.key, e.target.value)
+                              }
+                            />
+                          ) : (
+                            value || '-'
+                          )}
+                        </td>
+                      );
                   }
                 })}
               </tr>
