@@ -261,6 +261,7 @@ const ClientData = ({ brandCodes = [] }) => {
               rData.components?.['product.name'] ||
               '';
             const url =
+              rData.metadata?.url ||
               rData.url ||
               rData.product?.url ||
               rData.components?.product?.url ||
@@ -276,7 +277,27 @@ const ClientData = ({ brandCodes = [] }) => {
               rData.components?.angle ||
               rData.angle ||
               '';
-            const audience = rData.audience || rData.components?.audience || '';
+            const audience =
+              rData.metadata?.audience ||
+              rData.audience ||
+              rData.components?.audience ||
+              '';
+            const moment =
+              rData.metadata?.moment ||
+              gData.metadata?.moment ||
+              '';
+            const funnel =
+              rData.metadata?.funnel ||
+              gData.metadata?.funnel ||
+              '';
+            const goLive =
+              rData.metadata?.goLive ||
+              gData.metadata?.goLive ||
+              '';
+            const primary = rData.metadata?.primary || copy.primary || '';
+            const headline = rData.metadata?.headline || copy.headline || '';
+            const description =
+              rData.metadata?.description || copy.description || '';
             const assets =
               rData.status === 'archived' || rData.status === 'rejected'
                 ? []
@@ -291,9 +312,12 @@ const ClientData = ({ brandCodes = [] }) => {
               angle,
               audience,
               status,
-              primary: copy.primary || '',
-              headline: copy.headline || '',
-              description: copy.description || '',
+              primary,
+              headline,
+              description,
+              moment,
+              funnel,
+              goLive,
               ...groupMeta,
               ...recipeMeta,
             };
@@ -303,9 +327,6 @@ const ClientData = ({ brandCodes = [] }) => {
               }
             });
             row.storeId = brandStoreId || gData.storeId || row.storeId || '';
-            row.moment = row.moment || '';
-            row.funnel = row.funnel || '';
-            row.goLive = row.goLive || '';
             list.push(row);
           });
         }
@@ -335,7 +356,7 @@ const ClientData = ({ brandCodes = [] }) => {
       const payload = {};
       Object.entries(changes).forEach(([k, v]) => {
         if (!nonEditable.has(k)) {
-          payload[k] = v;
+          payload[`metadata.${k}`] = v;
         }
       });
       if (Object.keys(payload).length > 0) {
