@@ -176,7 +176,11 @@ const ClientData = ({ brandCodes = [] }) => {
           args.push(where('dueDate', '>=', start));
           args.push(where('dueDate', '<', end));
         }
-        const gSnap = await getDocs(query(...args));
+        const [gSnap, brandSnap] = await Promise.all([
+          getDocs(query(...args)),
+          getDocs(query(collection(db, 'brands'), where('code', '==', brand))),
+        ]);
+        const brandStoreId = brandSnap.empty ? '' : brandSnap.docs[0].data().storeId || '';
         const list = [];
         for (const gDoc of gSnap.docs) {
           const gData = gDoc.data();
@@ -281,7 +285,7 @@ const ClientData = ({ brandCodes = [] }) => {
                 row[label] = url;
               }
             });
-            row.storeId = gData.storeId || row.storeId || '';
+            row.storeId = brandStoreId || gData.storeId || row.storeId || '';
             row.moment = row.moment || '';
             row.funnel = row.funnel || '';
             row.goLive = row.goLive || '';
