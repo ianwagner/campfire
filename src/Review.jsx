@@ -1424,21 +1424,25 @@ useEffect(() => {
               setCurrentIndex(0);
               setStarted(true);
             }}
-            disabled={loading || ads.length === 0}
+            disabled={loading || (reviewVersion !== 3 && ads.length === 0)}
             className={`btn-primary px-6 py-3 text-lg ${
-              loading || ads.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+              loading || (reviewVersion !== 3 && ads.length === 0)
+                ? 'opacity-50 cursor-not-allowed'
+                : ''
             }`}
           >
             <FiCheck className="mr-2" />{' '}
-            {reviewVersion === 3 ? 'Review Brief' : 'Review Ads'}
+            {reviewVersion === 3 ? 'See Brief' : 'Review Ads'}
           </button>
           <div className="flex space-x-2">
-            <button
-              onClick={() => setShowGallery(true)}
-              className="btn-secondary"
-            >
-              <FiGrid className="mr-1" /> Ad Gallery
-            </button>
+            {ads.length > 0 && (
+              <button
+                onClick={() => setShowGallery(true)}
+                className="btn-secondary"
+              >
+                <FiGrid className="mr-1" /> Ad Gallery
+              </button>
+            )}
             {copyCards.length > 0 && (
               <button
                 onClick={() => setShowCopyModal(true)}
