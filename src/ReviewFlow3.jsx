@@ -4,6 +4,7 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import Button from './components/Button.jsx';
+import Modal from './components/Modal.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 
 const STATUS_META = {
@@ -33,14 +34,15 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
   const [editCopy, setEditCopy] = useState('');
   const [origCopy, setOrigCopy] = useState('');
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showCopyField, setShowCopyField] = useState(true);
 
-  const openEditModal = (key) => {
+  const openEditModal = (key, withCopy = true) => {
     const group = groups.find((g) => (g.recipeCode || g.id) === key) || {};
     const copy =
+      group.assets?.[0]?.meta?.copy ||
       group.latestCopy ||
       group.copy ||
       group.assets?.[0]?.copy ||
-      group.assets?.[0]?.meta?.copy ||
       '';
     const prev = editRequests[key];
     setComment('');
@@ -48,13 +50,14 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     setOrigCopy(copy);
     setPrevStatus(statuses[key]);
     setCurrentKey(key);
+    setShowCopyField(withCopy);
     setShowEditModal(true);
   };
 
   const handleStatus = (key, value) => {
     if (value === 'edit requested') {
       setStatuses((prev) => ({ ...prev, [key]: value }));
-      openEditModal(key);
+      openEditModal(key, true);
       return;
     }
     setStatuses((prev) => ({ ...prev, [key]: value }));
@@ -101,18 +104,20 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     setComment('');
     setEditCopy('');
     setOrigCopy('');
+    setShowCopyField(true);
   };
 
   const submitEdit = () => {
     if (currentKey === null) return;
     setEditRequests((prev) => {
       const existing = prev[currentKey] || { comments: [], editCopy };
+      const nextEditCopy = showCopyField ? editCopy : existing.editCopy;
       const comments = comment.trim()
         ? [...(existing.comments || []), { author: reviewerName, text: comment.trim() }]
         : existing.comments || [];
       return {
         ...prev,
-        [currentKey]: { editCopy, comments },
+        [currentKey]: { editCopy: nextEditCopy, comments },
       };
     });
     setShowEditModal(false);
@@ -121,6 +126,7 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     setComment('');
     setEditCopy('');
     setOrigCopy('');
+    setShowCopyField(true);
   };
 
   return (
@@ -199,12 +205,17 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
                     <span className="font-medium">{c.author}:</span> {c.text}
                   </div>
                 ))}
+                {editRequest?.editCopy && (
+                  <div className="mt-1">
+                    <span className="font-medium">Requested copy:</span> {editRequest.editCopy}
+                  </div>
+                )}
                 <button
                   type="button"
                   className="flex items-center gap-1 text-xs underline mt-2"
-                  onClick={() => openEditModal(key)}
+                  onClick={() => openEditModal(key, false)}
                 >
-                  <FiPlus /> Add comment
+                  <FiPlus /> add comment
                 </button>
               </div>
             )}
@@ -218,52 +229,52 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
           editCopy={editCopy}
           onEditCopyChange={setEditCopy}
           origCopy={origCopy}
+          showCopyField={showCopyField}
           canSubmit={
             comment.trim().length > 0 ||
-            (editCopy.trim() && editCopy.trim() !== origCopy.trim())
+            (showCopyField && editCopy.trim() && editCopy.trim() !== origCopy.trim())
           }
           onCancel={cancelEdit}
           onSubmit={submitEdit}
           submitting={false}
         />
       )}
-      <Button
-        variant="approve"
-        className="fixed bottom-4 right-4 z-10"
+      <button
+        type="button"
+        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 text-sm border border-gray-300 rounded bg-white shadow dark:bg-[var(--dark-sidebar-bg)] dark:border-gray-600 dark:text-[var(--dark-text)]"
         onClick={handleApproveClick}
       >
-        Approve All
-      </Button>
+        Approve all
+      </button>
       {showApproveModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded-xl shadow max-w-sm w-full space-y-4 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <p>
-              Some ads already have edit requests or rejections. Would you like to leave those as they are, or mark every ad as approved?
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  approvePending();
-                  setShowApproveModal(false);
-                }}
-                className="px-3 py-1"
-              >
-                Approve pending ads
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  approveAll();
-                  setShowApproveModal(false);
-                }}
-                className="px-3 py-1"
-              >
-                Approve all ads
-              </Button>
-            </div>
+        <Modal className="space-y-4">
+          <h2 className="text-lg font-semibold">Approve all ads</h2>
+          <p>
+            Some ads already have edit requests or rejections. Would you like to leave those as they are, or mark every ad as approved?
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                approvePending();
+                setShowApproveModal(false);
+              }}
+              className="px-3 py-1"
+            >
+              Approve pending ads
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                approveAll();
+                setShowApproveModal(false);
+              }}
+              className="px-3 py-1"
+            >
+              Approve all ads
+            </Button>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
