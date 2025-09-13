@@ -13,16 +13,19 @@ const EditRequestModal = ({
   onSubmit,
   submitting,
   showCopyField = true,
+  showCommentField = true,
 }) => (
   <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
     <div className="bg-white p-4 rounded-xl shadow max-w-sm w-full space-y-2 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-      <textarea
-        value={comment}
-        onChange={(e) => onCommentChange(e.target.value)}
-        className="w-full p-2 border rounded"
-        placeholder="Add comments..."
-        rows={3}
-      />
+      {showCommentField && (
+        <textarea
+          value={comment}
+          onChange={(e) => onCommentChange(e.target.value)}
+          className="w-full p-2 border rounded"
+          placeholder="Add comments..."
+          rows={3}
+        />
+      )}
       {showCopyField && (
         <>
           <p className="text-sm font-medium">Change copy</p>
