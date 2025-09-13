@@ -20,7 +20,7 @@ const ReviewFlow3 = ({ groups = [] }) => {
     return map;
   };
 
-  const [statuses, setStatuses] = useState(() => initStatuses());
+  const [statuses, setStatuses] = useState(initStatuses);
   const [open, setOpen] = useState({});
 
   const handleStatus = (key, value) => {
@@ -31,7 +31,7 @@ const ReviewFlow3 = ({ groups = [] }) => {
     <div className="space-y-4">
       {groups.map((group) => {
         const key = group.recipeCode || group.id;
-        const status = statuses[key] || 'pending';
+        const status = statuses[key];
         return (
           <div key={key} className="border rounded p-4">
             <div className="flex flex-wrap justify-center gap-4">
