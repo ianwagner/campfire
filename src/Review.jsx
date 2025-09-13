@@ -378,13 +378,24 @@ useEffect(() => {
       const recipe = a.recipeCode || info.recipeCode || 'unknown';
       const aspect = a.aspectRatio || info.aspectRatio || '';
       const item = { ...a, recipeCode: recipe, aspectRatio: aspect };
-      if (!map[recipe]) map[recipe] = [];
-      map[recipe].push(item);
+      if (!map[recipe]) {
+        map[recipe] = { assets: [], status: a.status || 'pending' };
+      }
+      map[recipe].assets.push(item);
+      if (
+        map[recipe].status === 'pending' &&
+        a.status &&
+        a.status !== 'pending'
+      ) {
+        map[recipe].status = a.status;
+      }
     });
     const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
-    return Object.entries(map).map(([recipeCode, list]) => {
-      list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
-      return { recipeCode, assets: list };
+    return Object.entries(map).map(([recipeCode, data]) => {
+      data.assets.sort(
+        (a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99)
+      );
+      return { recipeCode, assets: data.assets, status: data.status };
     });
   }, [ads]);
 
