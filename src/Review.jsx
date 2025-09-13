@@ -38,7 +38,7 @@ import GalleryModal from './components/GalleryModal.jsx';
 import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
-import RecipePreview from './RecipePreview.jsx';
+import ReviewFlow3 from './ReviewFlow3.jsx';
 import FeedbackPanel from './components/FeedbackPanel.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
@@ -102,8 +102,7 @@ const Review = forwardRef(
   const [versionModal, setVersionModal] = useState(null); // {current, previous}
   const [versionView, setVersionView] = useState('current');
   const [versionIndex, setVersionIndex] = useState(0); // index into versions array
-  const [recipes, setRecipes] = useState([]); // ad recipes for brief review
-  const [recipesLoaded, setRecipesLoaded] = useState(false);
+  // review flow 3 uses continuous scroll of ads; recipes no longer needed
   const [groupBrandCode, setGroupBrandCode] = useState('');
   const [finalGallery, setFinalGallery] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
@@ -416,24 +415,6 @@ useEffect(() => {
               status = data.status || 'pending';
               rv = data.reviewVersion || 1;
               setGroupBrandCode(data.brandCode || '');
-              if (rv === 3) {
-                try {
-                  const rSnap = await getDocs(
-                    collection(db, 'adGroups', groupId, 'recipes')
-                  );
-                  setRecipes(
-                    rSnap.docs.map((d, idx) => ({
-                      recipeNo: idx + 1,
-                      id: d.id,
-                      ...d.data(),
-                    }))
-                  );
-                } finally {
-                  setRecipesLoaded(true);
-                }
-              } else {
-                setRecipesLoaded(true);
-              }
               if (status === 'reviewed') status = 'done';
               if (status === 'review pending' || status === 'in review') status = 'ready';
               if (typeof data.reviewProgress === 'number') {
@@ -1383,8 +1364,7 @@ useEffect(() => {
   if (
     reviewVersion === null ||
     !logoReady ||
-    (started && !firstAdLoaded) ||
-    (reviewVersion === 3 && !recipesLoaded)
+    (started && !firstAdLoaded)
   ) {
     return <LoadingOverlay />;
   }
@@ -1406,9 +1386,7 @@ useEffect(() => {
             className="mb-2 max-h-16 w-auto"
           />
         )}
-        <h1 className="text-2xl font-bold">
-          {reviewVersion === 3 ? 'Your brief is ready!' : 'Your ads are ready!'}
-        </h1>
+        <h1 className="text-2xl font-bold">Your ads are ready!</h1>
         <div className="flex flex-col items-center space-y-3">
           <button
             onClick={() => {
@@ -1431,15 +1409,12 @@ useEffect(() => {
               setCurrentIndex(0);
               setStarted(true);
             }}
-            disabled={loading || (reviewVersion !== 3 && ads.length === 0)}
+            disabled={loading || ads.length === 0}
             className={`btn-primary px-6 py-3 text-lg ${
-              loading || (reviewVersion !== 3 && ads.length === 0)
-                ? 'opacity-50 cursor-not-allowed'
-                : ''
+              loading || ads.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
-            <FiCheck className="mr-2" />{' '}
-            {reviewVersion === 3 ? 'See Brief' : 'Review Ads'}
+            <FiCheck className="mr-2" /> Review Ads
           </button>
           <div className="flex space-x-2">
             {ads.length > 0 && (
@@ -1496,13 +1471,7 @@ useEffect(() => {
     );
   }
 
-  if (reviewVersion === 3 && (!recipes || recipes.length === 0)) {
-    return (
-      <div className="text-center mt-10">No briefs assigned to your account.</div>
-    );
-  }
-
-  if (reviewVersion !== 3 && (!ads || ads.length === 0)) {
+  if (!ads || ads.length === 0) {
     return (
       <div className="text-center mt-10">
         {hasPending ? 'ads are pending' : 'No ads assigned to your account.'}
@@ -1669,17 +1638,7 @@ useEffect(() => {
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
-            <div className="w-full max-w-5xl">
-              <RecipePreview
-                initialResults={recipes}
-                showOnlyResults
-                brandCode={groupBrandCode}
-                hideBrandSelect
-                showColumnButton={false}
-                externalOnly
-                hideActions
-              />
-            </div>
+            <ReviewFlow3 groups={recipeGroups} />
           ) : reviewVersion === 2 ? (
             <div className="p-4 rounded flex flex-wrap justify-center gap-4 relative">
               {(currentRecipeGroup?.assets || []).map((a, idx) => (
