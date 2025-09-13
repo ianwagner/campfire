@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FiPlus } from 'react-icons/fi';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
@@ -37,19 +37,6 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
   const [showCopyField, setShowCopyField] = useState(true);
   const [reviewFinalized, setReviewFinalized] = useState(false);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
-  const statusRef = useRef(null);
-  const [stuck, setStuck] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!statusRef.current) return;
-      const { top } = statusRef.current.getBoundingClientRect();
-      setStuck(top <= 0);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const statusCounts = useMemo(() => {
     const counts = { pending: 0, approved: 0, rejected: 0, 'edit requested': 0 };
@@ -166,22 +153,14 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
 
   return (
     <div className="space-y-4 pt-24">
-      <div ref={statusRef} className="sticky top-0 z-30 flex justify-center">
-        <div
-          className={`min-w-[340px] rounded-lg border border-gray-300 bg-white px-4 py-2 shadow flex items-center gap-4 dark:bg-[var(--dark-sidebar-bg)] dark:border-gray-600 dark:text-[var(--dark-text)] transition-opacity duration-200 ${stuck ? 'opacity-60 hover:opacity-100' : 'opacity-100'}`}
-        >
-          <div>
-            <div
-              className="font-semibold truncate max-w-[200px]"
-              title={groupTitle}
-            >
-              {groupTitle}
-            </div>
-            <div className="text-xs">
-              {reviewFinalized ? 'Review Finalized' : 'Review in Progress'}
-            </div>
+      <div className="fixed top-2 left-1/2 -translate-x-1/2 z-30 min-w-[340px] rounded-lg border border-gray-300 bg-white px-4 py-2 shadow flex items-center gap-4 dark:bg-[var(--dark-sidebar-bg)] dark:border-gray-600 dark:text-[var(--dark-text)]">
+        <div>
+          <div className="font-semibold">{groupTitle}</div>
+          <div className="text-xs">
+            {reviewFinalized ? 'Review Finalized' : 'Review in Progress'}
           </div>
-          <div className="flex gap-4 ml-4">
+        </div>
+        <div className="flex gap-4 ml-4">
           {Object.keys(STATUS_META).map((key) => (
             <div key={key} className="text-center">
               <div className="text-lg font-semibold">{statusCounts[key] || 0}</div>
