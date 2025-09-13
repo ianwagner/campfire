@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FiPlus } from 'react-icons/fi';
+import { doc, getDoc } from 'firebase/firestore';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import Button from './components/Button.jsx';
 import Modal from './components/Modal.jsx';
 import isVideoUrl from './utils/isVideoUrl';
+import { db } from './firebase/config';
 
 const STATUS_META = {
   pending: { label: 'Pending', color: 'bg-gray-400' },
@@ -35,6 +37,7 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
   const [origCopy, setOrigCopy] = useState('');
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showCopyField, setShowCopyField] = useState(true);
+  const [showCommentField, setShowCommentField] = useState(true);
   const [reviewFinalized, setReviewFinalized] = useState(false);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [stuck, setStuck] = useState(false);
@@ -62,28 +65,47 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const openEditModal = (key, withCopy = true) => {
+  const openEditModal = async (
+    key,
+    { showCopy = true, showComment = true } = {},
+  ) => {
     const group = groups.find((g) => (g.recipeCode || g.id) === key) || {};
-    const copy =
+    let copy =
       group.assets?.[0]?.meta?.copy ||
       group.latestCopy ||
       group.copy ||
       group.assets?.[0]?.copy ||
       '';
+    if (showCopy) {
+      try {
+        const adGroupId = group.assets?.[0]?.adGroupId;
+        const recipeId = group.recipeCode || group.id;
+        if (adGroupId && recipeId) {
+          const snap = await getDoc(
+            doc(db, 'adGroups', adGroupId, 'recipes', recipeId),
+          );
+          const data = snap.exists() ? snap.data() : null;
+          copy = data ? data.latestCopy || data.copy || copy : copy;
+        }
+      } catch (err) {
+        console.error('Failed to load copy', err);
+      }
+    }
     const prev = editRequests[key];
     setComment('');
     setEditCopy(prev?.editCopy || copy);
     setOrigCopy(copy);
     setPrevStatus(statuses[key]);
     setCurrentKey(key);
-    setShowCopyField(withCopy);
+    setShowCopyField(showCopy);
+    setShowCommentField(showComment);
     setShowEditModal(true);
   };
 
   const handleStatus = (key, value) => {
     if (value === 'edit requested') {
       setStatuses((prev) => ({ ...prev, [key]: value }));
-      openEditModal(key, true);
+      openEditModal(key, { showCopy: true, showComment: true });
       return;
     }
     setStatuses((prev) => ({ ...prev, [key]: value }));
@@ -131,6 +153,7 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     setEditCopy('');
     setOrigCopy('');
     setShowCopyField(true);
+    setShowCommentField(true);
   };
 
   const submitEdit = () => {
@@ -153,6 +176,7 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     setEditCopy('');
     setOrigCopy('');
     setShowCopyField(true);
+    setShowCommentField(true);
   };
 
   const handleFinalizeClick = () => {
@@ -251,7 +275,7 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
                   ))}
                 </select>
               </div>
-              {comments.length > 0 && (
+              {(comments.length > 0 || editRequest?.editCopy) && (
                 <button
                   type="button"
                   className="text-sm underline"
@@ -263,25 +287,39 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
                 </button>
               )}
             </div>
-            {open[key] && comments.length > 0 && (
+            {open[key] && (comments.length > 0 || editRequest?.editCopy) && (
               <div className="mt-2 p-2 border-t text-sm space-y-1">
                 {comments.map((c, idx) => (
                   <div key={idx}>
                     <span className="font-medium">{c.author}:</span> {c.text}
                   </div>
                 ))}
-                {editRequest?.editCopy && (
-                  <div className="mt-1">
-                    <span className="font-medium">Requested copy:</span> {editRequest.editCopy}
-                  </div>
-                )}
                 <button
                   type="button"
                   className="flex items-center gap-1 text-xs underline mt-2"
-                  onClick={() => openEditModal(key, false)}
+                  onClick={() =>
+                    openEditModal(key, { showCopy: false, showComment: true })
+                  }
                 >
                   <FiPlus /> add comment
                 </button>
+                {editRequest?.editCopy && (
+                  <div className="mt-2 p-2 border rounded bg-gray-50">
+                    <p className="text-xs font-medium mb-1">Requested copy</p>
+                    <p className="whitespace-pre-wrap break-words">
+                      {editRequest.editCopy}
+                    </p>
+                    <button
+                      type="button"
+                      className="text-xs underline mt-2"
+                      onClick={() =>
+                        openEditModal(key, { showCopy: true, showComment: false })
+                      }
+                    >
+                      edit copy
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -295,8 +333,9 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
           onEditCopyChange={setEditCopy}
           origCopy={origCopy}
           showCopyField={showCopyField}
+          showCommentField={showCommentField}
           canSubmit={
-            comment.trim().length > 0 ||
+            (showCommentField && comment.trim().length > 0) ||
             (showCopyField && editCopy.trim() && editCopy.trim() !== origCopy.trim())
           }
           onCancel={cancelEdit}
