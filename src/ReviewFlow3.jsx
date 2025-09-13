@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FiPlus } from 'react-icons/fi';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
@@ -35,6 +35,19 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
   const [origCopy, setOrigCopy] = useState('');
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showCopyField, setShowCopyField] = useState(true);
+  const [reviewFinalized, setReviewFinalized] = useState(false);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+
+  const statusCounts = useMemo(() => {
+    const counts = { pending: 0, approved: 0, rejected: 0, 'edit requested': 0 };
+    Object.values(statuses).forEach((s) => {
+      counts[s] = (counts[s] || 0) + 1;
+    });
+    return counts;
+  }, [statuses]);
+
+  const groupTitle =
+    groups[0]?.name || groups[0]?.assets?.[0]?.groupName || '';
 
   const openEditModal = (key, withCopy = true) => {
     const group = groups.find((g) => (g.recipeCode || g.id) === key) || {};
@@ -129,8 +142,41 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     setShowCopyField(true);
   };
 
+  const handleFinalizeClick = () => {
+    const hasPending = Object.values(statuses).some((s) => s === 'pending');
+    if (hasPending) {
+      setShowFinalizeModal(true);
+    } else {
+      setReviewFinalized(true);
+    }
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pt-24">
+      <div className="fixed top-2 left-1/2 -translate-x-1/2 z-30 min-w-[340px] rounded-lg border border-gray-300 bg-white px-4 py-2 shadow flex items-center gap-4 dark:bg-[var(--dark-sidebar-bg)] dark:border-gray-600 dark:text-[var(--dark-text)]">
+        <div>
+          <div className="font-semibold">{groupTitle}</div>
+          <div className="text-xs">
+            {reviewFinalized ? 'Review Finalized' : 'Review in Progress'}
+          </div>
+        </div>
+        <div className="flex gap-4 ml-4">
+          {Object.keys(STATUS_META).map((key) => (
+            <div key={key} className="text-center">
+              <div className="text-lg font-semibold">{statusCounts[key] || 0}</div>
+              <div className="text-xs">{STATUS_META[key].label}</div>
+            </div>
+          ))}
+        </div>
+        {!reviewFinalized && (
+          <>
+            <div className="h-6 border-l ml-4" />
+            <Button onClick={handleFinalizeClick} className="text-sm">
+              Finalize Review
+            </Button>
+          </>
+        )}
+      </div>
       {groups.map((group) => {
         const key = group.recipeCode || group.id;
         const status = statuses[key];
@@ -272,6 +318,32 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
               className="px-3 py-1"
             >
               Approve all ads
+            </Button>
+          </div>
+        </Modal>
+      )}
+      {showFinalizeModal && (
+        <Modal className="space-y-4">
+          <h2 className="text-lg font-semibold">Finalize Review</h2>
+          <p>Some ads are still pending. Would you like to mark them as approved?</p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setShowFinalizeModal(false)}
+              className="px-3 py-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                approvePending();
+                setReviewFinalized(true);
+                setShowFinalizeModal(false);
+              }}
+              className="px-3 py-1"
+            >
+              Approve pending ads
             </Button>
           </div>
         </Modal>
