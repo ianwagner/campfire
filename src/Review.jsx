@@ -1638,7 +1638,11 @@ useEffect(() => {
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
-            <ReviewFlow3 groups={recipeGroups} reviewerName={reviewerName} />
+            <ReviewFlow3
+              groups={recipeGroups}
+              reviewerName={reviewerName}
+              groupName={groupName}
+            />
           ) : reviewVersion === 2 ? (
             <div className="p-4 rounded flex flex-wrap justify-center gap-4 relative">
               {(currentRecipeGroup?.assets || []).map((a, idx) => (

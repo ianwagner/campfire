@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FiPlus } from 'react-icons/fi';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
@@ -14,7 +14,7 @@ const STATUS_META = {
   'edit requested': { label: 'Edit Requested', color: 'bg-yellow-500' },
 };
 
-const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
+const ReviewFlow3 = ({ groups = [], reviewerName = '', groupName = '' }) => {
   const initStatuses = () => {
     const map = {};
     groups.forEach((g) => {
@@ -33,8 +33,9 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
   const [comment, setComment] = useState('');
   const [editCopy, setEditCopy] = useState('');
   const [origCopy, setOrigCopy] = useState('');
-  const [showApproveModal, setShowApproveModal] = useState(false);
   const [showCopyField, setShowCopyField] = useState(true);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [finalized, setFinalized] = useState(false);
 
   const openEditModal = (key, withCopy = true) => {
     const group = groups.find((g) => (g.recipeCode || g.id) === key) || {};
@@ -73,24 +74,12 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     });
   };
 
-  const approveAll = () => {
-    setStatuses((prev) => {
-      const next = {};
-      Object.keys(prev).forEach((k) => {
-        next[k] = 'approved';
-      });
-      return next;
-    });
-  };
-
-  const handleApproveClick = () => {
-    const hasEditsOrRejections = Object.values(statuses).some((s) =>
-      ['rejected', 'edit requested'].includes(s),
-    );
-    if (hasEditsOrRejections) {
-      setShowApproveModal(true);
+  const handleFinalizeClick = () => {
+    const hasPending = Object.values(statuses).some((s) => s === 'pending');
+    if (hasPending) {
+      setShowFinalizeModal(true);
     } else {
-      approvePending();
+      setFinalized(true);
     }
   };
 
@@ -129,8 +118,36 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     setShowCopyField(true);
   };
 
+  const counts = useMemo(() => {
+    const c = { pending: 0, approved: 0, rejected: 0, 'edit requested': 0 };
+    Object.values(statuses).forEach((s) => {
+      if (c[s] !== undefined) c[s] += 1;
+    });
+    return c;
+  }, [statuses]);
+
   return (
-    <div className="space-y-4">
+    <div className="pt-24">
+      <div className="fixed top-0 left-0 right-0 z-20 bg-white border-b shadow px-4 py-2 flex flex-wrap items-center justify-between gap-4 dark:bg-[var(--dark-sidebar-bg)] dark:border-gray-600">
+        <div>
+          <h2 className="text-lg font-semibold">{groupName}</h2>
+          <p className="text-sm">{finalized ? 'Review Finalized' : 'Review in Progress'}</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex gap-2 text-sm">
+            <span>Pending: {counts.pending}</span>
+            <span>Approved: {counts.approved}</span>
+            <span>Edit Requested: {counts['edit requested']}</span>
+            <span>Rejected: {counts.rejected}</span>
+          </div>
+          {!finalized && (
+            <Button onClick={handleFinalizeClick} className="px-3 py-1 whitespace-nowrap">
+              Finalize Review
+            </Button>
+          )}
+        </div>
+      </div>
+      <div className="space-y-4">
       {groups.map((group) => {
         const key = group.recipeCode || group.id;
         const status = statuses[key];
@@ -239,44 +256,36 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
           submitting={false}
         />
       )}
-      <button
-        type="button"
-        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 px-4 py-2 text-sm border border-gray-300 rounded bg-white shadow dark:bg-[var(--dark-sidebar-bg)] dark:border-gray-600 dark:text-[var(--dark-text)]"
-        onClick={handleApproveClick}
-      >
-        Approve all
-      </button>
-      {showApproveModal && (
+      {showFinalizeModal && (
         <Modal className="space-y-4">
-          <h2 className="text-lg font-semibold">Approve all ads</h2>
+          <h2 className="text-lg font-semibold">Finalize Review</h2>
           <p>
-            Some ads already have edit requests or rejections. Would you like to leave those as they are, or mark every ad as approved?
+            Some ads are still pending. Would you like to mark them as approved?
           </p>
           <div className="flex justify-end gap-2">
             <Button
               variant="secondary"
+              onClick={() => setShowFinalizeModal(false)}
+              className="px-3 py-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => {
                 approvePending();
-                setShowApproveModal(false);
+                setShowFinalizeModal(false);
+                setFinalized(true);
               }}
               className="px-3 py-1"
             >
               Approve pending ads
             </Button>
-            <Button
-              variant="primary"
-              onClick={() => {
-                approveAll();
-                setShowApproveModal(false);
-              }}
-              className="px-3 py-1"
-            >
-              Approve all ads
-            </Button>
           </div>
         </Modal>
       )}
     </div>
+  </div>
   );
 };
 
