@@ -15,7 +15,7 @@ const ReviewFlow3 = ({ groups = [] }) => {
     const map = {};
     groups.forEach((g) => {
       const key = g.recipeCode || g.id;
-      map[key] = 'pending';
+      map[key] = g.status || 'pending';
     });
     return map;
   };
@@ -35,32 +35,32 @@ const ReviewFlow3 = ({ groups = [] }) => {
         return (
           <div key={key} className="border rounded p-4">
             <div className="flex flex-wrap justify-center gap-4">
-              {(group.assets || []).map((a, idx) =>
-                isVideoUrl(a.firebaseUrl) ? (
-                  <VideoPlayer
-                    key={idx}
-                    src={a.firebaseUrl}
-                    className="max-w-full rounded"
-                    style={{
-                      aspectRatio:
-                        String(a.aspectRatio || '').replace('x', '/') || undefined,
-                    }}
-                  />
-                ) : (
-                  <OptimizedImage
-                    key={idx}
-                    pngUrl={a.firebaseUrl}
-                    webpUrl={a.firebaseUrl?.replace(/\.png$/, '.webp')}
-                    alt={a.filename}
-                    cacheKey={a.firebaseUrl}
-                    className="max-w-full rounded"
-                    style={{
-                      aspectRatio:
-                        String(a.aspectRatio || '').replace('x', '/') || undefined,
-                    }}
-                  />
-                ),
-              )}
+              {(group.assets || []).map((a, idx) => (
+                <div key={idx} className="max-w-[300px]">
+                  {isVideoUrl(a.firebaseUrl) ? (
+                    <VideoPlayer
+                      src={a.firebaseUrl}
+                      className="max-w-full rounded shadow"
+                      style={{
+                        aspectRatio:
+                          String(a.aspectRatio || '').replace('x', '/') || undefined,
+                      }}
+                    />
+                  ) : (
+                    <OptimizedImage
+                      pngUrl={a.firebaseUrl}
+                      webpUrl={a.firebaseUrl?.replace(/\.png$/, '.webp')}
+                      alt={a.filename}
+                      cacheKey={a.firebaseUrl}
+                      className="max-w-full rounded shadow"
+                      style={{
+                        aspectRatio:
+                          String(a.aspectRatio || '').replace('x', '/') || undefined,
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
             <div className="flex justify-between items-center mt-2">
               <div className="flex items-center space-x-1">

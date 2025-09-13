@@ -1330,12 +1330,16 @@ test('client approval updates group status', async () => {
   expect(call[1]).toEqual(expect.objectContaining({ status: 'done' }));
 });
 
-test('review version 3 shows ads with status dropdown', async () => {
+test('review version 3 pulls ad status into unit status', async () => {
   const assetSnapshot = {
     docs: [
       {
         id: 'a1',
-        data: () => ({ firebaseUrl: 'https://example.com/ad1.png', filename: 'ad1.png', status: 'pending' }),
+        data: () => ({
+          firebaseUrl: 'https://example.com/ad1.png',
+          filename: 'ad1.png',
+          status: 'approved',
+        }),
       },
     ],
   };
@@ -1353,6 +1357,6 @@ test('review version 3 shows ads with status dropdown', async () => {
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
 
   const select = await screen.findByRole('combobox');
-  expect(select.value).toBe('pending');
+  expect(select.value).toBe('approved');
 });
 
