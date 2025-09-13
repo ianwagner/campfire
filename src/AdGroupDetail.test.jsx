@@ -332,6 +332,7 @@ test('allows changing review type when assets exist', async () => {
   const select = await screen.findByLabelText('Review Type');
   expect(select).toBeInTheDocument();
   expect(select.value).toBe('1');
+  expect(screen.getByText('3.0')).toBeInTheDocument();
 
   fireEvent.change(select, { target: { value: '2' } });
 
@@ -341,6 +342,15 @@ test('allows changing review type when assets exist', async () => {
     }),
   );
   await waitFor(() => expect(screen.getByLabelText('Review Type').value).toBe('2'));
+
+  fireEvent.change(select, { target: { value: '3' } });
+
+  await waitFor(() =>
+    expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/group1', {
+      reviewVersion: 3,
+    }),
+  );
+  await waitFor(() => expect(screen.getByLabelText('Review Type').value).toBe('3'));
 });
 
 test.skip('toggles asset status to ready', async () => {
