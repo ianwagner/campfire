@@ -384,7 +384,12 @@ useEffect(() => {
     const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
     return Object.entries(map).map(([recipeCode, list]) => {
       list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
-      return { recipeCode, assets: list };
+      const priority = { approved: 4, 'edit requested': 3, rejected: 2, ready: 1, pending: 0 };
+      const status = list.reduce((acc, a) => {
+        const s = (a.status || 'pending').replace('_', ' ');
+        return priority[s] > priority[acc] ? s : acc;
+      }, 'pending');
+      return { recipeCode, assets: list, status };
     });
   }, [ads]);
 
