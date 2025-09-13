@@ -1330,44 +1330,19 @@ test('client approval updates group status', async () => {
   expect(call[1]).toEqual(expect.objectContaining({ status: 'done' }));
 });
 
-test('brief review collects feedback', async () => {
+test('review version 3 shows ads with status dropdown', async () => {
   const assetSnapshot = {
-    docs: [],
+    docs: [
+      {
+        id: 'a1',
+        data: () => ({ firebaseUrl: 'https://example.com/ad1.png', filename: 'ad1.png', status: 'pending' }),
+      },
+    ],
   };
 
   mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
-    if (col[1] === 'recipes')
-      return Promise.resolve({ docs: [{ id: 'r1', data: () => ({ type: 'T1', components: {} }) }] });
-    return Promise.resolve({ docs: [] });
-  });
-  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1', reviewVersion: 3 }) });
-
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
-
-  await screen.findByText('Your brief is ready!');
-  const briefBtn = screen.getByText('See Brief');
-  expect(briefBtn).toBeEnabled();
-  expect(screen.queryByText('Ad Gallery')).not.toBeInTheDocument();
-  fireEvent.click(briefBtn);
-  const fbBtn = screen.getByLabelText('leave overall feedback');
-  fireEvent.click(fbBtn);
-  const textarea = await screen.findByPlaceholderText('leave overall feedback...');
-  fireEvent.change(textarea, { target: { value: 'Looks good' } });
-  fireEvent.click(screen.getByText('Submit'));
-  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
-});
-
-test('brief review displays when no recipes', async () => {
-  const assetSnapshot = {
-    docs: [],
-  };
-
-  mockGetDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
-    if (col[1] === 'recipes') return Promise.resolve({ docs: [] });
     return Promise.resolve({ docs: [] });
   });
   mockGetDoc.mockResolvedValue({
@@ -1377,8 +1352,7 @@ test('brief review displays when no recipes', async () => {
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
 
-  await screen.findByText('Your brief is ready!');
-  const briefBtn = screen.getByText('See Brief');
-  expect(briefBtn).toBeEnabled();
+  const select = await screen.findByRole('combobox');
+  expect(select.value).toBe('pending');
 });
 
