@@ -234,6 +234,26 @@ const Review = forwardRef(
       setRecipes(arr);
     } catch (err) {
       console.error('Failed to load recipes', err);
+      try {
+        const q = query(
+          collection(db, 'recipes'),
+          where('adGroupId', '==', gid),
+        );
+        const snap = await getDocs(q);
+        const arr = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => Number(a.id) - Number(b.id))
+          .map((r, idx) => ({
+            recipeNo: idx + 1,
+            components: r.components || {},
+            copy: r.latestCopy || r.copy || '',
+            type: r.type || '',
+            brandCode: r.brandCode || bcode || '',
+          }));
+        setRecipes(arr);
+      } catch (err2) {
+        console.error('Failed to load recipes fallback', err2);
+      }
     }
   }, []);
 
