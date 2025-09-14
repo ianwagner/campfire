@@ -34,6 +34,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const [loading, setLoading] = useState(!auth.currentUser);
   const [copyCount, setCopyCount] = useState(0);
   const [adCount, setAdCount] = useState(0);
+  const [reviewVersion, setReviewVersion] = useState(null);
   const reviewRef = useRef(null);
 
   useEffect(() => {
@@ -103,19 +104,24 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }, [groupId]);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || reviewVersion === null) return;
+    if (reviewVersion === 4) {
+      setAdCount(0);
+      return;
+    }
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'assets'),
       (snap) => setAdCount(snap.size),
     );
     return () => unsub();
-  }, [groupId]);
+  }, [groupId, reviewVersion]);
 
   useEffect(() => {
     if (!groupId) {
       setGroupPassword(null);
       setVisibility(null);
       setAccessBlocked(false);
+      setReviewVersion(null);
       return;
     }
     const loadGroup = async () => {
@@ -127,6 +133,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
           setVisibility(null);
           setRequireAuth(false);
           setRequirePassword(false);
+          setReviewVersion(null);
           return;
         }
         const data = snap.data();
@@ -134,6 +141,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         setVisibility(data.visibility || "private");
         setRequireAuth(!!data.requireAuth);
         setRequirePassword(!!data.requirePassword);
+        setReviewVersion(data.reviewVersion || 1);
         const blocked =
           data.visibility !== "public" ||
           (data.requireAuth && auth.currentUser?.isAnonymous);
@@ -145,6 +153,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         setVisibility(null);
         setRequireAuth(false);
         setRequirePassword(false);
+        setReviewVersion(null);
       }
     };
     loadGroup();
