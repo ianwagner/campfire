@@ -15,14 +15,24 @@ describe('detectMissingRatios', () => {
   it('identifies missing ratios for revised uploads', () => {
     const assets = [makeAsset('001', '9x16'), makeAsset('001', '1x1')];
     const files = [makeFile('001', '9x16')];
-    const missing = detectMissingRatios(files, assets);
+    const meta = { '001': { adUnitType: 'standard' } };
+    const missing = detectMissingRatios(files, assets, meta);
     expect(missing).toEqual({ '001': ['1x1'] });
+  });
+
+  it('requires all ratios for new units', () => {
+    const assets = [];
+    const files = [makeFile('003', '9x16')];
+    const meta = { '003': { adUnitType: 'standard' } };
+    const missing = detectMissingRatios(files, assets, meta);
+    expect(missing).toEqual({ '003': ['1x1'] });
   });
 
   it('returns empty object when all ratios provided', () => {
     const assets = [makeAsset('002', '9x16'), makeAsset('002', '1x1')];
     const files = [makeFile('002', '9x16'), makeFile('002', '1x1')];
-    const missing = detectMissingRatios(files, assets);
+    const meta = { '002': { adUnitType: 'standard' } };
+    const missing = detectMissingRatios(files, assets, meta);
     expect(missing).toEqual({});
   });
 });
