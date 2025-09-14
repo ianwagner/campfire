@@ -4,7 +4,6 @@ import {
   doc,
   getDoc,
   updateDoc,
-  setDoc,
   arrayUnion,
   serverTimestamp,
 } from 'firebase/firestore';
@@ -34,31 +33,6 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
   };
 
   const [statuses, setStatuses] = useState(initStatuses);
-
-  useEffect(() => {
-    const loadStatuses = async () => {
-      try {
-        const entries = await Promise.all(
-          groups.map(async (g) => {
-            const key = g.recipeCode || g.id;
-            const snap = await getDoc(doc(db, 'recipes', key));
-            const data = snap.exists() ? snap.data() : null;
-            const hist = Array.isArray(data?.history) ? data.history : [];
-            const last = hist[hist.length - 1]?.status || 'pending';
-            return [key, last];
-          }),
-        );
-        const map = {};
-        entries.forEach(([k, s]) => {
-          map[k] = s;
-        });
-        if (Object.keys(map).length) setStatuses(map);
-      } catch (err) {
-        console.error('Failed to load statuses', err);
-      }
-    };
-    loadStatuses();
-  }, [groups]);
   const [open, setOpen] = useState({});
   const [editRequests, setEditRequests] = useState({});
   const [showEditModal, setShowEditModal] = useState(false);
@@ -118,9 +92,8 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
         ? 'motion'
         : 'still';
       const editReq = editOverride;
-      const status = statusOverride ?? statuses[key];
       const updateObj = {
-        status,
+        status: statusOverride ?? statuses[key],
         version,
         type,
         ...(editReq
@@ -135,20 +108,6 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
           : {}),
       };
       await updateDoc(ref, updateObj);
-
-      const historyEntry = {
-        timestamp: Date.now(),
-        status,
-        user: reviewerName || 'unknown',
-        ...(editReq && editReq.comments && editReq.comments.length
-          ? { editComment: editReq.comments[editReq.comments.length - 1].text }
-          : {}),
-      };
-      await setDoc(
-        doc(db, 'recipes', key),
-        { history: arrayUnion(historyEntry) },
-        { merge: true },
-      );
     } catch (err) {
       console.error('Failed to update review', err);
     }

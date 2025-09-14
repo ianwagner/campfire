@@ -10,13 +10,11 @@ const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
 const mockArrayUnion = jest.fn((val) => val);
 const mockServerTimestamp = jest.fn(() => 'now');
 const mockGetDoc = jest.fn(() => Promise.resolve({ exists: () => false }));
-const mockSetDoc = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   doc: (...args) => mockDoc(...args),
   getDoc: (...args) => mockGetDoc(...args),
   updateDoc: (...args) => mockUpdateDoc(...args),
-  setDoc: (...args) => mockSetDoc(...args),
   arrayUnion: (...args) => mockArrayUnion(...args),
   serverTimestamp: () => mockServerTimestamp(),
 }));
@@ -28,7 +26,6 @@ jest.mock('./components/VideoPlayer.jsx', () => (props) => <video {...props} />)
 
 afterEach(() => {
   jest.clearAllMocks();
-  jest.restoreAllMocks();
 });
 
 test('review updates persist immediately and finalization does not resave', async () => {
@@ -41,8 +38,6 @@ test('review updates persist immediately and finalization does not resave', asyn
       ],
     },
   ];
-
-  jest.spyOn(Date, 'now').mockReturnValue(12345);
 
   render(<ReviewFlow3 groups={groups} reviewerName="Bob" />);
 
@@ -67,26 +62,9 @@ test('review updates persist immediately and finalization does not resave', asyn
     },
   }));
 
-  await waitFor(() =>
-    expect(mockSetDoc).toHaveBeenCalledWith(
-      'recipes/r1',
-      {
-        history: {
-          timestamp: 12345,
-          status: 'edit requested',
-          user: 'Bob',
-          editComment: 'needs work',
-        },
-      },
-      { merge: true },
-    ),
-  );
-
   mockUpdateDoc.mockClear();
-  mockSetDoc.mockClear();
 
   // finalize review should not trigger additional saves
   fireEvent.click(screen.getByText('Finalize Review'));
   expect(mockUpdateDoc).not.toHaveBeenCalled();
-  expect(mockSetDoc).not.toHaveBeenCalled();
 });
