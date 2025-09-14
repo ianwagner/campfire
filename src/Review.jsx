@@ -1769,6 +1769,7 @@ useEffect(() => {
               <RecipePreview
                 initialResults={recipes}
                 showOnlyResults
+                skipFirestore
                 hideBrandSelect
                 showColumnButton={false}
                 hideActions

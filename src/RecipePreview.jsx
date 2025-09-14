@@ -59,6 +59,7 @@ const RecipePreview = ({
   onSave = null,
   initialResults = null,
   showOnlyResults = false,
+  skipFirestore = false,
   onSelectChange = null,
   brandCode: initialBrandCode = '',
   hideBrandSelect = false,
@@ -189,6 +190,7 @@ const RecipePreview = ({
   }, [brandCode]);
 
   useEffect(() => {
+    if (skipFirestore) return;
     const loadProducts = async () => {
       if (!brandCode) {
         setBrandProducts([]);
@@ -239,9 +241,10 @@ const RecipePreview = ({
       }
     };
     loadProducts();
-  }, [brandCode]);
+  }, [brandCode, skipFirestore]);
 
   useEffect(() => {
+    if (skipFirestore) return;
     const loadCampaigns = async () => {
       if (!brandCode) {
         setBrandCampaigns([]);
@@ -281,7 +284,7 @@ const RecipePreview = ({
       }
     };
     loadCampaigns();
-  }, [brandCode]);
+  }, [brandCode, skipFirestore]);
   const { role: userRole, agencyId } = useUserRole(auth.currentUser?.uid);
   const isAgencyUser = userRole === 'agency' || !!agencyId;
   const canEditRecipes =
@@ -292,6 +295,7 @@ const RecipePreview = ({
     userRole === 'project-manager';
 
   useEffect(() => {
+    if (skipFirestore) return;
     const fetchData = async () => {
       try {
         const typeQuery = externalOnly
@@ -375,7 +379,7 @@ const RecipePreview = ({
       }
     };
     fetchData();
-  }, [externalOnly, allowedTypeIds]);
+  }, [externalOnly, allowedTypeIds, skipFirestore]);
 
   useEffect(() => {
     if (initialResults && Array.isArray(initialResults)) {
@@ -452,6 +456,7 @@ const RecipePreview = ({
   };
 
   useEffect(() => {
+    if (skipFirestore) return;
     if (brandCode && currentType?.enableAssetCsv) {
       loadAssetLibrary();
     } else if (!brandCode) {
@@ -459,7 +464,7 @@ const RecipePreview = ({
       setAssetMap({});
       setAssetUsage({});
     }
-  }, [brandCode, currentType]);
+  }, [brandCode, currentType, skipFirestore]);
 
   const generateOnce = async (baseValues = null, brand = brandCode) => {
     if (!currentType) return null;

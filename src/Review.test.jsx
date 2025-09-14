@@ -3,10 +3,10 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Review from './Review';
 
-jest.mock('./firebase/config', () => ({ db: {} }));
+jest.mock('./firebase/config', () => ({ db: {}, auth: {}, storage: {} }));
 jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 jest.mock('./CopyRecipePreview.jsx', () => () => null);
-jest.mock('./RecipePreview.jsx', () => () => <div data-testid="recipe-preview" />);
+jest.mock('./RecipePreview.jsx', () => jest.fn(() => <div data-testid="recipe-preview" />));
 jest.mock('./utils/debugLog', () => jest.fn());
 
 const mockGetDocs = jest.fn();
@@ -429,6 +429,19 @@ test('approving a revision does not change archived versions', async () => {
 
   const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1/assets/orig1');
   expect(call[1].status).toBeUndefined();
+});
+
+test('unauthorized brief review renders without Firestore reads', async () => {
+  mockGetDocs.mockClear();
+  const { default: ActualRecipePreview } = jest.requireActual('./RecipePreview.jsx');
+  render(
+    <ActualRecipePreview
+      skipFirestore
+      showOnlyResults
+      initialResults={[{ type: 'T1', components: {} }]}
+    />,
+  );
+  await waitFor(() => expect(mockGetDocs).not.toHaveBeenCalled());
 });
 
 test('version selector changes revisions', async () => {
