@@ -6,7 +6,7 @@ import Review from './Review';
 jest.mock('./firebase/config', () => ({ db: {} }));
 jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 jest.mock('./CopyRecipePreview.jsx', () => () => null);
-jest.mock('./RecipePreview.jsx', () => () => <div />);
+jest.mock('./RecipePreview.jsx', () => () => <div data-testid="recipe-preview" />);
 jest.mock('./utils/debugLog', () => jest.fn());
 
 const mockGetDocs = jest.fn();
@@ -16,6 +16,7 @@ const mockAddDoc = jest.fn();
 const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
 const mockArrayUnion = jest.fn((val) => val);
 const mockIncrement = jest.fn((val) => val);
+const mockOnSnapshot = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
@@ -30,7 +31,15 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: (...args) => mockUpdateDoc(...args),
   arrayUnion: (...args) => mockArrayUnion(...args),
   increment: (...args) => mockIncrement(...args),
+  onSnapshot: (...args) => mockOnSnapshot(...args),
 }));
+
+beforeEach(() => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({ docs: [] });
+    return jest.fn();
+  });
+});
 
 afterEach(() => {
   jest.clearAllMocks();
@@ -1354,5 +1363,28 @@ test('review version 3 shows ads with status dropdown', async () => {
 
   const select = await screen.findByRole('combobox');
   expect(select.value).toBe('pending');
+});
+
+test('renders ad recipes when review type is brief', async () => {
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 4, brandCode: 'BR1' }),
+  });
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve({ docs: [] });
+    if (col[1] === 'recipes')
+      return Promise.resolve({
+        docs: [{ id: '1', data: () => ({ components: {}, latestCopy: 'c1' }) }],
+      });
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+
+  await screen.findByText('Your brief is ready!');
+  const btn = screen.getByRole('button', { name: /Review Brief/i });
+  fireEvent.click(btn);
+  expect(await screen.findByTestId('recipe-preview')).toBeInTheDocument();
 });
 

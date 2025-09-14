@@ -2307,6 +2307,7 @@ const AdGroupDetail = () => {
                 <option value={1}>Legacy</option>
                 <option value={2}>2.0</option>
                 <option value={3}>3.0</option>
+                <option value={4}>Brief</option>
               </select>
             </label>
           </>
