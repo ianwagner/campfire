@@ -1,9 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 
-const PRELOAD_AHEAD = 5;
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending', color: 'bg-gray-400' },
+  { value: 'approved', label: 'Approved', color: 'bg-green-500' },
+  { value: 'rejected', label: 'Rejected', color: 'bg-red-500' },
+  { value: 'edit_requested', label: 'Edit Requested', color: 'bg-yellow-500' },
+];
 
 const getUrl = (ad) => {
   if (!ad) return null;
@@ -12,75 +17,82 @@ const getUrl = (ad) => {
 };
 
 const SimpleReview = ({ ads = [] }) => {
-  const [index, setIndex] = useState(0);
-  const [fade, setFade] = useState(false);
-  const preloaded = useRef({});
+  const [statuses, setStatuses] = useState(ads.map(() => 'pending'));
+  const [expanded, setExpanded] = useState({});
 
-  const currentUrl = getUrl(ads[index]);
-
-  // Preload the next few ads ahead of time
-  useEffect(() => {
-    for (let i = index + 1; i <= index + PRELOAD_AHEAD && i < ads.length; i += 1) {
-      const url = getUrl(ads[i]);
-      if (url && !preloaded.current[url] && !isVideoUrl(url)) {
-        const img = new Image();
-        img.src = url; // no cache-busting params
-        preloaded.current[url] = img;
-      }
-    }
-    // Drop images behind the current index to free memory
-    Object.keys(preloaded.current).forEach((u) => {
-      const idx = ads.findIndex((a) => getUrl(a) === u);
-      if (idx < index - 1) {
-        delete preloaded.current[u];
-      }
+  const setStatus = (idx, value) => {
+    setStatuses((prev) => {
+      const copy = [...prev];
+      copy[idx] = value;
+      return copy;
     });
-  }, [index, ads]);
-
-  const advance = (step) => {
-    setFade(true);
-    setTimeout(() => {
-      setIndex((i) => Math.min(Math.max(i + step, 0), ads.length - 1));
-      setFade(false);
-    }, 400); // match --duration-fast
   };
 
-  if (!currentUrl) {
+  const toggleExpanded = (idx) => {
+    setExpanded((p) => ({ ...p, [idx]: !p[idx] }));
+  };
+
+  if (ads.length === 0) {
     return <div className="p-4">No ads to review.</div>;
   }
 
   return (
-    <div className="flex flex-col items-center space-y-4">
-      <div className={`max-w-full ${fade ? 'simple-fade-out' : 'simple-fade-in'}`}>
-        {isVideoUrl(currentUrl) ? (
-          <VideoPlayer src={currentUrl} className="max-h-[70vh]" />
-        ) : (
-          <OptimizedImage
-            pngUrl={currentUrl}
-            webpUrl={currentUrl.replace(/\.png$/, '.webp')}
-            alt="Ad"
-            loading="eager"
-          />
-        )}
-      </div>
-      <div className="flex space-x-2">
-        <button
-          className="btn-secondary"
-          onClick={() => advance(-1)}
-          disabled={index === 0}
-        >
-          Prev
-        </button>
-        <button
-          className="btn-primary"
-          onClick={() => advance(1)}
-          disabled={index >= ads.length - 1}
-        >
-          Next
-        </button>
-      </div>
+    <div className="space-y-6">
+      {ads.map((ad, idx) => {
+        const url = getUrl(ad);
+        const editRequest = ad.editRequest;
+        const statusObj =
+          STATUS_OPTIONS.find((o) => o.value === statuses[idx]) || STATUS_OPTIONS[0];
+        return (
+          <div key={idx} className="border rounded-lg p-4">
+            {isVideoUrl(url) ? (
+              <VideoPlayer src={url} className="max-h-[70vh] mx-auto" />
+            ) : (
+              <OptimizedImage
+                pngUrl={url}
+                webpUrl={url?.replace(/\.png$/, '.webp')}
+                alt={`Ad ${idx + 1}`}
+                className="mx-auto"
+              />
+            )}
+            <div className="flex justify-between mt-2">
+              <div className="relative inline-block">
+                <select
+                  className="pl-6 pr-2 py-1 border rounded text-sm"
+                  value={statuses[idx]}
+                  onChange={(e) => setStatus(idx, e.target.value)}
+                >
+                  {STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <span
+                  className={`absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full ${statusObj.color}`}
+                />
+              </div>
+              {editRequest && (
+                <button
+                  type="button"
+                  className="text-sm text-blue-600"
+                  onClick={() => toggleExpanded(idx)}
+                >
+                  {expanded[idx] ? 'Hide Edit Request' : 'View Edit Request'}
+                </button>
+              )}
+            </div>
+            {expanded[idx] && editRequest && (
+              <div className="mt-2 p-2 border rounded bg-gray-50 text-sm">
+                {editRequest}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
 
 export default SimpleReview;
+
