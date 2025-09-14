@@ -312,15 +312,12 @@ which sets the appropriate `Cache-Control` header on the stored file.
 
 ## Simple Ad Review Flow
 
-The `SimpleReview` component (`src/SimpleReview.jsx`) renders all ads in a continuous scroll. Each unit appears inside a rounded border with a status dropdown in the lower left. The dropdown includes a colored dot indicating the current state and starts in gray as “Pending.” If an ad includes an `editRequest` field, a **View Edit Request** button appears in the lower right; clicking it reveals the request below the ad.
+The `SimpleReview` component (`src/SimpleReview.jsx`) renders ads with minimal overhead. It preloads the next few images in memory (by default five) and only keeps a single image element in the DOM. Transitions are plain fade animations and no cache-busting query parameters are added to ad URLs.
 
 ```jsx
 import SimpleReview from './src/SimpleReview.jsx';
 
-const ads = [
-  { adUrl: 'https://example.com/ad1.png', editRequest: 'Fix headline' },
-  { adUrl: 'https://example.com/ad2.png' },
-];
+const ads = ['https://example.com/ad1.png', 'https://example.com/ad2.png'];
 
 <SimpleReview ads={ads} />;
 ```
