@@ -44,8 +44,9 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
             const snap = await getDoc(doc(db, 'recipes', key));
             const data = snap.exists() ? snap.data() : null;
             const hist = Array.isArray(data?.history) ? data.history : [];
-            const last = hist[hist.length - 1]?.status || 'pending';
-            return [key, last];
+            const last = hist[hist.length - 1]?.status;
+            const normalized = STATUS_META[last] ? last : 'pending';
+            return [key, normalized];
           }),
         );
         const map = {};
@@ -78,7 +79,8 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
   const statusCounts = useMemo(() => {
     const counts = { pending: 0, approved: 0, rejected: 0, 'edit requested': 0 };
     Object.values(statuses).forEach((s) => {
-      counts[s] = (counts[s] || 0) + 1;
+      const key = STATUS_META[s] ? s : 'pending';
+      counts[key] = (counts[key] || 0) + 1;
     });
     return counts;
   }, [statuses]);
@@ -118,7 +120,7 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
         ? 'motion'
         : 'still';
       const editReq = editOverride;
-      const status = statusOverride ?? statuses[key];
+      const status = statusOverride ?? statuses[key] ?? 'pending';
       const updateObj = {
         status,
         version,
@@ -321,7 +323,8 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
       </div>
       {groups.map((group) => {
         const key = group.recipeCode || group.id;
-        const status = statuses[key];
+        const status = statuses[key] || 'pending';
+        const statusMeta = STATUS_META[status] || STATUS_META.pending;
         const editRequest = editRequests[key];
         const comments = [
           ...(group.editRequest
@@ -361,7 +364,7 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
             </div>
             <div className="flex justify-between items-center mt-2">
               <div className="flex items-center space-x-1">
-                <span className={`w-2 h-2 rounded-full ${STATUS_META[status].color}`}></span>
+                <span className={`w-2 h-2 rounded-full ${statusMeta.color}`}></span>
                 <select
                   value={status}
                   onChange={(e) => handleStatus(key, e.target.value)}
