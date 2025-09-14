@@ -444,11 +444,11 @@ useEffect(() => {
   useEffect(() => {
     const fetchAds = async () => {
       debugLog('Loading ads', { groupId, brandCodes });
+      let list = [];
+      let startIndex = 0;
+      let status = 'pending';
+      let rv = 1;
       try {
-        let list = [];
-        let startIndex = 0;
-        let status = 'pending';
-        let rv = 1;
         if (groupId) {
           const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
           if (groupSnap.exists()) {
@@ -484,8 +484,6 @@ useEffect(() => {
               await loadRecipes(groupId, groupSnap.data().brandCode || '');
             }
           }
-          setInitialStatus(status);
-          setReviewVersion(rv);
         } else {
           const q = query(
             collectionGroup(db, 'assets'),
@@ -693,13 +691,16 @@ useEffect(() => {
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
+        setInitialStatus(status);
+        setReviewVersion(rv);
         setLoading(false);
       }
     };
 
-    if (!user?.uid || (!groupId && brandCodes.length === 0)) {
+    if (!groupId && (!user?.uid || brandCodes.length === 0)) {
       setAds([]);
       setReviewAds([]);
+      setReviewVersion(1);
       setLoading(false);
       return;
     }
