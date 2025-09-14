@@ -55,6 +55,7 @@ import { deductCredits } from './utils/credits';
 import computeGroupStatus from './utils/computeGroupStatus';
 import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
+import RecipePreview from './RecipePreview.jsx';
 
 const unitKey = (a) => {
   const info = parseAdFilename(a.filename || '');
@@ -111,6 +112,7 @@ const Review = forwardRef(
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [modalCopies, setModalCopies] = useState([]);
   const [reviewVersion, setReviewVersion] = useState(null);
+  const [recipes, setRecipes] = useState([]);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
@@ -215,6 +217,25 @@ const Review = forwardRef(
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= 640 : false
   );
+
+  const loadRecipes = useCallback(async (gid, bcode) => {
+    try {
+      const snap = await getDocs(collection(db, 'adGroups', gid, 'recipes'));
+      const arr = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => Number(a.id) - Number(b.id))
+        .map((r, idx) => ({
+          recipeNo: idx + 1,
+          components: r.components || {},
+          copy: r.latestCopy || r.copy || '',
+          type: r.type || '',
+          brandCode: r.brandCode || bcode || '',
+        }));
+      setRecipes(arr);
+    } catch (err) {
+      console.error('Failed to load recipes', err);
+    }
+  }, []);
 
   const buildHeroList = useCallback((list) => {
     const prefOrder = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
@@ -442,6 +463,9 @@ useEffect(() => {
           }
           setInitialStatus(status);
           setReviewVersion(rv);
+          if (rv === 4) {
+            await loadRecipes(groupId, groupSnap.data().brandCode || '');
+          }
         } else {
           const q = query(
             collectionGroup(db, 'assets'),
@@ -1386,14 +1410,16 @@ useEffect(() => {
             className="mb-2 max-h-16 w-auto"
           />
         )}
-        <h1 className="text-2xl font-bold">Your ads are ready!</h1>
+        <h1 className="text-2xl font-bold">
+          {reviewVersion === 4 ? 'Your brief is ready!' : 'Your ads are ready!'}
+        </h1>
         <div className="flex flex-col items-center space-y-3">
           <button
             onClick={() => {
               setTimedOut(false);
               setShowGallery(false);
               setShowCopyModal(false);
-              if (reviewVersion === 3) {
+              if (reviewVersion === 3 || reviewVersion === 4) {
                 setStarted(true);
                 return;
               }
@@ -1409,12 +1435,15 @@ useEffect(() => {
               setCurrentIndex(0);
               setStarted(true);
             }}
-            disabled={loading || ads.length === 0}
+            disabled={loading || (reviewVersion !== 4 && ads.length === 0)}
             className={`btn-primary px-6 py-3 text-lg ${
-              loading || ads.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+              loading || (reviewVersion !== 4 && ads.length === 0)
+                ? 'opacity-50 cursor-not-allowed'
+                : ''
             }`}
           >
-            <FiCheck className="mr-2" /> Review Ads
+            <FiCheck className="mr-2" />{' '}
+            {reviewVersion === 4 ? 'Review Brief' : 'Review Ads'}
           </button>
           <div className="flex space-x-2">
             {ads.length > 0 && (
@@ -1471,6 +1500,14 @@ useEffect(() => {
     );
   }
 
+  if (reviewVersion === 4 && started) {
+    return (
+      <div className="p-4 w-full">
+        <RecipePreview initialResults={recipes} showOnlyResults hideBrandSelect />
+      </div>
+    );
+  }
+
   if (!ads || ads.length === 0) {
     return (
       <div className="text-center mt-10">
@@ -1493,7 +1530,9 @@ useEffect(() => {
             />
           )}
         <h1 className="text-2xl font-bold">Ads Pending Review</h1>
-        <p className="text-lg">We'll notify you when your ads are ready.</p>
+        <p className="text-lg">
+          We'll notify you when your {reviewVersion === 4 ? 'brief' : 'ads'} are ready.
+        </p>
       </div>
     );
   }
