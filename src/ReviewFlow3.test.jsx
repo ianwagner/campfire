@@ -28,7 +28,7 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-test('finalizing review saves status, version, type and edit history', async () => {
+test('review updates persist immediately and finalization does not resave', async () => {
   const groups = [
     {
       recipeCode: 'r1',
@@ -50,12 +50,7 @@ test('finalizing review saves status, version, type and edit history', async () 
   fireEvent.change(commentBox, { target: { value: 'needs work' } });
   fireEvent.click(screen.getByText('Submit'));
 
-  // finalize review
-  fireEvent.click(screen.getByText('Finalize Review'));
-
-  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
-
-  expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/g1/recipes/r1', {
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/g1/recipes/r1', {
     status: 'edit requested',
     version: 2,
     type: 'motion',
@@ -65,5 +60,11 @@ test('finalizing review saves status, version, type and edit history', async () 
       reviewer: 'Bob',
       timestamp: 'now',
     },
-  });
+  }));
+
+  mockUpdateDoc.mockClear();
+
+  // finalize review should not trigger additional saves
+  fireEvent.click(screen.getByText('Finalize Review'));
+  expect(mockUpdateDoc).not.toHaveBeenCalled();
 });
