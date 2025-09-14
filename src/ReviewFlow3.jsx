@@ -1,6 +1,12 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FiPlus } from 'react-icons/fi';
-import { doc, getDoc } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  arrayUnion,
+  serverTimestamp,
+} from 'firebase/firestore';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
@@ -112,13 +118,16 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
   };
 
   const approvePending = () => {
+    let nextStatuses = {};
     setStatuses((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((k) => {
         if (next[k] === 'pending') next[k] = 'approved';
       });
+      nextStatuses = next;
       return next;
     });
+    return nextStatuses;
   };
 
   const approveAll = () => {
@@ -179,12 +188,58 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     setShowCommentField(true);
   };
 
-  const handleFinalizeClick = () => {
+  const finalizeReview = async (overrideStatuses) => {
+    const statusMap = overrideStatuses || statuses;
+    try {
+      const updates = groups.map(async (group) => {
+        const key = group.recipeCode || group.id;
+        const assets = group.assets || [];
+        const adGroupId = assets[0]?.adGroupId;
+        if (!adGroupId) return;
+        const ref = doc(db, 'adGroups', adGroupId, 'recipes', key);
+        const version = Math.max(
+          1,
+          ...assets.map((a) => {
+            const match = /_V(\d+)/i.exec(a.filename || '');
+            return match ? parseInt(match[1], 10) : 1;
+          })
+        );
+        const type = assets.some((a) =>
+          isVideoUrl(a.filename || a.firebaseUrl)
+        )
+          ? 'motion'
+          : 'still';
+        const editReq = editRequests[key];
+        const updateObj = {
+          status: statusMap[key],
+          version,
+          type,
+          ...(editReq
+            ? {
+                editHistory: arrayUnion({
+                  editCopy: editReq.editCopy,
+                  comments: editReq.comments || [],
+                  reviewer: reviewerName,
+                  timestamp: serverTimestamp(),
+                }),
+              }
+            : {}),
+        };
+        await updateDoc(ref, updateObj);
+      });
+      await Promise.all(updates);
+    } catch (err) {
+      console.error('Failed to finalize review', err);
+    }
+    setReviewFinalized(true);
+  };
+
+  const handleFinalizeClick = async () => {
     const hasPending = Object.values(statuses).some((s) => s === 'pending');
     if (hasPending) {
       setShowFinalizeModal(true);
     } else {
-      setReviewFinalized(true);
+      await finalizeReview();
     }
   };
 
@@ -394,9 +449,9 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
             </Button>
             <Button
               variant="primary"
-              onClick={() => {
-                approvePending();
-                setReviewFinalized(true);
+              onClick={async () => {
+                const updated = approvePending();
+                await finalizeReview(updated);
                 setShowFinalizeModal(false);
               }}
               className="px-3 py-1"
