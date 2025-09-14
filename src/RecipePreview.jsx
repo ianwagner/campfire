@@ -83,6 +83,7 @@ const RecipePreview = ({
   const [brandCode, setBrandCode] = useState(initialBrandCode);
   const [selectedType, setSelectedType] = useState('');
   const [step, setStep] = useState(1);
+  const [adUnitType, setAdUnitType] = useState('standard');
   const [formData, setFormData] = useState({});
   const [selectedInstances, setSelectedInstances] = useState({});
   const [results, setResults] = useState([]);
@@ -389,6 +390,9 @@ const RecipePreview = ({
       }
       if (initialResults[0]?.brandCode) {
         setBrandCode(initialResults[0].brandCode);
+      }
+      if (initialResults[0]?.adUnitType) {
+        setAdUnitType(initialResults[0].adUnitType);
       }
     }
   }, [initialResults]);
@@ -851,7 +855,12 @@ const RecipePreview = ({
       if (res) {
         setResults((prev) => [
           ...prev,
-          { recipeNo: prev.length + 1, ...res, type: selectedType },
+          {
+            recipeNo: prev.length + 1,
+            ...res,
+            type: selectedType,
+            adUnitType,
+          },
         ]);
       }
     }
@@ -921,7 +930,13 @@ const RecipePreview = ({
     });
     setResults((prev) => [
       ...prev,
-      { recipeNo: prev.length + 1, components: blank, copy: '', assets: [] },
+      {
+        recipeNo: prev.length + 1,
+        components: blank,
+        copy: '',
+        assets: [],
+        adUnitType,
+      },
     ]);
   };
 
@@ -1358,6 +1373,7 @@ const RecipePreview = ({
               setSelectedType('');
               setResults([]);
               setDirty(false);
+              setAdUnitType('standard');
             }}
             currentType={currentType}
             onTitleChange={onTitleChange}
@@ -1399,6 +1415,8 @@ const RecipePreview = ({
             setMonth={setMonth}
             dueDate={dueDate}
             setDueDate={setDueDate}
+            adUnitType={adUnitType}
+            setAdUnitType={setAdUnitType}
             isAgency={isAgencyUser}
           />
         )}
