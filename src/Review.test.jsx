@@ -697,6 +697,66 @@ test('ad unit shows only latest version and toggles', async () => {
   );
 });
 
+test('review 2.0 saves responses at ad unit level', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'a9',
+        data: () => ({
+          filename: 'BR1_G1_RC_9x16_V1.png',
+          firebaseUrl: 'url9',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'a1',
+        data: () => ({
+          filename: 'BR1_G1_RC_1x1_V1.png',
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 2 }),
+  });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url9'),
+  );
+
+  fireEvent.click(screen.getByText('Approve'));
+
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
+
+  expect(
+    mockUpdateDoc.mock.calls.some(
+      (c) => c[0] === 'adGroups/group1/adUnits/RC',
+    ),
+  ).toBe(true);
+
+  const respCall = mockAddDoc.mock.calls.find(
+    (c) => Array.isArray(c[0]) && c[0][3] === 'adUnits' && c[0][5] === 'responses',
+  );
+  expect(respCall).toBeTruthy();
+});
+
 test('shows group summary after reviewing ads', async () => {
   const assetSnapshot = {
     docs: [

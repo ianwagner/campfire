@@ -1133,7 +1133,7 @@ useEffect(() => {
           ...(user?.uid ? { userId: user.uid } : {}),
           ...(userRole ? { userRole } : {}),
         };
-        if (asset.adGroupId) {
+        if (asset.adGroupId && reviewVersion !== 2) {
           updates.push(
             addDoc(collection(db, 'adGroups', asset.adGroupId, 'responses'), {
               ...respObj,
@@ -1154,27 +1154,29 @@ useEffect(() => {
           };
           updates.push(updateDoc(assetRef, updateData));
 
-          const name = reviewerName || user.displayName || user.uid || 'unknown';
-          updates.push(
-            addDoc(
-              collection(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId, 'history'),
-              {
-                status: newStatus,
-                updatedBy: name,
-                updatedAt: serverTimestamp(),
-                ...(responseType === 'edit' && comment ? { comment } : {}),
-                ...(responseType === 'edit' && copyChanged
-                  ? { copyEdit: editCopy, origCopy }
-                  : {}),
-              },
-            ).catch((err) => {
-              if (err?.code === 'already-exists') {
-                console.log('History entry already exists, skipping');
-              } else {
-                throw err;
-              }
-            }),
-          );
+          if (reviewVersion !== 2) {
+            const name = reviewerName || user.displayName || user.uid || 'unknown';
+            updates.push(
+              addDoc(
+                collection(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId, 'history'),
+                {
+                  status: newStatus,
+                  updatedBy: name,
+                  updatedAt: serverTimestamp(),
+                  ...(responseType === 'edit' && comment ? { comment } : {}),
+                  ...(responseType === 'edit' && copyChanged
+                    ? { copyEdit: editCopy, origCopy }
+                    : {}),
+                },
+              ).catch((err) => {
+                if (err?.code === 'already-exists') {
+                  console.log('History entry already exists, skipping');
+                } else {
+                  throw err;
+                }
+              }),
+            );
+          }
 
           let updatedAdsState = [];
           setAds((prev) => {
@@ -1296,6 +1298,84 @@ useEffect(() => {
         }
         addedResponses[url] = respObj;
         setResponses((prev) => ({ ...prev, [url]: respObj }));
+      }
+
+      if (reviewVersion === 2 && recipeAssets.length > 0) {
+        const asset = recipeAssets[0];
+        const url = asset.adUrl || asset.firebaseUrl;
+        const copyChanged =
+          responseType === 'edit' && editCopy.trim() !== origCopy.trim();
+        const unitResp = {
+          adUrl: url,
+          response: responseType,
+          comment: responseType === 'edit' ? comment : '',
+          copyEdit: copyChanged ? editCopy : '',
+          pass: responses[url] ? 'revisit' : 'initial',
+          ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
+          ...(asset.groupName ? { groupName: asset.groupName } : {}),
+          ...(reviewerName ? { reviewerName } : {}),
+          ...(user?.email ? { userEmail: user.email } : {}),
+          ...(user?.uid ? { userId: user.uid } : {}),
+          ...(userRole ? { userRole } : {}),
+        };
+        updates.push(
+          addDoc(
+            collection(
+              db,
+              'adGroups',
+              asset.adGroupId,
+              'adUnits',
+              currentRecipe,
+              'responses'
+            ),
+            { ...unitResp, timestamp: serverTimestamp() }
+          )
+        );
+        const unitRef = doc(
+          db,
+          'adGroups',
+          asset.adGroupId,
+          'adUnits',
+          currentRecipe,
+        );
+        const unitUpdate = {
+          status: newStatus,
+          comment: responseType === 'edit' ? comment : '',
+          copyEdit: copyChanged ? editCopy : '',
+          lastUpdatedBy: user.uid,
+          lastUpdatedAt: serverTimestamp(),
+          ...(responseType === 'approve' ? { isResolved: true } : {}),
+          ...(responseType === 'edit' ? { isResolved: false } : {}),
+        };
+        updates.push(updateDoc(unitRef, unitUpdate));
+        const name = reviewerName || user.displayName || user.uid || 'unknown';
+        updates.push(
+          addDoc(
+            collection(
+              db,
+              'adGroups',
+              asset.adGroupId,
+              'adUnits',
+              currentRecipe,
+              'history'
+            ),
+            {
+              status: newStatus,
+              updatedBy: name,
+              updatedAt: serverTimestamp(),
+              ...(responseType === 'edit' && comment ? { comment } : {}),
+              ...(responseType === 'edit' && copyChanged
+                ? { copyEdit: editCopy, origCopy }
+                : {}),
+            }
+          ).catch((err) => {
+            if (err?.code === 'already-exists') {
+              console.log('History entry already exists, skipping');
+            } else {
+              throw err;
+            }
+          })
+        );
       }
 
       if (recipeAssets.length > 0) {
