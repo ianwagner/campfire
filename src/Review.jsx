@@ -1388,7 +1388,7 @@ useEffect(() => {
   if (
     reviewVersion === null ||
     !logoReady ||
-    (started && !firstAdLoaded)
+    (started && reviewVersion !== 4 && !firstAdLoaded)
   ) {
     return <LoadingOverlay />;
   }
@@ -1500,15 +1500,7 @@ useEffect(() => {
     );
   }
 
-  if (reviewVersion === 4 && started) {
-    return (
-      <div className="p-4 w-full">
-        <RecipePreview initialResults={recipes} showOnlyResults hideBrandSelect />
-      </div>
-    );
-  }
-
-  if (!ads || ads.length === 0) {
+  if (reviewVersion !== 4 && (!ads || ads.length === 0)) {
     return (
       <div className="text-center mt-10">
         {hasPending ? 'ads are pending' : 'No ads assigned to your account.'}
@@ -1516,7 +1508,7 @@ useEffect(() => {
     );
   }
 
-  if (pendingOnly) {
+  if (reviewVersion !== 4 && pendingOnly) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
           {agencyId && (
@@ -1660,7 +1652,7 @@ useEffect(() => {
               </button>
             </InfoTooltip>
           </div>
-          {reviewVersion !== 3 && (
+          {reviewVersion !== 3 && reviewVersion !== 4 && (
             <div
               className="progress-bar"
               role="progressbar"
@@ -1751,6 +1743,16 @@ useEffect(() => {
                   <span className="version-badge absolute top-0 left-0">V{getVersion(displayAd)}</span>
                 )
               )}
+            </div>
+          ) : reviewVersion === 4 ? (
+            <div className="p-4 w-full">
+              <RecipePreview
+                initialResults={recipes}
+                showOnlyResults
+                hideBrandSelect
+                showColumnButton={false}
+                hideActions
+              />
             </div>
           ) : (
           <div
@@ -1900,7 +1902,7 @@ useEffect(() => {
         </div>
       </div>
 
-        {!showSizes && reviewVersion !== 3 && (showSecondView ? (
+        {!showSizes && reviewVersion !== 3 && reviewVersion !== 4 && (showSecondView ? (
         <div className="flex items-center space-x-4">
           {currentIndex > 0 && (
             <button
@@ -2044,7 +2046,7 @@ useEffect(() => {
         />
       )}
       </div>
-      {reviewVersion !== 3 && (
+      {reviewVersion !== 3 && reviewVersion !== 4 && (
         <FeedbackPanel
           entries={panelEntries}
           onVersionClick={openVersionModal}
