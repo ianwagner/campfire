@@ -1415,3 +1415,31 @@ test('unauthorized user can view brief review without asset access', async () =>
   expect(mockUpdateDoc).not.toHaveBeenCalled();
 });
 
+test('falls back to global recipes when ad group recipes not readable', async () => {
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 4, brandCode: 'BR1' }),
+  });
+  let call = 0;
+  mockGetDocs.mockImplementation(() => {
+    call += 1;
+    if (call === 1) {
+      return Promise.reject(new Error('permission denied'));
+    }
+    if (call === 2) {
+      return Promise.resolve({
+        docs: [{ id: '1', data: () => ({ components: {}, latestCopy: 'c1' }) }],
+      });
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={null} groupId="group1" />);
+
+  await screen.findByText('Your brief is ready!');
+  const btn = screen.getByRole('button', { name: /Review Brief/i });
+  fireEvent.click(btn);
+  expect(await screen.findByTestId('recipe-preview')).toBeInTheDocument();
+  expect(mockGetDocs).toHaveBeenCalledTimes(2);
+});
+
