@@ -1388,3 +1388,30 @@ test('renders ad recipes when review type is brief', async () => {
   expect(await screen.findByTestId('recipe-preview')).toBeInTheDocument();
 });
 
+test('unauthorized user can view brief review without asset access', async () => {
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 4, brandCode: 'BR1' }),
+  });
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') throw new Error('assets should not be fetched');
+    if (col[1] === 'recipes')
+      return Promise.resolve({
+        docs: [{ id: '1', data: () => ({ components: {}, latestCopy: 'c1' }) }],
+      });
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={null} groupId="group1" />);
+
+  await screen.findByText('Your brief is ready!');
+  const btn = screen.getByRole('button', { name: /Review Brief/i });
+  fireEvent.click(btn);
+  expect(await screen.findByTestId('recipe-preview')).toBeInTheDocument();
+  expect(mockGetDocs).not.toHaveBeenCalledWith(
+    expect.arrayContaining(['adGroups', 'group1', 'assets']),
+  );
+  expect(mockUpdateDoc).not.toHaveBeenCalled();
+});
+

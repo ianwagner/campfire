@@ -319,24 +319,24 @@ const Review = forwardRef(
   }, [showCopyModal]);
 
 useEffect(() => {
-  if (!started || !groupId || initialStatus === 'done') return;
+  if (!started || !groupId || initialStatus === 'done' || !user) return;
   updateDoc(doc(db, 'adGroups', groupId), {
     reviewProgress: currentIndex,
   }).catch((err) => console.error('Failed to save progress', err));
-}, [currentIndex, started, groupId, initialStatus]);
+}, [currentIndex, started, groupId, initialStatus, user]);
 
   const releaseLock = useCallback(() => {
-    if (!groupId || initialStatus === 'done') return;
+    if (!groupId || initialStatus === 'done' || !user) return;
     const idx = currentIndexRef.current;
     const len = reviewLengthRef.current;
     const progress = idx >= len ? null : idx;
     updateDoc(doc(db, 'adGroups', groupId), {
       reviewProgress: progress,
     }).catch(() => {});
-  }, [groupId, initialStatus]);
+  }, [groupId, initialStatus, user]);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || !user) return;
     const allReviewed =
       ads.length > 0 &&
       ads.every((a) =>
@@ -351,7 +351,7 @@ useEffect(() => {
         reviewProgress: null,
       }).catch((err) => console.error('Failed to update status', err));
     }
-  }, [currentIndex, reviewAds.length, groupId, ads]);
+  }, [currentIndex, reviewAds.length, groupId, ads, user]);
 
   useEffect(() => {
     if (currentIndex >= reviewAds.length) {
@@ -430,42 +430,42 @@ useEffect(() => {
         let status = 'pending';
         let rv = 1;
         if (groupId) {
-            const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
-            if (groupSnap.exists()) {
-              const data = groupSnap.data();
-              status = data.status || 'pending';
-              rv = data.reviewVersion || 1;
-              setGroupBrandCode(data.brandCode || '');
-              if (status === 'reviewed') status = 'done';
-              if (status === 'review pending' || status === 'in review') status = 'ready';
-              if (typeof data.reviewProgress === 'number') {
-                startIndex = data.reviewProgress;
-              }
-            const assetsSnap = await getDocs(
-              collection(db, 'adGroups', groupId, 'assets')
-            );
-              list = assetsSnap.docs
-                .map((assetDoc) => {
-                  const data = assetDoc.data();
-                  const info = parseAdFilename(data.filename || '');
-                  return {
-                    ...data,
-                    version: data.version ?? info.version ?? 1,
-                    assetId: assetDoc.id,
-                    adGroupId: groupId,
-                    groupName: groupSnap.data().name,
-                    firebaseUrl: data.firebaseUrl,
-                    ...(groupSnap.data().brandCode
-                      ? { brandCode: groupSnap.data().brandCode }
-                      : {}),
-                  };
-                });
+          const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
+          if (groupSnap.exists()) {
+            const data = groupSnap.data();
+            status = data.status || 'pending';
+            rv = data.reviewVersion || 1;
+            setGroupBrandCode(data.brandCode || '');
+            if (status === 'reviewed') status = 'done';
+            if (status === 'review pending' || status === 'in review') status = 'ready';
+            if (typeof data.reviewProgress === 'number') {
+              startIndex = data.reviewProgress;
+            }
+            if (rv !== 4) {
+              const assetsSnap = await getDocs(
+                collection(db, 'adGroups', groupId, 'assets')
+              );
+              list = assetsSnap.docs.map((assetDoc) => {
+                const data = assetDoc.data();
+                const info = parseAdFilename(data.filename || '');
+                return {
+                  ...data,
+                  version: data.version ?? info.version ?? 1,
+                  assetId: assetDoc.id,
+                  adGroupId: groupId,
+                  groupName: groupSnap.data().name,
+                  firebaseUrl: data.firebaseUrl,
+                  ...(groupSnap.data().brandCode
+                    ? { brandCode: groupSnap.data().brandCode }
+                    : {}),
+                };
+              });
+            } else {
+              await loadRecipes(groupId, groupSnap.data().brandCode || '');
+            }
           }
           setInitialStatus(status);
           setReviewVersion(rv);
-          if (rv === 4) {
-            await loadRecipes(groupId, groupSnap.data().brandCode || '');
-          }
         } else {
           const q = query(
             collectionGroup(db, 'assets'),
