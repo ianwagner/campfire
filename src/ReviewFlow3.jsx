@@ -40,8 +40,8 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
   const [showCommentField, setShowCommentField] = useState(true);
   const [reviewFinalized, setReviewFinalized] = useState(false);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
-  const [stuck, setStuck] = useState(false);
-  const barRef = useRef(null);
+  const [hidden, setHidden] = useState(false);
+  const lastScrollY = useRef(0);
 
   const statusCounts = useMemo(() => {
     const counts = { pending: 0, approved: 0, rejected: 0, 'edit requested': 0 };
@@ -55,12 +55,16 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     groups[0]?.name || groups[0]?.assets?.[0]?.groupName || '';
 
   useEffect(() => {
+    lastScrollY.current = window.scrollY;
     const handleScroll = () => {
-      if (!barRef.current) return;
-      const { top } = barRef.current.getBoundingClientRect();
-      setStuck(top <= 0);
+      const currentY = window.scrollY;
+      if (currentY > lastScrollY.current && currentY > 50) {
+        setHidden(true);
+      } else if (currentY < lastScrollY.current) {
+        setHidden(false);
+      }
+      lastScrollY.current = currentY;
     };
-    handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -190,34 +194,34 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
 
   return (
     <div className="space-y-4 mt-4 w-full">
-      <div ref={barRef} className="sticky top-0 z-30 w-full flex justify-center">
-        <div
-          className={`mt-2 min-w-[340px] max-w-full rounded-lg border border-gray-300 bg-white px-4 py-2 shadow flex items-center gap-4 transition-opacity duration-300 dark:bg-[var(--dark-sidebar-bg)] dark:border-gray-600 dark:text-[var(--dark-text)] ${stuck ? 'opacity-60 hover:opacity-100' : ''}`}
-        >
-          <div>
-            <div className="font-semibold truncate max-w-[200px]" title={groupTitle}>
-              {groupTitle}
-            </div>
-            <div className="text-xs">
-              {reviewFinalized ? 'Review Finalized' : 'Review in Progress'}
-            </div>
-          </div>
-          <div className="flex gap-4 ml-4">
-            {Object.keys(STATUS_META).map((key) => (
-              <div key={key} className="text-center">
-                <div className="text-lg font-semibold">{statusCounts[key] || 0}</div>
-                <div className="text-xs">{STATUS_META[key].label}</div>
+      <div className={`sticky top-0 z-30 w-full flex justify-center overflow-hidden ${hidden ? 'h-0' : ''}`}>
+        <div className={`transition-transform duration-300 ${hidden ? '-translate-y-full' : 'translate-y-0'}`}>
+          <div className="mt-2 min-w-[340px] max-w-full rounded-lg border border-gray-300 bg-white px-4 py-2 shadow flex items-center gap-4 dark:bg-[var(--dark-sidebar-bg)] dark:border-gray-600 dark:text-[var(--dark-text)]">
+            <div>
+              <div className="font-semibold truncate max-w-[200px]" title={groupTitle}>
+                {groupTitle}
               </div>
-            ))}
+              <div className="text-xs">
+                {reviewFinalized ? 'Review Finalized' : 'Review in Progress'}
+              </div>
+            </div>
+            <div className="flex gap-4 ml-4">
+              {Object.keys(STATUS_META).map((key) => (
+                <div key={key} className="text-center">
+                  <div className="text-lg font-semibold">{statusCounts[key] || 0}</div>
+                  <div className="text-xs">{STATUS_META[key].label}</div>
+                </div>
+              ))}
+            </div>
+            {!reviewFinalized && (
+              <>
+                <div className="h-6 border-l ml-4" />
+                <Button onClick={handleFinalizeClick} className="text-sm" variant="secondary">
+                  Finalize Review
+                </Button>
+              </>
+            )}
           </div>
-          {!reviewFinalized && (
-            <>
-              <div className="h-6 border-l ml-4" />
-              <Button onClick={handleFinalizeClick} className="text-sm" variant="secondary">
-                Finalize Review
-              </Button>
-            </>
-          )}
         </div>
       </div>
       {groups.map((group) => {
