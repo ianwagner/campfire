@@ -71,6 +71,48 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const updateReviewDoc = async (key, statusOverride, editOverride) => {
+    try {
+      const group = groups.find((g) => (g.recipeCode || g.id) === key);
+      if (!group) return;
+      const assets = group.assets || [];
+      const adGroupId = assets[0]?.adGroupId;
+      if (!adGroupId) return;
+      const ref = doc(db, 'adGroups', adGroupId, 'recipes', key);
+      const version = Math.max(
+        1,
+        ...assets.map((a) => {
+          const match = /_V(\d+)/i.exec(a.filename || '');
+          return match ? parseInt(match[1], 10) : 1;
+        }),
+      );
+      const type = assets.some((a) =>
+        isVideoUrl(a.filename || a.firebaseUrl),
+      )
+        ? 'motion'
+        : 'still';
+      const editReq = editOverride;
+      const updateObj = {
+        status: statusOverride ?? statuses[key],
+        version,
+        type,
+        ...(editReq
+          ? {
+              editHistory: arrayUnion({
+                editCopy: editReq.editCopy,
+                comments: editReq.comments || [],
+                reviewer: reviewerName,
+                timestamp: serverTimestamp(),
+              }),
+            }
+          : {}),
+      };
+      await updateDoc(ref, updateObj);
+    } catch (err) {
+      console.error('Failed to update review', err);
+    }
+  };
+
   const openEditModal = async (
     key,
     { showCopy = true, showComment = true } = {},
@@ -115,29 +157,34 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
       return;
     }
     setStatuses((prev) => ({ ...prev, [key]: value }));
+    updateReviewDoc(key, value);
   };
 
-  const approvePending = () => {
-    let nextStatuses = {};
+  const approvePending = async () => {
+    const changed = [];
     setStatuses((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((k) => {
-        if (next[k] === 'pending') next[k] = 'approved';
+        if (next[k] === 'pending') {
+          next[k] = 'approved';
+          changed.push(k);
+        }
       });
-      nextStatuses = next;
       return next;
     });
-    return nextStatuses;
+    await Promise.all(changed.map((k) => updateReviewDoc(k, 'approved')));
   };
 
-  const approveAll = () => {
-    setStatuses((prev) => {
+  const approveAll = async () => {
+    const keys = Object.keys(statuses);
+    setStatuses(() => {
       const next = {};
-      Object.keys(prev).forEach((k) => {
+      keys.forEach((k) => {
         next[k] = 'approved';
       });
       return next;
     });
+    await Promise.all(keys.map((k) => updateReviewDoc(k, 'approved')));
   };
 
   const handleApproveClick = () => {
@@ -154,6 +201,7 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
   const cancelEdit = () => {
     if (currentKey !== null) {
       setStatuses((prev) => ({ ...prev, [currentKey]: prevStatus }));
+      updateReviewDoc(currentKey, prevStatus);
     }
     setShowEditModal(false);
     setCurrentKey(null);
@@ -167,17 +215,14 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
 
   const submitEdit = () => {
     if (currentKey === null) return;
-    setEditRequests((prev) => {
-      const existing = prev[currentKey] || { comments: [], editCopy };
-      const nextEditCopy = showCopyField ? editCopy : existing.editCopy;
-      const comments = comment.trim()
-        ? [...(existing.comments || []), { author: reviewerName, text: comment.trim() }]
-        : existing.comments || [];
-      return {
-        ...prev,
-        [currentKey]: { editCopy: nextEditCopy, comments },
-      };
-    });
+    const existing = editRequests[currentKey] || { comments: [], editCopy };
+    const nextEditCopy = showCopyField ? editCopy : existing.editCopy;
+    const comments = comment.trim()
+      ? [...(existing.comments || []), { author: reviewerName, text: comment.trim() }]
+      : existing.comments || [];
+    const editReq = { editCopy: nextEditCopy, comments };
+    setEditRequests((prev) => ({ ...prev, [currentKey]: editReq }));
+    updateReviewDoc(currentKey, 'edit requested', editReq);
     setShowEditModal(false);
     setCurrentKey(null);
     setPrevStatus(null);
@@ -188,58 +233,16 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
     setShowCommentField(true);
   };
 
-  const finalizeReview = async (overrideStatuses) => {
-    const statusMap = overrideStatuses || statuses;
-    try {
-      const updates = groups.map(async (group) => {
-        const key = group.recipeCode || group.id;
-        const assets = group.assets || [];
-        const adGroupId = assets[0]?.adGroupId;
-        if (!adGroupId) return;
-        const ref = doc(db, 'adGroups', adGroupId, 'recipes', key);
-        const version = Math.max(
-          1,
-          ...assets.map((a) => {
-            const match = /_V(\d+)/i.exec(a.filename || '');
-            return match ? parseInt(match[1], 10) : 1;
-          })
-        );
-        const type = assets.some((a) =>
-          isVideoUrl(a.filename || a.firebaseUrl)
-        )
-          ? 'motion'
-          : 'still';
-        const editReq = editRequests[key];
-        const updateObj = {
-          status: statusMap[key],
-          version,
-          type,
-          ...(editReq
-            ? {
-                editHistory: arrayUnion({
-                  editCopy: editReq.editCopy,
-                  comments: editReq.comments || [],
-                  reviewer: reviewerName,
-                  timestamp: serverTimestamp(),
-                }),
-              }
-            : {}),
-        };
-        await updateDoc(ref, updateObj);
-      });
-      await Promise.all(updates);
-    } catch (err) {
-      console.error('Failed to finalize review', err);
-    }
+  const finalizeReview = () => {
     setReviewFinalized(true);
   };
 
-  const handleFinalizeClick = async () => {
+  const handleFinalizeClick = () => {
     const hasPending = Object.values(statuses).some((s) => s === 'pending');
     if (hasPending) {
       setShowFinalizeModal(true);
     } else {
-      await finalizeReview();
+      finalizeReview();
     }
   };
 
@@ -450,8 +453,8 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
             <Button
               variant="primary"
               onClick={async () => {
-                const updated = approvePending();
-                await finalizeReview(updated);
+                await approvePending();
+                finalizeReview();
                 setShowFinalizeModal(false);
               }}
               className="px-3 py-1"
