@@ -46,6 +46,7 @@ test('computes summary for groups missing data', async () => {
     ],
   };
   const previewSnap = { docs: [] };
+  const adUnitSnap = { docs: [] };
   const assetSnap = {
     docs: [
       {
@@ -73,7 +74,55 @@ test('computes summary for groups missing data', async () => {
   getDocs
     .mockResolvedValueOnce(brandSnap)
     .mockResolvedValueOnce(previewSnap)
+    .mockResolvedValueOnce(adUnitSnap)
     .mockResolvedValueOnce(assetSnap);
+  onSnapshot.mockImplementation((q, cb) => {
+    cb(groupSnap);
+    return jest.fn();
+  });
+
+  render(
+    <MemoryRouter>
+      <ClientDashboard user={{ uid: 'u1', metadata: {} }} brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+  expect(updateDoc).toHaveBeenCalledWith(
+    'adGroups/g1',
+    expect.objectContaining({ approvedCount: 1, rejectedCount: 1 })
+  );
+});
+
+test('uses ad unit data when available', async () => {
+  const groupSnap = {
+    docs: [
+      {
+        id: 'g1',
+        data: () => ({
+          brandCode: 'B1',
+          status: 'ready',
+          visibility: 'private',
+          name: 'Group 1',
+        }),
+      },
+    ],
+  };
+  const previewSnap = { docs: [] };
+  const adUnitSnap = {
+    docs: [
+      { data: () => ({ status: 'approved', firebaseUrl: 'u1' }) },
+      { data: () => ({ status: 'rejected', firebaseUrl: 'u2' }) },
+    ],
+  };
+  const brandSnap = {
+    docs: [{ data: () => ({ credits: 0, code: 'B1', logos: ['logo.png'] }) }],
+  };
+  doc.mockImplementation((...args) => args.slice(1).join('/'));
+  getDocs
+    .mockResolvedValueOnce(brandSnap)
+    .mockResolvedValueOnce(previewSnap)
+    .mockResolvedValueOnce(adUnitSnap);
   onSnapshot.mockImplementation((q, cb) => {
     cb(groupSnap);
     return jest.fn();
@@ -129,6 +178,7 @@ test('renders brand logo with default styling and no status badge', async () => 
     ],
   };
   const previewSnap = { docs: [] };
+  const adUnitSnap = { docs: [] };
   const assetSnap = { docs: [] };
   const brandSnap = {
     docs: [{ data: () => ({ credits: 0, code: 'B1', logos: ['logo.png'] }) }],
@@ -137,6 +187,7 @@ test('renders brand logo with default styling and no status badge', async () => 
   getDocs
     .mockResolvedValueOnce(brandSnap)
     .mockResolvedValueOnce(previewSnap)
+    .mockResolvedValueOnce(adUnitSnap)
     .mockResolvedValueOnce(assetSnap);
   onSnapshot.mockImplementation((q, cb) => {
     cb(groupSnap);

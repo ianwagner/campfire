@@ -4,6 +4,7 @@ import OptimizedImage from './components/OptimizedImage.jsx';
 import MonthTag from './components/MonthTag.jsx';
 import parseAdFilename from './utils/parseAdFilename.js';
 import summarizeByRecipe from './utils/summarizeByRecipe.js';
+import summarizeAdUnits from './utils/summarizeAdUnits.js';
 import { db } from './firebase/config';
 import {
   collection,
@@ -195,14 +196,36 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
               }
             }
 
-            const assetSnap = await getDocs(
-              collection(db, 'adGroups', d.id, 'assets')
-            );
-            const summary = summarizeByRecipe(
-              assetSnap.docs.map((adDoc) => adDoc.data())
-            );
+            let unitSnap;
+            try {
+              unitSnap = await getDocs(
+                collection(db, 'adGroups', d.id, 'adUnits')
+              );
+            } catch (err) {
+              console.error('Failed to load ad units', err);
+              unitSnap = { docs: [] };
+            }
 
-            group.totalAds = assetSnap.docs.length;
+            let summary;
+            if (unitSnap.docs.length > 0) {
+              const units = unitSnap.docs.map((u) => u.data());
+              summary = summarizeAdUnits(units);
+              group.totalAds = unitSnap.docs.length;
+            } else {
+              let assetSnap;
+              try {
+                assetSnap = await getDocs(
+                  collection(db, 'adGroups', d.id, 'assets')
+                );
+              } catch (err) {
+                console.error('Failed to load group assets', err);
+                assetSnap = { docs: [] };
+              }
+              summary = summarizeByRecipe(
+                assetSnap.docs.map((adDoc) => adDoc.data())
+              );
+              group.totalAds = assetSnap.docs.length;
+            }
 
             group.thumbnail = group.thumbnail || summary.thumbnail;
             group.counts = {
@@ -229,7 +252,11 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                   archivedCount: summary.archived,
                   editCount: summary.edit,
                   rejectedCount: summary.rejected,
-                  ...(data.thumbnailUrl ? {} : summary.thumbnail ? { thumbnailUrl: summary.thumbnail } : {}),
+                  ...(data.thumbnailUrl
+                    ? {}
+                    : summary.thumbnail
+                    ? { thumbnailUrl: summary.thumbnail }
+                    : {}),
                 };
                 await updateDoc(doc(db, 'adGroups', d.id), update);
               } catch (err) {
