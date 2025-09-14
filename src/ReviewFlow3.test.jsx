@@ -90,3 +90,22 @@ test('review updates persist immediately and finalization does not resave', asyn
   expect(mockUpdateDoc).not.toHaveBeenCalled();
   expect(mockSetDoc).not.toHaveBeenCalled();
 });
+
+test('unknown status defaults to pending', async () => {
+  const groups = [
+    {
+      recipeCode: 'r1',
+      assets: [],
+    },
+  ];
+
+  mockGetDoc.mockResolvedValueOnce({
+    exists: () => true,
+    data: () => ({ history: [{ status: 'weird' }] }),
+  });
+
+  render(<ReviewFlow3 groups={groups} />);
+
+  const select = await screen.findByRole('combobox');
+  expect(select.value).toBe('pending');
+});
