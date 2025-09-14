@@ -19,9 +19,12 @@ jest.mock('firebase/firestore', () => ({
   serverTimestamp: () => mockServerTimestamp(),
 }));
 
-jest.mock('./components/OptimizedImage.jsx', () => ({ pngUrl, ...rest }) => (
-  <img alt="img" src={pngUrl} {...rest} />
-));
+jest.mock(
+  './components/OptimizedImage.jsx',
+  () => ({ pngUrl, webpUrl, cacheKey, ...rest }) => (
+    <img alt="img" src={pngUrl} {...rest} />
+  ),
+);
 jest.mock('./components/VideoPlayer.jsx', () => (props) => <video {...props} />);
 
 afterEach(() => {
