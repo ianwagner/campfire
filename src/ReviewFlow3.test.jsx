@@ -51,7 +51,7 @@ test('review updates persist immediately and finalization does not resave', asyn
   fireEvent.click(screen.getByText('Submit'));
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalledWith('adGroups/g1/recipes/r1', {
-    status: 'edit requested',
+    status: 'edit_requested',
     version: 2,
     type: 'motion',
     editHistory: {

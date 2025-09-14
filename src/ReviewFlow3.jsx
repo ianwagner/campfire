@@ -14,6 +14,7 @@ import Button from './components/Button.jsx';
 import Modal from './components/Modal.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import { db } from './firebase/config';
+import { bridgeRecipeStatus } from './utils/bridgeReviewStatus';
 
 const STATUS_META = {
   pending: { label: 'Pending', color: 'bg-gray-400' },
@@ -92,8 +93,11 @@ const ReviewFlow3 = ({ groups = [], reviewerName = '' }) => {
         ? 'motion'
         : 'still';
       const editReq = editOverride;
+      const reviewStatus = bridgeRecipeStatus(
+        statusOverride ?? statuses[key],
+      );
       const updateObj = {
-        status: statusOverride ?? statuses[key],
+        status: reviewStatus,
         version,
         type,
         ...(editReq

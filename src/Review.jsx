@@ -38,6 +38,7 @@ import GalleryModal from './components/GalleryModal.jsx';
 import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
+import { bridgeReview2Status } from './utils/bridgeReviewStatus';
 import ReviewFlow3 from './ReviewFlow3.jsx';
 import FeedbackPanel from './components/FeedbackPanel.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
@@ -436,8 +437,7 @@ useEffect(() => {
               status = data.status || 'pending';
               rv = data.reviewVersion || 1;
               setGroupBrandCode(data.brandCode || '');
-              if (status === 'reviewed') status = 'done';
-              if (status === 'review pending' || status === 'in review') status = 'ready';
+              status = bridgeReview2Status(status);
               if (typeof data.reviewProgress === 'number') {
                 startIndex = data.reviewProgress;
               }
