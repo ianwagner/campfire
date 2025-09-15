@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where, deleteField } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal } from 'react-icons/fi';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
-import { db, auth } from './firebase/config';
+import { db, auth, functions } from './firebase/config';
 import { useNavigate } from 'react-router-dom';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
@@ -18,7 +19,13 @@ import formatDetails from './utils/formatDetails';
 import useUserRole from './useUserRole';
 import UrlCheckInput from './components/UrlCheckInput.jsx';
 
-const emptyForm = {
+const createDefaultProductRequest = () => ({
+  productName: '',
+  quantity: '1',
+  isNew: false,
+});
+
+const createEmptyForm = (overrides = {}) => ({
   type: 'newAds',
   brandCode: '',
   title: '',
@@ -37,7 +44,9 @@ const emptyForm = {
   designerId: '',
   editorId: '',
   infoNote: '',
-};
+  productRequests: [createDefaultProductRequest()],
+  ...overrides,
+});
 
 const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true } = {}) => {
   const [requests, setRequests] = useState([]);
@@ -45,7 +54,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [viewRequest, setViewRequest] = useState(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(createEmptyForm());
   const [brands, setBrands] = useState([]);
   const [aiArtStyle, setAiArtStyle] = useState('');
   const [designers, setDesigners] = useState([]);
@@ -56,6 +65,8 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const [sortField, setSortField] = useState('createdAt');
   const [showWeekends, setShowWeekends] = useState(false);
   const [calendarMenuOpen, setCalendarMenuOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const menuBtnRef = useRef(null);
   const menuRef = useRef(null);
   const calendarRef = useRef(null);
@@ -90,10 +101,24 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       try {
         const snap = await getDocs(collection(db, 'brands'));
         setBrands(
-          snap.docs.map((d) => ({
-            code: d.data().code,
-            aiArtStyle: d.data().aiArtStyle || '',
-          }))
+          snap.docs.map((d) => {
+            const data = d.data();
+            const products = Array.isArray(data.products)
+              ? data.products
+                  .map((p) => {
+                    if (!p) return null;
+                    if (typeof p === 'string') return p.trim();
+                    if (typeof p.name === 'string') return p.name.trim();
+                    return null;
+                  })
+                  .filter((name) => name && name.length)
+              : [];
+            return {
+              code: data.code,
+              aiArtStyle: data.aiArtStyle || '',
+              products,
+            };
+          })
         );
       } catch (err) {
         console.error('Failed to fetch brands', err);
@@ -158,9 +183,24 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     return () => document.removeEventListener('click', handleClick);
   }, []);
 
+  const getBrandProducts = (code) => {
+    const brand = brands.find((br) => br.code === code);
+    return Array.isArray(brand?.products) ? brand.products : [];
+  };
+
+  const currentProductRequests = Array.isArray(form.productRequests) ? form.productRequests : [];
+  const brandProducts = form.brandCode ? getBrandProducts(form.brandCode) : [];
+  const totalAdsRequested = currentProductRequests.reduce((sum, item) => {
+    const qty = Number(item?.quantity);
+    if (Number.isNaN(qty) || qty <= 0) return sum;
+    return sum + qty;
+  }, 0);
+
   const resetForm = () => {
-    setForm(isOps ? { ...emptyForm, type: 'bug' } : emptyForm);
+    setForm(createEmptyForm(isOps ? { type: 'bug' } : {}));
     setEditId(null);
+    setSaveError('');
+    setSaving(false);
   };
 
   const openCreate = () => {
@@ -182,12 +222,60 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const startEdit = (req) => {
     setViewRequest(null);
     setEditId(req.id);
+    setSaveError('');
+    setSaving(false);
+    const brandProducts = getBrandProducts(req.brandCode || '');
+    let productRequests = [];
+    if (Array.isArray(req.productRequests) && req.productRequests.length) {
+      productRequests = req.productRequests
+        .map((p) => {
+          if (!p) return null;
+          const rawName = typeof p === 'string' ? p : p.productName || p.name || '';
+          const name = (rawName || '').trim();
+          const rawQuantity =
+            p.quantity !== undefined
+              ? p.quantity
+              : p.count !== undefined
+              ? p.count
+              : p.numAds !== undefined
+              ? p.numAds
+              : '';
+          const quantity =
+            rawQuantity === '' || rawQuantity === null || rawQuantity === undefined
+              ? '1'
+              : String(rawQuantity);
+          const isNew = !!p.isNew || (name && !brandProducts.includes(name));
+          return {
+            ...createDefaultProductRequest(),
+            productName: name,
+            quantity,
+            isNew,
+          };
+        })
+        .filter(Boolean);
+    }
+    if (!productRequests.length) {
+      const fallbackQuantity =
+        req.numAds && Number(req.numAds) > 0 ? String(req.numAds) : '1';
+      productRequests = [
+        {
+          ...createDefaultProductRequest(),
+          quantity: fallbackQuantity,
+          isNew: brandProducts.length === 0,
+        },
+      ];
+    }
+    const totalFromProducts = productRequests.reduce((sum, p) => {
+      const qty = Number(p.quantity);
+      if (Number.isNaN(qty) || qty <= 0) return sum;
+      return sum + qty;
+    }, 0);
     setForm({
       type: req.type || 'newAds',
       brandCode: req.brandCode || '',
       title: req.title || '',
       dueDate: req.dueDate ? req.dueDate.toDate().toISOString().slice(0,10) : '',
-      numAds: req.numAds || 1,
+      numAds: req.numAds || totalFromProducts || 1,
       numAssets: req.numAssets || 1,
       inspiration: req.inspiration || '',
       uploadLink: req.uploadLink || '',
@@ -201,6 +289,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       designerId: req.designerId || '',
       editorId: req.editorId || '',
       infoNote: req.infoNote || '',
+      productRequests,
     });
     const b = brands.find((br) => br.code === req.brandCode);
     setAiArtStyle(b?.aiArtStyle || '');
@@ -208,35 +297,85 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   };
 
   const handleSave = async () => {
-    const data = {
-      type: form.type,
-      brandCode: form.brandCode,
-      title: form.title,
-      dueDate: form.dueDate ? Timestamp.fromDate(new Date(form.dueDate)) : null,
-      numAds: Number(form.numAds) || 0,
-      numAssets: Number(form.numAssets) || 0,
-      inspiration: form.inspiration,
-      uploadLink: form.uploadLink,
-      assetLinks: (form.assetLinks || []).filter((l) => l),
-      details: form.details,
-      priority: form.priority,
-      name: form.name,
-      agencyId: form.agencyId,
-      toneOfVoice: form.toneOfVoice,
-      offering: form.offering,
-      designerId: form.designerId,
-      editorId: canAssignEditor
-        ? form.editorId
-        : filterEditorId || auth.currentUser?.uid || form.editorId,
-      infoNote: form.infoNote,
-      status: editId ? (requests.find((r) => r.id === editId)?.status || 'new') : 'new',
-    };
-    if (!editId) {
-      data.createdAt = serverTimestamp();
-      data.createdBy = auth.currentUser?.uid || null;
-      data.createdByName = auth.currentUser?.displayName || auth.currentUser?.email || '';
-    }
+    if (saving) return;
+    setSaveError('');
+    setSaving(true);
     try {
+      const brandCode = (form.brandCode || '').trim();
+      const assetLinks = (form.assetLinks || []).map((l) => l.trim()).filter((l) => l);
+      if (form.type === 'newAds' && assetLinks.length === 0) {
+        setSaveError('Please provide at least one Google Drive asset link.');
+        return;
+      }
+      let productRequests = [];
+      let numAds = Number(form.numAds) || 0;
+
+      if (form.type === 'newAds') {
+        if (!brandCode) {
+          setSaveError('Brand is required for new ad tickets.');
+          return;
+        }
+        const availableProducts = getBrandProducts(brandCode);
+        productRequests = (Array.isArray(form.productRequests) ? form.productRequests : [])
+          .map((item) => {
+            if (!item) return null;
+            const name = (item.productName || '').trim();
+            const qty = Number(item.quantity);
+            if (!name || Number.isNaN(qty) || qty <= 0) return null;
+            const isNew = !!item.isNew || !availableProducts.includes(name);
+            return { productName: name, quantity: qty, isNew };
+          })
+          .filter(Boolean);
+        if (!productRequests.length) {
+          setSaveError('Add at least one product with a quantity.');
+          return;
+        }
+        numAds = productRequests.reduce((sum, item) => sum + item.quantity, 0);
+      }
+
+      if (assetLinks.length) {
+        const verifyDriveAccess = httpsCallable(functions, 'verifyDriveAccess', { timeout: 60000 });
+        try {
+          await Promise.all(assetLinks.map((url) => verifyDriveAccess({ url })));
+        } catch (err) {
+          console.error('Failed to verify asset link', err);
+          setSaveError(
+            'One or more asset links cannot be accessed. Please update sharing permissions and try again.'
+          );
+          return;
+        }
+      }
+
+      const data = {
+        type: form.type,
+        brandCode: form.type === 'newAds' ? brandCode : (form.brandCode || '').trim(),
+        title: form.title,
+        dueDate: form.dueDate ? Timestamp.fromDate(new Date(form.dueDate)) : null,
+        numAds,
+        numAssets: Number(form.numAssets) || 0,
+        inspiration: form.inspiration,
+        uploadLink: form.uploadLink,
+        assetLinks,
+        details: form.details,
+        priority: form.priority,
+        name: form.name,
+        agencyId: form.agencyId,
+        toneOfVoice: form.toneOfVoice,
+        offering: form.offering,
+        designerId: form.designerId,
+        editorId: canAssignEditor
+          ? form.editorId
+          : filterEditorId || auth.currentUser?.uid || form.editorId,
+        infoNote: form.infoNote,
+        productRequests: form.type === 'newAds' ? productRequests : [],
+        status: editId ? (requests.find((r) => r.id === editId)?.status || 'new') : 'new',
+      };
+      if (!editId) {
+        data.createdAt = serverTimestamp();
+        data.createdBy = auth.currentUser?.uid || null;
+        data.createdByName = auth.currentUser?.displayName || auth.currentUser?.email || '';
+      }
+
       if (editId) {
         await updateDoc(doc(db, 'requests', editId), data);
         setRequests((prev) => prev.map((r) => (r.id === editId ? { ...r, ...data } : r)));
@@ -271,6 +410,9 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       resetForm();
     } catch (err) {
       console.error('Failed to save request', err);
+      setSaveError('Failed to save request. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -392,7 +534,24 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
 
   const handleBrandChange = (e) => {
     const code = e.target.value;
-    setForm((f) => ({ ...f, brandCode: code }));
+    const availableProducts = getBrandProducts(code);
+    setForm((f) => {
+      const existing = Array.isArray(f.productRequests) && f.productRequests.length
+        ? f.productRequests
+        : [createDefaultProductRequest()];
+      const resetProducts = existing.map((item) => ({
+        ...createDefaultProductRequest(),
+        quantity: item?.quantity || '1',
+        isNew: availableProducts.length === 0,
+      }));
+      return {
+        ...f,
+        brandCode: code,
+        productRequests: resetProducts.length
+          ? resetProducts
+          : [{ ...createDefaultProductRequest(), isNew: availableProducts.length === 0 }],
+      };
+    });
     const b = brands.find((br) => br.code === code);
     setAiArtStyle(b?.aiArtStyle || '');
   };
@@ -406,6 +565,79 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       const arr = [...(f.assetLinks || [])];
       arr[idx] = val;
       return { ...f, assetLinks: arr };
+    });
+  };
+
+  const handleProductChange = (idx, value) => {
+    setForm((f) => {
+      const arr = Array.isArray(f.productRequests) && f.productRequests.length
+        ? [...f.productRequests]
+        : [createDefaultProductRequest()];
+      if (!arr[idx]) {
+        arr[idx] = createDefaultProductRequest();
+      }
+      if (value === '__new__') {
+        arr[idx] = { ...arr[idx], productName: '', isNew: true };
+      } else {
+        arr[idx] = { ...arr[idx], productName: value, isNew: false };
+      }
+      return { ...f, productRequests: arr };
+    });
+  };
+
+  const handleProductNameChange = (idx, value) => {
+    setForm((f) => {
+      const arr = Array.isArray(f.productRequests) && f.productRequests.length
+        ? [...f.productRequests]
+        : [createDefaultProductRequest()];
+      if (!arr[idx]) {
+        arr[idx] = createDefaultProductRequest();
+      }
+      arr[idx] = { ...arr[idx], productName: value };
+      return { ...f, productRequests: arr };
+    });
+  };
+
+  const handleProductQuantityChange = (idx, value) => {
+    setForm((f) => {
+      const arr = Array.isArray(f.productRequests) && f.productRequests.length
+        ? [...f.productRequests]
+        : [createDefaultProductRequest()];
+      if (!arr[idx]) {
+        arr[idx] = createDefaultProductRequest();
+      }
+      let nextValue = value;
+      if (value !== '') {
+        const num = Number(value);
+        if (Number.isNaN(num)) {
+          nextValue = arr[idx].quantity || '1';
+        } else {
+          nextValue = String(Math.max(1, num));
+        }
+      }
+      arr[idx] = { ...arr[idx], quantity: nextValue };
+      return { ...f, productRequests: arr };
+    });
+  };
+
+  const addProductRequest = () => {
+    setForm((f) => {
+      const list = Array.isArray(f.productRequests) ? [...f.productRequests] : [];
+      const availableProducts = getBrandProducts(f.brandCode);
+      list.push({
+        ...createDefaultProductRequest(),
+        isNew: availableProducts.length === 0,
+      });
+      return { ...f, productRequests: list };
+    });
+  };
+
+  const removeProductRequest = (idx) => {
+    setForm((f) => {
+      const list = Array.isArray(f.productRequests) ? [...f.productRequests] : [];
+      if (list.length <= 1) return f;
+      list.splice(idx, 1);
+      return { ...f, productRequests: list };
     });
   };
 
@@ -1002,17 +1234,93 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                 </div>
               )}
               <div>
-                <label className="block mb-1 text-sm font-medium">Number of Ads</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={form.numAds}
-                  onChange={(e) => setForm((f) => ({ ...f, numAds: e.target.value }))}
-                  className="w-full p-2 border rounded"
-                />
+                <label className="block mb-1 text-sm font-medium">Products</label>
+                <div className="space-y-3">
+                  {currentProductRequests.map((prod, idx) => {
+                    const selectId = `product-select-${idx}`;
+                    const quantityId = `product-quantity-${idx}`;
+                    return (
+                      <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded p-3 bg-white dark:bg-[var(--dark-card-bg)]">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                          <div className="flex-1">
+                            <label className="block mb-1 text-xs font-medium" htmlFor={selectId}>
+                              {`Product${currentProductRequests.length > 1 ? ` ${idx + 1}` : ''}`}
+                            </label>
+                            <select
+                              id={selectId}
+                              value={prod.isNew ? '__new__' : prod.productName}
+                              onChange={(event) => handleProductChange(idx, event.target.value)}
+                              className="w-full p-2 border rounded"
+                              disabled={!form.brandCode}
+                            >
+                              <option value="">Select product</option>
+                              {brandProducts.map((name) => (
+                                <option key={name} value={name}>{name}</option>
+                              ))}
+                              <option value="__new__">Add new product…</option>
+                            </select>
+                          </div>
+                          <div className="w-full sm:w-40">
+                            <label className="block mb-1 text-xs font-medium" htmlFor={quantityId}>
+                              Quantity
+                            </label>
+                            <input
+                              id={quantityId}
+                              type="number"
+                              min="1"
+                              value={prod.quantity}
+                              onChange={(e) => handleProductQuantityChange(idx, e.target.value)}
+                              className="w-full p-2 border rounded"
+                            />
+                          </div>
+                          {currentProductRequests.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeProductRequest(idx)}
+                              className="text-sm text-red-600 underline self-start sm:self-end"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                        {prod.isNew && (
+                          <div className="mt-3">
+                            <label className="block mb-1 text-xs font-medium" htmlFor={`product-name-${idx}`}>
+                              New Product Name
+                            </label>
+                            <input
+                              id={`product-name-${idx}`}
+                              type="text"
+                              value={prod.productName}
+                              onChange={(e) => handleProductNameChange(idx, e.target.value)}
+                              className="w-full p-2 border rounded"
+                              placeholder="Enter product name"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={addProductRequest}
+                  disabled={!form.brandCode}
+                  className={`text-sm underline mt-2 ${form.brandCode ? 'text-blue-600' : 'text-gray-400 cursor-not-allowed opacity-60'}`}
+                >
+                  Add another product
+                </button>
+                {!form.brandCode && (
+                  <p className="text-xs text-gray-500 mt-1">Select a brand to choose products.</p>
+                )}
+                {totalAdsRequested > 0 && (
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                    Total ads requested: {totalAdsRequested}
+                  </p>
+                )}
               </div>
               <div>
-                <label className="block mb-1 text-sm font-medium">Gdrive Link</label>
+                <label className="block mb-1 text-sm font-medium">Gdrive Asset Link</label>
                 {form.assetLinks.map((link, idx) => (
                   <UrlCheckInput
                     key={idx}
@@ -1020,6 +1328,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                     onChange={(val) => handleAssetLinkChange(idx, val)}
                     inputClass="p-2"
                     className="mb-1"
+                    required={idx === 0}
                   />
                 ))}
                 <button type="button" onClick={addAssetLink} className="text-sm text-blue-600 underline mb-2">
@@ -1226,11 +1535,13 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           </div>
         )}
         </div>
+        {saveError && <p className="text-sm text-red-600">{saveError}</p>}
         <div className="text-right mt-4 space-x-2">
-            <button onClick={handleSave} className="btn-primary">Save</button>
+            <button onClick={handleSave} className="btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
             <button
               onClick={() => { setShowModal(false); resetForm(); }}
               className="btn-secondary"
+              disabled={saving}
             >
               Cancel
             </button>

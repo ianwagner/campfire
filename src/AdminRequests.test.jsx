@@ -73,6 +73,20 @@ test('opens modal when Add Ticket clicked', async () => {
 
 test('saving ticket adds item to pending table', async () => {
   mockGetDocs.mockResolvedValue({ docs: [] });
+  mockGetDocs
+    .mockResolvedValueOnce({ docs: [] })
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'b1',
+          data: () => ({ code: 'BR1', products: [{ name: 'Widget' }] }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({ docs: [] })
+    .mockResolvedValueOnce({ docs: [] });
+  callableFn.mockResolvedValue({ data: {} });
+
   render(
     <MemoryRouter>
       <AdminRequests />
@@ -81,13 +95,43 @@ test('saving ticket adds item to pending table', async () => {
 
   await waitFor(() => expect(screen.getAllByText('No tickets.').length).toBe(5));
   fireEvent.click(screen.getByLabelText('Add Ticket'));
+
+  const brandLabel = await screen.findByText('Brand');
+  const brandSelect = brandLabel.parentElement.querySelector('select');
+  fireEvent.change(brandSelect, { target: { value: 'BR1' } });
+
+  const productSelect = await screen.findByLabelText(/Product/);
+  fireEvent.change(productSelect, { target: { value: 'Widget' } });
+
+  const assetLabel = screen.getByText('Gdrive Asset Link');
+  const assetInput = assetLabel.parentElement.querySelector('input');
+  fireEvent.change(assetInput, { target: { value: 'https://drive.google.com/folder' } });
+
   fireEvent.click(screen.getByText('Save'));
   await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
+  const savedData = mockAddDoc.mock.calls[0][1];
+  expect(savedData.productRequests).toEqual([
+    { productName: 'Widget', quantity: 1, isNew: false },
+  ]);
+  expect(savedData.assetLinks).toEqual(['https://drive.google.com/folder']);
+  expect(savedData.numAds).toBe(1);
   await waitFor(() => expect(screen.getAllByText('No tickets.').length).toBe(4));
 });
 
 test.skip('shows tooltip when asset link cannot be accessed', async () => {
   mockGetDocs.mockResolvedValue({ docs: [] });
+  mockGetDocs
+    .mockResolvedValueOnce({ docs: [] })
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'b1',
+          data: () => ({ code: 'BR1', products: [{ name: 'Widget' }] }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({ docs: [] })
+    .mockResolvedValueOnce({ docs: [] });
   callableFn.mockRejectedValue(new Error('403'));
   render(
     <MemoryRouter>
@@ -96,7 +140,13 @@ test.skip('shows tooltip when asset link cannot be accessed', async () => {
   );
 
   fireEvent.click(screen.getByLabelText('Add Ticket'));
-  const label = screen.getByText('Gdrive Link');
+  const brandLabel = await screen.findByText('Brand');
+  const brandSelect = brandLabel.parentElement.querySelector('select');
+  fireEvent.change(brandSelect, { target: { value: 'BR1' } });
+  const productSelect = await screen.findByLabelText(/Product/);
+  fireEvent.change(productSelect, { target: { value: 'Widget' } });
+
+  const label = screen.getByText('Gdrive Asset Link');
   const input = label.parentElement.querySelector('input');
   fireEvent.change(input, { target: { value: 'https://example.com' } });
   await fireEvent.blur(input);
@@ -112,9 +162,17 @@ test.skip('shows tooltip when asset link cannot be accessed', async () => {
 });
 
 test('includes project managers in editor list', async () => {
+  mockGetDocs.mockResolvedValue({ docs: [] });
   mockGetDocs
     .mockResolvedValueOnce({ docs: [] })
-    .mockResolvedValueOnce({ docs: [] })
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'b1',
+          data: () => ({ code: 'BR1', products: [{ name: 'Widget' }] }),
+        },
+      ],
+    })
     .mockResolvedValueOnce({ docs: [] })
     .mockResolvedValueOnce({
       docs: [

@@ -46,6 +46,19 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
   const Icon = typeIcons[request.type];
   const color = typeColors[request.type] || 'text-gray-600 dark:text-gray-300';
   const title = request.title || typeLabels[request.type];
+  const productRequests = Array.isArray(request.productRequests)
+    ? request.productRequests.filter((p) => p && (p.productName || p.name))
+    : [];
+  const fallbackAds = productRequests.reduce((sum, item) => {
+    const qty = Number(item.quantity);
+    if (Number.isNaN(qty) || qty <= 0) return sum;
+    return sum + qty;
+  }, 0);
+  const normalizedNumAds = Number(request.numAds);
+  const totalAds =
+    Number.isNaN(normalizedNumAds) || normalizedNumAds <= 0
+      ? fallbackAds || request.numAds || 0
+      : normalizedNumAds;
   return (
     <ScrollModal
       sizeClass="max-w-none"
@@ -91,7 +104,30 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Editor: {request.editorId}</p>
         )}
         {request.type === 'newAds' && (
-          <p className="text-black dark:text-[var(--dark-text)] mb-0"># Ads: {request.numAds}</p>
+          productRequests.length ? (
+            <div className="text-black dark:text-[var(--dark-text)] mb-0">
+              <p className="font-bold text-black dark:text-[var(--dark-text)] mb-1">Products</p>
+              <ul className="list-disc ml-4">
+                {productRequests.map((item, idx) => {
+                  const name = item.productName || item.name;
+                  const qty = Number(item.quantity);
+                  const displayQty = Number.isNaN(qty) || qty <= 0 ? null : qty;
+                  return (
+                    <li key={`${name || 'product'}-${idx}`}>
+                      <span>
+                        {name}
+                        {displayQty ? ` (${displayQty})` : ''}
+                        {item.isNew ? ' — new' : ''}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-1 mb-0">Total Ads: {totalAds}</p>
+            </div>
+          ) : (
+            <p className="text-black dark:text-[var(--dark-text)] mb-0"># Ads: {totalAds}</p>
+          )
         )}
         {request.type === 'newAIAssets' && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0"># Assets: {request.numAssets}</p>

@@ -41,6 +41,19 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
   const menuBtnRef = useRef(null);
   const Icon = typeIcons[request.type];
   const color = typeColors[request.type] || 'text-gray-600 dark:text-gray-300';
+  const productRequests = Array.isArray(request.productRequests)
+    ? request.productRequests.filter((p) => p && (p.productName || p.name))
+    : [];
+  const fallbackAds = productRequests.reduce((sum, item) => {
+    const qty = Number(item.quantity);
+    if (Number.isNaN(qty) || qty <= 0) return sum;
+    return sum + qty;
+  }, 0);
+  const normalizedNumAds = Number(request.numAds);
+  const totalAds =
+    Number.isNaN(normalizedNumAds) || normalizedNumAds <= 0
+      ? fallbackAds || request.numAds || 0
+      : normalizedNumAds;
 
   const handleClick = (e) => {
     if (
@@ -164,8 +177,31 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
       )}
       {(expanded || request.status === 'ready' || request.status === 'done') && (
         <>
-          <div className="flex items-center justify-between text-sm">
-            {expanded && request.type === 'newAds' && <span># Ads: {request.numAds}</span>}
+          <div className="text-sm">
+            {expanded && request.type === 'newAds' && (
+              productRequests.length ? (
+                <div className="text-left text-black dark:text-[var(--dark-text)]">
+                  <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Products</p>
+                  <ul className="list-disc ml-4 space-y-1">
+                    {productRequests.map((item, idx) => {
+                      const name = item.productName || item.name;
+                      const qty = Number(item.quantity);
+                      const displayQty = Number.isNaN(qty) || qty <= 0 ? null : qty;
+                      return (
+                        <li key={`${name || 'product'}-${idx}`} className="text-xs">
+                          {name}
+                          {displayQty ? ` (${displayQty})` : ''}
+                          {item.isNew ? ' — new' : ''}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">Total Ads: {totalAds}</p>
+                </div>
+              ) : (
+                <span># Ads: {totalAds}</span>
+              )
+            )}
             {expanded && request.type === 'newAIAssets' && <span># Assets: {request.numAssets}</span>}
           </div>
           <div className="text-right">
