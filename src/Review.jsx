@@ -183,47 +183,85 @@ const Review = forwardRef(
         const key = unitKey(hero);
         const group =
           recipeGroups.find((g) => g.key === key) || { assets: [hero] };
-        group.assets.forEach((ad) => {
-          if (['approved', 'archived'].includes(ad.status)) return;
-          if (
-            !includeAll &&
-            ['rejected', 'edit_requested'].includes(ad.status)
-          )
-            return;
-          approvedKeys.add(key);
-          const url = ad.adUrl || ad.firebaseUrl;
-          const existingCopyEdit = responses[url]?.copyEdit || '';
-          const respObj = {
-            adUrl: url,
-            response: 'approve',
-            comment: '',
-            copyEdit: existingCopyEdit,
-            pass: responses[url] ? 'revisit' : 'initial',
-            ...(ad.brandCode ? { brandCode: ad.brandCode } : {}),
-            ...(ad.groupName ? { groupName: ad.groupName } : {}),
-            ...(reviewerName ? { reviewerName } : {}),
-            ...(user?.email ? { userEmail: user.email } : {}),
-            ...(user?.uid ? { userId: user.uid } : {}),
-            ...(userRole ? { userRole } : {}),
-          };
-          if (ad.adGroupId && reviewVersion !== 2) {
+        const first = group.assets[0];
+        if (!first) return;
+        if (['approved', 'archived'].includes(first.status)) return;
+        if (
+          !includeAll &&
+          ['rejected', 'edit_requested'].includes(first.status)
+        )
+          return;
+        approvedKeys.add(key);
+        const url = first.adUrl || first.firebaseUrl;
+        const existingCopyEdit = responses[url]?.copyEdit || '';
+        const respObj = {
+          adUrl: url,
+          response: 'approve',
+          comment: '',
+          copyEdit: existingCopyEdit,
+          pass: responses[url] ? 'revisit' : 'initial',
+          ...(first.brandCode ? { brandCode: first.brandCode } : {}),
+          ...(first.groupName ? { groupName: first.groupName } : {}),
+          ...(reviewerName ? { reviewerName } : {}),
+          ...(user?.email ? { userEmail: user.email } : {}),
+          ...(user?.uid ? { userId: user.uid } : {}),
+          ...(userRole ? { userRole } : {}),
+        };
+        if (first.adGroupId) {
+          if (reviewVersion === 2) {
+            const recipe =
+              first.recipeCode ||
+              parseAdFilename(first.filename || '').recipeCode ||
+              '';
+            if (recipe) {
+              updates.push(
+                updateDoc(
+                  doc(db, 'adGroups', first.adGroupId, 'adUnits', recipe),
+                  {
+                    status: 'approved',
+                    lastUpdatedBy: user.uid,
+                    lastUpdatedAt: serverTimestamp(),
+                  },
+                ),
+              );
+              updates.push(
+                addDoc(
+                  collection(
+                    db,
+                    'adGroups',
+                    first.adGroupId,
+                    'adUnits',
+                    recipe,
+                    'responses',
+                  ),
+                  {
+                    ...respObj,
+                    timestamp: serverTimestamp(),
+                  },
+                ),
+              );
+            }
+          } else {
             updates.push(
-              addDoc(collection(db, 'adGroups', ad.adGroupId, 'responses'), {
+              addDoc(collection(db, 'adGroups', first.adGroupId, 'responses'), {
                 ...respObj,
                 timestamp: serverTimestamp(),
               }),
             );
+            if (first.assetId) {
+              updates.push(
+                updateDoc(
+                  doc(db, 'adGroups', first.adGroupId, 'assets', first.assetId),
+                  {
+                    status: 'approved',
+                    isResolved: true,
+                  },
+                ),
+              );
+            }
           }
-          if (ad.assetId && ad.adGroupId) {
-            updates.push(
-              updateDoc(doc(db, 'adGroups', ad.adGroupId, 'assets', ad.assetId), {
-                status: 'approved',
-                isResolved: true,
-              }),
-            );
-          }
-          newResponses[url] = respObj;
-        });
+        }
+        newResponses[url] = respObj;
       });
       await Promise.all(updates);
       setAds((prev) =>
@@ -909,24 +947,45 @@ const Review = forwardRef(
 
   const statusCounts = useMemo(() => {
     const counts = { pending: 0, approved: 0, edit_requested: 0, rejected: 0 };
-    ads.forEach((a) => {
-      const url = a.adUrl || a.firebaseUrl;
-      const resp = responses[url]?.response;
-      const st =
-        resp === 'approve'
-          ? 'approved'
-          : resp === 'reject'
-          ? 'rejected'
-          : resp === 'edit'
-          ? 'edit_requested'
-          : a.status;
-      if (st === 'approved') counts.approved += 1;
-      else if (st === 'rejected') counts.rejected += 1;
-      else if (st === 'edit_requested') counts.edit_requested += 1;
-      else counts.pending += 1;
-    });
+    if (reviewVersion === 2) {
+      recipeGroups.forEach((g) => {
+        const first = g.assets[0];
+        if (!first) return;
+        const url = first.adUrl || first.firebaseUrl;
+        const resp = responses[url]?.response;
+        const st =
+          resp === 'approve'
+            ? 'approved'
+            : resp === 'reject'
+            ? 'rejected'
+            : resp === 'edit'
+            ? 'edit_requested'
+            : first.status;
+        if (st === 'approved') counts.approved += 1;
+        else if (st === 'rejected') counts.rejected += 1;
+        else if (st === 'edit_requested') counts.edit_requested += 1;
+        else counts.pending += 1;
+      });
+    } else {
+      ads.forEach((a) => {
+        const url = a.adUrl || a.firebaseUrl;
+        const resp = responses[url]?.response;
+        const st =
+          resp === 'approve'
+            ? 'approved'
+            : resp === 'reject'
+            ? 'rejected'
+            : resp === 'edit'
+            ? 'edit_requested'
+            : a.status;
+        if (st === 'approved') counts.approved += 1;
+        else if (st === 'rejected') counts.rejected += 1;
+        else if (st === 'edit_requested') counts.edit_requested += 1;
+        else counts.pending += 1;
+      });
+    }
     return counts;
-  }, [ads, responses]);
+  }, [ads, responses, reviewVersion, recipeGroups]);
 
   const statusBarRef = useRef(null);
   const [statusBarStuck, setStatusBarStuck] = useState(false);
@@ -1118,24 +1177,45 @@ const Review = forwardRef(
 
   const handleStopReview = async () => {
     const remaining = reviewAds.slice(currentIndex);
-    // gather all assets from the remaining recipe groups
+    const pendingKeys = new Set();
     const toUpdate = [];
     remaining.forEach((hero) => {
       const info = parseAdFilename(hero.filename || '');
       const recipe = hero.recipeCode || info.recipeCode || 'unknown';
-      const group = recipeGroups.find((g) => g.recipeCode === recipe);
-      const assets = group ? group.assets : [hero];
-      assets.forEach((asset) =>
+      pendingKeys.add(unitKey(hero));
+      if (hero.adGroupId && recipe) {
         toUpdate.push(
-          updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId), {
+          updateDoc(doc(db, 'adGroups', hero.adGroupId, 'adUnits', recipe), {
             status: 'pending',
-            isResolved: false,
-          })
-        )
-      );
+            lastUpdatedBy: user.uid,
+            lastUpdatedAt: serverTimestamp(),
+          }),
+        );
+      }
     });
     try {
       await Promise.all(toUpdate);
+      setAds((prev) =>
+        prev.map((a) =>
+          pendingKeys.has(unitKey(a))
+            ? { ...a, status: 'pending', isResolved: false }
+            : a,
+        ),
+      );
+      setAllAds((prev) =>
+        prev.map((a) =>
+          pendingKeys.has(unitKey(a)) && a.status !== 'archived'
+            ? { ...a, status: 'pending', isResolved: false }
+            : a,
+        ),
+      );
+      setReviewAds((prev) =>
+        prev.map((a) =>
+          pendingKeys.has(unitKey(a))
+            ? { ...a, status: 'pending', isResolved: false }
+            : a,
+        ),
+      );
     } catch (err) {
       console.error('Failed to mark remaining ads pending', err);
     } finally {
@@ -1198,9 +1278,6 @@ const Review = forwardRef(
     const prevResp = responses[url];
     setResponses((prev) => ({ ...prev, [url]: { adUrl: url, response: value } }));
 
-    const recipeAssets = allAds.filter(
-      (a) => unitKey(a) === unitKey(asset) && a.status !== 'archived',
-    );
     const newStatus =
       value === 'approve'
         ? 'approved'
@@ -1209,20 +1286,6 @@ const Review = forwardRef(
         : 'edit_requested';
     try {
       const updates = [];
-      for (const a of recipeAssets) {
-        if (a.assetId && a.adGroupId) {
-          updates.push(
-            updateDoc(
-              doc(db, 'adGroups', a.adGroupId, 'assets', a.assetId),
-              {
-                status: newStatus,
-                lastUpdatedBy: user.uid,
-                lastUpdatedAt: serverTimestamp(),
-              },
-            ),
-          );
-        }
-      }
       const recipe =
         asset.recipeCode || parseAdFilename(asset.filename || '').recipeCode || '';
       if (asset.adGroupId && recipe) {
@@ -1255,12 +1318,23 @@ const Review = forwardRef(
       await Promise.all(updates);
       setAds((prev) =>
         prev.map((a) =>
-          unitKey(a) === unitKey(asset) ? { ...a, status: newStatus } : a,
+          unitKey(a) === unitKey(asset) && a.status !== 'archived'
+            ? { ...a, status: newStatus }
+            : a,
         ),
       );
       setAllAds((prev) =>
         prev.map((a) =>
-          unitKey(a) === unitKey(asset) ? { ...a, status: newStatus } : a,
+          unitKey(a) === unitKey(asset) && a.status !== 'archived'
+            ? { ...a, status: newStatus }
+            : a,
+        ),
+      );
+      setReviewAds((prev) =>
+        prev.map((a) =>
+          unitKey(a) === unitKey(asset)
+            ? { ...a, status: newStatus }
+            : a,
         ),
       );
     } catch (err) {
