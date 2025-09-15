@@ -9,7 +9,7 @@ import React, {
   forwardRef,
   useCallback,
 } from 'react';
-import { FiEdit, FiX, FiGrid, FiCheck, FiType, FiMessageSquare } from 'react-icons/fi';
+import { FiEdit, FiX, FiGrid, FiCheck, FiType, FiMessageSquare, FiPlus } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
   collection,
@@ -1952,31 +1952,38 @@ useEffect(() => {
                               [gIdx]: !p[gIdx],
                             }))
                           }
-                          className="text-blue-600 text-sm"
+                          className="text-gray-600 dark:text-gray-400 text-sm"
                         >
                           {expandedEdits[gIdx] ? 'Hide Edit Request' : 'View Edit Request'}
                         </button>
                       )}
                     </div>
                     {resp === 'edit' && expandedEdits[gIdx] && (
-                      <div className="mt-2 p-2 bg-gray-50 rounded text-sm space-y-2">
-                        <div>
+                      <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-sm space-y-2">
+                        <div className="text-gray-700 dark:text-gray-200">
+                          {responses[url]?.reviewerName && (
+                            <span className="font-semibold mr-1">
+                              {responses[url].reviewerName}:
+                            </span>
+                          )}
                           {responses[url]?.comment || 'No edit details provided.'}
                           <button
                             type="button"
                             onClick={() => handleAddComment(first)}
-                            className="block text-blue-600 text-xs mt-1"
+                            className="flex items-center text-gray-600 dark:text-gray-400 text-xs mt-1"
                           >
-                            Add comment
+                            <FiPlus className="mr-1" /> Add comment
                           </button>
                         </div>
                         {responses[url]?.copyEdit && (
-                          <div>
-                            <p className="italic">{responses[url].copyEdit}</p>
+                          <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
+                            <p className="italic">
+                              {responses[url].copyEdit}
+                            </p>
                             <button
                               type="button"
                               onClick={() => handleEditCopy(first)}
-                              className="block text-blue-600 text-xs"
+                              className="block text-gray-600 dark:text-gray-400 text-xs mt-1"
                             >
                               Edit
                             </button>
