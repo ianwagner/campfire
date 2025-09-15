@@ -131,6 +131,8 @@ const Review = forwardRef(
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
+  const [finalized, setFinalized] = useState(false);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -825,6 +827,19 @@ useEffect(() => {
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
     currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
+  const statusCounts = useMemo(() => {
+    const counts = {
+      pending: 0,
+      approved: 0,
+      edit_requested: 0,
+      rejected: 0,
+    };
+    ads.forEach((a) => {
+      if (counts[a.status] !== undefined) counts[a.status] += 1;
+    });
+    return counts;
+  }, [ads]);
+  const externalStatus = finalized ? 'Review Finalized' : 'Review in Progress';
   const statusResponse = useMemo(() => {
     if (!currentAd) return null;
     const { status } = currentAd;
@@ -1207,6 +1222,7 @@ useEffect(() => {
   };
 
   const openEditRequest = async (ad = currentAd) => {
+    if (finalized) return;
     if (ad) {
       const idx = reviewAds.findIndex((a) => a.assetId === ad.assetId);
       if (idx >= 0) setCurrentIndex(idx);
@@ -1216,12 +1232,45 @@ useEffect(() => {
   };
 
   const openCopyEdit = async (ad) => {
+    if (finalized) return;
     if (ad) {
       const idx = reviewAds.findIndex((a) => a.assetId === ad.assetId);
       if (idx >= 0) setCurrentIndex(idx);
     }
     await loadCopyForAd(ad);
     setShowCopyEditModal(true);
+  };
+
+  const finishFinalize = () => {
+    setFinalized(true);
+    setShowEditModal(false);
+    setShowCommentModal(false);
+    setShowCopyEditModal(false);
+    setShowFeedbackModal(false);
+  };
+
+  const handleFinalize = () => {
+    if (finalized) return;
+    if (statusCounts.pending > 0) {
+      setShowFinalizeModal(true);
+    } else {
+      finishFinalize();
+    }
+  };
+
+  const confirmFinalize = () => {
+    setAds((prev) =>
+      prev.map((a) =>
+        a.status === 'pending' ? { ...a, status: 'approved' } : a,
+      ),
+    );
+    setReviewAds((prev) =>
+      prev.map((a) =>
+        a.status === 'pending' ? { ...a, status: 'approved' } : a,
+      ),
+    );
+    finishFinalize();
+    setShowFinalizeModal(false);
   };
 
   const handleAddComment = (ad) => {
@@ -1276,7 +1325,7 @@ useEffect(() => {
   };
 
   const submitResponse = async (responseType) => {
-    if (!currentAd) return;
+    if (finalized || !currentAd) return;
     advancedRef.current = false;
     setAnimating(responseType);
     setSubmitting(true);
@@ -1818,6 +1867,57 @@ useEffect(() => {
 
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen space-y-4">
+      <div
+        className="fixed top-2 left-1/2 -translate-x-1/2 z-40 bg-white border rounded-lg px-4 py-2 flex items-center gap-4 shadow"
+        style={{ width: 'calc(100% + 2rem)' }}
+      >
+        <div className="flex flex-col">
+          <span className="font-semibold">{groupName}</span>
+          <span className="text-xs text-gray-500">External: {externalStatus}</span>
+        </div>
+        <div className="flex gap-4">
+          <div className="text-center">
+            <div className="text-lg font-bold">{statusCounts.pending}</div>
+            <div className="text-xs">Pending</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold">{statusCounts.approved}</div>
+            <div className="text-xs">Approved</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold">{statusCounts.edit_requested}</div>
+            <div className="text-xs">Edit Requested</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold">{statusCounts.rejected}</div>
+            <div className="text-xs">Rejected</div>
+          </div>
+        </div>
+        <button
+          onClick={handleFinalize}
+          className="btn-primary whitespace-nowrap"
+          disabled={finalized}
+        >
+          Finalize Review
+        </button>
+      </div>
+      {showFinalizeModal && (
+        <Modal>
+          <h2 className="text-lg font-semibold mb-2">Finalize Review</h2>
+          <p className="mb-4">Some ads are still pending. Would you like to mark them as approved?</p>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setShowFinalizeModal(false)}
+              className="btn-secondary"
+            >
+              Cancel
+            </button>
+            <button onClick={confirmFinalize} className="btn-primary">
+              Approve pending ads
+            </button>
+          </div>
+        </Modal>
+      )}
       {showStreakModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded-xl shadow max-w-sm space-y-4 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
@@ -2275,7 +2375,7 @@ useEffect(() => {
         </div>
       </div>
 
-        {!showSizes && reviewVersion === 1 && (showSecondView ? (
+      {!finalized && !showSizes && reviewVersion === 1 && (showSecondView ? (
         <div className="flex items-center space-x-4">
           {currentIndex > 0 && (
             <button
