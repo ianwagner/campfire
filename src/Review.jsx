@@ -135,6 +135,7 @@ const Review = forwardRef(
   const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
+  const [expandedEdits, setExpandedEdits] = useState({});
   // refs to track latest values for cleanup on unmount
   const currentIndexRef = useRef(currentIndex);
   const reviewLengthRef = useRef(reviewAds.length);
@@ -371,24 +372,6 @@ useEffect(() => {
       events.forEach((e) => window.removeEventListener(e, reset));
     };
   }, [started, releaseLock]);
-
-  const recipeGroups = useMemo(() => {
-    const map = {};
-    ads.forEach((a) => {
-      const info = parseAdFilename(a.filename || '');
-      const recipe = a.recipeCode || info.recipeCode || 'unknown';
-      const aspect = a.aspectRatio || info.aspectRatio || '';
-      const item = { ...a, recipeCode: recipe, aspectRatio: aspect };
-      if (!map[recipe]) map[recipe] = [];
-      map[recipe].push(item);
-    });
-    const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
-    return Object.entries(map).map(([recipeCode, list]) => {
-      list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
-      return { recipeCode, assets: list };
-    });
-  }, [ads]);
-
 
   useEffect(() => {
     setFadeIn(true);
@@ -1006,6 +989,23 @@ useEffect(() => {
   const otherSizes = currentVersionAssets.filter(
     (a) => (a.adUrl || a.firebaseUrl) !== adUrl,
   );
+
+  const recipeGroups = useMemo(
+    () =>
+      reviewAds.map((hero) => {
+        const key = unitKey(hero);
+        const assets = allAds.filter(
+          (a) => unitKey(a) === key && a.status !== 'archived',
+        );
+        return { key, assets };
+      }),
+    [reviewAds, allAds],
+  );
+
+  const handleStatusChange = (asset, value) => {
+    const url = asset.adUrl || asset.firebaseUrl;
+    setResponses((prev) => ({ ...prev, [url]: { adUrl: url, response: value } }));
+  };
 
   const currentAspect = String(currentAspectRaw || '9x16').replace(
     'x',
@@ -1732,7 +1732,7 @@ useEffect(() => {
               </button>
             </InfoTooltip>
           </div>
-          {reviewVersion !== 3 && (
+          {reviewVersion === 1 && (
             <div
               className="progress-bar"
               role="progressbar"
@@ -1761,85 +1761,99 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="p-4 rounded flex flex-wrap justify-center gap-4 relative">
-              {(currentRecipeGroup?.assets || []).map((a, idx) => (
-                <div key={idx} className="max-w-[300px]">
-                  {isVideoUrl(a.firebaseUrl) ? (
-                    <VideoPlayer
-                      src={a.firebaseUrl}
-                      className="max-w-full rounded shadow"
-                      style={{
-                        aspectRatio:
-                          String(a.aspectRatio || '').replace('x', '/') || undefined,
-                      }}
-                    />
-                  ) : (
-                    <OptimizedImage
-                      pngUrl={a.firebaseUrl}
-                      webpUrl={
-                        a.firebaseUrl
-                          ? a.firebaseUrl.replace(/\.png$/, '.webp')
-                          : undefined
-                      }
-                      alt={a.filename}
-                      cacheKey={a.firebaseUrl}
-                      className="max-w-full rounded shadow"
-                      style={{
-                        aspectRatio:
-                          String(a.aspectRatio || '').replace('x', '/') || undefined,
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-              {(getVersion(displayAd) > 1 || versions.length > 1) && (
-                versions.length > 1 ? (
-                  versions.length === 2 ? (
-                    <span
-                      onClick={() =>
-                        setVersionIndex((i) => (i + 1) % versions.length)
-                      }
-                      className="version-badge cursor-pointer absolute top-0 left-0"
-                    >
-                      V{getVersion(displayAd)}
-                    </span>
-                  ) : (
-                    <div className="absolute top-0 left-0">
-                      <span
-                        onClick={() => setShowVersionMenu((o) => !o)}
-                        className="version-badge cursor-pointer select-none"
-                      >
-                        V{getVersion(displayAd)}
-                      </span>
-                      {showVersionMenu && (
-                        <div className="absolute left-0 top-full mt-1 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
-                          {versions.map((v, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => {
-                                setVersionIndex(idx);
-                                setShowVersionMenu(false);
+            <div className="space-y-8 w-full">
+              {recipeGroups.map((group, gIdx) => {
+                const first = group.assets[0];
+                const url = first.adUrl || first.firebaseUrl;
+                const resp = responses[url]?.response || 'pending';
+                return (
+                  <div key={gIdx} className="border rounded p-4">
+                    <div className="flex flex-wrap justify-center gap-4">
+                      {group.assets.map((a, idx) => (
+                        <div key={idx} className="max-w-[300px]">
+                          {isVideoUrl(a.firebaseUrl) ? (
+                            <VideoPlayer
+                              src={a.firebaseUrl}
+                              className="max-w-full rounded shadow"
+                              style={{
+                                aspectRatio:
+                                  String(a.aspectRatio || '').replace('x', '/') || undefined,
                               }}
-                              className="block w-full text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
-                            >
-                              V{getVersion(v[0])}
-                            </button>
-                          ))}
+                            />
+                          ) : (
+                            <OptimizedImage
+                              pngUrl={a.firebaseUrl}
+                              webpUrl={
+                                a.firebaseUrl
+                                  ? a.firebaseUrl.replace(/\.png$/, '.webp')
+                                  : undefined
+                              }
+                              alt={a.filename}
+                              cacheKey={a.firebaseUrl}
+                              className="max-w-full rounded shadow"
+                              style={{
+                                aspectRatio:
+                                  String(a.aspectRatio || '').replace('x', '/') || undefined,
+                              }}
+                            />
+                          )}
                         </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center mt-2">
+                      <div className="flex items-center space-x-2">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            resp === 'approve'
+                              ? 'bg-green-500'
+                              : resp === 'reject'
+                              ? 'bg-red-500'
+                              : resp === 'edit'
+                              ? 'bg-yellow-500'
+                              : 'bg-gray-400'
+                          }`}
+                        />
+                        <select
+                          className="border rounded p-1 text-sm"
+                          value={resp}
+                          onChange={(e) => handleStatusChange(first, e.target.value)}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="approve">Approve</option>
+                          <option value="reject">Reject</option>
+                          <option value="edit">Edit Request</option>
+                        </select>
+                      </div>
+                      {resp === 'edit' && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedEdits((p) => ({
+                              ...p,
+                              [gIdx]: !p[gIdx],
+                            }))
+                          }
+                          className="text-blue-600 text-sm"
+                        >
+                          {expandedEdits[gIdx] ? 'Hide Edit Request' : 'View Edit Request'}
+                        </button>
                       )}
                     </div>
-                  )
-                ) : (
-                  <span className="version-badge absolute top-0 left-0">V{getVersion(displayAd)}</span>
-                )
-              )}
+                    {resp === 'edit' && expandedEdits[gIdx] && (
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
+                        {responses[url]?.comment || 'No edit details provided.'}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
-          <div
-            onTouchStart={!isSafari ? handleTouchStart : undefined}
-            onTouchMove={!isSafari ? handleTouchMove : undefined}
-            onTouchEnd={!isSafari ? handleTouchEnd : undefined}
-            onAnimationEnd={handleAnimationEnd}
+            <div
+              onTouchStart={!isSafari ? handleTouchStart : undefined}
+              onTouchMove={!isSafari ? handleTouchMove : undefined}
+              onTouchEnd={!isSafari ? handleTouchEnd : undefined}
+              onAnimationEnd={handleAnimationEnd}
             className={`relative z-10 ${
               isMobile && showSizes
                 ? 'flex flex-col items-center overflow-y-auto h-[72vh]'
