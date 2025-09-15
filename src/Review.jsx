@@ -179,12 +179,10 @@ const Review = forwardRef(
       const updates = [];
       const newResponses = {};
       const approvedKeys = new Set();
-      reviewAds.forEach((hero) => {
-        const key = unitKey(hero);
-        const group =
-          recipeGroups.find((g) => g.key === key) || { assets: [hero] };
+      recipeGroups.forEach((group) => {
         const first = group.assets[0];
         if (!first) return;
+        const key = unitKey(first);
         if (['approved', 'archived'].includes(first.status)) return;
         if (
           !includeAll &&
@@ -2182,7 +2180,6 @@ const Review = forwardRef(
             <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 mb-2 sm:mb-0">
                 <div className="font-semibold truncate">{groupName}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">{finalized ? 'Review Finalized' : 'Review in Progress'}</div>
               </div>
               <div className="flex items-center gap-4 w-full">
                 <div className="flex gap-4">
@@ -2203,14 +2200,18 @@ const Review = forwardRef(
                     <div className="text-xs text-gray-600 dark:text-gray-300">Rejected</div>
                   </div>
                 </div>
-                {initialStatus && initialStatus !== 'reviewed' && !finalized && (
+                {initialStatus && initialStatus !== 'reviewed' && !finalized ? (
                   <button
                     className="btn-secondary whitespace-nowrap ml-auto"
                     onClick={finalizeReview}
                   >
                     Finalize Review
                   </button>
-                )}
+                ) : finalized ? (
+                  <div className="ml-auto text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                    Review Complete
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -2291,11 +2292,13 @@ const Review = forwardRef(
                         />
                         <select
                           className="border rounded p-1 text-sm"
-                          value={resp}
+                          value={resp || ''}
                           onChange={(e) => handleStatusChange(first, e.target.value)}
                           disabled={finalized}
                         >
-                          <option value="pending">Pending</option>
+                          <option value="" disabled>
+                            Select Status
+                          </option>
                           <option value="approve">Approve</option>
                           <option value="reject">Reject</option>
                           <option value="edit">Edit Request</option>

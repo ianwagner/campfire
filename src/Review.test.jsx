@@ -978,7 +978,7 @@ test('ad unit status change updates all assets in review 2.0', async () => {
 
   fireEvent.click(await screen.findByText('Review Ads'));
   await screen.findByText('Pending');
-  const select = screen.getByDisplayValue('Pending');
+  const select = screen.getAllByRole('combobox')[0];
   fireEvent.change(select, { target: { value: 'approve' } });
 
   await waitFor(() => {
