@@ -121,6 +121,7 @@ const Review = forwardRef(
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [showApproveAllModal, setShowApproveAllModal] = useState(false);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
@@ -158,60 +159,126 @@ const Review = forwardRef(
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
 
+  const recipeGroups = useMemo(
+    () =>
+      reviewAds
+        .map((hero) => {
+          const key = unitKey(hero);
+          const assets = allAds.filter(
+            (a) => unitKey(a) === key && a.status !== 'archived',
+          );
+          return { key, assets };
+        })
+        .filter((g) => g.assets.length > 0),
+    [reviewAds, allAds],
+  );
+
   const bulkApprove = useCallback(
     async (includeAll = false) => {
       if (!groupId || finalized) return;
       const updates = [];
       const newResponses = {};
-      reviewAds.forEach((ad) => {
-        if (['approved', 'archived'].includes(ad.status)) return;
-        if (!includeAll && ['rejected', 'edit_requested'].includes(ad.status))
-          return;
-        const url = ad.adUrl || ad.firebaseUrl;
-        const existingCopyEdit = responses[url]?.copyEdit || '';
-        const respObj = {
-          adUrl: url,
-          response: 'approve',
-          comment: '',
-          copyEdit: existingCopyEdit,
-          pass: responses[url] ? 'revisit' : 'initial',
-          ...(ad.brandCode ? { brandCode: ad.brandCode } : {}),
-          ...(ad.groupName ? { groupName: ad.groupName } : {}),
-          ...(reviewerName ? { reviewerName } : {}),
-          ...(user?.email ? { userEmail: user.email } : {}),
-          ...(user?.uid ? { userId: user.uid } : {}),
-          ...(userRole ? { userRole } : {}),
-        };
-        if (ad.adGroupId && reviewVersion !== 2) {
-          updates.push(
-            addDoc(collection(db, 'adGroups', ad.adGroupId, 'responses'), {
-              ...respObj,
-              timestamp: serverTimestamp(),
-            }),
-          );
-        }
-        if (ad.assetId && ad.adGroupId) {
-          updates.push(
-            updateDoc(doc(db, 'adGroups', ad.adGroupId, 'assets', ad.assetId), {
-              status: 'approved',
-              isResolved: true,
-            }),
-          );
-        }
-        newResponses[url] = respObj;
+      const approvedKeys = new Set();
+      reviewAds.forEach((hero) => {
+        const key = unitKey(hero);
+        const group =
+          recipeGroups.find((g) => g.key === key) || { assets: [hero] };
+        group.assets.forEach((ad) => {
+          if (['approved', 'archived'].includes(ad.status)) return;
+          if (
+            !includeAll &&
+            ['rejected', 'edit_requested'].includes(ad.status)
+          )
+            return;
+          approvedKeys.add(key);
+          const url = ad.adUrl || ad.firebaseUrl;
+          const existingCopyEdit = responses[url]?.copyEdit || '';
+          const respObj = {
+            adUrl: url,
+            response: 'approve',
+            comment: '',
+            copyEdit: existingCopyEdit,
+            pass: responses[url] ? 'revisit' : 'initial',
+            ...(ad.brandCode ? { brandCode: ad.brandCode } : {}),
+            ...(ad.groupName ? { groupName: ad.groupName } : {}),
+            ...(reviewerName ? { reviewerName } : {}),
+            ...(user?.email ? { userEmail: user.email } : {}),
+            ...(user?.uid ? { userId: user.uid } : {}),
+            ...(userRole ? { userRole } : {}),
+          };
+          if (ad.adGroupId && reviewVersion !== 2) {
+            updates.push(
+              addDoc(collection(db, 'adGroups', ad.adGroupId, 'responses'), {
+                ...respObj,
+                timestamp: serverTimestamp(),
+              }),
+            );
+          }
+          if (ad.assetId && ad.adGroupId) {
+            updates.push(
+              updateDoc(doc(db, 'adGroups', ad.adGroupId, 'assets', ad.assetId), {
+                status: 'approved',
+                isResolved: true,
+              }),
+            );
+          }
+          newResponses[url] = respObj;
+        });
       });
       await Promise.all(updates);
+      setAds((prev) =>
+        prev.map((a) => {
+          const key = unitKey(a);
+          if (!approvedKeys.has(key)) return a;
+          if (['approved', 'archived'].includes(a.status)) return a;
+          if (
+            !includeAll &&
+            ['rejected', 'edit_requested'].includes(a.status)
+          )
+            return a;
+          return { ...a, status: 'approved', isResolved: true };
+        }),
+      );
+      setAllAds((prev) =>
+        prev.map((a) => {
+          const key = unitKey(a);
+          if (!approvedKeys.has(key)) return a;
+          if (['approved', 'archived'].includes(a.status)) return a;
+          if (
+            !includeAll &&
+            ['rejected', 'edit_requested'].includes(a.status)
+          )
+            return a;
+          return { ...a, status: 'approved', isResolved: true };
+        }),
+      );
       setReviewAds((prev) =>
         prev.map((a) => {
+          const key = unitKey(a);
+          if (!approvedKeys.has(key)) return a;
           if (['approved', 'archived'].includes(a.status)) return a;
-          if (!includeAll && ['rejected', 'edit_requested'].includes(a.status))
+          if (
+            !includeAll &&
+            ['rejected', 'edit_requested'].includes(a.status)
+          )
             return a;
           return { ...a, status: 'approved', isResolved: true };
         }),
       );
       setResponses((prev) => ({ ...prev, ...newResponses }));
     },
-    [groupId, reviewAds, responses, reviewerName, user, userRole, reviewVersion],
+    [
+      groupId,
+      finalized,
+      reviewAds,
+      responses,
+      reviewerName,
+      user,
+      userRole,
+      reviewVersion,
+      recipeGroups,
+      allAds,
+    ],
   );
 
   const approveAll = useCallback(async () => {
@@ -1079,8 +1146,7 @@ const Review = forwardRef(
     }
   };
 
-  const finalizeReview = async () => {
-    if (!groupId) return;
+  const finalizeGroup = async () => {
     try {
       await updateDoc(doc(db, 'adGroups', groupId), {
         status: 'reviewed',
@@ -1091,6 +1157,15 @@ const Review = forwardRef(
     } catch (err) {
       console.error('Failed to finalize review', err);
     }
+  };
+
+  const finalizeReview = async () => {
+    if (!groupId) return;
+    if (statusCounts.pending > 0) {
+      setShowFinalizeModal(true);
+      return;
+    }
+    await finalizeGroup();
   };
   const statusMap = {
     approve: 'Approved',
@@ -1112,19 +1187,6 @@ const Review = forwardRef(
     (a) => (a.adUrl || a.firebaseUrl) !== adUrl,
   );
 
-  const recipeGroups = useMemo(
-    () =>
-      reviewAds
-        .map((hero) => {
-          const key = unitKey(hero);
-          const assets = allAds.filter(
-            (a) => unitKey(a) === key && a.status !== 'archived',
-          );
-          return { key, assets };
-        })
-        .filter((g) => g.assets.length > 0),
-    [reviewAds, allAds],
-  );
 
   const handleStatusChange = async (asset, value) => {
     if (finalized) return;
@@ -2018,7 +2080,7 @@ const Review = forwardRef(
         <div
             ref={statusBarRef}
             className={`sticky top-0 z-30 w-full ${
-              reviewVersion === 3 ? 'max-w-5xl' : 'max-w-md'
+              reviewVersion === 1 ? 'max-w-md' : 'max-w-5xl'
             } mx-auto mb-2 transition-opacity ${
               statusBarStuck ? 'opacity-60 hover:opacity-100' : ''
             }`}
@@ -2525,6 +2587,34 @@ const Review = forwardRef(
               }}
             >
               Approve all ads
+            </Button>
+          </div>
+        </Modal>
+      )}
+      {showFinalizeModal && (
+        <Modal>
+          <h3 className="mb-2 text-lg font-semibold">Finalize Review</h3>
+          <p className="mb-4 text-sm">
+            Some ads are still pending. Would you like to mark them as approved?
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              className="px-3 py-1"
+              onClick={() => setShowFinalizeModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              className="px-3 py-1"
+              onClick={async () => {
+                setShowFinalizeModal(false);
+                await bulkApprove(false);
+                await finalizeGroup();
+              }}
+            >
+              Approve pending ads
             </Button>
           </div>
         </Modal>
