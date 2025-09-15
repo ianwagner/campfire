@@ -87,6 +87,7 @@ const Review = forwardRef(
   const [comment, setComment] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
+  const [addingComment, setAddingComment] = useState(false);
   const [showCopyEditModal, setShowCopyEditModal] = useState(false);
   const [editCopy, setEditCopy] = useState('');
   const [origCopy, setOrigCopy] = useState('');
@@ -1143,6 +1144,7 @@ useEffect(() => {
     }
     await loadCopyForAd(ad);
     setShowEditModal(true);
+    setAddingComment(false);
   };
 
   const openCopyEdit = async (ad) => {
@@ -1152,6 +1154,7 @@ useEffect(() => {
     }
     await loadCopyForAd(ad);
     setShowCopyEditModal(true);
+    setAddingComment(false);
   };
 
   const handleAddComment = (ad) => {
@@ -1160,6 +1163,7 @@ useEffect(() => {
       if (idx >= 0) setCurrentIndex(idx);
     }
     setComment('');
+    setAddingComment(true);
     setShowCommentModal(true);
   };
 
@@ -1228,11 +1232,17 @@ useEffect(() => {
         const url = asset.adUrl || asset.firebaseUrl;
         const copyChanged =
           responseType === 'edit' && editCopy.trim() !== origCopy.trim();
+        const existingComment = responses[url]?.comment || '';
+        const combinedComment =
+          addingComment && responseType === 'edit'
+            ? [existingComment, comment].filter(Boolean).join('\n')
+            : comment;
+        const existingCopyEdit = responses[url]?.copyEdit || '';
         const respObj = {
           adUrl: url,
           response: responseType,
-          comment: responseType === 'edit' ? comment : '',
-          copyEdit: copyChanged ? editCopy : '',
+          comment: responseType === 'edit' ? combinedComment : '',
+          copyEdit: copyChanged ? editCopy : existingCopyEdit,
           pass: responses[url] ? 'revisit' : 'initial',
           ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
           ...(asset.groupName ? { groupName: asset.groupName } : {}),
@@ -1253,8 +1263,8 @@ useEffect(() => {
           const assetRef = doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId);
           const updateData = {
             status: newStatus,
-            comment: responseType === 'edit' ? comment : '',
-            copyEdit: copyChanged ? editCopy : '',
+            ...(responseType === 'edit' ? { comment: combinedComment } : {}),
+            ...(copyChanged ? { copyEdit: editCopy } : {}),
             lastUpdatedBy: user.uid,
             lastUpdatedAt: serverTimestamp(),
             ...(responseType === 'approve' ? { isResolved: true } : {}),
@@ -1413,11 +1423,17 @@ useEffect(() => {
         const url = asset.adUrl || asset.firebaseUrl;
         const copyChanged =
           responseType === 'edit' && editCopy.trim() !== origCopy.trim();
+        const existingComment = responses[url]?.comment || '';
+        const combinedComment =
+          addingComment && responseType === 'edit'
+            ? [existingComment, comment].filter(Boolean).join('\n')
+            : comment;
+        const existingCopyEdit = responses[url]?.copyEdit || '';
         const unitResp = {
           adUrl: url,
           response: responseType,
-          comment: responseType === 'edit' ? comment : '',
-          copyEdit: copyChanged ? editCopy : '',
+          comment: responseType === 'edit' ? combinedComment : '',
+          copyEdit: copyChanged ? editCopy : existingCopyEdit,
           pass: responses[url] ? 'revisit' : 'initial',
           ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
           ...(asset.groupName ? { groupName: asset.groupName } : {}),
@@ -1448,8 +1464,8 @@ useEffect(() => {
         );
         const unitUpdate = {
           status: newStatus,
-          comment: responseType === 'edit' ? comment : '',
-          copyEdit: copyChanged ? editCopy : '',
+          ...(responseType === 'edit' ? { comment: combinedComment } : {}),
+          ...(copyChanged ? { copyEdit: editCopy } : {}),
           lastUpdatedBy: user.uid,
           lastUpdatedAt: serverTimestamp(),
           ...(responseType === 'approve' ? { isResolved: true } : {}),
@@ -1530,6 +1546,9 @@ useEffect(() => {
       setEditCopy('');
       setOrigCopy('');
       setShowEditModal(false);
+      setShowCommentModal(false);
+      setShowCopyEditModal(false);
+      setAddingComment(false);
       setSubmitting(false);
 
       const nextIndex = currentIndex + 1;
@@ -1828,7 +1847,7 @@ useEffect(() => {
               </button>
             </InfoTooltip>
           </div>
-          {reviewVersion === 3 && (
+          {[2, 3].includes(reviewVersion) && (
             <div className="absolute right-0 top-1/2 -translate-y-1/2">
               <InfoTooltip text="leave overall feedback" placement="bottom">
                 <button
@@ -1975,11 +1994,9 @@ useEffect(() => {
                             <FiPlus className="mr-1" /> Add comment
                           </button>
                         </div>
-                        {responses[url]?.copyEdit && (
+                        {responses[url]?.copyEdit ? (
                           <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
-                            <p className="italic">
-                              {responses[url].copyEdit}
-                            </p>
+                            <p className="italic">{responses[url].copyEdit}</p>
                             <button
                               type="button"
                               onClick={() => handleEditCopy(first)}
@@ -1988,6 +2005,14 @@ useEffect(() => {
                               Edit
                             </button>
                           </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleEditCopy(first)}
+                            className="block text-gray-600 dark:text-gray-400 text-xs mt-1"
+                          >
+                            Request Copy Edit
+                          </button>
                         )}
                       </div>
                     )}
@@ -2244,8 +2269,13 @@ useEffect(() => {
           comment={comment}
           onCommentChange={setComment}
           onSubmit={() => submitResponse('edit')}
-          onClose={() => setShowCommentModal(false)}
+          onClose={() => {
+            setShowCommentModal(false);
+            setAddingComment(false);
+          }}
           submitting={submitting}
+          title="Add comment"
+          placeholder="Add comments..."
         />
       )}
       {showCopyEditModal && (
@@ -2297,7 +2327,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-      {reviewVersion === 3 && showFeedbackModal && (
+      {[2, 3].includes(reviewVersion) && showFeedbackModal && (
         <FeedbackModal
           comment={feedbackComment}
           onCommentChange={setFeedbackComment}
