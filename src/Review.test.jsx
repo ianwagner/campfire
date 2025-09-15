@@ -1481,6 +1481,28 @@ test('shows summary and requires finalize when no ads available', async () => {
   expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
 });
 
+test('shows finalize button when group status is ready', async () => {
+  const groupDoc = {
+    exists: () => true,
+    data: () => ({ name: 'Group 1', status: 'ready' }),
+  };
+  const assetSnapshot = { docs: [] };
+
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      return Promise.resolve(assetSnapshot);
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+
+  expect(await screen.findByText(/Your ads are ready/i)).toBeInTheDocument();
+  expect(await screen.findByText('Finalize Review')).toBeInTheDocument();
+});
+
 test('client approval updates group status', async () => {
   const groupDoc = {
     exists: () => true,
