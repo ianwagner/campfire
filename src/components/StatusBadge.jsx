@@ -12,7 +12,7 @@ const knownStatuses = new Set([
   "archived",
   "draft",
   "mixed",
-  "in_design",
+  "designed",
   "edit_request",
   "done",
   "blocked",
