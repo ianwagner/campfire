@@ -9,7 +9,7 @@ import React, {
   forwardRef,
   useCallback,
 } from 'react';
-import { FiEdit, FiX, FiGrid, FiCheck, FiType, FiMessageSquare, FiPlus } from 'react-icons/fi';
+import { FiEdit, FiX, FiGrid, FiCheck, FiType, FiMessageSquare } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
   collection,
@@ -1828,7 +1828,7 @@ useEffect(() => {
               </button>
             </InfoTooltip>
           </div>
-          {reviewVersion !== 1 && (
+          {reviewVersion === 3 && (
             <div className="absolute right-0 top-1/2 -translate-y-1/2">
               <InfoTooltip text="leave overall feedback" placement="bottom">
                 <button
@@ -1952,39 +1952,31 @@ useEffect(() => {
                               [gIdx]: !p[gIdx],
                             }))
                           }
-                          className="text-gray-600 text-sm dark:text-gray-300"
+                          className="text-blue-600 text-sm"
                         >
                           {expandedEdits[gIdx] ? 'Hide Edit Request' : 'View Edit Request'}
                         </button>
                       )}
                     </div>
                     {resp === 'edit' && expandedEdits[gIdx] && (
-                      <div className="mt-2 p-2 bg-gray-50 rounded text-sm space-y-2 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-sm space-y-2">
                         <div>
-                          <p className="font-semibold">Comment</p>
-                          {responses[url]?.comment ? (
-                            <p>
-                              <span className="font-medium">{responses[url].updatedBy}</span>: {responses[url].comment}
-                            </p>
-                          ) : (
-                            <p className="text-gray-500 dark:text-gray-400">No comment provided.</p>
-                          )}
+                          {responses[url]?.comment || 'No edit details provided.'}
                           <button
                             type="button"
                             onClick={() => handleAddComment(first)}
-                            className="mt-1 flex items-center text-xs text-gray-600 dark:text-gray-300"
+                            className="block text-blue-600 text-xs mt-1"
                           >
-                            <FiPlus className="mr-1" /> Add comment
+                            Add comment
                           </button>
                         </div>
                         {responses[url]?.copyEdit && (
-                          <div className="pt-2 border-t border-gray-200 dark:border-[var(--dark-sidebar-hover)]">
-                            <p className="font-semibold">Copy Edit Request</p>
+                          <div>
                             <p className="italic">{responses[url].copyEdit}</p>
                             <button
                               type="button"
                               onClick={() => handleEditCopy(first)}
-                              className="block text-xs text-gray-600 dark:text-gray-300"
+                              className="block text-blue-600 text-xs"
                             >
                               Edit
                             </button>
@@ -2298,7 +2290,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-      {reviewVersion !== 1 && showFeedbackModal && (
+      {reviewVersion === 3 && showFeedbackModal && (
         <FeedbackModal
           comment={feedbackComment}
           onCommentChange={setFeedbackComment}
