@@ -42,6 +42,8 @@ import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
 import FeedbackPanel from './components/FeedbackPanel.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
+import Modal from './components/Modal.jsx';
+import Button from './components/Button.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
@@ -87,7 +89,6 @@ const Review = forwardRef(
   const [comment, setComment] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
-  const [addingComment, setAddingComment] = useState(false);
   const [showCopyEditModal, setShowCopyEditModal] = useState(false);
   const [editCopy, setEditCopy] = useState('');
   const [origCopy, setOrigCopy] = useState('');
@@ -118,6 +119,7 @@ const Review = forwardRef(
   const [reviewVersion, setReviewVersion] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState('');
+  const [showApproveAllModal, setShowApproveAllModal] = useState(false);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
@@ -154,11 +156,77 @@ const Review = forwardRef(
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
 
+  const bulkApprove = useCallback(
+    async (includeAll = false) => {
+      if (!groupId) return;
+      const updates = [];
+      const newResponses = {};
+      reviewAds.forEach((ad) => {
+        if (['approved', 'archived'].includes(ad.status)) return;
+        if (!includeAll && ['rejected', 'edit_requested'].includes(ad.status))
+          return;
+        const url = ad.adUrl || ad.firebaseUrl;
+        const existingCopyEdit = responses[url]?.copyEdit || '';
+        const respObj = {
+          adUrl: url,
+          response: 'approve',
+          comment: '',
+          copyEdit: existingCopyEdit,
+          pass: responses[url] ? 'revisit' : 'initial',
+          ...(ad.brandCode ? { brandCode: ad.brandCode } : {}),
+          ...(ad.groupName ? { groupName: ad.groupName } : {}),
+          ...(reviewerName ? { reviewerName } : {}),
+          ...(user?.email ? { userEmail: user.email } : {}),
+          ...(user?.uid ? { userId: user.uid } : {}),
+          ...(userRole ? { userRole } : {}),
+        };
+        if (ad.adGroupId && reviewVersion !== 2) {
+          updates.push(
+            addDoc(collection(db, 'adGroups', ad.adGroupId, 'responses'), {
+              ...respObj,
+              timestamp: serverTimestamp(),
+            }),
+          );
+        }
+        if (ad.assetId && ad.adGroupId) {
+          updates.push(
+            updateDoc(doc(db, 'adGroups', ad.adGroupId, 'assets', ad.assetId), {
+              status: 'approved',
+              isResolved: true,
+            }),
+          );
+        }
+        newResponses[url] = respObj;
+      });
+      await Promise.all(updates);
+      setReviewAds((prev) =>
+        prev.map((a) => {
+          if (['approved', 'archived'].includes(a.status)) return a;
+          if (!includeAll && ['rejected', 'edit_requested'].includes(a.status))
+            return a;
+          return { ...a, status: 'approved', isResolved: true };
+        }),
+      );
+      setResponses((prev) => ({ ...prev, ...newResponses }));
+    },
+    [groupId, reviewAds, responses, reviewerName, user, userRole, reviewVersion],
+  );
 
+  const approveAll = useCallback(async () => {
+    const hasIssues = reviewAds.some((a) =>
+      ['rejected', 'edit_requested'].includes(a.status),
+    );
+    if (hasIssues) {
+      setShowApproveAllModal(true);
+    } else {
+      await bulkApprove(false);
+    }
+  }, [reviewAds, bulkApprove]);
 
   useImperativeHandle(ref, () => ({
     openGallery: () => setShowGallery(true),
     openCopy: () => setShowCopyModal(true),
+    approveAll,
   }));
   const canSubmitEdit = useMemo(
     () =>
@@ -1144,7 +1212,6 @@ useEffect(() => {
     }
     await loadCopyForAd(ad);
     setShowEditModal(true);
-    setAddingComment(false);
   };
 
   const openCopyEdit = async (ad) => {
@@ -1154,7 +1221,6 @@ useEffect(() => {
     }
     await loadCopyForAd(ad);
     setShowCopyEditModal(true);
-    setAddingComment(false);
   };
 
   const handleAddComment = (ad) => {
@@ -1163,7 +1229,6 @@ useEffect(() => {
       if (idx >= 0) setCurrentIndex(idx);
     }
     setComment('');
-    setAddingComment(true);
     setShowCommentModal(true);
   };
 
@@ -1233,15 +1298,20 @@ useEffect(() => {
         const copyChanged =
           responseType === 'edit' && editCopy.trim() !== origCopy.trim();
         const existingComment = responses[url]?.comment || '';
+        const timestampedComment = comment
+          ? `${new Date().toLocaleString()}: ${comment}`
+          : '';
         const combinedComment =
-          addingComment && responseType === 'edit'
-            ? [existingComment, comment].filter(Boolean).join('\n')
-            : comment;
+          responseType === 'edit'
+            ? [existingComment, timestampedComment]
+                .filter(Boolean)
+                .join('\n')
+            : '';
         const existingCopyEdit = responses[url]?.copyEdit || '';
         const respObj = {
           adUrl: url,
           response: responseType,
-          comment: responseType === 'edit' ? combinedComment : '',
+          comment: combinedComment,
           copyEdit: copyChanged ? editCopy : existingCopyEdit,
           pass: responses[url] ? 'revisit' : 'initial',
           ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
@@ -1424,15 +1494,20 @@ useEffect(() => {
         const copyChanged =
           responseType === 'edit' && editCopy.trim() !== origCopy.trim();
         const existingComment = responses[url]?.comment || '';
+        const timestampedComment = comment
+          ? `${new Date().toLocaleString()}: ${comment}`
+          : '';
         const combinedComment =
-          addingComment && responseType === 'edit'
-            ? [existingComment, comment].filter(Boolean).join('\n')
-            : comment;
+          responseType === 'edit'
+            ? [existingComment, timestampedComment]
+                .filter(Boolean)
+                .join('\n')
+            : '';
         const existingCopyEdit = responses[url]?.copyEdit || '';
         const unitResp = {
           adUrl: url,
           response: responseType,
-          comment: responseType === 'edit' ? combinedComment : '',
+          comment: combinedComment,
           copyEdit: copyChanged ? editCopy : existingCopyEdit,
           pass: responses[url] ? 'revisit' : 'initial',
           ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
@@ -1548,7 +1623,6 @@ useEffect(() => {
       setShowEditModal(false);
       setShowCommentModal(false);
       setShowCopyEditModal(false);
-      setAddingComment(false);
       setSubmitting(false);
 
       const nextIndex = currentIndex + 1;
@@ -1985,7 +2059,19 @@ useEffect(() => {
                               {responses[url].reviewerName}:
                             </span>
                           )}
-                          {responses[url]?.comment || 'No edit details provided.'}
+                          {responses[url]?.comment ? (
+                            <div className="mt-1 space-y-1">
+                              {responses[url].comment
+                                .split('\n')
+                                .map((line, idx) => (
+                                  <p key={idx} className="whitespace-pre-line">
+                                    {line}
+                                  </p>
+                                ))}
+                            </div>
+                          ) : (
+                            <p>No edit details provided.</p>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleAddComment(first)}
@@ -1996,7 +2082,10 @@ useEffect(() => {
                         </div>
                         {responses[url]?.copyEdit ? (
                           <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
-                            <p className="italic">{responses[url].copyEdit}</p>
+                            <p className="font-semibold mb-1">Copy edit request</p>
+                            <p className="italic whitespace-pre-line">
+                              {responses[url].copyEdit}
+                            </p>
                             <button
                               type="button"
                               onClick={() => handleEditCopy(first)}
@@ -2271,7 +2360,6 @@ useEffect(() => {
           onSubmit={() => submitResponse('edit')}
           onClose={() => {
             setShowCommentModal(false);
-            setAddingComment(false);
           }}
           submitting={submitting}
           title="Add comment"
@@ -2288,6 +2376,36 @@ useEffect(() => {
           onSubmit={() => submitResponse('edit')}
           submitting={submitting}
         />
+      )}
+      {showApproveAllModal && (
+        <Modal>
+          <p className="mb-4 text-sm">
+            Some ads already have edit requests or rejections. Would you like to
+            leave those as they are, or mark every ad as approved?
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              className="px-3 py-1"
+              onClick={() => {
+                setShowApproveAllModal(false);
+                bulkApprove(false);
+              }}
+            >
+              Approve pending ads
+            </Button>
+            <Button
+              variant="primary"
+              className="px-3 py-1"
+              onClick={() => {
+                setShowApproveAllModal(false);
+                bulkApprove(true);
+              }}
+            >
+              Approve all ads
+            </Button>
+          </div>
+        </Modal>
       )}
       {versionModal && (
         <VersionModal

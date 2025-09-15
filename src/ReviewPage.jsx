@@ -15,6 +15,7 @@ import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
 import ThemeToggle from "./ThemeToggle";
 import { FiGrid, FiType } from "react-icons/fi";
+import Button from "./components/Button.jsx";
 
 const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const { groupId } = useParams();
@@ -290,6 +291,15 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
       />
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+        <Button
+          variant="secondary"
+          className="px-4 py-2 rounded-md shadow"
+          onClick={() => reviewRef.current?.approveAll()}
+        >
+          Approve all
+        </Button>
+      </div>
     </div>
   );
 };
