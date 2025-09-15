@@ -689,14 +689,21 @@ useEffect(() => {
 
         const initial = {};
         deduped.forEach((ad) => {
-          let resp;
-          if (ad.status === 'approved') resp = 'approve';
-          else if (ad.status === 'rejected') resp = 'reject';
-          else if (ad.status === 'edit_requested') resp = 'edit';
-          if (resp) {
-            const url = ad.adUrl || ad.firebaseUrl;
-            initial[url] = { adUrl: url, response: resp };
-          }
+          const url = ad.adUrl || ad.firebaseUrl;
+          const resp =
+            ad.status === 'approved'
+              ? 'approve'
+              : ad.status === 'rejected'
+              ? 'reject'
+              : ad.status === 'edit_requested'
+              ? 'edit'
+              : null;
+          initial[url] = {
+            adUrl: url,
+            ...(resp ? { response: resp } : {}),
+            comment: ad.comment || '',
+            copyEdit: ad.copyEdit || '',
+          };
         });
         setResponses((prev) => ({ ...initial, ...prev }));
 
@@ -896,6 +903,23 @@ useEffect(() => {
       const data = { assetId: snap.id, ...snap.data() };
       setAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
       setReviewAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
+      const url = data.adUrl || data.firebaseUrl;
+      setResponses((prev) => ({
+        ...prev,
+        [url]: {
+          adUrl: url,
+          response:
+            data.status === 'approved'
+              ? 'approve'
+              : data.status === 'rejected'
+              ? 'reject'
+              : data.status === 'edit_requested'
+              ? 'edit'
+              : prev[url]?.response,
+          comment: data.comment || '',
+          copyEdit: data.copyEdit || '',
+        },
+      }));
     });
 
     const rootId = displayAd.parentAdId || stripVersion(displayAd.filename);
