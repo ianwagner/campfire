@@ -8,6 +8,7 @@ jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 jest.mock('./CopyRecipePreview.jsx', () => () => null);
 jest.mock('./RecipePreview.jsx', () => () => <div />);
 jest.mock('./utils/debugLog', () => jest.fn());
+jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }));
 
 const mockGetDocs = jest.fn();
 const mockGetDoc = jest.fn();
@@ -1247,7 +1248,7 @@ test('shows alert when locking fails due to permissions', async () => {
 test('opening and exiting completed group keeps status', async () => {
   const groupDoc = {
     exists: () => true,
-    data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'done' }),
+    data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'reviewed' }),
   };
   const assetSnapshot = {
     docs: [
@@ -1283,7 +1284,7 @@ test('opening and exiting completed group keeps status', async () => {
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
   const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
+  expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
   expect(
     mockUpdateDoc.mock.calls.some((c) => c[1].status === 'in review')
   ).toBe(false);
@@ -1361,11 +1362,16 @@ test('updates group status after finishing review', async () => {
   await screen.findByRole('img');
   fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
-
-  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
-
-  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
+  fireEvent.click(screen.getByText('Finalize Review'));
+  await waitFor(() =>
+    mockUpdateDoc.mock.calls.some(
+      (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+    ),
+  );
+  const call = mockUpdateDoc.mock.calls.find(
+    (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+  );
+  expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
 });
 
 test('updates status and shows summary when no ads available', async () => {
@@ -1386,9 +1392,15 @@ test('updates status and shows summary when no ads available', async () => {
 
   render(<Review user={{ uid: 'u1' }} groupId="group1" />);
 
-  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
-  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
+  await waitFor(() =>
+    mockUpdateDoc.mock.calls.some(
+      (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+    ),
+  );
+  const call = mockUpdateDoc.mock.calls.find(
+    (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+  );
+  expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
 
   expect(await screen.findByText(/Your ads are ready/i)).toBeInTheDocument();
 });
@@ -1427,9 +1439,17 @@ test('client approval updates group status', async () => {
   await screen.findByRole('img');
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
-  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual(expect.objectContaining({ status: 'done' }));
+  fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
+  fireEvent.click(screen.getByText('Finalize Review'));
+  await waitFor(() =>
+    mockUpdateDoc.mock.calls.some(
+      (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+    ),
+  );
+  const call = mockUpdateDoc.mock.calls.find(
+    (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+  );
+  expect(call[1]).toEqual(expect.objectContaining({ status: 'reviewed' }));
 });
 
 test('brief review collects feedback', async () => {

@@ -8,6 +8,7 @@ export default function computeKanbanStatus(group) {
 
   if (group?.status === 'blocked') return 'blocked';
   if (group?.status === 'briefed') return 'briefed';
+  if (group?.status === 'reviewed') return 'reviewed';
   if (assetCount === 0) return 'new';
   if (edit > 0) return 'edit request';
   if (approved + archived + rejected >= assetCount) return 'done';
