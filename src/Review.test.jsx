@@ -1484,3 +1484,37 @@ test('brief review displays when no recipes', async () => {
   expect(briefBtn).toBeEnabled();
 });
 
+test('shows existing edit request comments from other users', async () => {
+  const groupDoc = {
+    exists: () => true,
+    data: () => ({ name: 'Group 1', brandCode: 'BR1' }),
+  };
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'edit_requested',
+          comment: 'Alice: Fix please. 1/1/2024',
+          isResolved: false,
+        }),
+      },
+    ],
+  };
+
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      return Promise.resolve(assetSnapshot);
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u2' }} groupId="group1" />);
+
+  await waitFor(() => expect(screen.getByText('Fix please')).toBeInTheDocument());
+  expect(screen.queryByText('No comments provided.')).not.toBeInTheDocument();
+});
+
