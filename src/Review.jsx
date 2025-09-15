@@ -131,6 +131,7 @@ const Review = forwardRef(
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
+  const [finalized, setFinalized] = useState(false);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -372,15 +373,19 @@ const Review = forwardRef(
     }
   }, [showCopyModal]);
 
+  useEffect(() => {
+    if (initialStatus === 'reviewed') setFinalized(true);
+  }, [initialStatus]);
+
 useEffect(() => {
-  if (!started || !groupId || initialStatus === 'done') return;
+  if (!started || !groupId || initialStatus === 'reviewed') return;
   updateDoc(doc(db, 'adGroups', groupId), {
     reviewProgress: currentIndex,
   }).catch((err) => console.error('Failed to save progress', err));
 }, [currentIndex, started, groupId, initialStatus]);
 
   const releaseLock = useCallback(() => {
-    if (!groupId || initialStatus === 'done') return;
+    if (!groupId || initialStatus === 'reviewed') return;
     const idx = currentIndexRef.current;
     const len = reviewLengthRef.current;
     const progress = idx >= len ? null : idx;
@@ -391,21 +396,13 @@ useEffect(() => {
 
   useEffect(() => {
     if (!groupId) return;
-    const allReviewed =
-      ads.length > 0 &&
-      ads.every((a) =>
-        ['approved', 'rejected', 'archived'].includes(a.status),
-      );
-    if (
-      allReviewed &&
-      (currentIndex >= reviewAds.length || reviewAds.length === 0)
-    ) {
+    if (ads.length === 0) {
       updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'done',
+        status: 'reviewed',
         reviewProgress: null,
       }).catch((err) => console.error('Failed to update status', err));
     }
-  }, [currentIndex, reviewAds.length, groupId, ads]);
+  }, [groupId, ads.length]);
 
   useEffect(() => {
     if (currentIndex >= reviewAds.length) {
@@ -490,7 +487,6 @@ useEffect(() => {
               } else {
                 setRecipesLoaded(true);
               }
-              if (status === 'reviewed') status = 'done';
               if (status === 'review pending' || status === 'in review') status = 'ready';
               if (typeof data.reviewProgress === 'number') {
                 startIndex = data.reviewProgress;
@@ -711,7 +707,7 @@ useEffect(() => {
         setVersionMode(false);
         setReviewAds(target);
         setCurrentIndex(
-          status === 'done'
+          status === 'reviewed'
             ? target.length
             : startIndex < target.length
             ? startIndex
@@ -1089,6 +1085,19 @@ useEffect(() => {
       setShowNoteInput(false);
       setAskContinue(false);
       setCurrentIndex(reviewAds.length);
+    }
+  };
+
+  const finalizeReview = async () => {
+    if (!groupId) return;
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), {
+        status: 'reviewed',
+        reviewProgress: null,
+      });
+      setFinalized(true);
+    } catch (err) {
+      console.error('Failed to finalize review', err);
     }
   };
   const statusMap = {
@@ -1966,40 +1975,7 @@ useEffect(() => {
               className="mb-2 max-h-16 w-auto"
             />
           )}
-          <div
-            ref={statusBarRef}
-            className={`sticky top-0 z-30 w-full ${
-              reviewVersion === 3 ? 'max-w-5xl' : 'max-w-md'
-            } mx-auto mb-2 transition-opacity ${
-              statusBarStuck ? 'opacity-60 hover:opacity-100' : ''
-            }`}
-          >
-            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0 mb-2 sm:mb-0">
-                <div className="font-semibold truncate">{groupName}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-300">Review in Progress</div>
-              </div>
-              <div className="flex gap-4">
-                <div className="text-center">
-                  <div className="text-lg font-bold">{statusCounts.pending}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-300">Pending</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold">{statusCounts.approved}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-300">Approved</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold">{statusCounts.edit_requested}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-300">Edit Requested</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold">{statusCounts.rejected}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-300">Rejected</div>
-                </div>
-              </div>
-            </div>
           </div>
-        {/* Gallery view removed */}
         {/* Show exit button even during change review */}
         <div className="relative w-full max-w-md mb-2.5 flex justify-center">
           <div className="absolute left-0 top-1/2 -translate-y-1/2">
@@ -2046,6 +2022,49 @@ useEffect(() => {
             </div>
           )}
         </div>
+        <div
+            ref={statusBarRef}
+            className={`sticky top-0 z-30 w-full ${
+              reviewVersion === 3 ? 'max-w-5xl' : 'max-w-md'
+            } mx-auto mb-2 transition-opacity ${
+              statusBarStuck ? 'opacity-60 hover:opacity-100' : ''
+            }`}
+          >
+            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 mb-2 sm:mb-0">
+                <div className="font-semibold truncate">{groupName}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-300">{finalized ? 'Review Finalized' : 'Review in Progress'}</div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex gap-4">
+                  <div className="text-center">
+                    <div className="text-lg font-bold">{statusCounts.pending}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300">Pending</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold">{statusCounts.approved}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300">Approved</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold">{statusCounts.edit_requested}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300">Edit Requested</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold">{statusCounts.rejected}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300">Rejected</div>
+                  </div>
+                </div>
+                {!finalized && (
+                  <button
+                    className="btn-secondary whitespace-nowrap"
+                    onClick={finalizeReview}
+                  >
+                    Finalize Review
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
             <div className="w-full max-w-5xl">
@@ -2573,7 +2592,6 @@ useEffect(() => {
           collapsible={false}
         />
       )}
-    </div>
     </div>
   );
 });

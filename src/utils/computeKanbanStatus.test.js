@@ -10,6 +10,11 @@ test('returns blocked when group status is blocked', () => {
   expect(status).toBe('blocked');
 });
 
+test('returns reviewed when group status is reviewed', () => {
+  const status = computeKanbanStatus({ status: 'reviewed', assetCount: 1, counts: {} });
+  expect(status).toBe('reviewed');
+});
+
 test('returns new when no assets', () => {
   const status = computeKanbanStatus({ assetCount: 0, counts: {} });
   expect(status).toBe('new');
