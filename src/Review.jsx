@@ -2000,8 +2000,8 @@ useEffect(() => {
         </div>
       )}
       <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
-        <div className="flex flex-col items-center">
-          <div className="relative flex flex-col items-center w-fit mx-auto">
+        <div className="flex flex-col items-center w-full md:flex-1">
+          <div className="relative flex flex-col items-center w-full md:w-auto">
           {agencyId && (
             <OptimizedImage
               pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
@@ -2063,14 +2063,14 @@ useEffect(() => {
         ref={statusBarRef}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
-        className={`sticky top-0 z-40 bg-white border rounded-lg px-4 py-2 shadow w-full max-w-[300px] mx-auto flex flex-col gap-2 transition-opacity ${
+        className={`sticky top-0 z-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 shadow w-full my-4 flex flex-col gap-2 transition-opacity ${
           isSticky && !hover ? 'opacity-70' : 'opacity-100'
         }`}
       >
         <div className="flex items-center justify-between gap-4">
           <div className="flex flex-col min-w-0 flex-1">
             <span className="font-semibold truncate">{groupName}</span>
-            <span className="text-xs text-gray-500">External: {externalStatus}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">External: {externalStatus}</span>
           </div>
           <button
             onClick={handleFinalize}
@@ -2099,7 +2099,7 @@ useEffect(() => {
           </div>
         </div>
       </div>
-      <div className="flex justify-center relative">
+      <div className="flex justify-center relative w-full md:flex-1">
         {reviewVersion === 3 ? (
           <div className="w-full max-w-5xl">
             <RecipePreview
