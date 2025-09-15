@@ -8,7 +8,7 @@ const EditRequestModal = ({ comment, onCommentChange, editCopy, onEditCopyChange
       <textarea
         value={comment}
         onChange={(e) => onCommentChange(e.target.value)}
-        className="w-full p-2 border rounded"
+        className="w-full p-2 border rounded bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] dark:text-[var(--dark-text)] focus:outline-none focus:ring-0 focus:border-gray-300 dark:focus:border-[var(--dark-sidebar-hover)]"
         placeholder="Add comments..."
         rows={3}
       />
@@ -16,7 +16,7 @@ const EditRequestModal = ({ comment, onCommentChange, editCopy, onEditCopyChange
       <textarea
         value={editCopy}
         onChange={(e) => onEditCopyChange(e.target.value)}
-        className="w-full p-2 border rounded"
+        className="w-full p-2 border rounded bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] dark:text-[var(--dark-text)] focus:outline-none focus:ring-0 focus:border-gray-300 dark:focus:border-[var(--dark-sidebar-hover)]"
         placeholder="Edit copy..."
         rows={3}
       />
