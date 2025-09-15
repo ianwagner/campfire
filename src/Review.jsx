@@ -2059,26 +2059,35 @@ useEffect(() => {
                               {responses[url].reviewerName}:
                             </span>
                           )}
-                          {responses[url]?.comment ? (
-                            <div className="mt-1 space-y-1">
-                              {responses[url].comment
-                                .split('\n')
-                                .map((line, idx) => (
-                                  <p key={idx} className="whitespace-pre-line">
-                                    {line}
-                                  </p>
-                                ))}
-                            </div>
-                          ) : (
-                            <p>No edit details provided.</p>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleAddComment(first)}
-                            className="flex items-center text-gray-600 dark:text-gray-400 text-xs mt-1"
-                          >
-                            <FiPlus className="mr-1" /> Add comment
-                          </button>
+                          <div className="mt-1">
+                            <p className="font-semibold mb-1">Comments</p>
+                            {responses[url]?.comment ? (
+                              <div className="space-y-1">
+                                {responses[url].comment.split('\n').map((line, idx) => {
+                                  const sep = line.indexOf(': ');
+                                  const time = sep !== -1 ? line.slice(0, sep) : line;
+                                  const text = sep !== -1 ? line.slice(sep + 2) : '';
+                                  return (
+                                    <p key={idx} className="whitespace-pre-line">
+                                      <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">
+                                        {time}
+                                      </span>
+                                      {text}
+                                    </p>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="italic">No comments provided.</p>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleAddComment(first)}
+                              className="flex items-center text-gray-600 dark:text-gray-400 text-xs mt-1"
+                            >
+                              <FiPlus className="mr-1" /> Add comment
+                            </button>
+                          </div>
                         </div>
                         {responses[url]?.copyEdit ? (
                           <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
