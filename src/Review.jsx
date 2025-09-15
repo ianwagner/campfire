@@ -1915,15 +1915,13 @@ const Review = forwardRef(
                 onStart();
                 return;
               }
-              const latest = getLatestAds(ads.filter((a) => a.status !== 'pending'));
-              const readyList = latest.filter((a) => a.status === 'ready');
-              const readyVers = readyList.filter((a) => getVersion(a) > 1);
+              const latest = getLatestAds(
+                ads.filter((a) => a.status !== 'pending')
+              );
               const allList = buildHeroList(latest);
-              const versionList = buildHeroList(readyVers);
               setAllHeroAds(allList);
-              const target = versionList.length > 0 ? versionList : allList;
-              setVersionMode(versionList.length > 0);
-              setReviewAds(target);
+              setVersionMode(false);
+              setReviewAds(allList);
               setCurrentIndex(0);
               setStarted(true);
               onStart();

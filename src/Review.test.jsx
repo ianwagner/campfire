@@ -743,6 +743,73 @@ test('ad unit shows only latest version and toggles', async () => {
   );
 });
 
+test('review 2.0 shows all ad units in a single flow', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'orig',
+        data: () => ({
+          filename: 'BR1_G1_RC1_9x16_V1.png',
+          firebaseUrl: 'v1.png',
+          version: 1,
+          status: 'approved',
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'rev',
+        data: () => ({
+          filename: 'BR1_G1_RC1_9x16_V2.png',
+          firebaseUrl: 'v2.png',
+          version: 2,
+          parentAdId: 'orig',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'b1',
+        data: () => ({
+          filename: 'BR1_G1_RC2_9x16_V1.png',
+          firebaseUrl: 'b1.png',
+          version: 1,
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 2 }),
+  });
+
+  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+
+  const start = await screen.findByRole('button', { name: 'Review Ads' });
+  fireEvent.click(start);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png')
+  );
+  expect(screen.getByLabelText('Next')).toBeInTheDocument();
+  fireEvent.click(screen.getByLabelText('Next'));
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'b1.png')
+  );
+});
+
 test('review 2.0 saves responses at ad unit level', async () => {
   const assetSnapshot = {
     docs: [
