@@ -80,6 +80,7 @@ const Review = forwardRef(
       groupId = null,
       reviewerName = '',
       agencyId = null,
+      onStart = () => {},
     },
     ref,
   ) => {
@@ -1298,8 +1299,10 @@ useEffect(() => {
         const copyChanged =
           responseType === 'edit' && editCopy.trim() !== origCopy.trim();
         const existingComment = responses[url]?.comment || '';
+        const commenter =
+          reviewerName || user?.displayName || user?.email || 'Anonymous';
         const timestampedComment = comment
-          ? `${new Date().toLocaleString()}: ${comment}`
+          ? `${commenter}: ${comment}. ${new Date().toLocaleString()}`
           : '';
         const combinedComment =
           responseType === 'edit'
@@ -1698,6 +1701,7 @@ useEffect(() => {
               setShowCopyModal(false);
               if (reviewVersion === 3) {
                 setStarted(true);
+                onStart();
                 return;
               }
               const latest = getLatestAds(ads.filter((a) => a.status !== 'pending'));
@@ -1711,6 +1715,7 @@ useEffect(() => {
               setReviewAds(target);
               setCurrentIndex(0);
               setStarted(true);
+              onStart();
             }}
             disabled={loading || (reviewVersion !== 3 && ads.length === 0)}
             className={`btn-primary px-6 py-3 text-lg ${
@@ -2053,44 +2058,48 @@ useEffect(() => {
                     </div>
                     {resp === 'edit' && expandedEdits[gIdx] && (
                       <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-sm space-y-2">
-                        <div className="text-gray-700 dark:text-gray-200">
-                          {responses[url]?.reviewerName && (
-                            <span className="font-semibold mr-1">
-                              {responses[url].reviewerName}:
-                            </span>
+                        <div className="text-gray-700 dark:text-gray-200 mt-1">
+                          <p className="font-semibold mb-1">Comments</p>
+                          {responses[url]?.comment ? (
+                            <div className="space-y-1">
+                              {responses[url].comment.split('\n').map((line, idx) => {
+                                const lastDot = line.lastIndexOf('. ');
+                                const time = lastDot !== -1 ? line.slice(lastDot + 2) : '';
+                                const pre = lastDot !== -1 ? line.slice(0, lastDot) : line;
+                                const sep = pre.indexOf(': ');
+                                const user = sep !== -1 ? pre.slice(0, sep) : '';
+                                const text = sep !== -1 ? pre.slice(sep + 2) : pre;
+                                return (
+                                  <p key={idx} className="whitespace-pre-line">
+                                    {user ? (
+                                      <>
+                                        <span className="font-semibold">{user}:</span> {text}
+                                        {time && (
+                                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                                            {time}
+                                          </span>
+                                        )}
+                                      </>
+                                    ) : (
+                                      text
+                                    )}
+                                  </p>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="italic">No comments provided.</p>
                           )}
-                          <div className="mt-1">
-                            <p className="font-semibold mb-1">Comments</p>
-                            {responses[url]?.comment ? (
-                              <div className="space-y-1">
-                                {responses[url].comment.split('\n').map((line, idx) => {
-                                  const sep = line.indexOf(': ');
-                                  const time = sep !== -1 ? line.slice(0, sep) : line;
-                                  const text = sep !== -1 ? line.slice(sep + 2) : '';
-                                  return (
-                                    <p key={idx} className="whitespace-pre-line">
-                                      <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">
-                                        {time}
-                                      </span>
-                                      {text}
-                                    </p>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <p className="italic">No comments provided.</p>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleAddComment(first)}
-                              className="flex items-center text-gray-600 dark:text-gray-400 text-xs mt-1"
-                            >
-                              <FiPlus className="mr-1" /> Add comment
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAddComment(first)}
+                            className="flex items-center text-gray-600 dark:text-gray-400 text-xs mt-1"
+                          >
+                            <FiPlus className="mr-1" /> Add comment
+                          </button>
                         </div>
                         {responses[url]?.copyEdit ? (
-                          <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700">
+                          <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
                             <p className="font-semibold mb-1">Copy edit request</p>
                             <p className="italic whitespace-pre-line">
                               {responses[url].copyEdit}
