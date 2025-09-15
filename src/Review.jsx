@@ -41,7 +41,6 @@ import CopyEditModal from './components/CopyEditModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
 import FeedbackPanel from './components/FeedbackPanel.jsx';
-import EditRequestPanel from './components/EditRequestPanel.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
 import Modal from './components/Modal.jsx';
 import Button from './components/Button.jsx';
@@ -81,7 +80,6 @@ const Review = forwardRef(
       groupId = null,
       reviewerName = '',
       agencyId = null,
-      onStart = null,
     },
     ref,
   ) => {
@@ -142,7 +140,6 @@ const Review = forwardRef(
   const logoUrlRef = useRef(null);
   const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState({});
-  const [unitHistory, setUnitHistory] = useState([]);
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
   const [expandedEdits, setExpandedEdits] = useState({});
   // refs to track latest values for cleanup on unmount
@@ -839,17 +836,9 @@ useEffect(() => {
   const selectedResponse = responses[adUrl]?.response ?? statusResponse;
   const showSecondView = !!selectedResponse;
   const panelEntries = useMemo(() => {
-    if (reviewVersion === 2) return unitHistory;
     const ver = displayAd ? getVersion(displayAd) : 1;
     return { [ver]: historyEntries[ver] || [] };
-  }, [
-    displayAd?.assetId,
-    displayAd?.filename,
-    displayAd?.version,
-    historyEntries,
-    unitHistory,
-    reviewVersion,
-  ]);
+  }, [displayAd?.assetId, displayAd?.filename, displayAd?.version, historyEntries]);
   // show next step as soon as a decision is made
   const progress =
     reviewAds.length > 0
@@ -884,32 +873,7 @@ useEffect(() => {
 
   useEffect(() => {
     setHistoryEntries({});
-    setUnitHistory([]);
-    if (!displayAd?.adGroupId) return;
-
-    if (reviewVersion === 2) {
-      const recipeCode =
-        displayAd?.recipeCode ||
-        parseAdFilename(displayAd?.filename || '').recipeCode ||
-        '';
-      if (!recipeCode) return;
-      const q = query(
-        collection(
-          doc(db, 'adGroups', displayAd.adGroupId, 'adUnits', recipeCode),
-          'history',
-        ),
-        orderBy('updatedAt', 'asc'),
-      );
-      const unsub = onSnapshot(q, (snap) => {
-        setUnitHistory(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      });
-      return () => {
-        unsub();
-        setUnitHistory([]);
-      };
-    }
-
-    if (!displayAd.assetId) return;
+    if (!displayAd?.adGroupId || !displayAd?.assetId) return;
     const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAd.assetId);
     const unsubDoc = onSnapshot(assetRef, (snap) => {
       if (!snap.exists()) return;
@@ -943,12 +907,12 @@ useEffect(() => {
       });
     });
 
-    return () => {
-      unsubDoc();
-      unsubs.forEach((u) => u());
-      setHistoryEntries({});
-    };
-  }, [displayAd?.adGroupId, displayAd?.assetId, displayAd?.filename, allAds, reviewVersion]);
+      return () => {
+        unsubDoc();
+        unsubs.forEach((u) => u());
+        setHistoryEntries({});
+      };
+  }, [displayAd?.adGroupId, displayAd?.assetId, allAds]);
 
   useEffect(() => {
     const recipeCode =
@@ -1734,7 +1698,6 @@ useEffect(() => {
               setShowCopyModal(false);
               if (reviewVersion === 3) {
                 setStarted(true);
-                onStart && onStart();
                 return;
               }
               const latest = getLatestAds(ads.filter((a) => a.status !== 'pending'));
@@ -1748,7 +1711,6 @@ useEffect(() => {
               setReviewAds(target);
               setCurrentIndex(0);
               setStarted(true);
-              onStart && onStart();
             }}
             disabled={loading || (reviewVersion !== 3 && ads.length === 0)}
             className={`btn-primary px-6 py-3 text-lg ${
@@ -2510,9 +2472,6 @@ useEffect(() => {
           className="mt-4 md:mt-0"
           collapsible={false}
         />
-      )}
-      {reviewVersion === 2 && (
-        <EditRequestPanel entries={panelEntries} className="mt-4 md:mt-0" />
       )}
     </div>
     </div>
