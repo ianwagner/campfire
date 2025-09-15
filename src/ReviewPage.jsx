@@ -36,6 +36,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const [copyCount, setCopyCount] = useState(0);
   const [adCount, setAdCount] = useState(0);
   const reviewRef = useRef(null);
+  const [reviewStarted, setReviewStarted] = useState(false);
 
   useEffect(() => {
     if (!currentUser) {
@@ -290,16 +291,19 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         userRole={currentUser?.isAnonymous ? null : userRole}
         brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
+        onStart={() => setReviewStarted(true)}
       />
-      <div className="sticky bottom-4 w-full flex justify-center z-50 pointer-events-none">
-        <Button
-          variant=""
-          className="px-4 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-md shadow pointer-events-auto"
-          onClick={() => reviewRef.current?.approveAll()}
-        >
-          Approve all
-        </Button>
-      </div>
+      {reviewStarted && (
+        <div className="sticky bottom-4 w-full flex justify-center z-50 pointer-events-none">
+          <Button
+            variant=""
+            className="px-4 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-md shadow pointer-events-auto"
+            onClick={() => reviewRef.current?.approveAll()}
+          >
+            Approve all
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
