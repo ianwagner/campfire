@@ -159,19 +159,16 @@ const Review = forwardRef(
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
 
-  const recipeGroups = useMemo(
-    () =>
-      reviewAds
-        .map((hero) => {
-          const key = unitKey(hero);
-          const assets = allAds.filter(
-            (a) => unitKey(a) === key && a.status !== 'archived',
-          );
-          return { key, assets };
-        })
-        .filter((g) => g.assets.length > 0),
-    [reviewAds, allAds],
-  );
+  const recipeGroups = useMemo(() => {
+    const groups = {};
+    allAds.forEach((a) => {
+      if (a.status === 'archived') return;
+      const key = unitKey(a);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(a);
+    });
+    return Object.entries(groups).map(([key, assets]) => ({ key, assets }));
+  }, [allAds]);
 
   const bulkApprove = useCallback(
     async (includeAll = false) => {
@@ -179,19 +176,17 @@ const Review = forwardRef(
       const updates = [];
       const newResponses = {};
       const approvedKeys = new Set();
-      reviewAds.forEach((hero) => {
-        const key = unitKey(hero);
-        const group =
-          recipeGroups.find((g) => g.key === key) || { assets: [hero] };
+      recipeGroups.forEach((group) => {
         const first = group.assets[0];
         if (!first) return;
-        if (['approved', 'archived'].includes(first.status)) return;
-        if (
-          !includeAll &&
-          ['rejected', 'edit_requested'].includes(first.status)
-        )
-          return;
-        approvedKeys.add(key);
+        const hasPending = group.assets.some((a) => {
+          if (['approved', 'archived'].includes(a.status)) return false;
+          if (!includeAll && ['rejected', 'edit_requested'].includes(a.status))
+            return false;
+          return true;
+        });
+        if (!hasPending) return;
+        approvedKeys.add(group.key);
         const url = first.adUrl || first.firebaseUrl;
         const existingCopyEdit = responses[url]?.copyEdit || '';
         const respObj = {
@@ -241,7 +236,12 @@ const Review = forwardRef(
                 ),
               );
               group.assets.forEach((a) => {
-                if (a.assetId && a.status !== 'archived') {
+                if (
+                  a.assetId &&
+                  !['approved', 'archived'].includes(a.status) &&
+                  (includeAll ||
+                    !['rejected', 'edit_requested'].includes(a.status))
+                ) {
                   updates.push(
                     updateDoc(
                       doc(db, 'adGroups', a.adGroupId, 'assets', a.assetId),
@@ -258,17 +258,24 @@ const Review = forwardRef(
                 timestamp: serverTimestamp(),
               }),
             );
-            if (first.assetId) {
-              updates.push(
-                updateDoc(
-                  doc(db, 'adGroups', first.adGroupId, 'assets', first.assetId),
-                  {
-                    status: 'approved',
-                    isResolved: true,
-                  },
-                ),
-              );
-            }
+            group.assets.forEach((a) => {
+              if (
+                a.assetId &&
+                !['approved', 'archived'].includes(a.status) &&
+                (includeAll ||
+                  !['rejected', 'edit_requested'].includes(a.status))
+              ) {
+                updates.push(
+                  updateDoc(
+                    doc(db, 'adGroups', a.adGroupId, 'assets', a.assetId),
+                    {
+                      status: 'approved',
+                      isResolved: true,
+                    },
+                  ),
+                );
+              }
+            });
           }
         }
         newResponses[url] = respObj;
@@ -318,20 +325,18 @@ const Review = forwardRef(
     [
       groupId,
       finalized,
-      reviewAds,
       responses,
       reviewerName,
       user,
       userRole,
       reviewVersion,
       recipeGroups,
-      allAds,
     ],
   );
 
   const approveAll = useCallback(async () => {
     if (finalized) return;
-    const hasIssues = reviewAds.some((a) =>
+    const hasIssues = allAds.some((a) =>
       ['rejected', 'edit_requested'].includes(a.status),
     );
     if (hasIssues) {
@@ -339,7 +344,7 @@ const Review = forwardRef(
     } else {
       await bulkApprove(false);
     }
-  }, [reviewAds, bulkApprove]);
+  }, [allAds, finalized, bulkApprove]);
 
   useImperativeHandle(
     ref,
@@ -1243,6 +1248,19 @@ const Review = forwardRef(
       setInitialStatus('reviewed');
     } catch (err) {
       console.error('Failed to finalize review', err);
+    }
+  };
+
+  const undoFinalize = async () => {
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), {
+        status: 'designed',
+        reviewProgress: null,
+      });
+      setFinalized(false);
+      setInitialStatus('designed');
+    } catch (err) {
+      console.error('Failed to undo finalize', err);
     }
   };
 
@@ -2182,7 +2200,6 @@ const Review = forwardRef(
             <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 mb-2 sm:mb-0">
                 <div className="font-semibold truncate">{groupName}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">{finalized ? 'Review Finalized' : 'Review in Progress'}</div>
               </div>
               <div className="flex items-center gap-4 w-full">
                 <div className="flex gap-4">
@@ -2203,14 +2220,24 @@ const Review = forwardRef(
                     <div className="text-xs text-gray-600 dark:text-gray-300">Rejected</div>
                   </div>
                 </div>
-                {initialStatus && initialStatus !== 'reviewed' && !finalized && (
+                {!finalized && initialStatus && initialStatus !== 'reviewed' ? (
                   <button
-                    className="btn-secondary whitespace-nowrap ml-auto"
+                    className="btn-secondary whitespace-nowrap"
                     onClick={finalizeReview}
                   >
                     Finalize Review
                   </button>
-                )}
+                ) : finalized ? (
+                  <div className="text-right">
+                    <div className="text-sm font-medium">Review complete</div>
+                    <button
+                      className="text-xs underline"
+                      onClick={undoFinalize}
+                    >
+                      Undo
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
