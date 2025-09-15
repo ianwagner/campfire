@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Review from './Review';
 
@@ -868,6 +868,111 @@ test('status bar counts ad units in review 2.0', async () => {
   await waitFor(() => screen.getByText('Pending'));
   const pendingEl = screen.getByText('Pending').previousSibling;
   expect(pendingEl).toHaveTextContent('2');
+});
+
+test('ad unit status change updates all assets in review 2.0', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'a9',
+        data: () => ({
+          filename: 'BR1_G1_RC_9x16_V1.png',
+          firebaseUrl: 'u9',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'a1',
+        data: () => ({
+          filename: 'BR1_G1_RC_1x1_V1.png',
+          firebaseUrl: 'u1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 2 }),
+  });
+
+  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+
+  fireEvent.click(await screen.findByText('Review Ads'));
+  await screen.findByText('Pending');
+  const select = screen.getByDisplayValue('Pending');
+  fireEvent.change(select, { target: { value: 'approve' } });
+
+  await waitFor(() => {
+    const assetUpdates = mockUpdateDoc.mock.calls.filter((c) =>
+      c[0].startsWith('adGroups/group1/assets/'),
+    );
+    expect(assetUpdates.length).toBe(2);
+  });
+});
+
+test('approveAll approves all assets in review 2.0', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'a9',
+        data: () => ({
+          filename: 'BR1_G1_RC_9x16_V1.png',
+          firebaseUrl: 'u9',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'a1',
+        data: () => ({
+          filename: 'BR1_G1_RC_1x1_V1.png',
+          firebaseUrl: 'u1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 2 }),
+  });
+
+  const ref = React.createRef();
+  render(<Review ref={ref} user={{ uid: 'u1' }} groupId="group1" />);
+
+  fireEvent.click(await screen.findByText('Review Ads'));
+  await screen.findByText('Pending');
+
+  await act(async () => {
+    await ref.current.approveAll();
+  });
+
+  const assetUpdates = mockUpdateDoc.mock.calls.filter((c) =>
+    c[0].startsWith('adGroups/group1/assets/'),
+  );
+  expect(assetUpdates.length).toBe(2);
 });
 
 test('shows group summary after reviewing ads', async () => {
