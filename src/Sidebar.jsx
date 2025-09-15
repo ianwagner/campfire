@@ -33,6 +33,7 @@ const pmTabs = [
   { label: 'Dashboard', path: '/pm/dashboard', icon: FiHome },
   { label: 'Tickets', path: '/pm/tickets', icon: FiList },
   { label: 'Ad Groups', path: '/pm/ad-groups', icon: FiGrid },
+  { label: 'Data', path: '/pm/data', icon: FiDatabase },
   { label: 'Brands', path: '/admin/brands', icon: FiBriefcase },
   { label: 'Account Settings', path: '/account-settings', icon: FiUser },
 ];

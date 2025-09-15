@@ -62,6 +62,7 @@ import AgencyAdGroups from "./AgencyAdGroups";
 import PmAdGroups from "./PmAdGroups";
 import PmDashboard from "./PmDashboard";
 import PmRequests from "./PmRequests";
+import PmData from "./PmData";
 import OpsContracts from "./OpsContracts";
 import OpsBrandContracts from "./OpsBrandContracts";
 import OpsClientProjects from "./OpsClientProjects";
@@ -692,6 +693,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <PmAdGroups />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/pm/data"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole={["project-manager", "ops"]}
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <PmData />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
