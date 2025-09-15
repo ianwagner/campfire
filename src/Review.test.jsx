@@ -17,6 +17,8 @@ const mockAddDoc = jest.fn();
 const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
 const mockArrayUnion = jest.fn((val) => val);
 const mockIncrement = jest.fn((val) => val);
+const mockOnSnapshot = jest.fn(() => jest.fn());
+const mockOrderBy = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
@@ -31,6 +33,8 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: (...args) => mockUpdateDoc(...args),
   arrayUnion: (...args) => mockArrayUnion(...args),
   increment: (...args) => mockIncrement(...args),
+  onSnapshot: (...args) => mockOnSnapshot(...args),
+  orderBy: (...args) => mockOrderBy(...args),
 }));
 
 afterEach(() => {
@@ -1293,7 +1297,7 @@ test('opening and exiting completed group keeps status', async () => {
 test('returns to start screen after finishing review', async () => {
   const groupDoc = {
     exists: () => true,
-    data: () => ({ name: 'Group 1', status: 'pending' }),
+    data: () => ({ name: 'Group 1', status: 'designed' }),
   };
   const assetSnapshot = {
     docs: [
@@ -1408,7 +1412,7 @@ test('updates status and shows summary when no ads available', async () => {
 test('client approval updates group status', async () => {
   const groupDoc = {
     exists: () => true,
-    data: () => ({ name: 'Group 1', status: 'ready' }),
+    data: () => ({ name: 'Group 1', status: 'designed' }),
   };
   const assetSnapshot = {
     docs: [
