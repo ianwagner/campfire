@@ -331,11 +331,15 @@ const Review = forwardRef(
     }
   }, [reviewAds, bulkApprove]);
 
-  useImperativeHandle(ref, () => ({
-    openGallery: () => setShowGallery(true),
-    openCopy: () => setShowCopyModal(true),
-    approveAll,
-  }));
+  useImperativeHandle(
+    ref,
+    () => ({
+      openGallery: () => setShowGallery(true),
+      openCopy: () => setShowCopyModal(true),
+      approveAll,
+    }),
+    [approveAll],
+  );
   const canSubmitEdit = useMemo(
     () =>
       comment.trim().length > 0 ||
@@ -1315,6 +1319,17 @@ const Review = forwardRef(
           ),
         );
       }
+      if (asset.assetId && asset.adGroupId) {
+        updates.push(
+          updateDoc(
+            doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId),
+            {
+              status: newStatus,
+              isResolved: value === 'approve',
+            },
+          ),
+        );
+      }
       await Promise.all(updates);
       setAds((prev) =>
         prev.map((a) =>
@@ -2183,7 +2198,7 @@ const Review = forwardRef(
                     <div className="text-xs text-gray-600 dark:text-gray-300">Rejected</div>
                   </div>
                 </div>
-                {initialStatus === 'designed' && !finalized && (
+                {['designed', 'ready'].includes(initialStatus) && !finalized && (
                   <button
                     className="btn-secondary whitespace-nowrap ml-auto"
                     onClick={finalizeReview}
