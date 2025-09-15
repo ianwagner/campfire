@@ -160,7 +160,7 @@ const Review = forwardRef(
 
   const bulkApprove = useCallback(
     async (includeAll = false) => {
-      if (!groupId) return;
+      if (!groupId || finalized) return;
       const updates = [];
       const newResponses = {};
       reviewAds.forEach((ad) => {
@@ -215,6 +215,7 @@ const Review = forwardRef(
   );
 
   const approveAll = useCallback(async () => {
+    if (finalized) return;
     const hasIssues = reviewAds.some((a) =>
       ['rejected', 'edit_requested'].includes(a.status),
     );
@@ -374,15 +375,15 @@ const Review = forwardRef(
   }, [showCopyModal]);
 
   useEffect(() => {
-    if (initialStatus === 'reviewed') setFinalized(true);
+    setFinalized(initialStatus === 'reviewed');
   }, [initialStatus]);
 
-useEffect(() => {
-  if (!started || !groupId || initialStatus === 'reviewed') return;
-  updateDoc(doc(db, 'adGroups', groupId), {
-    reviewProgress: currentIndex,
-  }).catch((err) => console.error('Failed to save progress', err));
-}, [currentIndex, started, groupId, initialStatus]);
+  useEffect(() => {
+    if (!started || !groupId || initialStatus === 'reviewed') return;
+    updateDoc(doc(db, 'adGroups', groupId), {
+      reviewProgress: currentIndex,
+    }).catch((err) => console.error('Failed to save progress', err));
+  }, [currentIndex, started, groupId, initialStatus]);
 
   const releaseLock = useCallback(() => {
     if (!groupId || initialStatus === 'reviewed') return;
@@ -1096,6 +1097,7 @@ useEffect(() => {
         reviewProgress: null,
       });
       setFinalized(true);
+      setInitialStatus('reviewed');
     } catch (err) {
       console.error('Failed to finalize review', err);
     }
@@ -1135,6 +1137,7 @@ useEffect(() => {
   );
 
   const handleStatusChange = async (asset, value) => {
+    if (finalized) return;
     const url = asset.adUrl || asset.firebaseUrl;
     if (value === 'edit') {
       openEditRequest(asset);
@@ -2035,7 +2038,7 @@ useEffect(() => {
                 <div className="font-semibold truncate">{groupName}</div>
                 <div className="text-xs text-gray-600 dark:text-gray-300">{finalized ? 'Review Finalized' : 'Review in Progress'}</div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 w-full">
                 <div className="flex gap-4">
                   <div className="text-center">
                     <div className="text-lg font-bold">{statusCounts.pending}</div>
@@ -2054,9 +2057,9 @@ useEffect(() => {
                     <div className="text-xs text-gray-600 dark:text-gray-300">Rejected</div>
                   </div>
                 </div>
-                {!finalized && (
+                {initialStatus === 'designed' && !finalized && (
                   <button
-                    className="btn-secondary whitespace-nowrap"
+                    className="btn-secondary whitespace-nowrap ml-auto"
                     onClick={finalizeReview}
                   >
                     Finalize Review
@@ -2144,6 +2147,7 @@ useEffect(() => {
                           className="border rounded p-1 text-sm"
                           value={resp}
                           onChange={(e) => handleStatusChange(first, e.target.value)}
+                          disabled={finalized}
                         >
                           <option value="pending">Pending</option>
                           <option value="approve">Approve</option>
