@@ -241,7 +241,7 @@ const Review = forwardRef(
                 ),
               );
               group.assets.forEach((a) => {
-                if (a.assetId) {
+                if (a.assetId && a.status !== 'archived') {
                   updates.push(
                     updateDoc(
                       doc(db, 'adGroups', a.adGroupId, 'assets', a.assetId),
@@ -513,13 +513,6 @@ const Review = forwardRef(
       reviewProgress: progress,
     }).catch(() => {});
   }, [groupId, initialStatus]);
-
-  useEffect(() => {
-    if (currentIndex >= reviewAds.length) {
-      setStarted(false);
-    }
-  }, [currentIndex, reviewAds.length]);
-
   useEffect(() => {
     if (!started) return;
     window.addEventListener('beforeunload', releaseLock);
@@ -1331,7 +1324,10 @@ const Review = forwardRef(
       }
       if (asset.adGroupId) {
         const related = allAds.filter(
-          (a) => unitKey(a) === unitKey(asset) && a.assetId,
+          (a) =>
+            unitKey(a) === unitKey(asset) &&
+            a.assetId &&
+            a.status !== 'archived',
         );
         related.forEach((a) => {
           updates.push(
@@ -1362,7 +1358,7 @@ const Review = forwardRef(
       );
       setReviewAds((prev) =>
         prev.map((a) =>
-          unitKey(a) === unitKey(asset)
+          unitKey(a) === unitKey(asset) && a.status !== 'archived'
             ? { ...a, status: newStatus }
             : a,
         ),
@@ -1860,10 +1856,6 @@ const Review = forwardRef(
         advancedRef.current = true;
       }
       setAnimating(null);
-
-      if (nextIndex >= reviewAds.length) {
-        setStarted(false);
-      }
     }
   };
 
