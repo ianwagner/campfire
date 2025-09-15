@@ -853,6 +853,40 @@ useEffect(() => {
       ? ((currentIndex + (animating ? 1 : 0)) / reviewAds.length) * 100
       : 0;
 
+  const statusCounts = useMemo(() => {
+    const counts = { pending: 0, approved: 0, edit_requested: 0, rejected: 0 };
+    ads.forEach((a) => {
+      const url = a.adUrl || a.firebaseUrl;
+      const resp = responses[url]?.response;
+      const st =
+        resp === 'approve'
+          ? 'approved'
+          : resp === 'reject'
+          ? 'rejected'
+          : resp === 'edit'
+          ? 'edit_requested'
+          : a.status;
+      if (st === 'approved') counts.approved += 1;
+      else if (st === 'rejected') counts.rejected += 1;
+      else if (st === 'edit_requested') counts.edit_requested += 1;
+      else counts.pending += 1;
+    });
+    return counts;
+  }, [ads, responses]);
+
+  const statusBarRef = useRef(null);
+  const [statusBarStuck, setStatusBarStuck] = useState(false);
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!statusBarRef.current) return;
+      setStatusBarStuck(statusBarRef.current.getBoundingClientRect().top <= 0);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+
 
   const openVersionModal = (ver) => {
     const base = displayAd || currentAd;
@@ -1932,6 +1966,39 @@ useEffect(() => {
               className="mb-2 max-h-16 w-auto"
             />
           )}
+          <div
+            ref={statusBarRef}
+            className={`sticky top-0 z-30 w-full ${
+              reviewVersion === 3 ? 'max-w-5xl' : 'max-w-md'
+            } mx-auto mb-2 transition-opacity ${
+              statusBarStuck ? 'opacity-60 hover:opacity-100' : ''
+            }`}
+          >
+            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 mb-2 sm:mb-0">
+                <div className="font-semibold truncate">{groupName}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">Review in Progress</div>
+              </div>
+              <div className="flex gap-4">
+                <div className="text-center">
+                  <div className="text-lg font-bold">{statusCounts.pending}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-300">Pending</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold">{statusCounts.approved}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-300">Approved</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold">{statusCounts.edit_requested}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-300">Edit Requested</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold">{statusCounts.rejected}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-300">Rejected</div>
+                </div>
+              </div>
+            </div>
+          </div>
         {/* Gallery view removed */}
         {/* Show exit button even during change review */}
         <div className="relative w-full max-w-md mb-2.5 flex justify-center">
