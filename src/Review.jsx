@@ -240,6 +240,16 @@ const Review = forwardRef(
                   },
                 ),
               );
+              group.assets.forEach((a) => {
+                if (a.assetId) {
+                  updates.push(
+                    updateDoc(
+                      doc(db, 'adGroups', a.adGroupId, 'assets', a.assetId),
+                      { status: 'approved', isResolved: true },
+                    ),
+                  );
+                }
+              });
             }
           } else {
             updates.push(
@@ -1319,16 +1329,21 @@ const Review = forwardRef(
           ),
         );
       }
-      if (asset.assetId && asset.adGroupId) {
-        updates.push(
-          updateDoc(
-            doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId),
-            {
-              status: newStatus,
-              isResolved: value === 'approve',
-            },
-          ),
+      if (asset.adGroupId) {
+        const related = allAds.filter(
+          (a) => unitKey(a) === unitKey(asset) && a.assetId,
         );
+        related.forEach((a) => {
+          updates.push(
+            updateDoc(
+              doc(db, 'adGroups', a.adGroupId, 'assets', a.assetId),
+              {
+                status: newStatus,
+                isResolved: value === 'approve',
+              },
+            ),
+          );
+        });
       }
       await Promise.all(updates);
       setAds((prev) =>
@@ -2198,7 +2213,7 @@ const Review = forwardRef(
                     <div className="text-xs text-gray-600 dark:text-gray-300">Rejected</div>
                   </div>
                 </div>
-                {['designed', 'ready'].includes(initialStatus) && !finalized && (
+                {initialStatus && initialStatus !== 'reviewed' && !finalized && (
                   <button
                     className="btn-secondary whitespace-nowrap ml-auto"
                     onClick={finalizeReview}
