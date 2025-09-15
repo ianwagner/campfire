@@ -37,6 +37,7 @@ import VideoPlayer from './components/VideoPlayer.jsx';
 import GalleryModal from './components/GalleryModal.jsx';
 import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
+import CopyEditModal from './components/CopyEditModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
 import FeedbackPanel from './components/FeedbackPanel.jsx';
@@ -85,6 +86,8 @@ const Review = forwardRef(
   const [currentIndex, setCurrentIndex] = useState(0);
   const [comment, setComment] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [showCopyEditModal, setShowCopyEditModal] = useState(false);
   const [editCopy, setEditCopy] = useState('');
   const [origCopy, setOrigCopy] = useState('');
   const [clientNote, setClientNote] = useState('');
@@ -576,19 +579,16 @@ useEffect(() => {
         const deduped = Object.values(versionMap);
 
         const hasPendingAds = deduped.some((a) => a.status === 'pending');
-        const nonPending = deduped.filter((a) => a.status !== 'pending');
 
-        // store all non-pending ads (including archived versions) so the
+        // store all ads (including pending and archived versions) so the
         // version modal can show previous revisions
-        const fullNonPending = list.filter((a) => a.status !== 'pending');
-        setAllAds(fullNonPending);
+        setAllAds(list);
 
-        setAds(nonPending);
+        // do not filter out pending ads; always review all ad units
+        setAds(deduped);
         setHasPending(hasPendingAds);
 
-        const readyAds = nonPending.filter((a) => a.status === 'ready');
-        const readyVersions = readyAds.filter((a) => getVersion(a) > 1);
-        const reviewSource = readyAds.length > 0 ? readyAds : nonPending;
+        const reviewSource = deduped;
         list = reviewSource;
 
         const key = groupId ? `lastViewed-${groupId}` : null;
@@ -616,7 +616,7 @@ useEffect(() => {
         }
 
         const initial = {};
-        nonPending.forEach((ad) => {
+        deduped.forEach((ad) => {
           let resp;
           if (ad.status === 'approved') resp = 'approve';
           else if (ad.status === 'rejected') resp = 'reject';
@@ -628,24 +628,19 @@ useEffect(() => {
         });
         setResponses((prev) => ({ ...initial, ...prev }));
 
-        const allList = buildHeroList(nonPending);
-        const versionList = buildHeroList(readyVersions);
+        const allList = buildHeroList(deduped);
         setAllHeroAds(allList);
-        const target = versionList.length > 0 ? versionList : allList;
-        setVersionMode(versionList.length > 0);
+        const target = allList;
+        setVersionMode(false);
         setReviewAds(target);
         setCurrentIndex(
           status === 'done'
             ? target.length
-            : versionList.length > 0
-            ? 0
             : startIndex < target.length
             ? startIndex
             : 0
         );
-        setPendingOnly(
-          target.length === 0 && nonPending.length === 0 && hasPendingAds
-        );
+        setPendingOnly(target.length === 0 && hasPendingAds);
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
@@ -1004,6 +999,10 @@ useEffect(() => {
 
   const handleStatusChange = async (asset, value) => {
     const url = asset.adUrl || asset.firebaseUrl;
+    if (value === 'edit') {
+      openEditRequest(asset);
+      return;
+    }
     const prevResp = responses[url];
     setResponses((prev) => ({ ...prev, [url]: { adUrl: url, response: value } }));
 
@@ -1099,34 +1098,73 @@ useEffect(() => {
     preloads.current = preloads.current.slice(-BUFFER_COUNT);
   }, [currentIndex, reviewAds, isMobile]);
 
-  const openEditRequest = async () => {
-    setShowEditModal(true);
-    if (!currentAd?.adGroupId) return;
-    const recipeId = currentRecipe;
-    if (!recipeId) return;
+  const loadCopyForAd = async (ad) => {
+    if (!ad?.adGroupId) {
+      setEditCopy('');
+      setOrigCopy('');
+      return;
+    }
+    const recipeId =
+      ad.recipeCode || parseAdFilename(ad.filename || '').recipeCode || '';
+    if (!recipeId) {
+      setEditCopy('');
+      setOrigCopy('');
+      return;
+    }
     try {
       const snap = await getDoc(
-        doc(db, 'adGroups', currentAd.adGroupId, 'recipes', recipeId)
+        doc(db, 'adGroups', ad.adGroupId, 'recipes', recipeId)
       );
       const data = snap.exists() ? snap.data() : null;
       const text = data ? data.latestCopy || data.copy || '' : '';
-      setEditCopy(text);
+      setEditCopy(ad.copyEdit || text);
       setOrigCopy(text);
       setReviewAds((prev) =>
-        prev.map((a, idx) =>
-          idx === currentIndex ? { ...a, originalCopy: text } : a
+        prev.map((a) =>
+          a.assetId === ad.assetId ? { ...a, originalCopy: text } : a,
         )
       );
       setAds((prev) =>
         prev.map((a) =>
-          a.assetId === currentAd.assetId ? { ...a, originalCopy: text } : a
+          a.assetId === ad.assetId ? { ...a, originalCopy: text } : a,
         )
       );
     } catch (err) {
       console.error('Failed to load copy', err);
-      setEditCopy('');
+      setEditCopy(ad.copyEdit || '');
       setOrigCopy('');
     }
+  };
+
+  const openEditRequest = async (ad = currentAd) => {
+    if (ad) {
+      const idx = reviewAds.findIndex((a) => a.assetId === ad.assetId);
+      if (idx >= 0) setCurrentIndex(idx);
+    }
+    await loadCopyForAd(ad);
+    setShowEditModal(true);
+  };
+
+  const openCopyEdit = async (ad) => {
+    if (ad) {
+      const idx = reviewAds.findIndex((a) => a.assetId === ad.assetId);
+      if (idx >= 0) setCurrentIndex(idx);
+    }
+    await loadCopyForAd(ad);
+    setShowCopyEditModal(true);
+  };
+
+  const handleAddComment = (ad) => {
+    if (ad) {
+      const idx = reviewAds.findIndex((a) => a.assetId === ad.assetId);
+      if (idx >= 0) setCurrentIndex(idx);
+    }
+    setComment('');
+    setShowCommentModal(true);
+  };
+
+  const handleEditCopy = (ad) => {
+    openCopyEdit(ad);
   };
 
   const saveCopyCards = async (list) => {
@@ -1921,8 +1959,29 @@ useEffect(() => {
                       )}
                     </div>
                     {resp === 'edit' && expandedEdits[gIdx] && (
-                      <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
-                        {responses[url]?.comment || 'No edit details provided.'}
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-sm space-y-2">
+                        <div>
+                          {responses[url]?.comment || 'No edit details provided.'}
+                          <button
+                            type="button"
+                            onClick={() => handleAddComment(first)}
+                            className="block text-blue-600 text-xs mt-1"
+                          >
+                            Add comment
+                          </button>
+                        </div>
+                        {responses[url]?.copyEdit && (
+                          <div>
+                            <p className="italic">{responses[url].copyEdit}</p>
+                            <button
+                              type="button"
+                              onClick={() => handleEditCopy(first)}
+                              className="block text-blue-600 text-xs"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2169,6 +2228,26 @@ useEffect(() => {
           origCopy={origCopy}
           canSubmit={canSubmitEdit}
           onCancel={() => setShowEditModal(false)}
+          onSubmit={() => submitResponse('edit')}
+          submitting={submitting}
+        />
+      )}
+      {showCommentModal && (
+        <FeedbackModal
+          comment={comment}
+          onCommentChange={setComment}
+          onSubmit={() => submitResponse('edit')}
+          onClose={() => setShowCommentModal(false)}
+          submitting={submitting}
+        />
+      )}
+      {showCopyEditModal && (
+        <CopyEditModal
+          editCopy={editCopy}
+          onEditCopyChange={setEditCopy}
+          origCopy={origCopy}
+          canSubmit={editCopy.trim() && editCopy.trim() !== origCopy.trim()}
+          onCancel={() => setShowCopyEditModal(false)}
           onSubmit={() => submitResponse('edit')}
           submitting={submitting}
         />
