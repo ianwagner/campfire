@@ -615,20 +615,18 @@ useEffect(() => {
           }
         }
 
-        if (newer.length === 0) {
-          const initial = {};
-          nonPending.forEach((ad) => {
-            let resp;
-            if (ad.status === 'approved') resp = 'approve';
-            else if (ad.status === 'rejected') resp = 'reject';
-            else if (ad.status === 'edit_requested') resp = 'edit';
-            if (resp) {
-              const url = ad.adUrl || ad.firebaseUrl;
-              initial[url] = { adUrl: url, response: resp };
-            }
-          });
-          setResponses(initial);
-        }
+        const initial = {};
+        nonPending.forEach((ad) => {
+          let resp;
+          if (ad.status === 'approved') resp = 'approve';
+          else if (ad.status === 'rejected') resp = 'reject';
+          else if (ad.status === 'edit_requested') resp = 'edit';
+          if (resp) {
+            const url = ad.adUrl || ad.firebaseUrl;
+            initial[url] = { adUrl: url, response: resp };
+          }
+        });
+        setResponses((prev) => ({ ...initial, ...prev }));
 
         const allList = buildHeroList(nonPending);
         const versionList = buildHeroList(readyVersions);
@@ -1004,9 +1002,79 @@ useEffect(() => {
     [reviewAds, allAds],
   );
 
-  const handleStatusChange = (asset, value) => {
+  const handleStatusChange = async (asset, value) => {
     const url = asset.adUrl || asset.firebaseUrl;
+    const prevResp = responses[url];
     setResponses((prev) => ({ ...prev, [url]: { adUrl: url, response: value } }));
+
+    const recipeAssets = allAds.filter(
+      (a) => unitKey(a) === unitKey(asset) && a.status !== 'archived',
+    );
+    const newStatus =
+      value === 'approve'
+        ? 'approved'
+        : value === 'reject'
+        ? 'rejected'
+        : 'edit_requested';
+    try {
+      const updates = [];
+      for (const a of recipeAssets) {
+        if (a.assetId && a.adGroupId) {
+          updates.push(
+            updateDoc(
+              doc(db, 'adGroups', a.adGroupId, 'assets', a.assetId),
+              {
+                status: newStatus,
+                lastUpdatedBy: user.uid,
+                lastUpdatedAt: serverTimestamp(),
+              },
+            ),
+          );
+        }
+      }
+      const recipe =
+        asset.recipeCode || parseAdFilename(asset.filename || '').recipeCode || '';
+      if (asset.adGroupId && recipe) {
+        const unitRef = doc(db, 'adGroups', asset.adGroupId, 'adUnits', recipe);
+        updates.push(
+          updateDoc(unitRef, {
+            status: newStatus,
+            lastUpdatedBy: user.uid,
+            lastUpdatedAt: serverTimestamp(),
+          }),
+        );
+        updates.push(
+          addDoc(
+            collection(db, 'adGroups', asset.adGroupId, 'adUnits', recipe, 'responses'),
+            {
+              adUrl: url,
+              response: value,
+              pass: prevResp ? 'revisit' : 'initial',
+              ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
+              ...(asset.groupName ? { groupName: asset.groupName } : {}),
+              ...(reviewerName ? { reviewerName } : {}),
+              ...(user?.email ? { userEmail: user.email } : {}),
+              ...(user?.uid ? { userId: user.uid } : {}),
+              ...(userRole ? { userRole } : {}),
+              timestamp: serverTimestamp(),
+            },
+          ),
+        );
+      }
+      await Promise.all(updates);
+      setAds((prev) =>
+        prev.map((a) =>
+          unitKey(a) === unitKey(asset) ? { ...a, status: newStatus } : a,
+        ),
+      );
+      setAllAds((prev) =>
+        prev.map((a) =>
+          unitKey(a) === unitKey(asset) ? { ...a, status: newStatus } : a,
+        ),
+      );
+    } catch (err) {
+      console.error('Failed to update status', err);
+    }
   };
 
   const currentAspect = String(currentAspectRaw || '9x16').replace(
@@ -1722,18 +1790,20 @@ useEffect(() => {
               </button>
             </InfoTooltip>
           </div>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2">
-            <InfoTooltip text="leave overall feedback" placement="bottom">
-              <button
-                type="button"
-                aria-label="leave overall feedback"
-                onClick={() => setShowFeedbackModal(true)}
-                className="text-gray-500 hover:text-black dark:hover:text-white"
-              >
-                <FiMessageSquare />
-              </button>
-            </InfoTooltip>
-          </div>
+          {reviewVersion === 3 && (
+            <div className="absolute right-0 top-1/2 -translate-y-1/2">
+              <InfoTooltip text="leave overall feedback" placement="bottom">
+                <button
+                  type="button"
+                  aria-label="leave overall feedback"
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="text-gray-500 hover:text-black dark:hover:text-white"
+                >
+                  <FiMessageSquare />
+                </button>
+              </InfoTooltip>
+            </div>
+          )}
           {reviewVersion === 1 && (
             <div
               className="progress-bar"
@@ -1768,7 +1838,15 @@ useEffect(() => {
                 const first = group.assets[0];
                 if (!first) return null;
                 const url = first.adUrl || first.firebaseUrl;
-                const resp = responses[url]?.response || 'pending';
+                const resp =
+                  responses[url]?.response ||
+                  (first.status === 'approved'
+                    ? 'approve'
+                    : first.status === 'rejected'
+                    ? 'reject'
+                    : first.status === 'edit_requested'
+                    ? 'edit'
+                    : 'pending');
                 return (
                   <div key={gIdx} className="border rounded p-4">
                     <div className="flex flex-wrap justify-center gap-4">
@@ -1999,7 +2077,7 @@ useEffect(() => {
         </div>
       </div>
 
-        {!showSizes && reviewVersion !== 3 && (showSecondView ? (
+        {!showSizes && reviewVersion === 1 && (showSecondView ? (
         <div className="flex items-center space-x-4">
           {currentIndex > 0 && (
             <button
@@ -2133,7 +2211,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-      {showFeedbackModal && (
+      {reviewVersion === 3 && showFeedbackModal && (
         <FeedbackModal
           comment={feedbackComment}
           onCommentChange={setFeedbackComment}
@@ -2143,13 +2221,13 @@ useEffect(() => {
         />
       )}
       </div>
-      {reviewVersion !== 3 && (
+      {reviewVersion === 1 && (
         <FeedbackPanel
           entries={panelEntries}
           onVersionClick={openVersionModal}
           origCopy={recipeCopyMap[currentRecipe] || ''}
           className="mt-4 md:mt-0"
-          collapsible={reviewVersion === 2}
+          collapsible={false}
         />
       )}
     </div>

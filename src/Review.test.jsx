@@ -741,7 +741,8 @@ test('review 2.0 saves responses at ad unit level', async () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url9'),
   );
 
-  fireEvent.click(screen.getByText('Approve'));
+  const select = await screen.findByDisplayValue('Pending');
+  fireEvent.change(select, { target: { value: 'approve' } });
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
