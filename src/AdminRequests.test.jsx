@@ -5,7 +5,11 @@ import '@testing-library/jest-dom';
 import AdminRequests from './AdminRequests';
 
 jest.mock('./useAgencies', () => () => ({ agencies: [] }));
-jest.mock('./useUserRole', () => () => ({ role: 'admin' }));
+const mockUseUserRole = jest.fn(() => ({ role: 'admin' }));
+jest.mock('./useUserRole', () => ({
+  __esModule: true,
+  default: (...args) => mockUseUserRole(...args),
+}));
 jest.mock('./firebase/config', () => ({
   db: {},
   functions: {},
@@ -54,6 +58,10 @@ beforeAll(() => {
       removeListener: jest.fn(),
     })),
   });
+});
+
+beforeEach(() => {
+  mockUseUserRole.mockReturnValue({ role: 'admin' });
 });
 
 afterEach(() => {
@@ -189,6 +197,23 @@ test('includes project managers in editor list', async () => {
   await waitFor(() => expect(screen.getByText('PM One')).toBeInTheDocument());
 });
 
+test('project manager cannot assign designer or editor when creating new ads ticket', async () => {
+  mockUseUserRole.mockReturnValue({ role: 'project-manager' });
+  mockGetDocs.mockResolvedValue({ docs: [] });
+
+  render(
+    <MemoryRouter>
+      <AdminRequests />
+    </MemoryRouter>
+  );
+
+  fireEvent.click(screen.getByLabelText('Add Ticket'));
+  await screen.findByText('Type');
+
+  expect(screen.queryByText('Editor')).not.toBeInTheDocument();
+  expect(screen.queryByText('Designer')).not.toBeInTheDocument();
+});
+
 test('status change to need info copies note to project', async () => {
   mockGetDocs.mockResolvedValue({ docs: [] });
   mockGetDocs.mockResolvedValueOnce({
@@ -224,19 +249,32 @@ test('status change to need info copies note to project', async () => {
 
 test('adding info note in need info status updates project', async () => {
   mockGetDocs.mockResolvedValue({ docs: [] });
-  mockGetDocs.mockResolvedValueOnce({
-    docs: [
-      {
-        id: 'r1',
-        data: () => ({
-          brandCode: 'B1',
-          status: 'new',
-          infoNote: '',
-          projectId: 'p1',
-        }),
-      },
-    ],
-  });
+  mockGetDocs
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'r1',
+          data: () => ({
+            brandCode: 'B1',
+            status: 'new',
+            infoNote: '',
+            projectId: 'p1',
+            assetLinks: ['https://drive.google.com/folder'],
+            productRequests: [{ productName: 'Widget', quantity: 1, isNew: false }],
+          }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'b1',
+          data: () => ({ code: 'B1', products: [{ name: 'Widget' }] }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({ docs: [] })
+    .mockResolvedValueOnce({ docs: [] });
 
   render(
     <MemoryRouter>
