@@ -145,9 +145,6 @@ const Review = forwardRef(
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
   const [expandedEdits, setExpandedEdits] = useState({});
-  const statusBarRef = useRef(null);
-  const [isSticky, setIsSticky] = useState(false);
-  const [hover, setHover] = useState(false);
   // refs to track latest values for cleanup on unmount
   const currentIndexRef = useRef(currentIndex);
   const reviewLengthRef = useRef(reviewAds.length);
@@ -161,17 +158,6 @@ const Review = forwardRef(
   useEffect(() => {
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!statusBarRef.current) return;
-      const { top } = statusBarRef.current.getBoundingClientRect();
-      setIsSticky(top <= 0);
-    };
-    window.addEventListener('scroll', handleScroll);
-    handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const bulkApprove = useCallback(
     async (includeAll = false) => {
@@ -1905,6 +1891,40 @@ useEffect(() => {
 
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen space-y-4">
+      <div
+        className="fixed top-2 left-1/2 -translate-x-1/2 z-40 bg-white border rounded-lg px-4 py-2 flex items-center gap-4 shadow"
+        style={{ width: 'calc(100% + 2rem)' }}
+      >
+        <div className="flex flex-col">
+          <span className="font-semibold">{groupName}</span>
+          <span className="text-xs text-gray-500">External: {externalStatus}</span>
+        </div>
+        <div className="flex gap-4">
+          <div className="text-center">
+            <div className="text-lg font-bold">{statusCounts.pending}</div>
+            <div className="text-xs">Pending</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold">{statusCounts.approved}</div>
+            <div className="text-xs">Approved</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold">{statusCounts.edit_requested}</div>
+            <div className="text-xs">Edit Requested</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold">{statusCounts.rejected}</div>
+            <div className="text-xs">Rejected</div>
+          </div>
+        </div>
+        <button
+          onClick={handleFinalize}
+          className="btn-primary whitespace-nowrap"
+          disabled={finalized}
+        >
+          Finalize Review
+        </button>
+      </div>
       {showFinalizeModal && (
         <Modal>
           <h2 className="text-lg font-semibold mb-2">Finalize Review</h2>
@@ -2044,66 +2064,26 @@ useEffect(() => {
               </InfoTooltip>
             </div>
           )}
-        {reviewVersion === 1 && (
-          <div
-            className="progress-bar"
-            role="progressbar"
-            aria-valuenow={progress}
-            aria-valuemin="0"
-            aria-valuemax="100"
-          >
+          {reviewVersion === 1 && (
             <div
-              className="progress-bar-inner"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        )}
-      </div>
-      <div
-        ref={statusBarRef}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        className={`sticky top-0 z-40 bg-white border rounded-lg px-4 py-2 shadow w-full max-w-[300px] mx-auto flex flex-col gap-2 transition-opacity ${
-          isSticky && !hover ? 'opacity-70' : 'opacity-100'
-        }`}
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-col min-w-0 flex-1">
-            <span className="font-semibold truncate">{groupName}</span>
-            <span className="text-xs text-gray-500">External: {externalStatus}</span>
-          </div>
-          <button
-            onClick={handleFinalize}
-            className="btn-primary whitespace-nowrap flex-shrink-0"
-            disabled={finalized}
-          >
-            Finalize Review
-          </button>
+              className="progress-bar"
+              role="progressbar"
+              aria-valuenow={progress}
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              <div
+                className="progress-bar-inner"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
         </div>
-        <div className="flex justify-between text-center text-xs">
-          <div className="flex-1">
-            <div className="text-lg font-bold">{statusCounts.pending}</div>
-            <div>Pending</div>
-          </div>
-          <div className="flex-1">
-            <div className="text-lg font-bold">{statusCounts.approved}</div>
-            <div>Approved</div>
-          </div>
-          <div className="flex-1">
-            <div className="text-lg font-bold">{statusCounts.edit_requested}</div>
-            <div>Edit Requested</div>
-          </div>
-          <div className="flex-1">
-            <div className="text-lg font-bold">{statusCounts.rejected}</div>
-            <div>Rejected</div>
-          </div>
-        </div>
-      </div>
-      <div className="flex justify-center relative">
-        {reviewVersion === 3 ? (
-          <div className="w-full max-w-5xl">
-            <RecipePreview
-              initialResults={recipes}
+        <div className="flex justify-center relative">
+          {reviewVersion === 3 ? (
+            <div className="w-full max-w-5xl">
+              <RecipePreview
+                initialResults={recipes}
                 showOnlyResults
                 brandCode={groupBrandCode}
                 hideBrandSelect
