@@ -75,6 +75,9 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const { agencies } = useAgencies();
   const { role } = useUserRole(auth.currentUser?.uid);
   const isOps = role === 'ops';
+  const isProjectManager = role === 'project-manager';
+  const showDesignerSelect = !isOps && !isProjectManager;
+  const showEditorSelect = canAssignEditor && !isOps && !isProjectManager;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -163,11 +166,17 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
 
     fetchData();
     fetchBrands();
-    if (!isOps) {
+    if (showDesignerSelect) {
       fetchDesigners();
-      if (canAssignEditor) fetchEditors();
+    } else {
+      setDesigners([]);
     }
-  }, [filterEditorId, filterCreatorId, isOps]);
+    if (showEditorSelect) {
+      fetchEditors();
+    } else {
+      setEditors([]);
+    }
+  }, [filterEditorId, filterCreatorId, showDesignerSelect, showEditorSelect]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -206,8 +215,11 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const openCreate = () => {
     resetForm();
     setAiArtStyle('');
-    if (!canAssignEditor) {
-      setForm((f) => ({ ...f, editorId: filterEditorId || auth.currentUser?.uid || '' }));
+    if (!showEditorSelect) {
+      setForm((f) => ({
+        ...f,
+        editorId: filterEditorId || (isProjectManager ? '' : auth.currentUser?.uid || ''),
+      }));
     }
     if (isOps) {
       setForm((f) => ({ ...f, type: 'bug' }));
@@ -362,10 +374,10 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
         agencyId: form.agencyId,
         toneOfVoice: form.toneOfVoice,
         offering: form.offering,
-        designerId: form.designerId,
-        editorId: canAssignEditor
-          ? form.editorId
-          : filterEditorId || auth.currentUser?.uid || form.editorId,
+        designerId: form.designerId || null,
+        editorId: showEditorSelect
+          ? form.editorId || null
+          : filterEditorId || (isProjectManager ? form.editorId || null : auth.currentUser?.uid || form.editorId || null),
         infoNote: form.infoNote,
         productRequests: form.type === 'newAds' ? productRequests : [],
         status: editId ? (requests.find((r) => r.id === editId)?.status || 'new') : 'new',
@@ -1170,7 +1182,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
             <option value="feature">Feature</option>
           </select>
         </div>
-        {canAssignEditor && !isOps && (
+        {showEditorSelect && (
           <div>
             <label className="block mb-1 text-sm font-medium">Editor</label>
             <select
@@ -1218,7 +1230,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                   className="w-full p-2 border rounded"
                 />
               </div>
-              {!isOps && (
+              {showDesignerSelect && (
                 <div>
                   <label className="block mb-1 text-sm font-medium">Designer</label>
                   <select
