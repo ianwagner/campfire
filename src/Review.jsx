@@ -992,13 +992,15 @@ useEffect(() => {
 
   const recipeGroups = useMemo(
     () =>
-      reviewAds.map((hero) => {
-        const key = unitKey(hero);
-        const assets = allAds.filter(
-          (a) => unitKey(a) === key && a.status !== 'archived',
-        );
-        return { key, assets };
-      }),
+      reviewAds
+        .map((hero) => {
+          const key = unitKey(hero);
+          const assets = allAds.filter(
+            (a) => unitKey(a) === key && a.status !== 'archived',
+          );
+          return { key, assets };
+        })
+        .filter((g) => g.assets.length > 0),
     [reviewAds, allAds],
   );
 
@@ -1764,6 +1766,7 @@ useEffect(() => {
             <div className="space-y-8 w-full">
               {recipeGroups.map((group, gIdx) => {
                 const first = group.assets[0];
+                if (!first) return null;
                 const url = first.adUrl || first.firebaseUrl;
                 const resp = responses[url]?.response || 'pending';
                 return (
