@@ -1335,7 +1335,7 @@ test('returns to start screen after finishing review', async () => {
 test('updates group status after finishing review', async () => {
   const groupDoc = {
     exists: () => true,
-    data: () => ({ name: 'Group 1', status: 'pending' }),
+    data: () => ({ name: 'Group 1', status: 'designed' }),
   };
   const assetSnapshot = {
     docs: [
@@ -1378,10 +1378,10 @@ test('updates group status after finishing review', async () => {
   expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
 });
 
-test('updates status and shows summary when no ads available', async () => {
+test('shows summary and requires finalize when no ads available', async () => {
   const groupDoc = {
     exists: () => true,
-    data: () => ({ name: 'Group 1', status: 'pending' }),
+    data: () => ({ name: 'Group 1', status: 'designed' }),
   };
   const assetSnapshot = { docs: [] };
 
@@ -1396,6 +1396,14 @@ test('updates status and shows summary when no ads available', async () => {
 
   render(<Review user={{ uid: 'u1' }} groupId="group1" />);
 
+  expect(await screen.findByText(/Your ads are ready/i)).toBeInTheDocument();
+  const finalizeBtn = await screen.findByText('Finalize Review');
+  expect(
+    mockUpdateDoc.mock.calls.some(
+      (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+    ),
+  ).toBe(false);
+  fireEvent.click(finalizeBtn);
   await waitFor(() =>
     mockUpdateDoc.mock.calls.some(
       (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
@@ -1405,8 +1413,6 @@ test('updates status and shows summary when no ads available', async () => {
     (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
   );
   expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
-
-  expect(await screen.findByText(/Your ads are ready/i)).toBeInTheDocument();
 });
 
 test('client approval updates group status', async () => {

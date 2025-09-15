@@ -396,16 +396,6 @@ const Review = forwardRef(
   }, [groupId, initialStatus]);
 
   useEffect(() => {
-    if (!groupId) return;
-    if (ads.length === 0) {
-      updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'reviewed',
-        reviewProgress: null,
-      }).catch((err) => console.error('Failed to update status', err));
-    }
-  }, [groupId, ads.length]);
-
-  useEffect(() => {
     if (currentIndex >= reviewAds.length) {
       setStarted(false);
     }
