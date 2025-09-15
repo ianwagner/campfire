@@ -116,7 +116,8 @@ const PmAdGroups = () => {
     window.location.href = `/ad-group/${id}?exportApproved=1`;
   };
 
-  const restrictGanttToDueDate = role === 'project-manager' && Boolean(agencyId);
+  const restrictGanttToDueDate =
+    (role === 'project-manager' && Boolean(agencyId)) || role === 'ops';
 
   return (
     <div className="min-h-screen p-4">

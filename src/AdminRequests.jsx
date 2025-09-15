@@ -206,7 +206,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   }, 0);
 
   const resetForm = () => {
-    setForm(createEmptyForm(isOps ? { type: 'bug' } : {}));
+    setForm(createEmptyForm());
     setEditId(null);
     setSaveError('');
     setSaving(false);
@@ -220,9 +220,6 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
         ...f,
         editorId: filterEditorId || (isProjectManager ? '' : auth.currentUser?.uid || ''),
       }));
-    }
-    if (isOps) {
-      setForm((f) => ({ ...f, type: 'bug' }));
     }
     setShowModal(true);
   };
@@ -1175,7 +1172,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
             onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
             className="w-full p-2 border rounded"
           >
-            {!isOps && <option value="newAds">New Ads</option>}
+            <option value="newAds">New Ads</option>
             {!isOps && <option value="newAIAssets">New AI Assets</option>}
             <option value="newBrand">New Brand</option>
             <option value="bug">Bug</option>
