@@ -8,6 +8,7 @@ jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 jest.mock('./CopyRecipePreview.jsx', () => () => null);
 jest.mock('./RecipePreview.jsx', () => () => <div />);
 jest.mock('./utils/debugLog', () => jest.fn());
+jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }));
 
 const mockGetDocs = jest.fn();
 const mockGetDoc = jest.fn();
@@ -326,6 +327,47 @@ test('request edit advances to next ad', async () => {
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
   );
+});
+
+test('shows request copy edit button when no copy edit provided', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+  );
+
+  fireEvent.click(screen.getByLabelText('Request Edit'));
+  fireEvent.change(screen.getByPlaceholderText('Add comments...'), {
+    target: { value: 'fix this' },
+  });
+  fireEvent.click(screen.getByText('Submit'));
+
+  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
+
+  fireEvent.click(screen.getByText('View Edit Request'));
+  expect(screen.getByText('Request Copy Edit')).toBeInTheDocument();
 });
 
 test('approving a revision resolves all related docs', async () => {
@@ -695,6 +737,67 @@ test('ad unit shows only latest version and toggles', async () => {
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'v1-1x1.png')
   );
+});
+
+test('review 2.0 saves responses at ad unit level', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'a9',
+        data: () => ({
+          filename: 'BR1_G1_RC_9x16_V1.png',
+          firebaseUrl: 'url9',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+      {
+        id: 'a1',
+        data: () => ({
+          filename: 'BR1_G1_RC_1x1_V1.png',
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 2 }),
+  });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url9'),
+  );
+
+  const select = await screen.findByDisplayValue('Pending');
+  fireEvent.change(select, { target: { value: 'approve' } });
+
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
+
+  expect(
+    mockUpdateDoc.mock.calls.some(
+      (c) => c[0] === 'adGroups/group1/adUnits/RC',
+    ),
+  ).toBe(true);
+
+  const respCall = mockAddDoc.mock.calls.find(
+    (c) => Array.isArray(c[0]) && c[0][3] === 'adUnits' && c[0][5] === 'responses',
+  );
+  expect(respCall).toBeTruthy();
 });
 
 test('shows group summary after reviewing ads', async () => {
@@ -1145,7 +1248,7 @@ test('shows alert when locking fails due to permissions', async () => {
 test('opening and exiting completed group keeps status', async () => {
   const groupDoc = {
     exists: () => true,
-    data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'done' }),
+    data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'reviewed' }),
   };
   const assetSnapshot = {
     docs: [
@@ -1181,7 +1284,7 @@ test('opening and exiting completed group keeps status', async () => {
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
   const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
+  expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
   expect(
     mockUpdateDoc.mock.calls.some((c) => c[1].status === 'in review')
   ).toBe(false);
@@ -1259,11 +1362,16 @@ test('updates group status after finishing review', async () => {
   await screen.findByRole('img');
   fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
-
-  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
-
-  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
+  fireEvent.click(screen.getByText('Finalize Review'));
+  await waitFor(() =>
+    mockUpdateDoc.mock.calls.some(
+      (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+    ),
+  );
+  const call = mockUpdateDoc.mock.calls.find(
+    (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+  );
+  expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
 });
 
 test('updates status and shows summary when no ads available', async () => {
@@ -1284,9 +1392,15 @@ test('updates status and shows summary when no ads available', async () => {
 
   render(<Review user={{ uid: 'u1' }} groupId="group1" />);
 
-  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
-  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
+  await waitFor(() =>
+    mockUpdateDoc.mock.calls.some(
+      (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+    ),
+  );
+  const call = mockUpdateDoc.mock.calls.find(
+    (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+  );
+  expect(call[1]).toEqual({ status: 'reviewed', reviewProgress: null });
 
   expect(await screen.findByText(/Your ads are ready/i)).toBeInTheDocument();
 });
@@ -1325,9 +1439,17 @@ test('client approval updates group status', async () => {
   await screen.findByRole('img');
   fireEvent.click(screen.getByText('Approve'));
 
-  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
-  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual(expect.objectContaining({ status: 'done' }));
+  fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
+  fireEvent.click(screen.getByText('Finalize Review'));
+  await waitFor(() =>
+    mockUpdateDoc.mock.calls.some(
+      (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+    ),
+  );
+  const call = mockUpdateDoc.mock.calls.find(
+    (c) => c[0] === 'adGroups/group1' && c[1].status === 'reviewed',
+  );
+  expect(call[1]).toEqual(expect.objectContaining({ status: 'reviewed' }));
 });
 
 test('brief review collects feedback', async () => {
@@ -1380,5 +1502,39 @@ test('brief review displays when no recipes', async () => {
   await screen.findByText('Your brief is ready!');
   const briefBtn = screen.getByText('See Brief');
   expect(briefBtn).toBeEnabled();
+});
+
+test('shows existing edit request comments from other users', async () => {
+  const groupDoc = {
+    exists: () => true,
+    data: () => ({ name: 'Group 1', brandCode: 'BR1' }),
+  };
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'edit_requested',
+          comment: 'Alice: Fix please. 1/1/2024',
+          isResolved: false,
+        }),
+      },
+    ],
+  };
+
+  mockGetDoc.mockResolvedValue(groupDoc);
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      return Promise.resolve(assetSnapshot);
+    }
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u2' }} groupId="group1" />);
+
+  await waitFor(() => expect(screen.getByText('Fix please')).toBeInTheDocument());
+  expect(screen.queryByText('No comments provided.')).not.toBeInTheDocument();
 });
 

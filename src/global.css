@@ -426,9 +426,13 @@
     background-color: var(--pending-color-10);
     color: var(--pending-color);
   }
-  .status-in_design {
+  .status-designed {
     background-color: var(--accent-color-10);
     color: var(--accent-color);
+  }
+  .status-reviewed {
+    background-color: var(--approve-color-10);
+    color: var(--approve-color);
   }
   .status-edit_request {
     background-color: var(--edit-color-10);
@@ -486,9 +490,13 @@
     background-color: var(--edit-color-10);
     color: var(--edit-color);
   }
-  .status-select.status-in_design {
+  .status-select.status-designed {
     background-color: var(--accent-color-10);
     color: var(--accent-color);
+  }
+  .status-select.status-reviewed {
+    background-color: var(--approve-color-10);
+    color: var(--approve-color);
   }
   .status-select.status-edit_request {
     background-color: var(--edit-color-10);

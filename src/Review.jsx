@@ -9,7 +9,7 @@ import React, {
   forwardRef,
   useCallback,
 } from 'react';
-import { FiEdit, FiX, FiGrid, FiCheck, FiType, FiMessageSquare } from 'react-icons/fi';
+import { FiEdit, FiX, FiGrid, FiCheck, FiType, FiMessageSquare, FiPlus } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
   collection,
@@ -37,10 +37,13 @@ import VideoPlayer from './components/VideoPlayer.jsx';
 import GalleryModal from './components/GalleryModal.jsx';
 import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
+import CopyEditModal from './components/CopyEditModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
 import FeedbackPanel from './components/FeedbackPanel.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
+import Modal from './components/Modal.jsx';
+import Button from './components/Button.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
@@ -77,6 +80,7 @@ const Review = forwardRef(
       groupId = null,
       reviewerName = '',
       agencyId = null,
+      onStart = () => {},
     },
     ref,
   ) => {
@@ -85,6 +89,8 @@ const Review = forwardRef(
   const [currentIndex, setCurrentIndex] = useState(0);
   const [comment, setComment] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [showCopyEditModal, setShowCopyEditModal] = useState(false);
   const [editCopy, setEditCopy] = useState('');
   const [origCopy, setOrigCopy] = useState('');
   const [clientNote, setClientNote] = useState('');
@@ -114,6 +120,7 @@ const Review = forwardRef(
   const [reviewVersion, setReviewVersion] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState('');
+  const [showApproveAllModal, setShowApproveAllModal] = useState(false);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
@@ -124,6 +131,7 @@ const Review = forwardRef(
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
+  const [finalized, setFinalized] = useState(false);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -135,6 +143,7 @@ const Review = forwardRef(
   const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
+  const [expandedEdits, setExpandedEdits] = useState({});
   // refs to track latest values for cleanup on unmount
   const currentIndexRef = useRef(currentIndex);
   const reviewLengthRef = useRef(reviewAds.length);
@@ -149,11 +158,77 @@ const Review = forwardRef(
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
 
+  const bulkApprove = useCallback(
+    async (includeAll = false) => {
+      if (!groupId) return;
+      const updates = [];
+      const newResponses = {};
+      reviewAds.forEach((ad) => {
+        if (['approved', 'archived'].includes(ad.status)) return;
+        if (!includeAll && ['rejected', 'edit_requested'].includes(ad.status))
+          return;
+        const url = ad.adUrl || ad.firebaseUrl;
+        const existingCopyEdit = responses[url]?.copyEdit || '';
+        const respObj = {
+          adUrl: url,
+          response: 'approve',
+          comment: '',
+          copyEdit: existingCopyEdit,
+          pass: responses[url] ? 'revisit' : 'initial',
+          ...(ad.brandCode ? { brandCode: ad.brandCode } : {}),
+          ...(ad.groupName ? { groupName: ad.groupName } : {}),
+          ...(reviewerName ? { reviewerName } : {}),
+          ...(user?.email ? { userEmail: user.email } : {}),
+          ...(user?.uid ? { userId: user.uid } : {}),
+          ...(userRole ? { userRole } : {}),
+        };
+        if (ad.adGroupId && reviewVersion !== 2) {
+          updates.push(
+            addDoc(collection(db, 'adGroups', ad.adGroupId, 'responses'), {
+              ...respObj,
+              timestamp: serverTimestamp(),
+            }),
+          );
+        }
+        if (ad.assetId && ad.adGroupId) {
+          updates.push(
+            updateDoc(doc(db, 'adGroups', ad.adGroupId, 'assets', ad.assetId), {
+              status: 'approved',
+              isResolved: true,
+            }),
+          );
+        }
+        newResponses[url] = respObj;
+      });
+      await Promise.all(updates);
+      setReviewAds((prev) =>
+        prev.map((a) => {
+          if (['approved', 'archived'].includes(a.status)) return a;
+          if (!includeAll && ['rejected', 'edit_requested'].includes(a.status))
+            return a;
+          return { ...a, status: 'approved', isResolved: true };
+        }),
+      );
+      setResponses((prev) => ({ ...prev, ...newResponses }));
+    },
+    [groupId, reviewAds, responses, reviewerName, user, userRole, reviewVersion],
+  );
 
+  const approveAll = useCallback(async () => {
+    const hasIssues = reviewAds.some((a) =>
+      ['rejected', 'edit_requested'].includes(a.status),
+    );
+    if (hasIssues) {
+      setShowApproveAllModal(true);
+    } else {
+      await bulkApprove(false);
+    }
+  }, [reviewAds, bulkApprove]);
 
   useImperativeHandle(ref, () => ({
     openGallery: () => setShowGallery(true),
     openCopy: () => setShowCopyModal(true),
+    approveAll,
   }));
   const canSubmitEdit = useMemo(
     () =>
@@ -298,15 +373,19 @@ const Review = forwardRef(
     }
   }, [showCopyModal]);
 
+  useEffect(() => {
+    if (initialStatus === 'reviewed') setFinalized(true);
+  }, [initialStatus]);
+
 useEffect(() => {
-  if (!started || !groupId || initialStatus === 'done') return;
+  if (!started || !groupId || initialStatus === 'reviewed') return;
   updateDoc(doc(db, 'adGroups', groupId), {
     reviewProgress: currentIndex,
   }).catch((err) => console.error('Failed to save progress', err));
 }, [currentIndex, started, groupId, initialStatus]);
 
   const releaseLock = useCallback(() => {
-    if (!groupId || initialStatus === 'done') return;
+    if (!groupId || initialStatus === 'reviewed') return;
     const idx = currentIndexRef.current;
     const len = reviewLengthRef.current;
     const progress = idx >= len ? null : idx;
@@ -317,21 +396,13 @@ useEffect(() => {
 
   useEffect(() => {
     if (!groupId) return;
-    const allReviewed =
-      ads.length > 0 &&
-      ads.every((a) =>
-        ['approved', 'rejected', 'archived'].includes(a.status),
-      );
-    if (
-      allReviewed &&
-      (currentIndex >= reviewAds.length || reviewAds.length === 0)
-    ) {
+    if (ads.length === 0) {
       updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'done',
+        status: 'reviewed',
         reviewProgress: null,
       }).catch((err) => console.error('Failed to update status', err));
     }
-  }, [currentIndex, reviewAds.length, groupId, ads]);
+  }, [groupId, ads.length]);
 
   useEffect(() => {
     if (currentIndex >= reviewAds.length) {
@@ -371,24 +442,6 @@ useEffect(() => {
       events.forEach((e) => window.removeEventListener(e, reset));
     };
   }, [started, releaseLock]);
-
-  const recipeGroups = useMemo(() => {
-    const map = {};
-    ads.forEach((a) => {
-      const info = parseAdFilename(a.filename || '');
-      const recipe = a.recipeCode || info.recipeCode || 'unknown';
-      const aspect = a.aspectRatio || info.aspectRatio || '';
-      const item = { ...a, recipeCode: recipe, aspectRatio: aspect };
-      if (!map[recipe]) map[recipe] = [];
-      map[recipe].push(item);
-    });
-    const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
-    return Object.entries(map).map(([recipeCode, list]) => {
-      list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
-      return { recipeCode, assets: list };
-    });
-  }, [ads]);
-
 
   useEffect(() => {
     setFadeIn(true);
@@ -434,7 +487,6 @@ useEffect(() => {
               } else {
                 setRecipesLoaded(true);
               }
-              if (status === 'reviewed') status = 'done';
               if (status === 'review pending' || status === 'in review') status = 'ready';
               if (typeof data.reviewProgress === 'number') {
                 startIndex = data.reviewProgress;
@@ -593,19 +645,16 @@ useEffect(() => {
         const deduped = Object.values(versionMap);
 
         const hasPendingAds = deduped.some((a) => a.status === 'pending');
-        const nonPending = deduped.filter((a) => a.status !== 'pending');
 
-        // store all non-pending ads (including archived versions) so the
+        // store all ads (including pending and archived versions) so the
         // version modal can show previous revisions
-        const fullNonPending = list.filter((a) => a.status !== 'pending');
-        setAllAds(fullNonPending);
+        setAllAds(list);
 
-        setAds(nonPending);
+        // do not filter out pending ads; always review all ad units
+        setAds(deduped);
         setHasPending(hasPendingAds);
 
-        const readyAds = nonPending.filter((a) => a.status === 'ready');
-        const readyVersions = readyAds.filter((a) => getVersion(a) > 1);
-        const reviewSource = readyAds.length > 0 ? readyAds : nonPending;
+        const reviewSource = deduped;
         list = reviewSource;
 
         const key = groupId ? `lastViewed-${groupId}` : null;
@@ -632,39 +681,39 @@ useEffect(() => {
           }
         }
 
-        if (newer.length === 0) {
-          const initial = {};
-          nonPending.forEach((ad) => {
-            let resp;
-            if (ad.status === 'approved') resp = 'approve';
-            else if (ad.status === 'rejected') resp = 'reject';
-            else if (ad.status === 'edit_requested') resp = 'edit';
-            if (resp) {
-              const url = ad.adUrl || ad.firebaseUrl;
-              initial[url] = { adUrl: url, response: resp };
-            }
-          });
-          setResponses(initial);
-        }
+        const initial = {};
+        deduped.forEach((ad) => {
+          const url = ad.adUrl || ad.firebaseUrl;
+          const resp =
+            ad.status === 'approved'
+              ? 'approve'
+              : ad.status === 'rejected'
+              ? 'reject'
+              : ad.status === 'edit_requested'
+              ? 'edit'
+              : null;
+          initial[url] = {
+            adUrl: url,
+            ...(resp ? { response: resp } : {}),
+            comment: ad.comment || '',
+            copyEdit: ad.copyEdit || '',
+          };
+        });
+        setResponses((prev) => ({ ...initial, ...prev }));
 
-        const allList = buildHeroList(nonPending);
-        const versionList = buildHeroList(readyVersions);
+        const allList = buildHeroList(deduped);
         setAllHeroAds(allList);
-        const target = versionList.length > 0 ? versionList : allList;
-        setVersionMode(versionList.length > 0);
+        const target = allList;
+        setVersionMode(false);
         setReviewAds(target);
         setCurrentIndex(
-          status === 'done'
+          status === 'reviewed'
             ? target.length
-            : versionList.length > 0
-            ? 0
             : startIndex < target.length
             ? startIndex
             : 0
         );
-        setPendingOnly(
-          target.length === 0 && nonPending.length === 0 && hasPendingAds
-        );
+        setPendingOnly(target.length === 0 && hasPendingAds);
       } catch (err) {
         console.error('Failed to load ads', err);
       } finally {
@@ -800,6 +849,40 @@ useEffect(() => {
       ? ((currentIndex + (animating ? 1 : 0)) / reviewAds.length) * 100
       : 0;
 
+  const statusCounts = useMemo(() => {
+    const counts = { pending: 0, approved: 0, edit_requested: 0, rejected: 0 };
+    ads.forEach((a) => {
+      const url = a.adUrl || a.firebaseUrl;
+      const resp = responses[url]?.response;
+      const st =
+        resp === 'approve'
+          ? 'approved'
+          : resp === 'reject'
+          ? 'rejected'
+          : resp === 'edit'
+          ? 'edit_requested'
+          : a.status;
+      if (st === 'approved') counts.approved += 1;
+      else if (st === 'rejected') counts.rejected += 1;
+      else if (st === 'edit_requested') counts.edit_requested += 1;
+      else counts.pending += 1;
+    });
+    return counts;
+  }, [ads, responses]);
+
+  const statusBarRef = useRef(null);
+  const [statusBarStuck, setStatusBarStuck] = useState(false);
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!statusBarRef.current) return;
+      setStatusBarStuck(statusBarRef.current.getBoundingClientRect().top <= 0);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+
 
   const openVersionModal = (ver) => {
     const base = displayAd || currentAd;
@@ -835,6 +918,23 @@ useEffect(() => {
       const data = { assetId: snap.id, ...snap.data() };
       setAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
       setReviewAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
+      const url = data.adUrl || data.firebaseUrl;
+      setResponses((prev) => ({
+        ...prev,
+        [url]: {
+          adUrl: url,
+          response:
+            data.status === 'approved'
+              ? 'approve'
+              : data.status === 'rejected'
+              ? 'reject'
+              : data.status === 'edit_requested'
+              ? 'edit'
+              : prev[url]?.response,
+          comment: data.comment || '',
+          copyEdit: data.copyEdit || '',
+        },
+      }));
     });
 
     const rootId = displayAd.parentAdId || stripVersion(displayAd.filename);
@@ -987,6 +1087,19 @@ useEffect(() => {
       setCurrentIndex(reviewAds.length);
     }
   };
+
+  const finalizeReview = async () => {
+    if (!groupId) return;
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), {
+        status: 'reviewed',
+        reviewProgress: null,
+      });
+      setFinalized(true);
+    } catch (err) {
+      console.error('Failed to finalize review', err);
+    }
+  };
   const statusMap = {
     approve: 'Approved',
     reject: 'Rejected',
@@ -1006,6 +1119,99 @@ useEffect(() => {
   const otherSizes = currentVersionAssets.filter(
     (a) => (a.adUrl || a.firebaseUrl) !== adUrl,
   );
+
+  const recipeGroups = useMemo(
+    () =>
+      reviewAds
+        .map((hero) => {
+          const key = unitKey(hero);
+          const assets = allAds.filter(
+            (a) => unitKey(a) === key && a.status !== 'archived',
+          );
+          return { key, assets };
+        })
+        .filter((g) => g.assets.length > 0),
+    [reviewAds, allAds],
+  );
+
+  const handleStatusChange = async (asset, value) => {
+    const url = asset.adUrl || asset.firebaseUrl;
+    if (value === 'edit') {
+      openEditRequest(asset);
+      return;
+    }
+    const prevResp = responses[url];
+    setResponses((prev) => ({ ...prev, [url]: { adUrl: url, response: value } }));
+
+    const recipeAssets = allAds.filter(
+      (a) => unitKey(a) === unitKey(asset) && a.status !== 'archived',
+    );
+    const newStatus =
+      value === 'approve'
+        ? 'approved'
+        : value === 'reject'
+        ? 'rejected'
+        : 'edit_requested';
+    try {
+      const updates = [];
+      for (const a of recipeAssets) {
+        if (a.assetId && a.adGroupId) {
+          updates.push(
+            updateDoc(
+              doc(db, 'adGroups', a.adGroupId, 'assets', a.assetId),
+              {
+                status: newStatus,
+                lastUpdatedBy: user.uid,
+                lastUpdatedAt: serverTimestamp(),
+              },
+            ),
+          );
+        }
+      }
+      const recipe =
+        asset.recipeCode || parseAdFilename(asset.filename || '').recipeCode || '';
+      if (asset.adGroupId && recipe) {
+        const unitRef = doc(db, 'adGroups', asset.adGroupId, 'adUnits', recipe);
+        updates.push(
+          updateDoc(unitRef, {
+            status: newStatus,
+            lastUpdatedBy: user.uid,
+            lastUpdatedAt: serverTimestamp(),
+          }),
+        );
+        updates.push(
+          addDoc(
+            collection(db, 'adGroups', asset.adGroupId, 'adUnits', recipe, 'responses'),
+            {
+              adUrl: url,
+              response: value,
+              pass: prevResp ? 'revisit' : 'initial',
+              ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
+              ...(asset.groupName ? { groupName: asset.groupName } : {}),
+              ...(reviewerName ? { reviewerName } : {}),
+              ...(user?.email ? { userEmail: user.email } : {}),
+              ...(user?.uid ? { userId: user.uid } : {}),
+              ...(userRole ? { userRole } : {}),
+              timestamp: serverTimestamp(),
+            },
+          ),
+        );
+      }
+      await Promise.all(updates);
+      setAds((prev) =>
+        prev.map((a) =>
+          unitKey(a) === unitKey(asset) ? { ...a, status: newStatus } : a,
+        ),
+      );
+      setAllAds((prev) =>
+        prev.map((a) =>
+          unitKey(a) === unitKey(asset) ? { ...a, status: newStatus } : a,
+        ),
+      );
+    } catch (err) {
+      console.error('Failed to update status', err);
+    }
+  };
 
   const currentAspect = String(currentAspectRaw || '9x16').replace(
     'x',
@@ -1029,34 +1235,73 @@ useEffect(() => {
     preloads.current = preloads.current.slice(-BUFFER_COUNT);
   }, [currentIndex, reviewAds, isMobile]);
 
-  const openEditRequest = async () => {
-    setShowEditModal(true);
-    if (!currentAd?.adGroupId) return;
-    const recipeId = currentRecipe;
-    if (!recipeId) return;
+  const loadCopyForAd = async (ad) => {
+    if (!ad?.adGroupId) {
+      setEditCopy('');
+      setOrigCopy('');
+      return;
+    }
+    const recipeId =
+      ad.recipeCode || parseAdFilename(ad.filename || '').recipeCode || '';
+    if (!recipeId) {
+      setEditCopy('');
+      setOrigCopy('');
+      return;
+    }
     try {
       const snap = await getDoc(
-        doc(db, 'adGroups', currentAd.adGroupId, 'recipes', recipeId)
+        doc(db, 'adGroups', ad.adGroupId, 'recipes', recipeId)
       );
       const data = snap.exists() ? snap.data() : null;
       const text = data ? data.latestCopy || data.copy || '' : '';
-      setEditCopy(text);
+      setEditCopy(ad.copyEdit || text);
       setOrigCopy(text);
       setReviewAds((prev) =>
-        prev.map((a, idx) =>
-          idx === currentIndex ? { ...a, originalCopy: text } : a
+        prev.map((a) =>
+          a.assetId === ad.assetId ? { ...a, originalCopy: text } : a,
         )
       );
       setAds((prev) =>
         prev.map((a) =>
-          a.assetId === currentAd.assetId ? { ...a, originalCopy: text } : a
+          a.assetId === ad.assetId ? { ...a, originalCopy: text } : a,
         )
       );
     } catch (err) {
       console.error('Failed to load copy', err);
-      setEditCopy('');
+      setEditCopy(ad.copyEdit || '');
       setOrigCopy('');
     }
+  };
+
+  const openEditRequest = async (ad = currentAd) => {
+    if (ad) {
+      const idx = reviewAds.findIndex((a) => a.assetId === ad.assetId);
+      if (idx >= 0) setCurrentIndex(idx);
+    }
+    await loadCopyForAd(ad);
+    setShowEditModal(true);
+  };
+
+  const openCopyEdit = async (ad) => {
+    if (ad) {
+      const idx = reviewAds.findIndex((a) => a.assetId === ad.assetId);
+      if (idx >= 0) setCurrentIndex(idx);
+    }
+    await loadCopyForAd(ad);
+    setShowCopyEditModal(true);
+  };
+
+  const handleAddComment = (ad) => {
+    if (ad) {
+      const idx = reviewAds.findIndex((a) => a.assetId === ad.assetId);
+      if (idx >= 0) setCurrentIndex(idx);
+    }
+    setComment('');
+    setShowCommentModal(true);
+  };
+
+  const handleEditCopy = (ad) => {
+    openCopyEdit(ad);
   };
 
   const saveCopyCards = async (list) => {
@@ -1120,11 +1365,24 @@ useEffect(() => {
         const url = asset.adUrl || asset.firebaseUrl;
         const copyChanged =
           responseType === 'edit' && editCopy.trim() !== origCopy.trim();
+        const existingComment = responses[url]?.comment || '';
+        const commenter =
+          reviewerName || user?.displayName || user?.email || 'Anonymous';
+        const timestampedComment = comment
+          ? `${commenter}: ${comment}. ${new Date().toLocaleString()}`
+          : '';
+        const combinedComment =
+          responseType === 'edit'
+            ? [existingComment, timestampedComment]
+                .filter(Boolean)
+                .join('\n')
+            : '';
+        const existingCopyEdit = responses[url]?.copyEdit || '';
         const respObj = {
           adUrl: url,
           response: responseType,
-          comment: responseType === 'edit' ? comment : '',
-          copyEdit: copyChanged ? editCopy : '',
+          comment: combinedComment,
+          copyEdit: copyChanged ? editCopy : existingCopyEdit,
           pass: responses[url] ? 'revisit' : 'initial',
           ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
           ...(asset.groupName ? { groupName: asset.groupName } : {}),
@@ -1133,7 +1391,7 @@ useEffect(() => {
           ...(user?.uid ? { userId: user.uid } : {}),
           ...(userRole ? { userRole } : {}),
         };
-        if (asset.adGroupId) {
+        if (asset.adGroupId && reviewVersion !== 2) {
           updates.push(
             addDoc(collection(db, 'adGroups', asset.adGroupId, 'responses'), {
               ...respObj,
@@ -1145,8 +1403,8 @@ useEffect(() => {
           const assetRef = doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId);
           const updateData = {
             status: newStatus,
-            comment: responseType === 'edit' ? comment : '',
-            copyEdit: copyChanged ? editCopy : '',
+            ...(responseType === 'edit' ? { comment: combinedComment } : {}),
+            ...(copyChanged ? { copyEdit: editCopy } : {}),
             lastUpdatedBy: user.uid,
             lastUpdatedAt: serverTimestamp(),
             ...(responseType === 'approve' ? { isResolved: true } : {}),
@@ -1154,27 +1412,29 @@ useEffect(() => {
           };
           updates.push(updateDoc(assetRef, updateData));
 
-          const name = reviewerName || user.displayName || user.uid || 'unknown';
-          updates.push(
-            addDoc(
-              collection(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId, 'history'),
-              {
-                status: newStatus,
-                updatedBy: name,
-                updatedAt: serverTimestamp(),
-                ...(responseType === 'edit' && comment ? { comment } : {}),
-                ...(responseType === 'edit' && copyChanged
-                  ? { copyEdit: editCopy, origCopy }
-                  : {}),
-              },
-            ).catch((err) => {
-              if (err?.code === 'already-exists') {
-                console.log('History entry already exists, skipping');
-              } else {
-                throw err;
-              }
-            }),
-          );
+          if (reviewVersion !== 2) {
+            const name = reviewerName || user.displayName || user.uid || 'unknown';
+            updates.push(
+              addDoc(
+                collection(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId, 'history'),
+                {
+                  status: newStatus,
+                  updatedBy: name,
+                  updatedAt: serverTimestamp(),
+                  ...(responseType === 'edit' && comment ? { comment } : {}),
+                  ...(responseType === 'edit' && copyChanged
+                    ? { copyEdit: editCopy, origCopy }
+                    : {}),
+                },
+              ).catch((err) => {
+                if (err?.code === 'already-exists') {
+                  console.log('History entry already exists, skipping');
+                } else {
+                  throw err;
+                }
+              }),
+            );
+          }
 
           let updatedAdsState = [];
           setAds((prev) => {
@@ -1298,6 +1558,95 @@ useEffect(() => {
         setResponses((prev) => ({ ...prev, [url]: respObj }));
       }
 
+      if (reviewVersion === 2 && recipeAssets.length > 0) {
+        const asset = recipeAssets[0];
+        const url = asset.adUrl || asset.firebaseUrl;
+        const copyChanged =
+          responseType === 'edit' && editCopy.trim() !== origCopy.trim();
+        const existingComment = responses[url]?.comment || '';
+        const timestampedComment = comment
+          ? `${new Date().toLocaleString()}: ${comment}`
+          : '';
+        const combinedComment =
+          responseType === 'edit'
+            ? [existingComment, timestampedComment]
+                .filter(Boolean)
+                .join('\n')
+            : '';
+        const existingCopyEdit = responses[url]?.copyEdit || '';
+        const unitResp = {
+          adUrl: url,
+          response: responseType,
+          comment: combinedComment,
+          copyEdit: copyChanged ? editCopy : existingCopyEdit,
+          pass: responses[url] ? 'revisit' : 'initial',
+          ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
+          ...(asset.groupName ? { groupName: asset.groupName } : {}),
+          ...(reviewerName ? { reviewerName } : {}),
+          ...(user?.email ? { userEmail: user.email } : {}),
+          ...(user?.uid ? { userId: user.uid } : {}),
+          ...(userRole ? { userRole } : {}),
+        };
+        updates.push(
+          addDoc(
+            collection(
+              db,
+              'adGroups',
+              asset.adGroupId,
+              'adUnits',
+              currentRecipe,
+              'responses'
+            ),
+            { ...unitResp, timestamp: serverTimestamp() }
+          )
+        );
+        const unitRef = doc(
+          db,
+          'adGroups',
+          asset.adGroupId,
+          'adUnits',
+          currentRecipe,
+        );
+        const unitUpdate = {
+          status: newStatus,
+          ...(responseType === 'edit' ? { comment: combinedComment } : {}),
+          ...(copyChanged ? { copyEdit: editCopy } : {}),
+          lastUpdatedBy: user.uid,
+          lastUpdatedAt: serverTimestamp(),
+          ...(responseType === 'approve' ? { isResolved: true } : {}),
+          ...(responseType === 'edit' ? { isResolved: false } : {}),
+        };
+        updates.push(updateDoc(unitRef, unitUpdate));
+        const name = reviewerName || user.displayName || user.uid || 'unknown';
+        updates.push(
+          addDoc(
+            collection(
+              db,
+              'adGroups',
+              asset.adGroupId,
+              'adUnits',
+              currentRecipe,
+              'history'
+            ),
+            {
+              status: newStatus,
+              updatedBy: name,
+              updatedAt: serverTimestamp(),
+              ...(responseType === 'edit' && comment ? { comment } : {}),
+              ...(responseType === 'edit' && copyChanged
+                ? { copyEdit: editCopy, origCopy }
+                : {}),
+            }
+          ).catch((err) => {
+            if (err?.code === 'already-exists') {
+              console.log('History entry already exists, skipping');
+            } else {
+              throw err;
+            }
+          })
+        );
+      }
+
       if (recipeAssets.length > 0) {
         const recipeRef = doc(db, 'recipes', currentRecipe);
         updates.push(
@@ -1342,6 +1691,8 @@ useEffect(() => {
       setEditCopy('');
       setOrigCopy('');
       setShowEditModal(false);
+      setShowCommentModal(false);
+      setShowCopyEditModal(false);
       setSubmitting(false);
 
       const nextIndex = currentIndex + 1;
@@ -1417,6 +1768,7 @@ useEffect(() => {
               setShowCopyModal(false);
               if (reviewVersion === 3) {
                 setStarted(true);
+                onStart();
                 return;
               }
               const latest = getLatestAds(ads.filter((a) => a.status !== 'pending'));
@@ -1430,6 +1782,7 @@ useEffect(() => {
               setReviewAds(target);
               setCurrentIndex(0);
               setStarted(true);
+              onStart();
             }}
             disabled={loading || (reviewVersion !== 3 && ads.length === 0)}
             className={`btn-primary px-6 py-3 text-lg ${
@@ -1622,7 +1975,7 @@ useEffect(() => {
               className="mb-2 max-h-16 w-auto"
             />
           )}
-        {/* Gallery view removed */}
+          </div>
         {/* Show exit button even during change review */}
         <div className="relative w-full max-w-md mb-2.5 flex justify-center">
           <div className="absolute left-0 top-1/2 -translate-y-1/2">
@@ -1640,19 +1993,21 @@ useEffect(() => {
               </button>
             </InfoTooltip>
           </div>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2">
-            <InfoTooltip text="leave overall feedback" placement="bottom">
-              <button
-                type="button"
-                aria-label="leave overall feedback"
-                onClick={() => setShowFeedbackModal(true)}
-                className="text-gray-500 hover:text-black dark:hover:text-white"
-              >
-                <FiMessageSquare />
-              </button>
-            </InfoTooltip>
-          </div>
-          {reviewVersion !== 3 && (
+          {[2, 3].includes(reviewVersion) && (
+            <div className="absolute right-0 top-1/2 -translate-y-1/2">
+              <InfoTooltip text="leave overall feedback" placement="bottom">
+                <button
+                  type="button"
+                  aria-label="leave overall feedback"
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="text-gray-500 hover:text-black dark:hover:text-white"
+                >
+                  <FiMessageSquare />
+                </button>
+              </InfoTooltip>
+            </div>
+          )}
+          {reviewVersion === 1 && (
             <div
               className="progress-bar"
               role="progressbar"
@@ -1667,6 +2022,49 @@ useEffect(() => {
             </div>
           )}
         </div>
+        <div
+            ref={statusBarRef}
+            className={`sticky top-0 z-30 w-full ${
+              reviewVersion === 3 ? 'max-w-5xl' : 'max-w-md'
+            } mx-auto mb-2 transition-opacity ${
+              statusBarStuck ? 'opacity-60 hover:opacity-100' : ''
+            }`}
+          >
+            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 mb-2 sm:mb-0">
+                <div className="font-semibold truncate">{groupName}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-300">{finalized ? 'Review Finalized' : 'Review in Progress'}</div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex gap-4">
+                  <div className="text-center">
+                    <div className="text-lg font-bold">{statusCounts.pending}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300">Pending</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold">{statusCounts.approved}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300">Approved</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold">{statusCounts.edit_requested}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300">Edit Requested</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold">{statusCounts.rejected}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300">Rejected</div>
+                  </div>
+                </div>
+                {!finalized && (
+                  <button
+                    className="btn-secondary whitespace-nowrap"
+                    onClick={finalizeReview}
+                  >
+                    Finalize Review
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
             <div className="w-full max-w-5xl">
@@ -1681,85 +2079,170 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="p-4 rounded flex flex-wrap justify-center gap-4 relative">
-              {(currentRecipeGroup?.assets || []).map((a, idx) => (
-                <div key={idx} className="max-w-[300px]">
-                  {isVideoUrl(a.firebaseUrl) ? (
-                    <VideoPlayer
-                      src={a.firebaseUrl}
-                      className="max-w-full rounded shadow"
-                      style={{
-                        aspectRatio:
-                          String(a.aspectRatio || '').replace('x', '/') || undefined,
-                      }}
-                    />
-                  ) : (
-                    <OptimizedImage
-                      pngUrl={a.firebaseUrl}
-                      webpUrl={
-                        a.firebaseUrl
-                          ? a.firebaseUrl.replace(/\.png$/, '.webp')
-                          : undefined
-                      }
-                      alt={a.filename}
-                      cacheKey={a.firebaseUrl}
-                      className="max-w-full rounded shadow"
-                      style={{
-                        aspectRatio:
-                          String(a.aspectRatio || '').replace('x', '/') || undefined,
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-              {(getVersion(displayAd) > 1 || versions.length > 1) && (
-                versions.length > 1 ? (
-                  versions.length === 2 ? (
-                    <span
-                      onClick={() =>
-                        setVersionIndex((i) => (i + 1) % versions.length)
-                      }
-                      className="version-badge cursor-pointer absolute top-0 left-0"
-                    >
-                      V{getVersion(displayAd)}
-                    </span>
-                  ) : (
-                    <div className="absolute top-0 left-0">
-                      <span
-                        onClick={() => setShowVersionMenu((o) => !o)}
-                        className="version-badge cursor-pointer select-none"
-                      >
-                        V{getVersion(displayAd)}
-                      </span>
-                      {showVersionMenu && (
-                        <div className="absolute left-0 top-full mt-1 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
-                          {versions.map((v, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => {
-                                setVersionIndex(idx);
-                                setShowVersionMenu(false);
+            <div className="space-y-8 w-full">
+              {recipeGroups.map((group, gIdx) => {
+                const first = group.assets[0];
+                if (!first) return null;
+                const url = first.adUrl || first.firebaseUrl;
+                const resp =
+                  responses[url]?.response ||
+                  (first.status === 'approved'
+                    ? 'approve'
+                    : first.status === 'rejected'
+                    ? 'reject'
+                    : first.status === 'edit_requested'
+                    ? 'edit'
+                    : 'pending');
+                return (
+                  <div key={gIdx} className="border rounded p-4">
+                    <div className="flex flex-wrap justify-center gap-4">
+                      {group.assets.map((a, idx) => (
+                        <div key={idx} className="max-w-[300px]">
+                          {isVideoUrl(a.firebaseUrl) ? (
+                            <VideoPlayer
+                              src={a.firebaseUrl}
+                              className="max-w-full rounded shadow"
+                              style={{
+                                aspectRatio:
+                                  String(a.aspectRatio || '').replace('x', '/') || undefined,
                               }}
-                              className="block w-full text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
-                            >
-                              V{getVersion(v[0])}
-                            </button>
-                          ))}
+                            />
+                          ) : (
+                            <OptimizedImage
+                              pngUrl={a.firebaseUrl}
+                              webpUrl={
+                                a.firebaseUrl
+                                  ? a.firebaseUrl.replace(/\.png$/, '.webp')
+                                  : undefined
+                              }
+                              alt={a.filename}
+                              cacheKey={a.firebaseUrl}
+                              className="max-w-full rounded shadow"
+                              style={{
+                                aspectRatio:
+                                  String(a.aspectRatio || '').replace('x', '/') || undefined,
+                              }}
+                            />
+                          )}
                         </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center mt-2">
+                      <div className="flex items-center space-x-2">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            resp === 'approve'
+                              ? 'bg-green-500'
+                              : resp === 'reject'
+                              ? 'bg-red-500'
+                              : resp === 'edit'
+                              ? 'bg-yellow-500'
+                              : 'bg-gray-400'
+                          }`}
+                        />
+                        <select
+                          className="border rounded p-1 text-sm"
+                          value={resp}
+                          onChange={(e) => handleStatusChange(first, e.target.value)}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="approve">Approve</option>
+                          <option value="reject">Reject</option>
+                          <option value="edit">Edit Request</option>
+                        </select>
+                      </div>
+                      {resp === 'edit' && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedEdits((p) => ({
+                              ...p,
+                              [gIdx]: !p[gIdx],
+                            }))
+                          }
+                          className="text-gray-600 dark:text-gray-400 text-sm"
+                        >
+                          {expandedEdits[gIdx] ? 'Hide Edit Request' : 'View Edit Request'}
+                        </button>
                       )}
                     </div>
-                  )
-                ) : (
-                  <span className="version-badge absolute top-0 left-0">V{getVersion(displayAd)}</span>
-                )
-              )}
+                    {resp === 'edit' && expandedEdits[gIdx] && (
+                      <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-sm space-y-2">
+                        <div className="text-gray-700 dark:text-gray-200 mt-1">
+                          <p className="font-semibold mb-1">Comments</p>
+                          {responses[url]?.comment ? (
+                            <div className="space-y-1">
+                              {responses[url].comment.split('\n').map((line, idx) => {
+                                const lastDot = line.lastIndexOf('. ');
+                                const time = lastDot !== -1 ? line.slice(lastDot + 2) : '';
+                                const pre = lastDot !== -1 ? line.slice(0, lastDot) : line;
+                                const sep = pre.indexOf(': ');
+                                const user = sep !== -1 ? pre.slice(0, sep) : '';
+                                const text = sep !== -1 ? pre.slice(sep + 2) : pre;
+                                return (
+                                  <p key={idx} className="whitespace-pre-line">
+                                    {user ? (
+                                      <>
+                                        <span className="font-semibold">{user}:</span> {text}
+                                        {time && (
+                                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                                            {time}
+                                          </span>
+                                        )}
+                                      </>
+                                    ) : (
+                                      text
+                                    )}
+                                  </p>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="italic">No comments provided.</p>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleAddComment(first)}
+                            className="flex items-center text-gray-600 dark:text-gray-400 text-xs mt-1"
+                          >
+                            <FiPlus className="mr-1" /> Add comment
+                          </button>
+                        </div>
+                        {responses[url]?.copyEdit ? (
+                          <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+                            <p className="font-semibold mb-1">Copy edit request</p>
+                            <p className="italic whitespace-pre-line">
+                              {responses[url].copyEdit}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => handleEditCopy(first)}
+                              className="block text-gray-600 dark:text-gray-400 text-xs mt-1"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleEditCopy(first)}
+                            className="block text-gray-600 dark:text-gray-400 text-xs mt-1"
+                          >
+                            Request Copy Edit
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
-          <div
-            onTouchStart={!isSafari ? handleTouchStart : undefined}
-            onTouchMove={!isSafari ? handleTouchMove : undefined}
-            onTouchEnd={!isSafari ? handleTouchEnd : undefined}
-            onAnimationEnd={handleAnimationEnd}
+            <div
+              onTouchStart={!isSafari ? handleTouchStart : undefined}
+              onTouchMove={!isSafari ? handleTouchMove : undefined}
+              onTouchEnd={!isSafari ? handleTouchEnd : undefined}
+              onAnimationEnd={handleAnimationEnd}
             className={`relative z-10 ${
               isMobile && showSizes
                 ? 'flex flex-col items-center overflow-y-auto h-[72vh]'
@@ -1902,7 +2385,7 @@ useEffect(() => {
         </div>
       </div>
 
-        {!showSizes && reviewVersion !== 3 && (showSecondView ? (
+        {!showSizes && reviewVersion === 1 && (showSecondView ? (
         <div className="flex items-center space-x-4">
           {currentIndex > 0 && (
             <button
@@ -1998,6 +2481,60 @@ useEffect(() => {
           submitting={submitting}
         />
       )}
+      {showCommentModal && (
+        <FeedbackModal
+          comment={comment}
+          onCommentChange={setComment}
+          onSubmit={() => submitResponse('edit')}
+          onClose={() => {
+            setShowCommentModal(false);
+          }}
+          submitting={submitting}
+          title="Add comment"
+          placeholder="Add comments..."
+        />
+      )}
+      {showCopyEditModal && (
+        <CopyEditModal
+          editCopy={editCopy}
+          onEditCopyChange={setEditCopy}
+          origCopy={origCopy}
+          canSubmit={editCopy.trim() && editCopy.trim() !== origCopy.trim()}
+          onCancel={() => setShowCopyEditModal(false)}
+          onSubmit={() => submitResponse('edit')}
+          submitting={submitting}
+        />
+      )}
+      {showApproveAllModal && (
+        <Modal>
+          <p className="mb-4 text-sm">
+            Some ads already have edit requests or rejections. Would you like to
+            leave those as they are, or mark every ad as approved?
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              className="px-3 py-1"
+              onClick={() => {
+                setShowApproveAllModal(false);
+                bulkApprove(false);
+              }}
+            >
+              Approve pending ads
+            </Button>
+            <Button
+              variant="primary"
+              className="px-3 py-1"
+              onClick={() => {
+                setShowApproveAllModal(false);
+                bulkApprove(true);
+              }}
+            >
+              Approve all ads
+            </Button>
+          </div>
+        </Modal>
+      )}
       {versionModal && (
         <VersionModal
           data={versionModal}
@@ -2036,7 +2573,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-      {showFeedbackModal && (
+      {[2, 3].includes(reviewVersion) && showFeedbackModal && (
         <FeedbackModal
           comment={feedbackComment}
           onCommentChange={setFeedbackComment}
@@ -2046,16 +2583,15 @@ useEffect(() => {
         />
       )}
       </div>
-      {reviewVersion !== 3 && (
+      {reviewVersion === 1 && (
         <FeedbackPanel
           entries={panelEntries}
           onVersionClick={openVersionModal}
           origCopy={recipeCopyMap[currentRecipe] || ''}
           className="mt-4 md:mt-0"
-          collapsible={reviewVersion === 2}
+          collapsible={false}
         />
       )}
-    </div>
     </div>
   );
 });

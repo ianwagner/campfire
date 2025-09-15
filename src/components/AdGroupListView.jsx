@@ -24,9 +24,11 @@ const statusOrder = {
   pending: 1,
   briefed: 2,
   ready: 3,
-  'edit request': 4,
-  done: 5,
-  archived: 6,
+  designed: 4,
+  'edit request': 5,
+  reviewed: 6,
+  done: 7,
+  archived: 8,
 };
 
 const AdGroupListView = ({
@@ -250,12 +252,13 @@ const AdGroupListView = ({
           ) : view === 'kanban' ? (
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
               <div className="min-w-max flex gap-4">
-                {[
+                {[ 
                   { label: 'New', status: 'new' },
                   { label: 'Blocked', status: 'blocked' },
                   { label: 'Briefed', status: 'briefed' },
                   { label: 'Designed', status: 'designed' },
                   { label: 'Edit Request', status: 'edit request' },
+                  { label: 'Reviewed', status: 'reviewed' },
                   { label: 'Done', status: 'done' },
                 ].map((col) => (
                   <div key={col.status} className="flex-shrink-0 w-[240px] sm:w-[320px]">

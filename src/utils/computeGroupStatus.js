@@ -5,6 +5,7 @@ export default function computeGroupStatus(
   currentStatus,
 ) {
   if (currentStatus === 'blocked') return 'blocked';
+  if (currentStatus === 'reviewed') return 'reviewed';
   if (hasRecipes && assets.length === 0) return 'briefed';
   if (inDesign) return 'designing';
   if (

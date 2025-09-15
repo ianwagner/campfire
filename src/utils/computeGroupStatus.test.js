@@ -69,3 +69,8 @@ test('returns blocked when current status is blocked', () => {
   const status = computeGroupStatus([{ status: 'approved' }], false, false, 'blocked');
   expect(status).toBe('blocked');
 });
+
+test('returns reviewed when current status is reviewed', () => {
+  const status = computeGroupStatus([{ status: 'approved' }], false, false, 'reviewed');
+  expect(status).toBe('reviewed');
+});

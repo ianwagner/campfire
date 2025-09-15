@@ -422,9 +422,11 @@ const AdminAdGroups = () => {
     pending: 1,
     briefed: 2,
     ready: 3,
-    'edit request': 4,
-    done: 5,
-    archived: 6,
+    designed: 4,
+    'edit request': 5,
+    reviewed: 6,
+    done: 7,
+    archived: 8,
   };
 
   const kanbanColumns = [
@@ -433,6 +435,7 @@ const AdminAdGroups = () => {
     { label: 'Briefed', status: 'briefed' },
     { label: 'Designed', status: 'designed' },
     { label: 'Edit Request', status: 'edit request' },
+    { label: 'Reviewed', status: 'reviewed' },
     { label: 'Done', status: 'done' },
   ];
   const months = Array.from(new Set(groups.map((g) => g.month).filter(Boolean))).sort();
