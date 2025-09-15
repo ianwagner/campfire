@@ -26,7 +26,7 @@ const PmAdGroups = () => {
   const [monthFilter, setMonthFilter] = useState('');
 
   const user = auth.currentUser;
-  const { agencyId, brandCodes: roleCodes } = useUserRole(user?.uid);
+  const { agencyId, brandCodes: roleCodes, role } = useUserRole(user?.uid);
   const location = useLocation();
 
   useEffect(() => {
@@ -116,6 +116,8 @@ const PmAdGroups = () => {
     window.location.href = `/ad-group/${id}?exportApproved=1`;
   };
 
+  const restrictGanttToDueDate = role === 'project-manager' && Boolean(agencyId);
+
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Ad Groups</h1>
@@ -140,6 +142,7 @@ const PmAdGroups = () => {
         monthFilter={monthFilter}
         onMonthFilterChange={setMonthFilter}
         linkToDetail
+        restrictGanttToDueDate={restrictGanttToDueDate}
       />
       {showGallery && (
         <GalleryModal ads={galleryAds} onClose={() => setShowGallery(false)} />
