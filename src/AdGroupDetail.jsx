@@ -1828,7 +1828,9 @@ const AdGroupDetail = () => {
     'pending',
     'briefed',
     'ready',
+    'designed',
     'edit request',
+    'reviewed',
     'done',
     'blocked',
   ];

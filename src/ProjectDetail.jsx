@@ -98,6 +98,7 @@ const statusColorMap = {
   designed: 'var(--accent-color)',
   edit_request: 'var(--edit-color)',
   need_info: 'var(--edit-color)',
+  reviewed: 'var(--approve-color)',
   done: 'var(--approve-color)',
   mixed: 'var(--edit-color)',
   blocked: 'var(--reject-color)',
