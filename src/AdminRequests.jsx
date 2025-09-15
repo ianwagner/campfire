@@ -23,11 +23,11 @@ const emptyForm = {
   brandCode: '',
   title: '',
   dueDate: '',
-  numAds: 1,
   numAssets: 1,
   inspiration: '',
   uploadLink: '',
   assetLinks: [''],
+  products: [{ product: '', quantity: 1, newProduct: '' }],
   details: '',
   priority: 'low',
   name: '',
@@ -47,6 +47,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const [viewRequest, setViewRequest] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [brands, setBrands] = useState([]);
+  const [brandProducts, setBrandProducts] = useState([]);
   const [aiArtStyle, setAiArtStyle] = useState('');
   const [designers, setDesigners] = useState([]);
   const [editors, setEditors] = useState([]);
@@ -93,6 +94,9 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           snap.docs.map((d) => ({
             code: d.data().code,
             aiArtStyle: d.data().aiArtStyle || '',
+            products: Array.isArray(d.data().products)
+              ? d.data().products.map((p) => p.name)
+              : [],
           }))
         );
       } catch (err) {
@@ -160,6 +164,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
 
   const resetForm = () => {
     setForm(isOps ? { ...emptyForm, type: 'bug' } : emptyForm);
+    setBrandProducts([]);
     setEditId(null);
   };
 
@@ -187,11 +192,17 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       brandCode: req.brandCode || '',
       title: req.title || '',
       dueDate: req.dueDate ? req.dueDate.toDate().toISOString().slice(0,10) : '',
-      numAds: req.numAds || 1,
       numAssets: req.numAssets || 1,
       inspiration: req.inspiration || '',
       uploadLink: req.uploadLink || '',
       assetLinks: req.assetLinks && req.assetLinks.length ? req.assetLinks : [''],
+      products: req.products && req.products.length
+        ? req.products.map((p) => ({
+            product: p.product,
+            quantity: p.quantity,
+            newProduct: '',
+          }))
+        : [{ product: '', quantity: 1, newProduct: '' }],
       details: req.details || '',
       priority: req.priority || 'low',
       name: req.name || '',
@@ -204,16 +215,24 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     });
     const b = brands.find((br) => br.code === req.brandCode);
     setAiArtStyle(b?.aiArtStyle || '');
+    setBrandProducts(b?.products || []);
     setShowModal(true);
   };
 
   const handleSave = async () => {
+    const productData = (form.products || [])
+      .map((p) => {
+        const name = p.product === '__new__' ? p.newProduct : p.product;
+        return name ? { product: name, quantity: Number(p.quantity) || 0 } : null;
+      })
+      .filter(Boolean);
     const data = {
       type: form.type,
       brandCode: form.brandCode,
       title: form.title,
       dueDate: form.dueDate ? Timestamp.fromDate(new Date(form.dueDate)) : null,
-      numAds: Number(form.numAds) || 0,
+      numAds: productData.reduce((sum, p) => sum + p.quantity, 0),
+      products: productData,
       numAssets: Number(form.numAssets) || 0,
       inspiration: form.inspiration,
       uploadLink: form.uploadLink,
@@ -392,9 +411,10 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
 
   const handleBrandChange = (e) => {
     const code = e.target.value;
-    setForm((f) => ({ ...f, brandCode: code }));
+    setForm((f) => ({ ...f, brandCode: code, products: [{ product: '', quantity: 1, newProduct: '' }] }));
     const b = brands.find((br) => br.code === code);
     setAiArtStyle(b?.aiArtStyle || '');
+    setBrandProducts(b?.products || []);
   };
 
   const addAssetLink = () => {
@@ -410,6 +430,29 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   };
 
   // URL verification handled by UrlCheckInput component
+
+  const addProductField = () => {
+    setForm((f) => ({
+      ...f,
+      products: [...(f.products || []), { product: '', quantity: 1, newProduct: '' }],
+    }));
+  };
+
+  const handleProductChange = (idx, field, value) => {
+    setForm((f) => {
+      const arr = [...(f.products || [])];
+      arr[idx] = { ...arr[idx], [field]: value };
+      if (field === 'product' && value !== '__new__') arr[idx].newProduct = '';
+      return { ...f, products: arr };
+    });
+  };
+
+  const removeProductField = (idx) => {
+    setForm((f) => ({
+      ...f,
+      products: f.products.filter((_, i) => i !== idx),
+    }));
+  };
 
   const handleCreateGroup = async (req) => {
     if (req.type === 'newBrand') {
@@ -986,36 +1029,66 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                   className="w-full p-2 border rounded"
                 />
               </div>
-              {!isOps && (
-                <div>
-                  <label className="block mb-1 text-sm font-medium">Designer</label>
-                  <select
-                    value={form.designerId}
-                    onChange={(e) => setForm((f) => ({ ...f, designerId: e.target.value }))}
-                    className="w-full p-2 border rounded"
-                  >
-                    <option value="">Select designer</option>
-                    {designers.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
+                {!isOps && (
+                  <div>
+                    <label className="block mb-1 text-sm font-medium">Designer</label>
+                    <select
+                      value={form.designerId}
+                      onChange={(e) => setForm((f) => ({ ...f, designerId: e.target.value }))}
+                      className="w-full p-2 border rounded"
+                    >
+                      <option value="">Select designer</option>
+                      {designers.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {form.brandCode && (
+                  <div>
+                    <label className="block mb-1 text-sm font-medium">Products</label>
+                    {form.products.map((p, idx) => (
+                      <div key={idx} className="flex items-center gap-2 mb-2">
+                        <select
+                          value={p.product}
+                          onChange={(e) => handleProductChange(idx, 'product', e.target.value)}
+                          className="p-2 border rounded flex-1"
+                        >
+                          <option value="">Select product</option>
+                          {brandProducts.map((prod) => (
+                            <option key={prod} value={prod}>{prod}</option>
+                          ))}
+                          <option value="__new__">Add new</option>
+                        </select>
+                        {p.product === '__new__' && (
+                          <input
+                            type="text"
+                            value={p.newProduct}
+                            onChange={(e) => handleProductChange(idx, 'newProduct', e.target.value)}
+                            className="p-2 border rounded flex-1"
+                            placeholder="New product name"
+                          />
+                        )}
+                        <input
+                          type="number"
+                          min="1"
+                          value={p.quantity}
+                          onChange={(e) => handleProductChange(idx, 'quantity', e.target.value)}
+                          className="w-24 p-2 border rounded"
+                        />
+                        {form.products.length > 1 && (
+                          <button type="button" onClick={() => removeProductField(idx)} className="text-red-600 text-sm">Remove</button>
+                        )}
+                      </div>
                     ))}
-                  </select>
-                </div>
-              )}
-              <div>
-                <label className="block mb-1 text-sm font-medium">Number of Ads</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={form.numAds}
-                  onChange={(e) => setForm((f) => ({ ...f, numAds: e.target.value }))}
-                  className="w-full p-2 border rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Gdrive Link</label>
-                {form.assetLinks.map((link, idx) => (
-                  <UrlCheckInput
-                    key={idx}
+                    <button type="button" onClick={addProductField} className="text-sm text-blue-600 underline">Add product</button>
+                  </div>
+                )}
+                <div>
+                  <label className="block mb-1 text-sm font-medium">Gdrive Link</label>
+                  {form.assetLinks.map((link, idx) => (
+                    <UrlCheckInput
+                      key={idx}
                     value={link}
                     onChange={(val) => handleAssetLinkChange(idx, val)}
                     inputClass="p-2"
