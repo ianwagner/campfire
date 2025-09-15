@@ -17,6 +17,7 @@ const AdGroupGantt = ({
   onDateChange = () => {},
   onAssign = () => {},
   allowDueDateChange = false,
+  restrictToDueDate = false,
 }) => {
   const startOfWeek = (d) => {
     const s = new Date(d);
@@ -30,6 +31,12 @@ const AdGroupGantt = ({
   const [start, setStart] = useState(() => startOfWeek(new Date()));
   const [localGroups, setLocalGroups] = useState([]);
   const [menu, setMenu] = useState(null); // {groupId, date, step}
+
+  useEffect(() => {
+    if (restrictToDueDate) {
+      setMenu(null);
+    }
+  }, [restrictToDueDate]);
 
   // remove completed groups
   useEffect(() => {
@@ -77,6 +84,7 @@ const AdGroupGantt = ({
     if (!txt) return;
     const data = JSON.parse(txt);
     if (data.id !== group.id) return;
+    if (restrictToDueDate && data.type !== 'due') return;
     setLocalGroups((prev) =>
       prev.map((g) => {
         if (g.id !== group.id) return g;
@@ -101,9 +109,13 @@ const AdGroupGantt = ({
     );
   };
 
+  const availableDesigners = restrictToDueDate ? [] : designers;
+  const availableEditors = restrictToDueDate ? [] : editors;
+
   const handleAssign = (role, personId) => {
+    if (restrictToDueDate) return;
     const { groupId, date } = menu;
-    const list = role === 'designer' ? designers : editors;
+    const list = role === 'designer' ? availableDesigners : availableEditors;
     const person = list.find((p) => p.id === personId);
     setLocalGroups((prev) =>
       prev.map((g) =>
@@ -185,21 +197,23 @@ const AdGroupGantt = ({
           </thead>
           <tbody>
             {filtered.map((g) => {
-              const designDate = g.designDueDate
-                ? typeof g.designDueDate.toDate === 'function'
+              const designDate =
+                restrictToDueDate || !g.designDueDate
+                  ? null
+                  : typeof g.designDueDate.toDate === 'function'
                   ? g.designDueDate.toDate()
-                  : new Date(g.designDueDate)
+                  : new Date(g.designDueDate);
+              const editorDate =
+                restrictToDueDate || !g.editorDueDate
+                  ? null
+                  : typeof g.editorDueDate.toDate === 'function'
+                  ? g.editorDueDate.toDate()
+                  : new Date(g.editorDueDate);
+              const dueDate = g.dueDate
+                ? typeof g.dueDate.toDate === 'function'
+                  ? g.dueDate.toDate()
+                  : new Date(g.dueDate)
                 : null;
-            const editorDate = g.editorDueDate
-              ? typeof g.editorDueDate.toDate === 'function'
-                ? g.editorDueDate.toDate()
-                : new Date(g.editorDueDate)
-              : null;
-            const dueDate = g.dueDate
-              ? typeof g.dueDate.toDate === 'function'
-                ? g.dueDate.toDate()
-                : new Date(g.dueDate)
-              : null;
             return (
               <tr key={g.id}>
                 <td className="sticky left-0 z-10 bg-white dark:bg-[var(--dark-bg)] p-2 border border-gray-300 dark:border-gray-600 whitespace-nowrap max-w-[16rem] w-[16rem] overflow-hidden text-ellipsis outline outline-1 outline-gray-300">
@@ -213,8 +227,8 @@ const AdGroupGantt = ({
                   let bg = '';
                   let draggable = false;
                   let dragType = null;
-                  const isDesignDay = designDate && isSameDay(d, designDate);
-                  const isEditorDay = editorDate && isSameDay(d, editorDate);
+                  const isDesignDay = !restrictToDueDate && designDate && isSameDay(d, designDate);
+                  const isEditorDay = !restrictToDueDate && editorDate && isSameDay(d, editorDate);
                   const unassignedDesigner = isDesignDay && !g.designerId;
                   const unassignedEditor = isEditorDay && !g.editorId;
                   if (isDesignDay) {
@@ -250,7 +264,7 @@ const AdGroupGantt = ({
                     }
                   }
                   const showMenu =
-                    menu && menu.groupId === g.id && isSameDay(menu.date, d);
+                    !restrictToDueDate && menu && menu.groupId === g.id && isSameDay(menu.date, d);
                   return (
                     <td
                       key={d.toISOString()}
@@ -258,7 +272,7 @@ const AdGroupGantt = ({
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => handleDrop(e, g, d)}
                       onClick={() => {
-                        if (content) return;
+                        if (restrictToDueDate || content) return;
                         if (unassignedDesigner)
                           setMenu({ groupId: g.id, date: d, step: 'designer' });
                         else if (unassignedEditor)
@@ -319,7 +333,7 @@ const AdGroupGantt = ({
                             }}
                           >
                             <option value="">Select {menu.step}</option>
-                            {(menu.step === 'designer' ? designers : editors).map((p) => (
+                            {(menu.step === 'designer' ? availableDesigners : availableEditors).map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.name}
                               </option>

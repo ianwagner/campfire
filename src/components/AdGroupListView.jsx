@@ -51,6 +51,7 @@ const AdGroupListView = ({
   onEditorFilterChange,
   monthFilter,
   onMonthFilterChange,
+  restrictGanttToDueDate = false,
 }) => {
   const term = (filter || '').toLowerCase();
   const months = Array.from(new Set(groups.map((g) => g.month).filter(Boolean))).sort();
@@ -282,7 +283,12 @@ const AdGroupListView = ({
             </div>
           ) : (
             <div className="hidden sm:block">
-              <AdGroupGantt groups={displayGroups} designers={designers} editors={editors} />
+              <AdGroupGantt
+                groups={displayGroups}
+                designers={designers}
+                editors={editors}
+                restrictToDueDate={restrictGanttToDueDate}
+              />
             </div>
           )}
         </>
