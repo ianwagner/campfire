@@ -537,18 +537,6 @@ const AdGroupDetail = () => {
             ? { thumbnailUrl: summary.thumbnail }
             : {}),
       };
-      const newStatus = computeGroupStatus(
-        assets,
-        hasRecipes,
-        group.status === 'designing',
-        group.status,
-      );
-      if (
-        newStatus !== group.status &&
-        !(group.status === 'briefed' && assets.length === 0)
-      ) {
-        update.status = newStatus;
-      }
       updateDoc(doc(db, "adGroups", id), update).catch((err) =>
         console.error("Failed to update summary", err),
       );
@@ -2250,6 +2238,20 @@ const AdGroupDetail = () => {
               </option>
             ))}
           </select>
+        ) : isDesigner && ['briefed', 'reviewed'].includes(group.status) ? (
+          <button
+            onClick={async () => {
+              try {
+                await updateDoc(doc(db, 'adGroups', id), { status: 'designed' });
+                setGroup((p) => ({ ...p, status: 'designed' }));
+              } catch (err) {
+                console.error('Failed to update status', err);
+              }
+            }}
+            className="status-select status-designed"
+          >
+            Designed
+          </button>
         ) : (
           <StatusBadge status={group.status} />
         )}

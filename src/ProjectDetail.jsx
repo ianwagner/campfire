@@ -95,7 +95,7 @@ const statusColorMap = {
   edit_requested: 'var(--edit-color)',
   archived: 'var(--table-row-alt-bg)',
   draft: 'var(--pending-color)',
-  in_design: 'var(--accent-color)',
+  designed: 'var(--accent-color)',
   edit_request: 'var(--edit-color)',
   need_info: 'var(--edit-color)',
   done: 'var(--approve-color)',
