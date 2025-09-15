@@ -24,10 +24,11 @@ const statusOrder = {
   pending: 1,
   briefed: 2,
   ready: 3,
-  'edit request': 4,
-  reviewed: 5,
-  done: 6,
-  archived: 7,
+  designed: 4,
+  'edit request': 5,
+  reviewed: 6,
+  done: 7,
+  archived: 8,
 };
 
 const AdGroupListView = ({
