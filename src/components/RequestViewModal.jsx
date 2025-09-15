@@ -93,6 +93,16 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
         {request.type === 'newAds' && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0"># Ads: {request.numAds}</p>
         )}
+        {request.type === 'newAds' && request.products && request.products.length > 0 && (
+          <div className="text-black dark:text-[var(--dark-text)] mb-0">
+            Products:
+            <ul className="list-disc ml-4">
+              {request.products.map((p, i) => (
+                <li key={i}>{p.product}: {p.quantity}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {request.type === 'newAIAssets' && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0"># Assets: {request.numAssets}</p>
         )}

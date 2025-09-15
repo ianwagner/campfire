@@ -168,6 +168,13 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
             {expanded && request.type === 'newAds' && <span># Ads: {request.numAds}</span>}
             {expanded && request.type === 'newAIAssets' && <span># Assets: {request.numAssets}</span>}
           </div>
+          {expanded && request.type === 'newAds' && request.products && request.products.length > 0 && (
+            <ul className="text-xs mt-1">
+              {request.products.map((p, i) => (
+                <li key={i}>{p.product}: {p.quantity}</li>
+              ))}
+            </ul>
+          )}
           <div className="text-right">
             {request.type === 'newAds' || request.type === 'newBrand' ? (
               request.status === 'done' ? (
