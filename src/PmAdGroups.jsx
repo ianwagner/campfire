@@ -29,6 +29,8 @@ const PmAdGroups = () => {
   const { agencyId, brandCodes: roleCodes, role } = useUserRole(user?.uid);
   const location = useLocation();
 
+  const showStaffFilters = role && role !== 'ops';
+
   useEffect(() => {
     const fetchCodes = async () => {
       if (agencyId) {
@@ -54,20 +56,32 @@ const PmAdGroups = () => {
   }, [location.search]);
 
   useEffect(() => {
+    if (!showStaffFilters) {
+      setDesigners([]);
+      setEditors([]);
+      return;
+    }
+
+    let cancelled = false;
+
     const fetchDesigners = async () => {
       try {
         const snap = await getDocs(
           query(collection(db, 'users'), where('role', '==', 'designer'))
         );
-        setDesigners(
-          snap.docs.map((d) => ({
-            id: d.id,
-            name: d.data().fullName || d.data().email || d.id,
-          }))
-        );
+        if (!cancelled) {
+          setDesigners(
+            snap.docs.map((d) => ({
+              id: d.id,
+              name: d.data().fullName || d.data().email || d.id,
+            }))
+          );
+        }
       } catch (err) {
         console.error('Failed to fetch designers', err);
-        setDesigners([]);
+        if (!cancelled) {
+          setDesigners([]);
+        }
       }
     };
     const fetchEditors = async () => {
@@ -75,20 +89,36 @@ const PmAdGroups = () => {
         const snap = await getDocs(
           query(collection(db, 'users'), where('role', '==', 'editor'))
         );
-        setEditors(
-          snap.docs.map((d) => ({
-            id: d.id,
-            name: d.data().fullName || d.data().email || d.id,
-          }))
-        );
+        if (!cancelled) {
+          setEditors(
+            snap.docs.map((d) => ({
+              id: d.id,
+              name: d.data().fullName || d.data().email || d.id,
+            }))
+          );
+        }
       } catch (err) {
         console.error('Failed to fetch editors', err);
-        setEditors([]);
+        if (!cancelled) {
+          setEditors([]);
+        }
       }
     };
+
     fetchDesigners();
     fetchEditors();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showStaffFilters]);
+
+  useEffect(() => {
+    if (!showStaffFilters) {
+      setDesignerFilter('');
+      setEditorFilter('');
+    }
+  }, [showStaffFilters]);
 
   const handleGallery = async (id) => {
     try {
@@ -134,12 +164,12 @@ const PmAdGroups = () => {
         onGallery={handleGallery}
         onCopy={handleCopy}
         onDownload={handleDownload}
-        designers={designers}
-        editors={editors}
-        designerFilter={designerFilter}
-        onDesignerFilterChange={setDesignerFilter}
-        editorFilter={editorFilter}
-        onEditorFilterChange={setEditorFilter}
+        designers={showStaffFilters ? designers : undefined}
+        editors={showStaffFilters ? editors : undefined}
+        designerFilter={showStaffFilters ? designerFilter : undefined}
+        onDesignerFilterChange={showStaffFilters ? setDesignerFilter : undefined}
+        editorFilter={showStaffFilters ? editorFilter : undefined}
+        onEditorFilterChange={showStaffFilters ? setEditorFilter : undefined}
         monthFilter={monthFilter}
         onMonthFilterChange={setMonthFilter}
         linkToDetail
