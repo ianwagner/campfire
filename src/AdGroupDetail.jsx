@@ -1156,10 +1156,7 @@ const AdGroupDetail = () => {
         });
         let recipeStatus = null;
         if (recipeAssets.length > 0) recipeStatus = getRecipeStatus(recipeAssets);
-        if (
-          !isAdmin &&
-          ["edit_requested", "archived", "rejected"].includes(recipeStatus)
-        ) {
+        if (!isAdmin && ["archived", "rejected"].includes(recipeStatus)) {
           const display =
             recipeStatus === "edit_requested" ? "edit request" : recipeStatus;
           window.alert(`Error. Cannot Upload. Recipe is ${display}.`);
@@ -1379,75 +1376,210 @@ const AdGroupDetail = () => {
     }
   };
 
-  const uploadRevision = async (origAsset, file) => {
-    if (!file) return;
-    setVersionUploading(origAsset.id);
-    try {
-      let fname = file.name;
-      if (!/_V\d+/i.test(fname)) {
-        const ext = fname.replace(/.*(\.[^.]*)$/, '$1');
-        const base = fname.replace(/\.[^/.]+$/, '');
-        const nextVer = (origAsset.version || 1) + 1;
-        fname = `${base}_V${nextVer}${ext}`;
-        file = new File([file], fname, { type: file.type });
+  const uploadRevision = async (origAsset, inputFiles) => {
+    if (!origAsset || !inputFiles) return;
+
+    const normalizeFiles = (value) => {
+      if (!value) return [];
+      if (Array.isArray(value)) return value.filter(Boolean);
+      if (typeof value.length === 'number' && typeof value.item === 'function') {
+        return Array.from({ length: value.length }, (_, idx) => value.item(idx)).filter(Boolean);
       }
-      const url = await uploadFile(
-        file,
-        id,
-        group?.brandCode,
-        group?.name || id,
-      );
-      const info = parseAdFilename(fname);
-      const parentId = origAsset.parentAdId || origAsset.id;
-      const rcode = info.recipeCode || parseAdFilename(origAsset.filename || '').recipeCode || '';
-      const docRef = await addDoc(collection(db, 'adGroups', id, 'assets'), {
-        adGroupId: id,
-        brandCode: info.brandCode || group?.brandCode || '',
-        adGroupCode: info.adGroupCode || '',
-        recipeCode: info.recipeCode || '',
-        aspectRatio: info.aspectRatio || '',
-        filename: fname,
-        firebaseUrl: url,
-        uploadedAt: serverTimestamp(),
-        status: 'pending',
-        comment: null,
-        lastUpdatedBy: null,
-        lastUpdatedAt: serverTimestamp(),
-        version: info.version || (origAsset.version || 1) + 1,
-        parentAdId: parentId,
-        isResolved: false,
-      });
-      await updateAssetStatus(origAsset.id, 'archived');
-      const newAsset = {
-        id: docRef.id,
-        adGroupId: id,
-        brandCode: info.brandCode || group?.brandCode || '',
-        adGroupCode: info.adGroupCode || '',
-        recipeCode: info.recipeCode || '',
-        aspectRatio: info.aspectRatio || '',
-        filename: fname,
-        firebaseUrl: url,
-        uploadedAt: new Date(),
-        status: 'pending',
-        comment: null,
-        lastUpdatedBy: null,
-        lastUpdatedAt: new Date(),
-        version: info.version || (origAsset.version || 1) + 1,
-        parentAdId: parentId,
-        isResolved: false,
-      };
-      setAssets((prev) => [
-        ...prev.map((a) => (a.id === origAsset.id ? { ...a, status: 'archived' } : a)),
-        newAsset,
-      ]);
-      setRevisionModal((prev) =>
-        prev && prev.recipeCode === rcode
-          ? {
-              ...prev,
-              assets: [...prev.assets.filter((a) => a.id !== 'placeholder'), newAsset],
-            }
-          : prev,
-      );
+      return [value].filter(Boolean);
+    };
+
+    const renameFile = (source, name) => {
+      if (typeof File === 'undefined') return source;
+      return new File([source], name, { type: source.type });
+    };
+
+    const files = normalizeFiles(inputFiles);
+    if (files.length === 0) return;
+
+    setVersionUploading(origAsset.id);
+    const origInfo = parseAdFilename(origAsset.filename || '');
+    const fallbackRecipeCode = origAsset.recipeCode || origInfo.recipeCode || '';
+    const fallbackBrandCode = origAsset.brandCode || origInfo.brandCode || group?.brandCode || '';
+    const fallbackAdGroupCode = origAsset.adGroupCode || origInfo.adGroupCode || '';
+    const fallbackAspectRatio = origAsset.aspectRatio || origInfo.aspectRatio || '';
+    const fallbackParentId = origAsset.parentAdId || origAsset.id;
+
+    const assetsByBase = new Map();
+    assets.forEach((asset) => {
+      const base = stripVersion(asset.filename || '');
+      if (base) assetsByBase.set(base.toLowerCase(), asset);
+    });
+
+    const versionMap = new Map();
+    assets.forEach((asset) => {
+      const parent = asset.parentAdId || asset.id;
+      const version =
+        asset.version || parseAdFilename(asset.filename || '').version || 1;
+      const current = versionMap.get(parent) || 0;
+      if (version > current) versionMap.set(parent, version);
+    });
+
+    const archivedIds = new Set();
+    const createdAssets = [];
+
+    try {
+      for (const originalFile of files) {
+        if (!originalFile) continue;
+
+        let file = originalFile;
+        let fname = file.name;
+        const ext = fname.includes('.') ? fname.slice(fname.lastIndexOf('.')) : '';
+        const baseName = stripVersion(fname);
+        const baseKey = baseName ? baseName.toLowerCase() : '';
+        const parsedInitial = parseAdFilename(fname);
+
+        const matchedAsset =
+          assetsByBase.get(baseKey) ||
+          assets.find((asset) => {
+            const info = parseAdFilename(asset.filename || '');
+            const recipeMatches =
+              (asset.recipeCode || info.recipeCode || '') ===
+              (parsedInitial.recipeCode || fallbackRecipeCode);
+            const ratioMatches =
+              (asset.aspectRatio || info.aspectRatio || '') ===
+              (parsedInitial.aspectRatio || fallbackAspectRatio);
+            return recipeMatches && ratioMatches;
+          }) ||
+          origAsset;
+
+        const parentId = matchedAsset?.parentAdId || matchedAsset?.id || fallbackParentId;
+        const currentMax =
+          versionMap.get(parentId) ||
+          matchedAsset?.version ||
+          parseAdFilename(matchedAsset?.filename || '').version ||
+          1;
+        let version = parsedInitial.version;
+
+        const baseForName =
+          baseName ||
+          stripVersion(matchedAsset?.filename || '') ||
+          stripVersion(origAsset.filename || '') ||
+          fname.replace(/\.[^/.]+$/, '');
+
+        if (!/_V\d+/i.test(fname) || !version || version <= currentMax) {
+          const nextVersion = (versionMap.get(parentId) || currentMax) + 1;
+          version = nextVersion;
+          fname = `${baseForName}_V${nextVersion}${ext}`;
+          file = renameFile(file, fname);
+        }
+
+        versionMap.set(parentId, Math.max(versionMap.get(parentId) || 0, version));
+
+        const info = parseAdFilename(fname);
+        const recipeCode =
+          info.recipeCode ||
+          matchedAsset?.recipeCode ||
+          parsedInitial.recipeCode ||
+          fallbackRecipeCode;
+        const brandCode =
+          info.brandCode ||
+          matchedAsset?.brandCode ||
+          origAsset.brandCode ||
+          fallbackBrandCode;
+        const adGroupCode =
+          info.adGroupCode ||
+          matchedAsset?.adGroupCode ||
+          origAsset.adGroupCode ||
+          fallbackAdGroupCode;
+        const aspectRatio =
+          info.aspectRatio ||
+          matchedAsset?.aspectRatio ||
+          parsedInitial.aspectRatio ||
+          fallbackAspectRatio;
+
+        const url = await uploadFile(
+          file,
+          id,
+          group?.brandCode,
+          group?.name || id,
+        );
+
+        const docRef = await addDoc(collection(db, 'adGroups', id, 'assets'), {
+          adGroupId: id,
+          brandCode: brandCode || '',
+          adGroupCode,
+          recipeCode,
+          aspectRatio,
+          filename: fname,
+          firebaseUrl: url,
+          uploadedAt: serverTimestamp(),
+          status: 'pending',
+          comment: null,
+          lastUpdatedBy: null,
+          lastUpdatedAt: serverTimestamp(),
+          version: info.version || version,
+          parentAdId: parentId,
+          isResolved: false,
+        });
+
+        if (
+          matchedAsset?.id &&
+          !archivedIds.has(matchedAsset.id) &&
+          matchedAsset.status !== 'archived'
+        ) {
+          await updateAssetStatus(matchedAsset.id, 'archived');
+          archivedIds.add(matchedAsset.id);
+        }
+
+        const newAsset = {
+          id: docRef.id,
+          adGroupId: id,
+          brandCode: brandCode || '',
+          adGroupCode,
+          recipeCode,
+          aspectRatio,
+          filename: fname,
+          firebaseUrl: url,
+          uploadedAt: new Date(),
+          status: 'pending',
+          comment: null,
+          lastUpdatedBy: null,
+          lastUpdatedAt: new Date(),
+          version: info.version || version,
+          parentAdId: parentId,
+          isResolved: false,
+        };
+        createdAssets.push(newAsset);
+      }
+
+      if (createdAssets.length > 0) {
+        const modalRecipeCode =
+          createdAssets[0]?.recipeCode || fallbackRecipeCode;
+
+        setAssets((prev) => {
+          const updated = prev.map((asset) =>
+            archivedIds.has(asset.id) ? { ...asset, status: 'archived' } : asset,
+          );
+          return [...updated, ...createdAssets];
+        });
+
+        setRevisionModal((prev) => {
+          if (!prev || prev.recipeCode !== modalRecipeCode) return prev;
+          const updatedExisting = prev.assets
+            .filter((asset) => asset.id !== 'placeholder')
+            .map((asset) =>
+              archivedIds.has(asset.id)
+                ? { ...asset, status: 'archived' }
+                : asset,
+            );
+          const combined = [...updatedExisting, ...createdAssets];
+          combined.sort((a, b) => {
+            const av = a.version || parseAdFilename(a.filename || '').version || 1;
+            const bv = b.version || parseAdFilename(b.filename || '').version || 1;
+            if (av === bv) return (a.filename || '').localeCompare(b.filename || '');
+            return av - bv;
+          });
+          return {
+            ...prev,
+            assets: combined,
+          };
+        });
+      }
     } catch (err) {
       console.error('Failed to upload revision', err);
     } finally {
@@ -3223,9 +3355,10 @@ const AdGroupDetail = () => {
                     <input
                       id="rev-upload"
                       type="file"
+                      multiple
                       className="hidden"
                       onChange={(e) => {
-                        uploadRevision(revisionModal.assets[0], e.target.files[0]);
+                        uploadRevision(revisionModal.assets[0], e.target.files);
                         e.target.value = null;
                       }}
                     />
@@ -3240,9 +3373,10 @@ const AdGroupDetail = () => {
                         Replace
                         <input
                           type="file"
+                          multiple
                           className="hidden"
                           onChange={(e) => {
-                            uploadRevision(a, e.target.files[0]);
+                            uploadRevision(a, e.target.files);
                             e.target.value = null;
                           }}
                         />
