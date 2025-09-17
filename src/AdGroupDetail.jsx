@@ -130,7 +130,12 @@ const normalizeId = (value) =>
     .replace(/^0+/, "")
     .toLowerCase();
 
-const DESIGNER_EDITABLE_STATUSES = ["pending", "edit_requested", "ready"];
+const DESIGNER_EDITABLE_STATUSES = [
+  "pending",
+  "edit_requested",
+  "ready",
+  "archived",
+];
 
 const AdGroupDetail = () => {
   const { id } = useParams();
