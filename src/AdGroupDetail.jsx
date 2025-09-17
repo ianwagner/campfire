@@ -130,6 +130,8 @@ const normalizeId = (value) =>
     .replace(/^0+/, "")
     .toLowerCase();
 
+const DESIGNER_EDITABLE_STATUSES = ["pending", "edit_requested", "ready"];
+
 const AdGroupDetail = () => {
   const { id } = useParams();
   const [group, setGroup] = useState(null);
@@ -149,6 +151,13 @@ const AdGroupDetail = () => {
     () => Object.keys(recipesMeta).length > 0,
     [recipesMeta],
   );
+  const [previewAsset, setPreviewAsset] = useState(null);
+  const previewUrl =
+    previewAsset?.firebaseUrl ||
+    previewAsset?.thumbnailUrl ||
+    previewAsset?.cdnUrl ||
+    "";
+  const previewIsVideo = previewUrl ? isVideoUrl(previewUrl) : false;
   const hasScrubbed = useMemo(
     () => assets.some((a) => a.scrubbedFrom),
     [assets],
@@ -868,6 +877,7 @@ const AdGroupDetail = () => {
     setRevisionModal(null);
     setMenuRecipe(null);
     setInspectRecipe(null);
+    setPreviewAsset(null);
   };
 
   const deleteHistoryEntry = async (assetId, entryId) => {
@@ -1592,49 +1602,92 @@ const AdGroupDetail = () => {
   };
 
   const updateAssetStatus = async (assetId, status, clearCopyEdit = false) => {
+    const asset = assets.find((a) => a.id === assetId);
+    if (!asset) return;
+
+    if (isDesigner) {
+      if (!DESIGNER_EDITABLE_STATUSES.includes(asset.status)) {
+        window.alert(
+          "Designers can only update ads that are pending, edit requested, or ready.",
+        );
+        return;
+      }
+      if (!DESIGNER_EDITABLE_STATUSES.includes(status)) {
+        window.alert(
+          "Designers can only change status to pending, edit requested, or ready.",
+        );
+        return;
+      }
+    }
+
+    const updates = {
+      status,
+      ...(clearCopyEdit ? { copyEdit: "" } : {}),
+    };
+    const parentId = status === "ready" ? asset?.parentAdId : null;
+
     try {
-      await updateDoc(doc(db, "adGroups", id, "assets", assetId), {
-        status,
-        ...(clearCopyEdit ? { copyEdit: "" } : {}),
-      });
-      const asset = assets.find((a) => a.id === assetId);
-      if (status === "ready" && asset?.parentAdId) {
-        await updateDoc(doc(db, "adGroups", id, "assets", asset.parentAdId), {
+      await updateDoc(doc(db, "adGroups", id, "assets", assetId), updates);
+      if (parentId) {
+        await updateDoc(doc(db, "adGroups", id, "assets", parentId), {
           status: "archived",
         });
       }
 
-      if (asset) {
-        const info = parseAdFilename(asset.filename || "");
-        const recipeCode = info.recipeCode || "unknown";
-        const userName =
-          auth.currentUser?.displayName || auth.currentUser?.uid || "unknown";
-        await addDoc(
-          collection(db, "adGroups", id, "assets", assetId, "history"),
-          {
+      const applyUpdates = (item) => {
+        if (item.id === assetId) {
+          return { ...item, ...updates };
+        }
+        if (parentId && item.id === parentId) {
+          return { ...item, status: "archived" };
+        }
+        return item;
+      };
+
+      setAssets((prev) => prev.map(applyUpdates));
+      setInspectRecipe((prev) =>
+        prev ? { ...prev, assets: prev.assets.map(applyUpdates) } : prev,
+      );
+      setPreviewAsset((prev) => {
+        if (!prev) return prev;
+        if (prev.id === assetId) {
+          return { ...prev, ...updates };
+        }
+        if (parentId && prev.id === parentId) {
+          return { ...prev, status: "archived" };
+        }
+        return prev;
+      });
+
+      const info = parseAdFilename(asset.filename || "");
+      const recipeCode = info.recipeCode || "unknown";
+      const userName =
+        auth.currentUser?.displayName || auth.currentUser?.uid || "unknown";
+      await addDoc(
+        collection(db, "adGroups", id, "assets", assetId, "history"),
+        {
+          status,
+          updatedBy: userName,
+          updatedAt: serverTimestamp(),
+        },
+      ).catch((err) => {
+        if (err?.code === "already-exists") {
+          console.log("History entry already exists, skipping");
+        } else {
+          throw err;
+        }
+      });
+      await setDoc(
+        doc(db, "recipes", recipeCode),
+        {
+          history: arrayUnion({
+            timestamp: Date.now(),
             status,
-            updatedBy: userName,
-            updatedAt: serverTimestamp(),
-          },
-        ).catch((err) => {
-          if (err?.code === "already-exists") {
-            console.log("History entry already exists, skipping");
-          } else {
-            throw err;
-          }
-        });
-        await setDoc(
-          doc(db, "recipes", recipeCode),
-          {
-            history: arrayUnion({
-              timestamp: Date.now(),
-              status,
-              user: userName,
-            }),
-          },
-          { merge: true },
-        );
-      }
+            user: userName,
+          }),
+        },
+        { merge: true },
+      );
     } catch (err) {
       console.error("Failed to update asset status", err);
     }
@@ -2017,6 +2070,10 @@ const AdGroupDetail = () => {
   };
 
   const deleteAsset = async (asset) => {
+    if (isDesigner && ["approved", "rejected"].includes(asset.status)) {
+      window.alert("Designers cannot delete approved or rejected ads.");
+      return;
+    }
     const confirmDelete = window.confirm("Delete this asset?");
     if (!confirmDelete) return;
     try {
@@ -2041,6 +2098,12 @@ const AdGroupDetail = () => {
         }
       }
       setAssets((prev) => prev.filter((a) => a.id !== asset.id));
+      setInspectRecipe((prev) =>
+        prev
+          ? { ...prev, assets: prev.assets.filter((a) => a.id !== asset.id) }
+          : prev,
+      );
+      setPreviewAsset((prev) => (prev?.id === asset.id ? null : prev));
     } catch (err) {
       console.error("Failed to delete asset", err);
     }
@@ -3278,51 +3341,119 @@ const AdGroupDetail = () => {
                 </tr>
               </thead>
               <tbody>
-                {inspectRecipe.assets.map((a) => (
-                  <tr key={a.id}>
-                    <td className="break-all">{a.filename}</td>
-                    <td className="text-center">
-                      {isAdmin ? (
-                        <select
-                          value={a.status}
-                          onChange={(e) => updateAssetStatus(a.id, e.target.value)}
-                          className={`status-select status-${a.status.replace(/\s+/g, '_')}`}
-                        >
-                          {['pending', 'ready', 'approved', 'rejected', 'edit_requested', 'archived'].map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <StatusBadge status={a.status} />
-                      )}
-                    </td>
-                    <td className="text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <IconButton
-                          onClick={() => openAssetHistory(a)}
-                          aria-label="History"
-                        >
-                          <FiClock />
-                        </IconButton>
-                        {!isDesigner && (
+                {inspectRecipe.assets.map((a) => {
+                  const designerEditable =
+                    isDesigner && DESIGNER_EDITABLE_STATUSES.includes(a.status);
+                  const statusOptions = isAdmin
+                    ? [
+                        "pending",
+                        "ready",
+                        "approved",
+                        "rejected",
+                        "edit_requested",
+                        "archived",
+                      ]
+                    : DESIGNER_EDITABLE_STATUSES;
+                  const designerDeleteDisabled =
+                    isDesigner && ["approved", "rejected"].includes(a.status);
+                  const hasPreview = Boolean(
+                    a.firebaseUrl || a.thumbnailUrl || a.cdnUrl,
+                  );
+                  return (
+                    <tr key={a.id}>
+                      <td className="break-all">{a.filename}</td>
+                      <td className="text-center">
+                        {isAdmin || designerEditable ? (
+                          <select
+                            value={a.status}
+                            onChange={(e) => updateAssetStatus(a.id, e.target.value)}
+                            className={`status-select status-${a.status.replace(/\s+/g, '_')}`}
+                          >
+                            {statusOptions.map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <StatusBadge status={a.status} />
+                        )}
+                      </td>
+                      <td className="text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <IconButton
+                            onClick={() =>
+                              hasPreview && setPreviewAsset({ ...a })
+                            }
+                            aria-label="Preview"
+                            disabled={!hasPreview}
+                            className={!hasPreview ? "opacity-50 cursor-not-allowed" : ""}
+                          >
+                            <FiEye />
+                          </IconButton>
+                          <IconButton
+                            onClick={() => openAssetHistory(a)}
+                            aria-label="History"
+                          >
+                            <FiClock />
+                          </IconButton>
                           <IconButton
                             onClick={() => deleteAsset(a)}
                             aria-label="Delete"
+                            disabled={designerDeleteDisabled}
+                            className={
+                              designerDeleteDisabled
+                                ? "opacity-50 cursor-not-allowed"
+                                : ""
+                            }
                           >
                             <FiTrash />
                           </IconButton>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </Table>
           </div>
           <div className="mt-3 flex justify-end">
             <IconButton onClick={closeModals}>Close</IconButton>
+          </div>
+        </Modal>
+      )}
+
+      {previewAsset && (
+        <Modal sizeClass="max-w-3xl w-full">
+          <h3 className="mb-2 font-semibold break-all">
+            {previewAsset.filename || "Ad Preview"}
+          </h3>
+          {previewAsset.status && (
+            <div className="mb-3">
+              <StatusBadge status={previewAsset.status} />
+            </div>
+          )}
+          <div className="flex justify-center bg-gray-100 rounded-lg p-4">
+            {previewUrl ? (
+              previewIsVideo ? (
+                <VideoPlayer
+                  src={previewUrl}
+                  className="max-h-[70vh] w-full max-w-full object-contain"
+                />
+              ) : (
+                <OptimizedImage
+                  pngUrl={previewUrl}
+                  alt={previewAsset.filename || "Ad Preview"}
+                  cacheKey={previewAsset.firebaseUrl || previewUrl}
+                  className="max-h-[70vh] w-full object-contain"
+                />
+              )
+            ) : (
+              <span className="text-sm text-gray-500">No preview available.</span>
+            )}
+          </div>
+          <div className="mt-3 flex justify-end">
+            <IconButton onClick={() => setPreviewAsset(null)}>Close</IconButton>
           </div>
         </Modal>
       )}
