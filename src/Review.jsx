@@ -798,6 +798,8 @@ useEffect(() => {
   const selectedResponse = responses[adUrl]?.response ?? statusResponse;
   const currentStatusValue =
     responseStatusMap[selectedResponse] || currentAd?.status || 'pending';
+  const currentTheme =
+    statusThemes[currentStatusValue] || statusThemes.pending;
   // show next step as soon as a decision is made
   const progress =
     reviewAds.length > 0
@@ -949,12 +951,32 @@ useEffect(() => {
     edit_requested: 'Edit Requested',
     rejected: 'Rejected',
   };
-  const statusColors = {
-    pending: 'bg-gray-400',
-    ready: 'bg-blue-500',
-    approved: 'bg-green-500',
-    edit_requested: 'bg-amber-500',
-    rejected: 'bg-red-500',
+  const statusThemes = {
+    pending: {
+      dot: 'bg-gray-400',
+      chip:
+        'border border-gray-300 bg-white text-gray-700 dark:border-gray-600 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]',
+    },
+    ready: {
+      dot: 'bg-blue-500',
+      chip:
+        'border border-transparent bg-accent-10 text-accent dark:bg-accent-10 dark:text-accent',
+    },
+    approved: {
+      dot: 'bg-[var(--approve-color)]',
+      chip:
+        'border border-transparent bg-approve-10 text-approve dark:bg-approve-10 dark:text-approve',
+    },
+    edit_requested: {
+      dot: 'bg-[var(--edit-color)]',
+      chip:
+        'border border-transparent bg-edit-10 text-edit dark:bg-edit-10 dark:text-edit',
+    },
+    rejected: {
+      dot: 'bg-[var(--reject-color)]',
+      chip:
+        'border border-transparent bg-reject-10 text-reject dark:bg-reject-10 dark:text-reject',
+    },
   };
   const statusOptions = [
     { value: 'pending', label: 'Pending', disabled: true },
@@ -1801,7 +1823,7 @@ useEffect(() => {
             </div>
           ) : reviewVersion === 2 ? (
             <div className="w-full max-w-5xl px-3 sm:px-4 md:px-6">
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-8">
                 {reviewAds.map((hero) => {
                   const info = parseAdFilename(hero.filename || '');
                   const recipeCode =
@@ -1827,13 +1849,89 @@ useEffect(() => {
                   const versionCount = new Set(
                     unitVersions.map((a) => getVersion(a)),
                   ).size;
+                  const theme = statusThemes[cardStatus] || statusThemes.pending;
+                  const unitTitleCandidate =
+                    hero.groupName ||
+                    hero.group ||
+                    hero.recipeName ||
+                    hero.product ||
+                    '';
+                  const unitTitle = unitTitleCandidate
+                    ? unitTitleCandidate
+                    : recipeCode && recipeCode !== 'unknown'
+                    ? `Recipe ${recipeCode}`
+                    : 'Ad Unit';
+                  const unitMeta = [];
+                  if (
+                    recipeCode &&
+                    recipeCode !== 'unknown' &&
+                    unitTitle !== `Recipe ${recipeCode}`
+                  ) {
+                    unitMeta.push(`Recipe ${recipeCode}`);
+                  }
+                  if (assets.length > 1) {
+                    unitMeta.push(
+                      `${assets.length} size${assets.length > 1 ? 's' : ''}`,
+                    );
+                  }
+                  if (versionCount > 1) {
+                    unitMeta.push(
+                      `${versionCount} version${versionCount > 1 ? 's' : ''}`,
+                    );
+                  }
 
                   return (
                     <div
                       key={cardId}
-                      className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[var(--dark-sidebar-bg)] shadow-sm overflow-hidden"
+                      className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]"
                     >
-                      <div className="p-4 space-y-4">
+                      <div className="p-6 space-y-6">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                              Ad Unit
+                            </p>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                              {unitTitle}
+                            </h3>
+                            {unitMeta.length > 0 && (
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {unitMeta.join(' • ')}
+                              </p>
+                            )}
+                          </div>
+                          <div
+                            className={`relative inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium shadow-sm transition-colors ${
+                              theme.chip
+                            }`}
+                          >
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full ${
+                                theme.dot || 'bg-gray-300'
+                              }`}
+                            />
+                            <span>{statusLabels[cardStatus] || 'Pending'}</span>
+                            <span className="ml-auto text-xs text-gray-500">▼</span>
+                            <select
+                              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                              value={cardStatus}
+                              onChange={(e) =>
+                                handleStatusChange(hero, group, e.target.value)
+                              }
+                              aria-label="Update ad status"
+                            >
+                              {statusOptions.map((opt) => (
+                                <option
+                                  key={opt.value}
+                                  value={opt.value}
+                                  disabled={opt.disabled}
+                                >
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
                         <div className="relative">
                           {(versionCount > 1 || getVersion(hero) > 1) && (
                             <button
@@ -1875,47 +1973,19 @@ useEffect(() => {
                             })}
                           </div>
                         </div>
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="relative inline-flex items-center gap-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-[var(--dark-sidebar-bg)] px-3 py-1.5 text-sm font-medium shadow-sm">
-                            <span
-                              className={`h-2.5 w-2.5 rounded-full ${
-                                statusColors[cardStatus] || 'bg-gray-300'
-                              }`}
-                            />
-                            <span>{statusLabels[cardStatus] || 'Pending'}</span>
-                            <span className="ml-auto text-xs text-gray-500">▼</span>
-                            <select
-                              className="absolute inset-0 opacity-0 cursor-pointer"
-                              value={cardStatus}
-                              onChange={(e) =>
-                                handleStatusChange(hero, group, e.target.value)
-                              }
-                              aria-label="Update ad status"
-                            >
-                              {statusOptions.map((opt) => (
-                                <option
-                                  key={opt.value}
-                                  value={opt.value}
-                                  disabled={opt.disabled}
-                                >
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          {hasEditRequest && (
-                            <button
-                              type="button"
-                              onClick={() => handleToggleRequest(cardId)}
-                              className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                            >
-                              {isExpanded ? 'Hide edit request' : 'View edit request'}
-                            </button>
-                          )}
-                        </div>
+                        {hasEditRequest && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleRequest(cardId)}
+                            className="inline-flex items-center gap-2 text-sm font-medium text-accent transition-opacity hover:opacity-80 dark:text-accent"
+                            aria-expanded={isExpanded}
+                          >
+                            {isExpanded ? 'Hide edit request' : 'View edit request'}
+                          </button>
+                        )}
                       </div>
                       {hasEditRequest && isExpanded && (
-                        <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[var(--dark-sidebar-hover)] px-4 py-3 text-sm space-y-2">
+                        <div className="border-t border-gray-200 bg-white/80 px-6 py-4 text-sm space-y-3 dark:border-gray-700 dark:bg-[var(--dark-sidebar-hover)]">
                           <p className="font-medium text-gray-900 dark:text-[var(--dark-text)]">
                             Requested changes
                           </p>
@@ -1925,7 +1995,7 @@ useEffect(() => {
                             </p>
                           )}
                           {editAsset?.copyEdit && editAsset.copyEdit.trim() && (
-                            <div className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-[var(--dark-sidebar-bg)] p-3 space-y-1">
+                            <div className="rounded-lg border border-gray-200 bg-white p-3 space-y-1 dark:border-gray-600 dark:bg-[var(--dark-sidebar-bg)]">
                               <p className="text-xs uppercase tracking-wide text-gray-500">
                                 Suggested copy
                               </p>
@@ -2105,14 +2175,18 @@ useEffect(() => {
               ) : (
                 <span className="w-12" />
               )}
-              <div className="relative inline-flex min-w-[12rem] items-center gap-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white px-3 py-1.5 text-sm font-medium shadow-sm dark:bg-[var(--dark-sidebar-bg)]">
+              <div
+                className={`relative inline-flex min-w-[12rem] items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium shadow-sm transition-colors ${currentTheme.chip}`}
+              >
                 <span
                   className={`h-2.5 w-2.5 rounded-full ${
-                    statusColors[currentStatusValue] || 'bg-gray-300'
+                    currentTheme.dot || 'bg-gray-300'
                   }`}
                 />
                 <span>{statusLabels[currentStatusValue] || 'Pending'}</span>
-                <span className="ml-auto text-xs text-gray-500">▼</span>
+                <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+                  ▼
+                </span>
                 <select
                   className="absolute inset-0 opacity-0 cursor-pointer"
                   value={currentStatusValue}
