@@ -135,6 +135,8 @@ const Review = forwardRef(
   const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
+  const [expandedRequests, setExpandedRequests] = useState({});
+  const [editContext, setEditContext] = useState(null);
   // refs to track latest values for cleanup on unmount
   const currentIndexRef = useRef(currentIndex);
   const reviewLengthRef = useRef(reviewAds.length);
@@ -592,20 +594,25 @@ useEffect(() => {
         });
         const deduped = Object.values(versionMap);
 
-        const hasPendingAds = deduped.some((a) => a.status === 'pending');
-        const nonPending = deduped.filter((a) => a.status !== 'pending');
+        const filteredActive = deduped.filter((a) => a.status !== 'archived');
+        const hasPendingAds = filteredActive.some((a) => a.status === 'pending');
+        const nonPending = filteredActive.filter((a) => a.status !== 'pending');
 
-        // store all non-pending ads (including archived versions) so the
-        // version modal can show previous revisions
-        const fullNonPending = list.filter((a) => a.status !== 'pending');
-        setAllAds(fullNonPending);
+        // store all non-archived ads (including previous versions) for version modal
+        const fullActive = list.filter((a) => a.status !== 'archived');
+        setAllAds(fullActive);
 
-        setAds(nonPending);
+        const baseList = rv === 2 ? filteredActive : nonPending;
+        setAds(baseList);
         setHasPending(hasPendingAds);
 
         const readyAds = nonPending.filter((a) => a.status === 'ready');
         const readyVersions = readyAds.filter((a) => getVersion(a) > 1);
-        const reviewSource = readyAds.length > 0 ? readyAds : nonPending;
+        const reviewSource = rv === 2
+          ? filteredActive
+          : readyAds.length > 0
+          ? readyAds
+          : nonPending;
         list = reviewSource;
 
         const key = groupId ? `lastViewed-${groupId}` : null;
@@ -647,10 +654,14 @@ useEffect(() => {
           setResponses(initial);
         }
 
-        const allList = buildHeroList(nonPending);
-        const versionList = buildHeroList(readyVersions);
+        const allList = buildHeroList(filteredActive);
+        const versionList = rv === 2 ? [] : buildHeroList(readyVersions);
         setAllHeroAds(allList);
-        const target = versionList.length > 0 ? versionList : allList;
+        const target = rv === 2
+          ? buildHeroList(reviewSource)
+          : versionList.length > 0
+          ? versionList
+          : allList;
         setVersionMode(versionList.length > 0);
         setReviewAds(target);
         setCurrentIndex(
@@ -801,8 +812,8 @@ useEffect(() => {
       : 0;
 
 
-  const openVersionModal = (ver) => {
-    const base = displayAd || currentAd;
+  const openVersionModal = (ver, baseAd = displayAd || currentAd) => {
+    const base = baseAd;
     if (!base) return;
     const rootId = base.parentAdId || stripVersion(base.filename);
     const siblings = allAds.filter((a) => {
@@ -997,6 +1008,27 @@ useEffect(() => {
     reject: 'text-gray-700',
     edit: 'text-black',
   };
+  const statusLabels = {
+    pending: 'Pending',
+    ready: 'Ready',
+    approved: 'Approved',
+    edit_requested: 'Edit Requested',
+    rejected: 'Rejected',
+  };
+  const statusColors = {
+    pending: 'bg-gray-400',
+    ready: 'bg-blue-500',
+    approved: 'bg-green-500',
+    edit_requested: 'bg-amber-500',
+    rejected: 'bg-red-500',
+  };
+  const statusOptions = [
+    { value: 'pending', label: 'Pending', disabled: true },
+    { value: 'ready', label: 'Ready', disabled: true },
+    { value: 'approved', label: 'Approved' },
+    { value: 'edit_requested', label: 'Edit Requested' },
+    { value: 'rejected', label: 'Rejected' },
+  ];
 
   const currentRecipe = currentAd?.recipeCode || currentInfo.recipeCode;
   const currentRecipeGroup = useMemo(
@@ -1029,29 +1061,55 @@ useEffect(() => {
     preloads.current = preloads.current.slice(-BUFFER_COUNT);
   }, [currentIndex, reviewAds, isMobile]);
 
-  const openEditRequest = async () => {
+  const openEditRequest = async (context = {}) => {
+    const {
+      baseAd = currentAd,
+      recipeCode = currentRecipe,
+      assets = currentRecipeGroup?.assets,
+      skipAnimation = false,
+      skipAdvance = false,
+    } = context;
+    if (!baseAd) return;
+    setEditContext({ baseAd, recipeCode, assets, skipAnimation, skipAdvance });
     setShowEditModal(true);
-    if (!currentAd?.adGroupId) return;
-    const recipeId = currentRecipe;
-    if (!recipeId) return;
+    if (!baseAd?.adGroupId || !recipeCode) {
+      setEditCopy('');
+      setOrigCopy('');
+      return;
+    }
     try {
       const snap = await getDoc(
-        doc(db, 'adGroups', currentAd.adGroupId, 'recipes', recipeId)
+        doc(db, 'adGroups', baseAd.adGroupId, 'recipes', recipeCode)
       );
       const data = snap.exists() ? snap.data() : null;
       const text = data ? data.latestCopy || data.copy || '' : '';
       setEditCopy(text);
       setOrigCopy(text);
-      setReviewAds((prev) =>
-        prev.map((a, idx) =>
-          idx === currentIndex ? { ...a, originalCopy: text } : a
-        )
-      );
-      setAds((prev) =>
-        prev.map((a) =>
-          a.assetId === currentAd.assetId ? { ...a, originalCopy: text } : a
-        )
-      );
+      if (Array.isArray(assets) && assets.length > 0) {
+        assets.forEach((asset) => {
+          setReviewAds((prev) =>
+            prev.map((a) =>
+              a.assetId === asset.assetId ? { ...a, originalCopy: text } : a
+            )
+          );
+          setAds((prev) =>
+            prev.map((a) =>
+              a.assetId === asset.assetId ? { ...a, originalCopy: text } : a
+            )
+          );
+        });
+      } else {
+        setReviewAds((prev) =>
+          prev.map((a) =>
+            a.assetId === baseAd.assetId ? { ...a, originalCopy: text } : a
+          )
+        );
+        setAds((prev) =>
+          prev.map((a) =>
+            a.assetId === baseAd.assetId ? { ...a, originalCopy: text } : a
+          )
+        );
+      }
     } catch (err) {
       console.error('Failed to load copy', err);
       setEditCopy('');
@@ -1097,61 +1155,121 @@ useEffect(() => {
     }
   };
 
-  const submitResponse = async (responseType) => {
-    if (!currentAd) return;
-    advancedRef.current = false;
-    setAnimating(responseType);
-    setSubmitting(true);
+  const submitResponse = async (responseType, options = {}) => {
+    const {
+      assets: targetAssets,
+      baseAd: targetAd,
+      recipeCode: targetRecipeCode,
+      skipAnimation = false,
+      skipAdvance = false,
+      commentText,
+      editCopyText,
+      origCopyText,
+    } = options;
+    const baseAd = targetAd || currentAd;
+    if (!baseAd) return;
+    const inferredRecipe =
+      targetRecipeCode ||
+      baseAd.recipeCode ||
+      parseAdFilename(baseAd.filename || '').recipeCode ||
+      currentRecipe;
+    const sourceAssets =
+      (Array.isArray(targetAssets) && targetAssets.length > 0
+        ? targetAssets
+        : currentRecipeGroup?.assets || [baseAd])
+        .filter((a) => a.status !== 'archived');
+    if (sourceAssets.length === 0) return;
 
-    const recipeAssets =
-      currentRecipeGroup?.assets.filter((a) => a.status !== 'archived') ||
-      [currentAd];
-    const updates = [];
-    const addedResponses = {};
+    const commentValue =
+      commentText !== undefined ? commentText : comment;
+    const editCopyValue =
+      editCopyText !== undefined ? editCopyText : editCopy;
+    const origCopyValue =
+      origCopyText !== undefined ? origCopyText : origCopy;
+
     const newStatus =
       responseType === 'approve'
         ? 'approved'
         : responseType === 'reject'
         ? 'rejected'
-        : 'edit_requested';
+        : responseType === 'edit'
+        ? 'edit_requested'
+        : responseType === 'pending'
+        ? 'pending'
+        : 'ready';
+
+    if (!skipAnimation) {
+      advancedRef.current = false;
+      setAnimating(responseType);
+    } else {
+      advancedRef.current = true;
+    }
+    setSubmitting(true);
+
+    const updates = [];
 
     try {
-      for (const asset of recipeAssets) {
+      for (const asset of sourceAssets) {
         const url = asset.adUrl || asset.firebaseUrl;
         const copyChanged =
-          responseType === 'edit' && editCopy.trim() !== origCopy.trim();
-        const respObj = {
-          adUrl: url,
-          response: responseType,
-          comment: responseType === 'edit' ? comment : '',
-          copyEdit: copyChanged ? editCopy : '',
-          pass: responses[url] ? 'revisit' : 'initial',
-          ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
-          ...(asset.groupName ? { groupName: asset.groupName } : {}),
-          ...(reviewerName ? { reviewerName } : {}),
-          ...(user?.email ? { userEmail: user.email } : {}),
-          ...(user?.uid ? { userId: user.uid } : {}),
-          ...(userRole ? { userRole } : {}),
-        };
-        if (asset.adGroupId) {
-          updates.push(
-            addDoc(collection(db, 'adGroups', asset.adGroupId, 'responses'), {
-              ...respObj,
-              timestamp: serverTimestamp(),
-            })
-          );
+          responseType === 'edit' && editCopyValue.trim() !== origCopyValue.trim();
+
+        if (responseType !== 'pending') {
+          const respObj = {
+            adUrl: url,
+            response: responseType,
+            comment: responseType === 'edit' ? commentValue : '',
+            copyEdit: copyChanged ? editCopyValue : '',
+            pass: responses[url] ? 'revisit' : 'initial',
+            ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
+            ...(asset.groupName ? { groupName: asset.groupName } : {}),
+            ...(reviewerName ? { reviewerName } : {}),
+            ...(user?.email ? { userEmail: user.email } : {}),
+            ...(user?.uid ? { userId: user.uid } : {}),
+            ...(userRole ? { userRole } : {}),
+          };
+          if (asset.adGroupId) {
+            updates.push(
+              addDoc(collection(db, 'adGroups', asset.adGroupId, 'responses'), {
+                ...respObj,
+                timestamp: serverTimestamp(),
+              })
+            );
+          }
+          addedResponses[url] = respObj;
+          setResponses((prev) => ({ ...prev, [url]: respObj }));
+        } else {
+          setResponses((prev) => {
+            const next = { ...prev };
+            delete next[url];
+            return next;
+          });
         }
+
         if (asset.assetId && asset.adGroupId) {
           const assetRef = doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId);
           const updateData = {
             status: newStatus,
-            comment: responseType === 'edit' ? comment : '',
-            copyEdit: copyChanged ? editCopy : '',
             lastUpdatedBy: user.uid,
             lastUpdatedAt: serverTimestamp(),
-            ...(responseType === 'approve' ? { isResolved: true } : {}),
-            ...(responseType === 'edit' ? { isResolved: false } : {}),
           };
+          if (responseType === 'edit') {
+            updateData.comment = commentValue;
+            updateData.copyEdit = copyChanged ? editCopyValue : '';
+            updateData.isResolved = false;
+          } else if (responseType === 'approve') {
+            updateData.comment = '';
+            updateData.copyEdit = '';
+            updateData.isResolved = true;
+          } else if (responseType === 'pending') {
+            updateData.comment = '';
+            updateData.copyEdit = '';
+            updateData.isResolved = false;
+          } else {
+            updateData.comment = '';
+            updateData.copyEdit = '';
+            updateData.isResolved = false;
+          }
           updates.push(updateDoc(assetRef, updateData));
 
           const name = reviewerName || user.displayName || user.uid || 'unknown';
@@ -1162,9 +1280,11 @@ useEffect(() => {
                 status: newStatus,
                 updatedBy: name,
                 updatedAt: serverTimestamp(),
-                ...(responseType === 'edit' && comment ? { comment } : {}),
+                ...(responseType === 'edit' && commentValue
+                  ? { comment: commentValue }
+                  : {}),
                 ...(responseType === 'edit' && copyChanged
-                  ? { copyEdit: editCopy, origCopy }
+                  ? { copyEdit: editCopyValue, origCopy: origCopyValue }
                   : {}),
               },
             ).catch((err) => {
@@ -1183,13 +1303,11 @@ useEffect(() => {
                 ? {
                     ...a,
                     status: newStatus,
-                    comment: responseType === 'edit' ? comment : '',
-                    copyEdit: copyChanged ? editCopy : '',
+                    comment: responseType === 'edit' ? commentValue : '',
+                    copyEdit: copyChanged ? editCopyValue : '',
                     ...(responseType === 'approve'
                       ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
+                      : { isResolved: false }),
                   }
                 : a,
             );
@@ -1202,13 +1320,11 @@ useEffect(() => {
                 ? {
                     ...a,
                     status: newStatus,
-                    comment: responseType === 'edit' ? comment : '',
-                    copyEdit: copyChanged ? editCopy : '',
+                    comment: responseType === 'edit' ? commentValue : '',
+                    copyEdit: copyChanged ? editCopyValue : '',
                     ...(responseType === 'approve'
                       ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
+                      : { isResolved: false }),
                   }
                 : a
             )
@@ -1294,12 +1410,10 @@ useEffect(() => {
             );
           }
         }
-        addedResponses[url] = respObj;
-        setResponses((prev) => ({ ...prev, [url]: respObj }));
       }
 
-      if (recipeAssets.length > 0) {
-        const recipeRef = doc(db, 'recipes', currentRecipe);
+      if (sourceAssets.length > 0 && inferredRecipe) {
+        const recipeRef = doc(db, 'recipes', inferredRecipe);
         updates.push(
           setDoc(
             recipeRef,
@@ -1312,7 +1426,9 @@ useEffect(() => {
                   user?.displayName ||
                   user?.uid ||
                   'unknown',
-                ...(responseType === 'edit' && comment ? { editComment: comment } : {}),
+                ...(responseType === 'edit' && commentValue
+                  ? { editComment: commentValue }
+                  : {}),
               }),
             },
             { merge: true }
@@ -1323,8 +1439,8 @@ useEffect(() => {
       await Promise.all(updates);
       if (responseType === 'edit' && userRole === 'client') {
         const brandCode =
-          currentAd?.brandCode ||
-          recipeAssets[0]?.brandCode ||
+          baseAd?.brandCode ||
+          sourceAssets[0]?.brandCode ||
           brandCodes[0];
         if (brandCode) {
           await deductCredits(brandCode, 'editRequest', settings.creditCosts);
@@ -1342,19 +1458,69 @@ useEffect(() => {
       setEditCopy('');
       setOrigCopy('');
       setShowEditModal(false);
+      setEditContext(null);
       setSubmitting(false);
 
-      const nextIndex = currentIndex + 1;
-      if (!advancedRef.current) {
-        setCurrentIndex(nextIndex);
-        advancedRef.current = true;
-      }
-      setAnimating(null);
+      if (!skipAdvance) {
+        const nextIndex = currentIndex + 1;
+        if (!advancedRef.current) {
+          setCurrentIndex(nextIndex);
+          advancedRef.current = true;
+        }
+        setAnimating(null);
 
-      if (nextIndex >= reviewAds.length) {
-        setStarted(false);
+        if (nextIndex >= reviewAds.length) {
+          setStarted(false);
+        }
+      } else {
+        setAnimating(null);
       }
     }
+  };
+
+  const handleToggleRequest = (id) => {
+    setExpandedRequests((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleStatusChange = (hero, group, nextStatus) => {
+    if (!hero) return;
+    const normalized = nextStatus || 'pending';
+    const currentStatus = hero.status || 'pending';
+    if (normalized === currentStatus) return;
+    const recipeCode =
+      group?.recipeCode ||
+      hero.recipeCode ||
+      parseAdFilename(hero.filename || '').recipeCode ||
+      '';
+    const assets = (group?.assets || [])
+      .filter((a) => a.status !== 'archived');
+    const updateAssets = assets.length > 0 ? assets : [hero];
+    if (normalized === 'edit_requested') {
+      openEditRequest({
+        baseAd: hero,
+        recipeCode,
+        assets: updateAssets,
+        skipAnimation: true,
+        skipAdvance: true,
+      });
+      return;
+    }
+    const responseMap = {
+      approved: 'approve',
+      rejected: 'reject',
+      edit_requested: 'edit',
+      pending: 'pending',
+      ready: null,
+    };
+    const responseType = responseMap[normalized];
+    if (!responseType) return;
+    submitResponse(responseType, {
+      baseAd: hero,
+      assets: updateAssets,
+      recipeCode,
+      skipAnimation: true,
+      skipAdvance: true,
+    });
   };
 
   const submitNote = async () => {
@@ -1416,6 +1582,18 @@ useEffect(() => {
               setShowGallery(false);
               setShowCopyModal(false);
               if (reviewVersion === 3) {
+                setStarted(true);
+                return;
+              }
+              if (reviewVersion === 2) {
+                const latest = getLatestAds(
+                  ads.filter((a) => a.status !== 'archived')
+                );
+                const heroList = buildHeroList(latest);
+                setAllHeroAds(heroList);
+                setReviewAds(heroList);
+                setVersionMode(false);
+                setCurrentIndex(0);
                 setStarted(true);
                 return;
               }
@@ -1681,78 +1859,146 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="p-4 rounded flex flex-wrap justify-center gap-4 relative">
-              {(currentRecipeGroup?.assets || []).map((a, idx) => (
-                <div key={idx} className="max-w-[300px]">
-                  {isVideoUrl(a.firebaseUrl) ? (
-                    <VideoPlayer
-                      src={a.firebaseUrl}
-                      className="max-w-full rounded shadow"
-                      style={{
-                        aspectRatio:
-                          String(a.aspectRatio || '').replace('x', '/') || undefined,
-                      }}
-                    />
-                  ) : (
-                    <OptimizedImage
-                      pngUrl={a.firebaseUrl}
-                      webpUrl={
-                        a.firebaseUrl
-                          ? a.firebaseUrl.replace(/\.png$/, '.webp')
-                          : undefined
-                      }
-                      alt={a.filename}
-                      cacheKey={a.firebaseUrl}
-                      className="max-w-full rounded shadow"
-                      style={{
-                        aspectRatio:
-                          String(a.aspectRatio || '').replace('x', '/') || undefined,
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-              {(getVersion(displayAd) > 1 || versions.length > 1) && (
-                versions.length > 1 ? (
-                  versions.length === 2 ? (
-                    <span
-                      onClick={() =>
-                        setVersionIndex((i) => (i + 1) % versions.length)
-                      }
-                      className="version-badge cursor-pointer absolute top-0 left-0"
+            <div className="w-full max-w-5xl px-3 sm:px-4 md:px-6">
+              <div className="flex flex-col gap-6">
+                {reviewAds.map((hero) => {
+                  const info = parseAdFilename(hero.filename || '');
+                  const recipeCode =
+                    hero.recipeCode || info.recipeCode || 'unknown';
+                  const group = recipeGroups.find(
+                    (g) => g.recipeCode === recipeCode,
+                  );
+                  const groupAssets = (group?.assets || []).filter(
+                    (a) => a.status !== 'archived',
+                  );
+                  const assets = groupAssets.length > 0 ? groupAssets : [hero];
+                  const rawStatus = hero.status || assets[0]?.status || 'pending';
+                  const cardStatus = statusLabels[rawStatus] ? rawStatus : 'pending';
+                  const cardId = `${hero.adGroupId || 'public'}-${recipeCode}`;
+                  const editAsset = assets.find(
+                    (a) => (a.comment || '').trim().length > 0,
+                  );
+                  const hasEditRequest = !!editAsset;
+                  const isExpanded = !!expandedRequests[cardId];
+                  const unitVersions = allAds.filter(
+                    (a) => unitKey(a) === unitKey(hero),
+                  );
+                  const versionCount = new Set(
+                    unitVersions.map((a) => getVersion(a)),
+                  ).size;
+
+                  return (
+                    <div
+                      key={cardId}
+                      className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[var(--dark-sidebar-bg)] shadow-sm overflow-hidden"
                     >
-                      V{getVersion(displayAd)}
-                    </span>
-                  ) : (
-                    <div className="absolute top-0 left-0">
-                      <span
-                        onClick={() => setShowVersionMenu((o) => !o)}
-                        className="version-badge cursor-pointer select-none"
-                      >
-                        V{getVersion(displayAd)}
-                      </span>
-                      {showVersionMenu && (
-                        <div className="absolute left-0 top-full mt-1 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
-                          {versions.map((v, idx) => (
+                      <div className="p-4 space-y-4">
+                        <div className="relative">
+                          {(versionCount > 1 || getVersion(hero) > 1) && (
                             <button
-                              key={idx}
-                              onClick={() => {
-                                setVersionIndex(idx);
-                                setShowVersionMenu(false);
-                              }}
-                              className="block w-full text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                              type="button"
+                              onClick={() => openVersionModal(null, hero)}
+                              className="version-badge absolute left-4 top-4"
                             >
-                              V{getVersion(v[0])}
+                              V{getVersion(hero)}
                             </button>
-                          ))}
+                          )}
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            {assets.map((asset, idx) => {
+                              const url = asset.adUrl || asset.firebaseUrl;
+                              const aspect = String(asset.aspectRatio || '')
+                                .replace('x', '/')
+                                || undefined;
+                              return (
+                                <div key={asset.assetId || idx} className="flex justify-center">
+                                  {isVideoUrl(url) ? (
+                                    <VideoPlayer
+                                      src={url}
+                                      className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-black"
+                                      style={{ aspectRatio: aspect }}
+                                    />
+                                  ) : (
+                                    <OptimizedImage
+                                      pngUrl={url}
+                                      webpUrl={
+                                        url ? url.replace(/\.png$/, '.webp') : undefined
+                                      }
+                                      alt={asset.filename || 'Ad'}
+                                      cacheKey={url}
+                                      className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white"
+                                      style={{ aspectRatio: aspect }}
+                                    />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="relative inline-flex items-center gap-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-[var(--dark-sidebar-bg)] px-3 py-1.5 text-sm font-medium shadow-sm">
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full ${
+                                statusColors[cardStatus] || 'bg-gray-300'
+                              }`}
+                            />
+                            <span>{statusLabels[cardStatus] || 'Pending'}</span>
+                            <span className="ml-auto text-xs text-gray-500">▼</span>
+                            <select
+                              className="absolute inset-0 opacity-0 cursor-pointer"
+                              value={cardStatus}
+                              onChange={(e) =>
+                                handleStatusChange(hero, group, e.target.value)
+                              }
+                              aria-label="Update ad status"
+                            >
+                              {statusOptions.map((opt) => (
+                                <option
+                                  key={opt.value}
+                                  value={opt.value}
+                                  disabled={opt.disabled}
+                                >
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {hasEditRequest && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleRequest(cardId)}
+                              className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              {isExpanded ? 'Hide edit request' : 'View edit request'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {hasEditRequest && isExpanded && (
+                        <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[var(--dark-sidebar-hover)] px-4 py-3 text-sm space-y-2">
+                          <p className="font-medium text-gray-900 dark:text-[var(--dark-text)]">
+                            Requested changes
+                          </p>
+                          {editAsset?.comment && (
+                            <p className="text-gray-700 dark:text-[var(--dark-text)] whitespace-pre-wrap">
+                              {editAsset.comment}
+                            </p>
+                          )}
+                          {editAsset?.copyEdit && editAsset.copyEdit.trim() && (
+                            <div className="rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-[var(--dark-sidebar-bg)] p-3 space-y-1">
+                              <p className="text-xs uppercase tracking-wide text-gray-500">
+                                Suggested copy
+                              </p>
+                              <p className="text-gray-800 dark:text-[var(--dark-text)] whitespace-pre-wrap">
+                                {editAsset.copyEdit}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                  )
-                ) : (
-                  <span className="version-badge absolute top-0 left-0">V{getVersion(displayAd)}</span>
-                )
-              )}
+                  );
+                })}
+              </div>
             </div>
           ) : (
           <div
@@ -1994,7 +2240,9 @@ useEffect(() => {
           origCopy={origCopy}
           canSubmit={canSubmitEdit}
           onCancel={() => setShowEditModal(false)}
-          onSubmit={() => submitResponse('edit')}
+          onSubmit={() =>
+            submitResponse('edit', editContext ? { ...editContext } : {})
+          }
           submitting={submitting}
         />
       )}
