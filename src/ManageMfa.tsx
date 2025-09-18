@@ -462,11 +462,19 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
     }
   };
 
-  const totpStatusLabel = totpFactors.length
-    ? `Enrolled (${totpFactors
-        .map((factor) => factor.displayName || 'Authenticator App')
-        .join(', ')})`
-    : 'Not set up';
+  const totpDisplayNames = totpFactors
+    .map((factor) => factor.displayName?.trim())
+    .filter(
+      (name): name is string =>
+        Boolean(name) && name.toLowerCase() !== 'authenticator app'
+    );
+
+  const totpStatusLabel =
+    totpFactors.length === 0
+      ? 'Not set up'
+      : totpDisplayNames.length > 0
+      ? `Enrolled (${totpDisplayNames.join(', ')})`
+      : 'Enrolled';
 
   const phoneStatusLabel = phoneFactors.length
     ? maskPhoneNumber((phoneFactors[0] as any).phoneNumber || '') || 'Enrolled'
@@ -509,7 +517,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
         <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
-              <h2 className="text-xl font-semibold">Authenticator App (TOTP)</h2>
+              <h2 className="text-xl font-semibold">Authenticator App</h2>
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 Use an authenticator app (like Google Authenticator, 1Password, or Authy) to generate verification codes.
               </p>

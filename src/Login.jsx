@@ -66,9 +66,11 @@ const Login = ({ onLogin }) => {
         : 'Text message';
     }
     if (hint.factorId === 'totp') {
-      return hint.displayName
-        ? `Authenticator app (${hint.displayName})`
-        : 'Authenticator app';
+      const displayName = hint.displayName?.trim();
+      if (displayName && displayName.toLowerCase() !== 'authenticator app') {
+        return `Authenticator app (${displayName})`;
+      }
+      return 'Authenticator app';
     }
     return 'Unknown method';
   };

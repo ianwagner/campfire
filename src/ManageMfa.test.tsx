@@ -180,30 +180,42 @@ test('shows authenticator enrollment status when enrolled', () => {
 
 test('allows enrollment for agency role', () => {
   render(<ManageMfa user={createUser()} role="agency" />);
-  expect(screen.getByText(/Authenticator App \(TOTP\)/i)).toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', { name: /Authenticator App/i })
+  ).toBeInTheDocument();
 });
 
 test('allows enrollment for designer role', () => {
   render(<ManageMfa user={createUser()} role="designer" />);
-  expect(screen.getByText(/Authenticator App \(TOTP\)/i)).toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', { name: /Authenticator App/i })
+  ).toBeInTheDocument();
 });
 
 test('allows enrollment for manager role', () => {
   render(<ManageMfa user={createUser()} role="manager" />);
-  expect(screen.getByText(/Authenticator App \(TOTP\)/i)).toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', { name: /Authenticator App/i })
+  ).toBeInTheDocument();
 });
 
 test('allows enrollment for project manager role', () => {
   render(<ManageMfa user={createUser()} role="project-manager" />);
-  expect(screen.getByText(/Authenticator App \(TOTP\)/i)).toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', { name: /Authenticator App/i })
+  ).toBeInTheDocument();
 });
 
 test('allows enrollment for ops role', () => {
   render(<ManageMfa user={createUser()} role="ops" />);
-  expect(screen.getByText(/Authenticator App \(TOTP\)/i)).toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', { name: /Authenticator App/i })
+  ).toBeInTheDocument();
 });
 
 test('allows enrollment for editor role', () => {
   render(<ManageMfa user={createUser()} role="editor" />);
-  expect(screen.getByText(/Authenticator App \(TOTP\)/i)).toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', { name: /Authenticator App/i })
+  ).toBeInTheDocument();
 });
