@@ -9,7 +9,7 @@ import React, {
   forwardRef,
   useCallback,
 } from 'react';
-import { FiX, FiGrid, FiCheck, FiType, FiMessageSquare } from 'react-icons/fi';
+import { FiEdit, FiX, FiGrid, FiCheck, FiType, FiMessageSquare } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
   collection,
@@ -27,6 +27,7 @@ import {
   arrayUnion,
   deleteDoc,
   onSnapshot,
+  orderBy,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
@@ -38,6 +39,7 @@ import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
+import FeedbackPanel from './components/FeedbackPanel.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
@@ -131,6 +133,8 @@ const Review = forwardRef(
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
   const [initialStatus, setInitialStatus] = useState(null);
+  const [historyEntries, setHistoryEntries] = useState({});
+  const [recipeCopyMap, setRecipeCopyMap] = useState({});
   const [expandedRequests, setExpandedRequests] = useState({});
   const [editContext, setEditContext] = useState(null);
   // refs to track latest values for cleanup on unmount
@@ -796,8 +800,11 @@ useEffect(() => {
   }, [currentAd]);
 
   const selectedResponse = responses[adUrl]?.response ?? statusResponse;
-  const currentStatusValue =
-    responseStatusMap[selectedResponse] || currentAd?.status || 'pending';
+  const showSecondView = !!selectedResponse;
+  const panelEntries = useMemo(() => {
+    const ver = displayAd ? getVersion(displayAd) : 1;
+    return { [ver]: historyEntries[ver] || [] };
+  }, [displayAd?.assetId, displayAd?.filename, displayAd?.version, historyEntries]);
   // show next step as soon as a decision is made
   const progress =
     reviewAds.length > 0
@@ -831,6 +838,7 @@ useEffect(() => {
   const closeVersionModal = () => setVersionModal(null);
 
   useEffect(() => {
+    setHistoryEntries({});
     if (!displayAd?.adGroupId || !displayAd?.assetId) return;
     const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAd.assetId);
     const unsubDoc = onSnapshot(assetRef, (snap) => {
@@ -840,10 +848,58 @@ useEffect(() => {
       setReviewAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
     });
 
+    const rootId = displayAd.parentAdId || stripVersion(displayAd.filename);
+    const related = allAds.filter((a) => {
+      if (displayAd.parentAdId) {
+        return a.assetId === rootId || a.parentAdId === rootId;
+      }
+      return stripVersion(a.filename) === rootId;
+    });
+    const versionMap = {};
+    [...related, displayAd].forEach((a) => {
+      versionMap[a.assetId] = a;
+    });
+
+    const unsubs = Object.values(versionMap).map((ad) => {
+      const q = query(
+        collection(doc(db, 'adGroups', ad.adGroupId, 'assets', ad.assetId), 'history'),
+        orderBy('updatedAt', 'asc'),
+      );
+      return onSnapshot(q, (snap) => {
+        setHistoryEntries((prev) => ({
+          ...prev,
+          [getVersion(ad)]: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        }));
+      });
+    });
+
+      return () => {
+        unsubDoc();
+        unsubs.forEach((u) => u());
+        setHistoryEntries({});
+      };
+  }, [displayAd?.adGroupId, displayAd?.assetId, allAds]);
+
+  useEffect(() => {
+    const recipeCode =
+      displayAd?.recipeCode ||
+      parseAdFilename(displayAd?.filename || '').recipeCode ||
+      '';
+    if (!displayAd?.adGroupId || !recipeCode) return;
+    if (recipeCopyMap[recipeCode]) return;
+    let cancelled = false;
+    getDoc(doc(db, 'adGroups', displayAd.adGroupId, 'recipes', recipeCode))
+      .then((snap) => {
+        if (cancelled) return;
+        const data = snap.exists() ? snap.data() : null;
+        const text = data ? data.latestCopy || data.copy || '' : '';
+        setRecipeCopyMap((prev) => ({ ...prev, [recipeCode]: text }));
+      })
+      .catch((err) => console.error('Failed to load recipe copy', err));
     return () => {
-      unsubDoc();
+      cancelled = true;
     };
-  }, [displayAd?.adGroupId, displayAd?.assetId]);
+  }, [displayAd?.adGroupId, displayAd?.recipeCode, displayAd?.filename]);
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
@@ -942,6 +998,16 @@ useEffect(() => {
       setCurrentIndex(reviewAds.length);
     }
   };
+  const statusMap = {
+    approve: 'Approved',
+    reject: 'Rejected',
+    edit: 'Edit Requested',
+  };
+  const colorMap = {
+    approve: 'text-green-700',
+    reject: 'text-gray-700',
+    edit: 'text-black',
+  };
   const statusLabels = {
     pending: 'Pending',
     ready: 'Ready',
@@ -963,13 +1029,6 @@ useEffect(() => {
     { value: 'edit_requested', label: 'Edit Requested' },
     { value: 'rejected', label: 'Rejected' },
   ];
-
-  const responseStatusMap = {
-    approve: 'approved',
-    reject: 'rejected',
-    edit: 'edit_requested',
-    pending: 'pending',
-  };
 
   const currentRecipe = currentAd?.recipeCode || currentInfo.recipeCode;
   const currentRecipeGroup = useMemo(
@@ -1650,7 +1709,7 @@ useEffect(() => {
 
 
   return (
-    <div className="min-h-screen w-full bg-gray-50 py-10 px-4 dark:bg-[var(--dark-bg)]">
+    <div className="relative flex flex-col items-center justify-center min-h-screen space-y-4">
       {showStreakModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded-xl shadow max-w-sm space-y-4 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
@@ -1728,9 +1787,9 @@ useEffect(() => {
           </div>
         </div>
       )}
-      <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-8">
-        <div className="flex w-full max-w-5xl flex-col items-center gap-6">
-          <div className="relative flex w-full max-w-md flex-col items-center">
+      <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
+        <div className="flex flex-col items-center">
+          <div className="relative flex flex-col items-center w-fit mx-auto">
           {agencyId && (
             <OptimizedImage
               pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
@@ -2089,77 +2148,89 @@ useEffect(() => {
         </div>
       </div>
 
-        {!showSizes && reviewVersion === 1 && (
-          <div className="mt-6 flex w-full max-w-xl flex-col items-center gap-4">
-            <div className="flex w-full items-center justify-between gap-3">
-              {currentIndex > 0 ? (
-                <button
-                  aria-label="Previous"
-                  onClick={() =>
-                    setCurrentIndex((i) => Math.max(0, i - 1))
-                  }
-                  className="btn-arrow"
-                >
-                  &lt;
-                </button>
-              ) : (
-                <span className="w-12" />
-              )}
-              <div className="relative inline-flex min-w-[12rem] items-center gap-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white px-3 py-1.5 text-sm font-medium shadow-sm dark:bg-[var(--dark-sidebar-bg)]">
-                <span
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    statusColors[currentStatusValue] || 'bg-gray-300'
-                  }`}
-                />
-                <span>{statusLabels[currentStatusValue] || 'Pending'}</span>
-                <span className="ml-auto text-xs text-gray-500">▼</span>
-                <select
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                  value={currentStatusValue}
-                  onChange={(e) =>
-                    handleStatusChange(
-                      currentAd,
-                      currentRecipeGroup,
-                      e.target.value,
-                    )
-                  }
-                  aria-label="Update ad status"
-                >
-                  {statusOptions.map((opt) => (
-                    <option
-                      key={opt.value}
-                      value={opt.value}
-                      disabled={opt.disabled}
-                    >
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {currentIndex < reviewAds.length - 1 ? (
-                <button
-                  aria-label="Next"
-                  onClick={() =>
-                    setCurrentIndex((i) =>
-                      Math.min(reviewAds.length - 1, i + 1),
-                    )
-                  }
-                  className="btn-arrow"
-                >
-                  &gt;
-                </button>
-              ) : (
-                <button
-                  aria-label="End Review"
-                  onClick={() => setCurrentIndex(reviewAds.length)}
-                  className="btn-arrow"
-                >
-                  End
-                </button>
-              )}
-            </div>
+        {!showSizes && reviewVersion !== 3 && (showSecondView ? (
+        <div className="flex items-center space-x-4">
+          {currentIndex > 0 && (
+            <button
+              aria-label="Previous"
+              onClick={() =>
+                setCurrentIndex((i) => Math.max(0, i - 1))
+              }
+              className="btn-arrow"
+            >
+              &lt;
+            </button>
+          )}
+          <div className="flex space-x-4 pt-2">
+            <button
+              onClick={() => submitResponse('reject')}
+              className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
+              disabled={submitting}
+            >
+              Reject
+            </button>
+            <button
+              onClick={openEditRequest}
+              className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
+              disabled={submitting}
+              aria-label="Request Edit"
+            >
+              <FiEdit />
+            </button>
+            <button
+              onClick={() => submitResponse('approve')}
+              className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
+              disabled={submitting}
+            >
+              Approve
+            </button>
           </div>
-        )}
+          {currentIndex < reviewAds.length - 1 ? (
+            <button
+              aria-label="Next"
+              onClick={() =>
+                setCurrentIndex((i) => Math.min(reviewAds.length - 1, i + 1))
+              }
+              className="btn-arrow"
+            >
+              &gt;
+            </button>
+          ) : (
+            <button
+              aria-label="End Review"
+              onClick={() => setCurrentIndex(reviewAds.length)}
+              className="btn-arrow"
+            >
+              End
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="flex space-x-4">
+          <button
+            onClick={() => submitResponse('reject')}
+            className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
+            disabled={submitting}
+          >
+            Reject
+          </button>
+          <button
+            onClick={openEditRequest}
+            className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
+            disabled={submitting}
+            aria-label="Request Edit"
+          >
+            <FiEdit />
+          </button>
+          <button
+            onClick={() => submitResponse('approve')}
+            className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
+            disabled={submitting}
+          >
+            Approve
+          </button>
+        </div>
+      ))}
       {showEditModal && (
         <EditRequestModal
           comment={comment}
@@ -2223,6 +2294,16 @@ useEffect(() => {
         />
       )}
       </div>
+      {reviewVersion !== 3 && (
+        <FeedbackPanel
+          entries={panelEntries}
+          onVersionClick={openVersionModal}
+          origCopy={recipeCopyMap[currentRecipe] || ''}
+          className="mt-4 md:mt-0"
+          collapsible={reviewVersion === 2}
+        />
+      )}
+    </div>
     </div>
   );
 });

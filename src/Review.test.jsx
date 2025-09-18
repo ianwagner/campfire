@@ -36,11 +36,6 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-const selectStatus = (value, index = 0) => {
-  const selects = screen.getAllByLabelText('Update ad status');
-  fireEvent.change(selects[index], { target: { value } });
-};
-
 test('loads ads from subcollections', async () => {
   const assetSnapshot = {
     docs: [
@@ -133,7 +128,7 @@ test('submitResponse updates asset status', async () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
   );
 
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
@@ -179,7 +174,7 @@ test('submitResponse includes reviewer name', async () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
   );
 
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
@@ -221,7 +216,7 @@ test('request edit creates new version doc', async () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
   );
 
-  selectStatus('edit_requested');
+  fireEvent.click(screen.getByLabelText('Request Edit'));
   fireEvent.change(screen.getByPlaceholderText('Add comments...'), {
     target: { value: 'fix' },
   });
@@ -266,7 +261,7 @@ test('revision inherits root parentId when requesting another edit', async () =>
 
   await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'url2'));
 
-  selectStatus('edit_requested');
+  fireEvent.click(screen.getByLabelText('Request Edit'));
   fireEvent.change(screen.getByPlaceholderText('Add comments...'), {
     target: { value: 'fix' },
   });
@@ -320,7 +315,7 @@ test('request edit advances to next ad', async () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
   );
 
-  selectStatus('edit_requested');
+  fireEvent.click(screen.getByLabelText('Request Edit'));
   fireEvent.change(screen.getByPlaceholderText('Add comments...'), {
     target: { value: 'fix' },
   });
@@ -367,7 +362,7 @@ test('approving a revision resolves all related docs', async () => {
 
   await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'rev.png'));
 
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
@@ -419,7 +414,7 @@ test('approving a revision does not change archived versions', async () => {
 
   await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png'));
 
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
@@ -741,14 +736,14 @@ test('shows group summary after reviewing ads', async () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
   );
 
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
   );
 
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await waitFor(() => {
@@ -803,7 +798,7 @@ test('filters ads by last login and still shows summary', async () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', 'new')
   );
 
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
   await waitFor(() => screen.getByText('Your ads are ready!'));
   expect(screen.getByText('Your ads are ready!')).toBeInTheDocument();
@@ -849,7 +844,7 @@ test('resolved ads are excluded from pending review', async () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
   );
 
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
   await waitFor(() => screen.getByText('Your ads are ready!'));
 });
@@ -885,8 +880,7 @@ test('shows all ads for group review when none new', async () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
   );
 
-  const statusSelect = screen.getAllByLabelText('Update ad status')[0];
-  expect(statusSelect).toHaveValue('approved');
+  expect(screen.getByText('Reject')).toHaveClass('opacity-50');
 });
 
 test('pending ads are hidden from group review', async () => {
@@ -916,7 +910,7 @@ test('pending ads are hidden from group review', async () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
   );
 
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
   await waitFor(() => screen.getByText('Your ads are ready!'));
 });
@@ -976,7 +970,7 @@ test('submitResponse records last viewed time for group', async () => {
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
   );
 
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
   await waitFor(() => {
     const call = setItem.mock.calls.find(
@@ -1049,7 +1043,7 @@ test('progress bar reflects current index', async () => {
   const bar = screen.getByRole('progressbar').firstChild;
   expect(bar).toHaveStyle('width: 0%');
 
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await waitFor(() => expect(bar).toHaveStyle('width: 50%'));
@@ -1094,7 +1088,7 @@ test('ad container is not remounted when currentIndex changes', async () => {
 
   const initialContainer = screen.getByAltText('Ad').parentElement;
 
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(initialContainer);
 
   await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'url2'));
@@ -1225,7 +1219,7 @@ test('returns to start screen after finishing review', async () => {
 
   fireEvent.click(screen.getByText('Review Ads'));
   await screen.findByRole('img');
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await screen.findByText(/Your ads are ready/i);
@@ -1263,7 +1257,7 @@ test('updates group status after finishing review', async () => {
 
   fireEvent.click(screen.getByText('Review Ads'));
   await screen.findByRole('img');
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
@@ -1329,7 +1323,7 @@ test('client approval updates group status', async () => {
 
   fireEvent.click(screen.getByText('Review Ads'));
   await screen.findByRole('img');
-  selectStatus('approved');
+  fireEvent.click(screen.getByText('Approve'));
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
   const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
