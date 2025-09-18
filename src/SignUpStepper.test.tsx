@@ -52,7 +52,7 @@ test('sends verification email after signup', async () => {
   );
 });
 
-test('navigates to MFA enrollment after account creation', async () => {
+test('shows MFA choices after account creation and navigates when selecting authenticator app', async () => {
   mockCreateUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
   render(<SignUpStepper />);
 
@@ -67,5 +67,39 @@ test('navigates to MFA enrollment after account creation', async () => {
   });
   fireEvent.click(screen.getByText('Create Account'));
 
-  await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/mfa-settings'));
+  await waitFor(() =>
+    expect(screen.getByText(/Use an authenticator app/i)).toBeInTheDocument()
+  );
+
+  fireEvent.click(screen.getByText(/Use an authenticator app/i));
+
+  expect(mockNavigate).toHaveBeenCalledWith('/mfa-settings', {
+    state: { recommendedEnrollment: 'totp', fromSignUp: true },
+  });
+});
+
+test('allows choosing SMS MFA during sign up flow', async () => {
+  mockCreateUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
+  render(<SignUpStepper />);
+
+  fireEvent.change(screen.getByLabelText('Full Name'), {
+    target: { value: 'Tester' },
+  });
+  fireEvent.change(screen.getByLabelText('Email'), {
+    target: { value: 't@e.com' },
+  });
+  fireEvent.change(screen.getByLabelText('Password'), {
+    target: { value: 'pass' },
+  });
+  fireEvent.click(screen.getByText('Create Account'));
+
+  await waitFor(() =>
+    expect(screen.getByText(/Use text message codes/i)).toBeInTheDocument()
+  );
+
+  fireEvent.click(screen.getByText(/Use text message codes/i));
+
+  expect(mockNavigate).toHaveBeenCalledWith('/mfa-settings', {
+    state: { recommendedEnrollment: 'sms', fromSignUp: true },
+  });
 });
