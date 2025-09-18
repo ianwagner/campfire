@@ -161,7 +161,7 @@ const SidebarBase = ({
       <div
         className={`hidden md:flex fixed top-0 left-0 ${collapsed ? 'w-16 px-2 py-4' : 'w-[250px] p-4'} border-r bg-white dark:bg-[var(--dark-sidebar-bg)] dark:border-[var(--dark-sidebar-hover)] flex-col h-screen justify-between transition-all duration-300`}
       >
-        <div className="space-y-2">
+        <div className="flex flex-col flex-1 min-h-0">
           <div className={`relative mx-auto mt-4 mb-4 ${logoUrl ? 'max-h-[90px]' : 'h-16'} flex-shrink-0 flex items-center justify-center`}>
             {!logoReady && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -182,23 +182,33 @@ const SidebarBase = ({
               />
             )}
           </div>
-          {menuItems}
-          {onToggleCollapse && (
-            <button
-              type="button"
-              aria-label="Toggle sidebar"
-              onClick={onToggleCollapse}
-              className="my-2 mx-auto block text-xl focus:outline-none"
-            >
-              {collapsed ? (
-                <FiChevronRight aria-hidden="true" />
-              ) : (
-                <FiChevronLeft aria-hidden="true" />
-              )}
-            </button>
-          )}
+          <div className="relative flex-1 min-h-0 overflow-hidden">
+            <div className="absolute inset-0 overflow-hidden">
+              <div className={`sidebar-scroll h-full overflow-y-auto pr-1 ${collapsed ? 'px-0' : 'px-1'}`}>
+                <div className="space-y-2 pb-6 pt-4 -mt-4">
+                  {menuItems}
+                  {onToggleCollapse && (
+                    <button
+                      type="button"
+                      aria-label="Toggle sidebar"
+                      onClick={onToggleCollapse}
+                      className="my-2 mx-auto block text-xl focus:outline-none"
+                    >
+                      {collapsed ? (
+                        <FiChevronRight aria-hidden="true" />
+                      ) : (
+                        <FiChevronLeft aria-hidden="true" />
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="pointer-events-none absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-white via-white/70 to-transparent dark:from-[var(--dark-sidebar-bg)] dark:via-[var(--dark-sidebar-bg)]/70 dark:to-transparent" />
+              <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white via-white/70 to-transparent dark:from-[var(--dark-sidebar-bg)] dark:via-[var(--dark-sidebar-bg)]/70 dark:to-transparent" />
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col items-center space-y-1">
+        <div className="flex flex-col items-center space-y-1 pt-4">
           <button
             onClick={handleLogout}
             className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-center focus:outline-none"
