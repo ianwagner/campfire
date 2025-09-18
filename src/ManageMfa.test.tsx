@@ -1,22 +1,36 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ManageMfa from './ManageMfa';
 
 jest.mock('./firebase/config', () => ({ auth: {} }));
 
+jest.mock('qrcode', () => ({
+  toDataURL: jest.fn().mockResolvedValue('data:image/png;base64,qr'),
+}));
+
 jest.mock('firebase/auth', () => {
   const sendEmailVerification = jest.fn();
+  const multiFactorMock = jest.fn(() => ({
+    getSession: jest.fn().mockResolvedValue({}),
+    enrolledFactors: [],
+  }));
   return {
     RecaptchaVerifier: jest.fn(),
     PhoneAuthProvider: jest.fn(() => ({ verifyPhoneNumber: jest.fn() })),
-    multiFactor: jest.fn(() => ({ getSession: jest.fn() })),
+    PhoneMultiFactorGenerator: { assertion: jest.fn() },
+    TotpMultiFactorGenerator: {
+      generateSecret: jest.fn(),
+      assertionForEnrollment: jest.fn(),
+    },
+    multiFactor: multiFactorMock,
     sendEmailVerification,
     signOut: jest.fn(),
   };
 });
 
 import { sendEmailVerification } from 'firebase/auth';
+import { TotpMultiFactorGenerator } from 'firebase/auth';
 
 jest.mock('react-router-dom', () => {
   const actual = jest.requireActual('react-router-dom');
@@ -24,6 +38,14 @@ jest.mock('react-router-dom', () => {
     ...actual,
     useNavigate: () => jest.fn(),
   };
+});
+
+beforeEach(() => {
+  const { multiFactor } = require('firebase/auth');
+  (multiFactor as jest.Mock).mockImplementation(() => ({
+    getSession: jest.fn().mockResolvedValue({}),
+    enrolledFactors: [],
+  }));
 });
 
 afterEach(() => {
@@ -51,12 +73,13 @@ test('formats phone number input to E.164 without adding country code', () => {
 
 test('shows message when recent login required', async () => {
   const { multiFactor } = require('firebase/auth');
-  multiFactor.mockReturnValue({
+  multiFactor.mockImplementation(() => ({
     getSession: jest.fn().mockRejectedValue({
       code: 'auth/requires-recent-login',
       message: 'need login',
     }),
-  });
+    enrolledFactors: [],
+  }));
 
   render(
     <ManageMfa user={{ emailVerified: true } as any} role="admin" />
@@ -100,4 +123,27 @@ test('allows enrollment for ops role', () => {
 test('allows enrollment for editor role', () => {
   render(<ManageMfa user={{ emailVerified: true } as any} role="editor" />);
   expect(screen.getByLabelText(/Phone Number/i)).toBeInTheDocument();
+});
+
+test('can generate authenticator enrollment details', async () => {
+  const secret = {
+    generateQrCodeUrl: jest.fn().mockReturnValue('otpauth://example'),
+    secretKey: 'SECRETKEY',
+  } as any;
+  (TotpMultiFactorGenerator.generateSecret as jest.Mock).mockResolvedValue(secret);
+
+  render(<ManageMfa user={{ emailVerified: true } as any} role="admin" />);
+
+  await act(async () => {
+    fireEvent.click(screen.getByText('Authenticator App'));
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByText('Generate QR Code'));
+  });
+
+  await waitFor(() => expect(TotpMultiFactorGenerator.generateSecret).toHaveBeenCalled());
+
+  expect(await screen.findByLabelText(/Authenticator Code/i)).toBeInTheDocument();
+  await waitFor(() => expect(secret.generateQrCodeUrl).toHaveBeenCalled());
+  expect(await screen.findByText(/Can't scan the code/i)).toBeInTheDocument();
 });
