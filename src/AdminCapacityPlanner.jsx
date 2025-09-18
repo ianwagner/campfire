@@ -13,6 +13,7 @@ import { db } from './firebase/config';
 
 const DAYS_PER_WEEK = 7;
 const WEEKS_TO_RENDER = 8;
+const WEEKDAY_INDICES = [0, 1, 2, 3, 4];
 
 const dayKey = (date) => date.toISOString().slice(0, 10);
 
@@ -173,7 +174,7 @@ const AdminCapacityPlanner = () => {
             Next Week
           </button>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
           <span>
             {weeks.length > 0 && `${formatWeekTitle(weeks[0])} – ${formatWeekTitle(weeks[weeks.length - 1])}`}
           </span>
@@ -187,40 +188,38 @@ const AdminCapacityPlanner = () => {
         </div>
       </div>
       {loading && (
-        <div className="mb-4 text-sm text-gray-500">Loading capacity data…</div>
+        <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">Loading capacity data…</div>
       )}
       <div
         ref={scrollRef}
         className="flex gap-4 overflow-x-auto pb-4 scroll-smooth snap-x snap-mandatory"
       >
         {weeks.map((weekStart) => {
-          const weekDays = Array.from({ length: DAYS_PER_WEEK }, (_, index) =>
-            addDays(weekStart, index)
-          );
+          const weekDays = WEEKDAY_INDICES.map((offset) => addDays(weekStart, offset));
           const weekKey = dayKey(weekStart);
           return (
             <div
               key={weekKey}
-              className="flex min-w-[840px] flex-col rounded-lg border border-gray-200 bg-white shadow-sm snap-start"
+              className="flex min-w-[640px] flex-col rounded-lg border border-gray-200 bg-white shadow-sm snap-start dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-bg)]"
             >
               <div className="border-b px-4 py-2">
-                <h2 className="text-sm font-semibold text-gray-700">
+                <h2 className="text-sm font-semibold text-gray-700 dark:text-[var(--dark-text)]">
                   {formatWeekTitle(weekStart)}
                 </h2>
               </div>
-              <div className="grid grid-cols-7 gap-2 border-b bg-gray-50 px-4 py-3">
+              <div className="grid grid-cols-5 gap-2 border-b bg-gray-50 px-4 py-3 dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-hover)]">
                 {weekDays.map((day) => (
                   <div key={`${weekKey}-${day.getDate()}`} className="text-center">
-                    <div className="text-sm font-semibold text-gray-700">
+                    <div className="text-sm font-semibold text-gray-700 dark:text-[var(--dark-text)]">
                       {day.toLocaleDateString(undefined, { weekday: 'short' })}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 dark:text-gray-300">
                       {day.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-7 gap-3 px-4 py-4">
+              <div className="grid grid-cols-5 gap-3 px-4 py-4">
                 {weekDays.map((day) => {
                   const key = dayKey(day);
                   const dayGroups = groupsByDay[key] || [];
@@ -228,28 +227,28 @@ const AdminCapacityPlanner = () => {
                   return (
                     <div
                       key={`${weekKey}-${key}`}
-                      className="flex min-h-[220px] flex-col rounded-lg border border-gray-200 bg-gray-50 p-2"
+                      className="flex min-h-[220px] flex-col rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-[var(--dark-sidebar-hover)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
                       <div className="flex-1 space-y-2 overflow-auto">
                         {dayGroups.length === 0 ? (
-                          <div className="text-xs text-gray-500">No ad groups due</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">No ad groups due</div>
                         ) : (
                           dayGroups.map((group) => (
                             <div
                               key={group.id}
-                              className="rounded border border-blue-200 bg-blue-50 p-2 text-xs shadow-sm"
+                              className="rounded border border-blue-200 bg-blue-50 p-2 text-xs shadow-sm dark:border-blue-600 dark:bg-blue-950/50"
                             >
-                              <div className="font-semibold text-gray-800">
+                              <div className="font-semibold text-gray-800 dark:text-blue-100">
                                 {group.name}
                               </div>
-                              <div className="mt-1 text-[0.7rem] uppercase tracking-wide text-blue-700">
+                              <div className="mt-1 text-[0.7rem] uppercase tracking-wide text-blue-700 dark:text-blue-300">
                                 {group.adsCount} {group.adsCount === 1 ? 'ad' : 'ads'}
                               </div>
                             </div>
                           ))
                         )}
                       </div>
-                      <div className="pt-2 text-right text-xs font-semibold text-gray-700">
+                      <div className="pt-2 text-right text-xs font-semibold text-gray-700 dark:text-gray-200">
                         {totalAds} total {totalAds === 1 ? 'ad' : 'ads'}
                       </div>
                     </div>
@@ -261,7 +260,7 @@ const AdminCapacityPlanner = () => {
         })}
       </div>
       {Object.keys(groupsByDay).length === 0 && !loading && (
-        <div className="mt-4 text-sm text-gray-500">
+        <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
           No ad groups found for the selected weeks.
         </div>
       )}
