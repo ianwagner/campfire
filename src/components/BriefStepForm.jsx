@@ -1,4 +1,5 @@
 import React from 'react';
+import { AD_UNIT_TYPES } from '../utils/adUnitTypes.js';
 import { FiPlus, FiInfo, FiUpload, FiImage, FiPaperclip } from 'react-icons/fi';
 import IconButton from './IconButton.jsx';
 import InfoTooltip from './InfoTooltip.jsx';
@@ -54,6 +55,8 @@ export default function BriefStepForm({
   setMonth,
   dueDate,
   setDueDate,
+  adUnitType,
+  setAdUnitType,
   isAgency,
 }) {
 
@@ -117,6 +120,20 @@ export default function BriefStepForm({
           />
         </div>
       )}
+      <div className="mb-4">
+        <label className="block mb-1 text-sm font-medium">Ad Unit Type</label>
+        <select
+          className="w-full p-2 border rounded"
+          value={adUnitType}
+          onChange={(e) => setAdUnitType(e.target.value)}
+        >
+          {Object.entries(AD_UNIT_TYPES).map(([key, val]) => (
+            <option key={key} value={key}>
+              {val.label || key}
+            </option>
+          ))}
+        </select>
+      </div>
       {currentType && (
         <div className="space-y-4">
             {showBriefExtras && (

@@ -525,6 +525,7 @@ const ProjectDetail = () => {
             copy: r.copy,
             assets: r.assets || [],
             type: r.type || '',
+            adUnitType: r.adUnitType || 'standard',
             selected: r.selected || false,
             brandCode: r.brandCode || project.brandCode || '',
             creditsCharged: already || cost > 0,

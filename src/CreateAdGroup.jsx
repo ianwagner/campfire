@@ -116,6 +116,7 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
               copy: r.copy,
               assets: r.assets || [],
               type: r.type || '',
+              adUnitType: r.adUnitType || 'standard',
               selected: r.selected || false,
               brandCode: r.brandCode || brandCode,
               creditsCharged: cost > 0,

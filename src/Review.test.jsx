@@ -6,7 +6,7 @@ import Review from './Review';
 jest.mock('./firebase/config', () => ({ db: {} }));
 jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 jest.mock('./CopyRecipePreview.jsx', () => () => null);
-jest.mock('./RecipePreview.jsx', () => () => <div />);
+jest.mock('./RecipePreview.jsx', () => () => <div data-testid="recipe-preview" />);
 jest.mock('./utils/debugLog', () => jest.fn());
 
 const mockGetDocs = jest.fn();
@@ -16,6 +16,7 @@ const mockAddDoc = jest.fn();
 const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
 const mockArrayUnion = jest.fn((val) => val);
 const mockIncrement = jest.fn((val) => val);
+const mockOnSnapshot = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
@@ -30,7 +31,15 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: (...args) => mockUpdateDoc(...args),
   arrayUnion: (...args) => mockArrayUnion(...args),
   increment: (...args) => mockIncrement(...args),
+  onSnapshot: (...args) => mockOnSnapshot(...args),
 }));
+
+beforeEach(() => {
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({ docs: [] });
+    return jest.fn();
+  });
+});
 
 afterEach(() => {
   jest.clearAllMocks();
@@ -1330,44 +1339,19 @@ test('client approval updates group status', async () => {
   expect(call[1]).toEqual(expect.objectContaining({ status: 'done' }));
 });
 
-test('brief review collects feedback', async () => {
+test('review version 3 shows ads with status dropdown', async () => {
   const assetSnapshot = {
-    docs: [],
+    docs: [
+      {
+        id: 'a1',
+        data: () => ({ firebaseUrl: 'https://example.com/ad1.png', filename: 'ad1.png', status: 'pending' }),
+      },
+    ],
   };
 
   mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
-    if (col[1] === 'recipes')
-      return Promise.resolve({ docs: [{ id: 'r1', data: () => ({ type: 'T1', components: {} }) }] });
-    return Promise.resolve({ docs: [] });
-  });
-  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1', reviewVersion: 3 }) });
-
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
-
-  await screen.findByText('Your brief is ready!');
-  const briefBtn = screen.getByText('See Brief');
-  expect(briefBtn).toBeEnabled();
-  expect(screen.queryByText('Ad Gallery')).not.toBeInTheDocument();
-  fireEvent.click(briefBtn);
-  const fbBtn = screen.getByLabelText('leave overall feedback');
-  fireEvent.click(fbBtn);
-  const textarea = await screen.findByPlaceholderText('leave overall feedback...');
-  fireEvent.change(textarea, { target: { value: 'Looks good' } });
-  fireEvent.click(screen.getByText('Submit'));
-  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
-});
-
-test('brief review displays when no recipes', async () => {
-  const assetSnapshot = {
-    docs: [],
-  };
-
-  mockGetDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
-    if (col[1] === 'recipes') return Promise.resolve({ docs: [] });
     return Promise.resolve({ docs: [] });
   });
   mockGetDoc.mockResolvedValue({
@@ -1377,8 +1361,30 @@ test('brief review displays when no recipes', async () => {
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
 
+  const select = await screen.findByRole('combobox');
+  expect(select.value).toBe('pending');
+});
+
+test('renders ad recipes when review type is brief', async () => {
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 4, brandCode: 'BR1' }),
+  });
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve({ docs: [] });
+    if (col[1] === 'recipes')
+      return Promise.resolve({
+        docs: [{ id: '1', data: () => ({ components: {}, latestCopy: 'c1' }) }],
+      });
+    return Promise.resolve({ docs: [] });
+  });
+
+  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+
   await screen.findByText('Your brief is ready!');
-  const briefBtn = screen.getByText('See Brief');
-  expect(briefBtn).toBeEnabled();
+  const btn = screen.getByRole('button', { name: /Review Brief/i });
+  fireEvent.click(btn);
+  expect(await screen.findByTestId('recipe-preview')).toBeInTheDocument();
 });
 

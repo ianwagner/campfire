@@ -38,7 +38,8 @@ import GalleryModal from './components/GalleryModal.jsx';
 import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
-import RecipePreview from './RecipePreview.jsx';
+import { bridgeReview2Status } from './utils/bridgeReviewStatus';
+import ReviewFlow3 from './ReviewFlow3.jsx';
 import FeedbackPanel from './components/FeedbackPanel.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
@@ -55,6 +56,7 @@ import { deductCredits } from './utils/credits';
 import computeGroupStatus from './utils/computeGroupStatus';
 import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
+import RecipePreview from './RecipePreview.jsx';
 
 const unitKey = (a) => {
   const info = parseAdFilename(a.filename || '');
@@ -102,8 +104,7 @@ const Review = forwardRef(
   const [versionModal, setVersionModal] = useState(null); // {current, previous}
   const [versionView, setVersionView] = useState('current');
   const [versionIndex, setVersionIndex] = useState(0); // index into versions array
-  const [recipes, setRecipes] = useState([]); // ad recipes for brief review
-  const [recipesLoaded, setRecipesLoaded] = useState(false);
+  // review flow 3 uses continuous scroll of ads; recipes no longer needed
   const [groupBrandCode, setGroupBrandCode] = useState('');
   const [finalGallery, setFinalGallery] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
@@ -112,6 +113,7 @@ const Review = forwardRef(
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [modalCopies, setModalCopies] = useState([]);
   const [reviewVersion, setReviewVersion] = useState(null);
+  const [recipes, setRecipes] = useState([]);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
@@ -216,6 +218,25 @@ const Review = forwardRef(
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth <= 640 : false
   );
+
+  const loadRecipes = useCallback(async (gid, bcode) => {
+    try {
+      const snap = await getDocs(collection(db, 'adGroups', gid, 'recipes'));
+      const arr = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => Number(a.id) - Number(b.id))
+        .map((r, idx) => ({
+          recipeNo: idx + 1,
+          components: r.components || {},
+          copy: r.latestCopy || r.copy || '',
+          type: r.type || '',
+          brandCode: r.brandCode || bcode || '',
+        }));
+      setRecipes(arr);
+    } catch (err) {
+      console.error('Failed to load recipes', err);
+    }
+  }, []);
 
   const buildHeroList = useCallback((list) => {
     const prefOrder = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
@@ -416,26 +437,7 @@ useEffect(() => {
               status = data.status || 'pending';
               rv = data.reviewVersion || 1;
               setGroupBrandCode(data.brandCode || '');
-              if (rv === 3) {
-                try {
-                  const rSnap = await getDocs(
-                    collection(db, 'adGroups', groupId, 'recipes')
-                  );
-                  setRecipes(
-                    rSnap.docs.map((d, idx) => ({
-                      recipeNo: idx + 1,
-                      id: d.id,
-                      ...d.data(),
-                    }))
-                  );
-                } finally {
-                  setRecipesLoaded(true);
-                }
-              } else {
-                setRecipesLoaded(true);
-              }
-              if (status === 'reviewed') status = 'done';
-              if (status === 'review pending' || status === 'in review') status = 'ready';
+              status = bridgeReview2Status(status);
               if (typeof data.reviewProgress === 'number') {
                 startIndex = data.reviewProgress;
               }
@@ -461,6 +463,9 @@ useEffect(() => {
           }
           setInitialStatus(status);
           setReviewVersion(rv);
+          if (rv === 4) {
+            await loadRecipes(groupId, groupSnap.data().brandCode || '');
+          }
         } else {
           const q = query(
             collectionGroup(db, 'assets'),
@@ -1383,8 +1388,7 @@ useEffect(() => {
   if (
     reviewVersion === null ||
     !logoReady ||
-    (started && !firstAdLoaded) ||
-    (reviewVersion === 3 && !recipesLoaded)
+    (started && reviewVersion !== 4 && !firstAdLoaded)
   ) {
     return <LoadingOverlay />;
   }
@@ -1407,7 +1411,7 @@ useEffect(() => {
           />
         )}
         <h1 className="text-2xl font-bold">
-          {reviewVersion === 3 ? 'Your brief is ready!' : 'Your ads are ready!'}
+          {reviewVersion === 4 ? 'Your brief is ready!' : 'Your ads are ready!'}
         </h1>
         <div className="flex flex-col items-center space-y-3">
           <button
@@ -1415,7 +1419,7 @@ useEffect(() => {
               setTimedOut(false);
               setShowGallery(false);
               setShowCopyModal(false);
-              if (reviewVersion === 3) {
+              if (reviewVersion === 3 || reviewVersion === 4) {
                 setStarted(true);
                 return;
               }
@@ -1431,15 +1435,15 @@ useEffect(() => {
               setCurrentIndex(0);
               setStarted(true);
             }}
-            disabled={loading || (reviewVersion !== 3 && ads.length === 0)}
+            disabled={loading || (reviewVersion !== 4 && ads.length === 0)}
             className={`btn-primary px-6 py-3 text-lg ${
-              loading || (reviewVersion !== 3 && ads.length === 0)
+              loading || (reviewVersion !== 4 && ads.length === 0)
                 ? 'opacity-50 cursor-not-allowed'
                 : ''
             }`}
           >
             <FiCheck className="mr-2" />{' '}
-            {reviewVersion === 3 ? 'See Brief' : 'Review Ads'}
+            {reviewVersion === 4 ? 'Review Brief' : 'Review Ads'}
           </button>
           <div className="flex space-x-2">
             {ads.length > 0 && (
@@ -1496,13 +1500,7 @@ useEffect(() => {
     );
   }
 
-  if (reviewVersion === 3 && (!recipes || recipes.length === 0)) {
-    return (
-      <div className="text-center mt-10">No briefs assigned to your account.</div>
-    );
-  }
-
-  if (reviewVersion !== 3 && (!ads || ads.length === 0)) {
+  if (reviewVersion !== 4 && (!ads || ads.length === 0)) {
     return (
       <div className="text-center mt-10">
         {hasPending ? 'ads are pending' : 'No ads assigned to your account.'}
@@ -1510,7 +1508,7 @@ useEffect(() => {
     );
   }
 
-  if (pendingOnly) {
+  if (reviewVersion !== 4 && pendingOnly) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
           {agencyId && (
@@ -1524,7 +1522,9 @@ useEffect(() => {
             />
           )}
         <h1 className="text-2xl font-bold">Ads Pending Review</h1>
-        <p className="text-lg">We'll notify you when your ads are ready.</p>
+        <p className="text-lg">
+          We'll notify you when your {reviewVersion === 4 ? 'brief' : 'ads'} are ready.
+        </p>
       </div>
     );
   }
@@ -1652,7 +1652,7 @@ useEffect(() => {
               </button>
             </InfoTooltip>
           </div>
-          {reviewVersion !== 3 && (
+          {reviewVersion !== 3 && reviewVersion !== 4 && (
             <div
               className="progress-bar"
               role="progressbar"
@@ -1669,17 +1669,7 @@ useEffect(() => {
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
-            <div className="w-full max-w-5xl">
-              <RecipePreview
-                initialResults={recipes}
-                showOnlyResults
-                brandCode={groupBrandCode}
-                hideBrandSelect
-                showColumnButton={false}
-                externalOnly
-                hideActions
-              />
-            </div>
+            <ReviewFlow3 groups={recipeGroups} reviewerName={reviewerName} />
           ) : reviewVersion === 2 ? (
             <div className="p-4 rounded flex flex-wrap justify-center gap-4 relative">
               {(currentRecipeGroup?.assets || []).map((a, idx) => (
@@ -1753,6 +1743,16 @@ useEffect(() => {
                   <span className="version-badge absolute top-0 left-0">V{getVersion(displayAd)}</span>
                 )
               )}
+            </div>
+          ) : reviewVersion === 4 ? (
+            <div className="p-4 w-full">
+              <RecipePreview
+                initialResults={recipes}
+                showOnlyResults
+                hideBrandSelect
+                showColumnButton={false}
+                hideActions
+              />
             </div>
           ) : (
           <div
@@ -1902,7 +1902,7 @@ useEffect(() => {
         </div>
       </div>
 
-        {!showSizes && reviewVersion !== 3 && (showSecondView ? (
+        {!showSizes && reviewVersion !== 3 && reviewVersion !== 4 && (showSecondView ? (
         <div className="flex items-center space-x-4">
           {currentIndex > 0 && (
             <button
@@ -2046,7 +2046,7 @@ useEffect(() => {
         />
       )}
       </div>
-      {reviewVersion !== 3 && (
+      {reviewVersion !== 3 && reviewVersion !== 4 && (
         <FeedbackPanel
           entries={panelEntries}
           onVersionClick={openVersionModal}

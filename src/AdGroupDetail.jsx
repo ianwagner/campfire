@@ -351,12 +351,13 @@ const AdGroupDetail = () => {
             id: d.id,
             ...meta,
             components: docData.components || {},
-            copy: docData.copy || "",
-            latestCopy: docData.latestCopy || "",
+            copy: docData.copy || '',
+            latestCopy: docData.latestCopy || '',
             assets: docData.assets || [],
-            type: docData.type || "",
+            type: docData.type || '',
+            adUnitType: docData.adUnitType || 'standard',
             selected: docData.selected || false,
-            brandCode: docData.brandCode || group?.brandCode || "",
+            brandCode: docData.brandCode || group?.brandCode || '',
           };
         });
         setRecipesMeta(data);
@@ -1234,7 +1235,7 @@ const AdGroupDetail = () => {
       window.alert(`Duplicate files skipped: ${dupes.join(", ")}`);
     }
     if (files.length === 0) return;
-    const missing = detectMissingRatios(files, assets);
+    const missing = detectMissingRatios(files, assets, recipesMeta);
     if (Object.keys(missing).length > 0) {
       setUploadSummary({ files, missing, choices: {}, applyAll: false });
       return;
@@ -2505,7 +2506,8 @@ const AdGroupDetail = () => {
               >
                 <option value={1}>Legacy</option>
                 <option value={2}>2.0</option>
-                <option value={3}>Brief</option>
+                <option value={3}>3.0</option>
+                <option value={4}>Brief</option>
               </select>
             </label>
           </>
