@@ -1,4 +1,5 @@
 import React, {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -18,7 +19,7 @@ import {
 } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { auth } from './firebase/config';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toDataURL } from 'qrcode';
 
 interface ManageMfaProps {
@@ -49,16 +50,38 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
   const [message, setMessage] = useState<string>('');
   const [signInPreference, setSignInPreference] = useState<string>('');
   const navigate = useNavigate();
+  const location = useLocation();
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
   const activeUser = auth.currentUser ?? user ?? null;
 
   const totpFactorId = TotpMultiFactorGenerator.FACTOR_ID ?? 'totp';
-
-  const preferenceStorageKey = useMemo(() => {
-    if (!activeUser?.uid || typeof window === 'undefined') return '';
-    return `campfire:mfaPreference:${activeUser.uid}`;
-  }, [activeUser?.uid]);
+  const preferenceStorageKeys = useMemo(() => {
+    if (typeof window === 'undefined') return [] as string[];
+    const keys: string[] = [];
+    if (activeUser?.uid) {
+      keys.push(`campfire:mfaPreference:${activeUser.uid}`);
+    }
+    const email = activeUser?.email?.trim().toLowerCase();
+    if (email) {
+      keys.push(`campfire:mfaPreference:email:${email}`);
+    }
+    return keys;
+  }, [activeUser?.uid, activeUser?.email]);
+  const locationState =
+    (location.state as { recommendedEnrollment?: 'totp' | 'sms' } | null) ?? null;
+  const recommendedEnrollment = useMemo(() => {
+    const stateValue = locationState?.recommendedEnrollment;
+    let queryValue: string | null = null;
+    try {
+      queryValue = new URLSearchParams(location.search).get('enroll');
+    } catch {
+      queryValue = null;
+    }
+    const candidate = stateValue ?? queryValue ?? null;
+    return candidate === 'totp' || candidate === 'sms' ? candidate : null;
+  }, [locationState?.recommendedEnrollment, location.search]);
+  const recommendationHandledRef = useRef(false);
 
   useEffect(() => {
     if (!user) {
@@ -73,17 +96,27 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
   }, [user]);
 
   useEffect(() => {
-    if (!preferenceStorageKey) {
+    if (preferenceStorageKeys.length === 0) {
       setSignInPreference('');
       return;
     }
-    try {
-      const stored = window.localStorage.getItem(preferenceStorageKey);
-      setSignInPreference(stored ?? '');
-    } catch {
-      setSignInPreference('');
+
+    let storedPreference = '';
+    for (const key of preferenceStorageKeys) {
+      try {
+        const value = window.localStorage.getItem(key);
+        if (value) {
+          storedPreference = value;
+          break;
+        }
+      } catch {
+        storedPreference = '';
+        break;
+      }
     }
-  }, [preferenceStorageKey]);
+
+    setSignInPreference(storedPreference);
+  }, [preferenceStorageKeys]);
 
   useEffect(() => {
     return () => {
@@ -99,17 +132,21 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
   }, []);
 
   useEffect(() => {
-    if (!preferenceStorageKey) return;
+    if (preferenceStorageKeys.length === 0) return;
     try {
       if (signInPreference) {
-        window.localStorage.setItem(preferenceStorageKey, signInPreference);
+        preferenceStorageKeys.forEach((key) =>
+          window.localStorage.setItem(key, signInPreference)
+        );
       } else {
-        window.localStorage.removeItem(preferenceStorageKey);
+        preferenceStorageKeys.forEach((key) =>
+          window.localStorage.removeItem(key)
+        );
       }
     } catch {
       // ignore storage errors
     }
-  }, [preferenceStorageKey, signInPreference]);
+  }, [preferenceStorageKeys, signInPreference]);
 
   useEffect(() => {
     if (!totpSecret) {
@@ -191,30 +228,6 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
     [factors]
   );
 
-  const disableMfa = async () => {
-    if (!activeUser || factors.length === 0) return;
-    if (
-      !window.confirm(
-        'Turning off MFA makes your account more vulnerable. Are you sure you want to continue?'
-      )
-    )
-      return;
-    try {
-      const factor = factors[0];
-      await multiFactor(activeUser).unenroll(factor);
-      setMessage('MFA disabled');
-      await refreshFactors();
-    } catch (err: any) {
-      if (err.code === 'auth/requires-recent-login') {
-        setMessage('Please sign in again to manage MFA settings.');
-        await signOut(auth);
-        navigate('/login');
-      } else {
-        setError(err.message);
-      }
-    }
-  };
-
   const formatPhoneNumber = (value: string) => {
     const digits = value.replace(/\D/g, '');
     if (!digits) return '';
@@ -279,7 +292,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
     );
   }
 
-  const startTotpEnrollment = async () => {
+  const startTotpEnrollment = useCallback(async () => {
     if (!user) return;
     setError('');
     setMessage('');
@@ -302,7 +315,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
     } finally {
       setTotpLoading(false);
     }
-  };
+  }, [navigate, user]);
 
   const cancelTotpEnrollment = () => {
     setTotpSecret(null);
@@ -333,6 +346,38 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
       setTotpLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (recommendationHandledRef.current) return;
+    if (!user) return;
+    if (!recommendedEnrollment) return;
+
+    if (recommendedEnrollment === 'totp') {
+      if (totpFactors.length === 0 && totpStep === 'idle' && !totpLoading) {
+        recommendationHandledRef.current = true;
+        void startTotpEnrollment();
+      }
+    } else if (recommendedEnrollment === 'sms') {
+      if (phoneFactors.length === 0 && phoneStep === 'idle') {
+        recommendationHandledRef.current = true;
+        setError('');
+        setMessage('');
+        setPhoneStep('enter');
+        setPhoneNumber('');
+        setSmsCode('');
+        setVerificationId('');
+      }
+    }
+  }, [
+    recommendedEnrollment,
+    user,
+    totpFactors.length,
+    phoneFactors.length,
+    totpStep,
+    phoneStep,
+    startTotpEnrollment,
+    totpLoading,
+  ]);
 
   const sendCode = async (e: FormEvent) => {
     e.preventDefault();
@@ -676,11 +721,6 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
               >
                 {phoneFactors.length ? 'Change number' : 'Add number'}
               </button>
-              {factors.length > 0 && (
-                <button type="button" className="btn-secondary" onClick={disableMfa}>
-                  Disable all MFA
-                </button>
-              )}
             </div>
           )}
 

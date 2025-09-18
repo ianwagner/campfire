@@ -26,7 +26,15 @@ const SignUpStepper: React.FC = () => {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(false);
+  const [createdEmail, setCreatedEmail] = useState('');
   const navigate = useNavigate();
+
+  const handleMfaChoice = (method: 'totp' | 'sms') => {
+    navigate('/mfa-settings', {
+      state: { recommendedEnrollment: method, fromSignUp: true },
+    });
+  };
 
   const submitAccount = async (e: FormEvent) => {
     e.preventDefault();
@@ -54,7 +62,8 @@ const SignUpStepper: React.FC = () => {
       if (stepIndex < steps.length - 1) {
         setStepIndex(stepIndex + 1);
       } else {
-        navigate('/mfa-settings');
+        setAccountCreated(true);
+        setCreatedEmail(email.trim());
       }
     } catch (err: any) {
       const msg = (err?.message || '').replace('Firebase:', '').replace(/\(auth.*\)/, '').trim();
@@ -76,70 +85,97 @@ const SignUpStepper: React.FC = () => {
         ))}
       </ul>
       <div className="w-80">
-        {currentStep.id === 1 && (
-          <form onSubmit={submitAccount} className="space-y-4">
-            <div>
-              <label htmlFor="fullName" className="block mb-1 text-sm font-medium">
-                Full Name
-              </label>
-              <input
-                id="fullName"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full p-2 border rounded"
-                required
-              />
+        {accountCreated ? (
+          <div className="space-y-4 text-center">
+            <h2 className="text-xl font-semibold">Secure your account</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              We sent a verification email to {createdEmail || 'your email address'}. Choose how you want to set up multi-factor authentication.
+            </p>
+            <div className="space-y-2">
+              <button
+                type="button"
+                className="w-full btn-primary"
+                onClick={() => handleMfaChoice('totp')}
+              >
+                Use an authenticator app
+              </button>
+              <button
+                type="button"
+                className="w-full btn-secondary"
+                onClick={() => handleMfaChoice('sms')}
+              >
+                Use text message codes
+              </button>
             </div>
-            <div>
-              <label htmlFor="email" className="block mb-1 text-sm font-medium">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block mb-1 text-sm font-medium">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-2 border rounded"
-                required
-              />
-            </div>
-            <ErrorMessages messages={errors} />
-            <button type="submit" className="w-full btn-primary" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Account'}
-            </button>
-          </form>
-        )}
-        {currentStep.id === 2 && (
-          <div className="space-y-4">
-            <p>Plan selection coming soon</p>
-            <button type="button" className="w-full btn-primary" onClick={goNext}>
-              Next
-            </button>
           </div>
+        ) : (
+          <>
+            {currentStep.id === 1 && (
+              <form onSubmit={submitAccount} className="space-y-4">
+                <div>
+                  <label htmlFor="fullName" className="block mb-1 text-sm font-medium">
+                    Full Name
+                  </label>
+                  <input
+                    id="fullName"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="email" className="block mb-1 text-sm font-medium">
+                    Email
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="password" className="block mb-1 text-sm font-medium">
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
+                <ErrorMessages messages={errors} />
+                <button type="submit" className="w-full btn-primary" disabled={loading}>
+                  {loading ? 'Creating...' : 'Create Account'}
+                </button>
+              </form>
+            )}
+            {currentStep.id === 2 && (
+              <div className="space-y-4">
+                <p>Plan selection coming soon</p>
+                <button type="button" className="w-full btn-primary" onClick={goNext}>
+                  Next
+                </button>
+              </div>
+            )}
+            {currentStep.id === 3 && (
+              <div className="space-y-4">
+                <p>Billing setup coming soon</p>
+                <button type="button" className="w-full btn-primary" onClick={goNext}>
+                  Next
+                </button>
+              </div>
+            )}
+            {currentStep.id === 4 && <p>Account created!</p>}
+          </>
         )}
-        {currentStep.id === 3 && (
-          <div className="space-y-4">
-            <p>Billing setup coming soon</p>
-            <button type="button" className="w-full btn-primary" onClick={goNext}>
-              Next
-            </button>
-          </div>
-        )}
-        {currentStep.id === 4 && <p>Account created!</p>}
       </div>
     </div>
   );
