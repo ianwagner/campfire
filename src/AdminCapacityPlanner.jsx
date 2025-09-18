@@ -1,174 +1,270 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Timestamp,
   collection,
+  getCountFromServer,
   getDocs,
-  doc,
-  getDoc,
-  setDoc,
-  serverTimestamp,
+  orderBy,
+  query,
+  where,
 } from 'firebase/firestore';
 import PageWrapper from './components/PageWrapper.jsx';
-import MonthSelector from './components/MonthSelector.jsx';
-import getMonthString from './utils/getMonthString.js';
 import { db } from './firebase/config';
 
+const DAYS_PER_WEEK = 7;
+const WEEKS_TO_RENDER = 8;
+
+const dayKey = (date) => date.toISOString().slice(0, 10);
+
+const addDays = (input, amount) => {
+  const date = new Date(input);
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + amount);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const startOfWeek = (input) => {
+  const date = new Date(input);
+  date.setHours(12, 0, 0, 0);
+  const day = date.getDay();
+  const diff = (day + 6) % 7;
+  date.setDate(date.getDate() - diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const endOfWeek = (input) => {
+  const start = startOfWeek(input);
+  start.setDate(start.getDate() + 6);
+  start.setHours(23, 59, 59, 999);
+  return start;
+};
+
+const formatWeekTitle = (weekStart) => {
+  const options = { month: 'short', day: 'numeric', year: 'numeric' };
+  return `Week of ${weekStart.toLocaleDateString(undefined, options)}`;
+};
+
 const AdminCapacityPlanner = () => {
-  const [month, setMonth] = useState(getMonthString());
-  const [brands, setBrands] = useState([]); // {code}
-  const [dragCode, setDragCode] = useState(null);
-  const [cells, setCells] = useState({}); // { 'week-day': [ {code, value} ] }
-  const [saving, setSaving] = useState(false);
+  const [startWeekMs, setStartWeekMs] = useState(() => startOfWeek(new Date()).getTime());
+  const [groupsByDay, setGroupsByDay] = useState({});
+  const [loading, setLoading] = useState(true);
+  const scrollRef = useRef(null);
+
+  const weeks = useMemo(() => {
+    const base = new Date(startWeekMs);
+    return Array.from({ length: WEEKS_TO_RENDER }, (_, index) =>
+      addDays(base, index * DAYS_PER_WEEK)
+    );
+  }, [startWeekMs]);
 
   useEffect(() => {
-    const load = async () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+    }
+  }, [startWeekMs]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchGroups = async () => {
+      setLoading(true);
       try {
-        const snap = await getDocs(collection(db, 'brands'));
-        const rows = snap.docs.map((d) => ({ code: d.data().code || d.id }));
-        setBrands(rows);
-        const saved = await getDoc(doc(db, 'capacity-planner', month));
-        setCells(saved.exists() ? saved.data().cells || {} : {});
+        const firstWeekStart = startOfWeek(new Date(startWeekMs));
+        const lastWeekStart = addDays(firstWeekStart, (WEEKS_TO_RENDER - 1) * DAYS_PER_WEEK);
+        const rangeStart = firstWeekStart;
+        const rangeEnd = endOfWeek(lastWeekStart);
+
+        const q = query(
+          collection(db, 'adGroups'),
+          where('dueDate', '>=', Timestamp.fromDate(rangeStart)),
+          where('dueDate', '<=', Timestamp.fromDate(rangeEnd)),
+          orderBy('dueDate', 'asc')
+        );
+
+        const snap = await getDocs(q);
+
+        const groups = await Promise.all(
+          snap.docs.map(async (docSnap) => {
+            const data = docSnap.data();
+            if (!data?.dueDate) return null;
+            if (data.status === 'archived') return null;
+
+            const dueDate = data.dueDate.toDate
+              ? data.dueDate.toDate()
+              : new Date(data.dueDate);
+            if (Number.isNaN(dueDate?.getTime())) return null;
+
+            let adsCount = 0;
+            try {
+              const countSnap = await getCountFromServer(
+                collection(db, 'adGroups', docSnap.id, 'assets')
+              );
+              adsCount = countSnap.data().count || 0;
+            } catch (err) {
+              console.error('Failed to count ads for ad group', docSnap.id, err);
+            }
+
+            return {
+              id: docSnap.id,
+              name: data.name || data.projectName || docSnap.id,
+              adsCount,
+              dueDate,
+            };
+          })
+        );
+
+        if (cancelled) return;
+
+        const mapped = {};
+        groups
+          .filter(Boolean)
+          .forEach((group) => {
+            const key = dayKey(group.dueDate);
+            if (!mapped[key]) mapped[key] = [];
+            mapped[key].push(group);
+          });
+
+        Object.values(mapped).forEach((list) =>
+          list.sort((a, b) => a.name.localeCompare(b.name))
+        );
+
+        setGroupsByDay(mapped);
       } catch (err) {
-        console.error('Failed to load capacity planner', err);
-        setCells({});
+        console.error('Failed to load capacity planner data', err);
+        if (!cancelled) setGroupsByDay({});
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
-    load();
-  }, [month]);
 
-  const handleDragStart = (code) => setDragCode(code);
-  const allowDrop = (e) => e.preventDefault();
+    fetchGroups();
 
-  const handleDrop = (cellKey) => {
-    if (!dragCode) return;
-    const valStr = prompt('Enter number', '1');
-    const value = Number(valStr);
-    if (!valStr || Number.isNaN(value)) {
-      setDragCode(null);
-      return;
-    }
-    setCells((prev) => {
-      const blocks = prev[cellKey] || [];
-      return { ...prev, [cellKey]: [...blocks, { code: dragCode, value }] };
-    });
-    setDragCode(null);
+    return () => {
+      cancelled = true;
+    };
+  }, [startWeekMs]);
+
+  const handleShiftWeek = (delta) => {
+    setStartWeekMs((prev) => startOfWeek(addDays(prev, delta * DAYS_PER_WEEK)).getTime());
   };
 
-  const handleSave = async () => {
-    try {
-      setSaving(true);
-      await setDoc(
-        doc(db, 'capacity-planner', month),
-        { cells, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
-    } catch (err) {
-      console.error('Failed to save capacity planner', err);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const renderGrid = () => {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-    return (
-      <div className="grid grid-cols-6 gap-2">
-        <div />
-        {days.map((d) => (
-          <div key={d} className="text-center font-semibold">
-            {d}
-          </div>
-        ))}
-        {Array.from({ length: 4 }).map((_, week) => (
-          <React.Fragment key={week}>
-            <div className="flex items-center font-semibold">Week {week + 1}</div>
-            {Array.from({ length: 5 }).map((_, day) => {
-              const key = `${week}-${day}`;
-              const blocks = cells[key] || [];
-              return (
-                <div
-                  key={key}
-                  className="border h-24 p-1"
-                  onDragOver={allowDrop}
-                  onDrop={() => handleDrop(key)}
-                >
-                  <div className="space-y-1">
-                    {blocks.map((b, idx) => (
-                      <div key={idx} className="rounded bg-blue-200 p-1 text-xs">
-                        {b.code} ({b.value})
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </React.Fragment>
-        ))}
-      </div>
-    );
-  };
-
-  const renderTable = () => {
-    const tally = {};
-    Object.values(cells).forEach((blocks) => {
-      blocks.forEach((b) => {
-        tally[b.code] = (tally[b.code] || 0) + Number(b.value || 0);
-      });
-    });
-    const rows = Object.entries(tally);
-    if (rows.length === 0) return null;
-    return (
-      <table className="mt-4 w-full border">
-        <thead>
-          <tr className="bg-gray-100">
-            <th className="border p-2 text-left">Brand</th>
-            <th className="border p-2 text-left">Tally</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(([code, total]) => (
-            <tr key={code}>
-              <td className="border p-2">{code}</td>
-              <td className="border p-2">{total}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
+  const handleReset = () => {
+    setStartWeekMs(startOfWeek(new Date()).getTime());
   };
 
   return (
     <PageWrapper title="Capacity Planner">
-      <div className="mb-4 flex justify-between">
-        <MonthSelector value={month} onChange={setMonth} />
-        <button
-          onClick={handleSave}
-          className="btn-primary px-3 py-1"
-          disabled={saving}
-        >
-          {saving ? 'Saving...' : 'Save'}
-        </button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="btn-secondary px-3 py-1"
+            onClick={() => handleShiftWeek(-1)}
+          >
+            Previous Week
+          </button>
+          <button
+            type="button"
+            className="btn-secondary px-3 py-1"
+            onClick={() => handleShiftWeek(1)}
+          >
+            Next Week
+          </button>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <span>
+            {weeks.length > 0 && `${formatWeekTitle(weeks[0])} – ${formatWeekTitle(weeks[weeks.length - 1])}`}
+          </span>
+          <button
+            type="button"
+            className="btn-secondary px-3 py-1"
+            onClick={handleReset}
+          >
+            Jump to Current Week
+          </button>
+        </div>
       </div>
-      <div className="flex gap-4">
-        <div className="w-48">
-          <h2 className="mb-2 font-semibold">Brand Bank</h2>
-          <div className="flex flex-col gap-2">
-            {brands.map((b) => (
-              <div
-                key={b.code}
-                draggable
-                onDragStart={() => handleDragStart(b.code)}
-                className="cursor-move rounded bg-blue-300 p-2 text-center"
-              >
-                {b.code}
+      {loading && (
+        <div className="mb-4 text-sm text-gray-500">Loading capacity data…</div>
+      )}
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto pb-4 scroll-smooth snap-x snap-mandatory"
+      >
+        {weeks.map((weekStart) => {
+          const weekDays = Array.from({ length: DAYS_PER_WEEK }, (_, index) =>
+            addDays(weekStart, index)
+          );
+          const weekKey = dayKey(weekStart);
+          return (
+            <div
+              key={weekKey}
+              className="flex min-w-[840px] flex-col rounded-lg border border-gray-200 bg-white shadow-sm snap-start"
+            >
+              <div className="border-b px-4 py-2">
+                <h2 className="text-sm font-semibold text-gray-700">
+                  {formatWeekTitle(weekStart)}
+                </h2>
               </div>
-            ))}
-          </div>
-        </div>
-        <div className="flex-1 overflow-auto">
-          {renderGrid()}
-          {renderTable()}
-        </div>
+              <div className="grid grid-cols-7 gap-2 border-b bg-gray-50 px-4 py-3">
+                {weekDays.map((day) => (
+                  <div key={`${weekKey}-${day.getDate()}`} className="text-center">
+                    <div className="text-sm font-semibold text-gray-700">
+                      {day.toLocaleDateString(undefined, { weekday: 'short' })}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {day.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-3 px-4 py-4">
+                {weekDays.map((day) => {
+                  const key = dayKey(day);
+                  const dayGroups = groupsByDay[key] || [];
+                  const totalAds = dayGroups.reduce((sum, group) => sum + (group.adsCount || 0), 0);
+                  return (
+                    <div
+                      key={`${weekKey}-${key}`}
+                      className="flex min-h-[220px] flex-col rounded-lg border border-gray-200 bg-gray-50 p-2"
+                    >
+                      <div className="flex-1 space-y-2 overflow-auto">
+                        {dayGroups.length === 0 ? (
+                          <div className="text-xs text-gray-500">No ad groups due</div>
+                        ) : (
+                          dayGroups.map((group) => (
+                            <div
+                              key={group.id}
+                              className="rounded border border-blue-200 bg-blue-50 p-2 text-xs shadow-sm"
+                            >
+                              <div className="font-semibold text-gray-800">
+                                {group.name}
+                              </div>
+                              <div className="mt-1 text-[0.7rem] uppercase tracking-wide text-blue-700">
+                                {group.adsCount} {group.adsCount === 1 ? 'ad' : 'ads'}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <div className="pt-2 text-right text-xs font-semibold text-gray-700">
+                        {totalAds} total {totalAds === 1 ? 'ad' : 'ads'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
+      {Object.keys(groupsByDay).length === 0 && !loading && (
+        <div className="mt-4 text-sm text-gray-500">
+          No ad groups found for the selected weeks.
+        </div>
+      )}
     </PageWrapper>
   );
 };
