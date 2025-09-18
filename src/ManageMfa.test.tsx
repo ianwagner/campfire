@@ -3,6 +3,10 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ManageMfa from './ManageMfa';
 
+jest.mock('qrcode', () => ({
+  toDataURL: jest.fn(() => Promise.resolve('data:image/png;base64,QR')),
+}));
+
 jest.mock('./firebase/config', () => ({
   auth: { currentUser: null },
 }));
@@ -12,7 +16,7 @@ const mockTotpSecret = {
   codeLength: 6,
   codeIntervalSeconds: 30,
   enrollmentCompletionDeadline: new Date('2024-01-01T00:00:00Z').toISOString(),
-  generateQrCodeUrl: jest.fn(() => 'data:image/png;base64,QR'),
+  generateQrCodeUrl: jest.fn(() => 'otpauth://totp/Campfire?secret=SECRETKEY'),
 };
 
 const mockVerifyPhoneNumber = jest.fn(() => Promise.resolve('verification-id'));
