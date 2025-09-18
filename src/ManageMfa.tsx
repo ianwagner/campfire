@@ -19,6 +19,7 @@ import {
 import type { User } from 'firebase/auth';
 import { auth } from './firebase/config';
 import { useNavigate } from 'react-router-dom';
+import { toDataURL } from 'qrcode';
 
 interface ManageMfaProps {
   user: User | null;
@@ -41,6 +42,9 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
   const [totpDeviceName, setTotpDeviceName] = useState<string>('');
   const [totpLoading, setTotpLoading] = useState<boolean>(false);
   const [totpStep, setTotpStep] = useState<'idle' | 'verify'>('idle');
+  const [totpQrCodeDataUrl, setTotpQrCodeDataUrl] = useState<string>('');
+  const [totpQrCodePending, setTotpQrCodePending] = useState<boolean>(false);
+  const [totpQrCodeError, setTotpQrCodeError] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [signInPreference, setSignInPreference] = useState<string>('');
@@ -106,6 +110,58 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
       // ignore storage errors
     }
   }, [preferenceStorageKey, signInPreference]);
+
+  useEffect(() => {
+    if (!totpSecret) {
+      setTotpQrCodeDataUrl('');
+      setTotpQrCodeError('');
+      setTotpQrCodePending(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const generateQrCode = async () => {
+      setTotpQrCodePending(true);
+      setTotpQrCodeError('');
+      try {
+        const accountName = user?.email ?? activeUser?.email ?? 'Campfire';
+        const otpauthUrl = totpSecret.generateQrCodeUrl(accountName, 'Campfire');
+        const dataUrl = await toDataURL(otpauthUrl, {
+          margin: 1,
+          scale: 6,
+          errorCorrectionLevel: 'M',
+          color: {
+            dark: '#0f172a',
+            light: '#ffffff',
+          },
+        });
+
+        if (!cancelled) {
+          setTotpQrCodeDataUrl(dataUrl);
+        }
+      } catch (err) {
+        console.error('Failed to generate authenticator QR code', err);
+        if (!cancelled) {
+          setTotpQrCodeDataUrl('');
+          setTotpQrCodeError(
+            'Unable to generate QR code. Enter the setup key manually.'
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setTotpQrCodePending(false);
+        }
+      }
+    };
+
+    setTotpQrCodeDataUrl('');
+    void generateQrCode();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [totpSecret, user?.email, activeUser?.email]);
 
   const refreshFactors = async () => {
     const current = auth.currentUser ?? user;
@@ -371,16 +427,6 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
     ? maskPhoneNumber((phoneFactors[0] as any).phoneNumber || '') || 'Enrolled'
     : 'Not set up';
 
-  const totpQrCodeUrl = useMemo(() => {
-    if (!totpSecret) return '';
-    try {
-      const accountName = user?.email ?? activeUser?.email ?? 'Campfire';
-      return totpSecret.generateQrCodeUrl(accountName, 'Campfire');
-    } catch {
-      return '';
-    }
-  }, [totpSecret, user?.email, activeUser?.email]);
-
   const totpCodeLength = totpSecret?.codeLength ?? 6;
   const phoneInputId = 'mfa-phone-number';
   const smsCodeId = 'mfa-sms-code';
@@ -388,7 +434,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
   const totpCodeId = 'mfa-totp-code';
 
   return (
-    <div className="flex justify-center p-6 text-gray-900 dark:text-gray-100">
+    <div className="flex justify-center p-6 text-gray-900 dark:text-[var(--dark-text)]">
       <div className="w-full max-w-3xl space-y-6">
         <div>
           <h1 className="text-3xl font-semibold">Multi-Factor Authentication</h1>
@@ -407,15 +453,15 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
           <div
             className={`rounded-md border px-4 py-3 text-sm ${
               error
-                ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-950 dark:text-red-200'
-                : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-200'
+                ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/60 dark:bg-red-500/10 dark:text-red-200'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/60 dark:bg-emerald-500/10 dark:text-emerald-200'
             }`}
           >
             {error || message}
           </div>
         )}
 
-        <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-xl font-semibold">Authenticator App (TOTP)</h2>
@@ -423,7 +469,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
                 Use an authenticator app (like Google Authenticator, 1Password, or Authy) to generate verification codes.
               </p>
             </div>
-            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-slate-800 dark:text-gray-200">
+            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-[var(--dark-sidebar-hover)] dark:text-[var(--dark-text)]">
               Status: {totpStatusLabel}
             </span>
           </div>
@@ -433,7 +479,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
               {totpFactors.map((factor) => (
                 <li
                   key={factor.uid}
-                  className="flex flex-col gap-1 rounded-md border border-gray-100 bg-gray-50 p-3 md:flex-row md:items-center md:justify-between dark:border-slate-700 dark:bg-slate-900"
+                  className="flex flex-col gap-1 rounded-md border border-gray-100 bg-gray-50 p-3 md:flex-row md:items-center md:justify-between dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
                 >
                   <div>
                     <p className="font-medium">
@@ -471,26 +517,30 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
           )}
 
           {totpStep === 'verify' && totpSecret && (
-            <div className="mt-6 space-y-4 rounded-md border border-indigo-100 bg-indigo-50/60 p-4 text-sm text-gray-700 dark:border-indigo-500/60 dark:bg-slate-900 dark:text-gray-100">
+            <div className="mt-6 space-y-4 rounded-md border border-indigo-100 bg-indigo-50/60 p-4 text-sm text-gray-700 dark:border-indigo-500/40 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
               <p className="font-medium">
                 Scan this QR code with your authenticator app or enter the setup key manually.
               </p>
               <div className="flex flex-col gap-6 md:flex-row md:items-start">
-                {totpQrCodeUrl ? (
+                {totpQrCodeDataUrl ? (
                   <img
-                    src={totpQrCodeUrl}
+                    src={totpQrCodeDataUrl}
                     alt="Authenticator app QR code"
-                    className="h-40 w-40 rounded-md border border-white shadow dark:border-slate-700"
+                    className="h-40 w-40 rounded-md border border-white shadow-sm dark:border-[var(--border-color-default)]"
                   />
                 ) : (
-                  <div className="flex h-40 w-40 items-center justify-center rounded-md border border-dashed border-gray-400 bg-white text-center text-xs text-gray-500 dark:border-slate-600 dark:bg-slate-900 dark:text-gray-300">
-                    QR code unavailable
+                  <div className="flex h-40 w-40 items-center justify-center rounded-md border border-dashed border-gray-400 bg-white text-center text-xs text-gray-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-300">
+                    {totpQrCodeError
+                      ? totpQrCodeError
+                      : totpQrCodePending
+                      ? 'Generating QR code…'
+                      : 'QR code unavailable'}
                   </div>
                 )}
                 <div className="space-y-3">
                   <div>
                     <p className="text-xs uppercase text-gray-500 dark:text-gray-400">Setup key</p>
-                    <code className="mt-1 inline-block rounded bg-white px-2 py-1 text-sm font-semibold tracking-wider text-gray-800 shadow dark:bg-slate-900 dark:text-gray-100">
+                    <code className="mt-1 inline-block rounded bg-white px-2 py-1 text-sm font-semibold tracking-wider text-gray-800 shadow-sm dark:bg-[var(--dark-sidebar-hover)] dark:text-[var(--dark-text)]">
                       {totpSecret.secretKey}
                     </code>
                   </div>
@@ -520,7 +570,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
                     value={totpDeviceName}
                     onChange={(event) => setTotpDeviceName(event.target.value)}
                     id={totpDeviceNameId}
-                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-600 dark:bg-slate-900 dark:text-gray-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-500/40"
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)] dark:focus:border-indigo-300 dark:focus:ring-indigo-500/40"
                     placeholder="e.g. Personal phone"
                   />
                 </div>
@@ -542,7 +592,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
                       )
                     }
                     id={totpCodeId}
-                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-600 dark:bg-slate-900 dark:text-gray-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-500/40"
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)] dark:focus:border-indigo-300 dark:focus:ring-indigo-500/40"
                     required
                   />
                 </div>
@@ -568,7 +618,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
           )}
         </section>
 
-        <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-xl font-semibold">Phone (SMS)</h2>
@@ -576,7 +626,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
                 Receive verification codes by text message.
               </p>
             </div>
-            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-slate-800 dark:text-gray-200">
+            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-[var(--dark-sidebar-hover)] dark:text-[var(--dark-text)]">
               Status: {phoneStatusLabel}
             </span>
           </div>
@@ -586,7 +636,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
               {phoneFactors.map((factor) => (
                 <div
                   key={factor.uid}
-                  className="flex flex-col gap-1 rounded-md border border-gray-100 bg-gray-50 p-3 md:flex-row md:items-center md:justify-between dark:border-slate-700 dark:bg-slate-900"
+                  className="flex flex-col gap-1 rounded-md border border-gray-100 bg-gray-50 p-3 md:flex-row md:items-center md:justify-between dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
                 >
                   <div>
                     <p className="font-medium">
@@ -637,7 +687,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
           {phoneStep === 'enter' && (
             <form
               onSubmit={sendCode}
-              className="mt-6 space-y-4 rounded-md border border-gray-100 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-900"
+              className="mt-6 space-y-4 rounded-md border border-gray-100 bg-gray-50 p-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
             >
               <div>
                 <label
@@ -651,7 +701,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(formatPhoneNumber(e.target.value))}
                   id={phoneInputId}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-600 dark:bg-slate-900 dark:text-gray-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-500/40"
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)] dark:focus:border-indigo-300 dark:focus:ring-indigo-500/40"
                   placeholder="+15555555555"
                   required
                 />
@@ -679,7 +729,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
           {phoneStep === 'verify' && (
             <form
               onSubmit={verifyCode}
-              className="mt-6 space-y-4 rounded-md border border-gray-100 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-900"
+              className="mt-6 space-y-4 rounded-md border border-gray-100 bg-gray-50 p-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
             >
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 Enter the 6-digit code we sent to {phoneNumber}.
@@ -698,7 +748,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
                   value={smsCode}
                   onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   id={smsCodeId}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-600 dark:bg-slate-900 dark:text-gray-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-500/40"
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)] dark:focus:border-indigo-300 dark:focus:ring-indigo-500/40"
                   maxLength={6}
                   required
                 />
@@ -725,7 +775,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
         </section>
 
         {factors.length > 1 && (
-          <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
             <h2 className="text-xl font-semibold">Sign-in preference</h2>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
               Choose which factor you prefer to use first when signing in. You can always switch during authentication.
@@ -735,7 +785,7 @@ const ManageMfa: React.FC<ManageMfaProps> = ({ user, role }) => {
                 Default prompt
               </label>
               <select
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-600 dark:bg-slate-900 dark:text-gray-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-500/40"
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)] dark:focus:border-indigo-300 dark:focus:ring-indigo-500/40"
                 value={signInPreference}
                 onChange={(event) => setSignInPreference(event.target.value)}
               >
