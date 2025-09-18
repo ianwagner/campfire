@@ -221,6 +221,12 @@
   .bg-approve-10 {
     background-color: var(--approve-color-10);
   }
+  .bg-reject-10 {
+    background-color: var(--reject-color-10);
+  }
+  .bg-edit-10 {
+    background-color: var(--edit-color-10);
+  }
   .border-accent {
     border-color: var(--accent-color);
   }
