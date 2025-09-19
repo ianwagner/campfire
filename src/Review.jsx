@@ -350,6 +350,10 @@ const Review = forwardRef(
   const [expandedRequests, setExpandedRequests] = useState({});
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
+  const [isFinalized, setIsFinalized] = useState(false);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [finalizeLoading, setFinalizeLoading] = useState(false);
+  const [isStatusBarPinned, setIsStatusBarPinned] = useState(false);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -358,6 +362,7 @@ const Review = forwardRef(
   const advancedRef = useRef(false);
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
+  const statusBarRef = useRef(null);
   const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
@@ -367,6 +372,8 @@ const Review = forwardRef(
   const { agency } = useAgencyTheme(agencyId);
   const { settings } = useSiteSettings(false);
 
+  const editingLocked = isFinalized || finalizeLoading;
+
   useEffect(() => {
     currentIndexRef.current = currentIndex;
   }, [currentIndex]);
@@ -374,14 +381,33 @@ const Review = forwardRef(
   useEffect(() => {
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
-
-
-
   useImperativeHandle(ref, () => ({
     openGallery: () => setShowGallery(true),
     openCopy: () => setShowCopyModal(true),
   }));
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!statusBarRef.current) return;
+      const rect = statusBarRef.current.getBoundingClientRect();
+      setIsStatusBarPinned(rect.top <= 12);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isFinalized) return;
+    setShowEditModal(false);
+    setPendingResponseContext(null);
+  }, [isFinalized]);
+
   const canSubmitEdit = useMemo(() => {
+    if (editingLocked) return false;
     const trimmedComment = comment.trim();
     const trimmedCopy = editCopy.trim();
     const trimmedOrig = (origCopy || '').trim();
@@ -395,7 +421,7 @@ const Review = forwardRef(
       trimmedComment.length > 0 ||
       (Boolean(trimmedCopy) && trimmedCopy !== trimmedOrig)
     );
-  }, [comment, editCopy, origCopy, editModalMode]);
+  }, [comment, editCopy, origCopy, editModalMode, editingLocked]);
 
   const copyChanges = useMemo(() => {
     const clean = (arr) =>
@@ -1076,6 +1102,16 @@ useEffect(() => {
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
     currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
+  const adGroupTitle = useMemo(() => {
+    if (reviewAds && reviewAds.length > 0) {
+      const firstNamed = reviewAds.find((ad) => ad?.groupName);
+      if (firstNamed?.groupName) {
+        return firstNamed.groupName;
+      }
+    }
+    if (groupName) return groupName;
+    return 'Ad Group';
+  }, [reviewAds, groupName]);
   const statusResponse = useMemo(() => {
     if (!currentAd) return null;
     const { status } = currentAd;
@@ -1210,6 +1246,7 @@ useEffect(() => {
   }, [displayAd?.adGroupId, displayAd?.recipeCode, displayAd?.filename]);
 
   const handleTouchStart = (e) => {
+    if (editingLocked) return;
     // allow swiping even while submitting a previous response
     if (showSizes || showEditModal || showNoteInput || showStreakModal)
       return;
@@ -1226,6 +1263,7 @@ useEffect(() => {
   };
 
   const handleTouchMove = (e) => {
+    if (editingLocked) return;
     if (!dragging) return;
     const touch = e.touches[0];
     const dx = touch.clientX - touchStartX.current;
@@ -1239,6 +1277,11 @@ useEffect(() => {
   };
 
   const handleTouchEnd = () => {
+    if (editingLocked) {
+      setDragging(false);
+      setSwipeX(0);
+      return;
+    }
     if (!dragging) return;
     debugLog('Touch end');
     const dx = touchEndX.current - touchStartX.current;
@@ -1388,6 +1431,90 @@ useEffect(() => {
     return map;
   }, [reviewAds, allAds]);
 
+  const getLatestStatusAssets = useCallback(
+    (ad, index) => {
+      if (!ad) return [];
+      const cardKey = getAdKey(ad, index);
+      const groups = versionGroupsByAd[cardKey] || [[ad]];
+      const latestAssets = groups[0] || [ad];
+      const statusAssetsFiltered = latestAssets.filter(
+        (asset) => asset && asset.status !== 'archived' && isSameAdUnit(asset, ad),
+      );
+      return statusAssetsFiltered.length > 0 ? statusAssetsFiltered : [ad];
+    },
+    [versionGroupsByAd],
+  );
+
+  const resolveStatusForAd = useCallback(
+    (ad, index) => {
+      if (!ad) return 'pending';
+      const assets = getLatestStatusAssets(ad, index);
+      if (
+        assets.some(
+          (asset) => asset?.status === 'approved' || asset?.status === 'done',
+        )
+      ) {
+        return 'approved';
+      }
+      if (assets.some((asset) => asset?.status === 'rejected')) {
+        return 'rejected';
+      }
+      if (
+        assets.some((asset) =>
+          ['edit_requested', 'edit', 'needs_edits'].includes(asset?.status),
+        )
+      ) {
+        return 'edit_requested';
+      }
+      const fallback = ad.status;
+      if (fallback === 'approved' || fallback === 'done') return 'approved';
+      if (fallback === 'rejected') return 'rejected';
+      if (
+        ['edit_requested', 'edit', 'needs_edits'].includes(
+          fallback || '',
+        )
+      ) {
+        return 'edit_requested';
+      }
+      return 'pending';
+    },
+    [getLatestStatusAssets],
+  );
+
+  const statusSummary = useMemo(() => {
+    const summary = {
+      pending: 0,
+      approved: 0,
+      edit_requested: 0,
+      rejected: 0,
+    };
+    reviewAds.forEach((ad, index) => {
+      if (!ad || ad.status === 'archived') return;
+      const status = resolveStatusForAd(ad, index);
+      if (typeof summary[status] === 'number') {
+        summary[status] += 1;
+      } else {
+        summary.pending += 1;
+      }
+    });
+    return summary;
+  }, [reviewAds, resolveStatusForAd]);
+
+  const pendingCount = statusSummary.pending || 0;
+  const approvedCount = statusSummary.approved || 0;
+  const editRequestedCount = statusSummary.edit_requested || 0;
+  const rejectedCount = statusSummary.rejected || 0;
+  const finalizeStatusLabel = isFinalized ? 'Review Finalized' : 'Review in Progress';
+  const statusCardItems = useMemo(
+    () => [
+      { label: 'Pending', value: pendingCount },
+      { label: 'Approved', value: approvedCount },
+      { label: 'Edit Requested', value: editRequestedCount },
+      { label: 'Rejected', value: rejectedCount },
+    ],
+    [pendingCount, approvedCount, editRequestedCount, rejectedCount],
+  );
+
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
     // Drop preloaded images that are behind the current index
@@ -1410,6 +1537,7 @@ useEffect(() => {
     index = currentIndex,
     { mode = 'all', initialComment = '', initialCopy } = {},
   ) => {
+    if (editingLocked) return;
     setCurrentIndex(index);
     setEditModalMode(mode);
     setComment(initialComment);
@@ -1875,6 +2003,50 @@ useEffect(() => {
     }
   };
 
+  const approveAllPendingAds = async () => {
+    if (finalizeLoading) return;
+    const pendingEntries = reviewAds
+      .map((ad, index) => ({ ad, index }))
+      .filter(({ ad, index }) => resolveStatusForAd(ad, index) === 'pending');
+    if (pendingEntries.length === 0) {
+      setIsFinalized(true);
+      setShowFinalizeModal(false);
+      return;
+    }
+    setFinalizeLoading(true);
+    try {
+      for (const { ad, index } of pendingEntries) {
+        const assets = getLatestStatusAssets(ad, index);
+        await submitResponse('approve', {
+          targetAd: ad,
+          targetAssets: assets,
+          targetIndex: index,
+          skipAdvance: true,
+        });
+      }
+      setIsFinalized(true);
+      setShowFinalizeModal(false);
+    } catch (err) {
+      console.error('Failed to approve pending ads during finalize', err);
+    } finally {
+      setFinalizeLoading(false);
+    }
+  };
+
+  const handleFinalizeClick = () => {
+    if (isFinalized || finalizeLoading) return;
+    if (pendingCount > 0) {
+      setShowFinalizeModal(true);
+      return;
+    }
+    setIsFinalized(true);
+  };
+
+  const handleFinalizeCancel = () => {
+    if (finalizeLoading) return;
+    setShowFinalizeModal(false);
+  };
+
   const submitNote = async () => {
     if (!currentAd?.adGroupId) {
       setShowNoteInput(false);
@@ -2127,6 +2299,36 @@ useEffect(() => {
           </div>
         </div>
       )}
+      {showFinalizeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 shadow-xl dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+              Finalize Review
+            </h1>
+            <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+              Some ads are still pending. Would you like to mark them as approved?
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={handleFinalizeCancel}
+                disabled={finalizeLoading}
+                className="inline-flex items-center justify-center rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-400 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:border-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={approveAllPendingAds}
+                disabled={finalizeLoading}
+                className="inline-flex items-center justify-center rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {finalizeLoading ? 'Approving…' : 'Approve pending ads.'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
         <div className="flex flex-col items-center">
           <div className="relative flex flex-col items-center w-fit mx-auto">
@@ -2140,6 +2342,85 @@ useEffect(() => {
               className="mb-2 max-h-16 w-auto"
             />
           )}
+          <div className="mt-4 w-full px-4 sm:px-6 lg:px-8">
+            <div
+              ref={statusBarRef}
+              className={`sticky top-0 z-30 flex w-full justify-center transition-all duration-300 ${
+                isStatusBarPinned ? 'pt-2' : 'pt-0'
+              }`}
+            >
+              <div
+                className={`w-full max-w-5xl sm:max-w-6xl rounded-3xl border border-gray-200 shadow-lg backdrop-blur transition-opacity dark:border-[var(--border-color-default)] ${
+                  isStatusBarPinned
+                    ? 'bg-white/80 dark:bg-[var(--dark-sidebar-bg)]/80 opacity-90 hover:opacity-100'
+                    : 'bg-white dark:bg-[var(--dark-sidebar-bg)] opacity-100'
+                }`}
+              >
+                <div className="flex flex-col gap-4 p-4 sm:p-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                        Ad Group
+                      </p>
+                      <h2
+                        className="truncate text-xl font-semibold text-gray-900 dark:text-[var(--dark-text)] sm:text-2xl"
+                        title={adGroupTitle}
+                      >
+                        {adGroupTitle}
+                      </h2>
+                    </div>
+                    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
+                      <div className="text-left sm:text-right">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                          External Status
+                        </p>
+                        <p
+                          className={`text-sm font-semibold ${
+                            isFinalized
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-indigo-600 dark:text-indigo-400'
+                          }`}
+                        >
+                          {finalizeStatusLabel}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleFinalizeClick}
+                        disabled={isFinalized || finalizeLoading}
+                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                          isFinalized
+                            ? 'border-emerald-500 text-emerald-600 dark:border-emerald-400 dark:text-emerald-300'
+                            : 'border-gray-300 text-gray-700 hover:border-indigo-500 hover:text-indigo-600 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:border-indigo-400 dark:hover:text-indigo-300'
+                        }`}
+                      >
+                        {finalizeLoading
+                          ? 'Finalizing…'
+                          : isFinalized
+                          ? 'Review Finalized'
+                          : 'Finalize Review'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    {statusCardItems.map(({ label, value }) => (
+                      <div
+                        key={label}
+                        className="rounded-2xl border border-gray-200/80 bg-white/80 px-4 py-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
+                      >
+                        <span className="block text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                          {value}
+                        </span>
+                        <span className="mt-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          {label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         {/* Gallery view removed */}
         {/* Show exit button even during change review */}
         <div className="relative w-full max-w-md mb-2.5 flex justify-center">
@@ -2282,6 +2563,7 @@ useEffect(() => {
                     'Ad Unit';
                   const selectId = `ad-status-${cardKey}`;
                   const handleSelectChange = async (event) => {
+                    if (editingLocked) return;
                     const value = event.target.value;
                     if (value === 'pending') {
                       setManualStatus((prev) => {
@@ -2412,7 +2694,7 @@ useEffect(() => {
                                 className="min-w-[160px]"
                                 value={statusValue}
                                 onChange={handleSelectChange}
-                                disabled={submitting}
+                                disabled={submitting || editingLocked}
                               >
                                 {statusOptions.map((option) => (
                                   <option key={option.value} value={option.value}>
@@ -2442,8 +2724,10 @@ useEffect(() => {
                             <div className="mb-3 flex flex-wrap items-center gap-2">
                               <button
                                 type="button"
-                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                disabled={editingLocked}
                                 onClick={() => {
+                                  if (editingLocked) return;
                                   setManualStatus((prev) => ({
                                     ...prev,
                                     [cardKey]: 'edit',
@@ -2468,8 +2752,10 @@ useEffect(() => {
                               </button>
                               <button
                                 type="button"
-                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                disabled={editingLocked}
                                 onClick={() => {
+                                  if (editingLocked) return;
                                   setManualStatus((prev) => ({
                                     ...prev,
                                     [cardKey]: 'edit',
@@ -2704,15 +2990,16 @@ useEffect(() => {
             }
             setPendingResponseContext(null);
           }}
-          onSubmit={() =>
+          onSubmit={() => {
+            if (editingLocked) return;
             submitResponse('edit', {
               targetAd: pendingResponseContext?.ad,
               targetAssets: pendingResponseContext?.assets,
               targetIndex: pendingResponseContext?.index ?? currentIndex,
               skipAdvance: reviewVersion === 2,
-            })
-          }
-          submitting={submitting}
+            });
+          }}
+          submitting={submitting || editingLocked}
         />
       )}
       {versionModal && (
