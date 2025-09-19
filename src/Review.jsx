@@ -9,7 +9,15 @@ import React, {
   forwardRef,
   useCallback,
 } from 'react';
-import { FiX, FiGrid, FiCheck, FiType, FiMessageSquare } from 'react-icons/fi';
+import {
+  FiX,
+  FiGrid,
+  FiCheck,
+  FiType,
+  FiMessageSquare,
+  FiPlus,
+  FiEdit3,
+} from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
   collection,
@@ -286,6 +294,7 @@ const Review = forwardRef(
   const [showEditModal, setShowEditModal] = useState(false);
   const [editCopy, setEditCopy] = useState('');
   const [origCopy, setOrigCopy] = useState('');
+  const [editModalMode, setEditModalMode] = useState('all');
   const [clientNote, setClientNote] = useState('');
   const [noteSubmitting, setNoteSubmitting] = useState(false);
   const [rejectionCount, setRejectionCount] = useState(0);
@@ -357,12 +366,21 @@ const Review = forwardRef(
     openGallery: () => setShowGallery(true),
     openCopy: () => setShowCopyModal(true),
   }));
-  const canSubmitEdit = useMemo(
-    () =>
-      comment.trim().length > 0 ||
-      (editCopy.trim() && editCopy.trim() !== origCopy.trim()),
-    [comment, editCopy, origCopy],
-  );
+  const canSubmitEdit = useMemo(() => {
+    const trimmedComment = comment.trim();
+    const trimmedCopy = editCopy.trim();
+    const trimmedOrig = (origCopy || '').trim();
+    if (editModalMode === 'note') {
+      return trimmedComment.length > 0;
+    }
+    if (editModalMode === 'copy') {
+      return Boolean(trimmedCopy) && trimmedCopy !== trimmedOrig;
+    }
+    return (
+      trimmedComment.length > 0 ||
+      (Boolean(trimmedCopy) && trimmedCopy !== trimmedOrig)
+    );
+  }, [comment, editCopy, origCopy, editModalMode]);
 
   const copyChanges = useMemo(() => {
     const clean = (arr) =>
@@ -1381,22 +1399,42 @@ useEffect(() => {
     preloads.current = preloads.current.slice(-BUFFER_COUNT);
   }, [currentIndex, reviewAds, isMobile]);
 
-  const openEditRequest = async (targetAd = currentAd, index = currentIndex) => {
+  const openEditRequest = async (
+    targetAd = currentAd,
+    index = currentIndex,
+    { mode = 'all', initialComment = '', initialCopy } = {},
+  ) => {
     setCurrentIndex(index);
+    setEditModalMode(mode);
+    setComment(initialComment);
     setShowEditModal(true);
-    if (!targetAd?.adGroupId) return;
+    if (!targetAd?.adGroupId) {
+      if (typeof initialCopy === 'string') {
+        setEditCopy(initialCopy);
+      }
+      setOrigCopy('');
+      return;
+    }
     const recipeId =
       targetAd.recipeCode ||
       parseAdFilename(targetAd.filename || '').recipeCode ||
       currentRecipe;
-    if (!recipeId) return;
+    if (!recipeId) {
+      if (typeof initialCopy === 'string') {
+        setEditCopy(initialCopy);
+      }
+      setOrigCopy('');
+      return;
+    }
     try {
       const snap = await getDoc(
         doc(db, 'adGroups', targetAd.adGroupId, 'recipes', recipeId)
       );
       const data = snap.exists() ? snap.data() : null;
       const text = data ? data.latestCopy || data.copy || '' : '';
-      setEditCopy(text);
+      const resolvedCopy =
+        typeof initialCopy === 'string' ? initialCopy : text;
+      setEditCopy(resolvedCopy);
       setOrigCopy(text);
       setReviewAds((prev) =>
         prev.map((a) =>
@@ -1421,7 +1459,7 @@ useEffect(() => {
       );
     } catch (err) {
       console.error('Failed to load copy', err);
-      setEditCopy('');
+      setEditCopy(typeof initialCopy === 'string' ? initialCopy : '');
       setOrigCopy('');
     }
   };
@@ -1502,6 +1540,38 @@ useEffect(() => {
       parseAdFilename(targetAd.filename || '').recipeCode ||
       '';
     const targetKey = getAdKey(targetAd, targetIndex);
+    const existingComment =
+      (pendingResponseContext && pendingResponseContext.existingComment) || '';
+    const trimmedInputComment = comment.trim();
+    const formatComment = (note) => {
+      const trimmed = (note || '').trim();
+      if (!trimmed) return '';
+      const name =
+        reviewerName ||
+        user?.displayName ||
+        user?.email ||
+        user?.uid ||
+        'unknown';
+      const formatter = new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+      const timestamp = formatter.format(new Date());
+      return `${trimmed}\n\n— ${name} · ${timestamp}`;
+    };
+    let finalComment = existingComment;
+    if (responseType === 'edit') {
+      if (trimmedInputComment) {
+        const formatted = formatComment(trimmedInputComment);
+        if (editModalMode === 'note' && existingComment) {
+          finalComment = `${existingComment}\n\n${formatted}`;
+        } else {
+          finalComment = formatted;
+        }
+      }
+    } else {
+      finalComment = '';
+    }
 
     try {
       for (const asset of recipeAssets) {
@@ -1511,7 +1581,7 @@ useEffect(() => {
         const respObj = {
           adUrl: url,
           response: responseType,
-          comment: responseType === 'edit' ? comment : '',
+          comment: responseType === 'edit' ? finalComment : '',
           copyEdit: copyChanged ? editCopy : '',
           pass: responses[url] ? 'revisit' : 'initial',
           ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
@@ -1540,7 +1610,7 @@ useEffect(() => {
           );
           const updateData = {
             status: newStatus,
-            comment: responseType === 'edit' ? comment : '',
+            comment: responseType === 'edit' ? finalComment : '',
             copyEdit: copyChanged ? editCopy : '',
             lastUpdatedBy: user.uid,
             lastUpdatedAt: serverTimestamp(),
@@ -1564,7 +1634,9 @@ useEffect(() => {
                 status: newStatus,
                 updatedBy: name,
                 updatedAt: serverTimestamp(),
-                ...(responseType === 'edit' && comment ? { comment } : {}),
+                ...(responseType === 'edit' && finalComment
+                  ? { comment: finalComment }
+                  : {}),
                 ...(responseType === 'edit' && copyChanged
                   ? { copyEdit: editCopy, origCopy }
                   : {}),
@@ -1585,7 +1657,7 @@ useEffect(() => {
                 ? {
                     ...a,
                     status: newStatus,
-                    comment: responseType === 'edit' ? comment : '',
+                    comment: responseType === 'edit' ? finalComment : '',
                     copyEdit: copyChanged ? editCopy : '',
                     ...(responseType === 'approve'
                       ? { isResolved: true }
@@ -1604,7 +1676,7 @@ useEffect(() => {
                 ? {
                     ...a,
                     status: newStatus,
-                    comment: responseType === 'edit' ? comment : '',
+                    comment: responseType === 'edit' ? finalComment : '',
                     copyEdit: copyChanged ? editCopy : '',
                     ...(responseType === 'approve'
                       ? { isResolved: true }
@@ -1621,7 +1693,7 @@ useEffect(() => {
                 ? {
                     ...a,
                     status: newStatus,
-                    comment: responseType === 'edit' ? comment : '',
+                    comment: responseType === 'edit' ? finalComment : '',
                     copyEdit: copyChanged ? editCopy : '',
                     ...(responseType === 'approve'
                       ? { isResolved: true }
@@ -1732,7 +1804,9 @@ useEffect(() => {
                   user?.displayName ||
                   user?.uid ||
                   'unknown',
-                ...(responseType === 'edit' && comment ? { editComment: comment } : {}),
+                ...(responseType === 'edit' && finalComment
+                  ? { editComment: finalComment }
+                  : {}),
               }),
             },
             { merge: true }
@@ -1760,6 +1834,7 @@ useEffect(() => {
       setEditCopy('');
       setOrigCopy('');
       setShowEditModal(false);
+      setEditModalMode('all');
       setSubmitting(false);
       setPendingResponseContext((prev) => {
         if (!prev) return prev;
@@ -2171,6 +2246,26 @@ useEffect(() => {
                   const hasEditInfo = statusAssets.find(
                     (asset) => asset.comment || asset.copyEdit,
                   );
+                  const existingComment = hasEditInfo?.comment || '';
+                  const existingCopyEdit = hasEditInfo?.copyEdit || '';
+                  const resolvedExistingCopy =
+                    existingCopyEdit && existingCopyEdit.length > 0
+                      ? existingCopyEdit
+                      : undefined;
+                  const noteEntries = (() => {
+                    const rawComment = hasEditInfo?.comment;
+                    if (!rawComment) return [];
+                    const matches = Array.from(
+                      rawComment.matchAll(/(.*?)\n\n— ([^\n]+)(?:\n\n|$)/gs),
+                    );
+                    if (matches.length === 0) {
+                      return [{ body: rawComment, meta: '' }];
+                    }
+                    return matches.map((match) => ({
+                      body: match[1] || '',
+                      meta: match[2] ? `— ${match[2]}` : '',
+                    }));
+                  })();
                   const showEditButton = !!hasEditInfo || statusValue === 'edit';
                   const isExpanded = !!expandedRequests[cardKey];
                   const recipeLabel =
@@ -2195,8 +2290,14 @@ useEffect(() => {
                         assets: statusAssets,
                         index,
                         key: cardKey,
+                        existingComment,
+                        existingCopy: existingCopyEdit,
                       });
-                      openEditRequest(ad, index);
+                      openEditRequest(ad, index, {
+                        mode: 'all',
+                        initialComment: '',
+                        initialCopy: resolvedExistingCopy,
+                      });
                       return;
                     }
                     setManualStatus((prev) => {
@@ -2330,14 +2431,77 @@ useEffect(() => {
                         </div>
                         {showEditButton && isExpanded && (
                           <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                onClick={() => {
+                                  setManualStatus((prev) => ({
+                                    ...prev,
+                                    [cardKey]: 'edit',
+                                  }));
+                                  setPendingResponseContext({
+                                    ad,
+                                    assets: statusAssets,
+                                    index,
+                                    key: cardKey,
+                                    existingComment,
+                                    existingCopy: existingCopyEdit,
+                                  });
+                                  openEditRequest(ad, index, {
+                                    mode: 'note',
+                                    initialComment: '',
+                                    initialCopy: resolvedExistingCopy,
+                                  });
+                                }}
+                              >
+                                <FiPlus className="h-4 w-4" aria-hidden="true" />
+                                <span>Add note</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                onClick={() => {
+                                  setManualStatus((prev) => ({
+                                    ...prev,
+                                    [cardKey]: 'edit',
+                                  }));
+                                  setPendingResponseContext({
+                                    ad,
+                                    assets: statusAssets,
+                                    index,
+                                    key: cardKey,
+                                    existingComment,
+                                    existingCopy: existingCopyEdit,
+                                  });
+                                  openEditRequest(ad, index, {
+                                    mode: 'copy',
+                                    initialComment: '',
+                                    initialCopy: resolvedExistingCopy,
+                                  });
+                                }}
+                              >
+                                <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                                <span>Edit Copy</span>
+                              </button>
+                            </div>
                             {hasEditInfo?.comment && (
                               <div className="mb-3">
                                 <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
                                   Notes
                                 </h4>
-                                <p className="whitespace-pre-wrap leading-relaxed">
-                                  {hasEditInfo.comment}
-                                </p>
+                                {noteEntries.map((entry, noteIdx) => (
+                                  <div key={noteIdx} className="mb-2 last:mb-0">
+                                    <p className="whitespace-pre-wrap leading-relaxed">
+                                      {entry.body}
+                                    </p>
+                                    {entry.meta && (
+                                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        {entry.meta}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
                             )}
                             {hasEditInfo?.copyEdit && (
@@ -2513,6 +2677,7 @@ useEffect(() => {
 
       {showEditModal && (
         <EditRequestModal
+          mode={editModalMode}
           comment={comment}
           onCommentChange={setComment}
           editCopy={editCopy}
@@ -2521,6 +2686,7 @@ useEffect(() => {
           canSubmit={canSubmitEdit}
           onCancel={() => {
             setShowEditModal(false);
+            setEditModalMode('all');
             if (pendingResponseContext?.key) {
               setManualStatus((prev) => {
                 const next = { ...prev };
