@@ -2221,7 +2221,7 @@ useEffect(() => {
 
 
   return (
-    <>
+    <div className="relative flex flex-col items-center justify-center min-h-screen space-y-4">
       {showStreakModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded-xl shadow max-w-sm space-y-4 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
@@ -2329,8 +2329,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-      <div className="relative flex flex-col items-center justify-center min-h-screen space-y-4">
-        <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
+      <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
         <div className="flex flex-col items-center w-full">
           <div className="w-full px-4 sm:px-6 lg:px-8">
             <div className="relative mx-auto flex w-full max-w-5xl items-center justify-center py-4 sm:py-6">
@@ -2979,12 +2978,11 @@ useEffect(() => {
                   />
                 )
               ))}
-              </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
         </div>
       </div>
+
       {showEditModal && (
         <EditRequestModal
           mode={editModalMode}
@@ -3065,7 +3063,9 @@ useEffect(() => {
           submitting={feedbackSubmitting}
         />
       )}
-    </>
+      </div>
+    </div>
+    </div>
   );
 });
 
