@@ -60,27 +60,29 @@ const getAdUnitKey = (asset) => {
   const info = parseAdFilename(asset.filename || '');
   const recipe = asset.recipeCode || info.recipeCode || '';
   const adGroupId = asset.adGroupId || info.adGroupCode || '';
-  const rootId =
+  const aspect = asset.aspectRatio || info.aspectRatio || '';
+  let rootId =
     asset.parentAdId ||
     stripVersion(asset.filename || '') ||
     asset.assetId ||
     asset.adUrl ||
     asset.firebaseUrl ||
     '';
-  let identifier = recipe;
-  if (adGroupId) {
-    if (!identifier) {
-      identifier = rootId;
+
+  if (!asset.parentAdId && rootId && aspect) {
+    const suffix = `_${String(aspect).toLowerCase()}`;
+    const lowerRoot = rootId.toLowerCase();
+    if (lowerRoot.endsWith(suffix)) {
+      rootId = rootId.slice(0, -suffix.length);
     }
-  } else if (identifier) {
-    identifier = rootId && rootId !== identifier ? `${identifier}|${rootId}` : identifier;
-  } else {
-    identifier = rootId;
   }
-  if (!identifier && !adGroupId) {
-    return '';
-  }
-  return `${adGroupId}|${identifier}`;
+
+  const parts = [];
+  if (adGroupId) parts.push(adGroupId);
+  if (recipe) parts.push(recipe);
+  if (rootId) parts.push(rootId);
+
+  return parts.join('|');
 };
 
 const isSameAdUnit = (first, second) => {
