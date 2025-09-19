@@ -2330,23 +2330,55 @@ useEffect(() => {
         </div>
       )}
       <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
-        <div className="flex flex-col items-center">
-          <div className="relative flex flex-col items-center w-fit mx-auto">
-          {agencyId && (
-            <OptimizedImage
-              pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-              alt={`${agency.name || 'Agency'} logo`}
-              loading="eager"
-              cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
-              onLoad={() => setLogoReady(true)}
-              className="mb-2 max-h-16 w-auto"
-            />
-          )}
-          <div className="mt-6 w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col items-center w-full">
+          <div className="w-full px-4 sm:px-6 lg:px-8">
+            <div className="relative mx-auto flex w-full max-w-5xl items-center justify-center py-4 sm:py-6">
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-3">
+                <InfoTooltip text="exit review" placement="bottom">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      releaseLock();
+                      setStarted(false);
+                    }}
+                    aria-label="exit review"
+                    className="rounded-full bg-white/70 p-2 text-gray-500 shadow-sm transition hover:bg-white hover:text-black dark:bg-[var(--dark-sidebar-bg)]/70 dark:text-gray-300 dark:hover:text-white"
+                  >
+                    <FiX />
+                  </button>
+                </InfoTooltip>
+              </div>
+              {agencyId ? (
+                <OptimizedImage
+                  pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+                  alt={`${agency.name || 'Agency'} logo`}
+                  loading="eager"
+                  cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+                  onLoad={() => setLogoReady(true)}
+                  className="max-h-16 w-auto"
+                />
+              ) : (
+                <div className="h-12 min-h-[3rem]" />
+              )}
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2 sm:gap-3">
+                <InfoTooltip text="leave overall feedback" placement="bottom">
+                  <button
+                    type="button"
+                    aria-label="leave overall feedback"
+                    onClick={() => setShowFeedbackModal(true)}
+                    className="rounded-full bg-white/70 p-2 text-gray-500 shadow-sm transition hover:bg-white hover:text-black dark:bg-[var(--dark-sidebar-bg)]/70 dark:text-gray-300 dark:hover:text-white"
+                  >
+                    <FiMessageSquare />
+                  </button>
+                </InfoTooltip>
+              </div>
+            </div>
+          </div>
+          <div className="w-full px-4 sm:px-6 lg:px-8">
             <div
               ref={statusBarRef}
               className={`sticky top-0 z-30 flex w-full justify-center transition-all duration-300 ${
-                isStatusBarPinned ? 'pt-2' : 'pt-0'
+                isStatusBarPinned ? 'mt-0 pt-1' : 'mt-6 pt-0'
               }`}
             >
               <div
@@ -2358,20 +2390,20 @@ useEffect(() => {
               >
                 <div
                   className={`flex flex-col transition-all duration-300 ${
-                    isStatusBarPinned ? 'gap-3 p-4 sm:p-5' : 'gap-4 p-5 sm:p-7'
+                    isStatusBarPinned ? 'gap-3 p-3 sm:p-4' : 'gap-6 p-6 sm:p-8'
                   }`}
                 >
                   <div
-                    className={`flex flex-col gap-3 transition-all duration-300 sm:flex-row sm:items-center sm:justify-between ${
-                      isStatusBarPinned ? 'sm:gap-3' : 'sm:gap-4'
+                    className={`flex flex-col transition-all duration-300 sm:flex-row sm:items-center sm:justify-between ${
+                      isStatusBarPinned ? 'gap-2 sm:gap-3' : 'gap-4 sm:gap-6'
                     }`}
                   >
                     <div className="min-w-0 flex-1">
                       <h2
                         className={`truncate font-semibold text-gray-900 transition-all duration-300 dark:text-[var(--dark-text)] ${
                           isStatusBarPinned
-                            ? 'text-lg sm:text-xl'
-                            : 'text-xl sm:text-2xl'
+                            ? 'text-base sm:text-lg'
+                            : 'text-2xl sm:text-3xl'
                         }`}
                         title={adGroupTitle}
                       >
@@ -2386,7 +2418,7 @@ useEffect(() => {
                         isFinalized ? 'Review finalized' : 'Finalize review'
                       }`}
                       className={`inline-flex items-center justify-center rounded-full font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                        isStatusBarPinned ? 'px-3 py-1.5 text-xs sm:text-sm' : 'px-5 py-2 text-sm sm:text-base'
+                        isStatusBarPinned ? 'px-2 py-1 text-xs sm:text-sm' : 'px-5 py-2.5 text-base sm:text-lg'
                       } ${
                         isFinalized
                           ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300'
@@ -2402,26 +2434,26 @@ useEffect(() => {
                   </div>
                   <div
                     className={`grid grid-cols-2 transition-all duration-300 sm:grid-cols-4 ${
-                      isStatusBarPinned ? 'gap-3 sm:gap-3' : 'gap-4 sm:gap-5'
+                      isStatusBarPinned ? 'gap-2 sm:gap-2' : 'gap-5 sm:gap-6'
                     }`}
                   >
                     {statusCardItems.map(({ label, value }) => (
                       <div
                         key={label}
                         className={`rounded-2xl border border-gray-200/80 bg-white/90 shadow-sm transition-all duration-300 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] ${
-                          isStatusBarPinned ? 'px-3 py-2.5' : 'px-4 py-3'
+                          isStatusBarPinned ? 'px-2 py-1.5' : 'px-5 py-4'
                         }`}
                       >
                         <span
                           className={`block font-semibold text-gray-900 transition-all duration-300 dark:text-[var(--dark-text)] ${
-                            isStatusBarPinned ? 'text-2xl' : 'text-3xl'
+                            isStatusBarPinned ? 'text-base sm:text-lg' : 'text-3xl sm:text-4xl'
                           }`}
                         >
                           {value}
                         </span>
                         <span
-                          className={`mt-1 block font-semibold uppercase tracking-wide text-gray-500 transition-all duration-300 dark:text-gray-400 ${
-                            isStatusBarPinned ? 'text-[0.7rem]' : 'text-xs'
+                          className={`block font-semibold uppercase tracking-wide text-gray-500 transition-all duration-300 dark:text-gray-400 ${
+                            isStatusBarPinned ? 'mt-0.5 text-[0.5rem]' : 'mt-1.5 text-xs sm:text-sm'
                           }`}
                         >
                           {label}
@@ -2434,36 +2466,6 @@ useEffect(() => {
             </div>
           </div>
         {/* Gallery view removed */}
-        {/* Show exit button even during change review */}
-        <div className="relative w-full max-w-md mb-2.5 flex justify-center">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2">
-            <InfoTooltip text="exit review" placement="bottom">
-              <button
-                type="button"
-                onClick={() => {
-                  releaseLock();
-                  setStarted(false);
-                }}
-                aria-label="exit review"
-                className="text-gray-500 hover:text-black dark:hover:text-white"
-              >
-                <FiX />
-              </button>
-            </InfoTooltip>
-          </div>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2">
-            <InfoTooltip text="leave overall feedback" placement="bottom">
-              <button
-                type="button"
-                aria-label="leave overall feedback"
-                onClick={() => setShowFeedbackModal(true)}
-                className="text-gray-500 hover:text-black dark:hover:text-white"
-              >
-                <FiMessageSquare />
-              </button>
-            </InfoTooltip>
-          </div>
-        </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
             <div className="w-full max-w-5xl">
