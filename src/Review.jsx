@@ -62,6 +62,17 @@ const unitKey = (a) => {
   return `${a.adGroupId || ''}|${recipe}`;
 };
 
+const getAdKey = (ad, index = 0) => {
+  if (!ad) return `ad-${index}`;
+  return (
+    ad.assetId ||
+    ad.firebaseUrl ||
+    ad.adUrl ||
+    ad.filename ||
+    `${ad.recipeCode || 'ad'}-${index}`
+  );
+};
+
 const isSafari =
   typeof navigator !== 'undefined' &&
   /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -124,6 +135,9 @@ const Review = forwardRef(
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
+  const [expandedRequests, setExpandedRequests] = useState({});
+  const [pendingResponseContext, setPendingResponseContext] = useState(null);
+  const [manualStatus, setManualStatus] = useState({});
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -592,6 +606,39 @@ useEffect(() => {
         });
         const deduped = Object.values(versionMap);
 
+        const visibleAssets = list.filter((a) => a.status !== 'archived');
+        const visibleDeduped = deduped.filter((a) => a.status !== 'archived');
+
+        if (rv === 2) {
+          setAllAds(visibleAssets);
+          setAds(visibleDeduped);
+          setAllHeroAds(visibleDeduped);
+          setReviewAds(visibleDeduped);
+          setVersionMode(false);
+          setHasPending(
+            visibleDeduped.some((a) =>
+              ['pending', 'ready', 'in review'].includes(a.status),
+            ),
+          );
+          setPendingOnly(false);
+          const initialStatuses = {};
+          visibleDeduped.forEach((ad) => {
+            let resp;
+            if (ad.status === 'approved') resp = 'approve';
+            else if (ad.status === 'rejected') resp = 'reject';
+            else if (ad.status === 'edit_requested') resp = 'edit';
+            if (resp) {
+              const url = ad.adUrl || ad.firebaseUrl;
+              if (url) {
+                initialStatuses[url] = { adUrl: url, response: resp };
+              }
+            }
+          });
+          setResponses(initialStatuses);
+          setCurrentIndex(0);
+          return;
+        }
+
         const hasPendingAds = deduped.some((a) => a.status === 'pending');
         const nonPending = deduped.filter((a) => a.status !== 'pending');
 
@@ -987,15 +1034,23 @@ useEffect(() => {
       setCurrentIndex(reviewAds.length);
     }
   };
-  const statusMap = {
+  const statusLabelMap = {
+    pending: 'Pending',
     approve: 'Approved',
     reject: 'Rejected',
     edit: 'Edit Requested',
   };
-  const colorMap = {
-    approve: 'text-green-700',
-    reject: 'text-gray-700',
-    edit: 'text-black',
+  const statusOptions = [
+    { value: 'pending', label: statusLabelMap.pending },
+    { value: 'approve', label: statusLabelMap.approve },
+    { value: 'reject', label: statusLabelMap.reject },
+    { value: 'edit', label: statusLabelMap.edit },
+  ];
+  const statusDotStyles = {
+    pending: { backgroundColor: 'var(--pending-color)' },
+    approve: { backgroundColor: 'var(--approve-color)' },
+    reject: { backgroundColor: 'var(--reject-color)' },
+    edit: { backgroundColor: 'var(--edit-color)' },
   };
 
   const currentRecipe = currentAd?.recipeCode || currentInfo.recipeCode;
@@ -1011,6 +1066,59 @@ useEffect(() => {
     'x',
     '/',
   );
+
+  const versionGroupsByAd = useMemo(() => {
+    if (!reviewAds || reviewAds.length === 0) return {};
+    const aspectOrder = {
+      '': 0,
+      '9x16': 1,
+      '3x5': 2,
+      '1x1': 3,
+      '4x5': 4,
+      Pinterest: 5,
+      Snapchat: 6,
+    };
+    const map = {};
+    reviewAds.forEach((ad, idx) => {
+      if (!ad) return;
+      const cardKey = getAdKey(ad, idx);
+      const related = allAds.filter(
+        (asset) => unitKey(asset) === unitKey(ad) && asset.status !== 'archived',
+      );
+      if (related.length === 0) {
+        map[cardKey] = [[ad]];
+        return;
+      }
+      const verMap = {};
+      related.forEach((asset) => {
+        const ver = getVersion(asset);
+        if (!verMap[ver]) verMap[ver] = [];
+        verMap[ver].push(asset);
+      });
+      const groups = Object.values(verMap)
+        .map((group) =>
+          group
+            .filter((asset) => asset.status !== 'archived')
+            .sort((a, b) => {
+              const aspectA =
+                a.aspectRatio ||
+                parseAdFilename(a.filename || '').aspectRatio ||
+                '';
+              const aspectB =
+                b.aspectRatio ||
+                parseAdFilename(b.filename || '').aspectRatio ||
+                '';
+              return (
+                (aspectOrder[aspectA] ?? 99) - (aspectOrder[aspectB] ?? 99)
+              );
+            }),
+        )
+        .filter((group) => group.length > 0)
+        .sort((a, b) => getVersion(b[0]) - getVersion(a[0]));
+      map[cardKey] = groups.length > 0 ? groups : [[ad]];
+    });
+    return map;
+  }, [reviewAds, allAds]);
 
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
@@ -1029,27 +1137,31 @@ useEffect(() => {
     preloads.current = preloads.current.slice(-BUFFER_COUNT);
   }, [currentIndex, reviewAds, isMobile]);
 
-  const openEditRequest = async () => {
+  const openEditRequest = async (targetAd = currentAd, index = currentIndex) => {
+    setCurrentIndex(index);
     setShowEditModal(true);
-    if (!currentAd?.adGroupId) return;
-    const recipeId = currentRecipe;
+    if (!targetAd?.adGroupId) return;
+    const recipeId =
+      targetAd.recipeCode ||
+      parseAdFilename(targetAd.filename || '').recipeCode ||
+      currentRecipe;
     if (!recipeId) return;
     try {
       const snap = await getDoc(
-        doc(db, 'adGroups', currentAd.adGroupId, 'recipes', recipeId)
+        doc(db, 'adGroups', targetAd.adGroupId, 'recipes', recipeId)
       );
       const data = snap.exists() ? snap.data() : null;
       const text = data ? data.latestCopy || data.copy || '' : '';
       setEditCopy(text);
       setOrigCopy(text);
       setReviewAds((prev) =>
-        prev.map((a, idx) =>
-          idx === currentIndex ? { ...a, originalCopy: text } : a
+        prev.map((a) =>
+          a.assetId === targetAd.assetId ? { ...a, originalCopy: text } : a
         )
       );
       setAds((prev) =>
         prev.map((a) =>
-          a.assetId === currentAd.assetId ? { ...a, originalCopy: text } : a
+          a.assetId === targetAd.assetId ? { ...a, originalCopy: text } : a
         )
       );
     } catch (err) {
@@ -1097,15 +1209,28 @@ useEffect(() => {
     }
   };
 
-  const submitResponse = async (responseType) => {
-    if (!currentAd) return;
+  const submitResponse = async (
+    responseType,
+    {
+      targetAd = currentAd,
+      targetAssets = currentRecipeGroup?.assets || [],
+      targetIndex = currentIndex,
+      skipAdvance = false,
+    } = {},
+  ) => {
+    if (!targetAd) return;
     advancedRef.current = false;
-    setAnimating(responseType);
+    if (!skipAdvance) {
+      setAnimating(responseType);
+    } else {
+      setAnimating(null);
+    }
     setSubmitting(true);
 
-    const recipeAssets =
-      currentRecipeGroup?.assets.filter((a) => a.status !== 'archived') ||
-      [currentAd];
+    const filteredAssets = (targetAssets || []).filter(
+      (a) => a && a.status !== 'archived',
+    );
+    const recipeAssets = filteredAssets.length > 0 ? filteredAssets : [targetAd];
     const updates = [];
     const addedResponses = {};
     const newStatus =
@@ -1114,6 +1239,11 @@ useEffect(() => {
         : responseType === 'reject'
         ? 'rejected'
         : 'edit_requested';
+    const recipeCode =
+      targetAd.recipeCode ||
+      parseAdFilename(targetAd.filename || '').recipeCode ||
+      '';
+    const targetKey = getAdKey(targetAd, targetIndex);
 
     try {
       for (const asset of recipeAssets) {
@@ -1142,7 +1272,13 @@ useEffect(() => {
           );
         }
         if (asset.assetId && asset.adGroupId) {
-          const assetRef = doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId);
+          const assetRef = doc(
+            db,
+            'adGroups',
+            asset.adGroupId,
+            'assets',
+            asset.assetId,
+          );
           const updateData = {
             status: newStatus,
             comment: responseType === 'edit' ? comment : '',
@@ -1157,7 +1293,14 @@ useEffect(() => {
           const name = reviewerName || user.displayName || user.uid || 'unknown';
           updates.push(
             addDoc(
-              collection(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId, 'history'),
+              collection(
+                db,
+                'adGroups',
+                asset.adGroupId,
+                'assets',
+                asset.assetId,
+                'history',
+              ),
               {
                 status: newStatus,
                 updatedBy: name,
@@ -1210,8 +1353,8 @@ useEffect(() => {
                       ? { isResolved: false }
                       : {}),
                   }
-                : a
-            )
+                : a,
+            ),
           );
 
           const prevStatus = asset.status;
@@ -1298,8 +1441,8 @@ useEffect(() => {
         setResponses((prev) => ({ ...prev, [url]: respObj }));
       }
 
-      if (recipeAssets.length > 0) {
-        const recipeRef = doc(db, 'recipes', currentRecipe);
+      if (recipeAssets.length > 0 && recipeCode) {
+        const recipeRef = doc(db, 'recipes', recipeCode);
         updates.push(
           setDoc(
             recipeRef,
@@ -1323,9 +1466,7 @@ useEffect(() => {
       await Promise.all(updates);
       if (responseType === 'edit' && userRole === 'client') {
         const brandCode =
-          currentAd?.brandCode ||
-          recipeAssets[0]?.brandCode ||
-          brandCodes[0];
+          targetAd?.brandCode || recipeAssets[0]?.brandCode || brandCodes[0];
         if (brandCode) {
           await deductCredits(brandCode, 'editRequest', settings.creditCosts);
         } else {
@@ -1343,16 +1484,35 @@ useEffect(() => {
       setOrigCopy('');
       setShowEditModal(false);
       setSubmitting(false);
+      setPendingResponseContext((prev) => {
+        if (!prev) return prev;
+        if (prev?.key && prev.key === targetKey) return null;
+        if (!prev?.key && prev?.ad) {
+          const prevKey = getAdKey(prev.ad, prev.index ?? 0);
+          if (prevKey === targetKey) return null;
+        }
+        return prev;
+      });
+      setManualStatus((prev) => {
+        if (!targetKey) return prev;
+        const next = { ...prev };
+        delete next[targetKey];
+        return next;
+      });
 
-      const nextIndex = currentIndex + 1;
-      if (!advancedRef.current) {
-        setCurrentIndex(nextIndex);
-        advancedRef.current = true;
-      }
-      setAnimating(null);
-
-      if (nextIndex >= reviewAds.length) {
-        setStarted(false);
+      if (!skipAdvance) {
+        const nextIndex = targetIndex + 1;
+        if (!advancedRef.current) {
+          setCurrentIndex(nextIndex);
+          advancedRef.current = true;
+        }
+        setAnimating(null);
+        if (nextIndex >= reviewAds.length) {
+          setStarted(false);
+        }
+      } else {
+        setCurrentIndex(targetIndex);
+        setAnimating(null);
       }
     }
   };
@@ -1390,7 +1550,7 @@ useEffect(() => {
   }
 
 
-  if (!started) {
+  if (!started && reviewVersion !== 2) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
         {timedOut && (
@@ -1681,77 +1841,282 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="p-4 rounded flex flex-wrap justify-center gap-4 relative">
-              {(currentRecipeGroup?.assets || []).map((a, idx) => (
-                <div key={idx} className="max-w-[300px]">
-                  {isVideoUrl(a.firebaseUrl) ? (
-                    <VideoPlayer
-                      src={a.firebaseUrl}
-                      className="max-w-full rounded shadow"
-                      style={{
-                        aspectRatio:
-                          String(a.aspectRatio || '').replace('x', '/') || undefined,
-                      }}
-                    />
-                  ) : (
-                    <OptimizedImage
-                      pngUrl={a.firebaseUrl}
-                      webpUrl={
-                        a.firebaseUrl
-                          ? a.firebaseUrl.replace(/\.png$/, '.webp')
-                          : undefined
-                      }
-                      alt={a.filename}
-                      cacheKey={a.firebaseUrl}
-                      className="max-w-full rounded shadow"
-                      style={{
-                        aspectRatio:
-                          String(a.aspectRatio || '').replace('x', '/') || undefined,
-                      }}
-                    />
-                  )}
+            <div className="w-full max-w-5xl space-y-6 px-2 sm:px-0">
+              {reviewAds.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-gray-300 dark:border-[var(--border-color-default)] bg-white dark:bg-[var(--dark-sidebar-bg)] p-8 text-center text-gray-500 dark:text-gray-300">
+                  No ads to review yet.
                 </div>
-              ))}
-              {(getVersion(displayAd) > 1 || versions.length > 1) && (
-                versions.length > 1 ? (
-                  versions.length === 2 ? (
-                    <span
-                      onClick={() =>
-                        setVersionIndex((i) => (i + 1) % versions.length)
-                      }
-                      className="version-badge cursor-pointer absolute top-0 left-0"
-                    >
-                      V{getVersion(displayAd)}
-                    </span>
-                  ) : (
-                    <div className="absolute top-0 left-0">
-                      <span
-                        onClick={() => setShowVersionMenu((o) => !o)}
-                        className="version-badge cursor-pointer select-none"
-                      >
-                        V{getVersion(displayAd)}
-                      </span>
-                      {showVersionMenu && (
-                        <div className="absolute left-0 top-full mt-1 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
-                          {versions.map((v, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => {
-                                setVersionIndex(idx);
-                                setShowVersionMenu(false);
-                              }}
-                              className="block w-full text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
-                            >
-                              V{getVersion(v[0])}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+              ) : (
+                reviewAds.map((ad, index) => {
+                  const cardKey = getAdKey(ad, index);
+                  const groups = versionGroupsByAd[cardKey] || [[ad]];
+                  const latestAssets = groups[0] || [ad];
+                  const baseAspect =
+                    ad?.aspectRatio ||
+                    parseAdFilename(ad?.filename || '').aspectRatio ||
+                    '';
+                  const displayAsset =
+                    latestAssets.find((asset) => {
+                      const aspect =
+                        asset?.aspectRatio ||
+                        parseAdFilename(asset?.filename || '').aspectRatio ||
+                        '';
+                      return aspect === baseAspect;
+                    }) || latestAssets[0] || ad;
+                  const otherAssets = latestAssets.filter(
+                    (asset) =>
+                      (asset?.assetId || asset?.firebaseUrl || asset?.adUrl) !==
+                      (displayAsset?.assetId || displayAsset?.firebaseUrl || displayAsset?.adUrl),
+                  );
+                  const assetResponses = latestAssets
+                    .map((asset) => responses[asset.adUrl || asset.firebaseUrl])
+                    .filter(Boolean);
+                  const responseValue = assetResponses[0]?.response;
+                  const statusFromAssets = latestAssets.some(
+                    (asset) => asset.status === 'approved',
                   )
-                ) : (
-                  <span className="version-badge absolute top-0 left-0">V{getVersion(displayAd)}</span>
-                )
+                    ? 'approve'
+                    : latestAssets.some((asset) => asset.status === 'rejected')
+                    ? 'reject'
+                    : latestAssets.some(
+                        (asset) => asset.status === 'edit_requested',
+                      )
+                    ? 'edit'
+                    : null;
+                  const defaultStatus =
+                    ad.status === 'approved'
+                      ? 'approve'
+                      : ad.status === 'rejected'
+                      ? 'reject'
+                      : ad.status === 'edit_requested'
+                      ? 'edit'
+                      : 'pending';
+                  const statusValue =
+                    manualStatus[cardKey] ||
+                    responseValue ||
+                    statusFromAssets ||
+                    defaultStatus;
+                  const hasEditInfo = latestAssets.find(
+                    (asset) => asset.comment || asset.copyEdit,
+                  );
+                  const showEditButton = !!hasEditInfo || statusValue === 'edit';
+                  const isExpanded = !!expandedRequests[cardKey];
+                  const recipeLabel =
+                    ad.recipeCode ||
+                    parseAdFilename(ad.filename || '').recipeCode ||
+                    'Ad Unit';
+                  const displayUrl =
+                    displayAsset?.firebaseUrl || displayAsset?.adUrl || '';
+                  const aspectRatio =
+                    displayAsset?.aspectRatio ||
+                    parseAdFilename(displayAsset?.filename || '').aspectRatio ||
+                    '';
+                  const ratioStyle = aspectRatio
+                    ? { aspectRatio: aspectRatio.replace('x', '/') }
+                    : {};
+                  const selectId = `ad-status-${cardKey}`;
+                  const handleSelectChange = async (event) => {
+                    const value = event.target.value;
+                    if (value === 'pending') {
+                      setManualStatus((prev) => {
+                        const next = { ...prev };
+                        delete next[cardKey];
+                        return next;
+                      });
+                      return;
+                    }
+                    if (value === 'edit') {
+                      setManualStatus((prev) => ({ ...prev, [cardKey]: 'edit' }));
+                      setPendingResponseContext({
+                        ad,
+                        assets: latestAssets,
+                        index,
+                        key: cardKey,
+                      });
+                      openEditRequest(ad, index);
+                      return;
+                    }
+                    setManualStatus((prev) => {
+                      const next = { ...prev };
+                      delete next[cardKey];
+                      return next;
+                    });
+                    try {
+                      await submitResponse(value, {
+                        targetAd: ad,
+                        targetAssets: latestAssets,
+                        targetIndex: index,
+                        skipAdvance: true,
+                      });
+                    } catch (err) {
+                      console.error('Failed to update status', err);
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={cardKey}
+                      className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                    >
+                      <div className="flex flex-col gap-4 p-4">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                              {recipeLabel}
+                            </h3>
+                            {ad.groupName && (
+                              <p className="text-sm text-gray-500 dark:text-gray-300">
+                                {ad.groupName}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {groups.length > 1 && (
+                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                V{getVersion(groups[0][0])}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-2 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                            <div className="relative w-full" style={ratioStyle}>
+                              {isVideoUrl(displayUrl) ? (
+                                <VideoPlayer
+                                  src={displayUrl}
+                                  className="w-full rounded-xl"
+                                  style={ratioStyle}
+                                />
+                              ) : (
+                                <OptimizedImage
+                                  pngUrl={displayUrl}
+                                  webpUrl={
+                                    displayUrl
+                                      ? displayUrl.replace(/\.png$/, '.webp')
+                                      : undefined
+                                  }
+                                  alt={displayAsset?.filename || 'Ad'}
+                                  cacheKey={displayUrl}
+                                  className="w-full rounded-xl object-contain"
+                                  style={ratioStyle}
+                                />
+                              )}
+                            </div>
+                          </div>
+                          {otherAssets.length > 0 && (
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {otherAssets.map((asset, assetIdx) => {
+                                const assetUrl = asset.firebaseUrl || asset.adUrl || '';
+                                const assetAspect =
+                                  asset.aspectRatio ||
+                                  parseAdFilename(asset.filename || '').aspectRatio ||
+                                  '';
+                                const assetStyle = assetAspect
+                                  ? { aspectRatio: assetAspect.replace('x', '/') }
+                                  : {};
+                                return (
+                                  <div
+                                    key={asset.assetId || assetUrl || assetIdx}
+                                    className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-2 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
+                                  >
+                                    <div className="relative w-full" style={assetStyle}>
+                                      {isVideoUrl(assetUrl) ? (
+                                        <VideoPlayer src={assetUrl} className="w-full rounded-xl" style={assetStyle} />
+                                      ) : (
+                                        <OptimizedImage
+                                          pngUrl={assetUrl}
+                                          webpUrl={
+                                            assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
+                                          }
+                                          alt={asset.filename || 'Ad variant'}
+                                          cacheKey={assetUrl}
+                                          className="w-full rounded-xl object-contain"
+                                          style={assetStyle}
+                                        />
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-2 flex flex-col gap-3 border-t border-gray-200 pt-3 dark:border-[var(--border-color-default)] sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-3">
+                            <span
+                              className="inline-block h-2.5 w-2.5 rounded-full"
+                              style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                            />
+                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                              <label
+                                className="text-sm font-medium text-gray-600 dark:text-gray-300"
+                                htmlFor={selectId}
+                              >
+                                Status
+                              </label>
+                              <select
+                                id={selectId}
+                                className="min-w-[160px]"
+                                value={statusValue}
+                                onChange={handleSelectChange}
+                                disabled={submitting}
+                              >
+                                {statusOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          {showEditButton && (
+                            <button
+                              type="button"
+                              className="btn-action text-sm font-medium"
+                              onClick={() =>
+                                setExpandedRequests((prev) => ({
+                                  ...prev,
+                                  [cardKey]: !prev[cardKey],
+                                }))
+                              }
+                            >
+                              {isExpanded ? 'Hide edit request' : 'View edit request'}
+                            </button>
+                          )}
+                        </div>
+                        {showEditButton && isExpanded && (
+                          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                            {hasEditInfo?.comment && (
+                              <div className="mb-3">
+                                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                  Notes
+                                </h4>
+                                <p className="whitespace-pre-wrap leading-relaxed">
+                                  {hasEditInfo.comment}
+                                </p>
+                              </div>
+                            )}
+                            {hasEditInfo?.copyEdit && (
+                              <div>
+                                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                  Requested Copy
+                                </h4>
+                                <pre className="whitespace-pre-wrap leading-relaxed">
+                                  {hasEditInfo.copyEdit}
+                                </pre>
+                              </div>
+                            )}
+                            {!hasEditInfo?.comment && !hasEditInfo?.copyEdit && (
+                              <p className="text-sm text-gray-500 dark:text-gray-300">
+                                No edit details provided.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           ) : (
@@ -1993,8 +2358,25 @@ useEffect(() => {
           onEditCopyChange={setEditCopy}
           origCopy={origCopy}
           canSubmit={canSubmitEdit}
-          onCancel={() => setShowEditModal(false)}
-          onSubmit={() => submitResponse('edit')}
+          onCancel={() => {
+            setShowEditModal(false);
+            if (pendingResponseContext?.key) {
+              setManualStatus((prev) => {
+                const next = { ...prev };
+                delete next[pendingResponseContext.key];
+                return next;
+              });
+            }
+            setPendingResponseContext(null);
+          }}
+          onSubmit={() =>
+            submitResponse('edit', {
+              targetAd: pendingResponseContext?.ad,
+              targetAssets: pendingResponseContext?.assets,
+              targetIndex: pendingResponseContext?.index ?? currentIndex,
+              skipAdvance: reviewVersion === 2,
+            })
+          }
           submitting={submitting}
         />
       )}
