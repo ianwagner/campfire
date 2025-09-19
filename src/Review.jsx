@@ -2342,11 +2342,7 @@ useEffect(() => {
               className="mb-2 max-h-16 w-auto"
             />
           )}
-          <div
-            className={`w-full px-4 transition-all duration-300 sm:px-6 lg:px-8 ${
-              isStatusBarPinned ? 'mt-0' : 'mt-6'
-            }`}
-          >
+          <div className="mt-6 w-full px-4 sm:px-6 lg:px-8">
             <div
               ref={statusBarRef}
               className={`sticky top-0 z-30 flex w-full justify-center transition-all duration-300 ${
@@ -2354,17 +2350,15 @@ useEffect(() => {
               }`}
             >
               <div
-                className={`w-full max-w-5xl sm:max-w-6xl border border-gray-100 shadow transition-all duration-300 dark:border-[var(--border-color-default)] ${
+                className={`w-full max-w-5xl sm:max-w-6xl border border-gray-200 shadow-lg backdrop-blur transition-all duration-300 dark:border-[var(--border-color-default)] ${
                   isStatusBarPinned
-                    ? 'rounded-lg bg-white/95 backdrop-blur-sm dark:bg-[var(--dark-sidebar-bg)]/90'
-                    : 'rounded-xl bg-white dark:bg-[var(--dark-sidebar-bg)]'
+                    ? 'rounded-2xl bg-white/85 dark:bg-[var(--dark-sidebar-bg)]/85'
+                    : 'rounded-3xl bg-white dark:bg-[var(--dark-sidebar-bg)]'
                 }`}
               >
                 <div
                   className={`flex flex-col transition-all duration-300 ${
-                    isStatusBarPinned
-                      ? 'gap-2.5 px-3.5 py-3 sm:px-4 sm:py-4'
-                      : 'gap-4 px-6 py-6 sm:px-8 sm:py-7'
+                    isStatusBarPinned ? 'gap-3 p-4 sm:p-5' : 'gap-4 p-5 sm:p-7'
                   }`}
                 >
                   <div
@@ -2376,7 +2370,7 @@ useEffect(() => {
                       <h2
                         className={`truncate font-semibold text-gray-900 transition-all duration-300 dark:text-[var(--dark-text)] ${
                           isStatusBarPinned
-                            ? 'text-base sm:text-lg'
+                            ? 'text-lg sm:text-xl'
                             : 'text-xl sm:text-2xl'
                         }`}
                         title={adGroupTitle}
@@ -2391,12 +2385,12 @@ useEffect(() => {
                       aria-label={`${finalizeStatusLabel}. ${
                         isFinalized ? 'Review finalized' : 'Finalize review'
                       }`}
-                      className={`inline-flex items-center justify-center rounded-full font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      className={`inline-flex items-center justify-center rounded-full font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
                         isStatusBarPinned ? 'px-3 py-1.5 text-xs sm:text-sm' : 'px-5 py-2 text-sm sm:text-base'
                       } ${
                         isFinalized
-                          ? 'border border-emerald-200 bg-emerald-50 text-emerald-600 focus:ring-emerald-500/40 dark:border-emerald-900/40 dark:bg-emerald-500/10 dark:text-emerald-300'
-                          : 'bg-[var(--accent-color)] text-white shadow-sm hover:bg-[#d94f0b] focus:ring-[var(--accent-color)] dark:bg-[var(--accent-color)] dark:hover:bg-[#d94f0b]'
+                          ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400'
                       }`}
                     >
                       {finalizeLoading
@@ -2408,26 +2402,26 @@ useEffect(() => {
                   </div>
                   <div
                     className={`grid grid-cols-2 transition-all duration-300 sm:grid-cols-4 ${
-                      isStatusBarPinned ? 'gap-2.5 sm:gap-3' : 'gap-4 sm:gap-5'
+                      isStatusBarPinned ? 'gap-3 sm:gap-3' : 'gap-4 sm:gap-5'
                     }`}
                   >
                     {statusCardItems.map(({ label, value }) => (
                       <div
                         key={label}
-                        className={`rounded-lg border border-gray-200 bg-white shadow-sm transition-all duration-300 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] ${
-                          isStatusBarPinned ? 'px-3 py-2 sm:px-3 sm:py-2.5' : 'px-4 py-3 sm:px-4 sm:py-3.5'
+                        className={`rounded-2xl border border-gray-200/80 bg-white/90 shadow-sm transition-all duration-300 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] ${
+                          isStatusBarPinned ? 'px-3 py-2.5' : 'px-4 py-3'
                         }`}
                       >
                         <span
-                          className={`block font-semibold text-[var(--accent-color)] transition-all duration-300 dark:text-[var(--accent-color)] ${
-                            isStatusBarPinned ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl'
+                          className={`block font-semibold text-gray-900 transition-all duration-300 dark:text-[var(--dark-text)] ${
+                            isStatusBarPinned ? 'text-2xl' : 'text-3xl'
                           }`}
                         >
                           {value}
                         </span>
                         <span
-                          className={`mt-1 block font-medium text-gray-500 transition-all duration-300 dark:text-gray-400 ${
-                            isStatusBarPinned ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'
+                          className={`mt-1 block font-semibold uppercase tracking-wide text-gray-500 transition-all duration-300 dark:text-gray-400 ${
+                            isStatusBarPinned ? 'text-[0.7rem]' : 'text-xs'
                           }`}
                         >
                           {label}
