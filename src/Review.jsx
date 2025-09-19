@@ -69,11 +69,18 @@ const getAdUnitKey = (asset) => {
     asset.firebaseUrl ||
     '';
 
+  if (!asset.parentAdId && rootId && aspect) {
+    const suffix = `_${String(aspect).toLowerCase()}`;
+    const lowerRoot = rootId.toLowerCase();
+    if (lowerRoot.endsWith(suffix)) {
+      rootId = rootId.slice(0, -suffix.length);
+    }
+  }
+
   const parts = [];
   if (adGroupId) parts.push(adGroupId);
   if (recipe) parts.push(recipe);
   if (rootId) parts.push(rootId);
-  if (aspect) parts.push(String(aspect).toLowerCase());
 
   return parts.join('|');
 };
