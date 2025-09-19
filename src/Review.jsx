@@ -55,10 +55,62 @@ import computeGroupStatus from './utils/computeGroupStatus';
 import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 
-const unitKey = (a) => {
-  const info = parseAdFilename(a.filename || '');
-  const recipe = a.recipeCode || info.recipeCode || '';
-  return `${a.adGroupId || ''}|${recipe}`;
+const getAdUnitKey = (asset) => {
+  if (!asset) return '';
+  const info = parseAdFilename(asset.filename || '');
+  const recipe = asset.recipeCode || info.recipeCode || '';
+  const adGroupId = asset.adGroupId || info.adGroupCode || '';
+  const rootId =
+    asset.parentAdId ||
+    stripVersion(asset.filename || '') ||
+    asset.assetId ||
+    asset.adUrl ||
+    asset.firebaseUrl ||
+    '';
+  let identifier = recipe;
+  if (adGroupId) {
+    if (!identifier) {
+      identifier = rootId;
+    }
+  } else if (identifier) {
+    identifier = rootId && rootId !== identifier ? `${identifier}|${rootId}` : identifier;
+  } else {
+    identifier = rootId;
+  }
+  if (!identifier && !adGroupId) {
+    return '';
+  }
+  return `${adGroupId}|${identifier}`;
+};
+
+const isSameAdUnit = (first, second) => {
+  if (!first || !second) return false;
+  if (first.assetId && second.assetId && first.assetId === second.assetId) {
+    return true;
+  }
+  if (
+    first.parentAdId &&
+    (second.parentAdId === first.parentAdId || second.assetId === first.parentAdId)
+  ) {
+    return true;
+  }
+  if (
+    second.parentAdId &&
+    (first.parentAdId === second.parentAdId || first.assetId === second.parentAdId)
+  ) {
+    return true;
+  }
+  const firstUrl = first.adUrl || first.firebaseUrl;
+  const secondUrl = second.adUrl || second.firebaseUrl;
+  if (firstUrl && secondUrl && firstUrl === secondUrl) {
+    return true;
+  }
+  const firstKey = getAdUnitKey(first);
+  const secondKey = getAdUnitKey(second);
+  if (firstKey && secondKey) {
+    return firstKey === secondKey;
+  }
+  return false;
 };
 
 const getAdKey = (ad, index = 0) => {
@@ -589,21 +641,19 @@ useEffect(() => {
 
         // determine latest version for each ad unit (recipe + group)
         const unitVersionMap = {};
-        const unitKey = (a) => {
-          const info = parseAdFilename(a.filename || '');
-          const recipe = a.recipeCode || info.recipeCode || '';
-          return `${a.adGroupId || ''}|${recipe}`;
-        };
         list.forEach((a) => {
-          const key = unitKey(a);
+          const key = getAdUnitKey(a);
           const ver = getVersion(a);
+          if (!key) return;
           if (!unitVersionMap[key] || unitVersionMap[key] < ver) {
             unitVersionMap[key] = ver;
           }
         });
-        const latestUnits = list.filter(
-          (a) => getVersion(a) === unitVersionMap[unitKey(a)]
-        );
+        const latestUnits = list.filter((a) => {
+          const key = getAdUnitKey(a);
+          if (!key) return true;
+          return getVersion(a) === unitVersionMap[key];
+        });
 
         // keep highest version per asset for the review list
         const versionMap = {};
@@ -790,8 +840,7 @@ useEffect(() => {
   const currentAd = reviewAds[currentIndex];
   const versions = useMemo(() => {
     if (!currentAd) return [];
-    const key = unitKey(currentAd);
-    const related = allAds.filter((a) => unitKey(a) === key);
+    const related = allAds.filter((a) => isSameAdUnit(a, currentAd));
     const verMap = {};
     related.forEach((a) => {
       const ver = getVersion(a);
@@ -1082,7 +1131,7 @@ useEffect(() => {
       if (!ad) return;
       const cardKey = getAdKey(ad, idx);
       const related = allAds.filter(
-        (asset) => unitKey(asset) === unitKey(ad) && asset.status !== 'archived',
+        (asset) => asset.status !== 'archived' && isSameAdUnit(asset, ad),
       );
       if (related.length === 0) {
         map[cardKey] = [[ad]];
@@ -1226,25 +1275,11 @@ useEffect(() => {
     }
     setSubmitting(true);
 
-    const matchesTargetAsset = (asset) => {
-      if (!asset || asset.status === 'archived') return false;
-      if (!targetAd) return false;
-      if (targetAd.assetId && asset.assetId) {
-        return asset.assetId === targetAd.assetId;
-      }
-      const targetUrl = targetAd.adUrl || targetAd.firebaseUrl;
-      const assetUrl = asset.adUrl || asset.firebaseUrl;
-      if (targetUrl && assetUrl) {
-        return assetUrl === targetUrl;
-      }
-      if (targetAd.recipeCode && asset.recipeCode) {
-        return (
-          asset.recipeCode === targetAd.recipeCode &&
-          (!targetAd.adGroupId || asset.adGroupId === targetAd.adGroupId)
-        );
-      }
-      return false;
-    };
+    const matchesTargetAsset = (asset) =>
+      !!asset &&
+      asset.status !== 'archived' &&
+      !!targetAd &&
+      isSameAdUnit(asset, targetAd);
     const filteredAssets = (targetAssets || []).filter(matchesTargetAsset);
     const recipeAssets = filteredAssets.length > 0 ? filteredAssets : [targetAd];
     const updates = [];
@@ -1853,14 +1888,12 @@ useEffect(() => {
                   const cardKey = getAdKey(ad, index);
                   const groups = versionGroupsByAd[cardKey] || [[ad]];
                   const latestAssets = groups[0] || [ad];
-                  const associatedAssets = latestAssets.filter(
-                    (asset) => unitKey(asset) === unitKey(ad),
+                  const statusAssetsFiltered = latestAssets.filter((asset) =>
+                    isSameAdUnit(asset, ad),
                   );
                   const statusAssets =
-                    associatedAssets.length > 0
-                      ? associatedAssets
-                      : latestAssets.length > 0
-                      ? latestAssets
+                    statusAssetsFiltered.length > 0
+                      ? statusAssetsFiltered
                       : [ad];
                   const getAssetAspect = (asset) =>
                     asset?.aspectRatio ||

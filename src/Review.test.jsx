@@ -199,6 +199,120 @@ test('submitResponse includes reviewer name', async () => {
   expect(update.lastUpdatedBy).toBe('u1');
 });
 
+test('status change updates only the selected ad unit', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          filename: 'BR1_GX_RC1_9x16_V1.png',
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          recipeCode: 'RC1',
+          brandCode: 'BR1',
+        }),
+        ref: { parent: { parent: { id: '' } } },
+      },
+      {
+        id: 'asset2',
+        data: () => ({
+          filename: 'BR1_GY_RC1_1x1_V1.png',
+          firebaseUrl: 'url2',
+          status: 'ready',
+          isResolved: false,
+          recipeCode: 'RC1',
+          brandCode: 'BR1',
+        }),
+        ref: { parent: { parent: { id: '' } } },
+      },
+    ],
+  };
+
+  mockGetDocs.mockImplementation(() => Promise.resolve({ docs: [] }));
+  mockGetDocs.mockImplementationOnce(() => Promise.resolve(assetSnapshot));
+  mockGetDoc.mockResolvedValue({ exists: () => false, data: () => ({}) });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  const statusSelects = await screen.findAllByLabelText('Status');
+  fireEvent.change(statusSelects[0], { target: { value: 'approve' } });
+
+  await waitFor(() =>
+    expect(
+      mockUpdateDoc.mock.calls.some(
+        ([path]) => typeof path === 'string' && path.includes('asset1'),
+      ),
+    ).toBe(true),
+  );
+
+  const assetPaths = mockUpdateDoc.mock.calls
+    .map(([path]) => path)
+    .filter((path) => typeof path === 'string' && path.includes('/assets/'));
+  expect(assetPaths.some((p) => p.includes('asset2'))).toBe(false);
+});
+
+test('edit request applies to the correct ad unit', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          filename: 'BR1_GX_RC1_9x16_V1.png',
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          recipeCode: 'RC1',
+          brandCode: 'BR1',
+        }),
+        ref: { parent: { parent: { id: '' } } },
+      },
+      {
+        id: 'asset2',
+        data: () => ({
+          filename: 'BR1_GY_RC1_1x1_V1.png',
+          firebaseUrl: 'url2',
+          status: 'ready',
+          isResolved: false,
+          recipeCode: 'RC1',
+          brandCode: 'BR1',
+        }),
+        ref: { parent: { parent: { id: '' } } },
+      },
+    ],
+  };
+
+  mockGetDocs.mockImplementation(() => Promise.resolve({ docs: [] }));
+  mockGetDocs.mockImplementationOnce(() => Promise.resolve(assetSnapshot));
+  mockGetDoc.mockResolvedValue({ exists: () => false, data: () => ({}) });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  const statusSelects = await screen.findAllByLabelText('Status');
+  fireEvent.change(statusSelects[0], { target: { value: 'edit' } });
+
+  const commentBox = await screen.findByPlaceholderText('Add comments...');
+  fireEvent.change(commentBox, { target: { value: 'Please tweak this asset' } });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+  await waitFor(() =>
+    expect(
+      mockUpdateDoc.mock.calls.some(
+        ([path, data]) =>
+          typeof path === 'string' &&
+          path.includes('asset1') &&
+          data.status === 'edit_requested',
+      ),
+    ).toBe(true),
+  );
+
+  const assetPaths = mockUpdateDoc.mock.calls
+    .map(([path]) => path)
+    .filter((path) => typeof path === 'string' && path.includes('/assets/'));
+  expect(assetPaths.some((p) => p.includes('asset2'))).toBe(false);
+});
+
 test('request edit creates new version doc', async () => {
   const assetSnapshot = {
     docs: [
