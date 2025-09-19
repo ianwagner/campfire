@@ -8,6 +8,11 @@ jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 jest.mock('./CopyRecipePreview.jsx', () => () => null);
 jest.mock('./RecipePreview.jsx', () => () => <div />);
 jest.mock('./utils/debugLog', () => jest.fn());
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate,
+}));
 
 const mockGetDocs = jest.fn();
 const mockGetDoc = jest.fn();
@@ -16,6 +21,8 @@ const mockAddDoc = jest.fn();
 const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
 const mockArrayUnion = jest.fn((val) => val);
 const mockIncrement = jest.fn((val) => val);
+const mockOnSnapshot = jest.fn(() => jest.fn());
+const mockSetDoc = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
@@ -25,11 +32,13 @@ jest.mock('firebase/firestore', () => ({
   getDocs: (...args) => mockGetDocs(...args),
   getDoc: (...args) => mockGetDoc(...args),
   addDoc: (...args) => mockAddDoc(...args),
+  setDoc: (...args) => mockSetDoc(...args),
   serverTimestamp: jest.fn(),
   doc: (...args) => mockDoc(...args),
   updateDoc: (...args) => mockUpdateDoc(...args),
   arrayUnion: (...args) => mockArrayUnion(...args),
   increment: (...args) => mockIncrement(...args),
+  onSnapshot: (...args) => mockOnSnapshot(...args),
 }));
 
 afterEach(() => {
@@ -120,15 +129,20 @@ test('submitResponse updates asset status', async () => {
     if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockImplementation((ref) => {
+    if (ref === 'adGroups/group1') {
+      return Promise.resolve({
+        exists: () => true,
+        data: () => ({ name: 'Group 1', reviewVersion: 2, status: 'ready' }),
+      });
+    }
+    return Promise.resolve({ exists: () => false, data: () => ({}) });
+  });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
-  await waitFor(() =>
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
-  );
-
-  fireEvent.click(screen.getByText('Approve'));
+  const statusSelect = await screen.findByLabelText('Status');
+  fireEvent.change(statusSelect, { target: { value: 'approve' } });
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
