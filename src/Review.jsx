@@ -1072,6 +1072,19 @@ useEffect(() => {
       setReviewAds((prev) =>
         prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
       );
+      setAllAds((prev) =>
+        prev.map((a) =>
+          assetsReferToSameDoc(a, data)
+            ? {
+                ...a,
+                ...data,
+                adGroupId: data.adGroupId || a.adGroupId,
+                groupName: data.groupName || a.groupName,
+                firebaseUrl: data.firebaseUrl || a.firebaseUrl,
+              }
+            : a,
+        ),
+      );
     });
 
     const rootId = displayParentId || displayUnitId || stripVersion(displayAd.filename);
@@ -1375,6 +1388,13 @@ useEffect(() => {
             : a,
         ),
       );
+      setAllAds((prev) =>
+        prev.map((a) =>
+          assetsReferToSameDoc(a, targetAd)
+            ? { ...a, originalCopy: text }
+            : a,
+        ),
+      );
     } catch (err) {
       console.error('Failed to load copy', err);
       setEditCopy('');
@@ -1555,6 +1575,23 @@ useEffect(() => {
             return updated;
           });
           setReviewAds((prev) =>
+            prev.map((a) =>
+              assetsReferToSameDoc(a, asset)
+                ? {
+                    ...a,
+                    status: newStatus,
+                    comment: responseType === 'edit' ? comment : '',
+                    copyEdit: copyChanged ? editCopy : '',
+                    ...(responseType === 'approve'
+                      ? { isResolved: true }
+                      : responseType === 'edit'
+                      ? { isResolved: false }
+                      : {}),
+                  }
+                : a,
+            ),
+          );
+          setAllAds((prev) =>
             prev.map((a) =>
               assetsReferToSameDoc(a, asset)
                 ? {

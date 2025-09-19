@@ -313,6 +313,87 @@ test('edit request applies to the correct ad unit', async () => {
   expect(assetPaths.some((p) => p.includes('asset2'))).toBe(false);
 });
 
+test('edit request details persist in review v2 list view', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          filename: 'BR1_GX_RC1_9x16_V1.png',
+          firebaseUrl: 'url1',
+          status: 'ready',
+          isResolved: false,
+          recipeCode: 'RC1',
+          brandCode: 'BR1',
+          adGroupId: 'group1',
+        }),
+        ref: { parent: { parent: { id: '' } } },
+      },
+      {
+        id: 'asset2',
+        data: () => ({
+          filename: 'BR1_GX_RC1_1x1_V1.png',
+          firebaseUrl: 'url2',
+          status: 'ready',
+          isResolved: false,
+          recipeCode: 'RC1',
+          brandCode: 'BR1',
+          adGroupId: 'group1',
+        }),
+        ref: { parent: { parent: { id: '' } } },
+      },
+    ],
+  };
+
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    return Promise.resolve({ docs: [] });
+  });
+  mockGetDoc.mockImplementation((ref) => {
+    if (ref === 'adGroups/group1') {
+      return Promise.resolve({
+        exists: () => true,
+        data: () => ({ name: 'Group 1', reviewVersion: 2, status: 'ready', brandCode: 'BR1' }),
+      });
+    }
+    if (ref === 'adGroups/group1/recipes/RC1') {
+      return Promise.resolve({
+        exists: () => true,
+        data: () => ({ latestCopy: 'Original copy' }),
+      });
+    }
+    return Promise.resolve({ exists: () => false, data: () => ({}) });
+  });
+
+  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+
+  const statusSelect = await screen.findByLabelText('Status');
+  fireEvent.change(statusSelect, { target: { value: 'edit' } });
+
+  const commentBox = await screen.findByPlaceholderText('Add comments...');
+  fireEvent.change(commentBox, { target: { value: 'Please tweak this asset' } });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+  await waitFor(() =>
+    expect(
+      mockUpdateDoc.mock.calls.some(
+        ([path, data]) =>
+          typeof path === 'string' &&
+          path.includes('asset1') &&
+          data.status === 'edit_requested',
+      ),
+    ).toBe(true),
+  );
+
+  const viewButton = await screen.findByRole('button', { name: 'View edit request' });
+  fireEvent.click(viewButton);
+
+  await screen.findByText('Please tweak this asset');
+  expect(screen.getAllByLabelText('Status')).toHaveLength(1);
+});
+
 test('request edit creates new version doc', async () => {
   const assetSnapshot = {
     docs: [
