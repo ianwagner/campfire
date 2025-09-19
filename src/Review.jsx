@@ -1841,19 +1841,18 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="w-full max-w-5xl px-2 sm:px-0">
+            <div className="w-full max-w-5xl space-y-6 px-2 sm:px-0">
               {reviewAds.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-gray-300 dark:border-[var(--border-color-default)] bg-white dark:bg-[var(--dark-sidebar-bg)] p-8 text-center text-gray-500 dark:text-gray-300">
                   No ads to review yet.
                 </div>
               ) : (
-                <div className="grid gap-6 md:grid-cols-2">
-                  {reviewAds.map((ad, index) => {
-                    const cardKey = getAdKey(ad, index);
-                    const groups = versionGroupsByAd[cardKey] || [[ad]];
-                    const latestAssets = groups[0] || [ad];
-                    const baseAspect =
-                      ad?.aspectRatio ||
+                reviewAds.map((ad, index) => {
+                  const cardKey = getAdKey(ad, index);
+                  const groups = versionGroupsByAd[cardKey] || [[ad]];
+                  const latestAssets = groups[0] || [ad];
+                  const baseAspect =
+                    ad?.aspectRatio ||
                     parseAdFilename(ad?.filename || '').aspectRatio ||
                     '';
                   const displayAsset =
@@ -1957,9 +1956,9 @@ useEffect(() => {
                   return (
                     <div
                       key={cardKey}
-                      className="h-full rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                      className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
-                      <div className="flex h-full flex-col gap-4 p-4">
+                      <div className="flex flex-col gap-4 p-4">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">
@@ -1979,13 +1978,13 @@ useEffect(() => {
                             )}
                           </div>
                         </div>
-                        <div className="flex flex-1 flex-col gap-4">
-                          <div className="overflow-hidden rounded-lg border border-gray-200 p-2 dark:border-[var(--border-color-default)]">
+                        <div className="space-y-4">
+                          <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-2 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
                             <div className="relative w-full" style={ratioStyle}>
                               {isVideoUrl(displayUrl) ? (
                                 <VideoPlayer
                                   src={displayUrl}
-                                  className="h-full w-full"
+                                  className="w-full rounded-xl"
                                   style={ratioStyle}
                                 />
                               ) : (
@@ -1998,7 +1997,7 @@ useEffect(() => {
                                   }
                                   alt={displayAsset?.filename || 'Ad'}
                                   cacheKey={displayUrl}
-                                  className="block h-full w-full object-contain"
+                                  className="w-full rounded-xl object-contain"
                                   style={ratioStyle}
                                 />
                               )}
@@ -2018,11 +2017,11 @@ useEffect(() => {
                                 return (
                                   <div
                                     key={asset.assetId || assetUrl || assetIdx}
-                                    className="overflow-hidden rounded-lg border border-gray-200 p-2 dark:border-[var(--border-color-default)]"
+                                    className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-2 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
                                   >
                                     <div className="relative w-full" style={assetStyle}>
                                       {isVideoUrl(assetUrl) ? (
-                                        <VideoPlayer src={assetUrl} className="h-full w-full" style={assetStyle} />
+                                        <VideoPlayer src={assetUrl} className="w-full rounded-xl" style={assetStyle} />
                                       ) : (
                                         <OptimizedImage
                                           pngUrl={assetUrl}
@@ -2031,7 +2030,7 @@ useEffect(() => {
                                           }
                                           alt={asset.filename || 'Ad variant'}
                                           cacheKey={assetUrl}
-                                          className="block h-full w-full object-contain"
+                                          className="w-full rounded-xl object-contain"
                                           style={assetStyle}
                                         />
                                       )}
@@ -2117,8 +2116,7 @@ useEffect(() => {
                       </div>
                     </div>
                   );
-                })}
-                </div>
+                })
               )}
             </div>
           ) : (
