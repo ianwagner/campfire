@@ -1,80 +1,135 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import ProjectDetail from './ProjectDetail.jsx';
 
-const mockGetDoc = jest.fn();
-const mockOnSnapshot = jest.fn();
+jest.mock('./firebase/config', () => ({ db: {}, auth: { currentUser: {} } }));
+jest.mock('./useUserRole', () => () => ({ role: null }));
 
-jest.mock('./firebase/config', () => ({ db: {}, auth: {} }));
-jest.mock('./useUserRole', () => () => ({ role: 'client' }));
+const mockGetDoc = jest.fn();
+const mockGetDocs = jest.fn();
+const mockCollection = jest.fn((...args) => args);
+const mockQuery = jest.fn((...args) => args);
+const mockWhere = jest.fn();
+const mockUpdateDoc = jest.fn();
+const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
 
 jest.mock('firebase/firestore', () => ({
-  collection: jest.fn((...args) => args),
-  doc: jest.fn((...args) => args.join('/')),
+  doc: (...args) => mockDoc(...args),
   getDoc: (...args) => mockGetDoc(...args),
-  onSnapshot: (...args) => mockOnSnapshot(...args),
+  getDocs: (...args) => mockGetDocs(...args),
+  collection: (...args) => mockCollection(...args),
+  query: (...args) => mockQuery(...args),
+  where: (...args) => mockWhere(...args),
+  updateDoc: (...args) => mockUpdateDoc(...args),
+  writeBatch: jest.fn(),
+  deleteDoc: jest.fn(),
+  onSnapshot: jest.fn(),
+  serverTimestamp: jest.fn(),
+  addDoc: jest.fn(),
+  setDoc: jest.fn(),
+  Timestamp: { fromDate: jest.fn() },
+  deleteField: jest.fn(),
 }));
 
-jest.mock('./components/StatusBadge.jsx', () => ({ status }) => (
-  <div data-testid="status">{status}</div>
-));
-jest.mock('./components/OptimizedImage.jsx', () => (props) => (
-  <img alt={props.alt} data-testid="image" />
-));
-jest.mock('./components/VideoPlayer.jsx', () => () => <div data-testid="video" />);
-jest.mock('./LoadingOverlay.jsx', () => () => <div data-testid="loading" />);
-jest.mock('./components/Button.jsx', () => ({ children, ...props }) => (
-  <button {...props}>{children}</button>
-));
+jest.mock('./components/OptimizedImage.jsx', () => () => <div />);
+jest.mock('./components/RecipeTypeCard.jsx', () => () => <div />);
+jest.mock('./RecipePreview.jsx', () => () => <div />);
+jest.mock('./components/StatusBadge.jsx', () => () => <div />);
+jest.mock('./components/VideoPlayer.jsx', () => () => <div />);
+jest.mock('./components/PageWrapper.jsx', () => ({ children }) => <div>{children}</div>);
+jest.mock('./components/PageToolbar.jsx', () => () => <div />);
+jest.mock('./LoadingOverlay.jsx', () => () => <div />);
+jest.mock('./components/Button.jsx', () => (props) => <button {...props}>{props.children}</button>);
+jest.mock('./components/IconButton.jsx', () => (props) => <button {...props}>{props.children}</button>);
+jest.mock('./components/TabButton.jsx', () => (props) => <button {...props}>{props.children}</button>);
+jest.mock('./components/common/Table.jsx', () => () => <div />);
+jest.mock('./components/ShareLinkModal.jsx', () => () => <div />);
+jest.mock('./components/Modal.jsx', () => ({ children }) => <div>{children}</div>);
+jest.mock('./CopyRecipePreview.jsx', () => () => <div />);
+jest.mock('react-icons/fi', () => ({
+  FiLink: () => <div />,
+  FiDownload: () => <div />,
+  FiArchive: () => <div />,
+  FiFile: () => <div />,
+  FiPenTool: () => <div />,
+  FiFileText: () => <div />,
+  FiType: () => <div />,
+  FiGrid: () => <div />,
+  FiList: () => <div />,
+  FiCheck: () => <div />,
+  FiEye: () => <div />,
+  FiEyeOff: () => <div />,
+}));
+jest.mock('lucide-react', () => ({ Bubbles: () => <div /> }));
+jest.mock('./utils/archiveGroup', () => jest.fn());
+jest.mock('./utils/createArchiveTicket', () => jest.fn());
+jest.mock('./utils/isVideoUrl', () => jest.fn());
+jest.mock('./utils/stripVersion', () => jest.fn());
+jest.mock('./utils/credits.js', () => ({ deductRecipeCredits: jest.fn() }));
+jest.mock('./uploadFile.js', () => ({ uploadFile: jest.fn() }));
+jest.mock('./components/DueDateMonthSelector.jsx', () => () => <div />);
+jest.mock('./utils/computeGroupStatus', () => jest.fn());
+jest.mock('./DescribeProjectModal.jsx', () => () => <div data-testid="describe-modal" />);
 
-const mockUseParams = jest.fn();
+const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
-  useParams: () => mockUseParams(),
+  useParams: () => ({ projectId: 'p1' }),
+  useNavigate: () => mockNavigate,
 }));
 
 beforeEach(() => {
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    id: 'p1',
+    data: () => ({
+      title: 'P1',
+      brandCode: 'B1',
+      recipeTypes: [],
+      createdAt: { toDate: () => new Date() },
+      status: 'need info',
+      infoNote: 'Need details',
+    }),
+  });
+  mockGetDocs.mockResolvedValue({ empty: true, docs: [] });
+});
+
+afterEach(() => {
   jest.clearAllMocks();
-  mockUseParams.mockReturnValue({ projectId: 'g1' });
 });
 
-test('renders ad group details and assets', async () => {
+test('shows info needed note in project detail', async () => {
+  render(
+    <MemoryRouter>
+      <ProjectDetail />
+    </MemoryRouter>
+  );
+  await waitFor(() => screen.getByText('Need details'));
+  expect(screen.getByText('Need details')).toBeInTheDocument();
+});
+
+test('still shows info note when project is pending and request access is denied', async () => {
   mockGetDoc.mockResolvedValue({
     exists: () => true,
-    id: 'g1',
+    id: 'p1',
     data: () => ({
-      name: 'Launch Group',
-      brandCode: 'ACME',
-      status: 'ready',
-      createdAt: { toDate: () => new Date('2024-01-01T00:00:00Z') },
+      title: 'P1',
+      brandCode: 'B1',
+      recipeTypes: [],
+      createdAt: { toDate: () => new Date() },
+      status: 'pending',
+      infoNote: 'Need details',
     }),
   });
-  mockOnSnapshot
-    .mockImplementationOnce((ref, cb) => {
-      cb({
-        docs: [
-          {
-            id: 'asset1',
-            data: () => ({
-              filename: 'ACME_Launch_Story_V1.png',
-              status: 'approved',
-              firebaseUrl: 'https://example.com/ad.png',
-            }),
-          },
-        ],
-      });
-      return jest.fn();
-    })
-    .mockImplementationOnce((ref, cb) => {
-      cb({ docs: [] });
-      return jest.fn();
-    })
-    .mockImplementationOnce((ref, cb) => {
-      cb({ docs: [] });
-      return jest.fn();
-    });
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) && Array.isArray(args[0]) ? args[0][1] : args[1];
+    if (col === 'requests') {
+      return Promise.reject({ code: 'permission-denied' });
+    }
+    return Promise.resolve({ empty: true, docs: [] });
+  });
 
   render(
     <MemoryRouter>
@@ -82,69 +137,34 @@ test('renders ad group details and assets', async () => {
     </MemoryRouter>
   );
 
-  expect(await screen.findByText('Launch Group')).toBeInTheDocument();
-  expect(screen.getByText('ACME')).toBeInTheDocument();
-  expect(screen.getAllByText('ACME_Launch_Story_V1.png').length).toBeGreaterThan(0);
-  const statuses = screen.getAllByTestId('status').map((el) => el.textContent);
-  expect(statuses).toContain('approved');
+  await waitFor(() => screen.getByText('Need details'));
+  expect(screen.getByText('Need details')).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Add Info' })
+  ).toBeInTheDocument();
 });
 
-test('shows message when ad group is missing', async () => {
-  mockGetDoc.mockResolvedValue({ exists: () => false });
-  mockOnSnapshot.mockImplementation(() => jest.fn());
-
-  render(
-    <MemoryRouter>
-      <ProjectDetail />
-    </MemoryRouter>
-  );
-
-  expect(await screen.findByText('Ad group not found')).toBeInTheDocument();
-});
-
-test('renders brief details and copy deck', async () => {
+test('shows request info note when project lacks it', async () => {
   mockGetDoc.mockResolvedValue({
     exists: () => true,
-    id: 'g1',
+    id: 'p1',
     data: () => ({
-      name: 'Briefed Group',
-      brandCode: 'ACME',
-      status: 'ready',
-      notes: 'Please prioritize spring imagery.',
+      title: 'P1',
+      brandCode: 'B1',
+      recipeTypes: [],
+      createdAt: { toDate: () => new Date() },
+      status: 'processing',
     }),
   });
-  mockOnSnapshot
-    .mockImplementationOnce((ref, cb) => {
-      cb({ docs: [] });
-      return jest.fn();
-    })
-    .mockImplementationOnce((ref, cb) => {
-      cb({
-        docs: [
-          {
-            id: 'copy1',
-            data: () => ({
-              primary: 'Spring Sale',
-              headline: 'Save Big',
-              description: 'Huge discounts on all items.',
-              product: 'Shoes',
-            }),
-          },
-        ],
-      });
-      return jest.fn();
-    })
-    .mockImplementationOnce((ref, cb) => {
-      cb({
-        docs: [
-          {
-            id: 'brief1',
-            data: () => ({ filename: 'moodboard.pdf', firebaseUrl: 'https://example.com/moodboard.pdf' }),
-          },
-        ],
-      });
-      return jest.fn();
-    });
+  mockGetDocs.mockResolvedValue({
+    empty: false,
+    docs: [
+      {
+        id: 'r1',
+        data: () => ({ infoNote: 'Need assets', status: 'need info' }),
+      },
+    ],
+  });
 
   render(
     <MemoryRouter>
@@ -152,8 +172,7 @@ test('renders brief details and copy deck', async () => {
     </MemoryRouter>
   );
 
-  expect(await screen.findByText('Briefed Group')).toBeInTheDocument();
-  expect(screen.getByText('Please prioritize spring imagery.')).toBeInTheDocument();
-  expect(screen.getByText('Spring Sale')).toBeInTheDocument();
-  expect(screen.getByText('moodboard.pdf')).toBeInTheDocument();
+  await waitFor(() => screen.getByText('Need assets'));
+  expect(screen.getByText('Need assets')).toBeInTheDocument();
 });
+
