@@ -847,12 +847,6 @@ useEffect(() => {
   const selectedResponse = responses[adUrl]?.response ?? statusResponse;
   const showSecondView = !!selectedResponse;
   // show next step as soon as a decision is made
-  const progress =
-    reviewAds.length > 0
-      ? ((currentIndex + (animating ? 1 : 0)) / reviewAds.length) * 100
-      : 0;
-
-
   const openVersionModal = (ver) => {
     const base = displayAd || currentAd;
     if (!base) return;
@@ -1232,9 +1226,26 @@ useEffect(() => {
     }
     setSubmitting(true);
 
-    const filteredAssets = (targetAssets || []).filter(
-      (a) => a && a.status !== 'archived',
-    );
+    const matchesTargetAsset = (asset) => {
+      if (!asset || asset.status === 'archived') return false;
+      if (!targetAd) return false;
+      if (targetAd.assetId && asset.assetId) {
+        return asset.assetId === targetAd.assetId;
+      }
+      const targetUrl = targetAd.adUrl || targetAd.firebaseUrl;
+      const assetUrl = asset.adUrl || asset.firebaseUrl;
+      if (targetUrl && assetUrl) {
+        return assetUrl === targetUrl;
+      }
+      if (targetAd.recipeCode && asset.recipeCode) {
+        return (
+          asset.recipeCode === targetAd.recipeCode &&
+          (!targetAd.adGroupId || asset.adGroupId === targetAd.adGroupId)
+        );
+      }
+      return false;
+    };
+    const filteredAssets = (targetAssets || []).filter(matchesTargetAsset);
     const recipeAssets = filteredAssets.length > 0 ? filteredAssets : [targetAd];
     const updates = [];
     const addedResponses = {};
@@ -1817,20 +1828,6 @@ useEffect(() => {
               </button>
             </InfoTooltip>
           </div>
-          {reviewVersion !== 3 && (
-            <div
-              className="progress-bar"
-              role="progressbar"
-              aria-valuenow={progress}
-              aria-valuemin="0"
-              aria-valuemax="100"
-            >
-              <div
-                className="progress-bar-inner"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          )}
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
@@ -2253,40 +2250,6 @@ useEffect(() => {
         </div>
       </div>
 
-      {!showSizes && reviewVersion !== 3 && showSecondView && (
-        <div className="flex items-center space-x-4">
-          {currentIndex > 0 && (
-            <button
-              aria-label="Previous"
-              onClick={() =>
-                setCurrentIndex((i) => Math.max(0, i - 1))
-              }
-              className="btn-arrow"
-            >
-              &lt;
-            </button>
-          )}
-          {currentIndex < reviewAds.length - 1 ? (
-            <button
-              aria-label="Next"
-              onClick={() =>
-                setCurrentIndex((i) => Math.min(reviewAds.length - 1, i + 1))
-              }
-              className="btn-arrow"
-            >
-              &gt;
-            </button>
-          ) : (
-            <button
-              aria-label="End Review"
-              onClick={() => setCurrentIndex(reviewAds.length)}
-              className="btn-arrow"
-            >
-              End
-            </button>
-          )}
-        </div>
-      )}
       {showEditModal && (
         <EditRequestModal
           comment={comment}
