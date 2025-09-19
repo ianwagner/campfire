@@ -267,13 +267,28 @@ const BUFFER_COUNT = 3;
 
 const REVIEW_V2_ASPECT_ORDER = [
   '9x16',
+  '',
   '1x1',
   '3x5',
   '4x5',
   'Pinterest',
   'Snapchat',
-  '',
 ];
+
+const getReviewAspectPriority = (aspect) => {
+  const normalized = normalizeKeyPart(aspect);
+  const idx = REVIEW_V2_ASPECT_ORDER.indexOf(normalized);
+  return idx === -1 ? REVIEW_V2_ASPECT_ORDER.length : idx;
+};
+
+const compareRecipeCodes = (first, second) => {
+  const a = normalizeKeyPart(first);
+  const b = normalizeKeyPart(second);
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+};
 
 const Review = forwardRef(
   (
@@ -438,7 +453,7 @@ const Review = forwardRef(
   );
 
   const buildHeroList = useCallback((list) => {
-    const prefOrder = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
+    const prefOrder = REVIEW_V2_ASPECT_ORDER;
     const getRecipe = (a) =>
       a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
     const getAspect = (a) =>
@@ -472,11 +487,7 @@ const Review = forwardRef(
       }
       return ls[0];
     });
-    heroes.sort((a, b) => {
-      const rA = getRecipe(a);
-      const rB = getRecipe(b);
-      return rA.localeCompare(rB);
-    });
+    heroes.sort((a, b) => compareRecipeCodes(getRecipe(a), getRecipe(b)));
     return heroes;
   }, []);
 
@@ -612,9 +623,11 @@ useEffect(() => {
       if (!map[recipe]) map[recipe] = [];
       map[recipe].push(item);
     });
-    const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
     return Object.entries(map).map(([recipeCode, list]) => {
-      list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
+      list.sort(
+        (a, b) =>
+          getReviewAspectPriority(a.aspectRatio) - getReviewAspectPriority(b.aspectRatio),
+      );
       return { recipeCode, assets: list };
     });
   }, [ads]);
@@ -793,17 +806,18 @@ useEffect(() => {
           list = [...list, ...extraLists.flat()];
         }
 
-        const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
         list.sort((a, b) => {
           const infoA = parseAdFilename(a.filename || '');
           const infoB = parseAdFilename(b.filename || '');
           const rA = a.recipeCode || infoA.recipeCode || '';
           const rB = b.recipeCode || infoB.recipeCode || '';
-          if (rA < rB) return -1;
-          if (rA > rB) return 1;
+          const recipeComparison = compareRecipeCodes(rA, rB);
+          if (recipeComparison !== 0) return recipeComparison;
           const aAsp = a.aspectRatio || infoA.aspectRatio || '';
           const bAsp = b.aspectRatio || infoB.aspectRatio || '';
-          return (order[aAsp] ?? 99) - (order[bAsp] ?? 99);
+          return (
+            getReviewAspectPriority(aAsp) - getReviewAspectPriority(bAsp)
+          );
         });
 
         // determine latest version for each ad unit (recipe + group)
@@ -1021,7 +1035,6 @@ useEffect(() => {
       if (!verMap[ver]) verMap[ver] = [];
       verMap[ver].push(a);
     });
-    const order = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
     const groups = Object.values(verMap).sort(
       (a, b) => getVersion(b[0]) - getVersion(a[0])
     );
@@ -1029,7 +1042,9 @@ useEffect(() => {
       g.sort((a, b) => {
         const aspA = a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
         const aspB = b.aspectRatio || parseAdFilename(b.filename || '').aspectRatio || '';
-        return (order[aspA] ?? 99) - (order[aspB] ?? 99);
+        return (
+          getReviewAspectPriority(aspA) - getReviewAspectPriority(aspB)
+        );
       });
     });
     return groups;
@@ -1331,15 +1346,6 @@ useEffect(() => {
 
   const versionGroupsByAd = useMemo(() => {
     if (!reviewAds || reviewAds.length === 0) return {};
-    const aspectOrder = {
-      '': 0,
-      '9x16': 1,
-      '3x5': 2,
-      '1x1': 3,
-      '4x5': 4,
-      Pinterest: 5,
-      Snapchat: 6,
-    };
     const map = {};
     reviewAds.forEach((ad, idx) => {
       if (!ad) return;
@@ -1371,7 +1377,7 @@ useEffect(() => {
                 parseAdFilename(b.filename || '').aspectRatio ||
                 '';
               return (
-                (aspectOrder[aspectA] ?? 99) - (aspectOrder[aspectB] ?? 99)
+                getReviewAspectPriority(aspectA) - getReviewAspectPriority(aspectB)
               );
             }),
         )
@@ -2200,15 +2206,15 @@ useEffect(() => {
                     asset?.aspectRatio ||
                     parseAdFilename(asset?.filename || '').aspectRatio ||
                     '';
-                  const getAspectPriority = (aspect) => {
-                    const idx = REVIEW_V2_ASPECT_ORDER.indexOf(aspect);
-                    return idx === -1 ? REVIEW_V2_ASPECT_ORDER.length : idx;
-                  };
                   const sortedAssets = latestAssets
                     .map((asset, originalIndex) => ({ asset, originalIndex }))
                     .sort((a, b) => {
-                      const priorityA = getAspectPriority(getAssetAspect(a.asset));
-                      const priorityB = getAspectPriority(getAssetAspect(b.asset));
+                      const priorityA = getReviewAspectPriority(
+                        getAssetAspect(a.asset),
+                      );
+                      const priorityB = getReviewAspectPriority(
+                        getAssetAspect(b.asset),
+                      );
                       if (priorityA !== priorityB) {
                         return priorityA - priorityB;
                       }
@@ -2258,11 +2264,13 @@ useEffect(() => {
                     const matches = Array.from(
                       rawComment.matchAll(/(.*?)\n\n— ([^\n]+)(?:\n\n|$)/gs),
                     );
+                    const sanitizeBody = (text) =>
+                      (text || '').replace(/\n+$/, '');
                     if (matches.length === 0) {
-                      return [{ body: rawComment, meta: '' }];
+                      return [{ body: sanitizeBody(rawComment), meta: '' }];
                     }
                     return matches.map((match) => ({
-                      body: match[1] || '',
+                      body: sanitizeBody(match[1] || ''),
                       meta: match[2] ? `— ${match[2]}` : '',
                     }));
                   })();
@@ -2359,7 +2367,7 @@ useEffect(() => {
                                   key={
                                     getAssetDocumentId(asset) || assetUrl || assetIdx
                                   }
-                                  className="mx-auto w-full max-w-[350px] overflow-hidden rounded-lg border border-gray-200 dark:border-[var(--border-color-default)] sm:mx-0"
+                                  className="mx-auto w-full max-w-[350px] overflow-hidden rounded-lg sm:mx-0"
                                 >
                                   <div className="relative w-full" style={assetStyle}>
                                     {isVideoUrl(assetUrl) ? (
@@ -2496,7 +2504,7 @@ useEffect(() => {
                                       {entry.body}
                                     </p>
                                     {entry.meta && (
-                                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                                         {entry.meta}
                                       </p>
                                     )}
