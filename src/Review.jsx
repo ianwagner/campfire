@@ -1504,6 +1504,7 @@ useEffect(() => {
   const approvedCount = statusSummary.approved || 0;
   const editRequestedCount = statusSummary.edit_requested || 0;
   const rejectedCount = statusSummary.rejected || 0;
+  const finalizeStatusLabel = isFinalized ? 'Review Finalized' : 'Review in Progress';
   const statusCardItems = useMemo(
     () => [
       { label: 'Pending', value: pendingCount },
@@ -2331,17 +2332,16 @@ useEffect(() => {
       <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
         <div className="flex flex-col items-center">
           <div className="relative flex flex-col items-center w-fit mx-auto">
-            {agencyId && (
-              <OptimizedImage
-                pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-                alt={`${agency.name || 'Agency'} logo`}
-                loading="eager"
-                cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
-                onLoad={() => setLogoReady(true)}
-                className="mb-2 max-h-16 w-auto"
-              />
-            )}
-          </div>
+          {agencyId && (
+            <OptimizedImage
+              pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
+              alt={`${agency.name || 'Agency'} logo`}
+              loading="eager"
+              cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+              onLoad={() => setLogoReady(true)}
+              className="mb-2 max-h-16 w-auto"
+            />
+          )}
           <div className="mt-4 w-full px-4 sm:px-6 lg:px-8">
             <div
               ref={statusBarRef}
@@ -2350,44 +2350,45 @@ useEffect(() => {
               }`}
             >
               <div
-                className={`w-full max-w-5xl sm:max-w-6xl rounded-3xl border border-gray-200 shadow-lg backdrop-blur transition-all duration-300 dark:border-[var(--border-color-default)] ${
+                className={`w-full max-w-5xl sm:max-w-6xl rounded-3xl border border-gray-200 shadow-lg backdrop-blur transition-opacity dark:border-[var(--border-color-default)] ${
                   isStatusBarPinned
-                    ? 'bg-white/85 dark:bg-[var(--dark-sidebar-bg)]/85 opacity-95 hover:opacity-100'
+                    ? 'bg-white/80 dark:bg-[var(--dark-sidebar-bg)]/80 opacity-90 hover:opacity-100'
                     : 'bg-white dark:bg-[var(--dark-sidebar-bg)] opacity-100'
                 }`}
               >
-                <div
-                  className={`flex flex-col transition-all duration-300 ${
-                    isStatusBarPinned ? 'gap-3 p-3 sm:p-4' : 'gap-4 p-4 sm:p-6'
-                  }`}
-                >
-                  <div
-                    className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${
-                      isStatusBarPinned ? 'sm:gap-3' : 'sm:gap-4'
-                    }`}
-                  >
+                <div className="flex flex-col gap-4 p-4 sm:p-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                        Ad Group
+                      </p>
                       <h2
-                        className={`truncate font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)] transition-all duration-300 ${
-                          isStatusBarPinned
-                            ? 'text-lg sm:text-xl'
-                            : 'text-2xl sm:text-3xl'
-                        }`}
+                        className="truncate text-xl font-semibold text-gray-900 dark:text-[var(--dark-text)] sm:text-2xl"
                         title={adGroupTitle}
                       >
                         {adGroupTitle}
                       </h2>
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
+                      <div className="text-left sm:text-right">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                          External Status
+                        </p>
+                        <p
+                          className={`text-sm font-semibold ${
+                            isFinalized
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-indigo-600 dark:text-indigo-400'
+                          }`}
+                        >
+                          {finalizeStatusLabel}
+                        </p>
+                      </div>
                       <button
                         type="button"
                         onClick={handleFinalizeClick}
                         disabled={isFinalized || finalizeLoading}
-                        className={`inline-flex items-center justify-center gap-2 rounded-full border font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                          isStatusBarPinned
-                            ? 'px-3 py-1.5 text-xs sm:text-sm'
-                            : 'px-4 py-2 text-sm'
-                        } ${
+                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
                           isFinalized
                             ? 'border-emerald-500 text-emerald-600 dark:border-emerald-400 dark:text-emerald-300'
                             : 'border-gray-300 text-gray-700 hover:border-indigo-500 hover:text-indigo-600 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:border-indigo-400 dark:hover:text-indigo-300'
@@ -2401,25 +2402,13 @@ useEffect(() => {
                       </button>
                     </div>
                   </div>
-                  <div
-                    className={`grid grid-cols-2 sm:grid-cols-4 transition-all duration-300 ${
-                      isStatusBarPinned ? 'gap-3' : 'gap-4'
-                    }`}
-                  >
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                     {statusCardItems.map(({ label, value }) => (
                       <div
                         key={label}
-                        className={`rounded-2xl border border-gray-200/80 bg-white/80 shadow-sm transition-all duration-300 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] ${
-                          isStatusBarPinned ? 'px-3 py-2' : 'px-4 py-3'
-                        }`}
+                        className="rounded-2xl border border-gray-200/80 bg-white/80 px-4 py-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
                       >
-                        <span
-                          className={`block font-semibold text-gray-900 dark:text-[var(--dark-text)] transition-all duration-300 ${
-                            isStatusBarPinned
-                              ? 'text-xl sm:text-2xl'
-                              : 'text-2xl sm:text-3xl'
-                          }`}
-                        >
+                        <span className="block text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
                           {value}
                         </span>
                         <span className="mt-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
