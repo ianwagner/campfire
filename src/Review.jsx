@@ -9,7 +9,7 @@ import React, {
   forwardRef,
   useCallback,
 } from 'react';
-import { FiEdit, FiX, FiGrid, FiCheck, FiType, FiMessageSquare } from 'react-icons/fi';
+import { FiX, FiGrid, FiCheck, FiType, FiMessageSquare } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
   collection,
@@ -39,7 +39,6 @@ import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
-import FeedbackPanel from './components/FeedbackPanel.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
@@ -847,10 +846,6 @@ useEffect(() => {
 
   const selectedResponse = responses[adUrl]?.response ?? statusResponse;
   const showSecondView = !!selectedResponse;
-  const panelEntries = useMemo(() => {
-    const ver = displayAd ? getVersion(displayAd) : 1;
-    return { [ver]: historyEntries[ver] || [] };
-  }, [displayAd?.assetId, displayAd?.filename, displayAd?.version, historyEntries]);
   // show next step as soon as a decision is made
   const progress =
     reviewAds.length > 0
@@ -1861,6 +1856,15 @@ useEffect(() => {
                   const cardKey = getAdKey(ad, index);
                   const groups = versionGroupsByAd[cardKey] || [[ad]];
                   const latestAssets = groups[0] || [ad];
+                  const associatedAssets = latestAssets.filter(
+                    (asset) => unitKey(asset) === unitKey(ad),
+                  );
+                  const statusAssets =
+                    associatedAssets.length > 0
+                      ? associatedAssets
+                      : latestAssets.length > 0
+                      ? latestAssets
+                      : [ad];
                   const getAssetAspect = (asset) =>
                     asset?.aspectRatio ||
                     parseAdFilename(asset?.filename || '').aspectRatio ||
@@ -1880,17 +1884,17 @@ useEffect(() => {
                       return a.originalIndex - b.originalIndex;
                     })
                     .map(({ asset }) => asset);
-                  const assetResponses = latestAssets
+                  const assetResponses = statusAssets
                     .map((asset) => responses[asset.adUrl || asset.firebaseUrl])
                     .filter(Boolean);
                   const responseValue = assetResponses[0]?.response;
-                  const statusFromAssets = latestAssets.some(
+                  const statusFromAssets = statusAssets.some(
                     (asset) => asset.status === 'approved',
                   )
                     ? 'approve'
-                    : latestAssets.some((asset) => asset.status === 'rejected')
+                    : statusAssets.some((asset) => asset.status === 'rejected')
                     ? 'reject'
-                    : latestAssets.some(
+                    : statusAssets.some(
                         (asset) => asset.status === 'edit_requested',
                       )
                     ? 'edit'
@@ -1908,7 +1912,7 @@ useEffect(() => {
                     responseValue ||
                     statusFromAssets ||
                     defaultStatus;
-                  const hasEditInfo = latestAssets.find(
+                  const hasEditInfo = statusAssets.find(
                     (asset) => asset.comment || asset.copyEdit,
                   );
                   const showEditButton = !!hasEditInfo || statusValue === 'edit';
@@ -1932,7 +1936,7 @@ useEffect(() => {
                       setManualStatus((prev) => ({ ...prev, [cardKey]: 'edit' }));
                       setPendingResponseContext({
                         ad,
-                        assets: latestAssets,
+                        assets: statusAssets,
                         index,
                         key: cardKey,
                       });
@@ -1947,7 +1951,7 @@ useEffect(() => {
                     try {
                       await submitResponse(value, {
                         targetAd: ad,
-                        targetAssets: latestAssets,
+                        targetAssets: statusAssets,
                         targetIndex: index,
                         skipAdvance: true,
                       });
@@ -2249,7 +2253,7 @@ useEffect(() => {
         </div>
       </div>
 
-        {!showSizes && reviewVersion !== 3 && (showSecondView ? (
+      {!showSizes && reviewVersion !== 3 && showSecondView && (
         <div className="flex items-center space-x-4">
           {currentIndex > 0 && (
             <button
@@ -2262,30 +2266,6 @@ useEffect(() => {
               &lt;
             </button>
           )}
-          <div className="flex space-x-4 pt-2">
-            <button
-              onClick={() => submitResponse('reject')}
-              className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
-              disabled={submitting}
-            >
-              Reject
-            </button>
-            <button
-              onClick={openEditRequest}
-              className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
-              disabled={submitting}
-              aria-label="Request Edit"
-            >
-              <FiEdit />
-            </button>
-            <button
-              onClick={() => submitResponse('approve')}
-              className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
-              disabled={submitting}
-            >
-              Approve
-            </button>
-          </div>
           {currentIndex < reviewAds.length - 1 ? (
             <button
               aria-label="Next"
@@ -2306,32 +2286,7 @@ useEffect(() => {
             </button>
           )}
         </div>
-      ) : (
-        <div className="flex space-x-4">
-          <button
-            onClick={() => submitResponse('reject')}
-            className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
-            disabled={submitting}
-          >
-            Reject
-          </button>
-          <button
-            onClick={openEditRequest}
-            className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
-            disabled={submitting}
-            aria-label="Request Edit"
-          >
-            <FiEdit />
-          </button>
-          <button
-            onClick={() => submitResponse('approve')}
-            className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
-            disabled={submitting}
-          >
-            Approve
-          </button>
-        </div>
-      ))}
+      )}
       {showEditModal && (
         <EditRequestModal
           comment={comment}
@@ -2410,15 +2365,6 @@ useEffect(() => {
         />
       )}
       </div>
-      {reviewVersion !== 3 && (
-        <FeedbackPanel
-          entries={panelEntries}
-          onVersionClick={openVersionModal}
-          origCopy={recipeCopyMap[currentRecipe] || ''}
-          className="mt-4 md:mt-0"
-          collapsible={reviewVersion === 2}
-        />
-      )}
     </div>
     </div>
   );
