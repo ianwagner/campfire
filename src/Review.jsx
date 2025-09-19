@@ -79,6 +79,16 @@ const isSafari =
 
 const BUFFER_COUNT = 3;
 
+const REVIEW_V2_ASPECT_ORDER = [
+  '9x16',
+  '1x1',
+  '3x5',
+  '4x5',
+  'Pinterest',
+  'Snapchat',
+  '',
+];
+
 const Review = forwardRef(
   (
     {
@@ -1851,23 +1861,25 @@ useEffect(() => {
                   const cardKey = getAdKey(ad, index);
                   const groups = versionGroupsByAd[cardKey] || [[ad]];
                   const latestAssets = groups[0] || [ad];
-                  const baseAspect =
-                    ad?.aspectRatio ||
-                    parseAdFilename(ad?.filename || '').aspectRatio ||
+                  const getAssetAspect = (asset) =>
+                    asset?.aspectRatio ||
+                    parseAdFilename(asset?.filename || '').aspectRatio ||
                     '';
-                  const displayAsset =
-                    latestAssets.find((asset) => {
-                      const aspect =
-                        asset?.aspectRatio ||
-                        parseAdFilename(asset?.filename || '').aspectRatio ||
-                        '';
-                      return aspect === baseAspect;
-                    }) || latestAssets[0] || ad;
-                  const otherAssets = latestAssets.filter(
-                    (asset) =>
-                      (asset?.assetId || asset?.firebaseUrl || asset?.adUrl) !==
-                      (displayAsset?.assetId || displayAsset?.firebaseUrl || displayAsset?.adUrl),
-                  );
+                  const getAspectPriority = (aspect) => {
+                    const idx = REVIEW_V2_ASPECT_ORDER.indexOf(aspect);
+                    return idx === -1 ? REVIEW_V2_ASPECT_ORDER.length : idx;
+                  };
+                  const sortedAssets = latestAssets
+                    .map((asset, originalIndex) => ({ asset, originalIndex }))
+                    .sort((a, b) => {
+                      const priorityA = getAspectPriority(getAssetAspect(a.asset));
+                      const priorityB = getAspectPriority(getAssetAspect(b.asset));
+                      if (priorityA !== priorityB) {
+                        return priorityA - priorityB;
+                      }
+                      return a.originalIndex - b.originalIndex;
+                    })
+                    .map(({ asset }) => asset);
                   const assetResponses = latestAssets
                     .map((asset) => responses[asset.adUrl || asset.firebaseUrl])
                     .filter(Boolean);
@@ -1905,15 +1917,6 @@ useEffect(() => {
                     ad.recipeCode ||
                     parseAdFilename(ad.filename || '').recipeCode ||
                     'Ad Unit';
-                  const displayUrl =
-                    displayAsset?.firebaseUrl || displayAsset?.adUrl || '';
-                  const aspectRatio =
-                    displayAsset?.aspectRatio ||
-                    parseAdFilename(displayAsset?.filename || '').aspectRatio ||
-                    '';
-                  const ratioStyle = aspectRatio
-                    ? { aspectRatio: aspectRatio.replace('x', '/') }
-                    : {};
                   const selectId = `ad-status-${cardKey}`;
                   const handleSelectChange = async (event) => {
                     const value = event.target.value;
@@ -1979,71 +1982,46 @@ useEffect(() => {
                           </div>
                         </div>
                         <div className="space-y-4">
-                          <div className="mx-auto w-full max-w-[350px] overflow-hidden rounded-lg border border-gray-200 dark:border-[var(--border-color-default)]">
-                            <div className="relative w-full" style={ratioStyle}>
-                              {isVideoUrl(displayUrl) ? (
-                                <VideoPlayer
-                                  src={displayUrl}
-                                  className="h-full w-full object-contain"
-                                  style={ratioStyle}
-                                />
-                              ) : (
-                                <OptimizedImage
-                                  pngUrl={displayUrl}
-                                  webpUrl={
-                                    displayUrl
-                                      ? displayUrl.replace(/\.png$/, '.webp')
-                                      : undefined
-                                  }
-                                  alt={displayAsset?.filename || 'Ad'}
-                                  cacheKey={displayUrl}
-                                  className="h-full w-full object-contain"
-                                  style={ratioStyle}
-                                />
-                              )}
-                            </div>
-                          </div>
-                          {otherAssets.length > 0 && (
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              {otherAssets.map((asset, assetIdx) => {
-                                const assetUrl = asset.firebaseUrl || asset.adUrl || '';
-                                const assetAspect =
-                                  asset.aspectRatio ||
-                                  parseAdFilename(asset.filename || '').aspectRatio ||
-                                  '';
-                                const assetStyle = assetAspect
-                                  ? { aspectRatio: assetAspect.replace('x', '/') }
-                                  : {};
-                                return (
-                                  <div
-                                    key={asset.assetId || assetUrl || assetIdx}
-                                    className="mx-auto w-full max-w-[350px] overflow-hidden rounded-lg border border-gray-200 dark:border-[var(--border-color-default)]"
-                                  >
-                                    <div className="relative w-full" style={assetStyle}>
-                                      {isVideoUrl(assetUrl) ? (
-                                        <VideoPlayer
-                                          src={assetUrl}
-                                          className="h-full w-full object-contain"
-                                          style={assetStyle}
-                                        />
-                                      ) : (
-                                        <OptimizedImage
-                                          pngUrl={assetUrl}
-                                          webpUrl={
-                                            assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
-                                          }
-                                          alt={asset.filename || 'Ad variant'}
-                                          cacheKey={assetUrl}
-                                          className="h-full w-full object-contain"
-                                          style={assetStyle}
-                                        />
-                                      )}
-                                    </div>
+                          <div
+                            className={`grid gap-3 ${
+                              sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
+                            }`}
+                          >
+                            {sortedAssets.map((asset, assetIdx) => {
+                              const assetUrl = asset.firebaseUrl || asset.adUrl || '';
+                              const assetAspect = getAssetAspect(asset);
+                              const assetStyle = assetAspect
+                                ? { aspectRatio: assetAspect.replace('x', '/') }
+                                : {};
+                              return (
+                                <div
+                                  key={asset.assetId || assetUrl || assetIdx}
+                                  className="mx-auto w-full max-w-[350px] overflow-hidden rounded-lg border border-gray-200 dark:border-[var(--border-color-default)] sm:mx-0"
+                                >
+                                  <div className="relative w-full" style={assetStyle}>
+                                    {isVideoUrl(assetUrl) ? (
+                                      <VideoPlayer
+                                        src={assetUrl}
+                                        className="h-full w-full object-contain"
+                                        style={assetStyle}
+                                      />
+                                    ) : (
+                                      <OptimizedImage
+                                        pngUrl={assetUrl}
+                                        webpUrl={
+                                          assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
+                                        }
+                                        alt={asset.filename || 'Ad'}
+                                        cacheKey={assetUrl}
+                                        className="h-full w-full object-contain"
+                                        style={assetStyle}
+                                      />
+                                    )}
                                   </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                         <div className="mt-2 flex flex-col gap-3 border-t border-gray-200 pt-3 dark:border-[var(--border-color-default)] sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3">
