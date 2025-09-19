@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   collection,
@@ -211,18 +211,11 @@ const CreateProjectModal = ({
   );
 };
 
-const uniqueById = (list) => {
-  const map = new Map();
-  list.forEach((item) => map.set(item.id, item));
-  return Array.from(map.values());
-};
-
 const ClientProjects = ({ brandCodes = [] }) => {
-  const [projects, setProjects] = useState([]);
-  const [projDocs, setProjDocs] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [brandGroups, setBrandGroups] = useState([]);
+  const [userGroups, setUserGroups] = useState([]);
+  const [brandLoading, setBrandLoading] = useState(false);
+  const [userLoading, setUserLoading] = useState(false);
   const [modalStep, setModalStep] = useState(null); // null | 'brief' | 'describe'
   const [view, setView] = useState('current');
   const [filter, setFilter] = useState('');
@@ -234,122 +227,151 @@ const ClientProjects = ({ brandCodes = [] }) => {
   const tagStrokeWeight = settings.tagStrokeWeight ?? 1;
   const { agencyId } = useUserRole(auth.currentUser?.uid);
   const { agency } = useAgencyTheme(agencyId);
+  const brandGroupMapRef = useRef(new Map());
+
+  const loading = brandLoading || userLoading;
 
   useEffect(() => {
     if (location.state?.removedProject) {
       const id = location.state.removedProject;
-      setProjects((list) => list.filter((p) => p.id !== id));
-      setProjDocs((list) => list.filter((p) => p.id !== id));
       navigate('/projects', { replace: true });
     }
   }, [location.state, navigate]);
 
   useEffect(() => {
     if (!auth.currentUser?.uid) {
-      setProjects([]);
-      setLoading(false);
+      setUserGroups([]);
       return undefined;
     }
-    setLoading(true);
-    const projQ = query(
-      collection(db, 'projects'),
-      where('userId', '==', auth.currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
+    setUserLoading(true);
     const groupQ = query(
       collection(db, 'adGroups'),
       where('uploadedBy', '==', auth.currentUser.uid)
     );
-    const reqQ = query(
-      collection(db, 'requests'),
-      where('createdBy', '==', auth.currentUser.uid)
-    );
-
-    const unsubProj = onSnapshot(
-      projQ,
+    const unsubGroup = onSnapshot(
+      groupQ,
       (snap) => {
-        const all = snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-          createdAt: d.data().createdAt?.toDate(),
-        }));
-        setProjDocs(all);
-        setLoading(false);
+        const list = snap.docs.map((g) => {
+          const data = g.data() || {};
+          return {
+            id: g.id,
+            ...data,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
+          };
+        });
+        setUserGroups(list);
+        setUserLoading(false);
       },
-      () => setLoading(false)
+      () => setUserLoading(false)
     );
-
-    const unsubGroup = onSnapshot(groupQ, (snap) => {
-      Promise.all(
-        snap.docs.map(async (g) => {
-          const data = g.data();
-          let recipeCount = data.recipeCount;
-          if (recipeCount == null) {
-            try {
-              const rSnap = await getDocs(
-                collection(db, 'adGroups', g.id, 'recipes')
-              );
-              recipeCount = rSnap.size;
-            } catch {
-              recipeCount = 0;
-            }
-          }
-          return { id: g.id, ...data, recipeCount };
-        })
-      ).then(setGroups);
-    });
-    const unsubReq = onSnapshot(reqQ, (snap) => {
-      setRequests(snap.docs.map((r) => ({ id: r.id, ...r.data() })));
-    });
 
     return () => {
-      unsubProj();
       unsubGroup();
-      unsubReq();
     };
   }, []);
 
   useEffect(() => {
-    const groupMap = {};
-    groups.forEach((g) => {
-      groupMap[g.id] = g;
+    const codes = Array.isArray(brandCodes)
+      ? brandCodes.filter((code) => typeof code === 'string' && code.trim())
+      : [];
+    if (codes.length === 0) {
+      brandGroupMapRef.current.clear();
+      setBrandGroups([]);
+      setBrandLoading(false);
+      return undefined;
+    }
+    setBrandLoading(true);
+    brandGroupMapRef.current = new Map();
+    const unsubs = codes.map((code) => {
+      const brandQuery = query(
+        collection(db, 'adGroups'),
+        where('brandCode', '==', code),
+        orderBy('createdAt', 'desc')
+      );
+      return onSnapshot(
+        brandQuery,
+        (snap) => {
+          const seen = new Set();
+          snap.docs.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+            seen.add(docSnap.id);
+            brandGroupMapRef.current.set(docSnap.id, {
+              id: docSnap.id,
+              ...data,
+              createdAt: data.createdAt?.toDate
+                ? data.createdAt.toDate()
+                : null,
+            });
+          });
+          for (const value of Array.from(brandGroupMapRef.current.values())) {
+            if (value.brandCode === code && !seen.has(value.id)) {
+              brandGroupMapRef.current.delete(value.id);
+            }
+          }
+          setBrandGroups(Array.from(brandGroupMapRef.current.values()));
+          setBrandLoading(false);
+        },
+        () => setBrandLoading(false)
+      );
     });
-    const requestMap = {};
-    requests.forEach((r) => {
-      requestMap[r.projectId] = r;
-    });
-    const merged = projDocs.map((p) => {
-      return { ...p, group: groupMap[p.groupId], request: requestMap[p.id] };
-    });
-    setProjects(uniqueById(merged));
-  }, [projDocs, groups, requests]);
+
+    return () => {
+      unsubs.forEach((fn) => fn());
+      brandGroupMapRef.current.clear();
+    };
+  }, [brandCodes]);
 
   const handleCreated = (proj) => {
     setModalStep(null);
-    if (proj) {
-      navigate(`/projects/${proj.id}/staging`);
+    if (proj?.groupId) {
+      navigate(`/projects/${proj.groupId}`);
+    } else if (proj?.id) {
+      navigate(`/projects/${proj.id}`);
     }
   };
   const term = filter.toLowerCase();
-  const displayProjects = projects
-    .filter((p) => {
-      const status = p.group ? p.group.status : p.status;
-      return view === 'archived' ? status === 'archived' : status !== 'archived';
-    })
-    .filter(
-      (p) =>
-        !term ||
-        (p.title || '').toLowerCase().includes(term) ||
-        (p.brandCode || '').toLowerCase().includes(term)
+
+  const adGroupCards = useMemo(() => {
+    const map = new Map();
+    [...brandGroups, ...userGroups].forEach((group) => {
+      if (!group) return;
+      const entry = {
+        id: group.id,
+        title: group.name || group.title || 'Untitled Ad Group',
+        brandCode: group.brandCode || '',
+        status: group.status || 'new',
+        createdAt:
+          group.createdAt?.getTime?.() ||
+          (group.createdAt?.toDate ? group.createdAt.toDate().getTime() : 0),
+        createdAtDate:
+          group.createdAt instanceof Date
+            ? group.createdAt
+            : group.createdAt?.toDate?.() || null,
+        recipeCount: group.recipeCount,
+        month: group.month,
+      };
+      map.set(group.id, entry);
+    });
+    return Array.from(map.values());
+  }, [brandGroups, userGroups]);
+
+  const displayProjects = adGroupCards
+    .filter((group) =>
+      view === 'archived'
+        ? group.status === 'archived'
+        : group.status !== 'archived'
     )
+    .filter((group) => {
+      if (!term) return true;
+      return (
+        group.title.toLowerCase().includes(term) ||
+        group.brandCode.toLowerCase().includes(term)
+      );
+    })
     .sort((a, b) => {
-      if (sortField === 'title') return (a.title || '').localeCompare(b.title || '');
-      if (sortField === 'status') {
-        const statusA = (a.group ? a.group.status : a.status) || '';
-        const statusB = (b.group ? b.group.status : b.status) || '';
-        return statusA.localeCompare(statusB);
-      }
-      return (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0);
+      if (sortField === 'title') return a.title.localeCompare(b.title);
+      if (sortField === 'status') return a.status.localeCompare(b.status);
+      return (b.createdAt || 0) - (a.createdAt || 0);
     });
 
   const firstName = auth.currentUser?.displayName?.split(' ')[0];
@@ -360,7 +382,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
   return (
     <div className="min-h-screen p-4 flex flex-col items-center overflow-y-auto snap-y snap-mandatory scroll-smooth">
       {loading ? (
-        <p>Loading projects...</p>
+        <p>Loading ad groups...</p>
       ) : (
         <div className="w-full flex flex-col items-center">
           {settings.artworkUrl && (
@@ -435,9 +457,12 @@ const ClientProjects = ({ brandCodes = [] }) => {
             {displayProjects.length > 0 && (
               <div className="space-y-3 max-w-xl w-full mx-auto">
                 {displayProjects.map((p) => {
-                  const status = p.group ? p.group.status : p.status;
-                  const adCount = p.group ? p.group.recipeCount : p.request?.numAds;
-                  const rawMonth = p.group?.month || p.month;
+                  const status = p.status;
+                  const adCount = p.recipeCount;
+                  const rawMonth =
+                    typeof p.month === 'string' && p.month.length >= 7
+                      ? p.month
+                      : null;
                   const monthLabel = rawMonth
                     ? new Date(
                         Number(rawMonth.slice(0, 4)),
@@ -466,11 +491,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
                     <div
                       key={p.id}
                       className="border rounded-xl p-4 flex justify-between items-center cursor-pointer bg-white hover:bg-gray-50 dark:bg-[var(--dark-sidebar-bg)] dark:hover:bg-[var(--dark-sidebar-hover)]"
-                      onClick={() =>
-                        navigate(
-                          p.group ? `/projects/${p.id}` : `/projects/${p.id}/staging`
-                        )
-                      }
+                      onClick={() => navigate(`/projects/${p.id}`)}
                     >
                       <div className="flex flex-col">
                         <span className="font-medium">{p.title}</span>

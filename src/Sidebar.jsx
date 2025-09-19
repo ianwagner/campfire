@@ -16,7 +16,7 @@ import { FiFolder } from 'react-icons/fi';
 
 const defaultTabs = [
   { label: 'Dashboard', path: '/dashboard/client', icon: FiHome },
-  { label: 'Projects', path: '/projects', icon: FiFolder },
+  { label: 'Ad Groups', path: '/projects', icon: FiFolder },
   { label: 'Data', path: '/data', icon: FiDatabase },
   { label: 'Brand Profile', path: '/brand-profile', icon: FiBriefcase },
   { label: 'Account Settings', path: '/account-settings', icon: FiUser },
