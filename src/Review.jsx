@@ -228,6 +228,29 @@ const getAdKey = (ad, index = 0) => {
   );
 };
 
+const dedupeByAdUnit = (list = []) => {
+  const seen = new Set();
+  return list.filter((item) => {
+    if (!item) return false;
+    const key =
+      getAdUnitKey(item) ||
+      getAssetUnitId(item) ||
+      getAssetParentId(item) ||
+      getAssetDocumentId(item) ||
+      getAssetUrlKey(item) ||
+      item.assetId ||
+      item.id;
+    if (!key) {
+      return true;
+    }
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+};
+
 const isSafari =
   typeof navigator !== 'undefined' &&
   /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -800,19 +823,20 @@ useEffect(() => {
         const visibleDeduped = deduped.filter((a) => a.status !== 'archived');
 
         if (rv === 2) {
+          const uniqueVisibleDeduped = dedupeByAdUnit(visibleDeduped);
           setAllAds(visibleAssets);
-          setAds(visibleDeduped);
-          setAllHeroAds(visibleDeduped);
-          setReviewAds(visibleDeduped);
+          setAds(uniqueVisibleDeduped);
+          setAllHeroAds(uniqueVisibleDeduped);
+          setReviewAds(uniqueVisibleDeduped);
           setVersionMode(false);
           setHasPending(
-            visibleDeduped.some((a) =>
+            uniqueVisibleDeduped.some((a) =>
               ['pending', 'ready', 'in review'].includes(a.status),
             ),
           );
           setPendingOnly(false);
           const initialStatuses = {};
-          visibleDeduped.forEach((ad) => {
+          uniqueVisibleDeduped.forEach((ad) => {
             let resp;
             if (ad.status === 'approved') resp = 'approve';
             else if (ad.status === 'rejected') resp = 'reject';
