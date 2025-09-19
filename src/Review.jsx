@@ -2342,7 +2342,7 @@ useEffect(() => {
               className="mb-2 max-h-16 w-auto"
             />
           )}
-          <div className="mt-4 w-full px-4 sm:px-6 lg:px-8">
+          <div className="mt-6 w-full px-4 sm:px-6 lg:px-8">
             <div
               ref={statusBarRef}
               className={`sticky top-0 z-30 flex w-full justify-center transition-all duration-300 ${
@@ -2350,68 +2350,80 @@ useEffect(() => {
               }`}
             >
               <div
-                className={`w-full max-w-5xl sm:max-w-6xl rounded-3xl border border-gray-200 shadow-lg backdrop-blur transition-opacity dark:border-[var(--border-color-default)] ${
+                className={`w-full max-w-5xl sm:max-w-6xl border border-gray-200 shadow-lg backdrop-blur transition-all duration-300 dark:border-[var(--border-color-default)] ${
                   isStatusBarPinned
-                    ? 'bg-white/80 dark:bg-[var(--dark-sidebar-bg)]/80 opacity-90 hover:opacity-100'
-                    : 'bg-white dark:bg-[var(--dark-sidebar-bg)] opacity-100'
+                    ? 'rounded-2xl bg-white/85 dark:bg-[var(--dark-sidebar-bg)]/85'
+                    : 'rounded-3xl bg-white dark:bg-[var(--dark-sidebar-bg)]'
                 }`}
               >
-                <div className="flex flex-col gap-4 p-4 sm:p-6">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                        Ad Group
-                      </p>
+                <div
+                  className={`flex flex-col transition-all duration-300 ${
+                    isStatusBarPinned ? 'gap-3 p-4 sm:p-5' : 'gap-4 p-5 sm:p-7'
+                  }`}
+                >
+                  <div
+                    className={`flex flex-col gap-3 transition-all duration-300 sm:flex-row sm:items-center sm:justify-between ${
+                      isStatusBarPinned ? 'sm:gap-3' : 'sm:gap-4'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
                       <h2
-                        className="truncate text-xl font-semibold text-gray-900 dark:text-[var(--dark-text)] sm:text-2xl"
+                        className={`truncate font-semibold text-gray-900 transition-all duration-300 dark:text-[var(--dark-text)] ${
+                          isStatusBarPinned
+                            ? 'text-lg sm:text-xl'
+                            : 'text-xl sm:text-2xl'
+                        }`}
                         title={adGroupTitle}
                       >
                         {adGroupTitle}
                       </h2>
                     </div>
-                    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
-                      <div className="text-left sm:text-right">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                          External Status
-                        </p>
-                        <p
-                          className={`text-sm font-semibold ${
-                            isFinalized
-                              ? 'text-emerald-600 dark:text-emerald-400'
-                              : 'text-indigo-600 dark:text-indigo-400'
-                          }`}
-                        >
-                          {finalizeStatusLabel}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleFinalizeClick}
-                        disabled={isFinalized || finalizeLoading}
-                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                          isFinalized
-                            ? 'border-emerald-500 text-emerald-600 dark:border-emerald-400 dark:text-emerald-300'
-                            : 'border-gray-300 text-gray-700 hover:border-indigo-500 hover:text-indigo-600 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:border-indigo-400 dark:hover:text-indigo-300'
-                        }`}
-                      >
-                        {finalizeLoading
-                          ? 'Finalizing…'
-                          : isFinalized
-                          ? 'Review Finalized'
-                          : 'Finalize Review'}
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={handleFinalizeClick}
+                      disabled={isFinalized || finalizeLoading}
+                      aria-label={`${finalizeStatusLabel}. ${
+                        isFinalized ? 'Review finalized' : 'Finalize review'
+                      }`}
+                      className={`inline-flex items-center justify-center rounded-full font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        isStatusBarPinned ? 'px-3 py-1.5 text-xs sm:text-sm' : 'px-5 py-2 text-sm sm:text-base'
+                      } ${
+                        isFinalized
+                          ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400'
+                      }`}
+                    >
+                      {finalizeLoading
+                        ? 'Finalizing…'
+                        : isFinalized
+                        ? 'Review Finalized'
+                        : 'Finalize Review'}
+                    </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                  <div
+                    className={`grid grid-cols-2 transition-all duration-300 sm:grid-cols-4 ${
+                      isStatusBarPinned ? 'gap-3 sm:gap-3' : 'gap-4 sm:gap-5'
+                    }`}
+                  >
                     {statusCardItems.map(({ label, value }) => (
                       <div
                         key={label}
-                        className="rounded-2xl border border-gray-200/80 bg-white/80 px-4 py-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
+                        className={`rounded-2xl border border-gray-200/80 bg-white/90 shadow-sm transition-all duration-300 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] ${
+                          isStatusBarPinned ? 'px-3 py-2.5' : 'px-4 py-3'
+                        }`}
                       >
-                        <span className="block text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                        <span
+                          className={`block font-semibold text-gray-900 transition-all duration-300 dark:text-[var(--dark-text)] ${
+                            isStatusBarPinned ? 'text-2xl' : 'text-3xl'
+                          }`}
+                        >
                           {value}
                         </span>
-                        <span className="mt-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        <span
+                          className={`mt-1 block font-semibold uppercase tracking-wide text-gray-500 transition-all duration-300 dark:text-gray-400 ${
+                            isStatusBarPinned ? 'text-[0.7rem]' : 'text-xs'
+                          }`}
+                        >
                           {label}
                         </span>
                       </div>
