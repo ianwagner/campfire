@@ -44,7 +44,8 @@ import EditorBrands from "./EditorBrands";
 import AdminAgencies from "./AdminAgencies";
 import AdminAgencyProfile from "./AdminAgencyProfile";
 import ClientProjects from "./ClientProjects";
-import ClientProjectRedirect from "./ClientProjectRedirect";
+import ProjectDetail from "./ProjectDetail";
+import ProjectStaging from "./ProjectStaging";
 import AdminRecipeSetup from "./AdminRecipeSetup";
 import AdminCopyRecipes from "./AdminCopyRecipes";
 import AdminDynamicHeadlines from "./AdminDynamicHeadlines";
@@ -403,7 +404,7 @@ const App = () => {
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
-                    <ClientProjectRedirect />
+                    <ProjectStaging />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
@@ -419,7 +420,7 @@ const App = () => {
                     userRole={role} isAdmin={isAdmin}
                     loading={roleLoading}
                   >
-                    <ClientProjectRedirect />
+                    <ProjectDetail />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
