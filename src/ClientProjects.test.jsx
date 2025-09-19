@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import ClientProjects from './ClientProjects';
@@ -8,7 +8,6 @@ jest.mock('./firebase/config', () => ({
   db: {},
   auth: { currentUser: { uid: 'u1' } },
 }));
-
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
   query: jest.fn((...args) => args),
@@ -19,23 +18,19 @@ jest.mock('firebase/firestore', () => ({
   serverTimestamp: jest.fn(),
   writeBatch: jest.fn(),
   doc: jest.fn(),
-  getDoc: jest.fn(),
   getDocs: jest.fn(),
-  Timestamp: { fromDate: jest.fn() },
-  updateDoc: jest.fn(),
 }));
-
 jest.mock('./useSiteSettings', () => jest.fn(() => ({ settings: {}, loading: false })));
-jest.mock('./useUserRole', () => () => ({ agencyId: null }));
-jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
+import useSiteSettings from './useSiteSettings';
 jest.mock('./RecipePreview.jsx', () => () => <div />);
 jest.mock('./DescribeProjectModal.jsx', () => () => <div />);
 jest.mock('./components/OptimizedImage.jsx', () => () => <div />);
+jest.mock('./useUserRole', () => () => ({ agencyId: null }));
+jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 jest.mock('./uploadFile.js', () => ({ uploadFile: jest.fn() }));
 
 import { onSnapshot } from 'firebase/firestore';
 import { auth } from './firebase/config';
-import useSiteSettings from './useSiteSettings';
 
 afterEach(() => {
   jest.clearAllMocks();
@@ -43,28 +38,25 @@ afterEach(() => {
 });
 
 test('displays brand code when multiple brand codes provided', () => {
-  const now = new Date();
   onSnapshot
-    .mockImplementationOnce((q, cb) => {
-      cb({ docs: [] });
-      return jest.fn();
-    })
     .mockImplementationOnce((q, cb) => {
       cb({
         docs: [
           {
-            id: 'g1',
+            id: 'p1',
             data: () => ({
-              name: 'Launch Campaign',
+              title: 'Project 1',
               brandCode: 'B1',
-              status: 'ready',
-              createdAt: { toDate: () => now },
-              recipeCount: 4,
-              month: '2024-02',
+              status: 'new',
+              createdAt: { toDate: () => new Date() },
             }),
           },
         ],
       });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
       return jest.fn();
     })
     .mockImplementationOnce((q, cb) => {
@@ -78,12 +70,80 @@ test('displays brand code when multiple brand codes provided', () => {
     </MemoryRouter>
   );
 
-  expect(screen.getByText('Launch Campaign')).toBeInTheDocument();
+  expect(screen.getByText('Project 1')).toBeInTheDocument();
   expect(screen.getByText('B1')).toBeInTheDocument();
+  expect(screen.queryByText('B1 - Project 1')).not.toBeInTheDocument();
 });
 
-test('toggle shows archived ad groups', () => {
+test('toggle shows archived projects', () => {
   onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'p1',
+            data: () => ({
+              title: 'P1',
+              brandCode: 'B1',
+              status: 'new',
+              createdAt: { toDate: () => new Date() },
+            }),
+          },
+          {
+            id: 'p2',
+            data: () => ({
+              title: 'P2',
+              brandCode: 'B1',
+              status: 'archived',
+              createdAt: { toDate: () => new Date() },
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    });
+
+  render(
+    <MemoryRouter>
+      <ClientProjects brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  expect(screen.getByText('P1')).toBeInTheDocument();
+  expect(screen.queryByText('P2')).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByText('Archived'));
+
+  expect(screen.getByText('P2')).toBeInTheDocument();
+  expect(screen.queryByText('P1')).not.toBeInTheDocument();
+});
+
+test('request-only project shows requested ad count', async () => {
+  onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'p1',
+            data: () => ({
+              title: 'ReqProj',
+              brandCode: 'B1',
+              status: 'new',
+              createdAt: { toDate: () => new Date() },
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
     .mockImplementationOnce((q, cb) => {
       cb({ docs: [] });
       return jest.fn();
@@ -92,20 +152,8 @@ test('toggle shows archived ad groups', () => {
       cb({
         docs: [
           {
-            id: 'g1',
-            data: () => ({
-              name: 'Active Group',
-              brandCode: 'B1',
-              status: 'ready',
-            }),
-          },
-          {
-            id: 'g2',
-            data: () => ({
-              name: 'Archived Group',
-              brandCode: 'B1',
-              status: 'archived',
-            }),
+            id: 'r1',
+            data: () => ({ projectId: 'p1', numAds: 3 }),
           },
         ],
       });
@@ -118,18 +166,124 @@ test('toggle shows archived ad groups', () => {
     </MemoryRouter>
   );
 
-  expect(screen.getByText('Active Group')).toBeInTheDocument();
-  expect(screen.queryByText('Archived Group')).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.getByText('3')).toBeInTheDocument());
+  expect(screen.getByText('3')).toHaveClass('tag-pill');
+});
 
-  fireEvent.click(screen.getByText('Archived'));
+test('merges project and group by groupId even if title or brand differ', async () => {
+  onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'p1',
+            data: () => ({
+              title: 'Proj1',
+              brandCode: 'B1',
+              status: 'new',
+              createdAt: { toDate: () => new Date() },
+              groupId: 'g1',
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'g1',
+            data: () => ({
+              recipeCount: 5,
+              name: 'Different',
+              brandCode: 'B2',
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    });
 
-  expect(screen.getByText('Archived Group')).toBeInTheDocument();
-  expect(screen.queryByText('Active Group')).not.toBeInTheDocument();
+  render(
+    <MemoryRouter>
+      <ClientProjects brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  await waitFor(() => expect(screen.getByText('5')).toBeInTheDocument());
+  expect(screen.getByText('5')).toHaveClass('tag-pill');
+});
+
+test('renders month pill with correct color', async () => {
+  useSiteSettings.mockReturnValue({
+    settings: { monthColors: { '02': { color: '#123456', opacity: 1 } } },
+    loading: false,
+  });
+  onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'p1',
+            data: () => ({
+              title: 'ProjMonth',
+              brandCode: 'B1',
+              status: 'new',
+              createdAt: { toDate: () => new Date() },
+              groupId: 'g1',
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'g1',
+            data: () => ({
+              name: 'ProjMonth',
+              brandCode: 'B1',
+              status: 'new',
+              recipeCount: 2,
+              month: '2023-02',
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    });
+
+  render(
+    <MemoryRouter>
+      <ClientProjects brandCodes={['B1']} />
+    </MemoryRouter>
+  );
+
+  await waitFor(() => expect(screen.getByText('Feb')).toBeInTheDocument());
+  const monthPill = screen.getByText('Feb');
+  expect(monthPill).toHaveStyle('background-color: #123456');
+  expect(monthPill).not.toHaveStyle('background-color: #f97316');
+  expect(monthPill).toHaveClass('tag-pill');
 });
 
 test('shows personalized greeting when display name is present', () => {
-  auth.currentUser.displayName = 'Jane Smith';
+  auth.currentUser.displayName = 'John Doe';
   onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({ docs: [] });
+      return jest.fn();
+    })
     .mockImplementationOnce((q, cb) => {
       cb({ docs: [] });
       return jest.fn();
@@ -146,50 +300,17 @@ test('shows personalized greeting when display name is present', () => {
   );
 
   expect(
-    screen.getByText('Hey Jane, how would you like to start?')
+    screen.getByText('Hey John, how would you like to start?')
   ).toBeInTheDocument();
 });
 
-test('renders month pill with custom color', () => {
-  useSiteSettings.mockReturnValue({
-    settings: { monthColors: { '02': { color: '#123456', opacity: 1 } } },
-    loading: false,
-  });
+test('shows default greeting when display name is absent', () => {
+  delete auth.currentUser.displayName;
   onSnapshot
     .mockImplementationOnce((q, cb) => {
       cb({ docs: [] });
       return jest.fn();
     })
-    .mockImplementationOnce((q, cb) => {
-      cb({
-        docs: [
-          {
-            id: 'g1',
-            data: () => ({
-              name: 'Seasonal',
-              brandCode: 'B1',
-              status: 'ready',
-              month: '2024-02',
-            }),
-          },
-        ],
-      });
-      return jest.fn();
-    });
-
-  render(
-    <MemoryRouter>
-      <ClientProjects brandCodes={['B1']} />
-    </MemoryRouter>
-  );
-
-  const monthPill = screen.getByText('Feb');
-  expect(monthPill).toHaveClass('tag-pill');
-  expect(monthPill).toHaveStyle('background-color: #123456');
-});
-
-test('shows default greeting when display name is absent', () => {
-  onSnapshot
     .mockImplementationOnce((q, cb) => {
       cb({ docs: [] });
       return jest.fn();
@@ -209,3 +330,4 @@ test('shows default greeting when display name is absent', () => {
     screen.getByText('How would you like to start?')
   ).toBeInTheDocument();
 });
+
