@@ -55,106 +55,25 @@ import computeGroupStatus from './utils/computeGroupStatus';
 import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 
-const normalizeKeyPart = (value) => {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value.trim();
-  return String(value);
-};
-
-const getAssetDocumentId = (asset) =>
-  normalizeKeyPart(
-    asset?.assetId ||
-      asset?.id ||
-      asset?.documentId ||
-      asset?.docId ||
-      asset?.originalAssetId ||
-      asset?.originalId,
-  );
-
-const getAssetParentId = (asset) =>
-  normalizeKeyPart(asset?.parentAdId || asset?.parentId || asset?.originalParentId);
-
-const getAssetUnitId = (asset) =>
-  normalizeKeyPart(
-    asset?.adUnitId ||
-      asset?.unitId ||
-      asset?.rootAdId ||
-      asset?.rootAssetId ||
-      asset?.assetFamilyId ||
-      asset?.recipeAssetId ||
-      asset?.creativeId,
-  );
-
-const getAssetUrlKey = (asset) =>
-  normalizeKeyPart(asset?.adUrl || asset?.firebaseUrl || asset?.assetUrl);
-
-const assetsReferToSameDoc = (first, second) => {
-  if (!first || !second) return false;
-  const firstId = getAssetDocumentId(first);
-  const secondId = getAssetDocumentId(second);
-  if (firstId && secondId && firstId === secondId) {
-    return true;
-  }
-  const firstUrl = getAssetUrlKey(first);
-  const secondUrl = getAssetUrlKey(second);
-  return Boolean(firstUrl && secondUrl && firstUrl === secondUrl);
-};
-
-const assetMatchesReference = (asset, referenceId) => {
-  const normalized = normalizeKeyPart(referenceId);
-  if (!asset || !normalized) return false;
-  return (
-    getAssetDocumentId(asset) === normalized ||
-    getAssetParentId(asset) === normalized ||
-    getAssetUnitId(asset) === normalized
-  );
-};
-
 const getAdUnitKey = (asset) => {
   if (!asset) return '';
   const info = parseAdFilename(asset.filename || '');
-  const recipe =
-    normalizeKeyPart(
-      asset.recipeCode ||
-        asset.recipeId ||
-        asset.recipe ||
-        info.recipeCode,
-    ) || '';
-  const adGroupId =
-    normalizeKeyPart(
-      asset.adGroupId || asset.groupId || asset.groupCode || info.adGroupCode,
-    ) || '';
-  const aspect = normalizeKeyPart(asset.aspectRatio || info.aspectRatio || '');
+  const recipe = asset.recipeCode || info.recipeCode || '';
+  const adGroupId = asset.adGroupId || info.adGroupCode || '';
+  const aspect = asset.aspectRatio || info.aspectRatio || '';
+  let rootId =
+    asset.parentAdId ||
+    stripVersion(asset.filename || '') ||
+    asset.assetId ||
+    asset.adUrl ||
+    asset.firebaseUrl ||
+    '';
 
-  let rootId = getAssetUnitId(asset) || getAssetParentId(asset);
-
-  if (!rootId) {
-    const stripped = stripVersion(asset.filename || '');
-    if (stripped) {
-      rootId = normalizeKeyPart(stripped);
-    }
-  }
-
-  if (!rootId) {
-    rootId = getAssetDocumentId(asset);
-  }
-
-  if (!rootId) {
-    rootId = getAssetUrlKey(asset);
-  }
-
-  if (rootId && aspect) {
-    const suffix = `_${aspect.toLowerCase()}`;
+  if (!asset.parentAdId && rootId && aspect) {
+    const suffix = `_${String(aspect).toLowerCase()}`;
     const lowerRoot = rootId.toLowerCase();
     if (lowerRoot.endsWith(suffix)) {
       rootId = rootId.slice(0, -suffix.length);
-    }
-  }
-
-  if (!rootId) {
-    const fallback = getAssetDocumentId(asset);
-    if (fallback) {
-      rootId = `asset:${fallback}`;
     }
   }
 
@@ -168,46 +87,26 @@ const getAdUnitKey = (asset) => {
 
 const isSameAdUnit = (first, second) => {
   if (!first || !second) return false;
-  if (assetsReferToSameDoc(first, second)) {
+  if (first.assetId && second.assetId && first.assetId === second.assetId) {
     return true;
   }
-
-  const firstParent = getAssetParentId(first);
-  const secondParent = getAssetParentId(second);
-  const firstUnit = getAssetUnitId(first);
-  const secondUnit = getAssetUnitId(second);
-  const firstId = getAssetDocumentId(first);
-  const secondId = getAssetDocumentId(second);
-
-  if (firstParent) {
-    if (secondParent && secondParent === firstParent) return true;
-    if (secondId && secondId === firstParent) return true;
-    if (secondUnit && secondUnit === firstParent) return true;
+  if (
+    first.parentAdId &&
+    (second.parentAdId === first.parentAdId || second.assetId === first.parentAdId)
+  ) {
+    return true;
   }
-
-  if (secondParent) {
-    if (firstParent && firstParent === secondParent) return true;
-    if (firstId && firstId === secondParent) return true;
-    if (firstUnit && firstUnit === secondParent) return true;
+  if (
+    second.parentAdId &&
+    (first.parentAdId === second.parentAdId || first.assetId === second.parentAdId)
+  ) {
+    return true;
   }
-
-  if (firstUnit) {
-    if (secondUnit && secondUnit === firstUnit) return true;
-    if (secondParent && secondParent === firstUnit) return true;
-    if (secondId && secondId === firstUnit) return true;
-  }
-
-  if (secondUnit) {
-    if (firstParent && firstParent === secondUnit) return true;
-    if (firstId && firstId === secondUnit) return true;
-  }
-
-  const firstUrl = getAssetUrlKey(first);
-  const secondUrl = getAssetUrlKey(second);
+  const firstUrl = first.adUrl || first.firebaseUrl;
+  const secondUrl = second.adUrl || second.firebaseUrl;
   if (firstUrl && secondUrl && firstUrl === secondUrl) {
     return true;
   }
-
   const firstKey = getAdUnitKey(first);
   const secondKey = getAdUnitKey(second);
   if (firstKey && secondKey) {
@@ -220,7 +119,6 @@ const getAdKey = (ad, index = 0) => {
   if (!ad) return `ad-${index}`;
   return (
     ad.assetId ||
-    ad.id ||
     ad.firebaseUrl ||
     ad.adUrl ||
     ad.filename ||
@@ -405,12 +303,7 @@ const Review = forwardRef(
     // Deduplicate by root id while keeping highest version of each asset
     const latestMap = {};
     list.forEach((a) => {
-      const root =
-        getAssetUnitId(a) ||
-        getAssetParentId(a) ||
-        stripVersion(a.filename) ||
-        getAssetDocumentId(a);
-      if (!root) return;
+      const root = a.parentAdId || stripVersion(a.filename);
       if (!latestMap[root] || getVersion(latestMap[root]) < getVersion(a)) {
         latestMap[root] = a;
       }
@@ -442,12 +335,7 @@ const Review = forwardRef(
   const getLatestAds = useCallback((list) => {
     const map = {};
     list.forEach((a) => {
-      const root =
-        getAssetUnitId(a) ||
-        getAssetParentId(a) ||
-        stripVersion(a.filename) ||
-        getAssetDocumentId(a);
-      if (!root) return;
+      const root = a.parentAdId || stripVersion(a.filename);
       if (!map[root] || getVersion(map[root]) < getVersion(a)) {
         map[root] = a;
       }
@@ -684,7 +572,9 @@ useEffect(() => {
         list.forEach((a) => {
           if (a.parentAdId) {
             const rootId = a.parentAdId;
-            const hasRoot = list.some((b) => assetMatchesReference(b, rootId));
+            const hasRoot = list.some(
+              (b) => b.assetId === rootId || b.parentAdId === rootId,
+            );
             if (!hasRoot) {
               rootsToFetch[rootId] = { groupId: a.adGroupId, groupName: a.groupName };
             }
@@ -719,22 +609,8 @@ useEffect(() => {
                 });
               }
               siblingSnap.docs.forEach((d) => {
-                const data = d.data();
-                const dedupeTarget = { assetId: d.id, ...data };
-                const relatedRefs = [
-                  d.id,
-                  data.parentAdId,
-                  data.parentId,
-                  data.rootAdId,
-                  data.rootAssetId,
-                  data.assetFamilyId,
-                  data.recipeAssetId,
-                ];
-                const alreadyIncluded = list.some((a) => {
-                  if (assetsReferToSameDoc(a, dedupeTarget)) return true;
-                  return relatedRefs.some((ref) => assetMatchesReference(a, ref));
-                });
-                if (!alreadyIncluded) {
+                if (!list.some((a) => a.assetId === d.id)) {
+                  const data = d.data();
                   const info = parseAdFilename(data.filename || '');
                   extras.push({
                     ...data,
@@ -784,12 +660,7 @@ useEffect(() => {
         // keep highest version per asset for the review list
         const versionMap = {};
         latestUnits.forEach((a) => {
-          const root =
-            getAssetUnitId(a) ||
-            getAssetParentId(a) ||
-            getAssetDocumentId(a) ||
-            stripVersion(a.filename);
-          if (!root) return;
+          const root = a.parentAdId || a.assetId || stripVersion(a.filename);
           if (!versionMap[root] || getVersion(versionMap[root]) < getVersion(a)) {
             versionMap[root] = a;
           }
@@ -969,7 +840,6 @@ useEffect(() => {
   }, [agencyId, agency.logoUrl]);
 
   const currentAd = reviewAds[currentIndex];
-  const currentAssetId = getAssetDocumentId(currentAd);
   const versions = useMemo(() => {
     if (!currentAd) return [];
     const related = allAds.filter((a) => isSameAdUnit(a, currentAd));
@@ -1003,13 +873,10 @@ useEffect(() => {
         (a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '') ===
         currentAspectRaw,
     ) || currentVersionAssets[0] || currentAd;
-  const displayAssetId = getAssetDocumentId(displayAd);
-  const displayParentId = getAssetParentId(displayAd);
-  const displayUnitId = getAssetUnitId(displayAd);
 
   useEffect(() => {
     setVersionIndex(0);
-  }, [currentAssetId]);
+  }, [currentAd?.assetId]);
 
   const adUrl =
     displayAd && typeof displayAd === 'object'
@@ -1034,13 +901,10 @@ useEffect(() => {
   const openVersionModal = (ver) => {
     const base = displayAd || currentAd;
     if (!base) return;
-    const rootId =
-      getAssetParentId(base) ||
-      getAssetUnitId(base) ||
-      stripVersion(base.filename);
+    const rootId = base.parentAdId || stripVersion(base.filename);
     const siblings = allAds.filter((a) => {
-      if (getAssetParentId(base) || getAssetUnitId(base)) {
-        return assetMatchesReference(a, rootId);
+      if (base.parentAdId) {
+        return a.parentAdId === rootId || a.assetId === rootId;
       }
       return stripVersion(a.filename) === rootId;
     });
@@ -1061,46 +925,30 @@ useEffect(() => {
 
   useEffect(() => {
     setHistoryEntries({});
-    if (!displayAd?.adGroupId || !displayAssetId) return;
-    const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAssetId);
+    if (!displayAd?.adGroupId || !displayAd?.assetId) return;
+    const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAd.assetId);
     const unsubDoc = onSnapshot(assetRef, (snap) => {
       if (!snap.exists()) return;
       const data = { assetId: snap.id, ...snap.data() };
-      setAds((prev) =>
-        prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
-      );
-      setReviewAds((prev) =>
-        prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
-      );
+      setAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
+      setReviewAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
     });
 
-    const rootId = displayParentId || displayUnitId || stripVersion(displayAd.filename);
+    const rootId = displayAd.parentAdId || stripVersion(displayAd.filename);
     const related = allAds.filter((a) => {
-      if (displayParentId || displayUnitId) {
-        return assetMatchesReference(a, rootId);
+      if (displayAd.parentAdId) {
+        return a.assetId === rootId || a.parentAdId === rootId;
       }
       return stripVersion(a.filename) === rootId;
     });
     const versionMap = {};
     [...related, displayAd].forEach((a) => {
-      const key = getAssetDocumentId(a);
-      if (key) {
-        versionMap[key] = a;
-      }
+      versionMap[a.assetId] = a;
     });
 
     const unsubs = Object.values(versionMap).map((ad) => {
       const q = query(
-        collection(
-          doc(
-            db,
-            'adGroups',
-            ad.adGroupId,
-            'assets',
-            getAssetDocumentId(ad),
-          ),
-          'history',
-        ),
+        collection(doc(db, 'adGroups', ad.adGroupId, 'assets', ad.assetId), 'history'),
         orderBy('updatedAt', 'asc'),
       );
       return onSnapshot(q, (snap) => {
@@ -1116,7 +964,7 @@ useEffect(() => {
         unsubs.forEach((u) => u());
         setHistoryEntries({});
       };
-  }, [displayAd?.adGroupId, displayAssetId, displayParentId, displayUnitId, allAds]);
+  }, [displayAd?.adGroupId, displayAd?.assetId, allAds]);
 
   useEffect(() => {
     const recipeCode =
@@ -1216,19 +1064,14 @@ useEffect(() => {
       const recipe = hero.recipeCode || info.recipeCode || 'unknown';
       const group = recipeGroups.find((g) => g.recipeCode === recipe);
       const assets = group ? group.assets : [hero];
-      assets.forEach((asset) => {
-        const assetDocId = getAssetDocumentId(asset);
-        if (!asset.adGroupId || !assetDocId) return;
+      assets.forEach((asset) =>
         toUpdate.push(
-          updateDoc(
-            doc(db, 'adGroups', asset.adGroupId, 'assets', assetDocId),
-            {
-              status: 'pending',
-              isResolved: false,
-            },
-          ),
-        );
-      });
+          updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId), {
+            status: 'pending',
+            isResolved: false,
+          })
+        )
+      );
     });
     try {
       await Promise.all(toUpdate);
@@ -1363,17 +1206,13 @@ useEffect(() => {
       setOrigCopy(text);
       setReviewAds((prev) =>
         prev.map((a) =>
-          assetsReferToSameDoc(a, targetAd)
-            ? { ...a, originalCopy: text }
-            : a,
-        ),
+          a.assetId === targetAd.assetId ? { ...a, originalCopy: text } : a
+        )
       );
       setAds((prev) =>
         prev.map((a) =>
-          assetsReferToSameDoc(a, targetAd)
-            ? { ...a, originalCopy: text }
-            : a,
-        ),
+          a.assetId === targetAd.assetId ? { ...a, originalCopy: text } : a
+        )
       );
     } catch (err) {
       console.error('Failed to load copy', err);
@@ -1485,14 +1324,13 @@ useEffect(() => {
             })
           );
         }
-        const assetDocId = getAssetDocumentId(asset);
-        if (assetDocId && asset.adGroupId) {
+        if (asset.assetId && asset.adGroupId) {
           const assetRef = doc(
             db,
             'adGroups',
             asset.adGroupId,
             'assets',
-            assetDocId,
+            asset.assetId,
           );
           const updateData = {
             status: newStatus,
@@ -1513,7 +1351,7 @@ useEffect(() => {
                 'adGroups',
                 asset.adGroupId,
                 'assets',
-                assetDocId,
+                asset.assetId,
                 'history',
               ),
               {
@@ -1537,7 +1375,7 @@ useEffect(() => {
           let updatedAdsState = [];
           setAds((prev) => {
             const updated = prev.map((a) =>
-              assetsReferToSameDoc(a, asset)
+              a.assetId === asset.assetId
                 ? {
                     ...a,
                     status: newStatus,
@@ -1556,7 +1394,7 @@ useEffect(() => {
           });
           setReviewAds((prev) =>
             prev.map((a) =>
-              assetsReferToSameDoc(a, asset)
+              a.assetId === asset.assetId
                 ? {
                     ...a,
                     status: newStatus,
@@ -1630,11 +1468,10 @@ useEffect(() => {
           };
           updates.push(updateDoc(groupRef, updateObj));
 
-          const parentId = getAssetParentId(asset);
-          if (responseType === 'approve' && parentId) {
+          if (responseType === 'approve' && asset.parentAdId) {
             const relatedQuery = query(
               collection(db, 'adGroups', asset.adGroupId, 'assets'),
-              where('parentAdId', '==', parentId)
+              where('parentAdId', '==', asset.parentAdId)
             );
             const relatedSnap = await getDocs(relatedQuery);
             updates.push(
@@ -1647,7 +1484,7 @@ useEffect(() => {
               )
             );
             updates.push(
-              updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', parentId), {
+              updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', asset.parentAdId), {
                 isResolved: true,
               })
             );
@@ -2194,9 +2031,7 @@ useEffect(() => {
                                 : {};
                               return (
                                 <div
-                                  key={
-                                    getAssetDocumentId(asset) || assetUrl || assetIdx
-                                  }
+                                  key={asset.assetId || assetUrl || assetIdx}
                                   className="mx-auto w-full max-w-[350px] overflow-hidden rounded-lg border border-gray-200 dark:border-[var(--border-color-default)] sm:mx-0"
                                 >
                                   <div className="relative w-full" style={assetStyle}>
