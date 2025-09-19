@@ -1979,12 +1979,12 @@ useEffect(() => {
                           </div>
                         </div>
                         <div className="space-y-4">
-                          <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-2 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                          <div className="mx-auto w-full max-w-[350px] overflow-hidden rounded-lg border border-gray-200 dark:border-[var(--border-color-default)]">
                             <div className="relative w-full" style={ratioStyle}>
                               {isVideoUrl(displayUrl) ? (
                                 <VideoPlayer
                                   src={displayUrl}
-                                  className="w-full rounded-xl"
+                                  className="h-full w-full object-contain"
                                   style={ratioStyle}
                                 />
                               ) : (
@@ -1997,7 +1997,7 @@ useEffect(() => {
                                   }
                                   alt={displayAsset?.filename || 'Ad'}
                                   cacheKey={displayUrl}
-                                  className="w-full rounded-xl object-contain"
+                                  className="h-full w-full object-contain"
                                   style={ratioStyle}
                                 />
                               )}
@@ -2017,11 +2017,15 @@ useEffect(() => {
                                 return (
                                   <div
                                     key={asset.assetId || assetUrl || assetIdx}
-                                    className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-2 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
+                                    className="mx-auto w-full max-w-[350px] overflow-hidden rounded-lg border border-gray-200 dark:border-[var(--border-color-default)]"
                                   >
                                     <div className="relative w-full" style={assetStyle}>
                                       {isVideoUrl(assetUrl) ? (
-                                        <VideoPlayer src={assetUrl} className="w-full rounded-xl" style={assetStyle} />
+                                        <VideoPlayer
+                                          src={assetUrl}
+                                          className="h-full w-full object-contain"
+                                          style={assetStyle}
+                                        />
                                       ) : (
                                         <OptimizedImage
                                           pngUrl={assetUrl}
@@ -2030,7 +2034,7 @@ useEffect(() => {
                                           }
                                           alt={asset.filename || 'Ad variant'}
                                           cacheKey={assetUrl}
-                                          className="w-full rounded-xl object-contain"
+                                          className="h-full w-full object-contain"
                                           style={assetStyle}
                                         />
                                       )}
