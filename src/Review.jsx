@@ -388,8 +388,6 @@ const Review = forwardRef(
   const logoUrlRef = useRef(null);
   const statusBarRef = useRef(null);
   const statusBarSentinelRef = useRef(null);
-  const statusBarElement = statusBarRef.current;
-  const statusBarSentinelElement = statusBarSentinelRef.current;
   const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
@@ -462,7 +460,7 @@ const Review = forwardRef(
     addScrollListener(doc.documentElement);
     addScrollListener(doc.scrollingElement);
 
-    const sentinelParent = statusBarSentinelElement?.parentElement;
+    const sentinelParent = statusBarSentinelRef.current?.parentElement;
     if (sentinelParent) {
       let node = sentinelParent;
       while (node) {
@@ -497,10 +495,10 @@ const Review = forwardRef(
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
     };
-  }, [statusBarSentinelElement, updatePinnedState]);
+  }, [updatePinnedState]);
 
   useEffect(() => {
-    if (!statusBarElement) return;
+    if (!statusBarRef.current) return;
 
     const measure = () => {
       if (!statusBarRef.current) return;
@@ -523,7 +521,7 @@ const Review = forwardRef(
     return () => {
       window.removeEventListener('resize', measure);
     };
-  }, [statusBarElement, updatePinnedState]);
+  }, [updatePinnedState]);
 
   useEffect(() => {
     if (!isFinalized) return;
