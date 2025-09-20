@@ -350,6 +350,7 @@ const Review = forwardRef(
   const [expandedRequests, setExpandedRequests] = useState({});
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
+  const [statusBarPinned, setStatusBarPinned] = useState(false);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -358,6 +359,7 @@ const Review = forwardRef(
   const advancedRef = useRef(false);
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
+  const statusBarRef = useRef(null);
   const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
@@ -374,6 +376,31 @@ const Review = forwardRef(
   useEffect(() => {
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
+
+  useEffect(() => {
+    if (reviewVersion !== 2) {
+      setStatusBarPinned(false);
+      return;
+    }
+    if (typeof window === 'undefined') return;
+
+    const handleStatusBarPosition = () => {
+      const element = statusBarRef.current;
+      if (!element) return;
+      const pinned = element.getBoundingClientRect().top <= 0;
+      setStatusBarPinned((prev) => (prev === pinned ? prev : pinned));
+    };
+
+    handleStatusBarPosition();
+
+    window.addEventListener('scroll', handleStatusBarPosition, { passive: true });
+    window.addEventListener('resize', handleStatusBarPosition);
+
+    return () => {
+      window.removeEventListener('scroll', handleStatusBarPosition);
+      window.removeEventListener('resize', handleStatusBarPosition);
+    };
+  }, [reviewVersion]);
 
 
 
@@ -2263,26 +2290,37 @@ useEffect(() => {
             </div>
           ) : reviewVersion === 2 ? (
             <div className="w-full max-w-5xl space-y-6 px-2 pt-2 sm:px-0">
-              <div className="sticky top-0 z-20">
-                <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    {['pending', 'approve', 'edit', 'reject'].map((statusKey) => (
-                      <div
-                        key={statusKey}
-                        className="flex flex-col items-center gap-1 text-center"
-                      >
-                        <span className="text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
-                          {reviewStatusCounts[statusKey] ?? 0}
-                        </span>
-                        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
+              <div ref={statusBarRef} className="sticky top-0 z-20">
+                <div
+                  className={`rounded-2xl border border-gray-200 bg-white px-4 shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'mt-[10px] py-2' : 'py-3'}`}
+                >
+                  <div
+                    className={`grid grid-cols-2 sm:grid-cols-4 ${statusBarPinned ? 'gap-3' : 'gap-4'}`}
+                  >
+                    {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
+                      const label = statusLabelMap[statusKey] || statusKey;
+                      const displayLabel =
+                        typeof label === 'string'
+                          ? label.toLowerCase()
+                          : String(label).toLowerCase();
+                      return (
+                        <div
+                          key={statusKey}
+                          className="flex flex-col items-center gap-1 text-center"
+                        >
                           <span
-                            className="inline-block h-2.5 w-2.5 rounded-full"
-                            style={statusDotStyles[statusKey] || statusDotStyles.pending}
-                          />
-                          <span>{statusLabelMap[statusKey] || statusKey}</span>
+                            className={`font-semibold text-gray-900 transition-all duration-200 dark:text-[var(--dark-text)] ${statusBarPinned ? 'text-2xl' : 'text-3xl'}`}
+                          >
+                            {reviewStatusCounts[statusKey] ?? 0}
+                          </span>
+                          <div
+                            className={`text-xs font-medium tracking-wide text-gray-500 transition-all duration-200 dark:text-gray-300 ${statusBarPinned ? 'text-[11px]' : ''}`}
+                          >
+                            {displayLabel}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
