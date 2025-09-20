@@ -355,10 +355,6 @@ const Review = forwardRef(
   const [finalizeLoading, setFinalizeLoading] = useState(false);
   const [isStatusBarPinned, setIsStatusBarPinned] = useState(false);
   const [statusBarHeight, setStatusBarHeight] = useState(0);
-  const [statusBarMetrics, setStatusBarMetrics] = useState({
-    width: null,
-    left: null,
-  });
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -397,20 +393,6 @@ const Review = forwardRef(
     setIsStatusBarPinned(rect.top <= 12);
   }, []);
 
-  const updateStatusBarMetrics = useCallback(() => {
-    if (!statusBarSentinelRef.current) return;
-    const rect = statusBarSentinelRef.current.getBoundingClientRect();
-    setStatusBarMetrics((prev) => {
-      if (prev.width === rect.width && prev.left === rect.left) {
-        return prev;
-      }
-      return {
-        width: rect.width,
-        left: rect.left,
-      };
-    });
-  }, []);
-
   useEffect(() => {
     updatePinnedState();
     window.addEventListener('scroll', updatePinnedState, { passive: true });
@@ -420,14 +402,6 @@ const Review = forwardRef(
       window.removeEventListener('resize', updatePinnedState);
     };
   }, [updatePinnedState]);
-
-  useEffect(() => {
-    updateStatusBarMetrics();
-    window.addEventListener('resize', updateStatusBarMetrics);
-    return () => {
-      window.removeEventListener('resize', updateStatusBarMetrics);
-    };
-  }, [updateStatusBarMetrics]);
 
   useEffect(() => {
     if (!statusBarRef.current) return;
@@ -454,23 +428,6 @@ const Review = forwardRef(
       window.removeEventListener('resize', measure);
     };
   }, [updatePinnedState]);
-
-  useEffect(() => {
-    if (typeof ResizeObserver === 'undefined' || !statusBarSentinelRef.current) {
-      return undefined;
-    }
-    const observer = new ResizeObserver(() => {
-      updateStatusBarMetrics();
-    });
-    observer.observe(statusBarSentinelRef.current);
-    return () => observer.disconnect();
-  }, [updateStatusBarMetrics]);
-
-  useEffect(() => {
-    if (isStatusBarPinned) {
-      updateStatusBarMetrics();
-    }
-  }, [isStatusBarPinned, updateStatusBarMetrics]);
 
   useEffect(() => {
     if (!isFinalized) return;
@@ -2424,19 +2381,13 @@ useEffect(() => {
               ref={statusBarRef}
               className={`z-30 flex justify-center transition-all duration-300 ${
                 isStatusBarPinned
-                  ? 'fixed px-3 sm:px-4 lg:px-6'
+                  ? 'fixed inset-x-0 px-2 sm:px-4 lg:px-6'
                   : 'sticky top-0 w-full px-4 sm:px-6 lg:px-8 pt-0'
               }`}
               style={
                 isStatusBarPinned
                   ? {
                       top: 'calc(var(--site-tab-bar-height, 0px) + 0.75rem)',
-                      ...(statusBarMetrics.width
-                        ? { width: `${statusBarMetrics.width}px` }
-                        : {}),
-                      ...(statusBarMetrics.left != null
-                        ? { left: `${statusBarMetrics.left}px` }
-                        : {}),
                     }
                   : undefined
               }
@@ -2451,20 +2402,20 @@ useEffect(() => {
                 <div
                   className={`flex flex-col transition-all duration-300 ${
                     isStatusBarPinned
-                      ? 'gap-2.5 p-3 sm:p-4'
+                      ? 'gap-1.5 p-2.5 sm:p-3.5'
                       : 'gap-4 p-5 sm:p-7'
                   }`}
                 >
                   <div
                     className={`flex flex-col gap-3 transition-all duration-300 sm:flex-row sm:items-center sm:justify-between ${
-                      isStatusBarPinned ? 'sm:gap-2.5' : 'sm:gap-4'
+                      isStatusBarPinned ? 'sm:gap-2' : 'sm:gap-4'
                     }`}
                   >
                     <div className="min-w-0 flex-1">
                       <h2
                         className={`truncate font-semibold text-gray-900 transition-all duration-300 dark:text-[var(--dark-text)] ${
                           isStatusBarPinned
-                            ? 'text-base sm:text-lg'
+                            ? 'text-sm sm:text-lg'
                             : 'text-xl sm:text-2xl'
                         }`}
                         title={adGroupTitle}
@@ -2480,7 +2431,7 @@ useEffect(() => {
                         isFinalized ? 'Review finalized' : 'Finalize review'
                       }`}
                       className={`inline-flex items-center justify-center rounded-full font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                        isStatusBarPinned ? 'px-3 py-1 text-xs sm:text-sm' : 'px-5 py-2 text-sm sm:text-base'
+                        isStatusBarPinned ? 'px-2.5 py-1 text-xs sm:text-sm' : 'px-5 py-2 text-sm sm:text-base'
                       } ${
                         isFinalized
                           ? 'bg-emerald-50 text-emerald-600 ring-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300'
@@ -2503,19 +2454,19 @@ useEffect(() => {
                       <div
                         key={label}
                         className={`rounded-2xl border border-gray-200/80 bg-white/90 shadow-sm transition-all duration-300 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] ${
-                          isStatusBarPinned ? 'px-2.5 py-2' : 'px-4 py-3'
+                          isStatusBarPinned ? 'px-2 py-1.5' : 'px-4 py-3'
                         }`}
                       >
                         <span
                           className={`block font-semibold text-gray-900 transition-all duration-300 dark:text-[var(--dark-text)] ${
-                            isStatusBarPinned ? 'text-xl sm:text-2xl' : 'text-3xl'
+                            isStatusBarPinned ? 'text-lg sm:text-2xl' : 'text-3xl'
                           }`}
                         >
                           {value}
                         </span>
                         <span
                           className={`mt-1 block font-semibold uppercase tracking-wide text-gray-500 transition-all duration-300 dark:text-gray-400 ${
-                            isStatusBarPinned ? 'text-[0.65rem]' : 'text-xs'
+                            isStatusBarPinned ? 'text-[0.6rem]' : 'text-xs'
                           }`}
                         >
                           {label}
