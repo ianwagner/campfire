@@ -67,6 +67,13 @@ const isSafari =
   /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 const BUFFER_COUNT = 3;
+const GROUP_UPDATE_ROLES = new Set([
+  'admin',
+  'manager',
+  'project-manager',
+  'ops',
+  'editor',
+]);
 
 const Review = forwardRef(
   (
@@ -140,6 +147,10 @@ const Review = forwardRef(
   const reviewLengthRef = useRef(reviewAds.length);
   const { agency } = useAgencyTheme(agencyId);
   const { settings } = useSiteSettings(false);
+  const canUpdateGroupDoc = useMemo(
+    () => (userRole ? GROUP_UPDATE_ROLES.has(userRole) : false),
+    [userRole],
+  );
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -1232,45 +1243,51 @@ useEffect(() => {
             if (newState === 'edit_requested') incEdit += 1;
           }
 
-          const groupRef = doc(db, 'adGroups', asset.adGroupId);
-          const gSnap = await getDoc(groupRef);
-          const recipeStatusMap = {};
-          (updatedAdsState || []).forEach((a) => {
-            const info = parseAdFilename(a.filename || '');
-            const recipe = a.recipeCode || info.recipeCode || 'unknown';
-            if (!recipe) return;
-            const priority = {
-              approved: 4,
-              edit_requested: 3,
-              rejected: 2,
-              ready: 1,
-              pending: 0,
-              archived: 2,
+          if (canUpdateGroupDoc) {
+            // Anonymous/public reviewers lack permission to update the ad group
+            // document counts. Only run this bookkeeping when the user has an
+            // internal role that is allowed to write to the group record.
+            const groupRef = doc(db, 'adGroups', asset.adGroupId);
+            const gSnap = await getDoc(groupRef);
+            const groupData = gSnap.exists() ? gSnap.data() : {};
+            const recipeStatusMap = {};
+            (updatedAdsState || []).forEach((a) => {
+              const info = parseAdFilename(a.filename || '');
+              const recipe = a.recipeCode || info.recipeCode || 'unknown';
+              if (!recipe) return;
+              const priority = {
+                approved: 4,
+                edit_requested: 3,
+                rejected: 2,
+                ready: 1,
+                pending: 0,
+                archived: 2,
+              };
+              const prev = recipeStatusMap[recipe];
+              const curr = a.status;
+              if (!prev || (priority[curr] || 0) > (priority[prev] || 0)) {
+                recipeStatusMap[recipe] = curr;
+              }
+            });
+            const groupStatus = computeGroupStatus(
+              Object.values(recipeStatusMap).map((s) => ({ status: s })),
+              false,
+              false,
+              groupData.status,
+            );
+            const updateObj = {
+              ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
+              ...(incApproved ? { approvedCount: increment(incApproved) } : {}),
+              ...(incRejected ? { rejectedCount: increment(incRejected) } : {}),
+              ...(incEdit ? { editCount: increment(incEdit) } : {}),
+              lastUpdated: serverTimestamp(),
+              status: groupStatus,
+              ...(gSnap.exists() && !groupData.thumbnailUrl
+                ? { thumbnailUrl: asset.firebaseUrl }
+                : {}),
             };
-            const prev = recipeStatusMap[recipe];
-            const curr = a.status;
-            if (!prev || (priority[curr] || 0) > (priority[prev] || 0)) {
-              recipeStatusMap[recipe] = curr;
-            }
-          });
-          const groupStatus = computeGroupStatus(
-            Object.values(recipeStatusMap).map((s) => ({ status: s })),
-            false,
-            false,
-            gSnap.data().status,
-          );
-          const updateObj = {
-            ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
-            ...(incApproved ? { approvedCount: increment(incApproved) } : {}),
-            ...(incRejected ? { rejectedCount: increment(incRejected) } : {}),
-            ...(incEdit ? { editCount: increment(incEdit) } : {}),
-            lastUpdated: serverTimestamp(),
-            status: groupStatus,
-            ...(gSnap.exists() && !gSnap.data().thumbnailUrl
-              ? { thumbnailUrl: asset.firebaseUrl }
-              : {}),
-          };
-          updates.push(updateDoc(groupRef, updateObj));
+            updates.push(updateDoc(groupRef, updateObj));
+          }
 
           if (responseType === 'approve' && asset.parentAdId) {
             const relatedQuery = query(
