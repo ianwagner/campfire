@@ -63,14 +63,20 @@ test('loads ads from subcollections', async () => {
 
   mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
-    if (col[1] === 'recipes')
+    const target = Array.isArray(col) ? col[col.length - 1] : undefined;
+    if (target === 'assets') return Promise.resolve(assetSnapshot);
+    if (target === 'recipes')
       return Promise.resolve({ docs: [{ id: 'r1', data: () => ({ type: 'T1', components: {} }) }] });
     return Promise.resolve({ docs: [] });
   });
-  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 2 }),
+  });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(
+    <Review user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />,
+  );
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
@@ -95,10 +101,14 @@ test('Review Ads button disabled until ads load', async () => {
 
   mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    const target = Array.isArray(col) ? col[col.length - 1] : undefined;
+    if (target === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 2 }),
+  });
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
@@ -115,7 +125,7 @@ test('submitResponse updates asset status', async () => {
         id: 'asset1',
         data: () => ({
           firebaseUrl: 'url2',
-          status: 'ready',
+          status: 'pending',
           isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
@@ -126,7 +136,8 @@ test('submitResponse updates asset status', async () => {
 
   mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    const target = Array.isArray(col) ? col[col.length - 1] : undefined;
+    if (target === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
   mockGetDoc.mockImplementation((ref) => {
@@ -155,6 +166,14 @@ test('submitResponse updates asset status', async () => {
       isResolved: true,
     })
   );
+
+  const groupUpdateCall = mockUpdateDoc.mock.calls.find(
+    (call) => call[0] === 'adGroups/group1',
+  );
+  expect(groupUpdateCall).toBeDefined();
+  expect(groupUpdateCall[1]).toEqual(
+    expect.objectContaining({ reviewedCount: 1 }),
+  );
 });
 
 test('submitResponse includes reviewer name', async () => {
@@ -164,7 +183,7 @@ test('submitResponse includes reviewer name', async () => {
         id: 'asset1',
         data: () => ({
           firebaseUrl: 'url2',
-          status: 'ready',
+          status: 'pending',
           isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
@@ -175,13 +194,22 @@ test('submitResponse includes reviewer name', async () => {
 
   mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
-    if (col[1] === 'assets') return Promise.resolve(assetSnapshot);
+    const target = Array.isArray(col) ? col[col.length - 1] : undefined;
+    if (target === 'assets') return Promise.resolve(assetSnapshot);
     return Promise.resolve({ docs: [] });
   });
-  mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
+  mockGetDoc.mockResolvedValue({
+    exists: () => true,
+    data: () => ({ name: 'Group 1', reviewVersion: 2 }),
+  });
 
   render(
-    <Review user={{ uid: 'u1', email: 'e@test.com' }} reviewerName="Alice" brandCodes={['BR1']} />
+    <Review
+      user={{ uid: 'u1', email: 'e@test.com' }}
+      reviewerName="Alice"
+      brandCodes={['BR1']}
+      groupId="group1"
+    />,
   );
 
   await waitFor(() =>

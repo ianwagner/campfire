@@ -321,7 +321,7 @@ const Review = forwardRef(
   const [logoReady, setLogoReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [responses, setResponses] = useState({}); // map of adUrl -> response object
-  const [allAds, setAllAds] = useState([]); // includes all non-pending versions
+  const [allAds, setAllAds] = useState([]); // includes all versions for modal views
   const [versionModal, setVersionModal] = useState(null); // {current, previous}
   const [versionView, setVersionView] = useState('current');
   const [versionIndex, setVersionIndex] = useState(0); // index into versions array
@@ -913,20 +913,21 @@ useEffect(() => {
           return;
         }
 
-        const hasPendingAds = deduped.some((a) => a.status === 'pending');
-        const nonPending = deduped.filter((a) => a.status !== 'pending');
+        const reviewableAds = deduped.filter((a) => a.status !== 'archived');
+        const hasPendingAds = reviewableAds.some((a) => a.status === 'pending');
 
-        // store all non-pending ads (including archived versions) so the
-        // version modal can show previous revisions
-        const fullNonPending = list.filter((a) => a.status !== 'pending');
-        setAllAds(fullNonPending);
+        // store all versions (including archived) so the version modal can show previous revisions
+        setAllAds(list);
 
-        setAds(nonPending);
+        setAds(reviewableAds);
         setHasPending(hasPendingAds);
 
-        const readyAds = nonPending.filter((a) => a.status === 'ready');
-        const readyVersions = readyAds.filter((a) => getVersion(a) > 1);
-        const reviewSource = readyAds.length > 0 ? readyAds : nonPending;
+        const readyLikeAds = reviewableAds.filter((a) =>
+          ['ready', 'pending', 'in review'].includes(a.status),
+        );
+        const readyVersions = readyLikeAds.filter((a) => getVersion(a) > 1);
+        const reviewSource =
+          readyLikeAds.length > 0 ? readyLikeAds : reviewableAds;
         list = reviewSource;
 
         const key = groupId ? `lastViewed-${groupId}` : null;
@@ -955,7 +956,7 @@ useEffect(() => {
 
         if (newer.length === 0) {
           const initial = {};
-          nonPending.forEach((ad) => {
+          reviewableAds.forEach((ad) => {
             let resp;
             if (ad.status === 'approved') resp = 'approve';
             else if (ad.status === 'rejected') resp = 'reject';
@@ -968,7 +969,7 @@ useEffect(() => {
           setResponses(initial);
         }
 
-        const allList = buildHeroList(nonPending);
+        const allList = buildHeroList(reviewableAds);
         const versionList = buildHeroList(readyVersions);
         setAllHeroAds(allList);
         const target = versionList.length > 0 ? versionList : allList;
@@ -984,7 +985,7 @@ useEffect(() => {
             : 0
         );
         setPendingOnly(
-          target.length === 0 && nonPending.length === 0 && hasPendingAds
+          target.length === 0 && reviewableAds.length === 0 && hasPendingAds
         );
       } catch (err) {
         console.error('Failed to load ads', err);
@@ -1827,7 +1828,7 @@ useEffect(() => {
           let incApproved = 0;
           let incRejected = 0;
           let incEdit = 0;
-          if (prevStatus === 'ready') {
+          if (prevStatus === 'ready' || prevStatus === 'pending') {
             incReviewed += 1;
           }
           if (prevStatus !== newState) {
@@ -2047,8 +2048,12 @@ useEffect(() => {
                 setStarted(true);
                 return;
               }
-              const latest = getLatestAds(ads.filter((a) => a.status !== 'pending'));
-              const readyList = latest.filter((a) => a.status === 'ready');
+              const latest = getLatestAds(
+                ads.filter((a) => a.status !== 'archived'),
+              );
+              const readyList = latest.filter((a) =>
+                ['ready', 'pending', 'in review'].includes(a.status),
+              );
               const readyVers = readyList.filter((a) => getVersion(a) > 1);
               const allList = buildHeroList(latest);
               const versionList = buildHeroList(readyVers);
