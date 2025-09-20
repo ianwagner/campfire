@@ -913,19 +913,21 @@ useEffect(() => {
         }
 
         const hasPendingAds = deduped.some((a) => a.status === 'pending');
-        const nonPending = deduped.filter((a) => a.status !== 'pending');
+        const reviewableAds = deduped.filter((a) => a.status !== 'archived');
+        const stagedAds = reviewableAds.filter((a) =>
+          ['ready', 'pending'].includes(a.status),
+        );
 
-        // store all non-pending ads (including archived versions) so the
-        // version modal can show previous revisions
-        const fullNonPending = list.filter((a) => a.status !== 'pending');
-        setAllAds(fullNonPending);
+        // store all non-archived ads (including previous revisions) so the
+        // version modal can show earlier iterations when needed
+        const fullReviewable = list.filter((a) => a.status !== 'archived');
+        setAllAds(fullReviewable);
 
-        setAds(nonPending);
+        setAds(reviewableAds);
         setHasPending(hasPendingAds);
 
-        const readyAds = nonPending.filter((a) => a.status === 'ready');
-        const readyVersions = readyAds.filter((a) => getVersion(a) > 1);
-        const reviewSource = readyAds.length > 0 ? readyAds : nonPending;
+        const stagedVersions = stagedAds.filter((a) => getVersion(a) > 1);
+        const reviewSource = stagedAds.length > 0 ? stagedAds : reviewableAds;
         list = reviewSource;
 
         const key = groupId ? `lastViewed-${groupId}` : null;
@@ -954,7 +956,7 @@ useEffect(() => {
 
         if (newer.length === 0) {
           const initial = {};
-          nonPending.forEach((ad) => {
+          reviewableAds.forEach((ad) => {
             let resp;
             if (ad.status === 'approved') resp = 'approve';
             else if (ad.status === 'rejected') resp = 'reject';
@@ -967,8 +969,8 @@ useEffect(() => {
           setResponses(initial);
         }
 
-        const allList = buildHeroList(nonPending);
-        const versionList = buildHeroList(readyVersions);
+        const allList = buildHeroList(reviewableAds);
+        const versionList = buildHeroList(stagedVersions);
         setAllHeroAds(allList);
         const target = versionList.length > 0 ? versionList : allList;
         setVersionMode(versionList.length > 0);
@@ -983,7 +985,7 @@ useEffect(() => {
             : 0
         );
         setPendingOnly(
-          target.length === 0 && nonPending.length === 0 && hasPendingAds
+          target.length === 0 && reviewableAds.length === 0 && hasPendingAds
         );
       } catch (err) {
         console.error('Failed to load ads', err);
@@ -1808,7 +1810,7 @@ useEffect(() => {
           let incApproved = 0;
           let incRejected = 0;
           let incEdit = 0;
-          if (prevStatus === 'ready') {
+          if (['ready', 'pending'].includes(prevStatus)) {
             incReviewed += 1;
           }
           if (prevStatus !== newState) {
@@ -2006,11 +2008,13 @@ useEffect(() => {
                 setStarted(true);
                 return;
               }
-              const latest = getLatestAds(ads.filter((a) => a.status !== 'pending'));
-              const readyList = latest.filter((a) => a.status === 'ready');
-              const readyVers = readyList.filter((a) => getVersion(a) > 1);
+              const latest = getLatestAds(ads);
+              const stagedList = latest.filter((a) =>
+                ['ready', 'pending'].includes(a.status),
+              );
+              const stagedVers = stagedList.filter((a) => getVersion(a) > 1);
               const allList = buildHeroList(latest);
-              const versionList = buildHeroList(readyVers);
+              const versionList = buildHeroList(stagedVers);
               setAllHeroAds(allList);
               const target = versionList.length > 0 ? versionList : allList;
               setVersionMode(versionList.length > 0);
