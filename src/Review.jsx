@@ -378,7 +378,6 @@ const Review = forwardRef(
   const [isStatusBarPinned, setIsStatusBarPinned] = useState(false);
   const [statusBarHeight, setStatusBarHeight] = useState(0);
   const [stickyOffset, setStickyOffset] = useState(() => getStatusBarOffset());
-  const [statusBarRect, setStatusBarRect] = useState({ left: 0, width: 0 });
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -422,24 +421,10 @@ const Review = forwardRef(
     setIsStatusBarPinned((prev) => (prev !== shouldPin ? shouldPin : prev));
   }, [stickyOffset]);
 
-  const stickyContainerStyle = useMemo(() => {
-    const baseStyle = { top: `${stickyOffset}px` };
-    if (isStatusBarPinned) {
-      const computedLeft = Number.isFinite(statusBarRect.left)
-        ? `${statusBarRect.left}px`
-        : undefined;
-      const computedWidth = statusBarRect.width > 0
-        ? `${statusBarRect.width}px`
-        : undefined;
-      return {
-        ...baseStyle,
-        position: 'fixed',
-        left: computedLeft,
-        width: computedWidth,
-      };
-    }
-    return { ...baseStyle, position: 'sticky' };
-  }, [isStatusBarPinned, statusBarRect.left, statusBarRect.width, stickyOffset]);
+  const stickyContainerStyle = useMemo(
+    () => ({ top: `${stickyOffset}px` }),
+    [stickyOffset],
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -513,30 +498,15 @@ const Review = forwardRef(
   }, [updatePinnedState]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !statusBarRef.current) return undefined;
+    if (!statusBarRef.current) return;
 
     const measure = () => {
       if (!statusBarRef.current) return;
-      const rect = statusBarRef.current.getBoundingClientRect();
-      const height = rect.height || statusBarRef.current.offsetHeight || 0;
+      const height = statusBarRef.current.offsetHeight || 0;
       setStatusBarHeight(height);
-      const width = rect.width || statusBarRef.current.offsetWidth || 0;
-      const left = Number.isFinite(rect.left) ? rect.left : 0;
-      setStatusBarRect((prev) => {
-        if (prev.width === width && prev.left === left) return prev;
-        return { width, left };
-      });
     };
 
     measure();
-
-    const handleWindowResize = () => {
-      measure();
-      updatePinnedState();
-    };
-
-    window.addEventListener('resize', handleWindowResize);
-    window.addEventListener('orientationchange', handleWindowResize);
 
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver(() => {
@@ -544,16 +514,12 @@ const Review = forwardRef(
         updatePinnedState();
       });
       observer.observe(statusBarRef.current);
-      return () => {
-        observer.disconnect();
-        window.removeEventListener('resize', handleWindowResize);
-        window.removeEventListener('orientationchange', handleWindowResize);
-      };
+      return () => observer.disconnect();
     }
 
+    window.addEventListener('resize', measure);
     return () => {
-      window.removeEventListener('resize', handleWindowResize);
-      window.removeEventListener('orientationchange', handleWindowResize);
+      window.removeEventListener('resize', measure);
     };
   }, [updatePinnedState]);
 
