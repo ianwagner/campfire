@@ -323,6 +323,7 @@ const Review = forwardRef(
       groupId = null,
       reviewerName = '',
       agencyId = null,
+      canReadCopyCards = true,
     },
     ref,
   ) => {
@@ -433,7 +434,11 @@ const Review = forwardRef(
 
   useImperativeHandle(ref, () => ({
     openGallery: () => setShowGallery(true),
-    openCopy: () => setShowCopyModal(true),
+    openCopy: () => {
+      if (canReadCopyCards) {
+        setShowCopyModal(true);
+      }
+    },
   }));
   const canSubmitEdit = useMemo(() => {
     const trimmedComment = comment.trim();
@@ -576,22 +581,49 @@ const Review = forwardRef(
   }, []);
 
   useEffect(() => {
-    if (!groupId) return;
-    const unsub = onSnapshot(
+    if (!groupId || !canReadCopyCards) {
+      setCopyCards([]);
+      return;
+    }
+    let active = true;
+    let unsub = () => {};
+    unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => {
+        if (!active) return;
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setCopyCards(list);
       },
+      (err) => {
+        if (!active) return;
+        console.error('Failed to load copy cards', err);
+        setCopyCards([]);
+        if (err?.code === 'permission-denied') {
+          unsub();
+        }
+      },
     );
-    return () => unsub();
-  }, [groupId]);
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [groupId, canReadCopyCards]);
 
   useEffect(() => {
+    if (!canReadCopyCards) {
+      setShowCopyModal(false);
+      return;
+    }
     if (showCopyModal) {
       setModalCopies(copyCards);
     }
-  }, [showCopyModal]);
+  }, [showCopyModal, copyCards, canReadCopyCards]);
+
+  useEffect(() => {
+    if (!canReadCopyCards) {
+      setModalCopies([]);
+    }
+  }, [canReadCopyCards]);
 
 useEffect(() => {
   if (!started || !groupId || initialStatus === 'done') return;
@@ -1650,7 +1682,7 @@ useEffect(() => {
   };
 
   const saveCopyCards = async (list) => {
-    if (!groupId || !Array.isArray(list)) return;
+    if (!groupId || !Array.isArray(list) || !canReadCopyCards) return;
     try {
       const existingIds = copyCards.map((c) => c.id);
       const newIds = list.map((c) => c.id).filter(Boolean);
@@ -2110,7 +2142,7 @@ useEffect(() => {
                 <FiGrid className="mr-1" /> Ad Gallery
               </button>
             )}
-            {copyCards.length > 0 && (
+            {canReadCopyCards && copyCards.length > 0 && (
               <button
                 onClick={() => setShowCopyModal(true)}
                 className="btn-secondary"
@@ -2121,7 +2153,7 @@ useEffect(() => {
           </div>
         </div>
         {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
-        {showCopyModal && (
+        {canReadCopyCards && showCopyModal && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
             <div className="bg-white p-4 rounded-xl shadow max-w-[50rem] w-full max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
               <div className="flex items-center justify-between mb-2">
@@ -2907,7 +2939,7 @@ useEffect(() => {
         />
       )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
-      {showCopyModal && (
+      {canReadCopyCards && showCopyModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto p-4">
           <div className="bg-white p-4 rounded-xl shadow max-w-[50rem] w-full overflow-auto max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
             <div className="flex items-center justify-between mb-2">
