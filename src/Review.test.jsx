@@ -53,7 +53,6 @@ test('loads ads from subcollections', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -85,7 +84,6 @@ test('Review Ads button disabled until ads load', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -116,7 +114,6 @@ test('submitResponse updates asset status', async () => {
         data: () => ({
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -152,7 +149,6 @@ test('submitResponse updates asset status', async () => {
       status: 'approved',
       comment: '',
       lastUpdatedBy: 'u1',
-      isResolved: true,
     })
   );
 });
@@ -165,7 +161,6 @@ test('submitResponse includes reviewer name', async () => {
         data: () => ({
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -208,7 +203,6 @@ test('status change updates only the selected ad unit', async () => {
           filename: 'BR1_GX_RC1_9x16_V1.png',
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           recipeCode: 'RC1',
           brandCode: 'BR1',
         }),
@@ -220,7 +214,6 @@ test('status change updates only the selected ad unit', async () => {
           filename: 'BR1_GY_RC1_1x1_V1.png',
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           recipeCode: 'RC1',
           brandCode: 'BR1',
         }),
@@ -261,7 +254,6 @@ test('edit request applies to the correct ad unit', async () => {
           filename: 'BR1_GX_RC1_9x16_V1.png',
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           recipeCode: 'RC1',
           brandCode: 'BR1',
         }),
@@ -273,7 +265,6 @@ test('edit request applies to the correct ad unit', async () => {
           filename: 'BR1_GY_RC1_1x1_V1.png',
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           recipeCode: 'RC1',
           brandCode: 'BR1',
         }),
@@ -322,7 +313,6 @@ test('edit request details persist in review v2 list view', async () => {
           filename: 'BR1_GX_RC1_9x16_V1.png',
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           recipeCode: 'RC1',
           brandCode: 'BR1',
           adGroupId: 'group1',
@@ -335,7 +325,6 @@ test('edit request details persist in review v2 list view', async () => {
           filename: 'BR1_GX_RC1_1x1_V1.png',
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           recipeCode: 'RC1',
           brandCode: 'BR1',
           adGroupId: 'group1',
@@ -404,7 +393,6 @@ test('request edit creates new version doc', async () => {
           filename: 'f1.png',
           version: 1,
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -436,7 +424,7 @@ test('request edit creates new version doc', async () => {
   const call = mockAddDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][1] === 'adGroups');
   expect(call).toBeTruthy();
   expect(call[1]).toEqual(
-    expect.objectContaining({ parentAdId: 'asset1', version: 2, status: 'pending', isResolved: false })
+    expect.objectContaining({ parentAdId: 'asset1', version: 2, status: 'pending' })
   );
 });
 
@@ -451,7 +439,6 @@ test('revision inherits root parentId when requesting another edit', async () =>
           version: 2,
           parentAdId: 'asset1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -481,7 +468,7 @@ test('revision inherits root parentId when requesting another edit', async () =>
   const call = mockAddDoc.mock.calls.find((c) => Array.isArray(c[0]) && c[0][1] === 'adGroups');
   expect(call).toBeTruthy();
   expect(call[1]).toEqual(
-    expect.objectContaining({ parentAdId: 'asset1', version: 3, status: 'pending', isResolved: false })
+    expect.objectContaining({ parentAdId: 'asset1', version: 3, status: 'pending' })
   );
 });
 
@@ -493,7 +480,6 @@ test('request edit advances to next ad', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -503,7 +489,6 @@ test('request edit advances to next ad', async () => {
         data: () => ({
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -600,7 +585,6 @@ test('approving a revision does not change archived versions', async () => {
           version: 2,
           parentAdId: 'orig1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -662,7 +646,6 @@ test('version selector changes revisions', async () => {
           version: 3,
           parentAdId: 'orig',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -725,7 +708,6 @@ test('two-version toggle cycles correctly', async () => {
           version: 2,
           parentAdId: 'orig',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -769,7 +751,6 @@ test('fetches previous versions when only latest is loaded', async () => {
           version: 2,
           parentAdId: 'orig',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -816,7 +797,6 @@ test('shows badge for single higher version without older versions', async () =>
           version: 2,
           parentAdId: 'orig',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -877,7 +857,6 @@ test('ad unit shows only latest version and toggles', async () => {
           version: 2,
           parentAdId: 'orig1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -914,7 +893,6 @@ test('shows group summary after reviewing ads', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -924,7 +902,6 @@ test('shows group summary after reviewing ads', async () => {
         data: () => ({
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -970,7 +947,6 @@ test('filters ads by last login and still shows summary', async () => {
           firebaseUrl: 'old',
           lastUpdatedAt: { toDate: () => new Date('2024-01-01T00:00:00Z') },
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -981,7 +957,6 @@ test('filters ads by last login and still shows summary', async () => {
           firebaseUrl: 'new',
           lastUpdatedAt: { toDate: () => new Date('2024-03-01T00:00:00Z') },
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -1013,15 +988,14 @@ test('filters ads by last login and still shows summary', async () => {
   expect(screen.getByText('Your ads are ready!')).toBeInTheDocument();
 });
 
-test('resolved ads are excluded from pending review', async () => {
+test('non-ready ads are excluded from pending review', async () => {
   const assetSnapshot = {
     docs: [
       {
         id: 'asset1',
         data: () => ({
           firebaseUrl: 'url1',
-          status: 'ready',
-          isResolved: false,
+          status: 'approved',
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -1031,7 +1005,6 @@ test('resolved ads are excluded from pending review', async () => {
         data: () => ({
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: true,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -1042,7 +1015,7 @@ test('resolved ads are excluded from pending review', async () => {
   mockGetDocs.mockImplementation((args) => {
     const col = Array.isArray(args) ? args[0] : args;
     if (col[1] === 'assets')
-      return Promise.resolve({ docs: assetSnapshot.docs.filter((d) => !d.data().isResolved) });
+      return Promise.resolve({ docs: assetSnapshot.docs.filter((d) => d.data().status === 'ready') });
     return Promise.resolve({ docs: [] });
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
@@ -1160,7 +1133,7 @@ test('submitResponse records last viewed time for group', async () => {
   };
   const assetSnapshot = {
     docs: [
-      { id: 'asset1', data: () => ({ firebaseUrl: 'url1', status: 'ready', isResolved: false }) },
+      { id: 'asset1', data: () => ({ firebaseUrl: 'url1', status: 'ready' }) },
     ],
   };
 
@@ -1233,8 +1206,8 @@ test('shows final status without change option', async () => {
 test('progress bar reflects current index', async () => {
   const assetSnapshot = {
     docs: [
-      { id: 'asset1', data: () => ({ firebaseUrl: 'url1', status: 'ready', isResolved: false, adGroupId: 'group1', brandCode: 'BR1' }) },
-      { id: 'asset2', data: () => ({ firebaseUrl: 'url2', status: 'ready', isResolved: false, adGroupId: 'group1', brandCode: 'BR1' }) },
+      { id: 'asset1', data: () => ({ firebaseUrl: 'url1', status: 'ready', adGroupId: 'group1', brandCode: 'BR1' }) },
+      { id: 'asset2', data: () => ({ firebaseUrl: 'url2', status: 'ready', adGroupId: 'group1', brandCode: 'BR1' }) },
     ],
   };
 
@@ -1266,7 +1239,6 @@ test('ad container is not remounted when currentIndex changes', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -1276,7 +1248,6 @@ test('ad container is not remounted when currentIndex changes', async () => {
         data: () => ({
           firebaseUrl: 'url2',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -1314,7 +1285,6 @@ test('shows alert when locking fails due to permissions', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),
@@ -1363,7 +1333,6 @@ test('opening and exiting completed group keeps status', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'approved',
-          isResolved: true,
         }),
       },
     ],
@@ -1408,7 +1377,6 @@ test('returns to start screen after finishing review', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
         }),
       },
@@ -1446,7 +1414,6 @@ test('updates group status after finishing review', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
         }),
       },
@@ -1512,7 +1479,6 @@ test('client approval updates group status', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
         }),
       },

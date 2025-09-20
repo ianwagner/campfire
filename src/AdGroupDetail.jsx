@@ -1203,7 +1203,6 @@ const AdGroupDetail = () => {
           lastUpdatedAt: serverTimestamp(),
           version: info.version || 1,
           parentAdId: parentId,
-          isResolved: false,
         });
       } catch (err) {
         console.error("Upload failed", err);
@@ -1519,7 +1518,6 @@ const AdGroupDetail = () => {
           lastUpdatedAt: serverTimestamp(),
           version: info.version || version,
           parentAdId: parentId,
-          isResolved: false,
         });
 
         if (
@@ -1547,7 +1545,6 @@ const AdGroupDetail = () => {
           lastUpdatedAt: new Date(),
           version: info.version || version,
           parentAdId: parentId,
-          isResolved: false,
         };
         createdAssets.push(newAsset);
       }

@@ -15,7 +15,6 @@ Each ad asset (stored under `adGroups/{groupId}/assets/{assetId}`) includes the 
   "lastUpdatedAt": "2025-05-20T21:47:00Z",
   "version": 1,
   "parentAdId": null,                    // asset ID of the original ad, null for first version
-  "isResolved": false
 }
 ```
 
@@ -24,7 +23,6 @@ Each ad asset (stored under `adGroups/{groupId}/assets/{assetId}`) includes the 
 * `lastUpdatedAt` – ISO timestamp when the status was last updated.
 * `version` – sequential version number starting at 1.
 * `parentAdId` – reference to the original ad asset for tracking revisions.
-* `isResolved` – when true, this ad (and its versions) no longer appear in the review queue.
 * `latestCopy` – current copy text after edits are implemented. The original copy remains stored in the recipe document.
 
 
@@ -36,12 +34,12 @@ Newly uploaded ads start in the `pending` state so they are immediately visible 
    - No restrictions are enforced; any reviewer may overwrite the previous value.
 
 ## Ad Revisions and Versions
-When a designer uploads a revised ad, a new document is created in the same collection. Copy `parentAdId` from the original, set `version` to the next number, and reset `status` to `pending`. Keep `isResolved` false so the revision appears in the queue.
+When a designer uploads a revised ad, a new document is created in the same collection. Copy `parentAdId` from the original, set `version` to the next number, and reset `status` to `pending` so the revision appears in the queue.
 
 When the designer marks the revision `ready`, the previous ad's status is changed to `archived`. The review UI only displays the latest version but allows reviewers to open a modal and toggle between the newest and archived versions for reference.
 
-### Resolving Ads
-When the revised ad is approved, set `isResolved` to true on all documents with the same `parentAdId`. The final version remains `approved` but all related ads are hidden from further review.
+### Finalizing Revisions
+When the revised ad is approved, make sure earlier versions move to a non-ready status (typically `archived`) so they fall out of the review queue. The queue only pulls assets whose status is `ready`, therefore any document that is approved, rejected, or archived is automatically hidden from future review passes.
 
 ## Designer Dashboard Requirements
 - The dashboard displays the latest status (`status`, `lastUpdatedBy`, `lastUpdatedAt`).

@@ -37,7 +37,6 @@ test('renders agency logo once loaded', async () => {
         data: () => ({
           firebaseUrl: 'url1',
           status: 'ready',
-          isResolved: false,
           adGroupId: 'group1',
           brandCode: 'BR1',
         }),

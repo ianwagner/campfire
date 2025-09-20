@@ -736,8 +736,7 @@ useEffect(() => {
           const q = query(
             collectionGroup(db, 'assets'),
             where('brandCode', 'in', brandCodes),
-            where('status', '==', 'ready'),
-            where('isResolved', '==', false)
+            where('status', '==', 'ready')
           );
           const snap = await getDocs(q);
           const groupCache = {};
@@ -1327,7 +1326,6 @@ useEffect(() => {
             doc(db, 'adGroups', asset.adGroupId, 'assets', assetDocId),
             {
               status: 'pending',
-              isResolved: false,
             },
           ),
         );
@@ -1730,8 +1728,6 @@ useEffect(() => {
             copyEdit: copyChanged ? editCopy : '',
             lastUpdatedBy: user.uid,
             lastUpdatedAt: serverTimestamp(),
-            ...(responseType === 'approve' ? { isResolved: true } : {}),
-            ...(responseType === 'edit' ? { isResolved: false } : {}),
           };
           updates.push(updateDoc(assetRef, updateData));
 
@@ -1775,11 +1771,6 @@ useEffect(() => {
                     status: newStatus,
                     comment: responseType === 'edit' ? finalComment : '',
                     copyEdit: copyChanged ? editCopy : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
                   }
                 : a,
             );
@@ -1794,11 +1785,6 @@ useEffect(() => {
                     status: newStatus,
                     comment: responseType === 'edit' ? finalComment : '',
                     copyEdit: copyChanged ? editCopy : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
                   }
                 : a,
             ),
@@ -1811,11 +1797,6 @@ useEffect(() => {
                     status: newStatus,
                     comment: responseType === 'edit' ? finalComment : '',
                     copyEdit: copyChanged ? editCopy : '',
-                    ...(responseType === 'approve'
-                      ? { isResolved: true }
-                      : responseType === 'edit'
-                      ? { isResolved: false }
-                      : {}),
                   }
                 : a,
             ),
@@ -1879,28 +1860,6 @@ useEffect(() => {
           };
           updates.push(updateDoc(groupRef, updateObj));
 
-          const parentId = getAssetParentId(asset);
-          if (responseType === 'approve' && parentId) {
-            const relatedQuery = query(
-              collection(db, 'adGroups', asset.adGroupId, 'assets'),
-              where('parentAdId', '==', parentId)
-            );
-            const relatedSnap = await getDocs(relatedQuery);
-            updates.push(
-              Promise.all(
-                relatedSnap.docs.map((d) =>
-                  updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', d.id), {
-                    isResolved: true,
-                  })
-                )
-              )
-            );
-            updates.push(
-              updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', parentId), {
-                isResolved: true,
-              })
-            );
-          }
         }
         addedResponses[url] = respObj;
         setResponses((prev) => ({ ...prev, [url]: respObj }));
