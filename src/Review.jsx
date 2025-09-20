@@ -354,6 +354,7 @@ const Review = forwardRef(
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [finalizeLoading, setFinalizeLoading] = useState(false);
   const [isStatusBarPinned, setIsStatusBarPinned] = useState(false);
+  const [statusBarHeight, setStatusBarHeight] = useState(0);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -363,6 +364,7 @@ const Review = forwardRef(
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
   const statusBarRef = useRef(null);
+  const statusBarSentinelRef = useRef(null);
   const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
@@ -385,20 +387,47 @@ const Review = forwardRef(
     openGallery: () => setShowGallery(true),
     openCopy: () => setShowCopyModal(true),
   }));
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!statusBarRef.current) return;
-      const rect = statusBarRef.current.getBoundingClientRect();
-      setIsStatusBarPinned(rect.top <= 12);
-    };
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    window.addEventListener('resize', handleScroll);
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
-    };
+  const updatePinnedState = useCallback(() => {
+    if (!statusBarSentinelRef.current) return;
+    const rect = statusBarSentinelRef.current.getBoundingClientRect();
+    setIsStatusBarPinned(rect.top <= 12);
   }, []);
+
+  useEffect(() => {
+    updatePinnedState();
+    window.addEventListener('scroll', updatePinnedState, { passive: true });
+    window.addEventListener('resize', updatePinnedState);
+    return () => {
+      window.removeEventListener('scroll', updatePinnedState);
+      window.removeEventListener('resize', updatePinnedState);
+    };
+  }, [updatePinnedState]);
+
+  useEffect(() => {
+    if (!statusBarRef.current) return;
+
+    const measure = () => {
+      if (!statusBarRef.current) return;
+      const height = statusBarRef.current.offsetHeight || 0;
+      setStatusBarHeight(height);
+    };
+
+    measure();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(() => {
+        measure();
+        updatePinnedState();
+      });
+      observer.observe(statusBarRef.current);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+    };
+  }, [updatePinnedState]);
 
   useEffect(() => {
     if (!isFinalized) return;
@@ -2342,11 +2371,18 @@ useEffect(() => {
               className="mb-2 max-h-16 w-auto"
             />
           )}
-          <div className="mt-6 w-full px-4 sm:px-6 lg:px-8">
+          <div className="mt-6 w-full">
+            <div
+              ref={statusBarSentinelRef}
+              style={{ height: isStatusBarPinned ? statusBarHeight : 0 }}
+              aria-hidden="true"
+            />
             <div
               ref={statusBarRef}
-              className={`sticky top-0 z-30 flex w-full justify-center transition-all duration-300 ${
-                isStatusBarPinned ? 'pt-2' : 'pt-0'
+              className={`z-30 flex w-full justify-center transition-all duration-300 ${
+                isStatusBarPinned
+                  ? 'fixed left-0 right-0 top-0 px-4 sm:px-6 lg:px-8 pt-2'
+                  : 'sticky top-0 px-4 sm:px-6 lg:px-8 pt-0'
               }`}
             >
               <div
