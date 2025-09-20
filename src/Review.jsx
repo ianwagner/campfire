@@ -388,7 +388,6 @@ const Review = forwardRef(
   const logoUrlRef = useRef(null);
   const statusBarRef = useRef(null);
   const statusBarSentinelRef = useRef(null);
-  const siteTabBarHeightRef = useRef(0);
   const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
@@ -411,38 +410,9 @@ const Review = forwardRef(
     openGallery: () => setShowGallery(true),
     openCopy: () => setShowCopyModal(true),
   }));
-  const recomputeStickyOffset = useCallback(() => {
-    if (typeof window === 'undefined') return;
-
-    const doc = document.documentElement;
-    const styles = window.getComputedStyle(doc);
-    const rootFontSize = parsePxValue(styles.fontSize) || 16;
-    const spacing = 0.75 * rootFontSize;
-
-    let tabHeight = siteTabBarHeightRef.current;
-    const tabBar = doc.querySelector('[data-site-tab-bar]');
-    if (tabBar instanceof window.HTMLElement) {
-      tabHeight = tabBar.getBoundingClientRect().height;
-    } else if (!isStatusBarPinned && statusBarSentinelRef.current) {
-      const rect = statusBarSentinelRef.current.getBoundingClientRect();
-      tabHeight = Math.max(0, rect.top - spacing);
-    } else {
-      const stored = parsePxValue(styles.getPropertyValue('--site-tab-bar-height'));
-      if (Number.isFinite(stored)) {
-        tabHeight = stored;
-      }
-    }
-
-    if (tabHeight < 0 || !Number.isFinite(tabHeight)) {
-      tabHeight = 0;
-    }
-
-    siteTabBarHeightRef.current = tabHeight;
-    doc.style.setProperty('--site-tab-bar-height', `${tabHeight}px`);
-
-    const nextOffset = tabHeight + spacing;
-    setStickyOffset((prev) => (Math.abs(prev - nextOffset) > 0.5 ? nextOffset : prev));
-  }, [isStatusBarPinned]);
+  const updateStickyOffset = useCallback(() => {
+    setStickyOffset(getStatusBarOffset());
+  }, []);
 
   const updatePinnedState = useCallback(() => {
     if (!statusBarSentinelRef.current) return;
@@ -457,53 +427,14 @@ const Review = forwardRef(
   );
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
+    if (typeof window === 'undefined') return;
 
-    const docEl = document.documentElement;
-    const rootDoc = window.document;
-    const handleResize = () => {
-      recomputeStickyOffset();
-    };
-
-    let resizeObserver;
-    let mutationObserver;
-
-    const observeNav = (navEl) => {
-      resizeObserver?.disconnect();
-      resizeObserver = undefined;
-      if (!navEl || typeof ResizeObserver === 'undefined') return;
-      resizeObserver = new ResizeObserver(handleResize);
-      resizeObserver.observe(navEl);
-    };
-
-    const syncNavObserver = () => {
-      const nav = rootDoc.querySelector('[data-site-tab-bar]');
-      observeNav(nav);
-      handleResize();
-    };
-
-    syncNavObserver();
-    window.addEventListener('resize', handleResize);
-
-    if (typeof MutationObserver !== 'undefined') {
-      mutationObserver = new MutationObserver(() => {
-        syncNavObserver();
-      });
-      const mutationTarget = rootDoc.body || docEl;
-      mutationObserver.observe(mutationTarget, { childList: true, subtree: true });
-    }
-
+    updateStickyOffset();
+    window.addEventListener('resize', updateStickyOffset);
     return () => {
-      window.removeEventListener('resize', handleResize);
-      resizeObserver?.disconnect();
-      mutationObserver?.disconnect();
-      docEl.style.removeProperty('--site-tab-bar-height');
+      window.removeEventListener('resize', updateStickyOffset);
     };
-  }, [recomputeStickyOffset]);
-
-  useEffect(() => {
-    recomputeStickyOffset();
-  }, [recomputeStickyOffset]);
+  }, [updateStickyOffset]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
