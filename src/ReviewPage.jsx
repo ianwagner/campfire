@@ -107,22 +107,54 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }, [groupId, currentUser]);
 
   useEffect(() => {
-    if (!groupId || !currentUser) return;
+    if (!groupId || !currentUser) {
+      setCopyCount(0);
+      return;
+    }
+    if (accessBlocked || (requirePassword && !passwordOk)) {
+      setCopyCount(0);
+      return;
+    }
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => setCopyCount(snap.size),
     );
-    return () => unsub();
-  }, [groupId, currentUser]);
+    return () => {
+      setCopyCount(0);
+      unsub();
+    };
+  }, [
+    groupId,
+    currentUser,
+    accessBlocked,
+    requirePassword,
+    passwordOk,
+  ]);
 
   useEffect(() => {
-    if (!groupId || !currentUser) return;
+    if (!groupId || !currentUser) {
+      setAdCount(0);
+      return;
+    }
+    if (accessBlocked || (requirePassword && !passwordOk)) {
+      setAdCount(0);
+      return;
+    }
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'assets'),
       (snap) => setAdCount(snap.size),
     );
-    return () => unsub();
-  }, [groupId, currentUser]);
+    return () => {
+      setAdCount(0);
+      unsub();
+    };
+  }, [
+    groupId,
+    currentUser,
+    accessBlocked,
+    requirePassword,
+    passwordOk,
+  ]);
 
   useEffect(() => {
     if (!groupId) {
