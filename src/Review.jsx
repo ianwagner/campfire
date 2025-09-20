@@ -2304,34 +2304,54 @@ useEffect(() => {
               />
               <div className="sticky top-0 z-20">
                 <div
-                  className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
+                  className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-300 ease-in-out dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${
+                    statusBarPinned
+                      ? 'px-3 py-2 opacity-80 hover:opacity-100 focus-within:opacity-100'
+                      : 'px-4 py-3 opacity-100'
+                  }`}
                 >
                   <div
-                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between ${statusBarPinned ? 'gap-3' : 'gap-4'}`}
+                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between transition-all duration-300 ease-in-out ${
+                      statusBarPinned ? 'gap-2' : 'gap-3'
+                    }`}
                   >
-                    <div className={`flex-1 ${statusBarPinned ? 'sm:flex sm:items-center sm:gap-4' : ''}`}>
-                      {adGroupDisplayName && !statusBarPinned && (
-                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                          {adGroupDisplayName}
+                    <div className={`flex-1 ${statusBarPinned ? 'sm:flex sm:items-center sm:gap-3' : ''}`}>
+                      {adGroupDisplayName ? (
+                        <div
+                          className="overflow-hidden transition-all duration-300 ease-in-out"
+                          style={{
+                            maxHeight: statusBarPinned ? 0 : '1.5rem',
+                            opacity: statusBarPinned ? 0 : 1,
+                            transform: statusBarPinned ? 'translateY(-4px)' : 'translateY(0)',
+                            marginBottom: statusBarPinned ? 0 : '0.25rem',
+                          }}
+                        >
+                          <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            {adGroupDisplayName}
+                          </div>
                         </div>
-                      )}
+                      ) : null}
                       <div
-                        className={`grid grid-cols-2 sm:grid-cols-4 ${statusBarPinned ? 'mt-0 gap-2 sm:gap-3' : 'mt-3 gap-4'}`}
+                        className={`grid grid-cols-2 sm:grid-cols-4 transition-all duration-300 ease-in-out ${
+                          statusBarPinned ? 'mt-0 gap-2 sm:gap-2.5' : 'mt-2 gap-3'
+                        }`}
                       >
                         {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
                           const statusLabel = (statusLabelMap[statusKey] || statusKey).toLowerCase();
                           return (
                             <div
                               key={statusKey}
-                              className={`flex flex-col items-center text-center ${statusBarPinned ? 'gap-0.5' : 'gap-1'}`}
+                              className={`flex flex-col items-center text-center gap-0.5 transition-all duration-300 ease-in-out ${
+                                statusBarPinned ? 'sm:gap-0.5' : ''
+                              }`}
                             >
                               <span
-                                className={`${statusBarPinned ? 'text-lg' : 'text-xl'} font-semibold text-gray-900 dark:text-[var(--dark-text)]`}
+                                className={`${statusBarPinned ? 'text-base' : 'text-lg'} font-semibold text-gray-900 dark:text-[var(--dark-text)]`}
                               >
                                 {reviewStatusCounts[statusKey] ?? 0}
                               </span>
                               <span
-                                className={`${statusBarPinned ? 'text-[11px]' : 'text-xs'} font-medium text-gray-500 dark:text-gray-300`}
+                                className={`${statusBarPinned ? 'text-[10px]' : 'text-[11px] sm:text-xs'} font-medium text-gray-500 dark:text-gray-300`}
                               >
                                 {statusLabel}
                               </span>
