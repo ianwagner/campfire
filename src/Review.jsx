@@ -350,6 +350,8 @@ const Review = forwardRef(
   const [expandedRequests, setExpandedRequests] = useState({});
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
+  const statusBarSentinelRef = useRef(null);
+  const [statusBarPinned, setStatusBarPinned] = useState(false);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -374,6 +376,32 @@ const Review = forwardRef(
   useEffect(() => {
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
+
+  useEffect(() => {
+    if (reviewVersion !== 2) {
+      setStatusBarPinned(false);
+      return;
+    }
+    if (typeof window === 'undefined' || typeof IntersectionObserver !== 'function') {
+      setStatusBarPinned(false);
+      return;
+    }
+    const sentinel = statusBarSentinelRef.current;
+    if (!sentinel) {
+      setStatusBarPinned(false);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setStatusBarPinned(entry.intersectionRatio < 1);
+      },
+      { threshold: [1] },
+    );
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [reviewVersion, reviewAds.length]);
 
 
 
@@ -2268,27 +2296,43 @@ useEffect(() => {
             </div>
           ) : reviewVersion === 2 ? (
             <div className="w-full max-w-5xl space-y-6 px-2 pt-2 sm:px-0">
+              <div
+                ref={statusBarSentinelRef}
+                aria-hidden="true"
+                className="-mt-px h-px w-full opacity-0"
+                style={{ pointerEvents: 'none' }}
+              />
               <div className="sticky top-0 z-20">
-                <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex-1">
-                      {adGroupDisplayName && (
+                <div
+                  className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
+                >
+                  <div
+                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between ${statusBarPinned ? 'gap-3' : 'gap-4'}`}
+                  >
+                    <div className={`flex-1 ${statusBarPinned ? 'sm:flex sm:items-center sm:gap-4' : ''}`}>
+                      {adGroupDisplayName && !statusBarPinned && (
                         <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                           {adGroupDisplayName}
                         </div>
                       )}
-                      <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                      <div
+                        className={`grid grid-cols-2 sm:grid-cols-4 ${statusBarPinned ? 'mt-0 gap-2 sm:gap-3' : 'mt-3 gap-4'}`}
+                      >
                         {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
                           const statusLabel = (statusLabelMap[statusKey] || statusKey).toLowerCase();
                           return (
                             <div
                               key={statusKey}
-                              className="flex flex-col items-center gap-1 text-center"
+                              className={`flex flex-col items-center text-center ${statusBarPinned ? 'gap-0.5' : 'gap-1'}`}
                             >
-                              <span className="text-xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                              <span
+                                className={`${statusBarPinned ? 'text-lg' : 'text-xl'} font-semibold text-gray-900 dark:text-[var(--dark-text)]`}
+                              >
                                 {reviewStatusCounts[statusKey] ?? 0}
                               </span>
-                              <span className="text-xs font-medium text-gray-500 dark:text-gray-300">
+                              <span
+                                className={`${statusBarPinned ? 'text-[11px]' : 'text-xs'} font-medium text-gray-500 dark:text-gray-300`}
+                              >
                                 {statusLabel}
                               </span>
                             </div>
@@ -2298,7 +2342,7 @@ useEffect(() => {
                     </div>
                     <button
                       type="button"
-                      className="btn-primary whitespace-nowrap text-sm font-semibold sm:self-center"
+                      className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'}`}
                     >
                       finalize review
                     </button>
