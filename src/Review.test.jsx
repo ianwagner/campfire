@@ -8,6 +8,7 @@ jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
 jest.mock('./CopyRecipePreview.jsx', () => () => null);
 jest.mock('./RecipePreview.jsx', () => () => <div />);
 jest.mock('./utils/debugLog', () => jest.fn());
+jest.mock('./useSiteSettings', () => () => ({ settings: {}, loading: false }));
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -39,6 +40,7 @@ jest.mock('firebase/firestore', () => ({
   arrayUnion: (...args) => mockArrayUnion(...args),
   increment: (...args) => mockIncrement(...args),
   onSnapshot: (...args) => mockOnSnapshot(...args),
+  orderBy: jest.fn(),
 }));
 
 afterEach(() => {
@@ -104,6 +106,49 @@ test('Review Ads button disabled until ads load', async () => {
   expect(btn).toBeDisabled();
 
   await waitFor(() => expect(btn).not.toBeDisabled());
+});
+
+test('Review Ads button includes pending ads in queue', async () => {
+  const assetSnapshot = {
+    docs: [
+      {
+        id: 'asset1',
+        data: () => ({
+          firebaseUrl: 'url1',
+          status: 'pending',
+          adGroupId: 'group1',
+          brandCode: 'BR1',
+        }),
+      },
+    ],
+  };
+
+  mockGetDocs.mockImplementation((args) => {
+    const col = Array.isArray(args) ? args[0] : args;
+    if (col[1] === 'adGroups' && col[col.length - 1] === 'assets') {
+      return Promise.resolve(assetSnapshot);
+    }
+    return Promise.resolve({ docs: [] });
+  });
+  mockGetDoc.mockImplementation((ref) => {
+    if (ref === 'adGroups/group1') {
+      return Promise.resolve({
+        exists: () => true,
+        data: () => ({ name: 'Group 1', brandCode: 'BR1' }),
+      });
+    }
+    return Promise.resolve({ exists: () => false, data: () => ({}) });
+  });
+
+  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+
+  const btn = await screen.findByRole('button', { name: /Review Ads/i });
+  await waitFor(() => expect(btn).not.toBeDisabled(), { timeout: 5000 });
+  fireEvent.click(btn);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+  );
 });
 
 test('submitResponse updates asset status', async () => {
@@ -1065,7 +1110,7 @@ test('shows all ads for group review when none new', async () => {
   expect(screen.getByText('Reject')).toHaveClass('opacity-50');
 });
 
-test('pending ads are hidden from group review', async () => {
+test('pending ads remain in group review queue', async () => {
   const groupDoc = {
     exists: () => true,
     data: () => ({ name: 'Group 1', brandCode: 'BR1' }),
@@ -1088,16 +1133,23 @@ test('pending ads are hidden from group review', async () => {
 
   render(<Review user={{ uid: 'u1' }} groupId="group1" />);
 
+  const btn = await screen.findByRole('button', { name: /Review Ads/i });
+  await waitFor(() => expect(btn).not.toBeDisabled(), { timeout: 5000 });
+  fireEvent.click(btn);
+
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
   );
 
   fireEvent.click(screen.getByText('Approve'));
   fireEvent.animationEnd(screen.getByAltText('Ad').parentElement);
-  await waitFor(() => screen.getByText('Your ads are ready!'));
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
+  );
+  expect(screen.queryByText('Your ads are ready!')).not.toBeInTheDocument();
 });
 
-test('shows pending message when only pending ads', async () => {
+test('shows pending ads when only pending assets exist', async () => {
   const groupDoc = {
     exists: () => true,
     data: () => ({ name: 'Group 1', brandCode: 'BR1' }),
@@ -1119,7 +1171,14 @@ test('shows pending message when only pending ads', async () => {
 
   render(<Review user={{ uid: 'u1' }} groupId="group1" />);
 
-  expect(await screen.findByText('Ads Pending Review')).toBeInTheDocument();
+  const btn = await screen.findByRole('button', { name: /Review Ads/i });
+  await waitFor(() => expect(btn).not.toBeDisabled(), { timeout: 5000 });
+  fireEvent.click(btn);
+
+  await waitFor(() =>
+    expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
+  );
+  expect(screen.queryByText('Ads Pending Review')).not.toBeInTheDocument();
 });
 
 test('submitResponse records last viewed time for group', async () => {
