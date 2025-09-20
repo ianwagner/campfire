@@ -37,18 +37,28 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const reviewRef = useRef(null);
 
   useEffect(() => {
-    if (!currentUser) {
-      signInAnonymously(auth)
-        .then(() => {
-          setCurrentUser(auth.currentUser);
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error("Anonymous sign-in failed", err);
-          setError(err.message);
-          setLoading(false);
-        });
-    }
+    if (currentUser) return;
+
+    let isCancelled = false;
+    const ensureAnonymousUser = async () => {
+      try {
+        const credential = await signInAnonymously(auth);
+        if (isCancelled) return;
+        setCurrentUser(credential.user);
+        setLoading(false);
+      } catch (err) {
+        if (isCancelled) return;
+        console.error("Anonymous sign-in failed", err);
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    ensureAnonymousUser();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [currentUser]);
 
   useEffect(() => {
@@ -64,6 +74,9 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   useEffect(() => {
     if (!groupId) {
       setAgencyId(null);
+      return;
+    }
+    if (!currentUser) {
       return;
     }
     const loadAgency = async () => {
@@ -91,31 +104,34 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
       }
     };
     loadAgency();
-  }, [groupId]);
+  }, [groupId, currentUser]);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || !currentUser) return;
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => setCopyCount(snap.size),
     );
     return () => unsub();
-  }, [groupId]);
+  }, [groupId, currentUser]);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || !currentUser) return;
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'assets'),
       (snap) => setAdCount(snap.size),
     );
     return () => unsub();
-  }, [groupId]);
+  }, [groupId, currentUser]);
 
   useEffect(() => {
     if (!groupId) {
       setGroupPassword(null);
       setVisibility(null);
       setAccessBlocked(false);
+      return;
+    }
+    if (!currentUser) {
       return;
     }
     const loadGroup = async () => {
@@ -136,7 +152,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         setRequirePassword(!!data.requirePassword);
         const blocked =
           data.visibility !== "public" ||
-          (data.requireAuth && auth.currentUser?.isAnonymous);
+          (data.requireAuth && currentUser?.isAnonymous);
         setAccessBlocked(blocked);
       } catch (err) {
         console.error("Failed to fetch group info", err);
@@ -148,7 +164,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
       }
     };
     loadGroup();
-  }, [groupId]);
+  }, [groupId, currentUser]);
 
   useEffect(() => {
     if (groupPassword === null || accessBlocked) return;
