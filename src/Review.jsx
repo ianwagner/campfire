@@ -1020,7 +1020,13 @@ useEffect(() => {
       }
     };
 
-    if (!user?.uid || (!groupId && brandCodes.length === 0)) {
+    if (!user?.uid) {
+      setAds([]);
+      setReviewAds([]);
+      return;
+    }
+
+    if (!groupId && brandCodes.length === 0) {
       setAds([]);
       setReviewAds([]);
       setLoading(false);

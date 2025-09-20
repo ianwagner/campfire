@@ -10,17 +10,27 @@ const ReviewRoute = () => {
   const [signingIn, setSigningIn] = useState(!auth.currentUser);
 
   useEffect(() => {
-    if (!user) {
-      signInAnonymously(auth)
-        .then(() => {
-          setUser(auth.currentUser);
-          setSigningIn(false);
-        })
-        .catch((err) => {
-          console.error('Anonymous sign-in failed', err);
-          setSigningIn(false);
-        });
-    }
+    if (user) return;
+
+    let isCancelled = false;
+    const ensureAnonymousUser = async () => {
+      try {
+        const credential = await signInAnonymously(auth);
+        if (isCancelled) return;
+        setUser(credential.user);
+        setSigningIn(false);
+      } catch (err) {
+        if (isCancelled) return;
+        console.error('Anonymous sign-in failed', err);
+        setSigningIn(false);
+      }
+    };
+
+    ensureAnonymousUser();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [user]);
 
   const isAnonymous = user?.isAnonymous;
