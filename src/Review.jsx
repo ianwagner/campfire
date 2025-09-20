@@ -1624,48 +1624,50 @@ useEffect(() => {
           )}
         {/* Gallery view removed */}
         {/* Show exit button even during change review */}
-        <div className="relative w-full max-w-md mb-2.5 flex justify-center">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2">
-            <InfoTooltip text="exit review" placement="bottom">
-              <button
-                type="button"
-                onClick={() => {
-                  releaseLock();
-                  setStarted(false);
-                }}
-                aria-label="exit review"
-                className="text-gray-500 hover:text-black dark:hover:text-white"
-              >
-                <FiX />
-              </button>
-            </InfoTooltip>
-          </div>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2">
-            <InfoTooltip text="leave overall feedback" placement="bottom">
-              <button
-                type="button"
-                aria-label="leave overall feedback"
-                onClick={() => setShowFeedbackModal(true)}
-                className="text-gray-500 hover:text-black dark:hover:text-white"
-              >
-                <FiMessageSquare />
-              </button>
-            </InfoTooltip>
-          </div>
-          {reviewVersion !== 3 && (
-            <div
-              className="progress-bar"
-              role="progressbar"
-              aria-valuenow={progress}
-              aria-valuemin="0"
-              aria-valuemax="100"
-            >
-              <div
-                className="progress-bar-inner"
-                style={{ width: `${progress}%` }}
-              />
+        <div className="sticky top-0 z-30 w-full max-w-md mb-2.5 mx-auto px-2">
+          <div className="relative flex items-center justify-center gap-2 rounded-full bg-white/90 dark:bg-[var(--dark-sidebar-bg)]/95 backdrop-blur px-3 py-2 shadow-sm">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2">
+              <InfoTooltip text="exit review" placement="bottom">
+                <button
+                  type="button"
+                  onClick={() => {
+                    releaseLock();
+                    setStarted(false);
+                  }}
+                  aria-label="exit review"
+                  className="text-gray-500 hover:text-black dark:hover:text-white"
+                >
+                  <FiX />
+                </button>
+              </InfoTooltip>
             </div>
-          )}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <InfoTooltip text="leave overall feedback" placement="bottom">
+                <button
+                  type="button"
+                  aria-label="leave overall feedback"
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="text-gray-500 hover:text-black dark:hover:text-white"
+                >
+                  <FiMessageSquare />
+                </button>
+              </InfoTooltip>
+            </div>
+            {reviewVersion !== 3 && (
+              <div
+                className="progress-bar w-full"
+                role="progressbar"
+                aria-valuenow={progress}
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
+                <div
+                  className="progress-bar-inner"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
