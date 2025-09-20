@@ -25,11 +25,24 @@ import {
   getDocs,
   doc,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 
 beforeEach(() => {
   jest.clearAllMocks();
+  getDocs.mockReset();
+  onSnapshot.mockReset();
+  where.mockReset();
+  doc.mockReset();
+  updateDoc.mockReset();
 });
+
+const queueGetDocs = (...responses) => {
+  const queue = [...responses, ...responses];
+  getDocs.mockImplementation(() =>
+    Promise.resolve(queue.shift() ?? responses[responses.length - 1] ?? { docs: [] })
+  );
+};
 
 test('computes summary for groups missing data', async () => {
   const groupSnap = {
@@ -71,11 +84,7 @@ test('computes summary for groups missing data', async () => {
     docs: [{ data: () => ({ credits: 0, code: 'B1', logos: ['logo.png'] }) }],
   };
   doc.mockImplementation((...args) => args.slice(1).join('/'));
-  getDocs
-    .mockResolvedValueOnce(brandSnap)
-    .mockResolvedValueOnce(previewSnap)
-    .mockResolvedValueOnce(adUnitSnap)
-    .mockResolvedValueOnce(assetSnap);
+  queueGetDocs(brandSnap, previewSnap, brandSnap, adUnitSnap, assetSnap);
   onSnapshot.mockImplementation((q, cb) => {
     cb(groupSnap);
     return jest.fn();
@@ -119,10 +128,7 @@ test('uses ad unit data when available', async () => {
     docs: [{ data: () => ({ credits: 0, code: 'B1', logos: ['logo.png'] }) }],
   };
   doc.mockImplementation((...args) => args.slice(1).join('/'));
-  getDocs
-    .mockResolvedValueOnce(brandSnap)
-    .mockResolvedValueOnce(previewSnap)
-    .mockResolvedValueOnce(adUnitSnap);
+  queueGetDocs(brandSnap, previewSnap, brandSnap, adUnitSnap);
   onSnapshot.mockImplementation((q, cb) => {
     cb(groupSnap);
     return jest.fn();
@@ -146,7 +152,7 @@ test('shows warning when credits are negative', async () => {
     docs: [{ data: () => ({ credits: -5, code: 'B1', logos: ['l.png'] }) }],
   };
 
-  getDocs.mockResolvedValueOnce(brandSnap);
+  queueGetDocs(brandSnap);
   onSnapshot.mockImplementation((q, cb) => {
     cb({ docs: [] });
     return jest.fn();
@@ -171,7 +177,7 @@ test('renders brand logo with default styling and no status badge', async () => 
         data: () => ({
           brandCode: 'B1',
           status: 'pending',
-          visibility: 'private',
+          visibility: 'public',
           name: 'Group 1',
         }),
       },
@@ -184,11 +190,7 @@ test('renders brand logo with default styling and no status badge', async () => 
     docs: [{ data: () => ({ credits: 0, code: 'B1', logos: ['logo.png'] }) }],
   };
   doc.mockImplementation((...args) => args.slice(1).join('/'));
-  getDocs
-    .mockResolvedValueOnce(brandSnap)
-    .mockResolvedValueOnce(previewSnap)
-    .mockResolvedValueOnce(adUnitSnap)
-    .mockResolvedValueOnce(assetSnap);
+  queueGetDocs(brandSnap, previewSnap, brandSnap, adUnitSnap, assetSnap);
   onSnapshot.mockImplementation((q, cb) => {
     cb(groupSnap);
     return jest.fn();
@@ -204,4 +206,87 @@ test('renders brand logo with default styling and no status badge', async () => 
   const container = img.closest('div');
   expect(container).toHaveStyle('background: #efefef; padding: 40px');
   expect(screen.queryByText(/pending/i)).not.toBeInTheDocument();
+});
+
+test('chunks brand queries when more than 10 brand codes are provided', async () => {
+  const brandCodes = Array.from({ length: 12 }, (_, i) => `B${i + 1}`);
+  const makeBrandDocs = (codes) =>
+    codes.map((code) => ({
+      data: () => ({ credits: 1, code, logos: [`${code}-logo`] }),
+    }));
+  const makePreviewSnap = (groupId) => ({
+    docs: [
+      {
+        id: `${groupId}-asset`,
+        data: () => ({
+          firebaseUrl: `${groupId}-url`,
+          status: 'approved',
+          aspectRatio: '1x1',
+        }),
+      },
+    ],
+  });
+  const adUnitSnap = {
+    docs: [{ data: () => ({ status: 'approved', firebaseUrl: 'unit' }) }],
+  };
+
+  doc.mockImplementation((...args) => args.slice(1).join('/'));
+  queueGetDocs(
+    { docs: makeBrandDocs(brandCodes.slice(0, 10)) },
+    { docs: makeBrandDocs(brandCodes.slice(10)) },
+    makePreviewSnap('g1'),
+    adUnitSnap,
+    makePreviewSnap('g2'),
+    adUnitSnap
+  );
+
+  onSnapshot
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'g1',
+            data: () => ({
+              brandCode: 'B1',
+              status: 'ready',
+              visibility: 'public',
+              name: 'Group 1',
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    })
+    .mockImplementationOnce((q, cb) => {
+      cb({
+        docs: [
+          {
+            id: 'g2',
+            data: () => ({
+              brandCode: 'B11',
+              status: 'ready',
+              visibility: 'public',
+              name: 'Group 2',
+            }),
+          },
+        ],
+      });
+      return jest.fn();
+    });
+
+  render(
+    <MemoryRouter>
+      <ClientDashboard user={{ uid: 'u1', metadata: {} }} brandCodes={brandCodes} />
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText('Group 1')).toBeInTheDocument();
+  expect(screen.getByText('Group 2')).toBeInTheDocument();
+
+  const brandWhereCalls = where.mock.calls.filter(
+    (call) => call[0] === 'brandCode' && call[1] === 'in'
+  );
+  expect(brandWhereCalls).toHaveLength(2);
+  expect(brandWhereCalls[0][2]).toEqual(brandCodes.slice(0, 10));
+  expect(brandWhereCalls[1][2]).toEqual(brandCodes.slice(10));
 });
