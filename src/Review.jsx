@@ -2379,10 +2379,8 @@ useEffect(() => {
             />
             <div
               ref={statusBarRef}
-              className={`z-30 flex justify-center transition-all duration-300 ${
-                isStatusBarPinned
-                  ? 'fixed inset-x-0 px-2 sm:px-4 lg:px-6'
-                  : 'sticky top-0 w-full px-4 sm:px-6 lg:px-8 pt-0'
+              className={`sticky top-0 z-30 flex w-full justify-center px-4 transition-all duration-300 sm:px-6 lg:px-8 ${
+                isStatusBarPinned ? '' : 'pt-0'
               }`}
               style={
                 isStatusBarPinned
