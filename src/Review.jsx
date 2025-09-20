@@ -350,7 +350,6 @@ const Review = forwardRef(
   const [expandedRequests, setExpandedRequests] = useState({});
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
-  const [statusBarPinned, setStatusBarPinned] = useState(false);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -359,7 +358,6 @@ const Review = forwardRef(
   const advancedRef = useRef(false);
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
-  const statusBarSentinelRef = useRef(null);
   const [initialStatus, setInitialStatus] = useState(null);
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
@@ -644,31 +642,6 @@ useEffect(() => {
   useEffect(() => {
     setShowSizes(false);
   }, [currentIndex]);
-
-
-  useEffect(() => {
-    const sentinel = statusBarSentinelRef.current;
-    if (!sentinel) {
-      setStatusBarPinned(false);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry) return;
-        setStatusBarPinned(entry.boundingClientRect.top < 0);
-      },
-      { threshold: [0] },
-    );
-    observer.observe(sentinel);
-    setStatusBarPinned(sentinel.getBoundingClientRect().top < 0);
-    return () => observer.disconnect();
-  }, [reviewVersion]);
-
-  useEffect(() => {
-    if (reviewVersion !== 2) {
-      setStatusBarPinned(false);
-    }
-  }, [reviewVersion]);
 
 
   useEffect(() => {
@@ -2290,69 +2263,26 @@ useEffect(() => {
             </div>
           ) : reviewVersion === 2 ? (
             <div className="w-full max-w-5xl space-y-6 px-2 pt-2 sm:px-0">
-              <div className="relative">
-                <div
-                  ref={statusBarSentinelRef}
-                  aria-hidden="true"
-                  className="pointer-events-none absolute top-0 h-px w-full"
-                />
-                <div className="sticky top-0 z-20">
-                  <div
-                    className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${
-                      statusBarPinned ? 'px-3 py-2 sm:px-4 sm:py-2' : 'px-4 py-4 sm:px-6'
-                    }`}
-                  >
-                    <div
-                      className={`flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between ${
-                        statusBarPinned ? 'gap-3' : 'gap-4'
-                      }`}
-                    >
+              <div className="sticky top-0 z-20">
+                <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    {['pending', 'approve', 'edit', 'reject'].map((statusKey) => (
                       <div
-                        className={`flex w-full flex-col items-center sm:items-start ${
-                          statusBarPinned ? 'gap-2' : 'gap-3'
-                        }`}
+                        key={statusKey}
+                        className="flex flex-col items-center gap-1 text-center"
                       >
-                        {!statusBarPinned && groupName ? (
-                          <div className="text-sm font-medium text-gray-500 dark:text-gray-300 text-center sm:text-left">
-                            {groupName}
-                          </div>
-                        ) : null}
-                        <div
-                          className={`grid w-full grid-cols-2 gap-3 sm:grid-cols-4 ${
-                            statusBarPinned ? 'sm:gap-3' : 'sm:gap-4'
-                          }`}
-                        >
-                          {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
-                            const label = statusLabelMap[statusKey] || statusKey;
-                            return (
-                              <div
-                                key={statusKey}
-                                className="flex flex-col items-center gap-1 text-center"
-                              >
-                                <span
-                                  className={`font-semibold text-gray-900 dark:text-[var(--dark-text)] ${
-                                    statusBarPinned ? 'text-lg' : 'text-xl'
-                                  }`}
-                                >
-                                  {reviewStatusCounts[statusKey] ?? 0}
-                                </span>
-                                <span className="text-xs font-medium text-gray-500 dark:text-gray-300">
-                                  {label.toLowerCase()}
-                                </span>
-                              </div>
-                            );
-                          })}
+                        <span className="text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                          {reviewStatusCounts[statusKey] ?? 0}
+                        </span>
+                        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                          <span
+                            className="inline-block h-2.5 w-2.5 rounded-full"
+                            style={statusDotStyles[statusKey] || statusDotStyles.pending}
+                          />
+                          <span>{statusLabelMap[statusKey] || statusKey}</span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className={`rounded-full bg-[var(--accent-color)] font-semibold lowercase text-white transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-color)] hover:opacity-90 dark:focus-visible:outline-offset-4 ${
-                          statusBarPinned ? 'px-3 py-1 text-xs' : 'px-4 py-2 text-sm'
-                        }`}
-                      >
-                        finalize review
-                      </button>
-                    </div>
+                    ))}
                   </div>
                 </div>
               </div>
