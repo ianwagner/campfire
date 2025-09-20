@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { FiTrash } from 'react-icons/fi';
 import { db } from './firebase/config';
+import chunkArray from './utils/chunkArray.js';
 
 const READ_KEY = 'designerNotificationsRead';
 const DISMISS_KEY = 'designerNotificationsDismissed';
@@ -15,25 +16,46 @@ const DesignerNotifications = ({ brandCodes = [] }) => {
     const fetchNotes = async () => {
       setLoading(true);
       try {
-        let q = query(
+        const baseQuery = query(
           collection(db, 'notifications'),
           where('audience', '==', 'designer'),
           orderBy('createdAt', 'desc')
         );
+
+        let docs = [];
         if (brandCodes.length > 0) {
-          q = query(q, where('brandCode', 'in', brandCodes));
+          const chunks = chunkArray(brandCodes, 10);
+          const snaps = await Promise.all(
+            chunks.map((chunk) =>
+              getDocs(query(baseQuery, where('brandCode', 'in', chunk)))
+            )
+          );
+          docs = snaps.flatMap((s) => s.docs);
+        } else {
+          const snap = await getDocs(baseQuery);
+          docs = snap.docs;
         }
-        const snap = await getDocs(q);
+
+        const deduped = new Map();
+        docs.forEach((d) => {
+          deduped.set(d.id, { id: d.id, ...d.data() });
+        });
+        const list = Array.from(deduped.values()).sort((a, b) => {
+          const aDate = a.createdAt?.toDate ? a.createdAt.toDate() : null;
+          const bDate = b.createdAt?.toDate ? b.createdAt.toDate() : null;
+          if (!aDate && !bDate) return 0;
+          if (!aDate) return 1;
+          if (!bDate) return -1;
+          return bDate - aDate;
+        });
         let dismissed = [];
         try {
           dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '[]');
         } catch (e) {
           dismissed = [];
         }
-        const list = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((n) => !dismissed.includes(n.id));
-        setNotes(list);
+        const filtered = list.filter((n) => !dismissed.includes(n.id));
+        setNotes(filtered);
 
         let readIds = [];
         try {
@@ -41,7 +63,7 @@ const DesignerNotifications = ({ brandCodes = [] }) => {
         } catch (e) {
           readIds = [];
         }
-        const all = new Set([...readIds, ...list.map((n) => n.id)]);
+        const all = new Set([...readIds, ...filtered.map((n) => n.id)]);
         try {
           localStorage.setItem(READ_KEY, JSON.stringify(Array.from(all)));
         } catch (e) {

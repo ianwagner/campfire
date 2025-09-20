@@ -5,6 +5,7 @@ import MonthTag from './components/MonthTag.jsx';
 import parseAdFilename from './utils/parseAdFilename.js';
 import summarizeByRecipe from './utils/summarizeByRecipe.js';
 import summarizeAdUnits from './utils/summarizeAdUnits.js';
+import chunkArray from './utils/chunkArray.js';
 import { db } from './firebase/config';
 import {
   collection,
@@ -101,15 +102,19 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
     }
     const checkCredits = async () => {
       try {
-        const snap = await getDocs(
-          query(collection(db, 'brands'), where('code', 'in', brandCodes))
+        const chunks = chunkArray(brandCodes, 10);
+        const snaps = await Promise.all(
+          chunks.map((chunk) =>
+            getDocs(
+              query(collection(db, 'brands'), where('code', 'in', chunk))
+            )
+          )
         );
-        const negative = snap.docs.some(
-          (d) => (d.data().credits ?? 0) < 0
-        );
+        const docs = snaps.flatMap((s) => s.docs);
+        const negative = docs.some((d) => (d.data().credits ?? 0) < 0);
         setHasNegativeCredits(negative);
         const logos = {};
-        snap.docs.forEach((d) => {
+        docs.forEach((d) => {
           const data = d.data();
           logos[data.code] = data.logos?.[0] || data.logoUrl || '';
         });
@@ -130,17 +135,12 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
       return;
     }
     setLoading(true);
-    const q = query(
-      collection(db, 'adGroups'),
-      where('brandCode', 'in', brandCodes)
-    );
+    const chunks = chunkArray(brandCodes, 10);
+    const chunkResults = new Map();
 
-    const unsub = onSnapshot(
-      q,
-      async (snap) => {
-        try {
-          const list = await Promise.all(
-            snap.docs.map(async (d) => {
+    const buildGroups = async (docs) =>
+      Promise.all(
+        docs.map(async (d) => {
             const data = d.data();
             const group = {
               id: d.id,
@@ -266,29 +266,54 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
 
             return group;
           })
-        );
-          setGroups(
-            list.filter(
-              (g) =>
-                g.status !== 'archived' &&
-                (g.status === 'ready' || g.visibility === 'public')
-            )
-          );
-          setLoading(false);
-        } catch (err) {
-          console.error('Failed to fetch groups', err);
-          setGroups([]);
-          setLoading(false);
-        }
-      },
-      (err) => {
-        console.error('Failed to fetch groups', err);
-        setGroups([]);
-        setLoading(false);
-      }
-    );
+      );
 
-    return () => unsub();
+    const mergeAndSetGroups = () => {
+      const merged = Array.from(chunkResults.values()).flat();
+      const unique = new Map();
+      merged.forEach((group) => {
+        unique.set(group.id, group);
+      });
+      const filtered = Array.from(unique.values()).filter(
+        (g) =>
+          g.status !== 'archived' &&
+          (g.status === 'ready' || g.visibility === 'public')
+      );
+      setGroups(filtered);
+      setLoading(false);
+    };
+
+    const unsubscribers = chunks.map((chunk, index) => {
+      const key = `${index}:${chunk.join('|')}`;
+      const q = query(
+        collection(db, 'adGroups'),
+        where('brandCode', 'in', chunk)
+      );
+
+      return onSnapshot(
+        q,
+        async (snap) => {
+          try {
+            const list = await buildGroups(snap.docs);
+            chunkResults.set(key, list);
+            mergeAndSetGroups();
+          } catch (err) {
+            console.error('Failed to fetch groups', err);
+            chunkResults.delete(key);
+            mergeAndSetGroups();
+          }
+        },
+        (err) => {
+          console.error('Failed to fetch groups', err);
+          chunkResults.delete(key);
+          mergeAndSetGroups();
+        }
+      );
+    });
+
+    return () => {
+      unsubscribers.forEach((unsub) => unsub && unsub());
+    };
   }, [brandCodes, user]);
 
   useEffect(() => {

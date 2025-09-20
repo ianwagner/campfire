@@ -3,6 +3,7 @@ import AdGroupCard from './components/AdGroupCard.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import getUserName from './utils/getUserName';
 import computeKanbanStatus from './utils/computeKanbanStatus';
+import chunkArray from './utils/chunkArray.js';
 import {
   collection,
   getDocs,
@@ -57,19 +58,26 @@ const DesignerDashboard = () => {
       setLoading(true);
       try {
         const results = new Map();
-        let q;
         if (role === 'designer') {
-          q = query(
+          const designerQuery = query(
             collection(db, 'adGroups'),
             where('designerId', '==', auth.currentUser?.uid || ''),
             where('status', 'not-in', ['archived'])
           );
-          const snap = await getDocs(q);
+          const snap = await getDocs(designerQuery);
           snap.docs.forEach((d) => results.set(d.id, d));
         } else if (brandCodes && brandCodes.length > 0) {
-          q = query(collection(db, 'adGroups'), where('brandCode', 'in', brandCodes));
-          const snap = await getDocs(q);
-          snap.docs.forEach((d) => results.set(d.id, d));
+          const chunks = chunkArray(brandCodes, 10);
+          await Promise.all(
+            chunks.map(async (chunk) => {
+              const chunkQuery = query(
+                collection(db, 'adGroups'),
+                where('brandCode', 'in', chunk)
+              );
+              const snap = await getDocs(chunkQuery);
+              snap.docs.forEach((d) => results.set(d.id, d));
+            })
+          );
         } else {
           q = query(
             collection(db, 'adGroups'),
