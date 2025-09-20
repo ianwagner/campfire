@@ -2284,34 +2284,30 @@ useEffect(() => {
           )}
         {/* Gallery view removed */}
         {/* Show exit button even during change review */}
-        <div className="relative w-full max-w-md mb-2.5 flex justify-center">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2">
-            <InfoTooltip text="exit review" placement="bottom">
-              <button
-                type="button"
-                onClick={() => {
-                  releaseLock();
-                  setStarted(false);
-                }}
-                aria-label="exit review"
-                className="text-gray-500 hover:text-black dark:hover:text-white"
-              >
-                <FiX />
-              </button>
-            </InfoTooltip>
-          </div>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2">
-            <InfoTooltip text="leave overall feedback" placement="bottom">
-              <button
-                type="button"
-                aria-label="leave overall feedback"
-                onClick={() => setShowFeedbackModal(true)}
-                className="text-gray-500 hover:text-black dark:hover:text-white"
-              >
-                <FiMessageSquare />
-              </button>
-            </InfoTooltip>
-          </div>
+        <div className="mb-2.5 flex w-full max-w-md items-center justify-between px-2">
+          <InfoTooltip text="exit review" placement="bottom">
+            <button
+              type="button"
+              onClick={() => {
+                releaseLock();
+                setStarted(false);
+              }}
+              aria-label="exit review"
+              className="text-gray-500 hover:text-black dark:hover:text-white"
+            >
+              <FiX />
+            </button>
+          </InfoTooltip>
+          <InfoTooltip text="leave overall feedback" placement="bottom">
+            <button
+              type="button"
+              aria-label="leave overall feedback"
+              onClick={() => setShowFeedbackModal(true)}
+              className="text-gray-500 hover:text-black dark:hover:text-white"
+            >
+              <FiMessageSquare />
+            </button>
+          </InfoTooltip>
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
