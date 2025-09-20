@@ -2270,7 +2270,7 @@ useEffect(() => {
             <div className="w-full max-w-5xl space-y-6 px-2 pt-2 sm:px-0">
               <div className="sticky top-0 z-20">
                 <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
                       {adGroupDisplayName && (
                         <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -2298,7 +2298,7 @@ useEffect(() => {
                     </div>
                     <button
                       type="button"
-                      className="btn-primary whitespace-nowrap text-sm font-semibold"
+                      className="btn-primary whitespace-nowrap text-sm font-semibold sm:self-center"
                     >
                       finalize review
                     </button>
@@ -2427,14 +2427,9 @@ useEffect(() => {
                       <div className="flex flex-col gap-4 p-4">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                            <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
                               {recipeLabel}
                             </h3>
-                            {ad.groupName && (
-                              <p className="text-sm text-gray-500 dark:text-gray-300">
-                                {ad.groupName}
-                              </p>
-                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             {groups.length > 1 && (
@@ -2446,7 +2441,7 @@ useEffect(() => {
                         </div>
                         <div className="space-y-4">
                           <div
-                            className={`grid gap-3 ${
+                            className={`grid gap-3 items-start ${
                               sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
                             }`}
                           >
@@ -2461,7 +2456,7 @@ useEffect(() => {
                                   key={
                                     getAssetDocumentId(asset) || assetUrl || assetIdx
                                   }
-                                  className="mx-auto w-full max-w-[350px] overflow-hidden rounded-lg sm:mx-0"
+                                  className="mx-auto w-full max-w-[350px] self-start overflow-hidden rounded-lg sm:mx-0"
                                 >
                                   <div className="relative w-full" style={assetStyle}>
                                     {isVideoUrl(assetUrl) ? (
