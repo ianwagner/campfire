@@ -1076,6 +1076,11 @@ useEffect(() => {
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
     currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
+  const adGroupDisplayName = useMemo(() => {
+    if (groupName) return groupName;
+    const withName = reviewAds.find((adItem) => adItem && adItem.groupName);
+    return withName?.groupName ?? '';
+  }, [groupName, reviewAds]);
   const statusResponse = useMemo(() => {
     if (!currentAd) return null;
     const { status } = currentAd;
@@ -2265,24 +2270,38 @@ useEffect(() => {
             <div className="w-full max-w-5xl space-y-6 px-2 pt-2 sm:px-0">
               <div className="sticky top-0 z-20">
                 <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    {['pending', 'approve', 'edit', 'reject'].map((statusKey) => (
-                      <div
-                        key={statusKey}
-                        className="flex flex-col items-center gap-1 text-center"
-                      >
-                        <span className="text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
-                          {reviewStatusCounts[statusKey] ?? 0}
-                        </span>
-                        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                          <span
-                            className="inline-block h-2.5 w-2.5 rounded-full"
-                            style={statusDotStyles[statusKey] || statusDotStyles.pending}
-                          />
-                          <span>{statusLabelMap[statusKey] || statusKey}</span>
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex-1">
+                      {adGroupDisplayName && (
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          {adGroupDisplayName}
                         </div>
+                      )}
+                      <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                        {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
+                          const statusLabel = (statusLabelMap[statusKey] || statusKey).toLowerCase();
+                          return (
+                            <div
+                              key={statusKey}
+                              className="flex flex-col items-center gap-1 text-center"
+                            >
+                              <span className="text-xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                                {reviewStatusCounts[statusKey] ?? 0}
+                              </span>
+                              <span className="text-xs font-medium text-gray-500 dark:text-gray-300">
+                                {statusLabel}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-primary whitespace-nowrap text-sm font-semibold"
+                    >
+                      finalize review
+                    </button>
                   </div>
                 </div>
               </div>
