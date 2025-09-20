@@ -111,6 +111,10 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
       setCopyCount(0);
       return;
     }
+    if (currentUser?.isAnonymous) {
+      setCopyCount(0);
+      return;
+    }
     if (accessBlocked !== false) {
       setCopyCount(0);
       return;
@@ -325,11 +329,16 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     ? { uid: currentUser.uid || "public", email: "public@campfire" }
     : currentUser;
 
+  const canReadCopyCards =
+    Boolean(groupId && currentUser && !currentUser.isAnonymous) &&
+    accessBlocked === false &&
+    (!requirePassword || passwordOk);
+
   return (
     <div className="min-h-screen relative">
       <div className="absolute top-2 right-2 flex gap-2 z-40">
         {currentUser?.isAnonymous && <ThemeToggle />}
-        {copyCount > 0 && (
+        {canReadCopyCards && copyCount > 0 && (
           <button
             type="button"
             aria-label="See platform copy"
@@ -358,6 +367,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         userRole={currentUser?.isAnonymous ? null : userRole}
         brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
+        canReadCopyCards={canReadCopyCards}
       />
     </div>
   );
