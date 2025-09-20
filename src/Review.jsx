@@ -1388,6 +1388,83 @@ useEffect(() => {
     return map;
   }, [reviewAds, allAds]);
 
+  const buildStatusMeta = useCallback(
+    (ad, index) => {
+      const fallback = {
+        cardKey: getAdKey(ad, index),
+        groups: [],
+        latestAssets: [],
+        statusAssets: [],
+        statusValue: 'pending',
+      };
+      if (!ad) return fallback;
+
+      const cardKey = getAdKey(ad, index);
+      const groups = versionGroupsByAd[cardKey] || [[ad]];
+      const latestAssets = groups[0] || [ad];
+      const statusAssetsFiltered = latestAssets.filter((asset) =>
+        isSameAdUnit(asset, ad),
+      );
+      const statusAssets =
+        statusAssetsFiltered.length > 0 ? statusAssetsFiltered : [ad];
+      const assetResponses = statusAssets
+        .map((asset) => responses[asset.adUrl || asset.firebaseUrl])
+        .filter(Boolean);
+      const responseValue = assetResponses[0]?.response;
+      const statusFromAssets = statusAssets.some(
+        (asset) => asset.status === 'approved',
+      )
+        ? 'approve'
+        : statusAssets.some((asset) => asset.status === 'rejected')
+        ? 'reject'
+        : statusAssets.some((asset) => asset.status === 'edit_requested')
+        ? 'edit'
+        : null;
+      const defaultStatus =
+        ad.status === 'approved'
+          ? 'approve'
+          : ad.status === 'rejected'
+          ? 'reject'
+          : ad.status === 'edit_requested'
+          ? 'edit'
+          : 'pending';
+      const combinedStatus =
+        manualStatus[cardKey] ||
+        responseValue ||
+        statusFromAssets ||
+        defaultStatus;
+      const normalizedStatus = ['approve', 'reject', 'edit', 'pending'].includes(
+        combinedStatus,
+      )
+        ? combinedStatus
+        : 'pending';
+
+      return {
+        cardKey,
+        groups,
+        latestAssets,
+        statusAssets,
+        statusValue: normalizedStatus,
+      };
+    },
+    [versionGroupsByAd, responses, manualStatus],
+  );
+
+  const reviewStatusCounts = useMemo(() => {
+    const counts = { pending: 0, approve: 0, edit: 0, reject: 0 };
+    if (!reviewAds || reviewAds.length === 0) {
+      return counts;
+    }
+    reviewAds.forEach((ad, index) => {
+      const { statusValue } = buildStatusMeta(ad, index);
+      const key = ['approve', 'reject', 'edit', 'pending'].includes(statusValue)
+        ? statusValue
+        : 'pending';
+      counts[key] += 1;
+    });
+    return counts;
+  }, [reviewAds, buildStatusMeta]);
+
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
     // Drop preloaded images that are behind the current index
@@ -2185,28 +2262,54 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="w-full max-w-5xl space-y-6 px-2 sm:px-0">
+            <div className="w-full max-w-5xl space-y-6 px-2 pt-2 sm:px-0">
+              <div className="sticky top-0 z-20">
+                <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    {['pending', 'approve', 'edit', 'reject'].map((statusKey) => (
+                      <div
+                        key={statusKey}
+                        className="flex flex-col items-center gap-1 text-center"
+                      >
+                        <span className="text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                          {reviewStatusCounts[statusKey] ?? 0}
+                        </span>
+                        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                          <span
+                            className="inline-block h-2.5 w-2.5 rounded-full"
+                            style={statusDotStyles[statusKey] || statusDotStyles.pending}
+                          />
+                          <span>{statusLabelMap[statusKey] || statusKey}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
               {reviewAds.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-gray-300 dark:border-[var(--border-color-default)] bg-white dark:bg-[var(--dark-sidebar-bg)] p-8 text-center text-gray-500 dark:text-gray-300">
                   No ads to review yet.
                 </div>
               ) : (
                 reviewAds.map((ad, index) => {
-                  const cardKey = getAdKey(ad, index);
-                  const groups = versionGroupsByAd[cardKey] || [[ad]];
-                  const latestAssets = groups[0] || [ad];
-                  const statusAssetsFiltered = latestAssets.filter((asset) =>
-                    isSameAdUnit(asset, ad),
-                  );
-                  const statusAssets =
-                    statusAssetsFiltered.length > 0
-                      ? statusAssetsFiltered
-                      : [ad];
+                  const {
+                    cardKey,
+                    groups,
+                    latestAssets,
+                    statusAssets,
+                    statusValue,
+                  } = buildStatusMeta(ad, index);
+                  const primaryAssets =
+                    latestAssets && latestAssets.length > 0
+                      ? latestAssets
+                      : ad
+                      ? [ad]
+                      : [];
                   const getAssetAspect = (asset) =>
                     asset?.aspectRatio ||
                     parseAdFilename(asset?.filename || '').aspectRatio ||
                     '';
-                  const sortedAssets = latestAssets
+                  const sortedAssets = primaryAssets
                     .map((asset, originalIndex) => ({ asset, originalIndex }))
                     .sort((a, b) => {
                       const priorityA = getReviewAspectPriority(
@@ -2221,34 +2324,6 @@ useEffect(() => {
                       return a.originalIndex - b.originalIndex;
                     })
                     .map(({ asset }) => asset);
-                  const assetResponses = statusAssets
-                    .map((asset) => responses[asset.adUrl || asset.firebaseUrl])
-                    .filter(Boolean);
-                  const responseValue = assetResponses[0]?.response;
-                  const statusFromAssets = statusAssets.some(
-                    (asset) => asset.status === 'approved',
-                  )
-                    ? 'approve'
-                    : statusAssets.some((asset) => asset.status === 'rejected')
-                    ? 'reject'
-                    : statusAssets.some(
-                        (asset) => asset.status === 'edit_requested',
-                      )
-                    ? 'edit'
-                    : null;
-                  const defaultStatus =
-                    ad.status === 'approved'
-                      ? 'approve'
-                      : ad.status === 'rejected'
-                      ? 'reject'
-                      : ad.status === 'edit_requested'
-                      ? 'edit'
-                      : 'pending';
-                  const statusValue =
-                    manualStatus[cardKey] ||
-                    responseValue ||
-                    statusFromAssets ||
-                    defaultStatus;
                   const hasEditInfo = statusAssets.find(
                     (asset) => asset.comment || asset.copyEdit,
                   );
