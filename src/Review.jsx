@@ -63,6 +63,28 @@ import computeGroupStatus from './utils/computeGroupStatus';
 import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 
+const DEFAULT_STATUS_BAR_OFFSET = 12;
+
+const parsePxValue = (value) => {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getStatusBarOffset = () => {
+  if (typeof window === 'undefined') {
+    return DEFAULT_STATUS_BAR_OFFSET;
+  }
+
+  const doc = document.documentElement;
+  const styles = getComputedStyle(doc);
+  const tabHeight = parsePxValue(
+    styles.getPropertyValue('--site-tab-bar-height'),
+  );
+  const rootFontSize = parsePxValue(styles.fontSize) || 16;
+
+  return tabHeight + 0.75 * rootFontSize;
+};
+
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
@@ -355,6 +377,7 @@ const Review = forwardRef(
   const [finalizeLoading, setFinalizeLoading] = useState(false);
   const [isStatusBarPinned, setIsStatusBarPinned] = useState(false);
   const [statusBarHeight, setStatusBarHeight] = useState(0);
+  const [stickyOffset, setStickyOffset] = useState(() => getStatusBarOffset());
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -387,11 +410,31 @@ const Review = forwardRef(
     openGallery: () => setShowGallery(true),
     openCopy: () => setShowCopyModal(true),
   }));
+  const updateStickyOffset = useCallback(() => {
+    setStickyOffset(getStatusBarOffset());
+  }, []);
+
   const updatePinnedState = useCallback(() => {
     if (!statusBarSentinelRef.current) return;
     const rect = statusBarSentinelRef.current.getBoundingClientRect();
-    setIsStatusBarPinned(rect.top <= 12);
-  }, []);
+    const shouldPin = rect.top <= stickyOffset;
+    setIsStatusBarPinned((prev) => (prev !== shouldPin ? shouldPin : prev));
+  }, [stickyOffset]);
+
+  const stickyContainerStyle = useMemo(
+    () => ({ top: `${stickyOffset}px` }),
+    [stickyOffset],
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    updateStickyOffset();
+    window.addEventListener('resize', updateStickyOffset);
+    return () => {
+      window.removeEventListener('resize', updateStickyOffset);
+    };
+  }, [updateStickyOffset]);
 
   useEffect(() => {
     updatePinnedState();
@@ -2379,16 +2422,10 @@ useEffect(() => {
             />
             <div
               ref={statusBarRef}
-              className={`sticky top-0 z-30 flex w-full justify-center px-4 transition-all duration-300 sm:px-6 lg:px-8 ${
+              className={`sticky z-30 flex w-full justify-center px-4 transition-all duration-300 sm:px-6 lg:px-8 ${
                 isStatusBarPinned ? '' : 'pt-0'
               }`}
-              style={
-                isStatusBarPinned
-                  ? {
-                      top: 'calc(var(--site-tab-bar-height, 0px) + 0.75rem)',
-                    }
-                  : undefined
-              }
+              style={stickyContainerStyle}
             >
               <div
                 className={`w-full max-w-5xl sm:max-w-6xl border border-gray-200 shadow-lg backdrop-blur transition-all duration-300 dark:border-[var(--border-color-default)] ${
