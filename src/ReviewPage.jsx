@@ -27,7 +27,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const [visibility, setVisibility] = useState(null);
   const [requireAuth, setRequireAuth] = useState(false);
   const [requirePassword, setRequirePassword] = useState(false);
-  const [accessBlocked, setAccessBlocked] = useState(false);
+  const [accessBlocked, setAccessBlocked] = useState(null);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordOk, setPasswordOk] = useState(false);
   const [error, setError] = useState("");
@@ -111,13 +111,21 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
       setCopyCount(0);
       return;
     }
-    if (accessBlocked || (requirePassword && !passwordOk)) {
+    if (accessBlocked !== false) {
+      setCopyCount(0);
+      return;
+    }
+    if (requirePassword && !passwordOk) {
       setCopyCount(0);
       return;
     }
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => setCopyCount(snap.size),
+      (err) => {
+        console.error("Failed to listen to copy cards", err);
+        setCopyCount(0);
+      },
     );
     return () => {
       setCopyCount(0);
@@ -136,13 +144,21 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
       setAdCount(0);
       return;
     }
-    if (accessBlocked || (requirePassword && !passwordOk)) {
+    if (accessBlocked !== false) {
+      setAdCount(0);
+      return;
+    }
+    if (requirePassword && !passwordOk) {
       setAdCount(0);
       return;
     }
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'assets'),
       (snap) => setAdCount(snap.size),
+      (err) => {
+        console.error("Failed to listen to assets", err);
+        setAdCount(0);
+      },
     );
     return () => {
       setAdCount(0);
@@ -160,13 +176,14 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     if (!groupId) {
       setGroupPassword(null);
       setVisibility(null);
-      setAccessBlocked(false);
+      setAccessBlocked(null);
       return;
     }
     if (!currentUser) {
       return;
     }
     const loadGroup = async () => {
+      setAccessBlocked(null);
       try {
         const snap = await getDoc(doc(db, "adGroups", groupId));
         if (!snap.exists()) {
@@ -199,7 +216,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }, [groupId, currentUser]);
 
   useEffect(() => {
-    if (groupPassword === null || accessBlocked) return;
+    if (groupPassword === null || accessBlocked !== false) return;
     const stored =
       typeof localStorage !== "undefined"
         ? localStorage.getItem(`reviewPassword-${groupId}`)
@@ -236,6 +253,10 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }
 
   if (loading) {
+    return <LoadingOverlay />;
+  }
+
+  if (accessBlocked === null) {
     return <LoadingOverlay />;
   }
 
