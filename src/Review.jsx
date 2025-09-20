@@ -437,63 +437,12 @@ const Review = forwardRef(
   }, [updateStickyOffset]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-
-    const doc = window.document;
-    const scrollableValues = new Set(['auto', 'scroll']);
-    const scrollOptions = { passive: true };
-    const scrollTargets = new Set();
-
-    const handleScroll = () => {
-      updatePinnedState();
-    };
-
-    const addScrollListener = (target) => {
-      if (!target || scrollTargets.has(target) || !target.addEventListener) return;
-      target.addEventListener('scroll', handleScroll, scrollOptions);
-      scrollTargets.add(target);
-    };
-
-    addScrollListener(window);
-    addScrollListener(doc);
-    addScrollListener(doc.body);
-    addScrollListener(doc.documentElement);
-    addScrollListener(doc.scrollingElement);
-
-    const sentinelParent = statusBarSentinelRef.current?.parentElement;
-    if (sentinelParent) {
-      let node = sentinelParent;
-      while (node) {
-        if (node instanceof window.HTMLElement) {
-          const styles = window.getComputedStyle(node);
-          const overflowY = styles?.overflowY?.toLowerCase();
-          const overflow = styles?.overflow?.toLowerCase();
-          if (
-            (overflowY && scrollableValues.has(overflowY)) ||
-            (overflow && scrollableValues.has(overflow))
-          ) {
-            addScrollListener(node);
-          }
-        }
-        node = node.parentElement;
-      }
-    }
-
-    const handleResize = () => {
-      updatePinnedState();
-    };
-
-    handleScroll();
-
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-
+    updatePinnedState();
+    window.addEventListener('scroll', updatePinnedState, { passive: true });
+    window.addEventListener('resize', updatePinnedState);
     return () => {
-      scrollTargets.forEach((target) => {
-        target.removeEventListener?.('scroll', handleScroll, scrollOptions);
-      });
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
+      window.removeEventListener('scroll', updatePinnedState);
+      window.removeEventListener('resize', updatePinnedState);
     };
   }, [updatePinnedState]);
 
