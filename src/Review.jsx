@@ -2315,24 +2315,15 @@ useEffect(() => {
                       statusBarPinned ? 'gap-2' : 'gap-3'
                     }`}
                   >
-                    <div
-                      className={`flex-1 sm:flex sm:flex-wrap sm:gap-4 transition-all duration-300 ease-in-out ${
-                        statusBarPinned ? 'sm:items-center' : 'sm:items-start'
-                      }`}
-                    >
+                    <div className={`flex-1 ${statusBarPinned ? 'sm:flex sm:items-center sm:gap-3' : ''}`}>
                       {adGroupDisplayName ? (
                         <div
-                          className="relative w-full overflow-hidden sm:w-auto"
+                          className="overflow-hidden transition-all duration-300 ease-in-out"
                           style={{
-                            minHeight: '1.5rem',
-                            transition:
-                              'flex-basis 300ms ease, max-width 300ms ease, opacity 200ms ease, transform 200ms ease, margin 300ms ease',
-                            flexBasis: statusBarPinned ? '0%' : '100%',
-                            maxWidth: statusBarPinned ? '0%' : '100%',
+                            maxHeight: statusBarPinned ? 0 : '1.5rem',
                             opacity: statusBarPinned ? 0 : 1,
                             transform: statusBarPinned ? 'translateY(-4px)' : 'translateY(0)',
                             marginBottom: statusBarPinned ? 0 : '0.25rem',
-                            pointerEvents: statusBarPinned ? 'none' : 'auto',
                           }}
                         >
                           <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -2341,18 +2332,11 @@ useEffect(() => {
                         </div>
                       ) : null}
                       <div
-                        className="w-full sm:flex-1"
-                        style={{
-                          transition: 'transform 300ms ease',
-                          transform: statusBarPinned ? 'translateY(0)' : 'translateY(4px)',
-                        }}
+                        className={`grid grid-cols-2 sm:grid-cols-4 transition-all duration-300 ease-in-out ${
+                          statusBarPinned ? 'mt-0 gap-2 sm:gap-2.5' : 'mt-2 gap-3'
+                        }`}
                       >
-                        <div
-                          className={`grid grid-cols-2 sm:grid-cols-4 transition-all duration-300 ease-in-out ${
-                            statusBarPinned ? 'mt-0 gap-2 sm:gap-2.5' : 'mt-2 gap-3'
-                          }`}
-                        >
-                          {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
+                        {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
                           const statusLabel = (statusLabelMap[statusKey] || statusKey).toLowerCase();
                           return (
                             <div
@@ -2373,18 +2357,12 @@ useEffect(() => {
                               </span>
                             </div>
                           );
-                          })}
-                        </div>
+                        })}
                       </div>
                     </div>
                     <button
                       type="button"
-                      className={`btn-primary whitespace-nowrap font-semibold sm:self-center transition-all duration-300 ease-in-out ${
-                        statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
-                      }`}
-                      style={{
-                        transform: statusBarPinned ? 'translateY(-2px)' : 'translateY(0)',
-                      }}
+                      className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'}`}
                     >
                       finalize review
                     </button>
