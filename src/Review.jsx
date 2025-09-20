@@ -48,6 +48,7 @@ import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
+import Button from './components/Button.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
@@ -224,6 +225,29 @@ const isSameAdUnit = (first, second) => {
   return false;
 };
 
+const FinalizeReviewModal = ({ onApprove, onClose }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="w-full max-w-sm space-y-4 rounded-xl bg-white p-6 text-center shadow dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+      <h1 className="text-xl font-semibold">Finalize Review</h1>
+      <p className="text-sm text-gray-600 dark:text-gray-300">
+        Some ads are still pending. Would you like to mark them as approved?
+      </p>
+      <div className="flex justify-end gap-2 text-sm">
+        <Button
+          variant="secondary"
+          onClick={onClose}
+          className="px-3 py-1.5"
+        >
+          Cancel
+        </Button>
+        <Button onClick={onApprove} className="px-3 py-1.5">
+          Approve pending ads
+        </Button>
+      </div>
+    </div>
+  </div>
+);
+
 const getAdKey = (ad, index = 0) => {
   if (!ad) return `ad-${index}`;
   return (
@@ -350,6 +374,8 @@ const Review = forwardRef(
   const [expandedRequests, setExpandedRequests] = useState({});
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
+  const [reviewFinalized, setReviewFinalized] = useState(false);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const statusBarSentinelRef = useRef(null);
   const [statusBarPinned, setStatusBarPinned] = useState(false);
   const preloads = useRef([]);
@@ -1498,6 +1524,43 @@ useEffect(() => {
     return counts;
   }, [reviewAds, buildStatusMeta]);
 
+  const finalizeReview = useCallback(
+    (approvePending = false) => {
+      if (reviewFinalized) {
+        return;
+      }
+      if (approvePending) {
+        const pendingKeys = reviewAds
+          .map((ad, index) => buildStatusMeta(ad, index))
+          .filter((meta) => meta.statusValue === 'pending')
+          .map((meta) => meta.cardKey);
+        if (pendingKeys.length > 0) {
+          setManualStatus((prev) => {
+            const next = { ...prev };
+            pendingKeys.forEach((key) => {
+              next[key] = 'approve';
+            });
+            return next;
+          });
+        }
+      }
+      setReviewFinalized(true);
+      setShowFinalizeModal(false);
+    },
+    [buildStatusMeta, reviewAds, reviewFinalized],
+  );
+
+  const handleFinalizeReview = useCallback(() => {
+    if (reviewFinalized) {
+      return;
+    }
+    if ((reviewStatusCounts.pending || 0) > 0) {
+      setShowFinalizeModal(true);
+      return;
+    }
+    finalizeReview(false);
+  }, [reviewFinalized, reviewStatusCounts.pending, finalizeReview]);
+
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
     // Drop preloaded images that are behind the current index
@@ -2303,12 +2366,25 @@ useEffect(() => {
                         })}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'}`}
-                    >
-                      finalize review
-                    </button>
+                    {reviewFinalized ? (
+                      <div
+                        className={`whitespace-nowrap font-semibold text-gray-500 dark:text-gray-300 sm:self-center ${
+                          statusBarPinned ? 'text-xs' : 'text-sm'
+                        }`}
+                      >
+                        Review Finalized
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${
+                          statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
+                        }`}
+                        onClick={handleFinalizeReview}
+                      >
+                        finalize review
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2383,6 +2459,9 @@ useEffect(() => {
                     'Ad Unit';
                   const selectId = `ad-status-${cardKey}`;
                   const handleSelectChange = async (event) => {
+                    if (reviewFinalized) {
+                      return;
+                    }
                     const value = event.target.value;
                     if (value === 'pending') {
                       setManualStatus((prev) => {
@@ -2508,7 +2587,7 @@ useEffect(() => {
                                 className="min-w-[160px]"
                                 value={statusValue}
                                 onChange={handleSelectChange}
-                                disabled={submitting}
+                                disabled={submitting || reviewFinalized}
                               >
                                 {statusOptions.map((option) => (
                                   <option key={option.value} value={option.value}>
@@ -2538,7 +2617,7 @@ useEffect(() => {
                             <div className="mb-3 flex flex-wrap items-center gap-2">
                               <button
                                 type="button"
-                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
                                 onClick={() => {
                                   setManualStatus((prev) => ({
                                     ...prev,
@@ -2558,13 +2637,14 @@ useEffect(() => {
                                     initialCopy: resolvedExistingCopy,
                                   });
                                 }}
+                                disabled={reviewFinalized}
                               >
                                 <FiPlus className="h-4 w-4" aria-hidden="true" />
                                 <span>Add note</span>
                               </button>
                               <button
                                 type="button"
-                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
                                 onClick={() => {
                                   setManualStatus((prev) => ({
                                     ...prev,
@@ -2584,6 +2664,7 @@ useEffect(() => {
                                     initialCopy: resolvedExistingCopy,
                                   });
                                 }}
+                                disabled={reviewFinalized}
                               >
                                 <FiEdit3 className="h-4 w-4" aria-hidden="true" />
                                 <span>Edit Copy</span>
@@ -2848,6 +2929,12 @@ useEffect(() => {
             />
           </div>
         </div>
+      )}
+      {showFinalizeModal && (
+        <FinalizeReviewModal
+          onClose={() => setShowFinalizeModal(false)}
+          onApprove={() => finalizeReview(true)}
+        />
       )}
       {showFeedbackModal && (
         <FeedbackModal
