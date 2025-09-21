@@ -96,8 +96,10 @@ const statusColorMap = {
   archived: 'var(--table-row-alt-bg)',
   draft: 'var(--pending-color)',
   in_design: 'var(--accent-color)',
+  designed: 'var(--accent-color)',
   edit_request: 'var(--edit-color)',
   need_info: 'var(--edit-color)',
+  reviewed: 'var(--approve-color)',
   done: 'var(--approve-color)',
   mixed: 'var(--edit-color)',
   blocked: 'var(--reject-color)',
@@ -319,7 +321,12 @@ const ProjectDetail = () => {
 
   useEffect(() => {
     if (!groupId || assets.length === 0) return;
-    const newStatus = computeGroupStatus(assets, false, false, group?.status);
+    const newStatus = computeGroupStatus(
+      assets,
+      false,
+      group?.status === 'designed',
+      group?.status,
+    );
     if (newStatus !== group?.status) {
       try {
         updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
@@ -861,7 +868,7 @@ const ProjectDetail = () => {
       const newStatus = computeGroupStatus(
         updatedAssets,
         false,
-        false,
+        group?.status === 'designed',
         group?.status,
       );
       await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
@@ -929,7 +936,7 @@ const ProjectDetail = () => {
       const newStatus = computeGroupStatus(
         updatedAssets,
         false,
-        false,
+        group?.status === 'designed',
         group?.status,
       );
       await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });

@@ -4,19 +4,34 @@ export default function computeGroupStatus(
   inDesign = false,
   currentStatus,
 ) {
-  if (currentStatus === 'blocked') return 'blocked';
-  if (hasRecipes && assets.length === 0) return 'briefed';
-  if (inDesign) return 'designing';
-  if (
-    assets.length > 0 &&
-    assets.every((a) =>
-      ['approved', 'rejected', 'archived'].includes(a.status),
-    )
-  )
-    return 'done';
+  let normalized = currentStatus;
+  if (currentStatus === 'ready') normalized = 'designed';
+  else if (currentStatus === 'edit request') normalized = 'reviewed';
+  else if (currentStatus === 'pending') normalized = 'processing';
+
+  if (['archived', 'blocked'].includes(normalized)) return normalized;
+  if (normalized === 'briefed') return 'briefed';
+
   const active = assets.filter((a) => a.status !== 'archived');
-  if (active.some((a) => a.status === 'edit_requested')) return 'edit request';
-  if (active.some((a) => a.status === 'pending')) return 'pending';
-  if (active.some((a) => a.status === 'ready')) return 'ready';
-  return 'pending';
+  if (active.length === 0) {
+    return normalized ?? 'new';
+  }
+
+  const allReviewed = active.every((a) =>
+    ['approved', 'rejected'].includes(a.status),
+  );
+  if (allReviewed) return 'done';
+
+  const hasReviewed = active.some((a) =>
+    ['approved', 'rejected'].includes(a.status),
+  );
+  if (hasReviewed) return 'reviewed';
+
+  if (inDesign || normalized === 'designed') return 'designed';
+
+  if (normalized && !['done', 'reviewed'].includes(normalized)) {
+    return normalized;
+  }
+
+  return 'processing';
 }

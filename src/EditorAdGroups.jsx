@@ -137,7 +137,6 @@ const EditorAdGroups = () => {
                   { label: 'Blocked', status: 'blocked' },
                   { label: 'Briefed', status: 'briefed' },
                   { label: 'Designed', status: 'designed' },
-                  { label: 'Edit Request', status: 'edit request' },
                   { label: 'Reviewed', status: 'reviewed' },
                   { label: 'Done', status: 'done' },
                 ].map((col) => (
