@@ -86,6 +86,7 @@ const ThemeWatcher = () => {
 const App = () => {
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
+  const location = useLocation();
 
   React.useEffect(() => {
     debugLog('Auth listener mounted');
@@ -106,6 +107,30 @@ const App = () => {
       unsub();
     };
   }, []);
+
+  const signedIn = user && !user.isAnonymous;
+  const isReviewRoute = location.pathname.startsWith('/review/');
+  const isPublicReviewRoute = isReviewRoute && !signedIn;
+
+  React.useEffect(() => {
+    if (!loading && isPublicReviewRoute) {
+      document.body.classList.remove('pre-theme');
+    }
+  }, [loading, isPublicReviewRoute]);
+
+  if (isPublicReviewRoute) {
+    if (loading) {
+      return <FullScreenSpinner />;
+    }
+    return (
+      <>
+        <ThemeWatcher />
+        <Routes location={location}>
+          <Route path="/review/:groupId" element={<ReviewRoute />} />
+        </Routes>
+      </>
+    );
+  }
 
   const {
     role: dbRole,
@@ -141,8 +166,6 @@ const App = () => {
     !agencyLoading &&
     logoLoaded;
 
-  const location = useLocation();
-
   React.useEffect(() => {
     if (ready) {
       document.body.classList.remove('pre-theme');
@@ -154,7 +177,6 @@ const App = () => {
     return <FullScreenSpinner />;
   }
 
-  const signedIn = user && !user.isAnonymous;
   const role = isAdmin ? 'admin' : dbRole;
   const defaultPath = signedIn
     ? role === 'agency'
