@@ -45,11 +45,16 @@ const defaultSettings = {
  * will not be updated. This is useful on pages that manage their own theme
  * (e.g. agency pages).
  */
-const useSiteSettings = (applyAccent = true) => {
+const useSiteSettings = (applyAccent = true, enabled = true) => {
   const [settings, setSettings] = useState(defaultSettings);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     const fetchSettings = async () => {
       debugLog('Fetching site settings');
       try {
@@ -122,7 +127,7 @@ const useSiteSettings = (applyAccent = true) => {
     };
 
     fetchSettings();
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     if (settings.accentColor && applyAccent) {

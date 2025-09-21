@@ -9,6 +9,7 @@ jest.mock('./useAgencyTheme', () => () => ({ agency: { logoUrl: 'logo.png', name
 
 const getDocs = jest.fn();
 const getDoc = jest.fn();
+const listen = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
@@ -25,8 +26,17 @@ jest.mock('firebase/firestore', () => ({
   increment: jest.fn((val) => val),
 }));
 
+jest.mock('./utils/listen', () => ({
+  __esModule: true,
+  default: (...args) => listen(...args),
+}));
+
 afterEach(() => {
   jest.clearAllMocks();
+});
+
+beforeEach(() => {
+  listen.mockImplementation(() => jest.fn());
 });
 
 test('renders agency logo once loaded', async () => {
@@ -52,7 +62,7 @@ test('renders agency logo once loaded', async () => {
   });
   getDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} agencyId="agency1" />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} agencyId="agency1" />);
 
   await waitFor(() => expect(screen.getByAltText('Mock Agency logo')).toBeInTheDocument());
 });
