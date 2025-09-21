@@ -275,6 +275,15 @@ const REVIEW_V2_ASPECT_ORDER = [
   'Snapchat',
 ];
 
+const REALTIME_PRIVILEGED_ROLES = new Set([
+  'admin',
+  'manager',
+  'project-manager',
+  'ops',
+  'editor',
+  'designer',
+]);
+
 const getReviewAspectPriority = (aspect) => {
   const normalized = normalizeKeyPart(aspect);
   const idx = REVIEW_V2_ASPECT_ORDER.indexOf(normalized);
@@ -369,6 +378,16 @@ const Review = forwardRef(
   }, [reviewerName, user]);
 
   const canUpdateGroupDoc = !isPublicReviewer;
+  const normalizedUserRole = typeof userRole === 'string' ? userRole.toLowerCase() : '';
+  const realtimeEnabled = useMemo(
+    () => {
+      if (!allowPublicListeners) return false;
+      if (isPublicReviewer) return true;
+      if (!normalizedUserRole) return false;
+      return REALTIME_PRIVILEGED_ROLES.has(normalizedUserRole);
+    },
+    [allowPublicListeners, isPublicReviewer, normalizedUserRole],
+  );
 
   const performGroupUpdate = useCallback(
     async (
@@ -664,20 +683,24 @@ const Review = forwardRef(
       pollTimer = setInterval(fetchOnce, 10000);
     };
 
-    try {
-      unsubscribe = onSnapshot(
-        collectionRef,
-        (snap) => {
-          applySnapshot(snap);
-        },
-        (error) => {
-          console.error('Failed to subscribe to copy cards', error);
-          startPolling();
-        },
-      );
-    } catch (err) {
-      console.error('Realtime copy card listener setup failed', err);
+    if (!realtimeEnabled) {
       startPolling();
+    } else {
+      try {
+        unsubscribe = onSnapshot(
+          collectionRef,
+          (snap) => {
+            applySnapshot(snap);
+          },
+          (error) => {
+            console.error('Failed to subscribe to copy cards', error);
+            startPolling();
+          },
+        );
+      } catch (err) {
+        console.error('Realtime copy card listener setup failed', err);
+        startPolling();
+      }
     }
 
     return () => {
@@ -689,7 +712,7 @@ const Review = forwardRef(
         clearInterval(pollTimer);
       }
     };
-  }, [allowPublicListeners, groupId]);
+  }, [allowPublicListeners, groupId, realtimeEnabled]);
 
   useEffect(() => {
     if (showCopyModal) {
@@ -1577,21 +1600,25 @@ useEffect(() => {
       assetPollTimer = setInterval(fetchAssetOnce, 5000);
     };
 
-    try {
-      assetUnsubscribe = onSnapshot(
-        assetRef,
-        (snap) => {
-          if (!snap.exists()) return;
-          mergeAssetUpdate({ assetId: snap.id, ...snap.data() });
-        },
-        (error) => {
-          console.error('Failed to subscribe to asset updates', error);
-          startAssetPolling();
-        },
-      );
-    } catch (err) {
-      console.error('Realtime asset listener setup failed', err);
+    if (!realtimeEnabled) {
       startAssetPolling();
+    } else {
+      try {
+        assetUnsubscribe = onSnapshot(
+          assetRef,
+          (snap) => {
+            if (!snap.exists()) return;
+            mergeAssetUpdate({ assetId: snap.id, ...snap.data() });
+          },
+          (error) => {
+            console.error('Failed to subscribe to asset updates', error);
+            startAssetPolling();
+          },
+        );
+      } catch (err) {
+        console.error('Realtime asset listener setup failed', err);
+        startAssetPolling();
+      }
     }
 
     const rootId = displayParentId || displayUnitId || stripVersion(displayAd.filename);
@@ -1654,18 +1681,22 @@ useEffect(() => {
         historyPollTimer = setInterval(fetchHistoryOnce, 10000);
       };
 
-      try {
-        realtimeUnsub = onSnapshot(
-          historyQuery,
-          (snap) => applyHistorySnapshot(snap),
-          (error) => {
-            console.error('Failed to subscribe to asset history', error);
-            startHistoryPolling();
-          },
-        );
-      } catch (err) {
-        console.error('Realtime asset history listener setup failed', err);
+      if (!realtimeEnabled) {
         startHistoryPolling();
+      } else {
+        try {
+          realtimeUnsub = onSnapshot(
+            historyQuery,
+            (snap) => applyHistorySnapshot(snap),
+            (error) => {
+              console.error('Failed to subscribe to asset history', error);
+              startHistoryPolling();
+            },
+          );
+        } catch (err) {
+          console.error('Realtime asset history listener setup failed', err);
+          startHistoryPolling();
+        }
       }
 
       historyCleanupFns.push(() => {
@@ -1697,6 +1728,7 @@ useEffect(() => {
     displayUnitId,
     allAds,
     isPublicReviewer,
+    realtimeEnabled,
   ]);
 
 
