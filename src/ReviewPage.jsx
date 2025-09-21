@@ -331,6 +331,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
         allowPublicListeners={allowPublicListeners}
+        isPublicReviewer={Boolean(currentUser?.isAnonymous)}
       />
     </div>
   );

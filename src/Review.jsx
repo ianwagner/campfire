@@ -300,6 +300,7 @@ const Review = forwardRef(
       reviewerName = '',
       agencyId = null,
       allowPublicListeners = true,
+      isPublicReviewer = false,
     },
     ref,
   ) => {
@@ -358,6 +359,39 @@ const Review = forwardRef(
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
+
+  const reviewerIdentifier = useMemo(() => {
+    if (reviewerName) return reviewerName;
+    if (user?.displayName) return user.displayName;
+    if (user?.email) return user.email;
+    if (user?.uid) return user.uid;
+    return 'anonymous';
+  }, [reviewerName, user]);
+
+  const canUpdateGroupDoc = !isPublicReviewer;
+
+  const performGroupUpdate = useCallback(
+    async (
+      targetGroupId,
+      update,
+      { type = 'generic', publicUpdate = update } = {},
+    ) => {
+      if (!targetGroupId || !update) return;
+      if (canUpdateGroupDoc) {
+        await updateDoc(doc(db, 'adGroups', targetGroupId), update);
+        return;
+      }
+      if (!publicUpdate || Object.keys(publicUpdate).length === 0) return;
+      await addDoc(collection(db, 'adGroups', targetGroupId, 'publicUpdates'), {
+        type,
+        update: publicUpdate,
+        createdAt: serverTimestamp(),
+        reviewer: reviewerIdentifier,
+        source: 'public-review',
+      });
+    },
+    [canUpdateGroupDoc, reviewerIdentifier],
+  );
   const advancedRef = useRef(false);
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
@@ -573,20 +607,40 @@ const Review = forwardRef(
 
 useEffect(() => {
   if (!started || !groupId || initialStatus === 'done') return;
-  updateDoc(doc(db, 'adGroups', groupId), {
-    reviewProgress: currentIndex,
-  }).catch((err) => console.error('Failed to save progress', err));
-}, [currentIndex, started, groupId, initialStatus]);
+  performGroupUpdate(
+    groupId,
+    {
+      reviewProgress: currentIndex,
+    },
+    {
+      type: 'progress',
+      publicUpdate: { reviewProgress: currentIndex },
+    },
+  ).catch((err) => console.error('Failed to save progress', err));
+}, [
+  currentIndex,
+  started,
+  groupId,
+  initialStatus,
+  performGroupUpdate,
+]);
 
   const releaseLock = useCallback(() => {
     if (!groupId || initialStatus === 'done') return;
     const idx = currentIndexRef.current;
     const len = reviewLengthRef.current;
     const progress = idx >= len ? null : idx;
-    updateDoc(doc(db, 'adGroups', groupId), {
-      reviewProgress: progress,
-    }).catch(() => {});
-  }, [groupId, initialStatus]);
+    performGroupUpdate(
+      groupId,
+      {
+        reviewProgress: progress,
+      },
+      {
+        type: 'progress',
+        publicUpdate: { reviewProgress: progress },
+      },
+    ).catch(() => {});
+  }, [groupId, initialStatus, performGroupUpdate]);
 
   useEffect(() => {
     if (!groupId) return;
@@ -599,12 +653,29 @@ useEffect(() => {
       allReviewed &&
       (currentIndex >= reviewAds.length || reviewAds.length === 0)
     ) {
-      updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'done',
-        reviewProgress: null,
-      }).catch((err) => console.error('Failed to update status', err));
+      performGroupUpdate(
+        groupId,
+        {
+          status: 'done',
+          reviewProgress: null,
+        },
+        {
+          type: 'status',
+          publicUpdate: {
+            status: 'done',
+            reviewProgress: null,
+            completedAt: new Date().toISOString(),
+          },
+        },
+      ).catch((err) => console.error('Failed to update status', err));
     }
-  }, [currentIndex, reviewAds.length, groupId, ads]);
+  }, [
+    currentIndex,
+    reviewAds.length,
+    groupId,
+    ads,
+    performGroupUpdate,
+  ]);
 
   useEffect(() => {
     if (currentIndex >= reviewAds.length) {
@@ -1935,7 +2006,27 @@ useEffect(() => {
               ? { thumbnailUrl: asset.firebaseUrl }
               : {}),
           };
-          updates.push(updateDoc(groupRef, updateObj));
+          const publicGroupUpdate = {
+            status: groupStatus,
+            reviewedCountDelta: incReviewed,
+            approvedCountDelta: incApproved,
+            rejectedCountDelta: incRejected,
+            editCountDelta: incEdit,
+            lastUpdated: new Date().toISOString(),
+            assetId: assetDocId,
+            assetStatus: newStatus,
+            ...(recipeCode ? { recipeCode } : {}),
+            ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
+            ...(gSnap.exists() && !gSnap.data().thumbnailUrl && asset.firebaseUrl
+              ? { thumbnailUrl: asset.firebaseUrl }
+              : {}),
+          };
+          updates.push(
+            performGroupUpdate(asset.adGroupId, updateObj, {
+              type: 'status',
+              publicUpdate: publicGroupUpdate,
+            }),
+          );
 
           const parentId = getAssetParentId(asset);
           if (responseType === 'approve' && parentId) {
@@ -2051,11 +2142,23 @@ useEffect(() => {
     }
     setNoteSubmitting(true);
     try {
-      await updateDoc(doc(db, 'adGroups', currentAd.adGroupId), {
-        clientNote: clientNote.trim(),
-        clientNoteTimestamp: serverTimestamp(),
-        hasClientNote: true,
-      });
+      const trimmedNote = clientNote.trim();
+      await performGroupUpdate(
+        currentAd.adGroupId,
+        {
+          clientNote: trimmedNote,
+          clientNoteTimestamp: serverTimestamp(),
+          hasClientNote: true,
+        },
+        {
+          type: 'note',
+          publicUpdate: {
+            clientNote: trimmedNote,
+            hasClientNote: true,
+            clientNoteTimestamp: new Date().toISOString(),
+          },
+        },
+      );
     } catch (err) {
       console.error('Failed to submit note', err);
     } finally {
