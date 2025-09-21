@@ -225,6 +225,10 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     return <LoadingOverlay />;
   }
 
+  if (!groupAccessEvaluated) {
+    return <LoadingOverlay />;
+  }
+
   if (accessBlocked) {
     return (
       <div className="p-4 text-center">This link is currently private.</div>
@@ -286,6 +290,9 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     );
   }
 
+  const allowPublicListeners =
+    groupAccessEvaluated && !accessBlocked && (!requirePassword || passwordOk);
+
   const userObj = currentUser?.isAnonymous
     ? { uid: currentUser.uid || "public", email: "public@campfire" }
     : currentUser;
@@ -323,6 +330,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         userRole={currentUser?.isAnonymous ? null : userRole}
         brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
+        allowPublicListeners={allowPublicListeners}
       />
     </div>
   );

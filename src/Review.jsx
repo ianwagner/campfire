@@ -299,6 +299,7 @@ const Review = forwardRef(
       groupId = null,
       reviewerName = '',
       agencyId = null,
+      allowPublicListeners = true,
     },
     ref,
   ) => {
@@ -550,7 +551,10 @@ const Review = forwardRef(
   }, []);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!allowPublicListeners || !groupId) {
+      setCopyCards([]);
+      return;
+    }
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => {
@@ -559,7 +563,7 @@ const Review = forwardRef(
       },
     );
     return () => unsub();
-  }, [groupId]);
+  }, [allowPublicListeners, groupId]);
 
   useEffect(() => {
     if (showCopyModal) {
@@ -673,6 +677,9 @@ useEffect(() => {
 
 
   useEffect(() => {
+    if (!allowPublicListeners) {
+      return;
+    }
     const fetchAds = async () => {
       debugLog('Loading ads', { groupId, brandCodes });
       try {
@@ -1039,7 +1046,7 @@ useEffect(() => {
     }
 
     fetchAds();
-  }, [user, brandCodes, groupId]);
+  }, [allowPublicListeners, user, brandCodes, groupId]);
 
   // ensure first ad and agency logo are loaded before removing overlay
   useEffect(() => {
@@ -1189,6 +1196,9 @@ useEffect(() => {
 
   useEffect(() => {
     setHistoryEntries({});
+    if (!allowPublicListeners) {
+      return;
+    }
     if (!displayAd?.adGroupId || !displayAssetId) return;
     const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAssetId);
     const unsubDoc = onSnapshot(assetRef, (snap) => {
@@ -1257,9 +1267,19 @@ useEffect(() => {
         unsubs.forEach((u) => u());
         setHistoryEntries({});
       };
-  }, [displayAd?.adGroupId, displayAssetId, displayParentId, displayUnitId, allAds]);
+  }, [
+    allowPublicListeners,
+    displayAd?.adGroupId,
+    displayAssetId,
+    displayParentId,
+    displayUnitId,
+    allAds,
+  ]);
 
   useEffect(() => {
+    if (!allowPublicListeners) {
+      return;
+    }
     const recipeCode =
       displayAd?.recipeCode ||
       parseAdFilename(displayAd?.filename || '').recipeCode ||
@@ -1278,7 +1298,7 @@ useEffect(() => {
     return () => {
       cancelled = true;
     };
-  }, [displayAd?.adGroupId, displayAd?.recipeCode, displayAd?.filename]);
+  }, [allowPublicListeners, displayAd?.adGroupId, displayAd?.recipeCode, displayAd?.filename]);
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
