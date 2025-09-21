@@ -401,6 +401,7 @@ const Review = forwardRef(
   // refs to track latest values for cleanup on unmount
   const currentIndexRef = useRef(currentIndex);
   const reviewLengthRef = useRef(reviewAds.length);
+  const publicHistoryKeyRef = useRef(null);
   const { agency } = useAgencyTheme(agencyId);
   const { settings } = useSiteSettings(false);
 
@@ -1281,103 +1282,148 @@ useEffect(() => {
   const closeVersionModal = () => setVersionModal(null);
 
   useEffect(() => {
-    setHistoryEntries({});
-    if (!allowPublicListeners) {
-      return undefined;
+    if (!isPublicReviewer) {
+      publicHistoryKeyRef.current = null;
+      return;
     }
-    if (!displayAd?.adGroupId || !displayAssetId) return undefined;
+    if (!allowPublicListeners) {
+      setHistoryEntries({});
+      publicHistoryKeyRef.current = null;
+      return;
+    }
+    if (!displayAd?.adGroupId || !displayAssetId) {
+      setHistoryEntries({});
+      publicHistoryKeyRef.current = null;
+      return;
+    }
 
-    if (isPublicReviewer) {
-      let cancelled = false;
-      const loadHistory = async () => {
-        try {
-          const assetRef = doc(
-            db,
-            'adGroups',
-            displayAd.adGroupId,
-            'assets',
-            displayAssetId,
+    const historyKey = [
+      displayAd.adGroupId,
+      displayAssetId,
+      displayParentId || '',
+      displayUnitId || '',
+    ].join('|');
+
+    if (publicHistoryKeyRef.current === historyKey) {
+      return;
+    }
+
+    publicHistoryKeyRef.current = historyKey;
+    setHistoryEntries({});
+    let cancelled = false;
+
+    const loadHistory = async () => {
+      try {
+        const assetRef = doc(
+          db,
+          'adGroups',
+          displayAd.adGroupId,
+          'assets',
+          displayAssetId,
+        );
+        const assetSnap = await getDoc(assetRef);
+        if (!cancelled && assetSnap.exists()) {
+          const data = { assetId: assetSnap.id, ...assetSnap.data() };
+          setAds((prev) =>
+            prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
           );
-          const assetSnap = await getDoc(assetRef);
-          if (!cancelled && assetSnap.exists()) {
-            const data = { assetId: assetSnap.id, ...assetSnap.data() };
-            setAds((prev) =>
-              prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
-            );
-            setReviewAds((prev) =>
-              prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
-            );
-            setAllAds((prev) =>
-              prev.map((a) =>
-                assetsReferToSameDoc(a, data)
-                  ? {
-                      ...a,
-                      ...data,
-                      adGroupId: data.adGroupId || a.adGroupId,
-                      groupName: data.groupName || a.groupName,
-                      firebaseUrl: data.firebaseUrl || a.firebaseUrl,
-                    }
-                  : a,
+          setReviewAds((prev) =>
+            prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+          );
+          setAllAds((prev) =>
+            prev.map((a) =>
+              assetsReferToSameDoc(a, data)
+                ? {
+                    ...a,
+                    ...data,
+                    adGroupId: data.adGroupId || a.adGroupId,
+                    groupName: data.groupName || a.groupName,
+                    firebaseUrl: data.firebaseUrl || a.firebaseUrl,
+                  }
+                : a,
+            ),
+          );
+        }
+
+        const rootId =
+          displayParentId || displayUnitId || stripVersion(displayAd.filename);
+        const related = allAds.filter((a) => {
+          if (displayParentId || displayUnitId) {
+            return assetMatchesReference(a, rootId);
+          }
+          return stripVersion(a.filename) === rootId;
+        });
+        const versionMap = {};
+        [...related, displayAd].forEach((a) => {
+          const key = getAssetDocumentId(a);
+          if (key) {
+            versionMap[key] = a;
+          }
+        });
+
+        const entries = {};
+        await Promise.all(
+          Object.values(versionMap).map(async (ad) => {
+            const historySnap = await getDocs(
+              query(
+                collection(
+                  doc(
+                    db,
+                    'adGroups',
+                    ad.adGroupId,
+                    'assets',
+                    getAssetDocumentId(ad),
+                  ),
+                  'history',
+                ),
+                orderBy('updatedAt', 'asc'),
               ),
             );
-          }
+            entries[getVersion(ad)] = historySnap.docs.map((d) => ({
+              id: d.id,
+              ...d.data(),
+            }));
+          }),
+        );
 
-          const rootId =
-            displayParentId || displayUnitId || stripVersion(displayAd.filename);
-          const related = allAds.filter((a) => {
-            if (displayParentId || displayUnitId) {
-              return assetMatchesReference(a, rootId);
-            }
-            return stripVersion(a.filename) === rootId;
-          });
-          const versionMap = {};
-          [...related, displayAd].forEach((a) => {
-            const key = getAssetDocumentId(a);
-            if (key) {
-              versionMap[key] = a;
-            }
-          });
-
-          const entries = {};
-          await Promise.all(
-            Object.values(versionMap).map(async (ad) => {
-              const historySnap = await getDocs(
-                query(
-                  collection(
-                    doc(
-                      db,
-                      'adGroups',
-                      ad.adGroupId,
-                      'assets',
-                      getAssetDocumentId(ad),
-                    ),
-                    'history',
-                  ),
-                  orderBy('updatedAt', 'asc'),
-                ),
-              );
-              entries[getVersion(ad)] = historySnap.docs.map((d) => ({
-                id: d.id,
-                ...d.data(),
-              }));
-            }),
-          );
-
-          if (!cancelled) {
-            setHistoryEntries(entries);
-          }
-        } catch (err) {
-          console.error('Failed to load asset history', err);
+        if (!cancelled) {
+          setHistoryEntries(entries);
         }
-      };
+      } catch (err) {
+        console.error('Failed to load asset history', err);
+      }
+    };
 
-      loadHistory();
+    loadHistory();
 
-      return () => {
-        cancelled = true;
-        setHistoryEntries({});
-      };
+    return () => {
+      cancelled = true;
+      setHistoryEntries({});
+      if (publicHistoryKeyRef.current === historyKey) {
+        publicHistoryKeyRef.current = null;
+      }
+    };
+  }, [
+    allowPublicListeners,
+    isPublicReviewer,
+    displayAd?.adGroupId,
+    displayAssetId,
+    displayParentId,
+    displayUnitId,
+  ]);
+
+  useEffect(() => {
+    if (isPublicReviewer) {
+      return;
     }
+
+    setHistoryEntries({});
+    if (!allowPublicListeners) {
+      return;
+    }
+    if (!displayAd?.adGroupId || !displayAssetId) return;
+
+    publicHistoryKeyRef.current = null;
 
     const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAssetId);
     const unsubDoc = onSnapshot(assetRef, (snap) => {
@@ -1455,6 +1501,7 @@ useEffect(() => {
     allAds,
     isPublicReviewer,
   ]);
+
 
   useEffect(() => {
     if (!allowPublicListeners) {
