@@ -40,17 +40,18 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Use explicit Firestore initialization so we can tune the transport layer.
-const shouldDisableFetchStreams = (() => {
+const shouldForceLongPolling = (() => {
   if (typeof navigator === 'undefined') {
     return false;
   }
   const ua = navigator.userAgent || '';
   const isIOS = /iPad|iPhone|iPod/.test(ua);
   const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|Chromium|Android/i.test(ua);
-  // Only fall back to the legacy WebChannel transport on browsers that still
-  // require it. For logged-in users on modern browsers, disabling fetch
-  // streaming forces Firestore to put the ID token in the WebChannel query
-  // string, which triggers 400 responses from the Listen endpoint.
+  // Force long polling only on browsers that still have trouble with the
+  // default streaming implementation. Relying on the legacy WebChannel
+  // transport causes authenticated listeners to send the ID token in the query
+  // string, which in turn produces a stream of 400 errors for logged-in users
+  // (the bug reported in the review flow).
   return isIOS || isSafari;
 })();
 
@@ -58,8 +59,8 @@ const firestoreSettings = {
   experimentalAutoDetectLongPolling: true,
 };
 
-if (shouldDisableFetchStreams) {
-  firestoreSettings.useFetchStreams = false;
+if (shouldForceLongPolling) {
+  firestoreSettings.experimentalForceLongPolling = true;
 }
 
 initializeFirestore(app, firestoreSettings);
