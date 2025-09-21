@@ -23,8 +23,6 @@ const getDoc = jest.fn();
 const getDocs = jest.fn();
 const docMock = jest.fn((...args) => args.slice(1).join('/'));
 const collectionMock = jest.fn((...args) => args);
-const onSnapshot = jest.fn();
-
 jest.mock('firebase/firestore', () => ({
   doc: (...args) => docMock(...args),
   getDoc: (...args) => getDoc(...args),
@@ -32,15 +30,18 @@ jest.mock('firebase/firestore', () => ({
   collection: (...args) => collectionMock(...args),
   query: jest.fn((...args) => args),
   where: jest.fn(),
-  onSnapshot: (...args) => onSnapshot(...args),
 }));
+
+const listen = jest.fn();
+
+jest.mock('./utils/listen', () => (...args) => listen(...args));
 
 afterEach(() => {
   jest.clearAllMocks();
 });
 
 beforeEach(() => {
-  onSnapshot.mockImplementation((col, cb) => {
+  listen.mockImplementation((col, cb) => {
     cb({ size: 0, docs: [] });
     return jest.fn();
   });
