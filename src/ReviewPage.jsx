@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { signInAnonymously } from "firebase/auth";
 import {
@@ -35,6 +35,20 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const [copyCount, setCopyCount] = useState(0);
   const [adCount, setAdCount] = useState(0);
   const reviewRef = useRef(null);
+
+  const memoizedUser = useMemo(() => {
+    if (currentUser?.isAnonymous) {
+      return { uid: currentUser.uid || "public", email: "public@campfire" };
+    }
+    return currentUser;
+  }, [currentUser]);
+
+  const memoizedBrandCodes = useMemo(() => {
+    if (currentUser?.isAnonymous) {
+      return [];
+    }
+    return brandCodes;
+  }, [currentUser, brandCodes]);
 
   useEffect(() => {
     if (currentUser) return;
@@ -325,10 +339,6 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     );
   }
 
-  const userObj = currentUser?.isAnonymous
-    ? { uid: currentUser.uid || "public", email: "public@campfire" }
-    : currentUser;
-
   const canReadCopyCards =
     Boolean(groupId && currentUser && !currentUser.isAnonymous) &&
     accessBlocked === false &&
@@ -361,11 +371,11 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
       </div>
       <Review
         ref={reviewRef}
-        user={userObj}
+        user={memoizedUser}
         groupId={groupId}
         reviewerName={reviewerName}
         userRole={currentUser?.isAnonymous ? null : userRole}
-        brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
+        brandCodes={memoizedBrandCodes}
         agencyId={agencyId}
         canReadCopyCards={canReadCopyCards}
       />
