@@ -48,17 +48,49 @@ match /assets/{assetId} {
              request.auth.token.firebase.sign_in_provider == 'anonymous';
     }
 
-    function isReviewFlowUpdate() {
-      return isPublicReviewer() &&
-             request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly([
-                 'status',
-                 'lockedBy',
-                 'lockedByUid',
-                 'reviewProgress',
-                 'reviewComment',
-                 'lastReviewedAt'
-               ]);
+    function reviewDocFieldKeys() {
+      return [
+        'status',
+        'lockedBy',
+        'lockedByUid',
+        'reviewProgress',
+        'reviewComment',
+        'lastReviewedAt',
+        'reviewedCount',
+        'approvedCount',
+        'rejectedCount',
+        'editCount',
+        'archivedCount',
+        'lastUpdated',
+        'thumbnailUrl',
+        'clientNote',
+        'clientNoteTimestamp',
+        'hasClientNote'
+      ];
+    }
+
+    function publicReviewEnvelopeKeys() {
+      return ['type', 'update', 'createdAt', 'reviewer', 'source'];
+    }
+
+    function publicReviewUpdateKeys() {
+      return reviewDocFieldKeys().concat([
+        'reviewedCountDelta',
+        'approvedCountDelta',
+        'rejectedCountDelta',
+        'editCountDelta',
+        'archivedCountDelta',
+        'completedAt',
+        'assetId',
+        'assetStatus',
+        'recipeCode',
+        'brandCode'
+      ]);
+    }
+
+    function isReviewFieldUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(reviewDocFieldKeys());
     }
 
     // ✅ Global Settings
@@ -128,6 +160,7 @@ match /assets/{assetId} {
 
       allow create: if request.auth != null;
       allow update: if isAdmin() || isManager() ||
+        ((isClient() || isPublicReviewer()) && isReviewFieldUpdate()) ||
         (request.auth != null && resource.data.uploadedBy == request.auth.uid) ||
         (isDesigner() && resource.data.designerId == request.auth.uid &&
          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -157,7 +190,16 @@ match /assets/{assetId} {
           userData().role == 'designer' &&
           get(/databases/$(database)/documents/adGroups/$(groupId)).data.designerId == request.auth.uid
         );
-        allow write: if request.auth != null;
+        allow write: if request.auth != null || (
+          isPublicReviewer() &&
+          request.path.matches(
+            "/databases/$(database)/documents/adGroups/$(groupId)/publicUpdates/{updateId}"
+          ) &&
+          request.resource.data.keys().hasOnly(publicReviewEnvelopeKeys()) &&
+          ('update' in request.resource.data) &&
+          request.resource.data.update is map &&
+          request.resource.data.update.keys().hasOnly(publicReviewUpdateKeys())
+        );
       }
     }
 
