@@ -626,17 +626,69 @@ const Review = forwardRef(
       return undefined;
     }
 
-    const unsubscribe = onSnapshot(
-      collection(db, 'adGroups', groupId, 'copyCards'),
-      (snap) => {
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setCopyCards(list);
-      },
-      (error) => {
-        console.error('Failed to load copy cards', error);
-      },
-    );
-    return () => unsubscribe();
+    publicHistoryKeyRef.current = null;
+
+    let cancelled = false;
+    let unsubscribe = null;
+    let pollTimer = null;
+    const collectionRef = collection(db, 'adGroups', groupId, 'copyCards');
+
+    const applySnapshot = (snap) => {
+      if (cancelled) return;
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setCopyCards(list);
+    };
+
+    const fetchOnce = async () => {
+      try {
+        const snap = await getDocs(collectionRef);
+        applySnapshot(snap);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load copy cards via polling', err);
+        }
+      }
+    };
+
+    const startPolling = () => {
+      if (pollTimer) return;
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (err) {
+          console.warn('Failed to clean up copy card listener', err);
+        }
+        unsubscribe = null;
+      }
+      fetchOnce();
+      pollTimer = setInterval(fetchOnce, 10000);
+    };
+
+    try {
+      unsubscribe = onSnapshot(
+        collectionRef,
+        (snap) => {
+          applySnapshot(snap);
+        },
+        (error) => {
+          console.error('Failed to subscribe to copy cards', error);
+          startPolling();
+        },
+      );
+    } catch (err) {
+      console.error('Realtime copy card listener setup failed', err);
+      startPolling();
+    }
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
+    };
   }, [allowPublicListeners, groupId]);
 
   useEffect(() => {
@@ -1469,10 +1521,13 @@ useEffect(() => {
 
     publicHistoryKeyRef.current = null;
 
-    const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAssetId);
-    const unsubDoc = onSnapshot(assetRef, (snap) => {
-      if (!snap.exists()) return;
-      const data = { assetId: snap.id, ...snap.data() };
+    let cancelled = false;
+    let assetUnsubscribe = null;
+    let assetPollTimer = null;
+    const historyCleanupFns = [];
+
+    const mergeAssetUpdate = (data) => {
+      if (cancelled) return;
       setAds((prev) =>
         prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
       );
@@ -1492,7 +1547,52 @@ useEffect(() => {
             : a,
         ),
       );
-    });
+    };
+
+    const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAssetId);
+
+    const fetchAssetOnce = async () => {
+      try {
+        const snap = await getDoc(assetRef);
+        if (!snap.exists()) return;
+        mergeAssetUpdate({ assetId: snap.id, ...snap.data() });
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load asset via polling', err);
+        }
+      }
+    };
+
+    const startAssetPolling = () => {
+      if (assetPollTimer) return;
+      if (assetUnsubscribe) {
+        try {
+          assetUnsubscribe();
+        } catch (err) {
+          console.warn('Failed to clean up asset listener', err);
+        }
+        assetUnsubscribe = null;
+      }
+      fetchAssetOnce();
+      assetPollTimer = setInterval(fetchAssetOnce, 5000);
+    };
+
+    try {
+      assetUnsubscribe = onSnapshot(
+        assetRef,
+        (snap) => {
+          if (!snap.exists()) return;
+          mergeAssetUpdate({ assetId: snap.id, ...snap.data() });
+        },
+        (error) => {
+          console.error('Failed to subscribe to asset updates', error);
+          startAssetPolling();
+        },
+      );
+    } catch (err) {
+      console.error('Realtime asset listener setup failed', err);
+      startAssetPolling();
+    }
 
     const rootId = displayParentId || displayUnitId || stripVersion(displayAd.filename);
     const related = allAds.filter((a) => {
@@ -1509,31 +1609,84 @@ useEffect(() => {
       }
     });
 
-    const unsubs = Object.values(versionMap).map((ad) => {
-      const q = query(
-        collection(
-          doc(
-            db,
-            'adGroups',
-            ad.adGroupId,
-            'assets',
-            getAssetDocumentId(ad),
-          ),
-          'history',
-        ),
+    Object.values(versionMap).forEach((ad) => {
+      const docId = getAssetDocumentId(ad);
+      if (!docId) return;
+
+      const historyQuery = query(
+        collection(doc(db, 'adGroups', ad.adGroupId, 'assets', docId), 'history'),
         orderBy('updatedAt', 'asc'),
       );
-      return onSnapshot(q, (snap) => {
+
+      let realtimeUnsub = null;
+      let historyPollTimer = null;
+
+      const applyHistorySnapshot = (snap) => {
+        if (cancelled) return;
         setHistoryEntries((prev) => ({
           ...prev,
           [getVersion(ad)]: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
         }));
+      };
+
+      const fetchHistoryOnce = async () => {
+        try {
+          const snap = await getDocs(historyQuery);
+          applyHistorySnapshot(snap);
+        } catch (err) {
+          if (!cancelled) {
+            console.error('Failed to load asset history via polling', err);
+          }
+        }
+      };
+
+      const startHistoryPolling = () => {
+        if (historyPollTimer) return;
+        if (realtimeUnsub) {
+          try {
+            realtimeUnsub();
+          } catch (err) {
+            console.warn('Failed to clean up history listener', err);
+          }
+          realtimeUnsub = null;
+        }
+        fetchHistoryOnce();
+        historyPollTimer = setInterval(fetchHistoryOnce, 10000);
+      };
+
+      try {
+        realtimeUnsub = onSnapshot(
+          historyQuery,
+          (snap) => applyHistorySnapshot(snap),
+          (error) => {
+            console.error('Failed to subscribe to asset history', error);
+            startHistoryPolling();
+          },
+        );
+      } catch (err) {
+        console.error('Realtime asset history listener setup failed', err);
+        startHistoryPolling();
+      }
+
+      historyCleanupFns.push(() => {
+        if (realtimeUnsub) {
+          realtimeUnsub();
+        }
+        if (historyPollTimer) {
+          clearInterval(historyPollTimer);
+        }
       });
     });
 
     return () => {
-      unsubDoc();
-      unsubs.forEach((u) => u());
+      cancelled = true;
+      if (assetUnsubscribe) {
+        assetUnsubscribe();
+      }
+      if (assetPollTimer) {
+        clearInterval(assetPollTimer);
+      }
+      historyCleanupFns.forEach((fn) => fn());
       setHistoryEntries({});
     };
   }, [
