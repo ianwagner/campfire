@@ -475,11 +475,28 @@ const Review = forwardRef(
       setStatusBarPinned(false);
       return;
     }
+    const releaseOffset = 8;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setStatusBarPinned(entry.intersectionRatio < 1);
+        if (!entry) return;
+        const rootTop = entry.rootBounds ? entry.rootBounds.top : 0;
+        const sentinelTop = entry.boundingClientRect.top;
+        const sentinelBottom = entry.boundingClientRect.bottom;
+        const shouldPin =
+          entry.intersectionRatio < 1 && sentinelTop <= rootTop;
+        const shouldRelease =
+          entry.intersectionRatio >= 1 && sentinelBottom >= rootTop + releaseOffset;
+        setStatusBarPinned((prevPinned) => {
+          if (shouldPin) {
+            return true;
+          }
+          if (shouldRelease) {
+            return false;
+          }
+          return prevPinned;
+        });
       },
-      { threshold: [1] },
+      { threshold: [0, 1] },
     );
     observer.observe(sentinel);
     return () => {
