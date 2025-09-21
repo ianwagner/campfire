@@ -1351,7 +1351,7 @@ test('shows alert when locking fails due to permissions', async () => {
   );
 });
 
-test('opening and exiting completed group keeps status', async () => {
+test('opening and exiting completed group keeps status untouched', async () => {
   const groupDoc = {
     exists: () => true,
     data: () => ({ name: 'Group 1', brandCode: 'BR1', status: 'done' }),
@@ -1389,8 +1389,13 @@ test('opening and exiting completed group keeps status', async () => {
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
-  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
+  const groupCalls = mockUpdateDoc.mock.calls.filter((c) => c[0] === 'adGroups/group1');
+  expect(
+    groupCalls.some(([, update]) => update && update.reviewProgress === null),
+  ).toBe(true);
+  expect(
+    groupCalls.some(([, update]) => update && Object.prototype.hasOwnProperty.call(update, 'status')),
+  ).toBe(false);
   expect(
     mockUpdateDoc.mock.calls.some((c) => c[1].status === 'in review')
   ).toBe(false);
@@ -1434,7 +1439,7 @@ test('returns to start screen after finishing review', async () => {
   await screen.findByText(/Your ads are ready/i);
 });
 
-test('updates group status after finishing review', async () => {
+test('clears review progress after finishing review', async () => {
   const groupDoc = {
     exists: () => true,
     data: () => ({ name: 'Group 1', status: 'pending' }),
@@ -1471,11 +1476,16 @@ test('updates group status after finishing review', async () => {
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
 
-  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
+  const groupCalls = mockUpdateDoc.mock.calls.filter((c) => c[0] === 'adGroups/group1');
+  expect(
+    groupCalls.some(([, update]) => update && update.reviewProgress === null),
+  ).toBe(true);
+  expect(
+    groupCalls.some(([, update]) => update && Object.prototype.hasOwnProperty.call(update, 'status')),
+  ).toBe(false);
 });
 
-test('updates status and shows summary when no ads available', async () => {
+test('clears progress and shows summary when no ads available', async () => {
   const groupDoc = {
     exists: () => true,
     data: () => ({ name: 'Group 1', status: 'pending' }),
@@ -1494,13 +1504,18 @@ test('updates status and shows summary when no ads available', async () => {
   render(<Review user={{ uid: 'u1' }} groupId="group1" />);
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
-  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual({ status: 'done', reviewProgress: null });
+  const groupCalls = mockUpdateDoc.mock.calls.filter((c) => c[0] === 'adGroups/group1');
+  expect(
+    groupCalls.some(([, update]) => update && update.reviewProgress === null),
+  ).toBe(true);
+  expect(
+    groupCalls.some(([, update]) => update && Object.prototype.hasOwnProperty.call(update, 'status')),
+  ).toBe(false);
 
   expect(await screen.findByText(/Your ads are ready/i)).toBeInTheDocument();
 });
 
-test('client approval updates group status', async () => {
+test('client approval does not change group status', async () => {
   const groupDoc = {
     exists: () => true,
     data: () => ({ name: 'Group 1', status: 'ready' }),
@@ -1535,8 +1550,10 @@ test('client approval updates group status', async () => {
   fireEvent.click(screen.getByText('Approve'));
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
-  const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
-  expect(call[1]).toEqual(expect.objectContaining({ status: 'done' }));
+  const groupCalls = mockUpdateDoc.mock.calls.filter((c) => c[0] === 'adGroups/group1');
+  expect(
+    groupCalls.some(([, update]) => update && Object.prototype.hasOwnProperty.call(update, 'status')),
+  ).toBe(false);
 });
 
 test('brief review collects feedback', async () => {
