@@ -59,7 +59,6 @@ import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
 import useSiteSettings from './useSiteSettings';
 import { deductCredits } from './utils/credits';
-import computeGroupStatus from './utils/computeGroupStatus';
 import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 
@@ -771,18 +770,16 @@ useEffect(() => {
       performGroupUpdate(
         groupId,
         {
-          status: 'done',
           reviewProgress: null,
         },
         {
-          type: 'status',
+          type: 'progress',
           publicUpdate: {
-            status: 'done',
             reviewProgress: null,
             completedAt: new Date().toISOString(),
           },
         },
-      ).catch((err) => console.error('Failed to update status', err));
+      ).catch((err) => console.error('Failed to update review progress', err));
     }
   }, [
     currentIndex,
@@ -2355,44 +2352,17 @@ useEffect(() => {
 
           const groupRef = doc(db, 'adGroups', asset.adGroupId);
           const gSnap = await getDoc(groupRef);
-          const recipeStatusMap = {};
-          (updatedAdsState || []).forEach((a) => {
-            const info = parseAdFilename(a.filename || '');
-            const recipe = a.recipeCode || info.recipeCode || 'unknown';
-            if (!recipe) return;
-            const priority = {
-              approved: 4,
-              edit_requested: 3,
-              rejected: 2,
-              ready: 1,
-              pending: 0,
-              archived: 2,
-            };
-            const prev = recipeStatusMap[recipe];
-            const curr = a.status;
-            if (!prev || (priority[curr] || 0) > (priority[prev] || 0)) {
-              recipeStatusMap[recipe] = curr;
-            }
-          });
-          const groupStatus = computeGroupStatus(
-            Object.values(recipeStatusMap).map((s) => ({ status: s })),
-            false,
-            false,
-            gSnap.data().status,
-          );
           const updateObj = {
             ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
             ...(incApproved ? { approvedCount: increment(incApproved) } : {}),
             ...(incRejected ? { rejectedCount: increment(incRejected) } : {}),
             ...(incEdit ? { editCount: increment(incEdit) } : {}),
             lastUpdated: serverTimestamp(),
-            status: groupStatus,
             ...(gSnap.exists() && !gSnap.data().thumbnailUrl
               ? { thumbnailUrl: asset.firebaseUrl }
               : {}),
           };
           const publicGroupUpdate = {
-            status: groupStatus,
             reviewedCountDelta: incReviewed,
             approvedCountDelta: incApproved,
             rejectedCountDelta: incRejected,
