@@ -1389,6 +1389,32 @@ useEffect(() => {
 
   const closeVersionModal = () => setVersionModal(null);
 
+  const mergeAssetUpdate = useCallback(
+    (data) => {
+      if (!data) return;
+      setAds((prev) =>
+        prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+      );
+      setReviewAds((prev) =>
+        prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+      );
+      setAllAds((prev) =>
+        prev.map((a) =>
+          assetsReferToSameDoc(a, data)
+            ? {
+                ...a,
+                ...data,
+                adGroupId: data.adGroupId || a.adGroupId,
+                groupName: data.groupName || a.groupName,
+                firebaseUrl: data.firebaseUrl || a.firebaseUrl,
+              }
+            : a,
+        ),
+      );
+    },
+    [setAds, setReviewAds, setAllAds],
+  );
+
   useEffect(() => {
     if (!isPublicReviewer) {
       cleanupPublicRealtime();
@@ -1544,6 +1570,103 @@ useEffect(() => {
     if (isPublicReviewer) {
       return;
     }
+    if (!allowPublicListeners) {
+      return;
+    }
+    if (reviewVersion !== 2) {
+      return;
+    }
+
+    const targetGroupId = displayAd?.adGroupId || groupId;
+    if (!targetGroupId) {
+      return;
+    }
+
+    let cancelled = false;
+    let unsubscribe = null;
+    let pollTimer = null;
+
+    const assetsCollectionRef = collection(db, 'adGroups', targetGroupId, 'assets');
+
+    const applyCollectionSnapshot = (snap) => {
+      if (cancelled) return;
+      snap.docChanges().forEach((change) => {
+        if (change.type === 'removed') return;
+        const docSnap = change.doc;
+        if (!docSnap.exists()) return;
+        mergeAssetUpdate({ assetId: docSnap.id, ...docSnap.data() });
+      });
+    };
+
+    const fetchCollectionOnce = async () => {
+      try {
+        const snap = await getDocs(assetsCollectionRef);
+        if (cancelled) return;
+        snap.forEach((docSnap) => {
+          mergeAssetUpdate({ assetId: docSnap.id, ...docSnap.data() });
+        });
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load assets via polling', err);
+        }
+      }
+    };
+
+    const startCollectionPolling = () => {
+      if (pollTimer) return;
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (err) {
+          console.warn('Failed to clean up asset collection listener', err);
+        }
+        unsubscribe = null;
+      }
+      fetchCollectionOnce();
+      pollTimer = setInterval(fetchCollectionOnce, 5000);
+    };
+
+    if (!realtimeEnabled) {
+      startCollectionPolling();
+    } else {
+      try {
+        unsubscribe = onSnapshot(
+          assetsCollectionRef,
+          (snap) => applyCollectionSnapshot(snap),
+          (error) => {
+            console.error('Failed to subscribe to asset collection updates', error);
+            startCollectionPolling();
+          },
+        );
+      } catch (err) {
+        console.error('Realtime asset collection listener setup failed', err);
+        startCollectionPolling();
+      }
+    }
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
+    };
+  }, [
+    allowPublicListeners,
+    displayAd?.adGroupId,
+    groupId,
+    isPublicReviewer,
+    mergeAssetUpdate,
+    realtimeEnabled,
+    reviewVersion,
+  ]);
+
+  useEffect(() => {
+    if (isPublicReviewer) {
+      return;
+    }
 
     setHistoryEntries({});
     if (!allowPublicListeners) {
@@ -1558,35 +1681,16 @@ useEffect(() => {
     let assetPollTimer = null;
     const historyCleanupFns = [];
 
-    const mergeAssetUpdate = (data) => {
-      if (cancelled) return;
-      setAds((prev) =>
-        prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
-      );
-      setReviewAds((prev) =>
-        prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
-      );
-      setAllAds((prev) =>
-        prev.map((a) =>
-          assetsReferToSameDoc(a, data)
-            ? {
-                ...a,
-                ...data,
-                adGroupId: data.adGroupId || a.adGroupId,
-                groupName: data.groupName || a.groupName,
-                firebaseUrl: data.firebaseUrl || a.firebaseUrl,
-              }
-            : a,
-        ),
-      );
-    };
-
-    const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAssetId);
+    const shouldTrackSingleAsset = reviewVersion !== 2;
+    const assetRef = shouldTrackSingleAsset
+      ? doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAssetId)
+      : null;
 
     const fetchAssetOnce = async () => {
+      if (!assetRef) return;
       try {
         const snap = await getDoc(assetRef);
-        if (!snap.exists()) return;
+        if (!snap.exists() || cancelled) return;
         mergeAssetUpdate({ assetId: snap.id, ...snap.data() });
       } catch (err) {
         if (!cancelled) {
@@ -1596,6 +1700,7 @@ useEffect(() => {
     };
 
     const startAssetPolling = () => {
+      if (!assetRef) return;
       if (assetPollTimer) return;
       if (assetUnsubscribe) {
         try {
@@ -1609,24 +1714,26 @@ useEffect(() => {
       assetPollTimer = setInterval(fetchAssetOnce, 5000);
     };
 
-    if (!realtimeEnabled) {
-      startAssetPolling();
-    } else {
-      try {
-        assetUnsubscribe = onSnapshot(
-          assetRef,
-          (snap) => {
-            if (!snap.exists()) return;
-            mergeAssetUpdate({ assetId: snap.id, ...snap.data() });
-          },
-          (error) => {
-            console.error('Failed to subscribe to asset updates', error);
-            startAssetPolling();
-          },
-        );
-      } catch (err) {
-        console.error('Realtime asset listener setup failed', err);
+    if (shouldTrackSingleAsset) {
+      if (!realtimeEnabled) {
         startAssetPolling();
+      } else {
+        try {
+          assetUnsubscribe = onSnapshot(
+            assetRef,
+            (snap) => {
+              if (!snap.exists() || cancelled) return;
+              mergeAssetUpdate({ assetId: snap.id, ...snap.data() });
+            },
+            (error) => {
+              console.error('Failed to subscribe to asset updates', error);
+              startAssetPolling();
+            },
+          );
+        } catch (err) {
+          console.error('Realtime asset listener setup failed', err);
+          startAssetPolling();
+        }
       }
     }
 
@@ -1738,6 +1845,8 @@ useEffect(() => {
     allAds,
     isPublicReviewer,
     realtimeEnabled,
+    reviewVersion,
+    mergeAssetUpdate,
   ]);
 
 
