@@ -21,6 +21,7 @@ const mockAddDoc = jest.fn();
 const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
 const mockArrayUnion = jest.fn((val) => val);
 const mockIncrement = jest.fn((val) => val);
+const mockOnSnapshot = jest.fn(() => jest.fn());
 const mockSetDoc = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
@@ -37,11 +38,8 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: (...args) => mockUpdateDoc(...args),
   arrayUnion: (...args) => mockArrayUnion(...args),
   increment: (...args) => mockIncrement(...args),
+  onSnapshot: (...args) => mockOnSnapshot(...args),
 }));
-
-const mockListen = jest.fn(() => jest.fn());
-
-jest.mock('./utils/listen', () => (...args) => mockListen(...args));
 
 afterEach(() => {
   jest.clearAllMocks();
