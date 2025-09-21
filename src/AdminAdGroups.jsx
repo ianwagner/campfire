@@ -419,10 +419,10 @@ const AdminAdGroups = () => {
 
   const statusOrder = {
     blocked: 0,
-    pending: 1,
-    briefed: 2,
-    ready: 3,
-    'edit request': 4,
+    new: 1,
+    processing: 2,
+    briefed: 3,
+    designed: 4,
     reviewed: 5,
     done: 6,
     archived: 7,
@@ -433,7 +433,6 @@ const AdminAdGroups = () => {
     { label: 'Blocked', status: 'blocked' },
     { label: 'Briefed', status: 'briefed' },
     { label: 'Designed', status: 'designed' },
-    { label: 'Edit Request', status: 'edit request' },
     { label: 'Reviewed', status: 'reviewed' },
     { label: 'Done', status: 'done' },
   ];

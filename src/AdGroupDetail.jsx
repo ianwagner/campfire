@@ -146,7 +146,7 @@ const AdGroupDetail = () => {
   const [assets, setAssets] = useState([]);
   const [briefAssets, setBriefAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [readyLoading, setReadyLoading] = useState(false);
+  const [designLoading, setDesignLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
   const [showTable, setShowTable] = useState(false);
   const [historyRecipe, setHistoryRecipe] = useState(null);
@@ -554,7 +554,7 @@ const AdGroupDetail = () => {
       const newStatus = computeGroupStatus(
         assets,
         hasRecipes,
-        group.status === 'designing',
+        group.status === 'designed',
         group.status,
       );
       if (
@@ -1055,7 +1055,7 @@ const AdGroupDetail = () => {
       const newStatus = computeGroupStatus(
         updatedAssets,
         hasRecipes,
-        false,
+        group.status === 'designed',
         group.status,
       );
       await updateDoc(doc(db, "adGroups", id), { status: newStatus });
@@ -1123,7 +1123,7 @@ const AdGroupDetail = () => {
       const newStatus = computeGroupStatus(
         updatedAssets,
         hasRecipes,
-        false,
+        group.status === 'designed',
         group.status,
       );
       await updateDoc(doc(db, "adGroups", id), { status: newStatus });
@@ -1910,8 +1910,8 @@ const AdGroupDetail = () => {
     }
   };
 
-  const markReady = async () => {
-    setReadyLoading(true);
+  const markDesigned = async () => {
+    setDesignLoading(true);
     try {
       const batch = writeBatch(db);
       const pendingAssets = assets.filter((a) => a.status === "pending");
@@ -1922,7 +1922,7 @@ const AdGroupDetail = () => {
           lastUpdatedAt: serverTimestamp(),
         });
       }
-      batch.update(doc(db, "adGroups", id), { status: "ready" });
+      batch.update(doc(db, "adGroups", id), { status: "designed" });
       await batch.commit();
       if (pendingAssets.length > 0) {
         setAssets((prev) =>
@@ -1934,9 +1934,9 @@ const AdGroupDetail = () => {
         );
       }
     } catch (err) {
-      console.error("Failed to mark ready", err);
+      console.error("Failed to mark designed", err);
     } finally {
-      setReadyLoading(false);
+      setDesignLoading(false);
     }
   };
 
@@ -2027,10 +2027,10 @@ const AdGroupDetail = () => {
 
   const allStatusOptions = [
     'new',
-    'pending',
+    'processing',
     'briefed',
-    'ready',
-    'edit request',
+    'designed',
+    'reviewed',
     'done',
     'blocked',
   ];
@@ -2752,27 +2752,30 @@ const AdGroupDetail = () => {
               </>
             )}
             {(isAdmin || userRole === "agency") && (
+              <IconButton
+                onClick={resetGroup}
+                aria-label="Reset"
+                className="bg-transparent"
+              >
+                <FiRefreshCw size={20} />
+              </IconButton>
+            )}
+            {(isAdmin || userRole === "agency" || isDesigner) && (
+              <IconButton
+                onClick={markDesigned}
+                disabled={
+                  designLoading ||
+                  assets.length === 0 ||
+                  group.status === "designed"
+                }
+                className="bg-transparent"
+                aria-label="Designed"
+              >
+                <FiCheckCircle size={20} />
+              </IconButton>
+            )}
+            {(isAdmin || userRole === "agency") && (
               <>
-                <IconButton
-                  onClick={resetGroup}
-                  aria-label="Reset"
-                  className="bg-transparent"
-                >
-                  <FiRefreshCw size={20} />
-                </IconButton>
-                <IconButton
-                  onClick={markReady}
-                  disabled={
-                    readyLoading ||
-                    assets.length === 0 ||
-                    group.status === "ready" ||
-                    group.status === "in review"
-                  }
-                  className="bg-transparent"
-                  aria-label="Ready"
-                >
-                  <FiCheckCircle size={20} />
-                </IconButton>
                 <IconButton
                   as={Link}
                   to={`/review/${id}`}

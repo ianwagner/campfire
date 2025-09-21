@@ -11,7 +11,7 @@ test('renders link to ad group detail when linkToDetail is true', () => {
   render(
     <MemoryRouter>
       <AdGroupListView
-        groups={[{ id: '1', name: 'Group One', brandCode: 'BR', status: 'pending', month: 1 }]}
+        groups={[{ id: '1', name: 'Group One', brandCode: 'BR', status: 'processing', month: 1 }]}
         loading={false}
         filter=""
         onFilterChange={() => {}}
@@ -35,8 +35,8 @@ test('sorts groups by brand when selected', () => {
     <MemoryRouter>
       <AdGroupListView
         groups={[
-          { id: '1', name: 'Group A', brandCode: 'ZZ', status: 'pending', month: 1 },
-          { id: '2', name: 'Group B', brandCode: 'AA', status: 'pending', month: 1 },
+          { id: '1', name: 'Group A', brandCode: 'ZZ', status: 'processing', month: 1 },
+          { id: '2', name: 'Group B', brandCode: 'AA', status: 'processing', month: 1 },
         ]}
         loading={false}
         filter=""
