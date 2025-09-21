@@ -34,7 +34,6 @@ import {
   setDoc,
   arrayUnion,
   deleteDoc,
-  onSnapshot,
   orderBy,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
@@ -62,6 +61,7 @@ import { deductCredits } from './utils/credits';
 import computeGroupStatus from './utils/computeGroupStatus';
 import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
+import listen from './utils/listen';
 
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
@@ -299,6 +299,7 @@ const Review = forwardRef(
       groupId = null,
       reviewerName = '',
       agencyId = null,
+      canListen = false,
     },
     ref,
   ) => {
@@ -550,8 +551,11 @@ const Review = forwardRef(
   }, []);
 
   useEffect(() => {
-    if (!groupId) return;
-    const unsub = onSnapshot(
+    if (!groupId || !canListen) {
+      setCopyCards([]);
+      return undefined;
+    }
+    const unsub = listen(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => {
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -559,7 +563,7 @@ const Review = forwardRef(
       },
     );
     return () => unsub();
-  }, [groupId]);
+  }, [groupId, canListen]);
 
   useEffect(() => {
     if (showCopyModal) {
@@ -1189,9 +1193,9 @@ useEffect(() => {
 
   useEffect(() => {
     setHistoryEntries({});
-    if (!displayAd?.adGroupId || !displayAssetId) return;
+    if (!canListen || !displayAd?.adGroupId || !displayAssetId) return;
     const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAssetId);
-    const unsubDoc = onSnapshot(assetRef, (snap) => {
+    const unsubDoc = listen(assetRef, (snap) => {
       if (!snap.exists()) return;
       const data = { assetId: snap.id, ...snap.data() };
       setAds((prev) =>
@@ -1244,7 +1248,7 @@ useEffect(() => {
         ),
         orderBy('updatedAt', 'asc'),
       );
-      return onSnapshot(q, (snap) => {
+      return listen(q, (snap) => {
         setHistoryEntries((prev) => ({
           ...prev,
           [getVersion(ad)]: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
@@ -1252,12 +1256,12 @@ useEffect(() => {
       });
     });
 
-      return () => {
-        unsubDoc();
-        unsubs.forEach((u) => u());
-        setHistoryEntries({});
-      };
-  }, [displayAd?.adGroupId, displayAssetId, displayParentId, displayUnitId, allAds]);
+    return () => {
+      unsubDoc();
+      unsubs.forEach((u) => u());
+      setHistoryEntries({});
+    };
+  }, [canListen, displayAd?.adGroupId, displayAssetId, displayParentId, displayUnitId, allAds]);
 
   useEffect(() => {
     const recipeCode =

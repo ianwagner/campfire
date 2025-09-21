@@ -21,8 +21,8 @@ const mockAddDoc = jest.fn();
 const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
 const mockArrayUnion = jest.fn((val) => val);
 const mockIncrement = jest.fn((val) => val);
-const mockOnSnapshot = jest.fn(() => jest.fn());
 const mockSetDoc = jest.fn();
+const mockListen = jest.fn(() => jest.fn());
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn((...args) => args),
@@ -38,7 +38,11 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: (...args) => mockUpdateDoc(...args),
   arrayUnion: (...args) => mockArrayUnion(...args),
   increment: (...args) => mockIncrement(...args),
-  onSnapshot: (...args) => mockOnSnapshot(...args),
+}));
+
+jest.mock('./utils/listen', () => ({
+  __esModule: true,
+  default: (...args) => mockListen(...args),
 }));
 
 afterEach(() => {
@@ -70,7 +74,7 @@ test('loads ads from subcollections', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
@@ -100,7 +104,7 @@ test('Review Ads button disabled until ads load', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   const btn = screen.getByRole('button', { name: /Review Ads/i });
   expect(btn).toBeDisabled();
@@ -139,7 +143,7 @@ test('submitResponse updates asset status', async () => {
     return Promise.resolve({ exists: () => false, data: () => ({}) });
   });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   const statusSelect = await screen.findByLabelText('Status');
   fireEvent.change(statusSelect, { target: { value: 'approve' } });
@@ -233,7 +237,7 @@ test('status change updates only the selected ad unit', async () => {
   mockGetDocs.mockImplementationOnce(() => Promise.resolve(assetSnapshot));
   mockGetDoc.mockResolvedValue({ exists: () => false, data: () => ({}) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   const statusSelects = await screen.findAllByLabelText('Status');
   fireEvent.change(statusSelects[0], { target: { value: 'approve' } });
@@ -286,7 +290,7 @@ test('edit request applies to the correct ad unit', async () => {
   mockGetDocs.mockImplementationOnce(() => Promise.resolve(assetSnapshot));
   mockGetDoc.mockResolvedValue({ exists: () => false, data: () => ({}) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   const statusSelects = await screen.findAllByLabelText('Status');
   fireEvent.change(statusSelects[0], { target: { value: 'edit' } });
@@ -366,7 +370,7 @@ test('edit request details persist in review v2 list view', async () => {
     return Promise.resolve({ exists: () => false, data: () => ({}) });
   });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   const statusSelect = await screen.findByLabelText('Status');
   fireEvent.change(statusSelect, { target: { value: 'edit' } });
@@ -419,7 +423,7 @@ test('request edit creates new version doc', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url2')
@@ -466,7 +470,7 @@ test('revision inherits root parentId when requesting another edit', async () =>
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'url2'));
 
@@ -518,7 +522,7 @@ test('request edit advances to next ad', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
@@ -567,7 +571,7 @@ test('approving a revision resolves all related docs', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'rev.png'));
 
@@ -619,7 +623,7 @@ test('approving a revision does not change archived versions', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png'));
 
@@ -677,7 +681,7 @@ test('version selector changes revisions', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'v3.png')
@@ -740,7 +744,7 @@ test('two-version toggle cycles correctly', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png')
@@ -791,7 +795,7 @@ test('fetches previous versions when only latest is loaded', async () => {
   mockGetDocs.mockResolvedValueOnce({ docs: [] });
   mockGetDoc.mockResolvedValue(parentSnap);
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png')
@@ -828,7 +832,7 @@ test('shows badge for single higher version without older versions', async () =>
   mockGetDocs.mockResolvedValue({ docs: [] });
   mockGetDoc.mockResolvedValue({ exists: () => false });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'v2.png')
@@ -892,7 +896,7 @@ test('ad unit shows only latest version and toggles', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'v2-1x1.png')
@@ -939,7 +943,7 @@ test('shows group summary after reviewing ads', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
@@ -1047,7 +1051,7 @@ test('resolved ads are excluded from pending review', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
@@ -1113,7 +1117,7 @@ test('pending ads are hidden from group review', async () => {
     return Promise.resolve({ docs: [] });
   });
 
-  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+  render(<Review canListen user={{ uid: 'u1' }} groupId="group1" />);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
@@ -1144,7 +1148,7 @@ test('shows pending message when only pending ads', async () => {
     return Promise.resolve({ docs: [] });
   });
 
-  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+  render(<Review canListen user={{ uid: 'u1' }} groupId="group1" />);
 
   expect(await screen.findByText('Ads Pending Review')).toBeInTheDocument();
 });
@@ -1173,7 +1177,7 @@ test('submitResponse records last viewed time for group', async () => {
     return Promise.resolve({ docs: [] });
   });
 
-  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+  render(<Review canListen user={{ uid: 'u1' }} groupId="group1" />);
 
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
@@ -1219,7 +1223,7 @@ test('shows final status without change option', async () => {
     return Promise.resolve({ docs: [] });
   });
 
-  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+  render(<Review canListen user={{ uid: 'u1' }} groupId="group1" />);
 
   await waitFor(() => screen.getByText('Approved'));
 
@@ -1245,7 +1249,7 @@ test('progress bar reflects current index', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'url1'));
 
@@ -1291,7 +1295,7 @@ test('ad container is not remounted when currentIndex changes', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1' }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} />);
 
   await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'url1'));
 
@@ -1378,7 +1382,7 @@ test('opening and exiting completed group keeps status', async () => {
     return Promise.resolve({ docs: [] });
   });
 
-  const { unmount } = render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+  const { unmount } = render(<Review canListen user={{ uid: 'u1' }} groupId="group1" />);
 
   await screen.findByText('Approved');
 
@@ -1424,7 +1428,7 @@ test('returns to start screen after finishing review', async () => {
     return Promise.resolve({ docs: [] });
   });
 
-  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+  render(<Review canListen user={{ uid: 'u1' }} groupId="group1" />);
 
   fireEvent.click(screen.getByText('Review Ads'));
   await screen.findByRole('img');
@@ -1462,7 +1466,7 @@ test('updates group status after finishing review', async () => {
     return Promise.resolve({ docs: [] });
   });
 
-  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+  render(<Review canListen user={{ uid: 'u1' }} groupId="group1" />);
 
   fireEvent.click(screen.getByText('Review Ads'));
   await screen.findByRole('img');
@@ -1491,7 +1495,7 @@ test('updates status and shows summary when no ads available', async () => {
     return Promise.resolve({ docs: [] });
   });
 
-  render(<Review user={{ uid: 'u1' }} groupId="group1" />);
+  render(<Review canListen user={{ uid: 'u1' }} groupId="group1" />);
 
   await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
   const call = mockUpdateDoc.mock.calls.find((c) => c[0] === 'adGroups/group1');
@@ -1528,7 +1532,7 @@ test('client approval updates group status', async () => {
     return Promise.resolve({ docs: [] });
   });
 
-  render(<Review user={{ uid: 'c1' }} userRole="client" groupId="group1" />);
+  render(<Review canListen user={{ uid: 'c1' }} userRole="client" groupId="group1" />);
 
   fireEvent.click(screen.getByText('Review Ads'));
   await screen.findByRole('img');
@@ -1553,7 +1557,7 @@ test('brief review collects feedback', async () => {
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1', reviewVersion: 3 }) });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
 
   await screen.findByText('Your brief is ready!');
   const briefBtn = screen.getByText('See Brief');
@@ -1584,7 +1588,7 @@ test('brief review displays when no recipes', async () => {
     data: () => ({ name: 'Group 1', reviewVersion: 3 }),
   });
 
-  render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
+  render(<Review canListen user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
 
   await screen.findByText('Your brief is ready!');
   const briefBtn = screen.getByText('See Brief');
