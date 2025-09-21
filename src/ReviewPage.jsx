@@ -1,13 +1,20 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { signInAnonymously } from "firebase/auth";
-import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  query,
+  onSnapshot,
+  where,
+} from "firebase/firestore";
 import { auth, db } from "./firebase/config";
 import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
 import ThemeToggle from "./ThemeToggle";
 import { FiGrid, FiType } from "react-icons/fi";
-import listen from "./firebase/listen";
 
 const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const { groupId } = useParams();
@@ -87,52 +94,51 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     loadAgency();
   }, [groupId]);
 
-  const signedIn = !!currentUser && !currentUser.isAnonymous;
-  const isPublicGroup = visibility === "public";
-  const canStartListeners = useMemo(() => {
-    if (!groupAccessEvaluated) return false;
-    if (!groupId) return false;
-    if (requireAuth && !signedIn) return false;
-    if (!isPublicGroup && !signedIn) return false;
-    if (requirePassword && !passwordOk) return false;
-    return true;
+  useEffect(() => {
+    if (
+      !groupId ||
+      !groupAccessEvaluated ||
+      accessBlocked ||
+      (requirePassword && !passwordOk)
+    ) {
+      setCopyCount(0);
+      return;
+    }
+    const unsub = onSnapshot(
+      collection(db, 'adGroups', groupId, 'copyCards'),
+      (snap) => setCopyCount(snap.size),
+    );
+    return () => unsub();
   }, [
-    groupAccessEvaluated,
     groupId,
-    requireAuth,
+    groupAccessEvaluated,
+    accessBlocked,
     requirePassword,
     passwordOk,
-    signedIn,
-    isPublicGroup,
   ]);
 
   useEffect(() => {
-    if (!groupId || !canStartListeners) {
-      setCopyCount(0);
-      return () => {};
-    }
-    const unsubscribe = listen(
-      collection(db, "adGroups", groupId, "copyCards"),
-      (snap) => setCopyCount(snap.size),
-    );
-    return () => {
-      unsubscribe();
-    };
-  }, [groupId, canStartListeners]);
-
-  useEffect(() => {
-    if (!groupId || !canStartListeners) {
+    if (
+      !groupId ||
+      !groupAccessEvaluated ||
+      accessBlocked ||
+      (requirePassword && !passwordOk)
+    ) {
       setAdCount(0);
-      return () => {};
+      return;
     }
-    const unsubscribe = listen(
-      collection(db, "adGroups", groupId, "assets"),
+    const unsub = onSnapshot(
+      collection(db, 'adGroups', groupId, 'assets'),
       (snap) => setAdCount(snap.size),
     );
-    return () => {
-      unsubscribe();
-    };
-  }, [groupId, canStartListeners]);
+    return () => unsub();
+  }, [
+    groupId,
+    groupAccessEvaluated,
+    accessBlocked,
+    requirePassword,
+    passwordOk,
+  ]);
 
   useEffect(() => {
     setGroupAccessEvaluated(false);
@@ -156,16 +162,13 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
           return;
         }
         const data = snap.data();
-        const groupVisibility = data.visibility || "private";
-        const requiresAuth = !!data.requireAuth;
         setGroupPassword(data.password || null);
-        setVisibility(groupVisibility);
-        setRequireAuth(requiresAuth);
+        setVisibility(data.visibility || "private");
+        setRequireAuth(!!data.requireAuth);
         setRequirePassword(!!data.requirePassword);
-        const userSignedIn = !!currentUser && !currentUser.isAnonymous;
         const blocked =
-          (!userSignedIn && groupVisibility !== "public") ||
-          (requiresAuth && !userSignedIn);
+          data.visibility !== "public" ||
+          (data.requireAuth && auth.currentUser?.isAnonymous);
         setAccessBlocked(blocked);
         setGroupAccessEvaluated(true);
       } catch (err) {
@@ -179,7 +182,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
       }
     };
     loadGroup();
-  }, [groupId, currentUser]);
+  }, [groupId]);
 
   useEffect(() => {
     if (groupPassword === null || accessBlocked) return;
