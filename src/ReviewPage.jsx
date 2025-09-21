@@ -1,20 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { signInAnonymously } from "firebase/auth";
-import {
-  doc,
-  getDoc,
-  collection,
-  getDocs,
-  query,
-  onSnapshot,
-  where,
-} from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { auth, db } from "./firebase/config";
 import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
 import ThemeToggle from "./ThemeToggle";
 import { FiGrid, FiType } from "react-icons/fi";
+import listen from "./firebase/listen";
 
 const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const { groupId } = useParams();
@@ -94,51 +87,52 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     loadAgency();
   }, [groupId]);
 
-  useEffect(() => {
-    if (
-      !groupId ||
-      !groupAccessEvaluated ||
-      accessBlocked ||
-      (requirePassword && !passwordOk)
-    ) {
-      setCopyCount(0);
-      return;
-    }
-    const unsub = onSnapshot(
-      collection(db, 'adGroups', groupId, 'copyCards'),
-      (snap) => setCopyCount(snap.size),
-    );
-    return () => unsub();
+  const signedIn = !!currentUser && !currentUser.isAnonymous;
+  const isPublicGroup = visibility === "public";
+  const canStartListeners = useMemo(() => {
+    if (!groupAccessEvaluated) return false;
+    if (!groupId) return false;
+    if (requireAuth && !signedIn) return false;
+    if (!isPublicGroup && !signedIn) return false;
+    if (requirePassword && !passwordOk) return false;
+    return true;
   }, [
-    groupId,
     groupAccessEvaluated,
-    accessBlocked,
+    groupId,
+    requireAuth,
     requirePassword,
     passwordOk,
+    signedIn,
+    isPublicGroup,
   ]);
 
   useEffect(() => {
-    if (
-      !groupId ||
-      !groupAccessEvaluated ||
-      accessBlocked ||
-      (requirePassword && !passwordOk)
-    ) {
-      setAdCount(0);
-      return;
+    if (!groupId || !canStartListeners) {
+      setCopyCount(0);
+      return () => {};
     }
-    const unsub = onSnapshot(
-      collection(db, 'adGroups', groupId, 'assets'),
+    const unsubscribe = listen(
+      collection(db, "adGroups", groupId, "copyCards"),
+      (snap) => setCopyCount(snap.size),
+    );
+    return () => {
+      unsubscribe();
+    };
+  }, [groupId, canStartListeners]);
+
+  useEffect(() => {
+    if (!groupId || !canStartListeners) {
+      setAdCount(0);
+      return () => {};
+    }
+    const unsubscribe = listen(
+      collection(db, "adGroups", groupId, "assets"),
       (snap) => setAdCount(snap.size),
     );
-    return () => unsub();
-  }, [
-    groupId,
-    groupAccessEvaluated,
-    accessBlocked,
-    requirePassword,
-    passwordOk,
-  ]);
+    return () => {
+      unsubscribe();
+    };
+  }, [groupId, canStartListeners]);
 
   useEffect(() => {
     setGroupAccessEvaluated(false);
@@ -162,13 +156,16 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
           return;
         }
         const data = snap.data();
+        const groupVisibility = data.visibility || "private";
+        const requiresAuth = !!data.requireAuth;
         setGroupPassword(data.password || null);
-        setVisibility(data.visibility || "private");
-        setRequireAuth(!!data.requireAuth);
+        setVisibility(groupVisibility);
+        setRequireAuth(requiresAuth);
         setRequirePassword(!!data.requirePassword);
+        const userSignedIn = !!currentUser && !currentUser.isAnonymous;
         const blocked =
-          data.visibility !== "public" ||
-          (data.requireAuth && auth.currentUser?.isAnonymous);
+          (!userSignedIn && groupVisibility !== "public") ||
+          (requiresAuth && !userSignedIn);
         setAccessBlocked(blocked);
         setGroupAccessEvaluated(true);
       } catch (err) {
@@ -182,7 +179,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
       }
     };
     loadGroup();
-  }, [groupId]);
+  }, [groupId, currentUser]);
 
   useEffect(() => {
     if (groupPassword === null || accessBlocked) return;
@@ -323,6 +320,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         userRole={currentUser?.isAnonymous ? null : userRole}
         brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
+        canListen={canStartListeners}
       />
     </div>
   );

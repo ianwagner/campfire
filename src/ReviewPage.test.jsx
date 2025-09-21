@@ -6,10 +6,10 @@ import ReviewPage from './ReviewPage';
 
 jest.mock('./firebase/config', () => ({ auth: {} }));
 
-const signInAnonymously = jest.fn();
+const mockSignInAnonymously = jest.fn();
 
 jest.mock('firebase/auth', () => ({
-  signInAnonymously: (...args) => signInAnonymously(...args),
+  signInAnonymously: (...args) => mockSignInAnonymously(...args),
   signOut: jest.fn(),
 }));
 
@@ -19,20 +19,24 @@ jest.mock('react-router-dom', () => ({
   useLocation: () => ({ search: '' }),
 }));
 
-const getDoc = jest.fn();
-const getDocs = jest.fn();
-const docMock = jest.fn((...args) => args.slice(1).join('/'));
-const collectionMock = jest.fn((...args) => args);
-const onSnapshot = jest.fn();
+const mockGetDoc = jest.fn();
+const mockGetDocs = jest.fn();
+const mockDoc = jest.fn((...args) => args.slice(1).join('/'));
+const mockCollection = jest.fn((...args) => args);
+const mockListen = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
-  doc: (...args) => docMock(...args),
-  getDoc: (...args) => getDoc(...args),
-  getDocs: (...args) => getDocs(...args),
-  collection: (...args) => collectionMock(...args),
+  doc: (...args) => mockDoc(...args),
+  getDoc: (...args) => mockGetDoc(...args),
+  getDocs: (...args) => mockGetDocs(...args),
+  collection: (...args) => mockCollection(...args),
   query: jest.fn((...args) => args),
   where: jest.fn(),
-  onSnapshot: (...args) => onSnapshot(...args),
+}));
+
+jest.mock('./firebase/listen', () => ({
+  __esModule: true,
+  default: (...args) => mockListen(...args),
 }));
 
 afterEach(() => {
@@ -40,14 +44,14 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-  onSnapshot.mockImplementation((col, cb) => {
+  mockListen.mockImplementation((col, cb) => {
     cb({ size: 0, docs: [] });
     return jest.fn();
   });
 });
 
 test('shows error when anonymous sign-in fails', async () => {
-  signInAnonymously.mockRejectedValue(new Error('oops'));
+  mockSignInAnonymously.mockRejectedValue(new Error('oops'));
   render(
     <MemoryRouter>
       <ReviewPage />
@@ -57,7 +61,7 @@ test('shows error when anonymous sign-in fails', async () => {
 });
 
 test('shows loading indicator while signing in', () => {
-  signInAnonymously.mockResolvedValue({});
+  mockSignInAnonymously.mockResolvedValue({});
   render(
     <MemoryRouter>
       <ReviewPage />
@@ -67,12 +71,12 @@ test('shows loading indicator while signing in', () => {
 });
 
 test('shows private message when group is not public', async () => {
-  signInAnonymously.mockResolvedValue({});
-  getDoc.mockResolvedValue({
+  mockSignInAnonymously.mockResolvedValue({});
+  mockGetDoc.mockResolvedValue({
     exists: () => true,
     data: () => ({ visibility: 'private', password: 'pw', brandCode: 'B1' }),
   });
-  getDocs.mockResolvedValueOnce({ empty: true, docs: [] });
+  mockGetDocs.mockResolvedValueOnce({ empty: true, docs: [] });
   render(
     <MemoryRouter>
       <ReviewPage />
