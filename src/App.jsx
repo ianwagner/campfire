@@ -86,10 +86,6 @@ const ThemeWatcher = () => {
 const App = () => {
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
-  const location = useLocation();
-  const signedIn = !!(user && !user.isAnonymous);
-  const isReviewPath = location.pathname.startsWith('/review');
-  const isPublicReviewRoute = isReviewPath && !signedIn;
 
   React.useEffect(() => {
     debugLog('Auth listener mounted');
@@ -116,13 +112,13 @@ const App = () => {
     brandCodes,
     agencyId,
     loading: roleLoading,
-  } = useUserRole(signedIn ? user?.uid : null);
+  } = useUserRole(user?.uid);
   const { isAdmin, loading: adminLoading } = useAdminClaim();
   const { settings, loading: settingsLoading } = useSiteSettings(!agencyId);
   const { agency, loading: agencyLoading } = useAgencyTheme(agencyId);
   const [logoLoaded, setLogoLoaded] = React.useState(false);
-  useFcmToken(signedIn ? user : null);
-  useTaggerJobWatcher(!isPublicReviewRoute);
+  useFcmToken(user);
+  useTaggerJobWatcher();
 
   React.useEffect(() => {
     const url = agencyId ? agency.logoUrl || DEFAULT_LOGO_URL : settings.logoUrl || DEFAULT_LOGO_URL;
@@ -145,6 +141,8 @@ const App = () => {
     !agencyLoading &&
     logoLoaded;
 
+  const location = useLocation();
+
   React.useEffect(() => {
     if (ready) {
       document.body.classList.remove('pre-theme');
@@ -155,6 +153,8 @@ const App = () => {
   if (!ready) {
     return <FullScreenSpinner />;
   }
+
+  const signedIn = user && !user.isAnonymous;
   const role = isAdmin ? 'admin' : dbRole;
   const defaultPath = signedIn
     ? role === 'agency'

@@ -27,9 +27,8 @@ const saveResults = async (brandCode, results) => {
   }
 };
 
-export default function useTaggerJobWatcher(enabled = true) {
+export default function useTaggerJobWatcher() {
   useEffect(() => {
-    if (!enabled) return undefined;
     const jobId = safeGetItem('pendingTaggerJobId');
     const brandCode = safeGetItem('pendingTaggerJobBrand') || '';
     if (!jobId) return undefined;
@@ -72,5 +71,5 @@ export default function useTaggerJobWatcher(enabled = true) {
     return () => {
       if (unsub) unsub();
     };
-  }, [enabled]);
+  }, []);
 }

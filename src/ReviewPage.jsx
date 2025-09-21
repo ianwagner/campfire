@@ -7,6 +7,7 @@ import {
   collection,
   getDocs,
   query,
+  onSnapshot,
   where,
 } from "firebase/firestore";
 import { auth, db } from "./firebase/config";
@@ -14,7 +15,6 @@ import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
 import ThemeToggle from "./ThemeToggle";
 import { FiGrid, FiType } from "react-icons/fi";
-import listen from "./utils/listen";
 
 const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const { groupId } = useParams();
@@ -95,16 +95,16 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }, [groupId]);
 
   useEffect(() => {
-    const allowListeners =
-      groupAccessEvaluated &&
-      !accessBlocked &&
-      (!currentUser?.isAnonymous || visibility === "public");
-
-    if (!groupId || !allowListeners || (requirePassword && !passwordOk)) {
+    if (
+      !groupId ||
+      !groupAccessEvaluated ||
+      accessBlocked ||
+      (requirePassword && !passwordOk)
+    ) {
       setCopyCount(0);
       return;
     }
-    const unsub = listen(
+    const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => setCopyCount(snap.size),
     );
@@ -115,21 +115,19 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     accessBlocked,
     requirePassword,
     passwordOk,
-    currentUser?.isAnonymous,
-    visibility,
   ]);
 
   useEffect(() => {
-    const allowListeners =
-      groupAccessEvaluated &&
-      !accessBlocked &&
-      (!currentUser?.isAnonymous || visibility === "public");
-
-    if (!groupId || !allowListeners || (requirePassword && !passwordOk)) {
+    if (
+      !groupId ||
+      !groupAccessEvaluated ||
+      accessBlocked ||
+      (requirePassword && !passwordOk)
+    ) {
       setAdCount(0);
       return;
     }
-    const unsub = listen(
+    const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'assets'),
       (snap) => setAdCount(snap.size),
     );
@@ -140,8 +138,6 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     accessBlocked,
     requirePassword,
     passwordOk,
-    currentUser?.isAnonymous,
-    visibility,
   ]);
 
   useEffect(() => {
@@ -294,9 +290,6 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     ? { uid: currentUser.uid || "public", email: "public@campfire" }
     : currentUser;
 
-  const listenersEnabled =
-    !currentUser?.isAnonymous || visibility === "public";
-
   return (
     <div className="min-h-screen relative">
       <div className="absolute top-2 right-2 flex gap-2 z-40">
@@ -330,7 +323,6 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         userRole={currentUser?.isAnonymous ? null : userRole}
         brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
-        listenersEnabled={listenersEnabled}
       />
     </div>
   );
