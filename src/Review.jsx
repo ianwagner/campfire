@@ -733,33 +733,71 @@ useEffect(() => {
           setInitialStatus(status);
           setReviewVersion(rv);
         } else {
-          const q = query(
-            collectionGroup(db, 'assets'),
-            where('brandCode', 'in', brandCodes),
-            where('status', '==', 'ready'),
-            where('isResolved', '==', false)
+          const normalizedBrandCodes = Array.from(
+            new Set(
+              brandCodes
+                .map((code) =>
+                  typeof code === 'string' ? code.trim() : ''
+                )
+                .filter((code) => code)
+            )
           );
-          const snap = await getDocs(q);
-          const groupCache = {};
-          list = await Promise.all(
-            snap.docs.map(async (d) => {
-              const data = d.data();
-              const adGroupId = data.adGroupId || d.ref.parent.parent.id;
-              if (!groupCache[adGroupId]) {
-                const gSnap = await getDoc(doc(db, 'adGroups', adGroupId));
-                groupCache[adGroupId] = gSnap.exists() ? gSnap.data().name : '';
-              }
-              const info = parseAdFilename(data.filename || '');
-              return {
-                ...data,
-                version: data.version ?? info.version ?? 1,
-                assetId: d.id,
-                adGroupId,
-                groupName: groupCache[adGroupId],
-                firebaseUrl: data.firebaseUrl,
-              };
-            })
-          );
+
+          if (normalizedBrandCodes.length === 0) {
+            debugLog('No valid brand codes provided for review fetch', { brandCodes });
+            list = [];
+          } else {
+            const batches = [];
+            for (let i = 0; i < normalizedBrandCodes.length; i += 10) {
+              batches.push(normalizedBrandCodes.slice(i, i + 10));
+            }
+
+            const snapshots = await Promise.all(
+              batches.map((codes) =>
+                getDocs(
+                  query(
+                    collectionGroup(db, 'assets'),
+                    where('brandCode', 'in', codes),
+                    where('status', '==', 'ready'),
+                    where('isResolved', '==', false)
+                  )
+                )
+              )
+            );
+
+            const seenPaths = new Set();
+            const docs = [];
+            snapshots.forEach((snap) => {
+              snap.docs.forEach((docSnap) => {
+                const refPath = docSnap.ref.path;
+                if (!seenPaths.has(refPath)) {
+                  seenPaths.add(refPath);
+                  docs.push(docSnap);
+                }
+              });
+            });
+
+            const groupCache = {};
+            list = await Promise.all(
+              docs.map(async (d) => {
+                const data = d.data();
+                const adGroupId = data.adGroupId || d.ref.parent.parent.id;
+                if (!groupCache[adGroupId]) {
+                  const gSnap = await getDoc(doc(db, 'adGroups', adGroupId));
+                  groupCache[adGroupId] = gSnap.exists() ? gSnap.data().name : '';
+                }
+                const info = parseAdFilename(data.filename || '');
+                return {
+                  ...data,
+                  version: data.version ?? info.version ?? 1,
+                  assetId: d.id,
+                  adGroupId,
+                  groupName: groupCache[adGroupId],
+                  firebaseUrl: data.firebaseUrl,
+                };
+              })
+            );
+          }
         }
         // if we only received the latest revision, fetch older versions
         const rootsToFetch = {};
