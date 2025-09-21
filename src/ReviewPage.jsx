@@ -38,6 +38,7 @@ const ReviewPage = ({
   const [copyCount, setCopyCount] = useState(0);
   const [adCount, setAdCount] = useState(0);
   const reviewRef = useRef(null);
+  const isAnonymousReviewer = Boolean(user?.isAnonymous);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -89,8 +90,28 @@ const ReviewPage = ({
       (requirePassword && !passwordOk)
     ) {
       setCopyCount(0);
-      return;
+      return undefined;
     }
+
+    if (isAnonymousReviewer) {
+      let cancelled = false;
+      getDocs(collection(db, 'adGroups', groupId, 'copyCards'))
+        .then((snap) => {
+          if (!cancelled) {
+            setCopyCount(snap.size);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load copy card count', err);
+          if (!cancelled) {
+            setCopyCount(0);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => setCopyCount(snap.size),
@@ -102,6 +123,7 @@ const ReviewPage = ({
     accessBlocked,
     requirePassword,
     passwordOk,
+    isAnonymousReviewer,
   ]);
 
   useEffect(() => {
@@ -112,8 +134,28 @@ const ReviewPage = ({
       (requirePassword && !passwordOk)
     ) {
       setAdCount(0);
-      return;
+      return undefined;
     }
+
+    if (isAnonymousReviewer) {
+      let cancelled = false;
+      getDocs(collection(db, 'adGroups', groupId, 'assets'))
+        .then((snap) => {
+          if (!cancelled) {
+            setAdCount(snap.size);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load asset count', err);
+          if (!cancelled) {
+            setAdCount(0);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'assets'),
       (snap) => setAdCount(snap.size),
@@ -125,6 +167,7 @@ const ReviewPage = ({
     accessBlocked,
     requirePassword,
     passwordOk,
+    isAnonymousReviewer,
   ]);
 
   useEffect(() => {

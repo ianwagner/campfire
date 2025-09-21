@@ -587,8 +587,23 @@ const Review = forwardRef(
   useEffect(() => {
     if (!allowPublicListeners || !groupId) {
       setCopyCards([]);
-      return;
+      return undefined;
     }
+
+    if (isPublicReviewer) {
+      let cancelled = false;
+      getDocs(collection(db, 'adGroups', groupId, 'copyCards'))
+        .then((snap) => {
+          if (cancelled) return;
+          const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          setCopyCards(list);
+        })
+        .catch((err) => console.error('Failed to load copy cards', err));
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => {
@@ -597,7 +612,7 @@ const Review = forwardRef(
       },
     );
     return () => unsub();
-  }, [allowPublicListeners, groupId]);
+  }, [allowPublicListeners, groupId, isPublicReviewer]);
 
   useEffect(() => {
     if (showCopyModal) {
@@ -1268,9 +1283,102 @@ useEffect(() => {
   useEffect(() => {
     setHistoryEntries({});
     if (!allowPublicListeners) {
-      return;
+      return undefined;
     }
-    if (!displayAd?.adGroupId || !displayAssetId) return;
+    if (!displayAd?.adGroupId || !displayAssetId) return undefined;
+
+    if (isPublicReviewer) {
+      let cancelled = false;
+      const loadHistory = async () => {
+        try {
+          const assetRef = doc(
+            db,
+            'adGroups',
+            displayAd.adGroupId,
+            'assets',
+            displayAssetId,
+          );
+          const assetSnap = await getDoc(assetRef);
+          if (!cancelled && assetSnap.exists()) {
+            const data = { assetId: assetSnap.id, ...assetSnap.data() };
+            setAds((prev) =>
+              prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+            );
+            setReviewAds((prev) =>
+              prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+            );
+            setAllAds((prev) =>
+              prev.map((a) =>
+                assetsReferToSameDoc(a, data)
+                  ? {
+                      ...a,
+                      ...data,
+                      adGroupId: data.adGroupId || a.adGroupId,
+                      groupName: data.groupName || a.groupName,
+                      firebaseUrl: data.firebaseUrl || a.firebaseUrl,
+                    }
+                  : a,
+              ),
+            );
+          }
+
+          const rootId =
+            displayParentId || displayUnitId || stripVersion(displayAd.filename);
+          const related = allAds.filter((a) => {
+            if (displayParentId || displayUnitId) {
+              return assetMatchesReference(a, rootId);
+            }
+            return stripVersion(a.filename) === rootId;
+          });
+          const versionMap = {};
+          [...related, displayAd].forEach((a) => {
+            const key = getAssetDocumentId(a);
+            if (key) {
+              versionMap[key] = a;
+            }
+          });
+
+          const entries = {};
+          await Promise.all(
+            Object.values(versionMap).map(async (ad) => {
+              const historySnap = await getDocs(
+                query(
+                  collection(
+                    doc(
+                      db,
+                      'adGroups',
+                      ad.adGroupId,
+                      'assets',
+                      getAssetDocumentId(ad),
+                    ),
+                    'history',
+                  ),
+                  orderBy('updatedAt', 'asc'),
+                ),
+              );
+              entries[getVersion(ad)] = historySnap.docs.map((d) => ({
+                id: d.id,
+                ...d.data(),
+              }));
+            }),
+          );
+
+          if (!cancelled) {
+            setHistoryEntries(entries);
+          }
+        } catch (err) {
+          console.error('Failed to load asset history', err);
+        }
+      };
+
+      loadHistory();
+
+      return () => {
+        cancelled = true;
+        setHistoryEntries({});
+      };
+    }
+
     const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAssetId);
     const unsubDoc = onSnapshot(assetRef, (snap) => {
       if (!snap.exists()) return;
@@ -1333,11 +1441,11 @@ useEffect(() => {
       });
     });
 
-      return () => {
-        unsubDoc();
-        unsubs.forEach((u) => u());
-        setHistoryEntries({});
-      };
+    return () => {
+      unsubDoc();
+      unsubs.forEach((u) => u());
+      setHistoryEntries({});
+    };
   }, [
     allowPublicListeners,
     displayAd?.adGroupId,
@@ -1345,6 +1453,7 @@ useEffect(() => {
     displayParentId,
     displayUnitId,
     allAds,
+    isPublicReviewer,
   ]);
 
   useEffect(() => {
