@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { FiDownload, FiColumns } from 'react-icons/fi';
+import { FiDownload, FiColumns, FiCopy } from 'react-icons/fi';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
@@ -153,13 +153,14 @@ const AdminDistribution = () => {
 
   useEffect(() => {
     const fetchRows = async () => {
-      if (!brand || (!month && !dueMonth)) {
+      if (!month && !dueMonth) {
         setRows([]);
         return;
       }
       setLoading(true);
       try {
-        const args = [collection(db, 'adGroups'), where('brandCode', '==', brand)];
+        const args = [collection(db, 'adGroups')];
+        if (brand) args.push(where('brandCode', '==', brand));
         if (month) args.push(where('month', '==', month));
         if (dueMonth) {
           const start = new Date(`${dueMonth}-01`);
@@ -309,45 +310,76 @@ const AdminDistribution = () => {
     fetchRows();
   }, [month, dueMonth, brand]);
 
-  const handleExport = () => {
-    if (!rows.length) return;
+  const buildCsv = () => {
+    if (!rows.length) return '';
     const cols = allColumnDefs.filter((c) => selectedCols.includes(c.key));
     const headers = cols.map((c) => c.label);
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const csv = [
+    return [
       headers.join(','),
       ...rows.map((r) =>
         cols
           .map((c) => {
-          switch (c.key) {
-            case 'groupName':
-              return r.groupName;
-            case 'recipeNo':
-              return r.recipeNo;
-            case 'product':
-              return r.product;
-            case 'angle':
-              return r.angle;
-            case 'audience':
-              return r.audience || '-';
-            case 'status':
-              return r.status || '-';
-            default:
-              return r[c.key] || '';
-          }
-        })
+            switch (c.key) {
+              case 'groupName':
+                return r.groupName;
+              case 'recipeNo':
+                return r.recipeNo;
+              case 'product':
+                return r.product;
+              case 'angle':
+                return r.angle;
+              case 'audience':
+                return r.audience || '-';
+              case 'status':
+                return r.status || '-';
+              default:
+                return r[c.key] || '';
+            }
+          })
           .map(escape)
           .join(','),
       ),
     ].join('\n');
+  };
+
+  const handleExport = () => {
+    const csv = buildCsv();
+    if (!csv) return;
     const blob = new Blob([csv], { type: 'text/csv' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    const file = `${brand}_${month || dueMonth}.csv`;
+    const fileParts = [];
+    fileParts.push(brand || 'all-brands');
+    if (month) fileParts.push(month);
+    if (dueMonth) fileParts.push(`due-${dueMonth}`);
+    const file = `${fileParts.join('_') || 'distribution'}.csv`;
     link.setAttribute('download', file);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleCopy = async () => {
+    const csv = buildCsv();
+    if (!csv) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(csv);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = csv;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+    } catch (err) {
+      console.error('Failed to copy CSV', err);
+    }
   };
 
   const toggleColumn = (key) => {
@@ -420,6 +452,14 @@ const AdminDistribution = () => {
               ))}
             </div>
           )}
+          <IconButton
+            onClick={handleCopy}
+            aria-label="Copy CSV"
+            disabled={rows.length === 0}
+            className={`text-xl ${rows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <FiCopy />
+          </IconButton>
           <IconButton
             onClick={handleExport}
             aria-label="Export CSV"
@@ -501,7 +541,7 @@ const AdminDistribution = () => {
             ))}
           </tbody>
         </Table>
-      ) : (month || dueMonth) && brand ? (
+      ) : month || dueMonth ? (
         <p>No recipes found.</p>
       ) : null}
     </div>
