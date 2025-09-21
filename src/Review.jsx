@@ -476,17 +476,24 @@ const Review = forwardRef(
       return;
     }
     // Add some hysteresis so the pinned state is stable even as the bar
-    // changes height when it condenses.
-    const pinOffset = 12;
+    // changes height when it condenses. The sentinel element is only a pixel
+    // tall, so rely on its bottom edge instead of the top to avoid the
+    // threshold getting stuck when scrolling slowly.
+    const pinOffset = 0;
     const releaseOffset = 32;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
         const rootTop = entry.rootBounds?.top ?? 0;
         const sentinelTop = entry.boundingClientRect.top;
+        const sentinelBottom = entry.boundingClientRect.bottom;
         if (!Number.isFinite(sentinelTop)) {
           return;
         }
+        if (!Number.isFinite(sentinelBottom)) {
+          return;
+        }
+        const intersectionRatio = entry.intersectionRatio ?? 0;
         setStatusBarPinned((prevPinned) => {
           if (prevPinned) {
             if (sentinelTop > rootTop + releaseOffset) {
@@ -494,7 +501,8 @@ const Review = forwardRef(
             }
             return true;
           }
-          if (sentinelTop <= rootTop - pinOffset) {
+          const fullyVisible = intersectionRatio >= 0.99;
+          if (!fullyVisible && sentinelBottom <= rootTop + pinOffset) {
             return true;
           }
           return prevPinned;
