@@ -37,15 +37,8 @@ const ReviewPage = ({
   const [passwordOk, setPasswordOk] = useState(false);
   const [copyCount, setCopyCount] = useState(0);
   const [adCount, setAdCount] = useState(0);
-  const [copyRealtimeDisabled, setCopyRealtimeDisabled] = useState(false);
-  const [assetRealtimeDisabled, setAssetRealtimeDisabled] = useState(false);
   const reviewRef = useRef(null);
   const isAnonymousReviewer = Boolean(user?.isAnonymous);
-
-  useEffect(() => {
-    setCopyRealtimeDisabled(false);
-    setAssetRealtimeDisabled(false);
-  }, [groupId]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -100,9 +93,7 @@ const ReviewPage = ({
       return undefined;
     }
 
-    const shouldUseRealtime = !isAnonymousReviewer && !copyRealtimeDisabled;
-
-    if (!shouldUseRealtime) {
+    if (isAnonymousReviewer) {
       let cancelled = false;
       getDocs(collection(db, 'adGroups', groupId, 'copyCards'))
         .then((snap) => {
@@ -124,10 +115,6 @@ const ReviewPage = ({
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => setCopyCount(snap.size),
-      (error) => {
-        console.error('Failed to subscribe to copy card updates', error);
-        setCopyRealtimeDisabled(true);
-      },
     );
     return () => unsub();
   }, [
@@ -137,7 +124,6 @@ const ReviewPage = ({
     requirePassword,
     passwordOk,
     isAnonymousReviewer,
-    copyRealtimeDisabled,
   ]);
 
   useEffect(() => {
@@ -151,9 +137,7 @@ const ReviewPage = ({
       return undefined;
     }
 
-    const shouldUseRealtime = !isAnonymousReviewer && !assetRealtimeDisabled;
-
-    if (!shouldUseRealtime) {
+    if (isAnonymousReviewer) {
       let cancelled = false;
       getDocs(collection(db, 'adGroups', groupId, 'assets'))
         .then((snap) => {
@@ -175,10 +159,6 @@ const ReviewPage = ({
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'assets'),
       (snap) => setAdCount(snap.size),
-      (error) => {
-        console.error('Failed to subscribe to asset updates', error);
-        setAssetRealtimeDisabled(true);
-      },
     );
     return () => unsub();
   }, [
@@ -188,7 +168,6 @@ const ReviewPage = ({
     requirePassword,
     passwordOk,
     isAnonymousReviewer,
-    assetRealtimeDisabled,
   ]);
 
   useEffect(() => {
