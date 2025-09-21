@@ -2036,8 +2036,22 @@ const AdGroupDetail = () => {
   ];
 
   const editorStatusOptions = ['new', 'briefed', 'blocked'];
+  const designerStatusOptions = ['briefed', 'designed', 'blocked'];
 
-  const statusOptions = isAdmin ? allStatusOptions : editorStatusOptions;
+  const statusOptions = useMemo(() => {
+    const appendCurrentStatus = (options) => {
+      const list = [...options];
+      if (group?.status && !list.includes(group.status)) {
+        list.unshift(group.status);
+      }
+      return list;
+    };
+
+    if (isAdmin) return appendCurrentStatus(allStatusOptions);
+    if (isEditor) return appendCurrentStatus(editorStatusOptions);
+    if (isDesigner) return appendCurrentStatus(designerStatusOptions);
+    return appendCurrentStatus([]);
+  }, [group?.status, isAdmin, isDesigner, isEditor]);
 
   const handleStatusChange = async (e) => {
     if (!id) return;
@@ -2437,7 +2451,7 @@ const AdGroupDetail = () => {
         Brand: {group.brandCode}
         <span className="hidden sm:inline">|</span>
         Status:
-        {isAdmin || isEditor ? (
+        {isAdmin || isEditor || isDesigner ? (
           <select
             aria-label="Status"
             value={group.status}
