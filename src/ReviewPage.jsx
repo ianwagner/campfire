@@ -28,6 +28,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const [requireAuth, setRequireAuth] = useState(false);
   const [requirePassword, setRequirePassword] = useState(false);
   const [accessBlocked, setAccessBlocked] = useState(false);
+  const [groupAccessEvaluated, setGroupAccessEvaluated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordOk, setPasswordOk] = useState(false);
   const [error, setError] = useState("");
@@ -94,28 +95,58 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }, [groupId]);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (
+      !groupId ||
+      !groupAccessEvaluated ||
+      accessBlocked ||
+      (requirePassword && !passwordOk)
+    ) {
+      setCopyCount(0);
+      return;
+    }
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => setCopyCount(snap.size),
     );
     return () => unsub();
-  }, [groupId]);
+  }, [
+    groupId,
+    groupAccessEvaluated,
+    accessBlocked,
+    requirePassword,
+    passwordOk,
+  ]);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (
+      !groupId ||
+      !groupAccessEvaluated ||
+      accessBlocked ||
+      (requirePassword && !passwordOk)
+    ) {
+      setAdCount(0);
+      return;
+    }
     const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'assets'),
       (snap) => setAdCount(snap.size),
     );
     return () => unsub();
-  }, [groupId]);
+  }, [
+    groupId,
+    groupAccessEvaluated,
+    accessBlocked,
+    requirePassword,
+    passwordOk,
+  ]);
 
   useEffect(() => {
+    setGroupAccessEvaluated(false);
     if (!groupId) {
       setGroupPassword(null);
       setVisibility(null);
       setAccessBlocked(false);
+      setGroupAccessEvaluated(true);
       return;
     }
     const loadGroup = async () => {
@@ -127,6 +158,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
           setVisibility(null);
           setRequireAuth(false);
           setRequirePassword(false);
+          setGroupAccessEvaluated(true);
           return;
         }
         const data = snap.data();
@@ -138,6 +170,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
           data.visibility !== "public" ||
           (data.requireAuth && auth.currentUser?.isAnonymous);
         setAccessBlocked(blocked);
+        setGroupAccessEvaluated(true);
       } catch (err) {
         console.error("Failed to fetch group info", err);
         setAccessBlocked(true);
@@ -145,6 +178,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         setVisibility(null);
         setRequireAuth(false);
         setRequirePassword(false);
+        setGroupAccessEvaluated(true);
       }
     };
     loadGroup();
