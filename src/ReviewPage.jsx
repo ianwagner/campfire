@@ -14,15 +14,7 @@ import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
 import ThemeToggle from "./ThemeToggle";
 import { FiGrid, FiType } from "react-icons/fi";
-
-const REALTIME_PRIVILEGED_ROLES = new Set([
-  "admin",
-  "manager",
-  "project-manager",
-  "ops",
-  "editor",
-  "designer",
-]);
+import { isRealtimeReviewerEligible } from "./utils/realtimeEligibility";
 
 const ReviewPage = ({
   userRole = null,
@@ -50,12 +42,13 @@ const ReviewPage = ({
   const isAnonymousReviewer = Boolean(user?.isAnonymous);
   const allowPublicListeners =
     groupAccessEvaluated && !accessBlocked && (!requirePassword || passwordOk);
-  const normalizedRole = typeof userRole === "string" ? userRole.toLowerCase() : "";
-  const canUseRealtimeCounts =
-    !isAnonymousReviewer &&
-    allowPublicListeners &&
-    normalizedRole &&
-    REALTIME_PRIVILEGED_ROLES.has(normalizedRole);
+  const reviewerNameValue = typeof reviewerName === "string" ? reviewerName : "";
+  const canUseRealtimeCounts = isRealtimeReviewerEligible({
+    allowPublicListeners,
+    isPublicReviewer: isAnonymousReviewer,
+    isAuthenticated: Boolean(user?.uid),
+    reviewerName: reviewerNameValue,
+  });
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
