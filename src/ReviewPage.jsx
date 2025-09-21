@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "react-router-dom";
-import { signInAnonymously } from "firebase/auth";
 import {
   doc,
   getDoc,
@@ -10,16 +9,21 @@ import {
   onSnapshot,
   where,
 } from "firebase/firestore";
-import { auth, db } from "./firebase/config";
+import { db } from "./firebase/config";
 import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
 import ThemeToggle from "./ThemeToggle";
 import { FiGrid, FiType } from "react-icons/fi";
 
-const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
+const ReviewPage = ({
+  userRole = null,
+  brandCodes = [],
+  user = null,
+  authLoading = false,
+  authError = "",
+}) => {
   const { groupId } = useParams();
   const location = useLocation();
-  const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const [reviewerName, setReviewerName] = useState("");
   const [tempName, setTempName] = useState("");
   const [agencyId, setAgencyId] = useState(null);
@@ -31,26 +35,9 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const [groupAccessEvaluated, setGroupAccessEvaluated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordOk, setPasswordOk] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(!auth.currentUser);
   const [copyCount, setCopyCount] = useState(0);
   const [adCount, setAdCount] = useState(0);
   const reviewRef = useRef(null);
-
-  useEffect(() => {
-    if (!currentUser) {
-      signInAnonymously(auth)
-        .then(() => {
-          setCurrentUser(auth.currentUser);
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error("Anonymous sign-in failed", err);
-          setError(err.message);
-          setLoading(false);
-        });
-    }
-  }, [currentUser]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -168,7 +155,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         setRequirePassword(!!data.requirePassword);
         const blocked =
           data.visibility !== "public" ||
-          (data.requireAuth && (!currentUser || currentUser.isAnonymous));
+          (data.requireAuth && (!user || user.isAnonymous));
         setAccessBlocked(blocked);
         setGroupAccessEvaluated(true);
       } catch (err) {
@@ -182,7 +169,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
       }
     };
     loadGroup();
-  }, [groupId, currentUser]);
+  }, [groupId, user]);
 
   useEffect(() => {
     if (groupPassword === null || accessBlocked) return;
@@ -196,8 +183,8 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }, [groupPassword, requirePassword, groupId, accessBlocked]);
 
   useEffect(() => {
-    if (!currentUser) return;
-    if (currentUser.isAnonymous) {
+    if (!user) return;
+    if (user.isAnonymous) {
       const stored =
         typeof localStorage !== "undefined"
           ? localStorage.getItem("reviewerName")
@@ -207,21 +194,21 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         setTempName(stored);
       }
     } else {
-      setReviewerName(currentUser.displayName || "");
+      setReviewerName(user.displayName || "");
     }
-  }, [currentUser]);
+  }, [user]);
 
   useEffect(() => {
-    if (currentUser?.isAnonymous && reviewerName) {
+    if (user?.isAnonymous && reviewerName) {
       localStorage.setItem("reviewerName", reviewerName);
     }
-  }, [reviewerName, currentUser]);
+  }, [reviewerName, user]);
 
-  if (error) {
-    return <div className="p-4 text-center text-red-500">{error}</div>;
+  if (authError) {
+    return <div className="p-4 text-center text-red-500">{authError}</div>;
   }
 
-  if (loading) {
+  if (authLoading) {
     return <LoadingOverlay />;
   }
 
@@ -266,7 +253,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     );
   }
 
-  if (currentUser?.isAnonymous && !reviewerName) {
+  if (user?.isAnonymous && !reviewerName) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-2">
         <label className="text-lg" htmlFor="reviewerName">
@@ -293,14 +280,14 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const allowPublicListeners =
     groupAccessEvaluated && !accessBlocked && (!requirePassword || passwordOk);
 
-  const userObj = currentUser?.isAnonymous
-    ? { uid: currentUser.uid || "public", email: "public@campfire" }
-    : currentUser;
+  const userObj = user?.isAnonymous
+    ? { uid: user.uid || "public", email: "public@campfire" }
+    : user;
 
   return (
     <div className="min-h-screen relative">
       <div className="absolute top-2 right-2 flex gap-2 z-40">
-        {currentUser?.isAnonymous && <ThemeToggle />}
+        {user?.isAnonymous && <ThemeToggle />}
         {copyCount > 0 && (
           <button
             type="button"
@@ -327,11 +314,11 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         user={userObj}
         groupId={groupId}
         reviewerName={reviewerName}
-        userRole={currentUser?.isAnonymous ? null : userRole}
-        brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
+        userRole={user?.isAnonymous ? null : userRole}
+        brandCodes={user?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
         allowPublicListeners={allowPublicListeners}
-        isPublicReviewer={Boolean(currentUser?.isAnonymous)}
+        isPublicReviewer={Boolean(user?.isAnonymous)}
       />
     </div>
   );
