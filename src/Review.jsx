@@ -61,6 +61,7 @@ import useSiteSettings from './useSiteSettings';
 import { deductCredits } from './utils/credits';
 import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
+import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
@@ -274,15 +275,6 @@ const REVIEW_V2_ASPECT_ORDER = [
   'Snapchat',
 ];
 
-const REALTIME_PRIVILEGED_ROLES = new Set([
-  'admin',
-  'manager',
-  'project-manager',
-  'ops',
-  'editor',
-  'designer',
-]);
-
 const getReviewAspectPriority = (aspect) => {
   const normalized = normalizeKeyPart(aspect);
   const idx = REVIEW_V2_ASPECT_ORDER.indexOf(normalized);
@@ -377,15 +369,18 @@ const Review = forwardRef(
   }, [reviewerName, user]);
 
   const canUpdateGroupDoc = !isPublicReviewer;
-  const normalizedUserRole = typeof userRole === 'string' ? userRole.toLowerCase() : '';
+  const reviewerNameValue = typeof reviewerName === 'string' ? reviewerName : '';
+  const userUid = user?.uid || null;
   const realtimeEnabled = useMemo(
     () => {
-      if (!allowPublicListeners) return false;
-      if (isPublicReviewer) return true;
-      if (!normalizedUserRole) return false;
-      return REALTIME_PRIVILEGED_ROLES.has(normalizedUserRole);
+      return isRealtimeReviewerEligible({
+        allowPublicListeners,
+        isPublicReviewer,
+        isAuthenticated: Boolean(userUid),
+        reviewerName: reviewerNameValue,
+      });
     },
-    [allowPublicListeners, isPublicReviewer, normalizedUserRole],
+    [allowPublicListeners, isPublicReviewer, userUid, reviewerNameValue],
   );
 
   const performGroupUpdate = useCallback(
