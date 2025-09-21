@@ -55,13 +55,18 @@ const shouldForceLongPolling = (() => {
   return isIOS || isSafari;
 })();
 
-const firestoreSettings = {
-  experimentalAutoDetectLongPolling: true,
-};
-
-if (shouldForceLongPolling) {
-  firestoreSettings.experimentalForceLongPolling = true;
-}
+const firestoreSettings = shouldForceLongPolling
+  ? {
+      experimentalAutoDetectLongPolling: true,
+      experimentalForceLongPolling: true,
+    }
+  : {
+      // Use the default WebChannel transport so change streams stay truly
+      // realtime for reviewers and avoid the noisy Fetch logging that appears
+      // in Chrome devtools when long polling is enabled for public sessions.
+      experimentalAutoDetectLongPolling: false,
+      useFetchStreams: false,
+    };
 
 initializeFirestore(app, firestoreSettings);
 
