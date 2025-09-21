@@ -360,16 +360,29 @@ const Review = forwardRef(
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
 
-  const reviewerIdentifier = useMemo(() => {
-    if (reviewerName) return reviewerName;
-    if (user?.displayName) return user.displayName;
-    if (user?.email) return user.email;
-    if (user?.uid) return user.uid;
-    return 'anonymous';
+  const resolvedReviewerName = useMemo(() => {
+    if (typeof reviewerName === 'string' && reviewerName.trim()) {
+      return reviewerName.trim();
+    }
+    if (typeof user?.displayName === 'string' && user.displayName.trim()) {
+      return user.displayName.trim();
+    }
+    if (user?.email) {
+      return user.email;
+    }
+    if (user?.uid) {
+      return user.uid;
+    }
+    return '';
   }, [reviewerName, user]);
 
+  const reviewerIdentifier = useMemo(
+    () => resolvedReviewerName || 'anonymous',
+    [resolvedReviewerName],
+  );
+
   const canUpdateGroupDoc = !isPublicReviewer;
-  const reviewerNameValue = typeof reviewerName === 'string' ? reviewerName : '';
+  const reviewerNameValue = resolvedReviewerName;
   const userUid = user?.uid || null;
   const realtimeEnabled = useMemo(
     () => {
