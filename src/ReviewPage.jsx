@@ -7,6 +7,7 @@ import {
   collection,
   getDocs,
   query,
+  onSnapshot,
   where,
 } from "firebase/firestore";
 import { auth, db } from "./firebase/config";
@@ -14,7 +15,6 @@ import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
 import ThemeToggle from "./ThemeToggle";
 import { FiGrid, FiType } from "react-icons/fi";
-import listen from "./utils/listen";
 
 const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const { groupId } = useParams();
@@ -94,37 +94,51 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     loadAgency();
   }, [groupId]);
 
-  const signedIn = !!currentUser && !currentUser.isAnonymous;
-  const anonymousAllowed =
-    visibility === "public" && !requireAuth;
-  const allowListeners =
-    groupAccessEvaluated &&
-    (!requirePassword || passwordOk) &&
-    (signedIn || anonymousAllowed);
-
   useEffect(() => {
-    if (!groupId || !allowListeners) {
+    if (
+      !groupId ||
+      !groupAccessEvaluated ||
+      accessBlocked ||
+      (requirePassword && !passwordOk)
+    ) {
       setCopyCount(0);
       return;
     }
-    const unsub = listen(
+    const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => setCopyCount(snap.size),
     );
     return () => unsub();
-  }, [groupId, allowListeners]);
+  }, [
+    groupId,
+    groupAccessEvaluated,
+    accessBlocked,
+    requirePassword,
+    passwordOk,
+  ]);
 
   useEffect(() => {
-    if (!groupId || !allowListeners) {
+    if (
+      !groupId ||
+      !groupAccessEvaluated ||
+      accessBlocked ||
+      (requirePassword && !passwordOk)
+    ) {
       setAdCount(0);
       return;
     }
-    const unsub = listen(
+    const unsub = onSnapshot(
       collection(db, 'adGroups', groupId, 'assets'),
       (snap) => setAdCount(snap.size),
     );
     return () => unsub();
-  }, [groupId, allowListeners]);
+  }, [
+    groupId,
+    groupAccessEvaluated,
+    accessBlocked,
+    requirePassword,
+    passwordOk,
+  ]);
 
   useEffect(() => {
     setGroupAccessEvaluated(false);
@@ -152,8 +166,9 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         setVisibility(data.visibility || "private");
         setRequireAuth(!!data.requireAuth);
         setRequirePassword(!!data.requirePassword);
-        const signedInUser = !!currentUser && !currentUser.isAnonymous;
-        const blocked = !signedInUser && (data.visibility !== "public" || data.requireAuth);
+        const blocked =
+          data.visibility !== "public" ||
+          (data.requireAuth && auth.currentUser?.isAnonymous);
         setAccessBlocked(blocked);
         setGroupAccessEvaluated(true);
       } catch (err) {
@@ -167,7 +182,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
       }
     };
     loadGroup();
-  }, [groupId, currentUser]);
+  }, [groupId]);
 
   useEffect(() => {
     if (groupPassword === null || accessBlocked) return;
@@ -207,10 +222,6 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }
 
   if (loading) {
-    return <LoadingOverlay />;
-  }
-
-  if (!groupAccessEvaluated) {
     return <LoadingOverlay />;
   }
 
@@ -312,7 +323,6 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         userRole={currentUser?.isAnonymous ? null : userRole}
         brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
-        canListen={allowListeners}
       />
     </div>
   );

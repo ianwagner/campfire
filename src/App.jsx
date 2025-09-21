@@ -86,7 +86,6 @@ const ThemeWatcher = () => {
 const App = () => {
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
-  const location = useLocation();
 
   React.useEffect(() => {
     debugLog('Auth listener mounted');
@@ -108,28 +107,20 @@ const App = () => {
     };
   }, []);
 
-  const isReviewRoute = location.pathname.startsWith('/review');
-  const signedIn = user && !user.isAnonymous;
-  const shouldLoadGlobalData = !isReviewRoute || signedIn;
-
   const {
     role: dbRole,
     brandCodes,
     agencyId,
     loading: roleLoading,
-  } = useUserRole(shouldLoadGlobalData ? user?.uid : null);
+  } = useUserRole(user?.uid);
   const { isAdmin, loading: adminLoading } = useAdminClaim();
-  const { settings, loading: settingsLoading } = useSiteSettings(!agencyId, shouldLoadGlobalData);
-  const { agency, loading: agencyLoading } = useAgencyTheme(shouldLoadGlobalData ? agencyId : null);
+  const { settings, loading: settingsLoading } = useSiteSettings(!agencyId);
+  const { agency, loading: agencyLoading } = useAgencyTheme(agencyId);
   const [logoLoaded, setLogoLoaded] = React.useState(false);
-  useFcmToken(shouldLoadGlobalData ? user : null);
-  useTaggerJobWatcher(shouldLoadGlobalData);
+  useFcmToken(user);
+  useTaggerJobWatcher();
 
   React.useEffect(() => {
-    if (!shouldLoadGlobalData) {
-      setLogoLoaded(true);
-      return;
-    }
     const url = agencyId ? agency.logoUrl || DEFAULT_LOGO_URL : settings.logoUrl || DEFAULT_LOGO_URL;
     if (!url) {
       setLogoLoaded(true);
@@ -140,29 +131,30 @@ const App = () => {
     img.onload = () => setLogoLoaded(true);
     img.onerror = () => setLogoLoaded(true);
     img.src = url;
-  }, [agency.logoUrl, settings.logoUrl, agencyId, shouldLoadGlobalData]);
+  }, [agency.logoUrl, settings.logoUrl, agencyId]);
 
   const ready =
     !loading &&
-    (!shouldLoadGlobalData || (
-      !roleLoading &&
-      !adminLoading &&
-      !settingsLoading &&
-      !agencyLoading &&
-      logoLoaded
-    ));
+    !roleLoading &&
+    !adminLoading &&
+    !settingsLoading &&
+    !agencyLoading &&
+    logoLoaded;
+
+  const location = useLocation();
 
   React.useEffect(() => {
-    if (!shouldLoadGlobalData || ready) {
+    if (ready) {
       document.body.classList.remove('pre-theme');
     }
-  }, [ready, shouldLoadGlobalData]);
+  }, [ready]);
 
 
   if (!ready) {
     return <FullScreenSpinner />;
   }
 
+  const signedIn = user && !user.isAnonymous;
   const role = isAdmin ? 'admin' : dbRole;
   const defaultPath = signedIn
     ? role === 'agency'
