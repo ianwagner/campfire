@@ -475,23 +475,26 @@ const Review = forwardRef(
       setStatusBarPinned(false);
       return;
     }
-    const releaseOffset = 8;
+    // Add some hysteresis so the pinned state is stable even as the bar
+    // changes height when it condenses.
+    const releaseOffset = 24;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
         const rootTop = entry.rootBounds ? entry.rootBounds.top : 0;
         const sentinelTop = entry.boundingClientRect.top;
-        const sentinelBottom = entry.boundingClientRect.bottom;
-        const shouldPin =
-          entry.intersectionRatio < 1 && sentinelTop <= rootTop;
-        const shouldRelease =
-          entry.intersectionRatio >= 1 && sentinelBottom >= rootTop + releaseOffset;
+        if (!Number.isFinite(sentinelTop)) {
+          return;
+        }
         setStatusBarPinned((prevPinned) => {
-          if (shouldPin) {
+          if (prevPinned) {
+            if (sentinelTop > rootTop + releaseOffset) {
+              return false;
+            }
             return true;
           }
-          if (shouldRelease) {
-            return false;
+          if (sentinelTop <= rootTop) {
+            return true;
           }
           return prevPinned;
         });
