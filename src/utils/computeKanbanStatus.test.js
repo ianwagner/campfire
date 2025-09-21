@@ -20,6 +20,11 @@ test('returns edit request when any edits present', () => {
   expect(status).toBe('edit request');
 });
 
+test('returns reviewed when some assets have been reviewed', () => {
+  const status = computeKanbanStatus({ assetCount: 3, counts: { approved: 1 }, reviewedCount: 1 });
+  expect(status).toBe('reviewed');
+});
+
 test('returns done when all approved, archived, or rejected', () => {
   const status = computeKanbanStatus({ assetCount: 3, counts: { approved: 1, archived: 1, rejected: 1 } });
   expect(status).toBe('done');
@@ -36,6 +41,6 @@ test('returns done when counts exceed asset total', () => {
 });
 
 test('returns designed otherwise', () => {
-  const status = computeKanbanStatus({ assetCount: 2, counts: { approved: 1, rejected: 0, edit: 0 } });
+  const status = computeKanbanStatus({ assetCount: 2, counts: { approved: 1, rejected: 0, edit: 0 }, reviewedCount: 0 });
   expect(status).toBe('designed');
 });
