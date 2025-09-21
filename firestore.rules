@@ -142,7 +142,8 @@ allow count: if request.auth != null && (
         (isEditor() &&
          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
            'status'
-         ]));
+         ])) ||
+        isReviewFlowUpdate();
       allow delete: if isAdmin();
 
       match /assets/{assetId} {
