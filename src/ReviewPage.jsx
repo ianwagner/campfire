@@ -168,7 +168,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         setRequirePassword(!!data.requirePassword);
         const blocked =
           data.visibility !== "public" ||
-          (data.requireAuth && auth.currentUser?.isAnonymous);
+          (data.requireAuth && (!currentUser || currentUser.isAnonymous));
         setAccessBlocked(blocked);
         setGroupAccessEvaluated(true);
       } catch (err) {
@@ -182,7 +182,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
       }
     };
     loadGroup();
-  }, [groupId]);
+  }, [groupId, currentUser]);
 
   useEffect(() => {
     if (groupPassword === null || accessBlocked) return;
