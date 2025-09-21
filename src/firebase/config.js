@@ -40,10 +40,29 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Use explicit Firestore initialization so we can tune the transport layer.
-initializeFirestore(app, {
+const shouldDisableFetchStreams = (() => {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|Chromium|Android/i.test(ua);
+  // Only fall back to the legacy WebChannel transport on browsers that still
+  // require it. For logged-in users on modern browsers, disabling fetch
+  // streaming forces Firestore to put the ID token in the WebChannel query
+  // string, which triggers 400 responses from the Listen endpoint.
+  return isIOS || isSafari;
+})();
+
+const firestoreSettings = {
   experimentalAutoDetectLongPolling: true,
-  useFetchStreams: false,
-});
+};
+
+if (shouldDisableFetchStreams) {
+  firestoreSettings.useFetchStreams = false;
+}
+
+initializeFirestore(app, firestoreSettings);
 
 // ✅ Export services you'll use
 export const auth = getAuth(app);
