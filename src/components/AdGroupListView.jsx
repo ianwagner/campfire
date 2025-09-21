@@ -208,7 +208,6 @@ const AdGroupListView = ({
                     <th>Group Name</th>
                     <th>Brand</th>
                     <th>Month</th>
-                    <th className="text-center">Reviewed</th>
                     <th className="text-center">Status</th>
                     <th>Actions</th>
                   </tr>
@@ -227,7 +226,6 @@ const AdGroupListView = ({
                       <td>
                         <MonthTag month={g.month} />
                       </td>
-                      <td className="text-center">{g.reviewedCount ?? 0}</td>
                       <td className="text-center">
                         <StatusBadge status={g.status} />
                       </td>
