@@ -44,15 +44,66 @@ const shouldForceLongPolling = (() => {
   if (typeof navigator === 'undefined') {
     return false;
   }
+
   const ua = navigator.userAgent || '';
   const isIOS = /iPad|iPhone|iPod/.test(ua);
   const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|Chromium|Android/i.test(ua);
-  // Force long polling only on browsers that still have trouble with the
-  // default streaming implementation. Relying on the legacy WebChannel
-  // transport causes authenticated listeners to send the ID token in the query
-  // string, which in turn produces a stream of 400 errors for logged-in users
-  // (the bug reported in the review flow).
-  return isIOS || isSafari;
+
+  if (isIOS || isSafari) {
+    return true;
+  }
+
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const normalize = (value = '') => value.toLowerCase().trim();
+  const parseCsv = (value = '') =>
+    value
+      .split(',')
+      .map((entry) => normalize(entry))
+      .filter(Boolean);
+
+  const { pathname = '', hostname = '' } = window.location || {};
+  const isReviewPath = /^\/review(\/?|\b)/.test(pathname);
+  const reviewHosts = parseCsv(import.meta.env.VITE_REVIEW_APP_HOSTS || '');
+  const host = normalize(hostname);
+  const isReviewHost = reviewHosts.some((entry) => {
+    if (!entry) return false;
+    if (entry.startsWith('.')) {
+      return host.endsWith(entry);
+    }
+    return host === entry;
+  });
+  const isReviewEnvironment = isReviewPath || isReviewHost;
+
+  if (!isReviewEnvironment) {
+    return false;
+  }
+
+  const allowlist = parseCsv(import.meta.env.VITE_REVIEW_WEBCHANNEL_ALLOWLIST || '');
+
+  if (allowlist.length === 0) {
+    return true;
+  }
+
+  const normalizedUa = normalize(ua);
+  const normalizedVendor = normalize(navigator.vendor || '');
+
+  const isAllowlisted = allowlist.some((entry) => {
+    if (entry.startsWith('ua:')) {
+      return normalizedUa.includes(entry.slice(3));
+    }
+    if (entry.startsWith('vendor:')) {
+      return normalizedVendor.includes(entry.slice(7));
+    }
+    if (entry.startsWith('host:')) {
+      return host === entry.slice(5);
+    }
+    return normalizedUa.includes(entry);
+  });
+
+  return !isAllowlisted;
 })();
 
 const firestoreSettings = {
