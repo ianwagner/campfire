@@ -170,6 +170,14 @@ match /assets/{assetId} {
            'requirePassword',
            'password'
          ])
+        ) ||
+        (isEditor() && resource.data.editorId == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+           'status',
+           'blocker'
+         ]) &&
+         (!request.resource.data.keys().hasAny(['status']) ||
+          ['new', 'briefed', 'blocked'].hasAny([request.resource.data.status]))
         );
       allow delete: if isAdmin();
 

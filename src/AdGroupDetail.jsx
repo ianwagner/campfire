@@ -422,7 +422,11 @@ const AdGroupDetail = () => {
   }, [group?.brandCode]);
 
   useEffect(() => {
-    if (!isAdmin && !isManager) return;
+    if (!(isAdmin || (isManager && !isEditor))) {
+      setDesigners([]);
+      setEditors([]);
+      return;
+    }
     const fetchAssignments = async () => {
       try {
         const dSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'designer')));
@@ -450,7 +454,7 @@ const AdGroupDetail = () => {
       }
     };
     fetchAssignments();
-  }, [isAdmin, isManager]);
+  }, [isAdmin, isEditor, isManager]);
 
   useEffect(() => {
     let cancelled = false;
@@ -484,6 +488,15 @@ const AdGroupDetail = () => {
     const loadEditor = async () => {
       if (!group?.editorId) {
         setEditorName('');
+        return;
+      }
+      if (group.editorId === auth.currentUser?.uid) {
+        if (!cancelled) {
+          const current = auth.currentUser;
+          setEditorName(
+            current?.displayName || current?.email || current?.phoneNumber || group.editorId
+          );
+        }
         return;
       }
       try {
@@ -2459,7 +2472,12 @@ const AdGroupDetail = () => {
             className={`status-select status-${(group.status || '').replace(/\s+/g, '_')}`}
           >
             {statusOptions.map((s) => (
-              <option key={s} value={s}>
+              <option
+                key={s}
+                value={s}
+                disabled={isDesigner && s === 'briefed'}
+                hidden={isDesigner && s === 'briefed'}
+              >
                 {s}
               </option>
             ))}
