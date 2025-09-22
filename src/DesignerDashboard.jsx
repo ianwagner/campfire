@@ -22,7 +22,7 @@ const DesignerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [viewNote, setViewNote] = useState(null);
   const user = auth.currentUser;
-  const { role, brandCodes } = useUserRole(user?.uid);
+  const { role, brandCodes, loading: roleLoading } = useUserRole(user?.uid);
 
   const [shareInfo, setShareInfo] = useState(null);
 
@@ -53,6 +53,7 @@ const DesignerDashboard = () => {
   };
 
   useEffect(() => {
+    if (!user || roleLoading) return;
     const fetchGroups = async () => {
       setLoading(true);
       try {
@@ -154,7 +155,7 @@ const DesignerDashboard = () => {
     };
 
     fetchGroups();
-  }, [brandCodes]);
+  }, [brandCodes, role, roleLoading, user?.uid]);
 
 
   return (
