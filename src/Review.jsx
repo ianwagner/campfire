@@ -3056,7 +3056,7 @@ useEffect(() => {
               {showFinalizeModal === 'pending' ? (
                 <>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Their are pending ads remaining. Would you like to approve them?
+                    There are pending ads remaining. Would you like to approve them?
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Note: This lets the design team know the review is complete. You'll still be able to download approved ads,
