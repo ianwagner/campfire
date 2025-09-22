@@ -23,6 +23,7 @@ import { auth } from '../firebase/config';
 import useUserRole from '../useUserRole';
 import IconButton from './IconButton.jsx';
 import MonthTag from './MonthTag.jsx';
+import { getReviewTypeLabel } from '../utils/reviewVersion';
 
 
 const AdGroupCard = ({
@@ -45,14 +46,18 @@ const AdGroupCard = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
+  const isAdmin = role === 'admin';
   const dueField =
     role === 'designer'
       ? group.designDueDate
       : role === 'editor'
       ? group.editorDueDate
-      : role === 'project-manager' || role === 'admin'
+      : role === 'project-manager' || isAdmin
       ? group.dueDate
       : null;
+  const reviewTypeLabel = isAdmin
+    ? getReviewTypeLabel(group.reviewVersion ?? group.reviewType ?? 1)
+    : null;
 
   const handleClick = (e, cb) => {
     e.preventDefault();
@@ -197,6 +202,11 @@ const AdGroupCard = ({
             {group.editorName && role !== 'ops' && (
               <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
                 {group.editorName}
+              </p>
+            )}
+            {isAdmin && (
+              <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
+                Review Type: {reviewTypeLabel}
               </p>
             )}
           </div>
