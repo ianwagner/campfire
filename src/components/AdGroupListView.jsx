@@ -53,6 +53,12 @@ const normalizeReviewVersion = (value) => {
     if (value.version !== undefined) {
       return normalizeReviewVersion(value.version);
     }
+    if (value.value !== undefined) {
+      return normalizeReviewVersion(value.value);
+    }
+    if (value.label !== undefined) {
+      return normalizeReviewVersion(value.label);
+    }
     return '1';
   }
 
