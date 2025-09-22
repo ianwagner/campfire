@@ -693,6 +693,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           requireAuth: false,
           requirePassword: false,
           password: '',
+          reviewVersion: 2,
           dueDate: req.dueDate || null,
           clientNote: '',
           designerId: req.designerId || null,
