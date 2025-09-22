@@ -209,6 +209,7 @@ const AdGroupDetail = () => {
     userRole === "manager" ||
     userRole === "editor" ||
     userRole === "project-manager";
+  const canManageStaff = isAdmin || (isManager && !isEditor);
   const isClient = userRole === "client";
   const usesTabs = isAdmin || isDesigner || isManager || isClient;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
@@ -2588,7 +2589,7 @@ const AdGroupDetail = () => {
       </p>
       <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
         Designer:
-        {isAdmin || isManager ? (
+        {canManageStaff ? (
           <select
             value={group.designerId || ''}
             onChange={async (e) => {
@@ -2614,7 +2615,7 @@ const AdGroupDetail = () => {
         )}
         <span className="hidden sm:inline">|</span>
         Design Due Date:
-        {isAdmin || isManager ? (
+        {canManageStaff ? (
           <input
             type="date"
             value={
@@ -2648,7 +2649,7 @@ const AdGroupDetail = () => {
         )}
         <span className="hidden sm:inline">|</span>
         Editor:
-        {isAdmin || isManager ? (
+        {canManageStaff ? (
           <select
             value={group.editorId || ''}
             onChange={async (e) => {
@@ -2674,7 +2675,7 @@ const AdGroupDetail = () => {
         )}
         <span className="hidden sm:inline">|</span>
         Editor Due Date:
-        {isAdmin || isManager ? (
+        {canManageStaff ? (
           <input
             type="date"
             value={
