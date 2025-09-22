@@ -20,14 +20,14 @@ test('returns new when no assets', () => {
   expect(status).toBe('new');
 });
 
-test('returns reviewed when some assets have been reviewed', () => {
+test('keeps groups in designed column when only some assets reviewed', () => {
   const status = computeKanbanStatus({ assetCount: 3, counts: { approved: 1 }, reviewedCount: 1 });
-  expect(status).toBe('reviewed');
+  expect(status).toBe('designed');
 });
 
-test('returns reviewed when edits are requested', () => {
+test('keeps groups in designed column when edits are requested', () => {
   const status = computeKanbanStatus({ assetCount: 2, counts: { edit: 1 } });
-  expect(status).toBe('reviewed');
+  expect(status).toBe('designed');
 });
 
 test('returns done when all approved, archived, or rejected', () => {

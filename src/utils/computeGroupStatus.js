@@ -22,10 +22,9 @@ export default function computeGroupStatus(
   );
   if (allReviewed) return 'done';
 
-  const hasReviewed = active.some((a) =>
-    ['approved', 'rejected'].includes(a.status),
-  );
-  if (hasReviewed) return 'reviewed';
+  if (normalized === 'done' || normalized === 'reviewed') {
+    return normalized;
+  }
 
   if (inDesign || normalized === 'designed') return 'designed';
 
