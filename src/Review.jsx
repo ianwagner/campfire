@@ -3524,33 +3524,26 @@ useEffect(() => {
                               className="inline-block h-2.5 w-2.5 rounded-full"
                               style={statusDotStyles[statusValue] || statusDotStyles.pending}
                             />
-                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-                              <label
-                                className="text-sm font-medium text-gray-600 dark:text-gray-300"
-                                htmlFor={selectId}
+                            <div
+                              className="flex items-center"
+                              title={isGroupReviewed ? reviewedLockMessage : undefined}
+                            >
+                              <select
+                                id={selectId}
+                                aria-label="Status"
+                                className={`min-w-[160px] ${
+                                  isGroupReviewed ? 'cursor-not-allowed opacity-60' : ''
+                                }`}
+                                value={statusValue}
+                                onChange={handleSelectChange}
+                                disabled={submitting || isGroupReviewed}
                               >
-                                Status
-                              </label>
-                              <div
-                                className="flex items-center"
-                                title={isGroupReviewed ? reviewedLockMessage : undefined}
-                              >
-                                <select
-                                  id={selectId}
-                                  className={`min-w-[160px] ${
-                                    isGroupReviewed ? 'cursor-not-allowed opacity-60' : ''
-                                  }`}
-                                  value={statusValue}
-                                  onChange={handleSelectChange}
-                                  disabled={submitting || isGroupReviewed}
-                                >
-                                  {statusOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                      {option.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
+                                {statusOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
                           </div>
                           {showEditButton && (
