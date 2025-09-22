@@ -101,6 +101,7 @@ const CreateProjectModal = ({
         requireAuth: false,
         requirePassword: false,
         password: '',
+        reviewVersion: 2,
         month: month || null,
         dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
         ...(briefNote ? { notes: briefNote } : {}),
