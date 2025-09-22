@@ -1,11 +1,22 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import AdGroupListView from './components/AdGroupListView.jsx';
 
 jest.mock('./firebase/config', () => ({ db: {}, auth: {} }));
 jest.mock('./useUserRole', () => () => ({ role: 'project-manager' }));
+jest.mock('firebase/firestore', () => ({
+  doc: jest.fn(() => ({})),
+  updateDoc: jest.fn(() => Promise.resolve()),
+}));
+
+const firestore = require('firebase/firestore');
+
+beforeEach(() => {
+  firestore.doc.mockClear();
+  firestore.updateDoc.mockClear();
+});
 
 test('renders link to ad group detail when linkToDetail is true', () => {
   render(
@@ -57,4 +68,35 @@ test('sorts groups by brand when selected', () => {
   fireEvent.change(screen.getByLabelText('Sort by'), { target: { value: 'brand' } });
   rows = screen.getAllByRole('row').slice(1);
   expect(rows[0]).toHaveTextContent('Group B');
+});
+
+test('allows updating review type from the list view', async () => {
+  render(
+    <MemoryRouter>
+      <AdGroupListView
+        groups={[{ id: '1', name: 'Group One', brandCode: 'BR', status: 'processing', month: 1, reviewVersion: 1 }]}
+        loading={false}
+        filter=""
+        onFilterChange={() => {}}
+        view="table"
+        onViewChange={() => {}}
+        showArchived={false}
+        onToggleArchived={() => {}}
+        onGallery={() => {}}
+        onCopy={() => {}}
+        onDownload={() => {}}
+        linkToDetail
+      />
+    </MemoryRouter>
+  );
+
+  const select = screen.getByLabelText('Review type for Group One');
+  expect(select.value).toBe('1');
+  fireEvent.change(select, { target: { value: '2' } });
+
+  await waitFor(() =>
+    expect(firestore.updateDoc).toHaveBeenCalledWith(expect.anything(), { reviewVersion: 2 })
+  );
+  expect(firestore.doc).toHaveBeenCalledWith({}, 'adGroups', '1');
+  expect(select.value).toBe('2');
 });
