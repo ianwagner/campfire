@@ -120,6 +120,30 @@ const assetMatchesReference = (asset, referenceId) => {
   );
 };
 
+const getRecipeVersionUnitKey = (asset) => {
+  if (!asset) return '';
+  const info = parseAdFilename(asset.filename || '');
+  const recipe =
+    normalizeKeyPart(
+      asset.recipeCode ||
+        asset.recipeId ||
+        asset.recipe ||
+        info.recipeCode,
+    ) || '';
+  if (!recipe) return '';
+  const adGroupId =
+    normalizeKeyPart(
+      asset.adGroupId || asset.groupId || asset.groupCode || info.adGroupCode,
+    ) || '';
+  const version = normalizeKeyPart(getVersion(asset));
+  if (!version) return '';
+  const parts = [];
+  if (adGroupId) parts.push(adGroupId);
+  parts.push(recipe);
+  parts.push(`v${version}`);
+  return parts.join('|');
+};
+
 const getAdUnitKey = (asset) => {
   if (!asset) return '';
   const info = parseAdFilename(asset.filename || '');
@@ -218,6 +242,16 @@ const isSameAdUnit = (first, second) => {
     return true;
   }
 
+  const firstRecipeVersionKey = getRecipeVersionUnitKey(first);
+  const secondRecipeVersionKey = getRecipeVersionUnitKey(second);
+  if (
+    firstRecipeVersionKey &&
+    secondRecipeVersionKey &&
+    firstRecipeVersionKey === secondRecipeVersionKey
+  ) {
+    return true;
+  }
+
   const firstKey = getAdUnitKey(first);
   const secondKey = getAdUnitKey(second);
   if (firstKey && secondKey) {
@@ -242,7 +276,9 @@ const dedupeByAdUnit = (list = []) => {
   const seen = new Set();
   return list.filter((item) => {
     if (!item) return false;
+    const recipeVersionKey = getRecipeVersionUnitKey(item);
     const key =
+      recipeVersionKey ||
       getAdUnitKey(item) ||
       getAssetUnitId(item) ||
       getAssetParentId(item) ||
@@ -2398,7 +2434,17 @@ useEffect(() => {
       !!targetAd &&
       isSameAdUnit(asset, targetAd);
     const filteredAssets = (targetAssets || []).filter(matchesTargetAsset);
-    const recipeAssets = filteredAssets.length > 0 ? filteredAssets : [targetAd];
+    let recipeAssets = filteredAssets;
+    if (recipeAssets.length === 0 && matchesTargetAsset(targetAd)) {
+      recipeAssets = [targetAd];
+    }
+
+    if (recipeAssets.length === 0) {
+      console.warn('No eligible assets found for status update');
+      setSubmitting(false);
+      setAnimating(null);
+      return;
+    }
     const updates = [];
     const addedResponses = {};
     const newStatus =
