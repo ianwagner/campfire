@@ -3597,7 +3597,7 @@ useEffect(() => {
                                 </h4>
                                 {noteEntries.map((entry, noteIdx) => (
                                   <div key={noteIdx} className="mb-2 last:mb-0">
-                                    <p className="whitespace-pre-wrap leading-relaxed">
+                                    <p className="whitespace-pre-wrap leading-relaxed break-words">
                                       {entry.body}
                                     </p>
                                     {entry.meta && (
@@ -3614,7 +3614,7 @@ useEffect(() => {
                                 <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
                                   Requested Copy
                                 </h4>
-                                <pre className="whitespace-pre-wrap leading-relaxed">
+                                <pre className="whitespace-pre-wrap leading-relaxed break-words">
                                   {hasEditInfo.copyEdit}
                                 </pre>
                               </div>
