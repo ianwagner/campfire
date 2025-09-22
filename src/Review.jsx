@@ -17,6 +17,7 @@ import {
   FiMessageSquare,
   FiPlus,
   FiEdit3,
+  FiCheckCircle,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -425,6 +426,8 @@ const Review = forwardRef(
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
   const [initialStatus, setInitialStatus] = useState(null);
+  const [groupStatus, setGroupStatus] = useState(null);
+  const isGroupReviewed = groupStatus === 'reviewed';
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
   // refs to track latest values for cleanup on unmount
@@ -898,6 +901,56 @@ useEffect(() => {
     setShowSizes(false);
   }, [currentIndex]);
 
+  useEffect(() => {
+    if (!groupId) {
+      setGroupStatus(null);
+      return;
+    }
+
+    const groupRef = doc(db, 'adGroups', groupId);
+    let cancelled = false;
+    let unsubscribe = null;
+
+    const applyStatus = (snapshot) => {
+      if (!snapshot || !snapshot.exists()) {
+        setGroupStatus(null);
+        return;
+      }
+      const data = snapshot.data();
+      setGroupStatus(data?.status || null);
+    };
+
+    const fetchStatus = async () => {
+      try {
+        const snap = await getDoc(groupRef);
+        if (cancelled) return;
+        applyStatus(snap);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to fetch ad group status', err);
+        }
+      }
+    };
+
+    fetchStatus();
+
+    if (allowPublicListeners) {
+      unsubscribe = onSnapshot(
+        groupRef,
+        (snap) => applyStatus(snap),
+        (error) => {
+          console.error('Failed to subscribe to ad group status', error);
+        },
+      );
+    }
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [allowPublicListeners, groupId]);
 
   useEffect(() => {
     if (!allowPublicListeners) {
@@ -914,7 +967,9 @@ useEffect(() => {
             const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
             if (groupSnap.exists()) {
               const data = groupSnap.data();
-              status = data.status || 'pending';
+              const rawStatus = data.status || 'pending';
+              setGroupStatus(rawStatus);
+              status = rawStatus;
               rv = data.reviewVersion || 1;
               setGroupBrandCode(data.brandCode || '');
               if (rv === 3) {
@@ -959,10 +1014,13 @@ useEffect(() => {
                       : {}),
                   };
                 });
+          } else {
+            setGroupStatus(null);
           }
           setInitialStatus(status);
           setReviewVersion(rv);
         } else {
+          setGroupStatus(null);
           const normalizedBrandCodes = Array.from(
             new Set(
               brandCodes
@@ -2730,6 +2788,7 @@ useEffect(() => {
         }
       }
 
+      setGroupStatus('reviewed');
       setInitialStatus('done');
       setStarted(false);
       setShowFinalizeModal(null);
@@ -3135,22 +3194,38 @@ useEffect(() => {
                         })}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={openFinalizeModal}
-                      disabled={
-                        finalizeProcessing || submitting || !groupId
-                      }
-                      className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${
-                        statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
-                      } ${
-                        finalizeProcessing || submitting || !groupId
-                          ? 'opacity-60 cursor-not-allowed'
-                          : ''
-                      }`}
-                    >
-                      finalize review
-                    </button>
+                    {isGroupReviewed ? (
+                      <span
+                        className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 sm:self-center ${
+                          statusBarPinned ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'
+                        }`}
+                      >
+                        <FiCheckCircle
+                          className={
+                            statusBarPinned ? 'h-3.5 w-3.5' : 'h-4 w-4'
+                          }
+                          aria-hidden="true"
+                        />
+                        Reviewed
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={openFinalizeModal}
+                        disabled={
+                          finalizeProcessing || submitting || !groupId
+                        }
+                        className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${
+                          statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
+                        } ${
+                          finalizeProcessing || submitting || !groupId
+                            ? 'opacity-60 cursor-not-allowed'
+                            : ''
+                        }`}
+                      >
+                        finalize review
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -3350,7 +3425,7 @@ useEffect(() => {
                                 className="min-w-[160px]"
                                 value={statusValue}
                                 onChange={handleSelectChange}
-                                disabled={submitting}
+                                disabled={submitting || isGroupReviewed}
                               >
                                 {statusOptions.map((option) => (
                                   <option key={option.value} value={option.value}>
