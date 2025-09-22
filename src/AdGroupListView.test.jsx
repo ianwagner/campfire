@@ -1,11 +1,14 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import AdGroupListView from './components/AdGroupListView.jsx';
 
 jest.mock('./firebase/config', () => ({ db: {}, auth: {} }));
 jest.mock('./useUserRole', () => () => ({ role: 'project-manager' }));
+jest.mock('./useSiteSettings', () => () => ({}));
+jest.mock('./components/AdGroupCard.jsx', () => () => null);
+jest.mock('./components/MonthTag.jsx', () => () => null);
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(() => ({})),
   updateDoc: jest.fn(() => Promise.resolve()),
@@ -173,4 +176,74 @@ test('falls back to brief when review type is stored as a labeled object', () =>
 
   const select = screen.getByLabelText('Review type for Group Two');
   expect(select.value).toBe('3');
+});
+
+test('normalizes 3.0 review version strings to the brief option', () => {
+  render(
+    <MemoryRouter>
+      <AdGroupListView
+        groups={[
+          {
+            id: '3',
+            name: 'Group Three',
+            brandCode: 'BR',
+            status: 'processing',
+            month: 1,
+            reviewVersion: '3.0',
+          },
+        ]}
+        loading={false}
+        filter=""
+        onFilterChange={() => {}}
+        view="table"
+        onViewChange={() => {}}
+        showArchived={false}
+        onToggleArchived={() => {}}
+        onGallery={() => {}}
+        onCopy={() => {}}
+        onDownload={() => {}}
+        linkToDetail
+      />
+    </MemoryRouter>
+  );
+
+  const select = screen.getByLabelText('Review type for Group Three');
+  expect(select.value).toBe('3');
+  const briefOption = within(select).getByRole('option', { name: 'Brief' });
+  expect(briefOption.selected).toBe(true);
+});
+
+test('normalizes nested review version values containing v3 to the brief option', () => {
+  render(
+    <MemoryRouter>
+      <AdGroupListView
+        groups={[
+          {
+            id: '4',
+            name: 'Group Four',
+            brandCode: 'BR',
+            status: 'processing',
+            month: 1,
+            reviewVersion: { value: 'v3' },
+          },
+        ]}
+        loading={false}
+        filter=""
+        onFilterChange={() => {}}
+        view="table"
+        onViewChange={() => {}}
+        showArchived={false}
+        onToggleArchived={() => {}}
+        onGallery={() => {}}
+        onCopy={() => {}}
+        onDownload={() => {}}
+        linkToDetail
+      />
+    </MemoryRouter>
+  );
+
+  const select = screen.getByLabelText('Review type for Group Four');
+  expect(select.value).toBe('3');
+  const briefOption = within(select).getByRole('option', { name: 'Brief' });
+  expect(briefOption.selected).toBe(true);
 });
