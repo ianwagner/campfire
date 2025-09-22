@@ -48,6 +48,7 @@ import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
+import Modal from './components/Modal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
@@ -340,6 +341,8 @@ const Review = forwardRef(
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(null);
+  const [finalizeProcessing, setFinalizeProcessing] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
   const [allHeroAds, setAllHeroAds] = useState([]); // hero list for all ads
@@ -2670,6 +2673,84 @@ useEffect(() => {
     }
   };
 
+  const approveAllPending = async () => {
+    const pendingEntries = [];
+    reviewAds.forEach((ad, index) => {
+      const { statusValue, statusAssets } = buildStatusMeta(ad, index);
+      if (statusValue === 'pending') {
+        pendingEntries.push({ ad, assets: statusAssets, index });
+      }
+    });
+
+    for (const entry of pendingEntries) {
+      await submitResponse('approve', {
+        targetAd: entry.ad,
+        targetAssets: entry.assets,
+        targetIndex: entry.index,
+        skipAdvance: true,
+      });
+    }
+  };
+
+  const handleFinalizeReview = async (approvePending = false) => {
+    if (!groupId) {
+      setShowFinalizeModal(null);
+      return;
+    }
+
+    setFinalizeProcessing(true);
+    try {
+      if (approvePending) {
+        await approveAllPending();
+      }
+
+      const updateData = {
+        status: 'reviewed',
+        reviewProgress: null,
+        lastUpdated: serverTimestamp(),
+      };
+
+      await updateDoc(doc(db, 'adGroups', groupId), updateData);
+
+      if (isPublicReviewer) {
+        try {
+          await addDoc(collection(db, 'adGroups', groupId, 'publicUpdates'), {
+            type: 'status',
+            update: {
+              status: 'reviewed',
+              reviewProgress: null,
+              lastUpdated: new Date().toISOString(),
+            },
+            createdAt: serverTimestamp(),
+            reviewer: reviewerIdentifier,
+            source: 'public-review',
+          });
+        } catch (err) {
+          console.warn('Failed to record public finalize update', err);
+        }
+      }
+
+      setInitialStatus('done');
+      setStarted(false);
+      setShowFinalizeModal(null);
+    } catch (err) {
+      console.error('Failed to finalize review', err);
+    } finally {
+      setFinalizeProcessing(false);
+    }
+  };
+
+  const openFinalizeModal = () => {
+    if (finalizeProcessing || !groupId) return;
+    const pendingCount = reviewStatusCounts?.pending ?? 0;
+    setShowFinalizeModal(pendingCount > 0 ? 'pending' : 'confirm');
+  };
+
+  const closeFinalizeModal = () => {
+    if (finalizeProcessing) return;
+    setShowFinalizeModal(null);
+  };
+
   if (
     reviewVersion === null ||
     !logoReady ||
@@ -2822,6 +2903,62 @@ useEffect(() => {
 
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen space-y-4">
+      {showFinalizeModal && (
+        <Modal>
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                Finalize review
+              </h2>
+              {showFinalizeModal === 'pending' ? (
+                <>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Their are pending ads remaining. Would you like to approve them?
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Note: This lets the design team know the review is complete. You'll still be able to download approved ads,
+                    but once finalized you won't be able to add new feedback or re-open the review.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Note: This lets the design team know the review is complete. You'll still be able to download approved ads, but
+                  once finalized you won't be able to add new feedback or re-open the review.
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={closeFinalizeModal}
+                disabled={finalizeProcessing}
+              >
+                Cancel
+              </button>
+              {showFinalizeModal === 'pending' ? (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => handleFinalizeReview(true)}
+                  disabled={finalizeProcessing}
+                >
+                  {finalizeProcessing ? 'Approving...' : 'Approve all Pending'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => handleFinalizeReview(false)}
+                  disabled={finalizeProcessing}
+                >
+                  {finalizeProcessing ? 'Finalizing...' : 'Confirm'}
+                </button>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
       {showStreakModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded-xl shadow max-w-sm space-y-4 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
@@ -3000,7 +3137,17 @@ useEffect(() => {
                     </div>
                     <button
                       type="button"
-                      className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'}`}
+                      onClick={openFinalizeModal}
+                      disabled={
+                        finalizeProcessing || submitting || !groupId
+                      }
+                      className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${
+                        statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
+                      } ${
+                        finalizeProcessing || submitting || !groupId
+                          ? 'opacity-60 cursor-not-allowed'
+                          : ''
+                      }`}
                     >
                       finalize review
                     </button>
