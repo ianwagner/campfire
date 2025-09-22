@@ -484,6 +484,8 @@ const Review = forwardRef(
   const [initialStatus, setInitialStatus] = useState(null);
   const [groupStatus, setGroupStatus] = useState(null);
   const isGroupReviewed = groupStatus === 'reviewed';
+  const reviewedLockMessage =
+    'This ad group has been reviewed. Further changes are disabled.';
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
   // refs to track latest values for cleanup on unmount
@@ -3529,19 +3531,26 @@ useEffect(() => {
                               >
                                 Status
                               </label>
-                              <select
-                                id={selectId}
-                                className="min-w-[160px]"
-                                value={statusValue}
-                                onChange={handleSelectChange}
-                                disabled={submitting || isGroupReviewed}
+                              <div
+                                className="flex items-center"
+                                title={isGroupReviewed ? reviewedLockMessage : undefined}
                               >
-                                {statusOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
+                                <select
+                                  id={selectId}
+                                  className={`min-w-[160px] ${
+                                    isGroupReviewed ? 'cursor-not-allowed opacity-60' : ''
+                                  }`}
+                                  value={statusValue}
+                                  onChange={handleSelectChange}
+                                  disabled={submitting || isGroupReviewed}
+                                >
+                                  {statusOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             </div>
                           </div>
                           {showEditButton && (
@@ -3562,58 +3571,80 @@ useEffect(() => {
                         {showEditButton && isExpanded && (
                           <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
                             <div className="mb-3 flex flex-wrap items-center gap-2">
-                              <button
-                                type="button"
-                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
-                                onClick={() => {
-                                  setManualStatus((prev) => ({
-                                    ...prev,
-                                    [cardKey]: 'edit',
-                                  }));
-                                  setPendingResponseContext({
-                                    ad,
-                                    assets: statusAssets,
-                                    index,
-                                    key: cardKey,
-                                    existingComment,
-                                    existingCopy: existingCopyEdit,
-                                  });
-                                  openEditRequest(ad, index, {
-                                    mode: 'note',
-                                    initialComment: '',
-                                    initialCopy: resolvedExistingCopy,
-                                  });
-                                }}
+                              <span
+                                className="inline-flex"
+                                title={isGroupReviewed ? reviewedLockMessage : undefined}
                               >
-                                <FiPlus className="h-4 w-4" aria-hidden="true" />
-                                <span>Add note</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
-                                onClick={() => {
-                                  setManualStatus((prev) => ({
-                                    ...prev,
-                                    [cardKey]: 'edit',
-                                  }));
-                                  setPendingResponseContext({
-                                    ad,
-                                    assets: statusAssets,
-                                    index,
-                                    key: cardKey,
-                                    existingComment,
-                                    existingCopy: existingCopyEdit,
-                                  });
-                                  openEditRequest(ad, index, {
-                                    mode: 'copy',
-                                    initialComment: '',
-                                    initialCopy: resolvedExistingCopy,
-                                  });
-                                }}
+                                <button
+                                  type="button"
+                                  className={`inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 ${
+                                    isGroupReviewed
+                                      ? 'opacity-60 cursor-not-allowed'
+                                      : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]'
+                                  }`}
+                                  onClick={() => {
+                                    setManualStatus((prev) => ({
+                                      ...prev,
+                                      [cardKey]: 'edit',
+                                    }));
+                                    setPendingResponseContext({
+                                      ad,
+                                      assets: statusAssets,
+                                      index,
+                                      key: cardKey,
+                                      existingComment,
+                                      existingCopy: existingCopyEdit,
+                                    });
+                                    openEditRequest(ad, index, {
+                                      mode: 'note',
+                                      initialComment: '',
+                                      initialCopy: resolvedExistingCopy,
+                                    });
+                                  }}
+                                  disabled={isGroupReviewed}
+                                  aria-disabled={isGroupReviewed}
+                                >
+                                  <FiPlus className="h-4 w-4" aria-hidden="true" />
+                                  <span>Add note</span>
+                                </button>
+                              </span>
+                              <span
+                                className="inline-flex"
+                                title={isGroupReviewed ? reviewedLockMessage : undefined}
                               >
-                                <FiEdit3 className="h-4 w-4" aria-hidden="true" />
-                                <span>Edit Copy</span>
-                              </button>
+                                <button
+                                  type="button"
+                                  className={`inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 ${
+                                    isGroupReviewed
+                                      ? 'opacity-60 cursor-not-allowed'
+                                      : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]'
+                                  }`}
+                                  onClick={() => {
+                                    setManualStatus((prev) => ({
+                                      ...prev,
+                                      [cardKey]: 'edit',
+                                    }));
+                                    setPendingResponseContext({
+                                      ad,
+                                      assets: statusAssets,
+                                      index,
+                                      key: cardKey,
+                                      existingComment,
+                                      existingCopy: existingCopyEdit,
+                                    });
+                                    openEditRequest(ad, index, {
+                                      mode: 'copy',
+                                      initialComment: '',
+                                      initialCopy: resolvedExistingCopy,
+                                    });
+                                  }}
+                                  disabled={isGroupReviewed}
+                                  aria-disabled={isGroupReviewed}
+                                >
+                                  <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                                  <span>Edit Copy</span>
+                                </button>
+                              </span>
                             </div>
                             {hasEditInfo?.comment && (
                               <div className="mb-3">
