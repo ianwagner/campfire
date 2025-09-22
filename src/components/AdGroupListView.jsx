@@ -9,6 +9,7 @@ import {
   FiArchive,
   FiCalendar,
 } from 'react-icons/fi';
+import { doc, updateDoc } from 'firebase/firestore';
 import Table from './common/Table';
 import AdGroupCard from './AdGroupCard.jsx';
 import TabButton from './TabButton.jsx';
@@ -18,6 +19,8 @@ import StatusBadge from './StatusBadge.jsx';
 import computeKanbanStatus from '../utils/computeKanbanStatus';
 import MonthTag from './MonthTag.jsx';
 import AdGroupGantt from './AdGroupGantt.jsx';
+import { db } from '../firebase/config';
+import { normalizeReviewVersion } from '../utils/reviewVersion';
 
 const statusOrder = {
   blocked: 0,
@@ -57,6 +60,32 @@ const AdGroupListView = ({
   const term = (filter || '').toLowerCase();
   const months = Array.from(new Set(groups.map((g) => g.month).filter(Boolean))).sort();
   const [sortField, setSortField] = useState('title');
+  const [reviewVersions, setReviewVersions] = useState({});
+  const [updatingReview, setUpdatingReview] = useState(null);
+
+  const handleReviewTypeChange = async (groupId, newValue, previousValue, hadOverride) => {
+    const normalizedValue = normalizeReviewVersion(newValue);
+    const numericValue = Number(normalizedValue);
+    setReviewVersions((prev) => ({ ...prev, [groupId]: normalizedValue }));
+    setUpdatingReview(groupId);
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), { reviewVersion: numericValue });
+    } catch (err) {
+      console.error('Failed to update review version', err);
+      setReviewVersions((prev) => {
+        const next = { ...prev };
+        if (hadOverride) {
+          next[groupId] = previousValue;
+        } else {
+          delete next[groupId];
+        }
+        return next;
+      });
+    } finally {
+      setUpdatingReview(null);
+    }
+  };
+
   const displayGroups = groups
     .filter(
       (g) =>
@@ -209,44 +238,75 @@ const AdGroupListView = ({
                     <th>Group Name</th>
                     <th>Brand</th>
                     <th>Month</th>
+                    <th className="text-center">Review Type</th>
                     <th className="text-center">Reviewed</th>
                     <th className="text-center">Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {displayGroups.map((g) => (
-                    <tr key={g.id}>
-                      <td>
-                        {linkToDetail ? (
-                          <Link to={`/ad-group/${g.id}`}>{g.name}</Link>
-                        ) : (
-                          g.name
-                        )}
-                      </td>
-                      <td>{g.brandCode}</td>
-                      <td>
-                        <MonthTag month={g.month} />
-                      </td>
-                      <td className="text-center">{g.reviewedCount ?? 0}</td>
-                      <td className="text-center">
-                        <StatusBadge status={g.status} />
-                      </td>
-                      <td className="text-center">
-                        <div className="flex items-center justify-center">
-                          <IconButton onClick={() => onGallery(g.id)} aria-label="See Gallery">
-                            <FiGrid />
-                          </IconButton>
-                          <IconButton onClick={() => onCopy(g.id)} className="ml-2" aria-label="See Platform Copy">
-                            <FiType />
-                          </IconButton>
-                          <IconButton onClick={() => onDownload(g.id)} className="ml-2" aria-label="Download Approved Assets">
-                            <FiDownload />
-                          </IconButton>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {displayGroups.map((g) => {
+                    const normalizedReviewVersion =
+                      reviewVersions[g.id] ?? normalizeReviewVersion(g.reviewVersion ?? 1);
+                    const hadOverride = reviewVersions[g.id] !== undefined;
+
+                    return (
+                      <tr key={g.id}>
+                        <td>
+                          {linkToDetail ? (
+                            <Link to={`/ad-group/${g.id}`}>{g.name}</Link>
+                          ) : (
+                            g.name
+                          )}
+                        </td>
+                        <td>{g.brandCode}</td>
+                        <td>
+                          <MonthTag month={g.month} />
+                        </td>
+                        <td className="text-center">
+                          <select
+                            className="border rounded p-1 text-sm"
+                            aria-label={`Review type for ${g.name || g.id}`}
+                            value={normalizedReviewVersion}
+                            onChange={(e) =>
+                              handleReviewTypeChange(
+                                g.id,
+                                e.target.value,
+                                normalizedReviewVersion,
+                                hadOverride,
+                              )
+                            }
+                            disabled={updatingReview === g.id}
+                          >
+                            <option value="1">Legacy</option>
+                            <option value="2">2.0</option>
+                            <option value="3">Brief</option>
+                          </select>
+                        </td>
+                        <td className="text-center">{g.reviewedCount ?? 0}</td>
+                        <td className="text-center">
+                          <StatusBadge status={g.status} />
+                        </td>
+                        <td className="text-center">
+                          <div className="flex items-center justify-center">
+                            <IconButton onClick={() => onGallery(g.id)} aria-label="See Gallery">
+                              <FiGrid />
+                            </IconButton>
+                            <IconButton onClick={() => onCopy(g.id)} className="ml-2" aria-label="See Platform Copy">
+                              <FiType />
+                            </IconButton>
+                            <IconButton
+                              onClick={() => onDownload(g.id)}
+                              className="ml-2"
+                              aria-label="Download Approved Assets"
+                            >
+                              <FiDownload />
+                            </IconButton>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </Table>
             </div>

@@ -120,6 +120,30 @@ const assetMatchesReference = (asset, referenceId) => {
   );
 };
 
+const getRecipeVersionUnitKey = (asset) => {
+  if (!asset) return '';
+  const info = parseAdFilename(asset.filename || '');
+  const recipe =
+    normalizeKeyPart(
+      asset.recipeCode ||
+        asset.recipeId ||
+        asset.recipe ||
+        info.recipeCode,
+    ) || '';
+  if (!recipe) return '';
+  const adGroupId =
+    normalizeKeyPart(
+      asset.adGroupId || asset.groupId || asset.groupCode || info.adGroupCode,
+    ) || '';
+  const version = normalizeKeyPart(getVersion(asset));
+  if (!version) return '';
+  const parts = [];
+  if (adGroupId) parts.push(adGroupId);
+  parts.push(recipe);
+  parts.push(`v${version}`);
+  return parts.join('|');
+};
+
 const getAdUnitKey = (asset) => {
   if (!asset) return '';
   const info = parseAdFilename(asset.filename || '');
@@ -218,6 +242,16 @@ const isSameAdUnit = (first, second) => {
     return true;
   }
 
+  const firstRecipeVersionKey = getRecipeVersionUnitKey(first);
+  const secondRecipeVersionKey = getRecipeVersionUnitKey(second);
+  if (
+    firstRecipeVersionKey &&
+    secondRecipeVersionKey &&
+    firstRecipeVersionKey === secondRecipeVersionKey
+  ) {
+    return true;
+  }
+
   const firstKey = getAdUnitKey(first);
   const secondKey = getAdUnitKey(second);
   if (firstKey && secondKey) {
@@ -242,7 +276,9 @@ const dedupeByAdUnit = (list = []) => {
   const seen = new Set();
   return list.filter((item) => {
     if (!item) return false;
+    const recipeVersionKey = getRecipeVersionUnitKey(item);
     const key =
+      recipeVersionKey ||
       getAdUnitKey(item) ||
       getAssetUnitId(item) ||
       getAssetParentId(item) ||
@@ -267,6 +303,26 @@ const isSafari =
 
 const BUFFER_COUNT = 3;
 
+const normalizeAspectKey = (value) => {
+  const normalized = normalizeKeyPart(value);
+  if (!normalized) return '';
+  const compact = normalized.replace(/\s+/g, '');
+  const match = compact.match(/^([0-9.]+)(?:[:xX\/])([0-9.]+)$/);
+  if (match) {
+    return `${match[1]}x${match[2]}`.toLowerCase();
+  }
+  return compact.toLowerCase();
+};
+
+const getCssAspectRatioValue = (aspect) => {
+  const normalized = normalizeKeyPart(aspect);
+  if (!normalized) return '';
+  const compact = normalized.replace(/\s+/g, '');
+  const match = compact.match(/^([0-9.]+)(?:[:xX\/])([0-9.]+)$/);
+  if (!match) return '';
+  return `${match[1]}/${match[2]}`;
+};
+
 const REVIEW_V2_ASPECT_ORDER = [
   '9x16',
   '',
@@ -275,10 +331,10 @@ const REVIEW_V2_ASPECT_ORDER = [
   '4x5',
   'Pinterest',
   'Snapchat',
-];
+].map(normalizeAspectKey);
 
 const getReviewAspectPriority = (aspect) => {
-  const normalized = normalizeKeyPart(aspect);
+  const normalized = normalizeAspectKey(aspect);
   const idx = REVIEW_V2_ASPECT_ORDER.indexOf(normalized);
   return idx === -1 ? REVIEW_V2_ASPECT_ORDER.length : idx;
 };
@@ -428,6 +484,8 @@ const Review = forwardRef(
   const [initialStatus, setInitialStatus] = useState(null);
   const [groupStatus, setGroupStatus] = useState(null);
   const isGroupReviewed = groupStatus === 'reviewed';
+  const reviewedLockMessage =
+    'This ad group has been reviewed. Further changes are disabled.';
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
   // refs to track latest values for cleanup on unmount
@@ -617,7 +675,9 @@ const Review = forwardRef(
     const getRecipe = (a) =>
       a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
     const getAspect = (a) =>
-      a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
+      normalizeAspectKey(
+        a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '',
+      );
     // Deduplicate by root id while keeping highest version of each asset
     const latestMap = {};
     list.forEach((a) => {
@@ -1408,11 +1468,13 @@ useEffect(() => {
   const currentInfo = currentAd ? parseAdFilename(currentAd.filename || '') : {};
   const currentAspectRaw =
     currentAd?.aspectRatio || currentInfo.aspectRatio || '';
+  const normalizedCurrentAspect = normalizeAspectKey(currentAspectRaw);
   const displayAd =
     currentVersionAssets.find(
       (a) =>
-        (a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '') ===
-        currentAspectRaw,
+        normalizeAspectKey(
+          a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '',
+        ) === normalizedCurrentAspect,
     ) || currentVersionAssets[0] || currentAd;
   const displayAssetId = getAssetDocumentId(displayAd);
   const displayParentId = getAssetParentId(displayAd);
@@ -1478,15 +1540,53 @@ useEffect(() => {
   const mergeAssetUpdate = useCallback(
     (data) => {
       if (!data) return;
+      const matchesAsset = (asset) => assetsReferToSameDoc(asset, data);
+
+      if (reviewVersion === 2 && data.status === 'archived') {
+        let nextLength = null;
+        setAds((prev) => prev.filter((a) => !matchesAsset(a)));
+        setAllAds((prev) => prev.filter((a) => !matchesAsset(a)));
+        setReviewAds((prev) => {
+          const filtered = prev.filter((a) => !matchesAsset(a));
+          nextLength = filtered.length;
+          return filtered;
+        });
+
+        const urlsToClear = [];
+        if (data.adUrl) urlsToClear.push(data.adUrl);
+        if (data.firebaseUrl) urlsToClear.push(data.firebaseUrl);
+        if (urlsToClear.length > 0) {
+          setResponses((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            urlsToClear.forEach((url) => {
+              if (next[url]) {
+                delete next[url];
+                changed = true;
+              }
+            });
+            return changed ? next : prev;
+          });
+        }
+
+        if (nextLength !== null) {
+          setCurrentIndex((idx) => {
+            if (nextLength === 0) return 0;
+            return Math.min(idx, nextLength - 1);
+          });
+        }
+        return;
+      }
+
       setAds((prev) =>
-        prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+        prev.map((a) => (matchesAsset(a) ? { ...a, ...data } : a)),
       );
       setReviewAds((prev) =>
-        prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+        prev.map((a) => (matchesAsset(a) ? { ...a, ...data } : a)),
       );
       setAllAds((prev) =>
         prev.map((a) =>
-          assetsReferToSameDoc(a, data)
+          matchesAsset(a)
             ? {
                 ...a,
                 ...data,
@@ -1498,7 +1598,7 @@ useEffect(() => {
         ),
       );
     },
-    [setAds, setReviewAds, setAllAds],
+    [reviewVersion, setAds, setReviewAds, setAllAds, setResponses, setCurrentIndex],
   );
 
   useEffect(() => {
@@ -2090,10 +2190,8 @@ useEffect(() => {
     (a) => (a.adUrl || a.firebaseUrl) !== adUrl,
   );
 
-  const currentAspect = String(currentAspectRaw || '9x16').replace(
-    'x',
-    '/',
-  );
+  const currentAspect =
+    getCssAspectRatioValue(currentAspectRaw) || getCssAspectRatioValue('9x16');
 
   const versionGroupsByAd = useMemo(() => {
     if (!reviewAds || reviewAds.length === 0) return {};
@@ -2360,7 +2458,17 @@ useEffect(() => {
       !!targetAd &&
       isSameAdUnit(asset, targetAd);
     const filteredAssets = (targetAssets || []).filter(matchesTargetAsset);
-    const recipeAssets = filteredAssets.length > 0 ? filteredAssets : [targetAd];
+    let recipeAssets = filteredAssets;
+    if (recipeAssets.length === 0 && matchesTargetAsset(targetAd)) {
+      recipeAssets = [targetAd];
+    }
+
+    if (recipeAssets.length === 0) {
+      console.warn('No eligible assets found for status update');
+      setSubmitting(false);
+      setAnimating(null);
+      return;
+    }
     const updates = [];
     const addedResponses = {};
     const newStatus =
@@ -2972,7 +3080,7 @@ useEffect(() => {
               {showFinalizeModal === 'pending' ? (
                 <>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Their are pending ads remaining. Would you like to approve them?
+                    There are pending ads remaining. Would you like to approve them?
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Note: This lets the design team know the review is complete. You'll still be able to download approved ads,
@@ -3346,7 +3454,7 @@ useEffect(() => {
                   return (
                     <div
                       key={cardKey}
-                      className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                      className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
                       <div className="flex flex-col gap-4 p-4">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -3372,15 +3480,18 @@ useEffect(() => {
                             {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
                               const assetAspect = getAssetAspect(asset);
-                              const assetStyle = assetAspect
-                                ? { aspectRatio: assetAspect.replace('x', '/') }
+                              const assetCssAspect = getCssAspectRatioValue(
+                                assetAspect,
+                              );
+                              const assetStyle = assetCssAspect
+                                ? { aspectRatio: assetCssAspect }
                                 : {};
                               return (
                                 <div
                                   key={
                                     getAssetDocumentId(asset) || assetUrl || assetIdx
                                   }
-                                  className="mx-auto w-full max-w-[350px] self-start overflow-hidden rounded-lg sm:mx-0"
+                                  className="mx-auto w-full max-w-[712px] self-start overflow-hidden rounded-lg sm:mx-0"
                                 >
                                   <div className="relative w-full" style={assetStyle}>
                                     {isVideoUrl(assetUrl) ? (
@@ -3413,16 +3524,16 @@ useEffect(() => {
                               className="inline-block h-2.5 w-2.5 rounded-full"
                               style={statusDotStyles[statusValue] || statusDotStyles.pending}
                             />
-                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-                              <label
-                                className="text-sm font-medium text-gray-600 dark:text-gray-300"
-                                htmlFor={selectId}
-                              >
-                                Status
-                              </label>
+                            <div
+                              className="flex items-center"
+                              title={isGroupReviewed ? reviewedLockMessage : undefined}
+                            >
                               <select
                                 id={selectId}
-                                className="min-w-[160px]"
+                                aria-label="Status"
+                                className={`min-w-[160px] ${
+                                  isGroupReviewed ? 'cursor-not-allowed opacity-60' : ''
+                                }`}
                                 value={statusValue}
                                 onChange={handleSelectChange}
                                 disabled={submitting || isGroupReviewed}
@@ -3453,58 +3564,80 @@ useEffect(() => {
                         {showEditButton && isExpanded && (
                           <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
                             <div className="mb-3 flex flex-wrap items-center gap-2">
-                              <button
-                                type="button"
-                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
-                                onClick={() => {
-                                  setManualStatus((prev) => ({
-                                    ...prev,
-                                    [cardKey]: 'edit',
-                                  }));
-                                  setPendingResponseContext({
-                                    ad,
-                                    assets: statusAssets,
-                                    index,
-                                    key: cardKey,
-                                    existingComment,
-                                    existingCopy: existingCopyEdit,
-                                  });
-                                  openEditRequest(ad, index, {
-                                    mode: 'note',
-                                    initialComment: '',
-                                    initialCopy: resolvedExistingCopy,
-                                  });
-                                }}
+                              <span
+                                className="inline-flex"
+                                title={isGroupReviewed ? reviewedLockMessage : undefined}
                               >
-                                <FiPlus className="h-4 w-4" aria-hidden="true" />
-                                <span>Add note</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
-                                onClick={() => {
-                                  setManualStatus((prev) => ({
-                                    ...prev,
-                                    [cardKey]: 'edit',
-                                  }));
-                                  setPendingResponseContext({
-                                    ad,
-                                    assets: statusAssets,
-                                    index,
-                                    key: cardKey,
-                                    existingComment,
-                                    existingCopy: existingCopyEdit,
-                                  });
-                                  openEditRequest(ad, index, {
-                                    mode: 'copy',
-                                    initialComment: '',
-                                    initialCopy: resolvedExistingCopy,
-                                  });
-                                }}
+                                <button
+                                  type="button"
+                                  className={`inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 ${
+                                    isGroupReviewed
+                                      ? 'opacity-60 cursor-not-allowed'
+                                      : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]'
+                                  }`}
+                                  onClick={() => {
+                                    setManualStatus((prev) => ({
+                                      ...prev,
+                                      [cardKey]: 'edit',
+                                    }));
+                                    setPendingResponseContext({
+                                      ad,
+                                      assets: statusAssets,
+                                      index,
+                                      key: cardKey,
+                                      existingComment,
+                                      existingCopy: existingCopyEdit,
+                                    });
+                                    openEditRequest(ad, index, {
+                                      mode: 'note',
+                                      initialComment: '',
+                                      initialCopy: resolvedExistingCopy,
+                                    });
+                                  }}
+                                  disabled={isGroupReviewed}
+                                  aria-disabled={isGroupReviewed}
+                                >
+                                  <FiPlus className="h-4 w-4" aria-hidden="true" />
+                                  <span>Add note</span>
+                                </button>
+                              </span>
+                              <span
+                                className="inline-flex"
+                                title={isGroupReviewed ? reviewedLockMessage : undefined}
                               >
-                                <FiEdit3 className="h-4 w-4" aria-hidden="true" />
-                                <span>Edit Copy</span>
-                              </button>
+                                <button
+                                  type="button"
+                                  className={`inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 ${
+                                    isGroupReviewed
+                                      ? 'opacity-60 cursor-not-allowed'
+                                      : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]'
+                                  }`}
+                                  onClick={() => {
+                                    setManualStatus((prev) => ({
+                                      ...prev,
+                                      [cardKey]: 'edit',
+                                    }));
+                                    setPendingResponseContext({
+                                      ad,
+                                      assets: statusAssets,
+                                      index,
+                                      key: cardKey,
+                                      existingComment,
+                                      existingCopy: existingCopyEdit,
+                                    });
+                                    openEditRequest(ad, index, {
+                                      mode: 'copy',
+                                      initialComment: '',
+                                      initialCopy: resolvedExistingCopy,
+                                    });
+                                  }}
+                                  disabled={isGroupReviewed}
+                                  aria-disabled={isGroupReviewed}
+                                >
+                                  <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                                  <span>Edit Copy</span>
+                                </button>
+                              </span>
                             </div>
                             {hasEditInfo?.comment && (
                               <div className="mb-3">
@@ -3513,7 +3646,7 @@ useEffect(() => {
                                 </h4>
                                 {noteEntries.map((entry, noteIdx) => (
                                   <div key={noteIdx} className="mb-2 last:mb-0">
-                                    <p className="whitespace-pre-wrap leading-relaxed">
+                                    <p className="whitespace-pre-wrap leading-relaxed break-words">
                                       {entry.body}
                                     </p>
                                     {entry.meta && (
@@ -3530,7 +3663,7 @@ useEffect(() => {
                                 <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
                                   Requested Copy
                                 </h4>
-                                <pre className="whitespace-pre-wrap leading-relaxed">
+                                <pre className="whitespace-pre-wrap leading-relaxed break-words">
                                   {hasEditInfo.copyEdit}
                                 </pre>
                               </div>

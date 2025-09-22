@@ -6,6 +6,7 @@ import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 import Button from './components/Button.jsx';
 import parseAdFilename from './utils/parseAdFilename';
+import copyCsvToClipboard from './utils/copyCsvToClipboard';
 
 const monthKey = (date) => date.toISOString().slice(0, 7);
 
@@ -315,6 +316,7 @@ const AdminDistribution = () => {
     const cols = allColumnDefs.filter((c) => selectedCols.includes(c.key));
     const headers = cols.map((c) => c.label);
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const newline = '\r\n';
     return [
       headers.join(','),
       ...rows.map((r) =>
@@ -340,7 +342,7 @@ const AdminDistribution = () => {
           .map(escape)
           .join(','),
       ),
-    ].join('\n');
+    ].join(newline);
   };
 
   const handleExport = () => {
@@ -363,23 +365,7 @@ const AdminDistribution = () => {
   const handleCopy = async () => {
     const csv = buildCsv();
     if (!csv) return;
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(csv);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = csv;
-        textarea.setAttribute('readonly', '');
-        textarea.style.position = 'absolute';
-        textarea.style.left = '-9999px';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-      }
-    } catch (err) {
-      console.error('Failed to copy CSV', err);
-    }
+    await copyCsvToClipboard(csv);
   };
 
   const toggleColumn = (key) => {
