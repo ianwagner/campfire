@@ -762,6 +762,8 @@ test('designer can change briefed ad group to designed', async () => {
   const statusSelect = await screen.findByLabelText('Status');
   const optionValues = Array.from(statusSelect.options).map((o) => o.value);
   expect(optionValues).toEqual(['briefed', 'designed', 'blocked']);
+  const briefedOption = Array.from(statusSelect.options).find((o) => o.value === 'briefed');
+  expect(briefedOption).toBeDisabled();
 
   fireEvent.change(statusSelect, { target: { value: 'designed' } });
   await waitFor(() =>
