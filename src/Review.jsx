@@ -1478,15 +1478,53 @@ useEffect(() => {
   const mergeAssetUpdate = useCallback(
     (data) => {
       if (!data) return;
+      const matchesAsset = (asset) => assetsReferToSameDoc(asset, data);
+
+      if (reviewVersion === 2 && data.status === 'archived') {
+        let nextLength = null;
+        setAds((prev) => prev.filter((a) => !matchesAsset(a)));
+        setAllAds((prev) => prev.filter((a) => !matchesAsset(a)));
+        setReviewAds((prev) => {
+          const filtered = prev.filter((a) => !matchesAsset(a));
+          nextLength = filtered.length;
+          return filtered;
+        });
+
+        const urlsToClear = [];
+        if (data.adUrl) urlsToClear.push(data.adUrl);
+        if (data.firebaseUrl) urlsToClear.push(data.firebaseUrl);
+        if (urlsToClear.length > 0) {
+          setResponses((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            urlsToClear.forEach((url) => {
+              if (next[url]) {
+                delete next[url];
+                changed = true;
+              }
+            });
+            return changed ? next : prev;
+          });
+        }
+
+        if (nextLength !== null) {
+          setCurrentIndex((idx) => {
+            if (nextLength === 0) return 0;
+            return Math.min(idx, nextLength - 1);
+          });
+        }
+        return;
+      }
+
       setAds((prev) =>
-        prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+        prev.map((a) => (matchesAsset(a) ? { ...a, ...data } : a)),
       );
       setReviewAds((prev) =>
-        prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+        prev.map((a) => (matchesAsset(a) ? { ...a, ...data } : a)),
       );
       setAllAds((prev) =>
         prev.map((a) =>
-          assetsReferToSameDoc(a, data)
+          matchesAsset(a)
             ? {
                 ...a,
                 ...data,
@@ -1498,7 +1536,7 @@ useEffect(() => {
         ),
       );
     },
-    [setAds, setReviewAds, setAllAds],
+    [reviewVersion, setAds, setReviewAds, setAllAds, setResponses, setCurrentIndex],
   );
 
   useEffect(() => {
