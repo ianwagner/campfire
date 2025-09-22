@@ -93,6 +93,12 @@ match /assets/{assetId} {
         .hasOnly(reviewDocFieldKeys());
     }
 
+    function isReviewedStatusUpdate() {
+      return isReviewFieldUpdate() &&
+        request.resource.data.keys().hasAny(['status']) &&
+        request.resource.data.status == 'reviewed';
+    }
+
     // ✅ Global Settings
     match /settings/{docId} {
       allow read: if true;
@@ -160,12 +166,13 @@ match /assets/{assetId} {
 
       allow create: if request.auth != null;
       allow update: if isAdmin() || isManager() ||
-        ((isClient() || isPublicReviewer()) && isReviewFieldUpdate()) ||
+        (isClient() && isReviewFieldUpdate()) ||
+        (isPublicReviewer() && isReviewedStatusUpdate()) ||
         (request.auth != null && resource.data.uploadedBy == request.auth.uid) ||
         (isDesigner() && resource.data.designerId == request.auth.uid &&
          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
            'status',
-           'visibility',
+            'visibility',
            'requireAuth',
            'requirePassword',
            'password'
