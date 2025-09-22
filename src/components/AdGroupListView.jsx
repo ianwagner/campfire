@@ -67,7 +67,13 @@ const normalizeReviewVersion = (value) => {
   if (normalized === '2' || normalized.includes('2.0') || normalized.includes('v2')) {
     return '2';
   }
-  if (normalized === '3' || normalized.includes('brief')) return '3';
+  if (
+    normalized === '3' ||
+    normalized.includes('3.0') ||
+    normalized.includes('v3') ||
+    normalized.includes('brief')
+  )
+    return '3';
   return '1';
 };
 
