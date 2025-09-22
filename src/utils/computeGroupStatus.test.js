@@ -20,13 +20,13 @@ test('returns designed when marked in design and no reviews yet', () => {
   expect(status).toBe('designed');
 });
 
-test('returns reviewed when some assets have been reviewed', () => {
+test('does not automatically mark reviewed when some assets have been reviewed', () => {
   const status = computeGroupStatus(
     [{ status: 'approved' }, { status: 'pending' }],
     false,
     false,
   );
-  expect(status).toBe('reviewed');
+  expect(status).toBe('processing');
 });
 
 test('normalizes legacy ready status to designed', () => {
@@ -36,6 +36,16 @@ test('normalizes legacy ready status to designed', () => {
 
 test('normalizes legacy edit request status to reviewed', () => {
   const status = computeGroupStatus([{ status: 'pending' }], false, false, 'edit request');
+  expect(status).toBe('reviewed');
+});
+
+test('keeps reviewed status when already finalized', () => {
+  const status = computeGroupStatus(
+    [{ status: 'approved' }, { status: 'rejected' }],
+    false,
+    false,
+    'reviewed',
+  );
   expect(status).toBe('reviewed');
 });
 

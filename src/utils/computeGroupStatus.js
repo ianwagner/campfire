@@ -20,12 +20,27 @@ export default function computeGroupStatus(
   const allReviewed = active.every((a) =>
     ['approved', 'rejected'].includes(a.status),
   );
-  if (allReviewed) return 'done';
+  if (allReviewed) {
+    if (normalized === 'reviewed') {
+      return 'reviewed';
+    }
+    return 'done';
+  }
+
+  if (normalized === 'reviewed') {
+    return 'reviewed';
+  }
 
   const hasReviewed = active.some((a) =>
     ['approved', 'rejected'].includes(a.status),
   );
-  if (hasReviewed) return 'reviewed';
+  if (hasReviewed) {
+    if (normalized && !['done', 'reviewed'].includes(normalized)) {
+      return normalized;
+    }
+    if (inDesign || normalized === 'designed') return 'designed';
+    return normalized ?? 'processing';
+  }
 
   if (inDesign || normalized === 'designed') return 'designed';
 
