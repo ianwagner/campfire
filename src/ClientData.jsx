@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { FiDownload, FiEdit2, FiSave } from 'react-icons/fi';
+import { FiDownload, FiEdit2, FiSave, FiCopy } from 'react-icons/fi';
 import { db } from './firebase/config';
 import Table from './components/common/Table';
 import Button from './components/Button.jsx';
 import IconButton from './components/IconButton.jsx';
 import parseAdFilename from './utils/parseAdFilename';
+import copyCsvToClipboard from './utils/copyCsvToClipboard';
 
 const monthKey = (date) => date.toISOString().slice(0, 7);
 
@@ -375,11 +376,12 @@ const ClientData = ({ brandCodes = [] }) => {
     }
   };
 
-  const handleExport = () => {
-    if (!displayedRows.length) return;
+  const buildCsv = () => {
+    if (!displayedRows.length) return '';
     const headers = allColumnDefs.map((c) => c.label);
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const csv = [
+    const newline = '\r\n';
+    return [
       headers.join(','),
       ...displayedRows.map((r) =>
         allColumnDefs
@@ -397,7 +399,18 @@ const ClientData = ({ brandCodes = [] }) => {
           .map(escape)
           .join(',')
       ),
-    ].join('\n');
+    ].join(newline);
+  };
+
+  const handleCopy = async () => {
+    const csv = buildCsv();
+    if (!csv) return;
+    await copyCsvToClipboard(csv);
+  };
+
+  const handleExport = () => {
+    const csv = buildCsv();
+    if (!csv) return;
     const blob = new Blob([csv], { type: 'text/csv' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -468,6 +481,16 @@ const ClientData = ({ brandCodes = [] }) => {
             }`}
           >
             {editMode ? <FiSave /> : <FiEdit2 />}
+          </IconButton>
+          <IconButton
+            onClick={handleCopy}
+            aria-label="Copy CSV"
+            disabled={displayedRows.length === 0}
+            className={`text-xl ${
+              displayedRows.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+          >
+            <FiCopy />
           </IconButton>
           <IconButton
             onClick={handleExport}
