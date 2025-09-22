@@ -860,7 +860,7 @@ useEffect(() => {
   }, [groupId, initialStatus, performGroupUpdate]);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || reviewVersion === 2) return;
     const allReviewed =
       ads.length > 0 &&
       ads.every((a) =>
@@ -889,6 +889,7 @@ useEffect(() => {
     reviewAds.length,
     groupId,
     ads,
+    reviewVersion,
     performGroupUpdate,
   ]);
 
