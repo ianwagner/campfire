@@ -141,3 +141,36 @@ test('normalizes non-numeric review type values', async () => {
   expect(firestore.doc).toHaveBeenCalledWith({}, 'adGroups', '1');
   expect(select.value).toBe('1');
 });
+
+test('falls back to brief when review type is stored as a labeled object', () => {
+  render(
+    <MemoryRouter>
+      <AdGroupListView
+        groups={[
+          {
+            id: '2',
+            name: 'Group Two',
+            brandCode: 'BR',
+            status: 'processing',
+            month: 1,
+            reviewVersion: { label: 'Brief Type', value: 'brief type' },
+          },
+        ]}
+        loading={false}
+        filter=""
+        onFilterChange={() => {}}
+        view="table"
+        onViewChange={() => {}}
+        showArchived={false}
+        onToggleArchived={() => {}}
+        onGallery={() => {}}
+        onCopy={() => {}}
+        onDownload={() => {}}
+        linkToDetail
+      />
+    </MemoryRouter>
+  );
+
+  const select = screen.getByLabelText('Review type for Group Two');
+  expect(select.value).toBe('3');
+});
