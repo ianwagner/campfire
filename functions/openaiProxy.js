@@ -4,8 +4,20 @@ import { onRequest } from 'firebase-functions/v2/https';
 export const openaiProxy = onRequest(
   { secrets: ['OPENAI_API_KEY'] },
   async (req, res) => {
-    const allowedOrigin = 'https://campfire.studiotak.co';
-    res.set('Access-Control-Allow-Origin', allowedOrigin);
+    const allowedOrigins = new Set([
+      'https://campfire.studiotak.co',
+      'https://test.campfire.studiotak.co',
+      'https://staging.campfire.studiotak.co',
+    ]);
+    const origin = req.get('Origin');
+
+    if (!origin || !allowedOrigins.has(origin)) {
+      res.status(403).json({ error: 'Origin not allowed' });
+      return;
+    }
+
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Vary', 'Origin');
     res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 

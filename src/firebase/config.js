@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
@@ -38,6 +38,37 @@ const firebaseConfig = {
 
 // ✅ Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
+// Use explicit Firestore initialization so we can tune the transport layer.
+const shouldForceLongPolling = (() => {
+  if (typeof navigator === 'undefined') {
+    return false;
+  }
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|Chromium|Android/i.test(ua);
+  // Force long polling only on browsers that still have trouble with the
+  // default streaming implementation. Relying on the legacy WebChannel
+  // transport causes authenticated listeners to send the ID token in the query
+  // string, which in turn produces a stream of 400 errors for logged-in users
+  // (the bug reported in the review flow).
+  return isIOS || isSafari;
+})();
+
+const firestoreSettings = shouldForceLongPolling
+  ? {
+      experimentalAutoDetectLongPolling: true,
+      experimentalForceLongPolling: true,
+    }
+  : {
+      // Use the default WebChannel transport so change streams stay truly
+      // realtime for reviewers and avoid the noisy Fetch logging that appears
+      // in Chrome devtools when long polling is enabled for public sessions.
+      experimentalAutoDetectLongPolling: false,
+      useFetchStreams: false,
+    };
+
+initializeFirestore(app, firestoreSettings);
 
 // ✅ Export services you'll use
 export const auth = getAuth(app);

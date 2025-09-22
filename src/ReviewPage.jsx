@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "react-router-dom";
-import { signInAnonymously } from "firebase/auth";
 import {
   doc,
   getDoc,
@@ -10,16 +9,22 @@ import {
   onSnapshot,
   where,
 } from "firebase/firestore";
-import { auth, db } from "./firebase/config";
+import { db } from "./firebase/config";
 import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
 import ThemeToggle from "./ThemeToggle";
 import { FiGrid, FiType } from "react-icons/fi";
+import { isRealtimeReviewerEligible } from "./utils/realtimeEligibility";
 
-const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
+const ReviewPage = ({
+  userRole = null,
+  brandCodes = [],
+  user = null,
+  authLoading = false,
+  authError = "",
+}) => {
   const { groupId } = useParams();
   const location = useLocation();
-  const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const [reviewerName, setReviewerName] = useState("");
   const [tempName, setTempName] = useState("");
   const [agencyId, setAgencyId] = useState(null);
@@ -28,28 +33,22 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   const [requireAuth, setRequireAuth] = useState(false);
   const [requirePassword, setRequirePassword] = useState(false);
   const [accessBlocked, setAccessBlocked] = useState(false);
+  const [groupAccessEvaluated, setGroupAccessEvaluated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordOk, setPasswordOk] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(!auth.currentUser);
   const [copyCount, setCopyCount] = useState(0);
   const [adCount, setAdCount] = useState(0);
   const reviewRef = useRef(null);
-
-  useEffect(() => {
-    if (!currentUser) {
-      signInAnonymously(auth)
-        .then(() => {
-          setCurrentUser(auth.currentUser);
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error("Anonymous sign-in failed", err);
-          setError(err.message);
-          setLoading(false);
-        });
-    }
-  }, [currentUser]);
+  const isAnonymousReviewer = Boolean(user?.isAnonymous);
+  const allowPublicListeners =
+    groupAccessEvaluated && !accessBlocked && (!requirePassword || passwordOk);
+  const reviewerNameValue = typeof reviewerName === "string" ? reviewerName : "";
+  const canUseRealtimeCounts = isRealtimeReviewerEligible({
+    allowPublicListeners,
+    isPublicReviewer: isAnonymousReviewer,
+    isAuthenticated: Boolean(user?.uid),
+    reviewerName: reviewerNameValue,
+  });
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -94,28 +93,174 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }, [groupId]);
 
   useEffect(() => {
-    if (!groupId) return;
-    const unsub = onSnapshot(
-      collection(db, 'adGroups', groupId, 'copyCards'),
-      (snap) => setCopyCount(snap.size),
-    );
-    return () => unsub();
-  }, [groupId]);
+    if (
+      !groupId ||
+      !groupAccessEvaluated ||
+      accessBlocked ||
+      (requirePassword && !passwordOk)
+    ) {
+      setCopyCount(0);
+      return undefined;
+    }
+
+    const collectionRef = collection(db, 'adGroups', groupId, 'copyCards');
+    let cancelled = false;
+    let pollTimer = null;
+    let unsubscribe = null;
+
+    const fetchCount = async () => {
+      try {
+        const snap = await getDocs(collectionRef);
+        if (!cancelled) {
+          setCopyCount(snap.size);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load copy card count', err);
+          setCopyCount(0);
+        }
+      }
+    };
+
+    const startPolling = () => {
+      if (pollTimer) return;
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (err) {
+          console.warn('Failed to clean up copy count listener', err);
+        }
+        unsubscribe = null;
+      }
+      fetchCount();
+      pollTimer = setInterval(fetchCount, 10000);
+    };
+
+    if (!canUseRealtimeCounts) {
+      startPolling();
+    } else {
+      try {
+        unsubscribe = onSnapshot(
+          collectionRef,
+          (snap) => setCopyCount(snap.size),
+          (error) => {
+            console.error('Failed to subscribe to copy count updates', error);
+            startPolling();
+          },
+        );
+      } catch (err) {
+        console.error('Realtime copy count listener setup failed', err);
+        startPolling();
+      }
+    }
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
+    };
+  }, [
+    groupId,
+    groupAccessEvaluated,
+    accessBlocked,
+    requirePassword,
+    passwordOk,
+    isAnonymousReviewer,
+    canUseRealtimeCounts,
+  ]);
 
   useEffect(() => {
-    if (!groupId) return;
-    const unsub = onSnapshot(
-      collection(db, 'adGroups', groupId, 'assets'),
-      (snap) => setAdCount(snap.size),
-    );
-    return () => unsub();
-  }, [groupId]);
+    if (
+      !groupId ||
+      !groupAccessEvaluated ||
+      accessBlocked ||
+      (requirePassword && !passwordOk)
+    ) {
+      setAdCount(0);
+      return undefined;
+    }
+
+    const collectionRef = collection(db, 'adGroups', groupId, 'assets');
+    let cancelled = false;
+    let pollTimer = null;
+    let unsubscribe = null;
+
+    const fetchCount = async () => {
+      try {
+        const snap = await getDocs(collectionRef);
+        if (!cancelled) {
+          setAdCount(snap.size);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load asset count', err);
+          setAdCount(0);
+        }
+      }
+    };
+
+    const startPolling = () => {
+      if (pollTimer) return;
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (err) {
+          console.warn('Failed to clean up asset count listener', err);
+        }
+        unsubscribe = null;
+      }
+      fetchCount();
+      pollTimer = setInterval(fetchCount, 10000);
+    };
+
+    if (!canUseRealtimeCounts) {
+      startPolling();
+    } else {
+      try {
+        unsubscribe = onSnapshot(
+          collectionRef,
+          (snap) => setAdCount(snap.size),
+          (error) => {
+            console.error('Failed to subscribe to asset count updates', error);
+            startPolling();
+          },
+        );
+      } catch (err) {
+        console.error('Realtime asset count listener setup failed', err);
+        startPolling();
+      }
+    }
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
+    };
+  }, [
+    groupId,
+    groupAccessEvaluated,
+    accessBlocked,
+    requirePassword,
+    passwordOk,
+    isAnonymousReviewer,
+    canUseRealtimeCounts,
+  ]);
 
   useEffect(() => {
+    setGroupAccessEvaluated(false);
     if (!groupId) {
       setGroupPassword(null);
       setVisibility(null);
       setAccessBlocked(false);
+      setGroupAccessEvaluated(true);
       return;
     }
     const loadGroup = async () => {
@@ -127,6 +272,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
           setVisibility(null);
           setRequireAuth(false);
           setRequirePassword(false);
+          setGroupAccessEvaluated(true);
           return;
         }
         const data = snap.data();
@@ -136,8 +282,9 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         setRequirePassword(!!data.requirePassword);
         const blocked =
           data.visibility !== "public" ||
-          (data.requireAuth && auth.currentUser?.isAnonymous);
+          (data.requireAuth && (!user || user.isAnonymous));
         setAccessBlocked(blocked);
+        setGroupAccessEvaluated(true);
       } catch (err) {
         console.error("Failed to fetch group info", err);
         setAccessBlocked(true);
@@ -145,10 +292,11 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         setVisibility(null);
         setRequireAuth(false);
         setRequirePassword(false);
+        setGroupAccessEvaluated(true);
       }
     };
     loadGroup();
-  }, [groupId]);
+  }, [groupId, user]);
 
   useEffect(() => {
     if (groupPassword === null || accessBlocked) return;
@@ -162,8 +310,8 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
   }, [groupPassword, requirePassword, groupId, accessBlocked]);
 
   useEffect(() => {
-    if (!currentUser) return;
-    if (currentUser.isAnonymous) {
+    if (!user) return;
+    if (user.isAnonymous) {
       const stored =
         typeof localStorage !== "undefined"
           ? localStorage.getItem("reviewerName")
@@ -173,21 +321,25 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         setTempName(stored);
       }
     } else {
-      setReviewerName(currentUser.displayName || "");
+      setReviewerName(user.displayName || "");
     }
-  }, [currentUser]);
+  }, [user]);
 
   useEffect(() => {
-    if (currentUser?.isAnonymous && reviewerName) {
+    if (user?.isAnonymous && reviewerName) {
       localStorage.setItem("reviewerName", reviewerName);
     }
-  }, [reviewerName, currentUser]);
+  }, [reviewerName, user]);
 
-  if (error) {
-    return <div className="p-4 text-center text-red-500">{error}</div>;
+  if (authError) {
+    return <div className="p-4 text-center text-red-500">{authError}</div>;
   }
 
-  if (loading) {
+  if (authLoading) {
+    return <LoadingOverlay />;
+  }
+
+  if (!groupAccessEvaluated) {
     return <LoadingOverlay />;
   }
 
@@ -228,7 +380,7 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     );
   }
 
-  if (currentUser?.isAnonymous && !reviewerName) {
+  if (user?.isAnonymous && !reviewerName) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-2">
         <label className="text-lg" htmlFor="reviewerName">
@@ -252,14 +404,14 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
     );
   }
 
-  const userObj = currentUser?.isAnonymous
-    ? { uid: currentUser.uid || "public", email: "public@campfire" }
-    : currentUser;
+  const userObj = user?.isAnonymous
+    ? { uid: user.uid || "public", email: "public@campfire" }
+    : user;
 
   return (
     <div className="min-h-screen relative">
       <div className="absolute top-2 right-2 flex gap-2 z-40">
-        {currentUser?.isAnonymous && <ThemeToggle />}
+        {user?.isAnonymous && <ThemeToggle />}
         {copyCount > 0 && (
           <button
             type="button"
@@ -286,9 +438,11 @@ const ReviewPage = ({ userRole = null, brandCodes = [] }) => {
         user={userObj}
         groupId={groupId}
         reviewerName={reviewerName}
-        userRole={currentUser?.isAnonymous ? null : userRole}
-        brandCodes={currentUser?.isAnonymous ? [] : brandCodes}
+        userRole={user?.isAnonymous ? null : userRole}
+        brandCodes={user?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
+        allowPublicListeners={allowPublicListeners}
+        isPublicReviewer={Boolean(user?.isAnonymous)}
       />
     </div>
   );

@@ -235,7 +235,7 @@ const AdGroupGantt = ({
                     content = (
                       <span className="flex items-center">
                         {g.designerName}
-                        {['designed', 'edit request', 'done'].includes(g.status) && (
+                        {['designed', 'reviewed', 'done'].includes(g.status) && (
                           <FiCheck className="ml-1" />
                         )}
                       </span>
@@ -247,7 +247,7 @@ const AdGroupGantt = ({
                     content = (
                       <span className="flex items-center">
                         {g.editorName}
-                        {['briefed', 'designed', 'edit request', 'done'].includes(g.status) && (
+                        {['briefed', 'designed', 'reviewed', 'done'].includes(g.status) && (
                           <FiCheck className="ml-1" />
                         )}
                       </span>

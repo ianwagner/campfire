@@ -29,7 +29,7 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-test('sends verification email and navigates after signup', async () => {
+test('sends verification email and navigates to selected MFA method', async () => {
   createUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'u1' } });
   render(<DesignerSignUp />);
 
@@ -43,5 +43,14 @@ test('sends verification email and navigates after signup', async () => {
     'userDoc',
     expect.objectContaining({ role: 'designer', audience: 'designer' })
   );
-  expect(navigate).toHaveBeenCalledWith('/mfa-settings');
+
+  await waitFor(() =>
+    expect(screen.getByText(/Use an authenticator app/i)).toBeInTheDocument()
+  );
+
+  fireEvent.click(screen.getByText(/Use text message codes/i));
+
+  expect(navigate).toHaveBeenCalledWith('/mfa-settings', {
+    state: { recommendedEnrollment: 'sms', fromSignUp: true },
+  });
 });

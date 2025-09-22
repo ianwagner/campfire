@@ -5,6 +5,11 @@ test('returns briefed when group status is briefed', () => {
   expect(status).toBe('briefed');
 });
 
+test('returns designed when group status is designed', () => {
+  const status = computeKanbanStatus({ status: 'designed', assetCount: 0, counts: {} });
+  expect(status).toBe('designed');
+});
+
 test('returns blocked when group status is blocked', () => {
   const status = computeKanbanStatus({ status: 'blocked', assetCount: 1, counts: {} });
   expect(status).toBe('blocked');
@@ -15,9 +20,14 @@ test('returns new when no assets', () => {
   expect(status).toBe('new');
 });
 
-test('returns edit request when any edits present', () => {
+test('returns reviewed when some assets have been reviewed', () => {
+  const status = computeKanbanStatus({ assetCount: 3, counts: { approved: 1 }, reviewedCount: 1 });
+  expect(status).toBe('reviewed');
+});
+
+test('returns reviewed when edits are requested', () => {
   const status = computeKanbanStatus({ assetCount: 2, counts: { edit: 1 } });
-  expect(status).toBe('edit request');
+  expect(status).toBe('reviewed');
 });
 
 test('returns done when all approved, archived, or rejected', () => {
@@ -36,6 +46,6 @@ test('returns done when counts exceed asset total', () => {
 });
 
 test('returns designed otherwise', () => {
-  const status = computeKanbanStatus({ assetCount: 2, counts: { approved: 1, rejected: 0, edit: 0 } });
+  const status = computeKanbanStatus({ assetCount: 2, counts: { approved: 1, rejected: 0, edit: 0 }, reviewedCount: 0 });
   expect(status).toBe('designed');
 });

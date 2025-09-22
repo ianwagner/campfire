@@ -9,7 +9,16 @@ import React, {
   forwardRef,
   useCallback,
 } from 'react';
-import { FiEdit, FiX, FiGrid, FiCheck, FiType, FiMessageSquare } from 'react-icons/fi';
+import {
+  FiX,
+  FiGrid,
+  FiCheck,
+  FiType,
+  FiMessageSquare,
+  FiPlus,
+  FiEdit3,
+  FiCheckCircle,
+} from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
   collection,
@@ -39,8 +48,8 @@ import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
-import FeedbackPanel from './components/FeedbackPanel.jsx';
 import FeedbackModal from './components/FeedbackModal.jsx';
+import Modal from './components/Modal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
@@ -52,14 +61,204 @@ import { DEFAULT_ACCENT_COLOR } from './themeColors';
 import { applyAccentColor } from './utils/theme';
 import useSiteSettings from './useSiteSettings';
 import { deductCredits } from './utils/credits';
-import computeGroupStatus from './utils/computeGroupStatus';
 import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
+import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 
-const unitKey = (a) => {
-  const info = parseAdFilename(a.filename || '');
-  const recipe = a.recipeCode || info.recipeCode || '';
-  return `${a.adGroupId || ''}|${recipe}`;
+const normalizeKeyPart = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim();
+  return String(value);
+};
+
+const getAssetDocumentId = (asset) =>
+  normalizeKeyPart(
+    asset?.assetId ||
+      asset?.id ||
+      asset?.documentId ||
+      asset?.docId ||
+      asset?.originalAssetId ||
+      asset?.originalId,
+  );
+
+const getAssetParentId = (asset) =>
+  normalizeKeyPart(asset?.parentAdId || asset?.parentId || asset?.originalParentId);
+
+const getAssetUnitId = (asset) =>
+  normalizeKeyPart(
+    asset?.adUnitId ||
+      asset?.unitId ||
+      asset?.rootAdId ||
+      asset?.rootAssetId ||
+      asset?.assetFamilyId ||
+      asset?.recipeAssetId ||
+      asset?.creativeId,
+  );
+
+const getAssetUrlKey = (asset) =>
+  normalizeKeyPart(asset?.adUrl || asset?.firebaseUrl || asset?.assetUrl);
+
+const assetsReferToSameDoc = (first, second) => {
+  if (!first || !second) return false;
+  const firstId = getAssetDocumentId(first);
+  const secondId = getAssetDocumentId(second);
+  if (firstId && secondId && firstId === secondId) {
+    return true;
+  }
+  const firstUrl = getAssetUrlKey(first);
+  const secondUrl = getAssetUrlKey(second);
+  return Boolean(firstUrl && secondUrl && firstUrl === secondUrl);
+};
+
+const assetMatchesReference = (asset, referenceId) => {
+  const normalized = normalizeKeyPart(referenceId);
+  if (!asset || !normalized) return false;
+  return (
+    getAssetDocumentId(asset) === normalized ||
+    getAssetParentId(asset) === normalized ||
+    getAssetUnitId(asset) === normalized
+  );
+};
+
+const getAdUnitKey = (asset) => {
+  if (!asset) return '';
+  const info = parseAdFilename(asset.filename || '');
+  const recipe =
+    normalizeKeyPart(
+      asset.recipeCode ||
+        asset.recipeId ||
+        asset.recipe ||
+        info.recipeCode,
+    ) || '';
+  const adGroupId =
+    normalizeKeyPart(
+      asset.adGroupId || asset.groupId || asset.groupCode || info.adGroupCode,
+    ) || '';
+  const aspect = normalizeKeyPart(asset.aspectRatio || info.aspectRatio || '');
+
+  let rootId = getAssetUnitId(asset) || getAssetParentId(asset);
+
+  if (!rootId) {
+    const stripped = stripVersion(asset.filename || '');
+    if (stripped) {
+      rootId = normalizeKeyPart(stripped);
+    }
+  }
+
+  if (!rootId) {
+    rootId = getAssetDocumentId(asset);
+  }
+
+  if (!rootId) {
+    rootId = getAssetUrlKey(asset);
+  }
+
+  if (rootId && aspect) {
+    const suffix = `_${aspect.toLowerCase()}`;
+    const lowerRoot = rootId.toLowerCase();
+    if (lowerRoot.endsWith(suffix)) {
+      rootId = rootId.slice(0, -suffix.length);
+    }
+  }
+
+  if (!rootId) {
+    const fallback = getAssetDocumentId(asset);
+    if (fallback) {
+      rootId = `asset:${fallback}`;
+    }
+  }
+
+  const parts = [];
+  if (adGroupId) parts.push(adGroupId);
+  if (recipe) parts.push(recipe);
+  if (rootId) parts.push(rootId);
+
+  return parts.join('|');
+};
+
+const isSameAdUnit = (first, second) => {
+  if (!first || !second) return false;
+  if (assetsReferToSameDoc(first, second)) {
+    return true;
+  }
+
+  const firstParent = getAssetParentId(first);
+  const secondParent = getAssetParentId(second);
+  const firstUnit = getAssetUnitId(first);
+  const secondUnit = getAssetUnitId(second);
+  const firstId = getAssetDocumentId(first);
+  const secondId = getAssetDocumentId(second);
+
+  if (firstParent) {
+    if (secondParent && secondParent === firstParent) return true;
+    if (secondId && secondId === firstParent) return true;
+    if (secondUnit && secondUnit === firstParent) return true;
+  }
+
+  if (secondParent) {
+    if (firstParent && firstParent === secondParent) return true;
+    if (firstId && firstId === secondParent) return true;
+    if (firstUnit && firstUnit === secondParent) return true;
+  }
+
+  if (firstUnit) {
+    if (secondUnit && secondUnit === firstUnit) return true;
+    if (secondParent && secondParent === firstUnit) return true;
+    if (secondId && secondId === firstUnit) return true;
+  }
+
+  if (secondUnit) {
+    if (firstParent && firstParent === secondUnit) return true;
+    if (firstId && firstId === secondUnit) return true;
+  }
+
+  const firstUrl = getAssetUrlKey(first);
+  const secondUrl = getAssetUrlKey(second);
+  if (firstUrl && secondUrl && firstUrl === secondUrl) {
+    return true;
+  }
+
+  const firstKey = getAdUnitKey(first);
+  const secondKey = getAdUnitKey(second);
+  if (firstKey && secondKey) {
+    return firstKey === secondKey;
+  }
+  return false;
+};
+
+const getAdKey = (ad, index = 0) => {
+  if (!ad) return `ad-${index}`;
+  return (
+    ad.assetId ||
+    ad.id ||
+    ad.firebaseUrl ||
+    ad.adUrl ||
+    ad.filename ||
+    `${ad.recipeCode || 'ad'}-${index}`
+  );
+};
+
+const dedupeByAdUnit = (list = []) => {
+  const seen = new Set();
+  return list.filter((item) => {
+    if (!item) return false;
+    const key =
+      getAdUnitKey(item) ||
+      getAssetUnitId(item) ||
+      getAssetParentId(item) ||
+      getAssetDocumentId(item) ||
+      getAssetUrlKey(item) ||
+      item.assetId ||
+      item.id;
+    if (!key) {
+      return true;
+    }
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 };
 
 const isSafari =
@@ -67,6 +266,31 @@ const isSafari =
   /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 const BUFFER_COUNT = 3;
+
+const REVIEW_V2_ASPECT_ORDER = [
+  '9x16',
+  '',
+  '1x1',
+  '3x5',
+  '4x5',
+  'Pinterest',
+  'Snapchat',
+];
+
+const getReviewAspectPriority = (aspect) => {
+  const normalized = normalizeKeyPart(aspect);
+  const idx = REVIEW_V2_ASPECT_ORDER.indexOf(normalized);
+  return idx === -1 ? REVIEW_V2_ASPECT_ORDER.length : idx;
+};
+
+const compareRecipeCodes = (first, second) => {
+  const a = normalizeKeyPart(first);
+  const b = normalizeKeyPart(second);
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+};
 
 const Review = forwardRef(
   (
@@ -77,6 +301,8 @@ const Review = forwardRef(
       groupId = null,
       reviewerName = '',
       agencyId = null,
+      allowPublicListeners = true,
+      isPublicReviewer = false,
     },
     ref,
   ) => {
@@ -87,6 +313,7 @@ const Review = forwardRef(
   const [showEditModal, setShowEditModal] = useState(false);
   const [editCopy, setEditCopy] = useState('');
   const [origCopy, setOrigCopy] = useState('');
+  const [editModalMode, setEditModalMode] = useState('all');
   const [clientNote, setClientNote] = useState('');
   const [noteSubmitting, setNoteSubmitting] = useState(false);
   const [rejectionCount, setRejectionCount] = useState(0);
@@ -115,6 +342,8 @@ const Review = forwardRef(
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [showFinalizeModal, setShowFinalizeModal] = useState(null);
+  const [finalizeProcessing, setFinalizeProcessing] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [started, setStarted] = useState(false);
   const [allHeroAds, setAllHeroAds] = useState([]); // hero list for all ads
@@ -124,20 +353,122 @@ const Review = forwardRef(
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
+  const [expandedRequests, setExpandedRequests] = useState({});
+  const [pendingResponseContext, setPendingResponseContext] = useState(null);
+  const [manualStatus, setManualStatus] = useState({});
+  const statusBarSentinelRef = useRef(null);
+  const [statusBarPinned, setStatusBarPinned] = useState(false);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
+
+  const resolvedReviewerName = useMemo(() => {
+    if (typeof reviewerName === 'string' && reviewerName.trim()) {
+      return reviewerName.trim();
+    }
+    if (typeof user?.displayName === 'string' && user.displayName.trim()) {
+      return user.displayName.trim();
+    }
+    if (user?.email) {
+      return user.email;
+    }
+    if (user?.uid) {
+      return user.uid;
+    }
+    return '';
+  }, [reviewerName, user]);
+
+  const reviewerIdentifier = useMemo(
+    () => resolvedReviewerName || 'anonymous',
+    [resolvedReviewerName],
+  );
+
+  const canUpdateGroupDoc = !isPublicReviewer;
+  const reviewerNameValue = resolvedReviewerName;
+  const userUid = user?.uid || null;
+  const realtimeEnabled = useMemo(
+    () => {
+      return isRealtimeReviewerEligible({
+        allowPublicListeners,
+        isPublicReviewer,
+        isAuthenticated: Boolean(userUid),
+        reviewerName: reviewerNameValue,
+      });
+    },
+    [allowPublicListeners, isPublicReviewer, userUid, reviewerNameValue],
+  );
+
+  const performGroupUpdate = useCallback(
+    async (
+      targetGroupId,
+      update,
+      { type = 'generic', publicUpdate = update } = {},
+    ) => {
+      if (!targetGroupId || !update) return;
+      if (canUpdateGroupDoc) {
+        await updateDoc(doc(db, 'adGroups', targetGroupId), update);
+        return;
+      }
+      if (!publicUpdate || Object.keys(publicUpdate).length === 0) return;
+      await addDoc(collection(db, 'adGroups', targetGroupId, 'publicUpdates'), {
+        type,
+        update: publicUpdate,
+        createdAt: serverTimestamp(),
+        reviewer: reviewerIdentifier,
+        source: 'public-review',
+      });
+    },
+    [canUpdateGroupDoc, reviewerIdentifier],
+  );
   const advancedRef = useRef(false);
   const firstAdUrlRef = useRef(null);
   const logoUrlRef = useRef(null);
   const [initialStatus, setInitialStatus] = useState(null);
+  const [groupStatus, setGroupStatus] = useState(null);
+  const isGroupReviewed = groupStatus === 'reviewed';
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
   // refs to track latest values for cleanup on unmount
   const currentIndexRef = useRef(currentIndex);
   const reviewLengthRef = useRef(reviewAds.length);
+  const publicHistoryKeyRef = useRef(null);
+  const publicRealtimeRef = useRef({
+    key: null,
+    assetUnsub: null,
+    historyUnsubs: new Map(),
+  });
+  const cleanupPublicRealtime = useCallback(() => {
+    const state = publicRealtimeRef.current;
+    if (!state) {
+      return;
+    }
+    const hadAssetListener = Boolean(state.assetUnsub);
+    const hadHistoryListeners = Boolean(
+      state.historyUnsubs && state.historyUnsubs.size > 0,
+    );
+    const hadKey = state.key !== null || publicHistoryKeyRef.current !== null;
+    if (state.assetUnsub) {
+      state.assetUnsub();
+      state.assetUnsub = null;
+    }
+    if (state.historyUnsubs && state.historyUnsubs.size > 0) {
+      state.historyUnsubs.forEach((entry) => {
+        try {
+          entry.unsub();
+        } catch (err) {
+          console.error('Failed to clean up public history listener', err);
+        }
+      });
+      state.historyUnsubs.clear();
+    }
+    state.key = null;
+    publicHistoryKeyRef.current = null;
+    if (hadAssetListener || hadHistoryListeners || hadKey) {
+      setHistoryEntries({});
+    }
+  }, []);
   const { agency } = useAgencyTheme(agencyId);
   const { settings } = useSiteSettings(false);
 
@@ -149,18 +480,82 @@ const Review = forwardRef(
     reviewLengthRef.current = reviewAds.length;
   }, [reviewAds.length]);
 
+  useEffect(() => {
+    if (reviewVersion !== 2) {
+      setStatusBarPinned(false);
+      return;
+    }
+    if (typeof window === 'undefined' || typeof IntersectionObserver !== 'function') {
+      setStatusBarPinned(false);
+      return;
+    }
+    const sentinel = statusBarSentinelRef.current;
+    if (!sentinel) {
+      setStatusBarPinned(false);
+      return;
+    }
+    // Add some hysteresis so the pinned state is stable even as the bar
+    // changes height when it condenses. The sentinel element is only a pixel
+    // tall, so rely on its bottom edge instead of the top to avoid the
+    // threshold getting stuck when scrolling slowly.
+    const pinOffset = 0;
+    const releaseOffset = 32;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry) return;
+        const rootTop = entry.rootBounds?.top ?? 0;
+        const sentinelTop = entry.boundingClientRect.top;
+        const sentinelBottom = entry.boundingClientRect.bottom;
+        if (!Number.isFinite(sentinelTop)) {
+          return;
+        }
+        if (!Number.isFinite(sentinelBottom)) {
+          return;
+        }
+        const intersectionRatio = entry.intersectionRatio ?? 0;
+        setStatusBarPinned((prevPinned) => {
+          if (prevPinned) {
+            if (sentinelTop > rootTop + releaseOffset) {
+              return false;
+            }
+            return true;
+          }
+          const fullyVisible = intersectionRatio >= 0.99;
+          if (!fullyVisible && sentinelBottom <= rootTop + pinOffset) {
+            return true;
+          }
+          return prevPinned;
+        });
+      },
+      { threshold: [0, 1] },
+    );
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [reviewVersion, reviewAds.length]);
+
 
 
   useImperativeHandle(ref, () => ({
     openGallery: () => setShowGallery(true),
     openCopy: () => setShowCopyModal(true),
   }));
-  const canSubmitEdit = useMemo(
-    () =>
-      comment.trim().length > 0 ||
-      (editCopy.trim() && editCopy.trim() !== origCopy.trim()),
-    [comment, editCopy, origCopy],
-  );
+  const canSubmitEdit = useMemo(() => {
+    const trimmedComment = comment.trim();
+    const trimmedCopy = editCopy.trim();
+    const trimmedOrig = (origCopy || '').trim();
+    if (editModalMode === 'note') {
+      return trimmedComment.length > 0;
+    }
+    if (editModalMode === 'copy') {
+      return Boolean(trimmedCopy) && trimmedCopy !== trimmedOrig;
+    }
+    return (
+      trimmedComment.length > 0 ||
+      (Boolean(trimmedCopy) && trimmedCopy !== trimmedOrig)
+    );
+  }, [comment, editCopy, origCopy, editModalMode]);
 
   const copyChanges = useMemo(() => {
     const clean = (arr) =>
@@ -218,7 +613,7 @@ const Review = forwardRef(
   );
 
   const buildHeroList = useCallback((list) => {
-    const prefOrder = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
+    const prefOrder = REVIEW_V2_ASPECT_ORDER;
     const getRecipe = (a) =>
       a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
     const getAspect = (a) =>
@@ -226,7 +621,12 @@ const Review = forwardRef(
     // Deduplicate by root id while keeping highest version of each asset
     const latestMap = {};
     list.forEach((a) => {
-      const root = a.parentAdId || stripVersion(a.filename);
+      const root =
+        getAssetUnitId(a) ||
+        getAssetParentId(a) ||
+        stripVersion(a.filename) ||
+        getAssetDocumentId(a);
+      if (!root) return;
       if (!latestMap[root] || getVersion(latestMap[root]) < getVersion(a)) {
         latestMap[root] = a;
       }
@@ -247,18 +647,19 @@ const Review = forwardRef(
       }
       return ls[0];
     });
-    heroes.sort((a, b) => {
-      const rA = getRecipe(a);
-      const rB = getRecipe(b);
-      return rA.localeCompare(rB);
-    });
+    heroes.sort((a, b) => compareRecipeCodes(getRecipe(a), getRecipe(b)));
     return heroes;
   }, []);
 
   const getLatestAds = useCallback((list) => {
     const map = {};
     list.forEach((a) => {
-      const root = a.parentAdId || stripVersion(a.filename);
+      const root =
+        getAssetUnitId(a) ||
+        getAssetParentId(a) ||
+        stripVersion(a.filename) ||
+        getAssetDocumentId(a);
+      if (!root) return;
       if (!map[root] || getVersion(map[root]) < getVersion(a)) {
         map[root] = a;
       }
@@ -281,16 +682,79 @@ const Review = forwardRef(
   }, []);
 
   useEffect(() => {
-    if (!groupId) return;
-    const unsub = onSnapshot(
-      collection(db, 'adGroups', groupId, 'copyCards'),
-      (snap) => {
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setCopyCards(list);
-      },
-    );
-    return () => unsub();
-  }, [groupId]);
+    if (!allowPublicListeners || !groupId) {
+      setCopyCards([]);
+      return undefined;
+    }
+
+    publicHistoryKeyRef.current = null;
+
+    let cancelled = false;
+    let unsubscribe = null;
+    let pollTimer = null;
+    const collectionRef = collection(db, 'adGroups', groupId, 'copyCards');
+
+    const applySnapshot = (snap) => {
+      if (cancelled) return;
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setCopyCards(list);
+    };
+
+    const fetchOnce = async () => {
+      try {
+        const snap = await getDocs(collectionRef);
+        applySnapshot(snap);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load copy cards via polling', err);
+        }
+      }
+    };
+
+    const startPolling = () => {
+      if (pollTimer) return;
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (err) {
+          console.warn('Failed to clean up copy card listener', err);
+        }
+        unsubscribe = null;
+      }
+      fetchOnce();
+      pollTimer = setInterval(fetchOnce, 10000);
+    };
+
+    if (!realtimeEnabled) {
+      startPolling();
+    } else {
+      try {
+        unsubscribe = onSnapshot(
+          collectionRef,
+          (snap) => {
+            applySnapshot(snap);
+          },
+          (error) => {
+            console.error('Failed to subscribe to copy cards', error);
+            startPolling();
+          },
+        );
+      } catch (err) {
+        console.error('Realtime copy card listener setup failed', err);
+        startPolling();
+      }
+    }
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
+    };
+  }, [allowPublicListeners, groupId, realtimeEnabled]);
 
   useEffect(() => {
     if (showCopyModal) {
@@ -300,20 +764,40 @@ const Review = forwardRef(
 
 useEffect(() => {
   if (!started || !groupId || initialStatus === 'done') return;
-  updateDoc(doc(db, 'adGroups', groupId), {
-    reviewProgress: currentIndex,
-  }).catch((err) => console.error('Failed to save progress', err));
-}, [currentIndex, started, groupId, initialStatus]);
+  performGroupUpdate(
+    groupId,
+    {
+      reviewProgress: currentIndex,
+    },
+    {
+      type: 'progress',
+      publicUpdate: { reviewProgress: currentIndex },
+    },
+  ).catch((err) => console.error('Failed to save progress', err));
+}, [
+  currentIndex,
+  started,
+  groupId,
+  initialStatus,
+  performGroupUpdate,
+]);
 
   const releaseLock = useCallback(() => {
     if (!groupId || initialStatus === 'done') return;
     const idx = currentIndexRef.current;
     const len = reviewLengthRef.current;
     const progress = idx >= len ? null : idx;
-    updateDoc(doc(db, 'adGroups', groupId), {
-      reviewProgress: progress,
-    }).catch(() => {});
-  }, [groupId, initialStatus]);
+    performGroupUpdate(
+      groupId,
+      {
+        reviewProgress: progress,
+      },
+      {
+        type: 'progress',
+        publicUpdate: { reviewProgress: progress },
+      },
+    ).catch(() => {});
+  }, [groupId, initialStatus, performGroupUpdate]);
 
   useEffect(() => {
     if (!groupId) return;
@@ -326,12 +810,27 @@ useEffect(() => {
       allReviewed &&
       (currentIndex >= reviewAds.length || reviewAds.length === 0)
     ) {
-      updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'done',
-        reviewProgress: null,
-      }).catch((err) => console.error('Failed to update status', err));
+      performGroupUpdate(
+        groupId,
+        {
+          reviewProgress: null,
+        },
+        {
+          type: 'progress',
+          publicUpdate: {
+            reviewProgress: null,
+            completedAt: new Date().toISOString(),
+          },
+        },
+      ).catch((err) => console.error('Failed to update review progress', err));
     }
-  }, [currentIndex, reviewAds.length, groupId, ads]);
+  }, [
+    currentIndex,
+    reviewAds.length,
+    groupId,
+    ads,
+    performGroupUpdate,
+  ]);
 
   useEffect(() => {
     if (currentIndex >= reviewAds.length) {
@@ -382,9 +881,11 @@ useEffect(() => {
       if (!map[recipe]) map[recipe] = [];
       map[recipe].push(item);
     });
-    const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
     return Object.entries(map).map(([recipeCode, list]) => {
-      list.sort((a, b) => (order[a.aspectRatio] ?? 99) - (order[b.aspectRatio] ?? 99));
+      list.sort(
+        (a, b) =>
+          getReviewAspectPriority(a.aspectRatio) - getReviewAspectPriority(b.aspectRatio),
+      );
       return { recipeCode, assets: list };
     });
   }, [ads]);
@@ -400,8 +901,61 @@ useEffect(() => {
     setShowSizes(false);
   }, [currentIndex]);
 
+  useEffect(() => {
+    if (!groupId) {
+      setGroupStatus(null);
+      return;
+    }
+
+    const groupRef = doc(db, 'adGroups', groupId);
+    let cancelled = false;
+    let unsubscribe = null;
+
+    const applyStatus = (snapshot) => {
+      if (!snapshot || !snapshot.exists()) {
+        setGroupStatus(null);
+        return;
+      }
+      const data = snapshot.data();
+      setGroupStatus(data?.status || null);
+    };
+
+    const fetchStatus = async () => {
+      try {
+        const snap = await getDoc(groupRef);
+        if (cancelled) return;
+        applyStatus(snap);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to fetch ad group status', err);
+        }
+      }
+    };
+
+    fetchStatus();
+
+    if (allowPublicListeners) {
+      unsubscribe = onSnapshot(
+        groupRef,
+        (snap) => applyStatus(snap),
+        (error) => {
+          console.error('Failed to subscribe to ad group status', error);
+        },
+      );
+    }
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [allowPublicListeners, groupId]);
 
   useEffect(() => {
+    if (!allowPublicListeners) {
+      return;
+    }
     const fetchAds = async () => {
       debugLog('Loading ads', { groupId, brandCodes });
       try {
@@ -413,7 +967,9 @@ useEffect(() => {
             const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
             if (groupSnap.exists()) {
               const data = groupSnap.data();
-              status = data.status || 'pending';
+              const rawStatus = data.status || 'pending';
+              setGroupStatus(rawStatus);
+              status = rawStatus;
               rv = data.reviewVersion || 1;
               setGroupBrandCode(data.brandCode || '');
               if (rv === 3) {
@@ -458,46 +1014,85 @@ useEffect(() => {
                       : {}),
                   };
                 });
+          } else {
+            setGroupStatus(null);
           }
           setInitialStatus(status);
           setReviewVersion(rv);
         } else {
-          const q = query(
-            collectionGroup(db, 'assets'),
-            where('brandCode', 'in', brandCodes),
-            where('status', '==', 'ready'),
-            where('isResolved', '==', false)
+          setGroupStatus(null);
+          const normalizedBrandCodes = Array.from(
+            new Set(
+              brandCodes
+                .map((code) =>
+                  typeof code === 'string' ? code.trim() : ''
+                )
+                .filter((code) => code)
+            )
           );
-          const snap = await getDocs(q);
-          const groupCache = {};
-          list = await Promise.all(
-            snap.docs.map(async (d) => {
-              const data = d.data();
-              const adGroupId = data.adGroupId || d.ref.parent.parent.id;
-              if (!groupCache[adGroupId]) {
-                const gSnap = await getDoc(doc(db, 'adGroups', adGroupId));
-                groupCache[adGroupId] = gSnap.exists() ? gSnap.data().name : '';
-              }
-              const info = parseAdFilename(data.filename || '');
-              return {
-                ...data,
-                version: data.version ?? info.version ?? 1,
-                assetId: d.id,
-                adGroupId,
-                groupName: groupCache[adGroupId],
-                firebaseUrl: data.firebaseUrl,
-              };
-            })
-          );
+
+          if (normalizedBrandCodes.length === 0) {
+            debugLog('No valid brand codes provided for review fetch', { brandCodes });
+            list = [];
+          } else {
+            const batches = [];
+            for (let i = 0; i < normalizedBrandCodes.length; i += 10) {
+              batches.push(normalizedBrandCodes.slice(i, i + 10));
+            }
+
+            const snapshots = await Promise.all(
+              batches.map((codes) =>
+                getDocs(
+                  query(
+                    collectionGroup(db, 'assets'),
+                    where('brandCode', 'in', codes),
+                    where('status', '==', 'ready'),
+                    where('isResolved', '==', false)
+                  )
+                )
+              )
+            );
+
+            const seenPaths = new Set();
+            const docs = [];
+            snapshots.forEach((snap) => {
+              snap.docs.forEach((docSnap) => {
+                const refPath = docSnap.ref.path;
+                if (!seenPaths.has(refPath)) {
+                  seenPaths.add(refPath);
+                  docs.push(docSnap);
+                }
+              });
+            });
+
+            const groupCache = {};
+            list = await Promise.all(
+              docs.map(async (d) => {
+                const data = d.data();
+                const adGroupId = data.adGroupId || d.ref.parent.parent.id;
+                if (!groupCache[adGroupId]) {
+                  const gSnap = await getDoc(doc(db, 'adGroups', adGroupId));
+                  groupCache[adGroupId] = gSnap.exists() ? gSnap.data().name : '';
+                }
+                const info = parseAdFilename(data.filename || '');
+                return {
+                  ...data,
+                  version: data.version ?? info.version ?? 1,
+                  assetId: d.id,
+                  adGroupId,
+                  groupName: groupCache[adGroupId],
+                  firebaseUrl: data.firebaseUrl,
+                };
+              })
+            );
+          }
         }
         // if we only received the latest revision, fetch older versions
         const rootsToFetch = {};
         list.forEach((a) => {
           if (a.parentAdId) {
             const rootId = a.parentAdId;
-            const hasRoot = list.some(
-              (b) => b.assetId === rootId || b.parentAdId === rootId,
-            );
+            const hasRoot = list.some((b) => assetMatchesReference(b, rootId));
             if (!hasRoot) {
               rootsToFetch[rootId] = { groupId: a.adGroupId, groupName: a.groupName };
             }
@@ -532,8 +1127,22 @@ useEffect(() => {
                 });
               }
               siblingSnap.docs.forEach((d) => {
-                if (!list.some((a) => a.assetId === d.id)) {
-                  const data = d.data();
+                const data = d.data();
+                const dedupeTarget = { assetId: d.id, ...data };
+                const relatedRefs = [
+                  d.id,
+                  data.parentAdId,
+                  data.parentId,
+                  data.rootAdId,
+                  data.rootAssetId,
+                  data.assetFamilyId,
+                  data.recipeAssetId,
+                ];
+                const alreadyIncluded = list.some((a) => {
+                  if (assetsReferToSameDoc(a, dedupeTarget)) return true;
+                  return relatedRefs.some((ref) => assetMatchesReference(a, ref));
+                });
+                if (!alreadyIncluded) {
                   const info = parseAdFilename(data.filename || '');
                   extras.push({
                     ...data,
@@ -551,46 +1160,84 @@ useEffect(() => {
           list = [...list, ...extraLists.flat()];
         }
 
-        const order = { '': 0, '9x16': 1, '3x5': 2, '1x1': 3 };
         list.sort((a, b) => {
           const infoA = parseAdFilename(a.filename || '');
           const infoB = parseAdFilename(b.filename || '');
           const rA = a.recipeCode || infoA.recipeCode || '';
           const rB = b.recipeCode || infoB.recipeCode || '';
-          if (rA < rB) return -1;
-          if (rA > rB) return 1;
+          const recipeComparison = compareRecipeCodes(rA, rB);
+          if (recipeComparison !== 0) return recipeComparison;
           const aAsp = a.aspectRatio || infoA.aspectRatio || '';
           const bAsp = b.aspectRatio || infoB.aspectRatio || '';
-          return (order[aAsp] ?? 99) - (order[bAsp] ?? 99);
+          return (
+            getReviewAspectPriority(aAsp) - getReviewAspectPriority(bAsp)
+          );
         });
 
         // determine latest version for each ad unit (recipe + group)
         const unitVersionMap = {};
-        const unitKey = (a) => {
-          const info = parseAdFilename(a.filename || '');
-          const recipe = a.recipeCode || info.recipeCode || '';
-          return `${a.adGroupId || ''}|${recipe}`;
-        };
         list.forEach((a) => {
-          const key = unitKey(a);
+          const key = getAdUnitKey(a);
           const ver = getVersion(a);
+          if (!key) return;
           if (!unitVersionMap[key] || unitVersionMap[key] < ver) {
             unitVersionMap[key] = ver;
           }
         });
-        const latestUnits = list.filter(
-          (a) => getVersion(a) === unitVersionMap[unitKey(a)]
-        );
+        const latestUnits = list.filter((a) => {
+          const key = getAdUnitKey(a);
+          if (!key) return true;
+          return getVersion(a) === unitVersionMap[key];
+        });
 
         // keep highest version per asset for the review list
         const versionMap = {};
         latestUnits.forEach((a) => {
-          const root = a.parentAdId || a.assetId || stripVersion(a.filename);
+          const root =
+            getAssetUnitId(a) ||
+            getAssetParentId(a) ||
+            getAssetDocumentId(a) ||
+            stripVersion(a.filename);
+          if (!root) return;
           if (!versionMap[root] || getVersion(versionMap[root]) < getVersion(a)) {
             versionMap[root] = a;
           }
         });
         const deduped = Object.values(versionMap);
+
+        const visibleAssets = list.filter((a) => a.status !== 'archived');
+        const visibleDeduped = deduped.filter((a) => a.status !== 'archived');
+
+        if (rv === 2) {
+          const uniqueVisibleDeduped = dedupeByAdUnit(visibleDeduped);
+          setAllAds(visibleAssets);
+          setAds(uniqueVisibleDeduped);
+          setAllHeroAds(uniqueVisibleDeduped);
+          setReviewAds(uniqueVisibleDeduped);
+          setVersionMode(false);
+          setHasPending(
+            uniqueVisibleDeduped.some((a) =>
+              ['pending', 'ready', 'in review'].includes(a.status),
+            ),
+          );
+          setPendingOnly(false);
+          const initialStatuses = {};
+          uniqueVisibleDeduped.forEach((ad) => {
+            let resp;
+            if (ad.status === 'approved') resp = 'approve';
+            else if (ad.status === 'rejected') resp = 'reject';
+            else if (ad.status === 'edit_requested') resp = 'edit';
+            if (resp) {
+              const url = ad.adUrl || ad.firebaseUrl;
+              if (url) {
+                initialStatuses[url] = { adUrl: url, response: resp };
+              }
+            }
+          });
+          setResponses(initialStatuses);
+          setCurrentIndex(0);
+          return;
+        }
 
         const hasPendingAds = deduped.some((a) => a.status === 'pending');
         const nonPending = deduped.filter((a) => a.status !== 'pending');
@@ -680,7 +1327,7 @@ useEffect(() => {
     }
 
     fetchAds();
-  }, [user, brandCodes, groupId]);
+  }, [allowPublicListeners, user, brandCodes, groupId]);
 
   // ensure first ad and agency logo are loaded before removing overlay
   useEffect(() => {
@@ -732,17 +1379,16 @@ useEffect(() => {
   }, [agencyId, agency.logoUrl]);
 
   const currentAd = reviewAds[currentIndex];
+  const currentAssetId = getAssetDocumentId(currentAd);
   const versions = useMemo(() => {
     if (!currentAd) return [];
-    const key = unitKey(currentAd);
-    const related = allAds.filter((a) => unitKey(a) === key);
+    const related = allAds.filter((a) => isSameAdUnit(a, currentAd));
     const verMap = {};
     related.forEach((a) => {
       const ver = getVersion(a);
       if (!verMap[ver]) verMap[ver] = [];
       verMap[ver].push(a);
     });
-    const order = ['', '9x16', '3x5', '1x1', '4x5', 'Pinterest', 'Snapchat'];
     const groups = Object.values(verMap).sort(
       (a, b) => getVersion(b[0]) - getVersion(a[0])
     );
@@ -750,7 +1396,9 @@ useEffect(() => {
       g.sort((a, b) => {
         const aspA = a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
         const aspB = b.aspectRatio || parseAdFilename(b.filename || '').aspectRatio || '';
-        return (order[aspA] ?? 99) - (order[aspB] ?? 99);
+        return (
+          getReviewAspectPriority(aspA) - getReviewAspectPriority(aspB)
+        );
       });
     });
     return groups;
@@ -766,10 +1414,13 @@ useEffect(() => {
         (a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '') ===
         currentAspectRaw,
     ) || currentVersionAssets[0] || currentAd;
+  const displayAssetId = getAssetDocumentId(displayAd);
+  const displayParentId = getAssetParentId(displayAd);
+  const displayUnitId = getAssetUnitId(displayAd);
 
   useEffect(() => {
     setVersionIndex(0);
-  }, [currentAd?.assetId]);
+  }, [currentAssetId]);
 
   const adUrl =
     displayAd && typeof displayAd === 'object'
@@ -779,6 +1430,11 @@ useEffect(() => {
     currentAd && typeof currentAd === 'object' ? currentAd.brandCode : undefined;
   const groupName =
     currentAd && typeof currentAd === 'object' ? currentAd.groupName : undefined;
+  const adGroupDisplayName = useMemo(() => {
+    if (groupName) return groupName;
+    const withName = reviewAds.find((adItem) => adItem && adItem.groupName);
+    return withName?.groupName ?? '';
+  }, [groupName, reviewAds]);
   const statusResponse = useMemo(() => {
     if (!currentAd) return null;
     const { status } = currentAd;
@@ -790,24 +1446,17 @@ useEffect(() => {
 
   const selectedResponse = responses[adUrl]?.response ?? statusResponse;
   const showSecondView = !!selectedResponse;
-  const panelEntries = useMemo(() => {
-    const ver = displayAd ? getVersion(displayAd) : 1;
-    return { [ver]: historyEntries[ver] || [] };
-  }, [displayAd?.assetId, displayAd?.filename, displayAd?.version, historyEntries]);
   // show next step as soon as a decision is made
-  const progress =
-    reviewAds.length > 0
-      ? ((currentIndex + (animating ? 1 : 0)) / reviewAds.length) * 100
-      : 0;
-
-
   const openVersionModal = (ver) => {
     const base = displayAd || currentAd;
     if (!base) return;
-    const rootId = base.parentAdId || stripVersion(base.filename);
+    const rootId =
+      getAssetParentId(base) ||
+      getAssetUnitId(base) ||
+      stripVersion(base.filename);
     const siblings = allAds.filter((a) => {
-      if (base.parentAdId) {
-        return a.parentAdId === rootId || a.assetId === rootId;
+      if (getAssetParentId(base) || getAssetUnitId(base)) {
+        return assetMatchesReference(a, rootId);
       }
       return stripVersion(a.filename) === rootId;
     });
@@ -826,50 +1475,471 @@ useEffect(() => {
 
   const closeVersionModal = () => setVersionModal(null);
 
+  const mergeAssetUpdate = useCallback(
+    (data) => {
+      if (!data) return;
+      setAds((prev) =>
+        prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+      );
+      setReviewAds((prev) =>
+        prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+      );
+      setAllAds((prev) =>
+        prev.map((a) =>
+          assetsReferToSameDoc(a, data)
+            ? {
+                ...a,
+                ...data,
+                adGroupId: data.adGroupId || a.adGroupId,
+                groupName: data.groupName || a.groupName,
+                firebaseUrl: data.firebaseUrl || a.firebaseUrl,
+              }
+            : a,
+        ),
+      );
+    },
+    [setAds, setReviewAds, setAllAds],
+  );
+
   useEffect(() => {
-    setHistoryEntries({});
-    if (!displayAd?.adGroupId || !displayAd?.assetId) return;
-    const assetRef = doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAd.assetId);
-    const unsubDoc = onSnapshot(assetRef, (snap) => {
-      if (!snap.exists()) return;
-      const data = { assetId: snap.id, ...snap.data() };
-      setAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
-      setReviewAds((prev) => prev.map((a) => (a.assetId === data.assetId ? { ...a, ...data } : a)));
+    if (!isPublicReviewer) {
+      cleanupPublicRealtime();
+      return;
+    }
+
+    if (!allowPublicListeners) {
+      cleanupPublicRealtime();
+      return;
+    }
+
+    if (!displayAd?.adGroupId || !displayAssetId) {
+      cleanupPublicRealtime();
+      return;
+    }
+
+    const historyKey = [
+      displayAd.adGroupId,
+      displayAssetId,
+      displayParentId || '',
+      displayUnitId || '',
+    ].join('|');
+
+    const state = publicRealtimeRef.current;
+    if (state.key !== historyKey) {
+      cleanupPublicRealtime();
+      state.key = historyKey;
+    }
+
+    publicHistoryKeyRef.current = historyKey;
+
+    if (!state.assetUnsub) {
+      const assetRef = doc(
+        db,
+        'adGroups',
+        displayAd.adGroupId,
+        'assets',
+        displayAssetId,
+      );
+      state.assetUnsub = onSnapshot(
+        assetRef,
+        (snap) => {
+          if (!snap.exists()) return;
+          const data = { assetId: snap.id, ...snap.data() };
+          setAds((prev) =>
+            prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+          );
+          setReviewAds((prev) =>
+            prev.map((a) => (assetsReferToSameDoc(a, data) ? { ...a, ...data } : a)),
+          );
+          setAllAds((prev) =>
+            prev.map((a) =>
+              assetsReferToSameDoc(a, data)
+                ? {
+                    ...a,
+                    ...data,
+                    adGroupId: data.adGroupId || a.adGroupId,
+                    groupName: data.groupName || a.groupName,
+                    firebaseUrl: data.firebaseUrl || a.firebaseUrl,
+                  }
+                : a,
+            ),
+          );
+        },
+        (error) => {
+          console.error('Failed to subscribe to asset updates', error);
+        },
+      );
+    }
+
+    const rootId =
+      displayParentId || displayUnitId || stripVersion(displayAd.filename);
+    const related = allAds.filter((a) => {
+      if (displayParentId || displayUnitId) {
+        return assetMatchesReference(a, rootId);
+      }
+      return stripVersion(a.filename) === rootId;
+    });
+    const versionEntries = new Map();
+    [...related, displayAd].forEach((a) => {
+      const key = getAssetDocumentId(a);
+      if (key && !versionEntries.has(key)) {
+        versionEntries.set(key, { ad: a, version: getVersion(a) });
+      }
     });
 
-    const rootId = displayAd.parentAdId || stripVersion(displayAd.filename);
+    versionEntries.forEach((info, docId) => {
+      if (state.historyUnsubs.has(docId)) {
+        const entry = state.historyUnsubs.get(docId);
+        entry.version = info.version;
+        return;
+      }
+      const historyQuery = query(
+        collection(
+          doc(db, 'adGroups', info.ad.adGroupId, 'assets', docId),
+          'history',
+        ),
+        orderBy('updatedAt', 'asc'),
+      );
+      const unsubscribe = onSnapshot(
+        historyQuery,
+        (snap) => {
+          setHistoryEntries((prev) => ({
+            ...prev,
+            [info.version]: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+          }));
+        },
+        (error) => {
+          console.error('Failed to subscribe to asset history', error);
+        },
+      );
+      state.historyUnsubs.set(docId, { unsub: unsubscribe, version: info.version });
+    });
+
+    const staleDocs = [];
+    state.historyUnsubs.forEach((entry, docId) => {
+      if (!versionEntries.has(docId)) {
+        staleDocs.push({ docId, entry });
+      }
+    });
+    staleDocs.forEach(({ docId, entry }) => {
+      try {
+        entry.unsub();
+      } catch (error) {
+        console.error('Failed to remove history listener', error);
+      }
+      state.historyUnsubs.delete(docId);
+      if (typeof entry.version !== 'undefined') {
+        setHistoryEntries((prev) => {
+          const next = { ...prev };
+          delete next[entry.version];
+          return next;
+        });
+      }
+    });
+  }, [
+    allowPublicListeners,
+    allAds,
+    cleanupPublicRealtime,
+    displayAd?.adGroupId,
+    displayAd?.filename,
+    displayAssetId,
+    displayParentId,
+    displayUnitId,
+    isPublicReviewer,
+  ]);
+
+  useEffect(() => {
+    return () => cleanupPublicRealtime();
+  }, [cleanupPublicRealtime]);
+
+  useEffect(() => {
+    if (isPublicReviewer) {
+      return;
+    }
+    if (!allowPublicListeners) {
+      return;
+    }
+    if (reviewVersion !== 2) {
+      return;
+    }
+
+    const targetGroupId = displayAd?.adGroupId || groupId;
+    if (!targetGroupId) {
+      return;
+    }
+
+    let cancelled = false;
+    let unsubscribe = null;
+    let pollTimer = null;
+
+    const assetsCollectionRef = collection(db, 'adGroups', targetGroupId, 'assets');
+
+    const applyCollectionSnapshot = (snap) => {
+      if (cancelled) return;
+      snap.docChanges().forEach((change) => {
+        if (change.type === 'removed') return;
+        const docSnap = change.doc;
+        if (!docSnap.exists()) return;
+        mergeAssetUpdate({ assetId: docSnap.id, ...docSnap.data() });
+      });
+    };
+
+    const fetchCollectionOnce = async () => {
+      try {
+        const snap = await getDocs(assetsCollectionRef);
+        if (cancelled) return;
+        snap.forEach((docSnap) => {
+          mergeAssetUpdate({ assetId: docSnap.id, ...docSnap.data() });
+        });
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load assets via polling', err);
+        }
+      }
+    };
+
+    const startCollectionPolling = () => {
+      if (pollTimer) return;
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (err) {
+          console.warn('Failed to clean up asset collection listener', err);
+        }
+        unsubscribe = null;
+      }
+      fetchCollectionOnce();
+      pollTimer = setInterval(fetchCollectionOnce, 5000);
+    };
+
+    if (!realtimeEnabled) {
+      startCollectionPolling();
+    } else {
+      try {
+        unsubscribe = onSnapshot(
+          assetsCollectionRef,
+          (snap) => applyCollectionSnapshot(snap),
+          (error) => {
+            console.error('Failed to subscribe to asset collection updates', error);
+            startCollectionPolling();
+          },
+        );
+      } catch (err) {
+        console.error('Realtime asset collection listener setup failed', err);
+        startCollectionPolling();
+      }
+    }
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
+    };
+  }, [
+    allowPublicListeners,
+    displayAd?.adGroupId,
+    groupId,
+    isPublicReviewer,
+    mergeAssetUpdate,
+    realtimeEnabled,
+    reviewVersion,
+  ]);
+
+  useEffect(() => {
+    if (isPublicReviewer) {
+      return;
+    }
+
+    setHistoryEntries({});
+    if (!allowPublicListeners) {
+      return;
+    }
+    if (!displayAd?.adGroupId || !displayAssetId) return;
+
+    publicHistoryKeyRef.current = null;
+
+    let cancelled = false;
+    let assetUnsubscribe = null;
+    let assetPollTimer = null;
+    const historyCleanupFns = [];
+
+    const shouldTrackSingleAsset = reviewVersion !== 2;
+    const assetRef = shouldTrackSingleAsset
+      ? doc(db, 'adGroups', displayAd.adGroupId, 'assets', displayAssetId)
+      : null;
+
+    const fetchAssetOnce = async () => {
+      if (!assetRef) return;
+      try {
+        const snap = await getDoc(assetRef);
+        if (!snap.exists() || cancelled) return;
+        mergeAssetUpdate({ assetId: snap.id, ...snap.data() });
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load asset via polling', err);
+        }
+      }
+    };
+
+    const startAssetPolling = () => {
+      if (!assetRef) return;
+      if (assetPollTimer) return;
+      if (assetUnsubscribe) {
+        try {
+          assetUnsubscribe();
+        } catch (err) {
+          console.warn('Failed to clean up asset listener', err);
+        }
+        assetUnsubscribe = null;
+      }
+      fetchAssetOnce();
+      assetPollTimer = setInterval(fetchAssetOnce, 5000);
+    };
+
+    if (shouldTrackSingleAsset) {
+      if (!realtimeEnabled) {
+        startAssetPolling();
+      } else {
+        try {
+          assetUnsubscribe = onSnapshot(
+            assetRef,
+            (snap) => {
+              if (!snap.exists() || cancelled) return;
+              mergeAssetUpdate({ assetId: snap.id, ...snap.data() });
+            },
+            (error) => {
+              console.error('Failed to subscribe to asset updates', error);
+              startAssetPolling();
+            },
+          );
+        } catch (err) {
+          console.error('Realtime asset listener setup failed', err);
+          startAssetPolling();
+        }
+      }
+    }
+
+    const rootId = displayParentId || displayUnitId || stripVersion(displayAd.filename);
     const related = allAds.filter((a) => {
-      if (displayAd.parentAdId) {
-        return a.assetId === rootId || a.parentAdId === rootId;
+      if (displayParentId || displayUnitId) {
+        return assetMatchesReference(a, rootId);
       }
       return stripVersion(a.filename) === rootId;
     });
     const versionMap = {};
     [...related, displayAd].forEach((a) => {
-      versionMap[a.assetId] = a;
+      const key = getAssetDocumentId(a);
+      if (key) {
+        versionMap[key] = a;
+      }
     });
 
-    const unsubs = Object.values(versionMap).map((ad) => {
-      const q = query(
-        collection(doc(db, 'adGroups', ad.adGroupId, 'assets', ad.assetId), 'history'),
+    Object.values(versionMap).forEach((ad) => {
+      const docId = getAssetDocumentId(ad);
+      if (!docId) return;
+
+      const historyQuery = query(
+        collection(doc(db, 'adGroups', ad.adGroupId, 'assets', docId), 'history'),
         orderBy('updatedAt', 'asc'),
       );
-      return onSnapshot(q, (snap) => {
+
+      let realtimeUnsub = null;
+      let historyPollTimer = null;
+
+      const applyHistorySnapshot = (snap) => {
+        if (cancelled) return;
         setHistoryEntries((prev) => ({
           ...prev,
           [getVersion(ad)]: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
         }));
+      };
+
+      const fetchHistoryOnce = async () => {
+        try {
+          const snap = await getDocs(historyQuery);
+          applyHistorySnapshot(snap);
+        } catch (err) {
+          if (!cancelled) {
+            console.error('Failed to load asset history via polling', err);
+          }
+        }
+      };
+
+      const startHistoryPolling = () => {
+        if (historyPollTimer) return;
+        if (realtimeUnsub) {
+          try {
+            realtimeUnsub();
+          } catch (err) {
+            console.warn('Failed to clean up history listener', err);
+          }
+          realtimeUnsub = null;
+        }
+        fetchHistoryOnce();
+        historyPollTimer = setInterval(fetchHistoryOnce, 10000);
+      };
+
+      if (!realtimeEnabled) {
+        startHistoryPolling();
+      } else {
+        try {
+          realtimeUnsub = onSnapshot(
+            historyQuery,
+            (snap) => applyHistorySnapshot(snap),
+            (error) => {
+              console.error('Failed to subscribe to asset history', error);
+              startHistoryPolling();
+            },
+          );
+        } catch (err) {
+          console.error('Realtime asset history listener setup failed', err);
+          startHistoryPolling();
+        }
+      }
+
+      historyCleanupFns.push(() => {
+        if (realtimeUnsub) {
+          realtimeUnsub();
+        }
+        if (historyPollTimer) {
+          clearInterval(historyPollTimer);
+        }
       });
     });
 
-      return () => {
-        unsubDoc();
-        unsubs.forEach((u) => u());
-        setHistoryEntries({});
-      };
-  }, [displayAd?.adGroupId, displayAd?.assetId, allAds]);
+    return () => {
+      cancelled = true;
+      if (assetUnsubscribe) {
+        assetUnsubscribe();
+      }
+      if (assetPollTimer) {
+        clearInterval(assetPollTimer);
+      }
+      historyCleanupFns.forEach((fn) => fn());
+      setHistoryEntries({});
+    };
+  }, [
+    allowPublicListeners,
+    displayAd?.adGroupId,
+    displayAssetId,
+    displayParentId,
+    displayUnitId,
+    allAds,
+    isPublicReviewer,
+    realtimeEnabled,
+    reviewVersion,
+    mergeAssetUpdate,
+  ]);
+
 
   useEffect(() => {
+    if (!allowPublicListeners) {
+      return;
+    }
     const recipeCode =
       displayAd?.recipeCode ||
       parseAdFilename(displayAd?.filename || '').recipeCode ||
@@ -888,7 +1958,7 @@ useEffect(() => {
     return () => {
       cancelled = true;
     };
-  }, [displayAd?.adGroupId, displayAd?.recipeCode, displayAd?.filename]);
+  }, [allowPublicListeners, displayAd?.adGroupId, displayAd?.recipeCode, displayAd?.filename]);
 
   const handleTouchStart = (e) => {
     // allow swiping even while submitting a previous response
@@ -967,14 +2037,19 @@ useEffect(() => {
       const recipe = hero.recipeCode || info.recipeCode || 'unknown';
       const group = recipeGroups.find((g) => g.recipeCode === recipe);
       const assets = group ? group.assets : [hero];
-      assets.forEach((asset) =>
+      assets.forEach((asset) => {
+        const assetDocId = getAssetDocumentId(asset);
+        if (!asset.adGroupId || !assetDocId) return;
         toUpdate.push(
-          updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId), {
-            status: 'pending',
-            isResolved: false,
-          })
-        )
-      );
+          updateDoc(
+            doc(db, 'adGroups', asset.adGroupId, 'assets', assetDocId),
+            {
+              status: 'pending',
+              isResolved: false,
+            },
+          ),
+        );
+      });
     });
     try {
       await Promise.all(toUpdate);
@@ -987,15 +2062,23 @@ useEffect(() => {
       setCurrentIndex(reviewAds.length);
     }
   };
-  const statusMap = {
+  const statusLabelMap = {
+    pending: 'Pending',
     approve: 'Approved',
     reject: 'Rejected',
     edit: 'Edit Requested',
   };
-  const colorMap = {
-    approve: 'text-green-700',
-    reject: 'text-gray-700',
-    edit: 'text-black',
+  const statusOptions = [
+    { value: 'pending', label: statusLabelMap.pending },
+    { value: 'approve', label: statusLabelMap.approve },
+    { value: 'reject', label: statusLabelMap.reject },
+    { value: 'edit', label: statusLabelMap.edit },
+  ];
+  const statusDotStyles = {
+    pending: { backgroundColor: 'var(--pending-color)' },
+    approve: { backgroundColor: 'var(--approve-color)' },
+    reject: { backgroundColor: 'var(--reject-color)' },
+    edit: { backgroundColor: 'var(--edit-color)' },
   };
 
   const currentRecipe = currentAd?.recipeCode || currentInfo.recipeCode;
@@ -1011,6 +2094,127 @@ useEffect(() => {
     'x',
     '/',
   );
+
+  const versionGroupsByAd = useMemo(() => {
+    if (!reviewAds || reviewAds.length === 0) return {};
+    const map = {};
+    reviewAds.forEach((ad, idx) => {
+      if (!ad) return;
+      const cardKey = getAdKey(ad, idx);
+      const related = allAds.filter(
+        (asset) => asset.status !== 'archived' && isSameAdUnit(asset, ad),
+      );
+      if (related.length === 0) {
+        map[cardKey] = [[ad]];
+        return;
+      }
+      const verMap = {};
+      related.forEach((asset) => {
+        const ver = getVersion(asset);
+        if (!verMap[ver]) verMap[ver] = [];
+        verMap[ver].push(asset);
+      });
+      const groups = Object.values(verMap)
+        .map((group) =>
+          group
+            .filter((asset) => asset.status !== 'archived')
+            .sort((a, b) => {
+              const aspectA =
+                a.aspectRatio ||
+                parseAdFilename(a.filename || '').aspectRatio ||
+                '';
+              const aspectB =
+                b.aspectRatio ||
+                parseAdFilename(b.filename || '').aspectRatio ||
+                '';
+              return (
+                getReviewAspectPriority(aspectA) - getReviewAspectPriority(aspectB)
+              );
+            }),
+        )
+        .filter((group) => group.length > 0)
+        .sort((a, b) => getVersion(b[0]) - getVersion(a[0]));
+      map[cardKey] = groups.length > 0 ? groups : [[ad]];
+    });
+    return map;
+  }, [reviewAds, allAds]);
+
+  const buildStatusMeta = useCallback(
+    (ad, index) => {
+      const fallback = {
+        cardKey: getAdKey(ad, index),
+        groups: [],
+        latestAssets: [],
+        statusAssets: [],
+        statusValue: 'pending',
+      };
+      if (!ad) return fallback;
+
+      const cardKey = getAdKey(ad, index);
+      const groups = versionGroupsByAd[cardKey] || [[ad]];
+      const latestAssets = groups[0] || [ad];
+      const statusAssetsFiltered = latestAssets.filter((asset) =>
+        isSameAdUnit(asset, ad),
+      );
+      const statusAssets =
+        statusAssetsFiltered.length > 0 ? statusAssetsFiltered : [ad];
+      const assetResponses = statusAssets
+        .map((asset) => responses[asset.adUrl || asset.firebaseUrl])
+        .filter(Boolean);
+      const responseValue = assetResponses[0]?.response;
+      const statusFromAssets = statusAssets.some(
+        (asset) => asset.status === 'approved',
+      )
+        ? 'approve'
+        : statusAssets.some((asset) => asset.status === 'rejected')
+        ? 'reject'
+        : statusAssets.some((asset) => asset.status === 'edit_requested')
+        ? 'edit'
+        : null;
+      const defaultStatus =
+        ad.status === 'approved'
+          ? 'approve'
+          : ad.status === 'rejected'
+          ? 'reject'
+          : ad.status === 'edit_requested'
+          ? 'edit'
+          : 'pending';
+      const combinedStatus =
+        manualStatus[cardKey] ||
+        responseValue ||
+        statusFromAssets ||
+        defaultStatus;
+      const normalizedStatus = ['approve', 'reject', 'edit', 'pending'].includes(
+        combinedStatus,
+      )
+        ? combinedStatus
+        : 'pending';
+
+      return {
+        cardKey,
+        groups,
+        latestAssets,
+        statusAssets,
+        statusValue: normalizedStatus,
+      };
+    },
+    [versionGroupsByAd, responses, manualStatus],
+  );
+
+  const reviewStatusCounts = useMemo(() => {
+    const counts = { pending: 0, approve: 0, edit: 0, reject: 0 };
+    if (!reviewAds || reviewAds.length === 0) {
+      return counts;
+    }
+    reviewAds.forEach((ad, index) => {
+      const { statusValue } = buildStatusMeta(ad, index);
+      const key = ['approve', 'reject', 'edit', 'pending'].includes(statusValue)
+        ? statusValue
+        : 'pending';
+      counts[key] += 1;
+    });
+    return counts;
+  }, [reviewAds, buildStatusMeta]);
 
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
@@ -1029,32 +2233,67 @@ useEffect(() => {
     preloads.current = preloads.current.slice(-BUFFER_COUNT);
   }, [currentIndex, reviewAds, isMobile]);
 
-  const openEditRequest = async () => {
+  const openEditRequest = async (
+    targetAd = currentAd,
+    index = currentIndex,
+    { mode = 'all', initialComment = '', initialCopy } = {},
+  ) => {
+    setCurrentIndex(index);
+    setEditModalMode(mode);
+    setComment(initialComment);
     setShowEditModal(true);
-    if (!currentAd?.adGroupId) return;
-    const recipeId = currentRecipe;
-    if (!recipeId) return;
+    if (!targetAd?.adGroupId) {
+      if (typeof initialCopy === 'string') {
+        setEditCopy(initialCopy);
+      }
+      setOrigCopy('');
+      return;
+    }
+    const recipeId =
+      targetAd.recipeCode ||
+      parseAdFilename(targetAd.filename || '').recipeCode ||
+      currentRecipe;
+    if (!recipeId) {
+      if (typeof initialCopy === 'string') {
+        setEditCopy(initialCopy);
+      }
+      setOrigCopy('');
+      return;
+    }
     try {
       const snap = await getDoc(
-        doc(db, 'adGroups', currentAd.adGroupId, 'recipes', recipeId)
+        doc(db, 'adGroups', targetAd.adGroupId, 'recipes', recipeId)
       );
       const data = snap.exists() ? snap.data() : null;
       const text = data ? data.latestCopy || data.copy || '' : '';
-      setEditCopy(text);
+      const resolvedCopy =
+        typeof initialCopy === 'string' ? initialCopy : text;
+      setEditCopy(resolvedCopy);
       setOrigCopy(text);
       setReviewAds((prev) =>
-        prev.map((a, idx) =>
-          idx === currentIndex ? { ...a, originalCopy: text } : a
-        )
+        prev.map((a) =>
+          assetsReferToSameDoc(a, targetAd)
+            ? { ...a, originalCopy: text }
+            : a,
+        ),
       );
       setAds((prev) =>
         prev.map((a) =>
-          a.assetId === currentAd.assetId ? { ...a, originalCopy: text } : a
-        )
+          assetsReferToSameDoc(a, targetAd)
+            ? { ...a, originalCopy: text }
+            : a,
+        ),
+      );
+      setAllAds((prev) =>
+        prev.map((a) =>
+          assetsReferToSameDoc(a, targetAd)
+            ? { ...a, originalCopy: text }
+            : a,
+        ),
       );
     } catch (err) {
       console.error('Failed to load copy', err);
-      setEditCopy('');
+      setEditCopy(typeof initialCopy === 'string' ? initialCopy : '');
       setOrigCopy('');
     }
   };
@@ -1097,15 +2336,31 @@ useEffect(() => {
     }
   };
 
-  const submitResponse = async (responseType) => {
-    if (!currentAd) return;
+  const submitResponse = async (
+    responseType,
+    {
+      targetAd = currentAd,
+      targetAssets = currentRecipeGroup?.assets || [],
+      targetIndex = currentIndex,
+      skipAdvance = false,
+    } = {},
+  ) => {
+    if (!targetAd) return;
     advancedRef.current = false;
-    setAnimating(responseType);
+    if (!skipAdvance) {
+      setAnimating(responseType);
+    } else {
+      setAnimating(null);
+    }
     setSubmitting(true);
 
-    const recipeAssets =
-      currentRecipeGroup?.assets.filter((a) => a.status !== 'archived') ||
-      [currentAd];
+    const matchesTargetAsset = (asset) =>
+      !!asset &&
+      asset.status !== 'archived' &&
+      !!targetAd &&
+      isSameAdUnit(asset, targetAd);
+    const filteredAssets = (targetAssets || []).filter(matchesTargetAsset);
+    const recipeAssets = filteredAssets.length > 0 ? filteredAssets : [targetAd];
     const updates = [];
     const addedResponses = {};
     const newStatus =
@@ -1114,6 +2369,43 @@ useEffect(() => {
         : responseType === 'reject'
         ? 'rejected'
         : 'edit_requested';
+    const recipeCode =
+      targetAd.recipeCode ||
+      parseAdFilename(targetAd.filename || '').recipeCode ||
+      '';
+    const targetKey = getAdKey(targetAd, targetIndex);
+    const existingComment =
+      (pendingResponseContext && pendingResponseContext.existingComment) || '';
+    const trimmedInputComment = comment.trim();
+    const formatComment = (note) => {
+      const trimmed = (note || '').trim();
+      if (!trimmed) return '';
+      const name =
+        reviewerName ||
+        user?.displayName ||
+        user?.email ||
+        user?.uid ||
+        'unknown';
+      const formatter = new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+      const timestamp = formatter.format(new Date());
+      return `${trimmed}\n\n— ${name} · ${timestamp}`;
+    };
+    let finalComment = existingComment;
+    if (responseType === 'edit') {
+      if (trimmedInputComment) {
+        const formatted = formatComment(trimmedInputComment);
+        if (editModalMode === 'note' && existingComment) {
+          finalComment = `${existingComment}\n\n${formatted}`;
+        } else {
+          finalComment = formatted;
+        }
+      }
+    } else {
+      finalComment = '';
+    }
 
     try {
       for (const asset of recipeAssets) {
@@ -1123,7 +2415,7 @@ useEffect(() => {
         const respObj = {
           adUrl: url,
           response: responseType,
-          comment: responseType === 'edit' ? comment : '',
+          comment: responseType === 'edit' ? finalComment : '',
           copyEdit: copyChanged ? editCopy : '',
           pass: responses[url] ? 'revisit' : 'initial',
           ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
@@ -1141,11 +2433,18 @@ useEffect(() => {
             })
           );
         }
-        if (asset.assetId && asset.adGroupId) {
-          const assetRef = doc(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId);
+        const assetDocId = getAssetDocumentId(asset);
+        if (assetDocId && asset.adGroupId) {
+          const assetRef = doc(
+            db,
+            'adGroups',
+            asset.adGroupId,
+            'assets',
+            assetDocId,
+          );
           const updateData = {
             status: newStatus,
-            comment: responseType === 'edit' ? comment : '',
+            comment: responseType === 'edit' ? finalComment : '',
             copyEdit: copyChanged ? editCopy : '',
             lastUpdatedBy: user.uid,
             lastUpdatedAt: serverTimestamp(),
@@ -1157,12 +2456,21 @@ useEffect(() => {
           const name = reviewerName || user.displayName || user.uid || 'unknown';
           updates.push(
             addDoc(
-              collection(db, 'adGroups', asset.adGroupId, 'assets', asset.assetId, 'history'),
+              collection(
+                db,
+                'adGroups',
+                asset.adGroupId,
+                'assets',
+                assetDocId,
+                'history',
+              ),
               {
                 status: newStatus,
                 updatedBy: name,
                 updatedAt: serverTimestamp(),
-                ...(responseType === 'edit' && comment ? { comment } : {}),
+                ...(responseType === 'edit' && finalComment
+                  ? { comment: finalComment }
+                  : {}),
                 ...(responseType === 'edit' && copyChanged
                   ? { copyEdit: editCopy, origCopy }
                   : {}),
@@ -1179,11 +2487,11 @@ useEffect(() => {
           let updatedAdsState = [];
           setAds((prev) => {
             const updated = prev.map((a) =>
-              a.assetId === asset.assetId
+              assetsReferToSameDoc(a, asset)
                 ? {
                     ...a,
                     status: newStatus,
-                    comment: responseType === 'edit' ? comment : '',
+                    comment: responseType === 'edit' ? finalComment : '',
                     copyEdit: copyChanged ? editCopy : '',
                     ...(responseType === 'approve'
                       ? { isResolved: true }
@@ -1198,11 +2506,11 @@ useEffect(() => {
           });
           setReviewAds((prev) =>
             prev.map((a) =>
-              a.assetId === asset.assetId
+              assetsReferToSameDoc(a, asset)
                 ? {
                     ...a,
                     status: newStatus,
-                    comment: responseType === 'edit' ? comment : '',
+                    comment: responseType === 'edit' ? finalComment : '',
                     copyEdit: copyChanged ? editCopy : '',
                     ...(responseType === 'approve'
                       ? { isResolved: true }
@@ -1210,8 +2518,25 @@ useEffect(() => {
                       ? { isResolved: false }
                       : {}),
                   }
-                : a
-            )
+                : a,
+            ),
+          );
+          setAllAds((prev) =>
+            prev.map((a) =>
+              assetsReferToSameDoc(a, asset)
+                ? {
+                    ...a,
+                    status: newStatus,
+                    comment: responseType === 'edit' ? finalComment : '',
+                    copyEdit: copyChanged ? editCopy : '',
+                    ...(responseType === 'approve'
+                      ? { isResolved: true }
+                      : responseType === 'edit'
+                      ? { isResolved: false }
+                      : {}),
+                  }
+                : a,
+            ),
           );
 
           const prevStatus = asset.status;
@@ -1234,48 +2559,42 @@ useEffect(() => {
 
           const groupRef = doc(db, 'adGroups', asset.adGroupId);
           const gSnap = await getDoc(groupRef);
-          const recipeStatusMap = {};
-          (updatedAdsState || []).forEach((a) => {
-            const info = parseAdFilename(a.filename || '');
-            const recipe = a.recipeCode || info.recipeCode || 'unknown';
-            if (!recipe) return;
-            const priority = {
-              approved: 4,
-              edit_requested: 3,
-              rejected: 2,
-              ready: 1,
-              pending: 0,
-              archived: 2,
-            };
-            const prev = recipeStatusMap[recipe];
-            const curr = a.status;
-            if (!prev || (priority[curr] || 0) > (priority[prev] || 0)) {
-              recipeStatusMap[recipe] = curr;
-            }
-          });
-          const groupStatus = computeGroupStatus(
-            Object.values(recipeStatusMap).map((s) => ({ status: s })),
-            false,
-            false,
-            gSnap.data().status,
-          );
           const updateObj = {
             ...(incReviewed ? { reviewedCount: increment(incReviewed) } : {}),
             ...(incApproved ? { approvedCount: increment(incApproved) } : {}),
             ...(incRejected ? { rejectedCount: increment(incRejected) } : {}),
             ...(incEdit ? { editCount: increment(incEdit) } : {}),
             lastUpdated: serverTimestamp(),
-            status: groupStatus,
             ...(gSnap.exists() && !gSnap.data().thumbnailUrl
               ? { thumbnailUrl: asset.firebaseUrl }
               : {}),
           };
-          updates.push(updateDoc(groupRef, updateObj));
+          const publicGroupUpdate = {
+            reviewedCountDelta: incReviewed,
+            approvedCountDelta: incApproved,
+            rejectedCountDelta: incRejected,
+            editCountDelta: incEdit,
+            lastUpdated: new Date().toISOString(),
+            assetId: assetDocId,
+            assetStatus: newStatus,
+            ...(recipeCode ? { recipeCode } : {}),
+            ...(asset.brandCode ? { brandCode: asset.brandCode } : {}),
+            ...(gSnap.exists() && !gSnap.data().thumbnailUrl && asset.firebaseUrl
+              ? { thumbnailUrl: asset.firebaseUrl }
+              : {}),
+          };
+          updates.push(
+            performGroupUpdate(asset.adGroupId, updateObj, {
+              type: 'status',
+              publicUpdate: publicGroupUpdate,
+            }),
+          );
 
-          if (responseType === 'approve' && asset.parentAdId) {
+          const parentId = getAssetParentId(asset);
+          if (responseType === 'approve' && parentId) {
             const relatedQuery = query(
               collection(db, 'adGroups', asset.adGroupId, 'assets'),
-              where('parentAdId', '==', asset.parentAdId)
+              where('parentAdId', '==', parentId)
             );
             const relatedSnap = await getDocs(relatedQuery);
             updates.push(
@@ -1288,7 +2607,7 @@ useEffect(() => {
               )
             );
             updates.push(
-              updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', asset.parentAdId), {
+              updateDoc(doc(db, 'adGroups', asset.adGroupId, 'assets', parentId), {
                 isResolved: true,
               })
             );
@@ -1298,8 +2617,8 @@ useEffect(() => {
         setResponses((prev) => ({ ...prev, [url]: respObj }));
       }
 
-      if (recipeAssets.length > 0) {
-        const recipeRef = doc(db, 'recipes', currentRecipe);
+      if (recipeAssets.length > 0 && recipeCode) {
+        const recipeRef = doc(db, 'recipes', recipeCode);
         updates.push(
           setDoc(
             recipeRef,
@@ -1312,7 +2631,9 @@ useEffect(() => {
                   user?.displayName ||
                   user?.uid ||
                   'unknown',
-                ...(responseType === 'edit' && comment ? { editComment: comment } : {}),
+                ...(responseType === 'edit' && finalComment
+                  ? { editComment: finalComment }
+                  : {}),
               }),
             },
             { merge: true }
@@ -1323,9 +2644,7 @@ useEffect(() => {
       await Promise.all(updates);
       if (responseType === 'edit' && userRole === 'client') {
         const brandCode =
-          currentAd?.brandCode ||
-          recipeAssets[0]?.brandCode ||
-          brandCodes[0];
+          targetAd?.brandCode || recipeAssets[0]?.brandCode || brandCodes[0];
         if (brandCode) {
           await deductCredits(brandCode, 'editRequest', settings.creditCosts);
         } else {
@@ -1342,17 +2661,37 @@ useEffect(() => {
       setEditCopy('');
       setOrigCopy('');
       setShowEditModal(false);
+      setEditModalMode('all');
       setSubmitting(false);
+      setPendingResponseContext((prev) => {
+        if (!prev) return prev;
+        if (prev?.key && prev.key === targetKey) return null;
+        if (!prev?.key && prev?.ad) {
+          const prevKey = getAdKey(prev.ad, prev.index ?? 0);
+          if (prevKey === targetKey) return null;
+        }
+        return prev;
+      });
+      setManualStatus((prev) => {
+        if (!targetKey) return prev;
+        const next = { ...prev };
+        delete next[targetKey];
+        return next;
+      });
 
-      const nextIndex = currentIndex + 1;
-      if (!advancedRef.current) {
-        setCurrentIndex(nextIndex);
-        advancedRef.current = true;
-      }
-      setAnimating(null);
-
-      if (nextIndex >= reviewAds.length) {
-        setStarted(false);
+      if (!skipAdvance) {
+        const nextIndex = targetIndex + 1;
+        if (!advancedRef.current) {
+          setCurrentIndex(nextIndex);
+          advancedRef.current = true;
+        }
+        setAnimating(null);
+        if (nextIndex >= reviewAds.length) {
+          setStarted(false);
+        }
+      } else {
+        setCurrentIndex(targetIndex);
+        setAnimating(null);
       }
     }
   };
@@ -1365,11 +2704,23 @@ useEffect(() => {
     }
     setNoteSubmitting(true);
     try {
-      await updateDoc(doc(db, 'adGroups', currentAd.adGroupId), {
-        clientNote: clientNote.trim(),
-        clientNoteTimestamp: serverTimestamp(),
-        hasClientNote: true,
-      });
+      const trimmedNote = clientNote.trim();
+      await performGroupUpdate(
+        currentAd.adGroupId,
+        {
+          clientNote: trimmedNote,
+          clientNoteTimestamp: serverTimestamp(),
+          hasClientNote: true,
+        },
+        {
+          type: 'note',
+          publicUpdate: {
+            clientNote: trimmedNote,
+            hasClientNote: true,
+            clientNoteTimestamp: new Date().toISOString(),
+          },
+        },
+      );
     } catch (err) {
       console.error('Failed to submit note', err);
     } finally {
@@ -1378,6 +2729,85 @@ useEffect(() => {
       setShowNoteInput(false);
       setAskContinue(true);
     }
+  };
+
+  const approveAllPending = async () => {
+    const pendingEntries = [];
+    reviewAds.forEach((ad, index) => {
+      const { statusValue, statusAssets } = buildStatusMeta(ad, index);
+      if (statusValue === 'pending') {
+        pendingEntries.push({ ad, assets: statusAssets, index });
+      }
+    });
+
+    for (const entry of pendingEntries) {
+      await submitResponse('approve', {
+        targetAd: entry.ad,
+        targetAssets: entry.assets,
+        targetIndex: entry.index,
+        skipAdvance: true,
+      });
+    }
+  };
+
+  const handleFinalizeReview = async (approvePending = false) => {
+    if (!groupId) {
+      setShowFinalizeModal(null);
+      return;
+    }
+
+    setFinalizeProcessing(true);
+    try {
+      if (approvePending) {
+        await approveAllPending();
+      }
+
+      const updateData = {
+        status: 'reviewed',
+        reviewProgress: null,
+        lastUpdated: serverTimestamp(),
+      };
+
+      await updateDoc(doc(db, 'adGroups', groupId), updateData);
+
+      if (isPublicReviewer) {
+        try {
+          await addDoc(collection(db, 'adGroups', groupId, 'publicUpdates'), {
+            type: 'status',
+            update: {
+              status: 'reviewed',
+              reviewProgress: null,
+              lastUpdated: new Date().toISOString(),
+            },
+            createdAt: serverTimestamp(),
+            reviewer: reviewerIdentifier,
+            source: 'public-review',
+          });
+        } catch (err) {
+          console.warn('Failed to record public finalize update', err);
+        }
+      }
+
+      setGroupStatus('reviewed');
+      setInitialStatus('done');
+      setStarted(false);
+      setShowFinalizeModal(null);
+    } catch (err) {
+      console.error('Failed to finalize review', err);
+    } finally {
+      setFinalizeProcessing(false);
+    }
+  };
+
+  const openFinalizeModal = () => {
+    if (finalizeProcessing || !groupId) return;
+    const pendingCount = reviewStatusCounts?.pending ?? 0;
+    setShowFinalizeModal(pendingCount > 0 ? 'pending' : 'confirm');
+  };
+
+  const closeFinalizeModal = () => {
+    if (finalizeProcessing) return;
+    setShowFinalizeModal(null);
   };
 
   if (
@@ -1390,7 +2820,7 @@ useEffect(() => {
   }
 
 
-  if (!started) {
+  if (!started && reviewVersion !== 2) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
         {timedOut && (
@@ -1532,6 +2962,62 @@ useEffect(() => {
 
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen space-y-4">
+      {showFinalizeModal && (
+        <Modal>
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                Finalize review
+              </h2>
+              {showFinalizeModal === 'pending' ? (
+                <>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Their are pending ads remaining. Would you like to approve them?
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Note: This lets the design team know the review is complete. You'll still be able to download approved ads,
+                    but once finalized you won't be able to add new feedback or re-open the review.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Note: This lets the design team know the review is complete. You'll still be able to download approved ads, but
+                  once finalized you won't be able to add new feedback or re-open the review.
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={closeFinalizeModal}
+                disabled={finalizeProcessing}
+              >
+                Cancel
+              </button>
+              {showFinalizeModal === 'pending' ? (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => handleFinalizeReview(true)}
+                  disabled={finalizeProcessing}
+                >
+                  {finalizeProcessing ? 'Approving...' : 'Approve all Pending'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => handleFinalizeReview(false)}
+                  disabled={finalizeProcessing}
+                >
+                  {finalizeProcessing ? 'Finalizing...' : 'Confirm'}
+                </button>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
       {showStreakModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white p-4 rounded-xl shadow max-w-sm space-y-4 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
@@ -1624,48 +3110,30 @@ useEffect(() => {
           )}
         {/* Gallery view removed */}
         {/* Show exit button even during change review */}
-        <div className="relative w-full max-w-md mb-2.5 flex justify-center">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2">
-            <InfoTooltip text="exit review" placement="bottom">
-              <button
-                type="button"
-                onClick={() => {
-                  releaseLock();
-                  setStarted(false);
-                }}
-                aria-label="exit review"
-                className="text-gray-500 hover:text-black dark:hover:text-white"
-              >
-                <FiX />
-              </button>
-            </InfoTooltip>
-          </div>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2">
-            <InfoTooltip text="leave overall feedback" placement="bottom">
-              <button
-                type="button"
-                aria-label="leave overall feedback"
-                onClick={() => setShowFeedbackModal(true)}
-                className="text-gray-500 hover:text-black dark:hover:text-white"
-              >
-                <FiMessageSquare />
-              </button>
-            </InfoTooltip>
-          </div>
-          {reviewVersion !== 3 && (
-            <div
-              className="progress-bar"
-              role="progressbar"
-              aria-valuenow={progress}
-              aria-valuemin="0"
-              aria-valuemax="100"
+        <div className="w-full max-w-md mb-2.5 flex items-center justify-between px-1">
+          <InfoTooltip text="exit review" placement="bottom">
+            <button
+              type="button"
+              onClick={() => {
+                releaseLock();
+                setStarted(false);
+              }}
+              aria-label="exit review"
+              className="text-gray-500 hover:text-black dark:hover:text-white"
             >
-              <div
-                className="progress-bar-inner"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          )}
+              <FiX />
+            </button>
+          </InfoTooltip>
+          <InfoTooltip text="leave overall feedback" placement="bottom">
+            <button
+              type="button"
+              aria-label="leave overall feedback"
+              onClick={() => setShowFeedbackModal(true)}
+              className="text-gray-500 hover:text-black dark:hover:text-white"
+            >
+              <FiMessageSquare />
+            </button>
+          </InfoTooltip>
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
@@ -1681,77 +3149,403 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="p-4 rounded flex flex-wrap justify-center gap-4 relative">
-              {(currentRecipeGroup?.assets || []).map((a, idx) => (
-                <div key={idx} className="max-w-[300px]">
-                  {isVideoUrl(a.firebaseUrl) ? (
-                    <VideoPlayer
-                      src={a.firebaseUrl}
-                      className="max-w-full rounded shadow"
-                      style={{
-                        aspectRatio:
-                          String(a.aspectRatio || '').replace('x', '/') || undefined,
-                      }}
-                    />
-                  ) : (
-                    <OptimizedImage
-                      pngUrl={a.firebaseUrl}
-                      webpUrl={
-                        a.firebaseUrl
-                          ? a.firebaseUrl.replace(/\.png$/, '.webp')
-                          : undefined
-                      }
-                      alt={a.filename}
-                      cacheKey={a.firebaseUrl}
-                      className="max-w-full rounded shadow"
-                      style={{
-                        aspectRatio:
-                          String(a.aspectRatio || '').replace('x', '/') || undefined,
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-              {(getVersion(displayAd) > 1 || versions.length > 1) && (
-                versions.length > 1 ? (
-                  versions.length === 2 ? (
-                    <span
-                      onClick={() =>
-                        setVersionIndex((i) => (i + 1) % versions.length)
-                      }
-                      className="version-badge cursor-pointer absolute top-0 left-0"
-                    >
-                      V{getVersion(displayAd)}
-                    </span>
-                  ) : (
-                    <div className="absolute top-0 left-0">
-                      <span
-                        onClick={() => setShowVersionMenu((o) => !o)}
-                        className="version-badge cursor-pointer select-none"
-                      >
-                        V{getVersion(displayAd)}
-                      </span>
-                      {showVersionMenu && (
-                        <div className="absolute left-0 top-full mt-1 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
-                          {versions.map((v, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => {
-                                setVersionIndex(idx);
-                                setShowVersionMenu(false);
-                              }}
-                              className="block w-full text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
-                            >
-                              V{getVersion(v[0])}
-                            </button>
-                          ))}
+            <div className="w-full max-w-5xl space-y-6 px-2 pt-2 sm:px-0">
+              <div
+                ref={statusBarSentinelRef}
+                aria-hidden="true"
+                className="-mt-px h-px w-full opacity-0"
+                style={{ pointerEvents: 'none' }}
+              />
+              <div className="sticky top-0 z-20">
+                <div
+                  className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
+                >
+                  <div
+                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between ${statusBarPinned ? 'gap-3' : 'gap-4'}`}
+                  >
+                    <div className={`flex-1 ${statusBarPinned ? 'sm:flex sm:items-center sm:gap-4' : ''}`}>
+                      {adGroupDisplayName && !statusBarPinned && (
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                          {adGroupDisplayName}
                         </div>
                       )}
+                      <div
+                        className={`grid grid-cols-2 sm:grid-cols-4 ${statusBarPinned ? 'mt-0 gap-2 sm:gap-3' : 'mt-3 gap-4'}`}
+                      >
+                        {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
+                          const statusLabel = (statusLabelMap[statusKey] || statusKey).toLowerCase();
+                          return (
+                            <div
+                              key={statusKey}
+                              className={`flex flex-col items-center text-center ${statusBarPinned ? 'gap-0.5' : 'gap-1'}`}
+                            >
+                              <span
+                                className={`${statusBarPinned ? 'text-lg' : 'text-xl'} font-semibold text-gray-900 dark:text-[var(--dark-text)]`}
+                              >
+                                {reviewStatusCounts[statusKey] ?? 0}
+                              </span>
+                              <span
+                                className={`${statusBarPinned ? 'text-[11px]' : 'text-xs'} font-medium text-gray-500 dark:text-gray-300`}
+                              >
+                                {statusLabel}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  )
-                ) : (
-                  <span className="version-badge absolute top-0 left-0">V{getVersion(displayAd)}</span>
-                )
+                    {isGroupReviewed ? (
+                      <span
+                        className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 sm:self-center ${
+                          statusBarPinned ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'
+                        }`}
+                      >
+                        <FiCheckCircle
+                          className={
+                            statusBarPinned ? 'h-3.5 w-3.5' : 'h-4 w-4'
+                          }
+                          aria-hidden="true"
+                        />
+                        Reviewed
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={openFinalizeModal}
+                        disabled={
+                          finalizeProcessing || submitting || !groupId
+                        }
+                        className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${
+                          statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
+                        } ${
+                          finalizeProcessing || submitting || !groupId
+                            ? 'opacity-60 cursor-not-allowed'
+                            : ''
+                        }`}
+                      >
+                        finalize review
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {reviewAds.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-gray-300 dark:border-[var(--border-color-default)] bg-white dark:bg-[var(--dark-sidebar-bg)] p-8 text-center text-gray-500 dark:text-gray-300">
+                  No ads to review yet.
+                </div>
+              ) : (
+                reviewAds.map((ad, index) => {
+                  const {
+                    cardKey,
+                    groups,
+                    latestAssets,
+                    statusAssets,
+                    statusValue,
+                  } = buildStatusMeta(ad, index);
+                  const primaryAssets =
+                    latestAssets && latestAssets.length > 0
+                      ? latestAssets
+                      : ad
+                      ? [ad]
+                      : [];
+                  const getAssetAspect = (asset) =>
+                    asset?.aspectRatio ||
+                    parseAdFilename(asset?.filename || '').aspectRatio ||
+                    '';
+                  const sortedAssets = primaryAssets
+                    .map((asset, originalIndex) => ({ asset, originalIndex }))
+                    .sort((a, b) => {
+                      const priorityA = getReviewAspectPriority(
+                        getAssetAspect(a.asset),
+                      );
+                      const priorityB = getReviewAspectPriority(
+                        getAssetAspect(b.asset),
+                      );
+                      if (priorityA !== priorityB) {
+                        return priorityA - priorityB;
+                      }
+                      return a.originalIndex - b.originalIndex;
+                    })
+                    .map(({ asset }) => asset);
+                  const hasEditInfo = statusAssets.find(
+                    (asset) => asset.comment || asset.copyEdit,
+                  );
+                  const existingComment = hasEditInfo?.comment || '';
+                  const existingCopyEdit = hasEditInfo?.copyEdit || '';
+                  const resolvedExistingCopy =
+                    existingCopyEdit && existingCopyEdit.length > 0
+                      ? existingCopyEdit
+                      : undefined;
+                  const noteEntries = (() => {
+                    const rawComment = hasEditInfo?.comment;
+                    if (!rawComment) return [];
+                    const matches = Array.from(
+                      rawComment.matchAll(/(.*?)\n\n— ([^\n]+)(?:\n\n|$)/gs),
+                    );
+                    const sanitizeBody = (text) =>
+                      (text || '').replace(/\n+$/, '');
+                    if (matches.length === 0) {
+                      return [{ body: sanitizeBody(rawComment), meta: '' }];
+                    }
+                    return matches.map((match) => ({
+                      body: sanitizeBody(match[1] || ''),
+                      meta: match[2] ? `— ${match[2]}` : '',
+                    }));
+                  })();
+                  const showEditButton = !!hasEditInfo || statusValue === 'edit';
+                  const isExpanded = !!expandedRequests[cardKey];
+                  const recipeLabel =
+                    ad.recipeCode ||
+                    parseAdFilename(ad.filename || '').recipeCode ||
+                    'Ad Unit';
+                  const selectId = `ad-status-${cardKey}`;
+                  const handleSelectChange = async (event) => {
+                    const value = event.target.value;
+                    if (value === 'pending') {
+                      setManualStatus((prev) => {
+                        const next = { ...prev };
+                        delete next[cardKey];
+                        return next;
+                      });
+                      return;
+                    }
+                    if (value === 'edit') {
+                      setManualStatus((prev) => ({ ...prev, [cardKey]: 'edit' }));
+                      setPendingResponseContext({
+                        ad,
+                        assets: statusAssets,
+                        index,
+                        key: cardKey,
+                        existingComment,
+                        existingCopy: existingCopyEdit,
+                      });
+                      openEditRequest(ad, index, {
+                        mode: 'all',
+                        initialComment: '',
+                        initialCopy: resolvedExistingCopy,
+                      });
+                      return;
+                    }
+                    setManualStatus((prev) => {
+                      const next = { ...prev };
+                      delete next[cardKey];
+                      return next;
+                    });
+                    try {
+                      await submitResponse(value, {
+                        targetAd: ad,
+                        targetAssets: statusAssets,
+                        targetIndex: index,
+                        skipAdvance: true,
+                      });
+                    } catch (err) {
+                      console.error('Failed to update status', err);
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={cardKey}
+                      className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                    >
+                      <div className="flex flex-col gap-4 p-4">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                              {recipeLabel}
+                            </h3>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {groups.length > 1 && (
+                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                V{getVersion(groups[0][0])}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-4">
+                          <div
+                            className={`grid gap-3 items-start ${
+                              sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
+                            }`}
+                          >
+                            {sortedAssets.map((asset, assetIdx) => {
+                              const assetUrl = asset.firebaseUrl || asset.adUrl || '';
+                              const assetAspect = getAssetAspect(asset);
+                              const assetStyle = assetAspect
+                                ? { aspectRatio: assetAspect.replace('x', '/') }
+                                : {};
+                              return (
+                                <div
+                                  key={
+                                    getAssetDocumentId(asset) || assetUrl || assetIdx
+                                  }
+                                  className="mx-auto w-full max-w-[350px] self-start overflow-hidden rounded-lg sm:mx-0"
+                                >
+                                  <div className="relative w-full" style={assetStyle}>
+                                    {isVideoUrl(assetUrl) ? (
+                                      <VideoPlayer
+                                        src={assetUrl}
+                                        className="h-full w-full object-contain"
+                                        style={assetStyle}
+                                      />
+                                    ) : (
+                                      <OptimizedImage
+                                        pngUrl={assetUrl}
+                                        webpUrl={
+                                          assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
+                                        }
+                                        alt={asset.filename || 'Ad'}
+                                        cacheKey={assetUrl}
+                                        className="h-full w-full object-contain"
+                                        style={assetStyle}
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-col gap-3 border-t border-gray-200 pt-3 dark:border-[var(--border-color-default)] sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-3">
+                            <span
+                              className="inline-block h-2.5 w-2.5 rounded-full"
+                              style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                            />
+                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                              <label
+                                className="text-sm font-medium text-gray-600 dark:text-gray-300"
+                                htmlFor={selectId}
+                              >
+                                Status
+                              </label>
+                              <select
+                                id={selectId}
+                                className="min-w-[160px]"
+                                value={statusValue}
+                                onChange={handleSelectChange}
+                                disabled={submitting || isGroupReviewed}
+                              >
+                                {statusOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          {showEditButton && (
+                            <button
+                              type="button"
+                              className="btn-action text-sm font-medium"
+                              onClick={() =>
+                                setExpandedRequests((prev) => ({
+                                  ...prev,
+                                  [cardKey]: !prev[cardKey],
+                                }))
+                              }
+                            >
+                              {isExpanded ? 'Hide edit request' : 'View edit request'}
+                            </button>
+                          )}
+                        </div>
+                        {showEditButton && isExpanded && (
+                          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                onClick={() => {
+                                  setManualStatus((prev) => ({
+                                    ...prev,
+                                    [cardKey]: 'edit',
+                                  }));
+                                  setPendingResponseContext({
+                                    ad,
+                                    assets: statusAssets,
+                                    index,
+                                    key: cardKey,
+                                    existingComment,
+                                    existingCopy: existingCopyEdit,
+                                  });
+                                  openEditRequest(ad, index, {
+                                    mode: 'note',
+                                    initialComment: '',
+                                    initialCopy: resolvedExistingCopy,
+                                  });
+                                }}
+                              >
+                                <FiPlus className="h-4 w-4" aria-hidden="true" />
+                                <span>Add note</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)]"
+                                onClick={() => {
+                                  setManualStatus((prev) => ({
+                                    ...prev,
+                                    [cardKey]: 'edit',
+                                  }));
+                                  setPendingResponseContext({
+                                    ad,
+                                    assets: statusAssets,
+                                    index,
+                                    key: cardKey,
+                                    existingComment,
+                                    existingCopy: existingCopyEdit,
+                                  });
+                                  openEditRequest(ad, index, {
+                                    mode: 'copy',
+                                    initialComment: '',
+                                    initialCopy: resolvedExistingCopy,
+                                  });
+                                }}
+                              >
+                                <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                                <span>Edit Copy</span>
+                              </button>
+                            </div>
+                            {hasEditInfo?.comment && (
+                              <div className="mb-3">
+                                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                  Notes
+                                </h4>
+                                {noteEntries.map((entry, noteIdx) => (
+                                  <div key={noteIdx} className="mb-2 last:mb-0">
+                                    <p className="whitespace-pre-wrap leading-relaxed">
+                                      {entry.body}
+                                    </p>
+                                    {entry.meta && (
+                                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                        {entry.meta}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {hasEditInfo?.copyEdit && (
+                              <div>
+                                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                  Requested Copy
+                                </h4>
+                                <pre className="whitespace-pre-wrap leading-relaxed">
+                                  {hasEditInfo.copyEdit}
+                                </pre>
+                              </div>
+                            )}
+                            {!hasEditInfo?.comment && !hasEditInfo?.copyEdit && (
+                              <p className="text-sm text-gray-500 dark:text-gray-300">
+                                No edit details provided.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           ) : (
@@ -1902,99 +3696,35 @@ useEffect(() => {
         </div>
       </div>
 
-        {!showSizes && reviewVersion !== 3 && (showSecondView ? (
-        <div className="flex items-center space-x-4">
-          {currentIndex > 0 && (
-            <button
-              aria-label="Previous"
-              onClick={() =>
-                setCurrentIndex((i) => Math.max(0, i - 1))
-              }
-              className="btn-arrow"
-            >
-              &lt;
-            </button>
-          )}
-          <div className="flex space-x-4 pt-2">
-            <button
-              onClick={() => submitResponse('reject')}
-              className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
-              disabled={submitting}
-            >
-              Reject
-            </button>
-            <button
-              onClick={openEditRequest}
-              className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
-              disabled={submitting}
-              aria-label="Request Edit"
-            >
-              <FiEdit />
-            </button>
-            <button
-              onClick={() => submitResponse('approve')}
-              className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
-              disabled={submitting}
-            >
-              Approve
-            </button>
-          </div>
-          {currentIndex < reviewAds.length - 1 ? (
-            <button
-              aria-label="Next"
-              onClick={() =>
-                setCurrentIndex((i) => Math.min(reviewAds.length - 1, i + 1))
-              }
-              className="btn-arrow"
-            >
-              &gt;
-            </button>
-          ) : (
-            <button
-              aria-label="End Review"
-              onClick={() => setCurrentIndex(reviewAds.length)}
-              className="btn-arrow"
-            >
-              End
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="flex space-x-4">
-          <button
-            onClick={() => submitResponse('reject')}
-            className={`btn-reject ${selectedResponse && selectedResponse !== 'reject' ? 'opacity-50' : ''}`}
-            disabled={submitting}
-          >
-            Reject
-          </button>
-          <button
-            onClick={openEditRequest}
-            className={`btn-edit ${selectedResponse && selectedResponse !== 'edit' ? 'opacity-50' : ''}`}
-            disabled={submitting}
-            aria-label="Request Edit"
-          >
-            <FiEdit />
-          </button>
-          <button
-            onClick={() => submitResponse('approve')}
-            className={`btn-approve ${selectedResponse && selectedResponse !== 'approve' ? 'opacity-50' : ''}`}
-            disabled={submitting}
-          >
-            Approve
-          </button>
-        </div>
-      ))}
       {showEditModal && (
         <EditRequestModal
+          mode={editModalMode}
           comment={comment}
           onCommentChange={setComment}
           editCopy={editCopy}
           onEditCopyChange={setEditCopy}
           origCopy={origCopy}
           canSubmit={canSubmitEdit}
-          onCancel={() => setShowEditModal(false)}
-          onSubmit={() => submitResponse('edit')}
+          onCancel={() => {
+            setShowEditModal(false);
+            setEditModalMode('all');
+            if (pendingResponseContext?.key) {
+              setManualStatus((prev) => {
+                const next = { ...prev };
+                delete next[pendingResponseContext.key];
+                return next;
+              });
+            }
+            setPendingResponseContext(null);
+          }}
+          onSubmit={() =>
+            submitResponse('edit', {
+              targetAd: pendingResponseContext?.ad,
+              targetAssets: pendingResponseContext?.assets,
+              targetIndex: pendingResponseContext?.index ?? currentIndex,
+              skipAdvance: reviewVersion === 2,
+            })
+          }
           submitting={submitting}
         />
       )}
@@ -2046,15 +3776,6 @@ useEffect(() => {
         />
       )}
       </div>
-      {reviewVersion !== 3 && (
-        <FeedbackPanel
-          entries={panelEntries}
-          onVersionClick={openVersionModal}
-          origCopy={recipeCopyMap[currentRecipe] || ''}
-          className="mt-4 md:mt-0"
-          collapsible={reviewVersion === 2}
-        />
-      )}
     </div>
     </div>
   );

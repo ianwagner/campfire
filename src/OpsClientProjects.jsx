@@ -205,7 +205,7 @@ const OpsClientProjects = () => {
       const newStatus = computeGroupStatus(
         assets,
         !recipeSnap.empty,
-        false,
+        project?.group?.status === 'designed',
         project?.group?.status,
       );
       await Promise.all([

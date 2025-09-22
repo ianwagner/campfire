@@ -1,21 +1,45 @@
 import computeGroupStatus from './computeGroupStatus';
 
-test('returns briefed when hasRecipes and no assets', () => {
-  const status = computeGroupStatus([], true, false);
+test('keeps blocked when current status is blocked', () => {
+  const status = computeGroupStatus([{ status: 'approved' }], false, false, 'blocked');
+  expect(status).toBe('blocked');
+});
+
+test('keeps briefed when current status is briefed', () => {
+  const status = computeGroupStatus([], true, false, 'briefed');
   expect(status).toBe('briefed');
 });
 
-test('returns pending when no recipes and no assets', () => {
-  const status = computeGroupStatus([], false, false);
-  expect(status).toBe('pending');
+test('returns new when no assets are present', () => {
+  const status = computeGroupStatus([], true, false);
+  expect(status).toBe('new');
 });
 
-test('returns designing when inDesign is true', () => {
-  const status = computeGroupStatus([{ status: 'pending' }], false, true);
-  expect(status).toBe('designing');
+test('returns designed when marked in design and no reviews yet', () => {
+  const status = computeGroupStatus([{ status: 'ready' }], false, true);
+  expect(status).toBe('designed');
 });
 
-test('returns done when all ads reviewed', () => {
+test('returns reviewed when some assets have been reviewed', () => {
+  const status = computeGroupStatus(
+    [{ status: 'approved' }, { status: 'pending' }],
+    false,
+    false,
+  );
+  expect(status).toBe('reviewed');
+});
+
+test('normalizes legacy ready status to designed', () => {
+  const status = computeGroupStatus([{ status: 'pending' }], false, false, 'ready');
+  expect(status).toBe('designed');
+});
+
+test('normalizes legacy edit request status to reviewed', () => {
+  const status = computeGroupStatus([{ status: 'pending' }], false, false, 'edit request');
+  expect(status).toBe('reviewed');
+});
+
+test('returns done when all active assets reviewed', () => {
   const status = computeGroupStatus(
     [{ status: 'approved' }, { status: 'rejected' }, { status: 'archived' }],
     false,
@@ -24,48 +48,7 @@ test('returns done when all ads reviewed', () => {
   expect(status).toBe('done');
 });
 
-test('returns edit request when any edit requested', () => {
-  const status = computeGroupStatus(
-    [{ status: 'edit_requested' }, { status: 'approved' }],
-    false,
-    false,
-  );
-  expect(status).toBe('edit request');
-});
-
-test('returns ready when any ad is ready', () => {
-  const status = computeGroupStatus(
-    [{ status: 'ready' }, { status: 'approved' }],
-    false,
-    false,
-  );
-  expect(status).toBe('ready');
-});
-
-test('returns pending when both pending and ready ads exist', () => {
-  const status = computeGroupStatus(
-    [{ status: 'ready' }, { status: 'pending' }],
-    false,
-    false,
-  );
-  expect(status).toBe('pending');
-});
-
-test('uses status of non-archived ads', () => {
-  const status = computeGroupStatus(
-    [{ status: 'archived' }, { status: 'ready' }],
-    false,
-    false,
-  );
-  expect(status).toBe('ready');
-});
-
-test('returns pending otherwise', () => {
-  const status = computeGroupStatus([{ status: 'pending' }], false, false);
-  expect(status).toBe('pending');
-});
-
-test('returns blocked when current status is blocked', () => {
-  const status = computeGroupStatus([{ status: 'approved' }], false, false, 'blocked');
-  expect(status).toBe('blocked');
+test('falls back to processing when work remains', () => {
+  const status = computeGroupStatus([{ status: 'ready' }], false, false);
+  expect(status).toBe('processing');
 });

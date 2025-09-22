@@ -271,7 +271,8 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
             list.filter(
               (g) =>
                 g.status !== 'archived' &&
-                (g.status === 'ready' || g.visibility === 'public')
+                (['designed', 'reviewed', 'done'].includes(g.status) ||
+                  g.visibility === 'public')
             )
           );
           setLoading(false);

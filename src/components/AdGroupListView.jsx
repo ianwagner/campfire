@@ -21,12 +21,13 @@ import AdGroupGantt from './AdGroupGantt.jsx';
 
 const statusOrder = {
   blocked: 0,
-  pending: 1,
-  briefed: 2,
-  ready: 3,
-  'edit request': 4,
-  done: 5,
-  archived: 6,
+  new: 1,
+  processing: 2,
+  briefed: 3,
+  designed: 4,
+  reviewed: 5,
+  done: 6,
+  archived: 7,
 };
 
 const AdGroupListView = ({
@@ -208,6 +209,7 @@ const AdGroupListView = ({
                     <th>Group Name</th>
                     <th>Brand</th>
                     <th>Month</th>
+                    <th className="text-center">Reviewed</th>
                     <th className="text-center">Status</th>
                     <th>Actions</th>
                   </tr>
@@ -226,6 +228,7 @@ const AdGroupListView = ({
                       <td>
                         <MonthTag month={g.month} />
                       </td>
+                      <td className="text-center">{g.reviewedCount ?? 0}</td>
                       <td className="text-center">
                         <StatusBadge status={g.status} />
                       </td>
@@ -255,7 +258,7 @@ const AdGroupListView = ({
                   { label: 'Blocked', status: 'blocked' },
                   { label: 'Briefed', status: 'briefed' },
                   { label: 'Designed', status: 'designed' },
-                  { label: 'Edit Request', status: 'edit request' },
+                  { label: 'Reviewed', status: 'reviewed' },
                   { label: 'Done', status: 'done' },
                 ].map((col) => (
                   <div key={col.status} className="flex-shrink-0 w-[240px] sm:w-[320px]">

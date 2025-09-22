@@ -198,6 +198,26 @@
   .bg-accent-10 {
     background-color: var(--accent-color-10);
   }
+  .sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+  }
+  .sidebar-scroll:hover {
+    scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
+  }
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.4);
+    border-radius: 9999px;
+  }
+  .sidebar-scroll:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.6);
+  }
   .bg-approve-10 {
     background-color: var(--approve-color-10);
   }
@@ -430,6 +450,14 @@
     background-color: var(--accent-color-10);
     color: var(--accent-color);
   }
+  .status-designed {
+    background-color: var(--accent-color-10);
+    color: var(--accent-color);
+  }
+  .status-reviewed {
+    background-color: var(--approve-color-10);
+    color: var(--approve-color);
+  }
   .status-edit_request {
     background-color: var(--edit-color-10);
     color: var(--edit-color);
@@ -489,6 +517,14 @@
   .status-select.status-in_design {
     background-color: var(--accent-color-10);
     color: var(--accent-color);
+  }
+  .status-select.status-designed {
+    background-color: var(--accent-color-10);
+    color: var(--accent-color);
+  }
+  .status-select.status-reviewed {
+    background-color: var(--approve-color-10);
+    color: var(--approve-color);
   }
   .status-select.status-edit_request {
     background-color: var(--edit-color-10);

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'campfire-cache-v2';
+const CACHE_NAME = 'campfire-cache-v3';
 const URLS_TO_CACHE = [
   '/',
   '/manifest.json',
@@ -14,8 +14,12 @@ self.addEventListener('install', (event) => {
         await Promise.all(
           URLS_TO_CACHE.map(async (url) => {
             try {
-              const resp = await fetch(new Request(url, { mode: 'no-cors' }));
-              await cache.put(url, resp);
+              const request = new Request(url, { credentials: 'include' });
+              const response = await fetch(request);
+              if (!response.ok) {
+                throw new Error(`Request for ${url} failed with status ${response.status}`);
+              }
+              await cache.put(request, response.clone());
             } catch (err) {
               console.warn('SW cache failed:', url, err);
             }

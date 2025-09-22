@@ -146,7 +146,7 @@ const AdGroupDetail = () => {
   const [assets, setAssets] = useState([]);
   const [briefAssets, setBriefAssets] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [readyLoading, setReadyLoading] = useState(false);
+  const [designLoading, setDesignLoading] = useState(false);
   const [versionUploading, setVersionUploading] = useState(null);
   const [showTable, setShowTable] = useState(false);
   const [historyRecipe, setHistoryRecipe] = useState(null);
@@ -209,6 +209,7 @@ const AdGroupDetail = () => {
     userRole === "manager" ||
     userRole === "editor" ||
     userRole === "project-manager";
+  const canManageStaff = isAdmin || (isManager && !isEditor);
   const isClient = userRole === "client";
   const usesTabs = isAdmin || isDesigner || isManager || isClient;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
@@ -422,7 +423,11 @@ const AdGroupDetail = () => {
   }, [group?.brandCode]);
 
   useEffect(() => {
-    if (!isAdmin && !isManager) return;
+    if (!(isAdmin || (isManager && !isEditor))) {
+      setDesigners([]);
+      setEditors([]);
+      return;
+    }
     const fetchAssignments = async () => {
       try {
         const dSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'designer')));
@@ -450,7 +455,7 @@ const AdGroupDetail = () => {
       }
     };
     fetchAssignments();
-  }, [isAdmin, isManager]);
+  }, [isAdmin, isEditor, isManager]);
 
   useEffect(() => {
     let cancelled = false;
@@ -484,6 +489,15 @@ const AdGroupDetail = () => {
     const loadEditor = async () => {
       if (!group?.editorId) {
         setEditorName('');
+        return;
+      }
+      if (group.editorId === auth.currentUser?.uid) {
+        if (!cancelled) {
+          const current = auth.currentUser;
+          setEditorName(
+            current?.displayName || current?.email || current?.phoneNumber || group.editorId
+          );
+        }
         return;
       }
       try {
@@ -554,7 +568,7 @@ const AdGroupDetail = () => {
       const newStatus = computeGroupStatus(
         assets,
         hasRecipes,
-        group.status === 'designing',
+        group.status === 'designed',
         group.status,
       );
       if (
@@ -1055,7 +1069,7 @@ const AdGroupDetail = () => {
       const newStatus = computeGroupStatus(
         updatedAssets,
         hasRecipes,
-        false,
+        group.status === 'designed',
         group.status,
       );
       await updateDoc(doc(db, "adGroups", id), { status: newStatus });
@@ -1123,7 +1137,7 @@ const AdGroupDetail = () => {
       const newStatus = computeGroupStatus(
         updatedAssets,
         hasRecipes,
-        false,
+        group.status === 'designed',
         group.status,
       );
       await updateDoc(doc(db, "adGroups", id), { status: newStatus });
@@ -1910,8 +1924,8 @@ const AdGroupDetail = () => {
     }
   };
 
-  const markReady = async () => {
-    setReadyLoading(true);
+  const markDesigned = async () => {
+    setDesignLoading(true);
     try {
       const batch = writeBatch(db);
       const pendingAssets = assets.filter((a) => a.status === "pending");
@@ -1922,7 +1936,7 @@ const AdGroupDetail = () => {
           lastUpdatedAt: serverTimestamp(),
         });
       }
-      batch.update(doc(db, "adGroups", id), { status: "ready" });
+      batch.update(doc(db, "adGroups", id), { status: "designed" });
       await batch.commit();
       if (pendingAssets.length > 0) {
         setAssets((prev) =>
@@ -1934,9 +1948,9 @@ const AdGroupDetail = () => {
         );
       }
     } catch (err) {
-      console.error("Failed to mark ready", err);
+      console.error("Failed to mark designed", err);
     } finally {
-      setReadyLoading(false);
+      setDesignLoading(false);
     }
   };
 
@@ -2027,17 +2041,31 @@ const AdGroupDetail = () => {
 
   const allStatusOptions = [
     'new',
-    'pending',
+    'processing',
     'briefed',
-    'ready',
-    'edit request',
+    'designed',
+    'reviewed',
     'done',
     'blocked',
   ];
 
   const editorStatusOptions = ['new', 'briefed', 'blocked'];
+  const designerStatusOptions = ['briefed', 'designed', 'blocked'];
 
-  const statusOptions = isAdmin ? allStatusOptions : editorStatusOptions;
+  const statusOptions = useMemo(() => {
+    const appendCurrentStatus = (options) => {
+      const list = [...options];
+      if (group?.status && !list.includes(group.status)) {
+        list.unshift(group.status);
+      }
+      return list;
+    };
+
+    if (isAdmin) return appendCurrentStatus(allStatusOptions);
+    if (isEditor) return appendCurrentStatus(editorStatusOptions);
+    if (isDesigner) return appendCurrentStatus(designerStatusOptions);
+    return appendCurrentStatus([]);
+  }, [group?.status, isAdmin, isDesigner, isEditor]);
 
   const handleStatusChange = async (e) => {
     if (!id) return;
@@ -2437,7 +2465,7 @@ const AdGroupDetail = () => {
         Brand: {group.brandCode}
         <span className="hidden sm:inline">|</span>
         Status:
-        {isAdmin || isEditor ? (
+        {isAdmin || isEditor || isDesigner ? (
           <select
             aria-label="Status"
             value={group.status}
@@ -2445,7 +2473,12 @@ const AdGroupDetail = () => {
             className={`status-select status-${(group.status || '').replace(/\s+/g, '_')}`}
           >
             {statusOptions.map((s) => (
-              <option key={s} value={s}>
+              <option
+                key={s}
+                value={s}
+                disabled={isDesigner && s === 'briefed'}
+                hidden={isDesigner && s === 'briefed'}
+              >
                 {s}
               </option>
             ))}
@@ -2556,7 +2589,7 @@ const AdGroupDetail = () => {
       </p>
       <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
         Designer:
-        {isAdmin || isManager ? (
+        {canManageStaff ? (
           <select
             value={group.designerId || ''}
             onChange={async (e) => {
@@ -2582,7 +2615,7 @@ const AdGroupDetail = () => {
         )}
         <span className="hidden sm:inline">|</span>
         Design Due Date:
-        {isAdmin || isManager ? (
+        {canManageStaff ? (
           <input
             type="date"
             value={
@@ -2616,7 +2649,7 @@ const AdGroupDetail = () => {
         )}
         <span className="hidden sm:inline">|</span>
         Editor:
-        {isAdmin || isManager ? (
+        {canManageStaff ? (
           <select
             value={group.editorId || ''}
             onChange={async (e) => {
@@ -2642,7 +2675,7 @@ const AdGroupDetail = () => {
         )}
         <span className="hidden sm:inline">|</span>
         Editor Due Date:
-        {isAdmin || isManager ? (
+        {canManageStaff ? (
           <input
             type="date"
             value={
@@ -2752,27 +2785,30 @@ const AdGroupDetail = () => {
               </>
             )}
             {(isAdmin || userRole === "agency") && (
+              <IconButton
+                onClick={resetGroup}
+                aria-label="Reset"
+                className="bg-transparent"
+              >
+                <FiRefreshCw size={20} />
+              </IconButton>
+            )}
+            {(isAdmin || userRole === "agency" || isDesigner) && (
+              <IconButton
+                onClick={markDesigned}
+                disabled={
+                  designLoading ||
+                  assets.length === 0 ||
+                  group.status === "designed"
+                }
+                className="bg-transparent"
+                aria-label="Designed"
+              >
+                <FiCheckCircle size={20} />
+              </IconButton>
+            )}
+            {(isAdmin || userRole === "agency") && (
               <>
-                <IconButton
-                  onClick={resetGroup}
-                  aria-label="Reset"
-                  className="bg-transparent"
-                >
-                  <FiRefreshCw size={20} />
-                </IconButton>
-                <IconButton
-                  onClick={markReady}
-                  disabled={
-                    readyLoading ||
-                    assets.length === 0 ||
-                    group.status === "ready" ||
-                    group.status === "in review"
-                  }
-                  className="bg-transparent"
-                  aria-label="Ready"
-                >
-                  <FiCheckCircle size={20} />
-                </IconButton>
                 <IconButton
                   as={Link}
                   to={`/review/${id}`}
