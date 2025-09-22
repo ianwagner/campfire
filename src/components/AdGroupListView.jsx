@@ -9,6 +9,7 @@ import {
   FiArchive,
   FiCalendar,
 } from 'react-icons/fi';
+import { doc, updateDoc } from 'firebase/firestore';
 import Table from './common/Table';
 import AdGroupCard from './AdGroupCard.jsx';
 import TabButton from './TabButton.jsx';
@@ -18,6 +19,7 @@ import StatusBadge from './StatusBadge.jsx';
 import computeKanbanStatus from '../utils/computeKanbanStatus';
 import MonthTag from './MonthTag.jsx';
 import AdGroupGantt from './AdGroupGantt.jsx';
+import { db } from '../firebase/config';
 
 const statusOrder = {
   blocked: 0,
@@ -57,6 +59,31 @@ const AdGroupListView = ({
   const term = (filter || '').toLowerCase();
   const months = Array.from(new Set(groups.map((g) => g.month).filter(Boolean))).sort();
   const [sortField, setSortField] = useState('title');
+  const [reviewVersions, setReviewVersions] = useState({});
+  const [updatingReview, setUpdatingReview] = useState(null);
+
+  const handleReviewTypeChange = async (groupId, newValue, previousValue, hadOverride) => {
+    const numericValue = Number(newValue);
+    setReviewVersions((prev) => ({ ...prev, [groupId]: numericValue }));
+    setUpdatingReview(groupId);
+    try {
+      await updateDoc(doc(db, 'adGroups', groupId), { reviewVersion: numericValue });
+    } catch (err) {
+      console.error('Failed to update review version', err);
+      setReviewVersions((prev) => {
+        const next = { ...prev };
+        if (hadOverride) {
+          next[groupId] = previousValue;
+        } else {
+          delete next[groupId];
+        }
+        return next;
+      });
+    } finally {
+      setUpdatingReview(null);
+    }
+  };
+
   const displayGroups = groups
     .filter(
       (g) =>
@@ -209,6 +236,7 @@ const AdGroupListView = ({
                     <th>Group Name</th>
                     <th>Brand</th>
                     <th>Month</th>
+                    <th className="text-center">Review Type</th>
                     <th className="text-center">Reviewed</th>
                     <th className="text-center">Status</th>
                     <th>Actions</th>
@@ -227,6 +255,26 @@ const AdGroupListView = ({
                       <td>{g.brandCode}</td>
                       <td>
                         <MonthTag month={g.month} />
+                      </td>
+                      <td className="text-center">
+                        <select
+                          className="border rounded p-1 text-sm"
+                          aria-label={`Review type for ${g.name || g.id}`}
+                          value={String(reviewVersions[g.id] ?? g.reviewVersion ?? 1)}
+                          onChange={(e) =>
+                            handleReviewTypeChange(
+                              g.id,
+                              e.target.value,
+                              reviewVersions[g.id] ?? g.reviewVersion ?? 1,
+                              reviewVersions[g.id] !== undefined,
+                            )
+                          }
+                          disabled={updatingReview === g.id}
+                        >
+                          <option value="1">Legacy</option>
+                          <option value="2">2.0</option>
+                          <option value="3">Brief</option>
+                        </select>
                       </td>
                       <td className="text-center">{g.reviewedCount ?? 0}</td>
                       <td className="text-center">
