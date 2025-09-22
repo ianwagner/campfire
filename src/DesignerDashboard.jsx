@@ -53,16 +53,17 @@ const DesignerDashboard = () => {
   };
 
   useEffect(() => {
-    if (!user || roleLoading) return;
+    if (roleLoading || !user?.uid) return;
     const fetchGroups = async () => {
       setLoading(true);
       try {
         const results = new Map();
+        const uid = user.uid;
         let q;
         if (role === 'designer') {
           q = query(
             collection(db, 'adGroups'),
-            where('designerId', '==', auth.currentUser?.uid || ''),
+            where('designerId', '==', uid),
             where('status', 'not-in', ['archived'])
           );
           const snap = await getDocs(q);
@@ -74,7 +75,7 @@ const DesignerDashboard = () => {
         } else {
           q = query(
             collection(db, 'adGroups'),
-            where('uploadedBy', '==', auth.currentUser?.uid || ''),
+            where('uploadedBy', '==', uid),
             where('status', 'not-in', ['archived'])
           );
           const snap = await getDocs(q);
