@@ -303,6 +303,26 @@ const isSafari =
 
 const BUFFER_COUNT = 3;
 
+const normalizeAspectKey = (value) => {
+  const normalized = normalizeKeyPart(value);
+  if (!normalized) return '';
+  const compact = normalized.replace(/\s+/g, '');
+  const match = compact.match(/^([0-9.]+)(?:[:xX\/])([0-9.]+)$/);
+  if (match) {
+    return `${match[1]}x${match[2]}`.toLowerCase();
+  }
+  return compact.toLowerCase();
+};
+
+const getCssAspectRatioValue = (aspect) => {
+  const normalized = normalizeKeyPart(aspect);
+  if (!normalized) return '';
+  const compact = normalized.replace(/\s+/g, '');
+  const match = compact.match(/^([0-9.]+)(?:[:xX\/])([0-9.]+)$/);
+  if (!match) return '';
+  return `${match[1]}/${match[2]}`;
+};
+
 const REVIEW_V2_ASPECT_ORDER = [
   '9x16',
   '',
@@ -311,10 +331,10 @@ const REVIEW_V2_ASPECT_ORDER = [
   '4x5',
   'Pinterest',
   'Snapchat',
-];
+].map(normalizeAspectKey);
 
 const getReviewAspectPriority = (aspect) => {
-  const normalized = normalizeKeyPart(aspect);
+  const normalized = normalizeAspectKey(aspect);
   const idx = REVIEW_V2_ASPECT_ORDER.indexOf(normalized);
   return idx === -1 ? REVIEW_V2_ASPECT_ORDER.length : idx;
 };
@@ -653,7 +673,9 @@ const Review = forwardRef(
     const getRecipe = (a) =>
       a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
     const getAspect = (a) =>
-      a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
+      normalizeAspectKey(
+        a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '',
+      );
     // Deduplicate by root id while keeping highest version of each asset
     const latestMap = {};
     list.forEach((a) => {
@@ -1444,11 +1466,13 @@ useEffect(() => {
   const currentInfo = currentAd ? parseAdFilename(currentAd.filename || '') : {};
   const currentAspectRaw =
     currentAd?.aspectRatio || currentInfo.aspectRatio || '';
+  const normalizedCurrentAspect = normalizeAspectKey(currentAspectRaw);
   const displayAd =
     currentVersionAssets.find(
       (a) =>
-        (a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '') ===
-        currentAspectRaw,
+        normalizeAspectKey(
+          a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '',
+        ) === normalizedCurrentAspect,
     ) || currentVersionAssets[0] || currentAd;
   const displayAssetId = getAssetDocumentId(displayAd);
   const displayParentId = getAssetParentId(displayAd);
@@ -2164,10 +2188,8 @@ useEffect(() => {
     (a) => (a.adUrl || a.firebaseUrl) !== adUrl,
   );
 
-  const currentAspect = String(currentAspectRaw || '9x16').replace(
-    'x',
-    '/',
-  );
+  const currentAspect =
+    getCssAspectRatioValue(currentAspectRaw) || getCssAspectRatioValue('9x16');
 
   const versionGroupsByAd = useMemo(() => {
     if (!reviewAds || reviewAds.length === 0) return {};
@@ -3430,7 +3452,7 @@ useEffect(() => {
                   return (
                     <div
                       key={cardKey}
-                      className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                      className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
                       <div className="flex flex-col gap-4 p-4">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -3456,15 +3478,18 @@ useEffect(() => {
                             {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
                               const assetAspect = getAssetAspect(asset);
-                              const assetStyle = assetAspect
-                                ? { aspectRatio: assetAspect.replace('x', '/') }
+                              const assetCssAspect = getCssAspectRatioValue(
+                                assetAspect,
+                              );
+                              const assetStyle = assetCssAspect
+                                ? { aspectRatio: assetCssAspect }
                                 : {};
                               return (
                                 <div
                                   key={
                                     getAssetDocumentId(asset) || assetUrl || assetIdx
                                   }
-                                  className="mx-auto w-full max-w-[350px] self-start overflow-hidden rounded-lg sm:mx-0"
+                                  className="mx-auto w-full max-w-[712px] self-start overflow-hidden rounded-lg sm:mx-0"
                                 >
                                   <div className="relative w-full" style={assetStyle}>
                                     {isVideoUrl(assetUrl) ? (
