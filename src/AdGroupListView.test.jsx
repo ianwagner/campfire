@@ -100,3 +100,44 @@ test('allows updating review type from the list view', async () => {
   expect(firestore.doc).toHaveBeenCalledWith({}, 'adGroups', '1');
   expect(select.value).toBe('2');
 });
+
+test('normalizes non-numeric review type values', async () => {
+  render(
+    <MemoryRouter>
+      <AdGroupListView
+        groups={[
+          {
+            id: '1',
+            name: 'Group One',
+            brandCode: 'BR',
+            status: 'processing',
+            month: 1,
+            reviewVersion: 'brief type',
+          },
+        ]}
+        loading={false}
+        filter=""
+        onFilterChange={() => {}}
+        view="table"
+        onViewChange={() => {}}
+        showArchived={false}
+        onToggleArchived={() => {}}
+        onGallery={() => {}}
+        onCopy={() => {}}
+        onDownload={() => {}}
+        linkToDetail
+      />
+    </MemoryRouter>
+  );
+
+  const select = screen.getByLabelText('Review type for Group One');
+  expect(select.value).toBe('3');
+
+  fireEvent.change(select, { target: { value: '1' } });
+
+  await waitFor(() =>
+    expect(firestore.updateDoc).toHaveBeenCalledWith(expect.anything(), { reviewVersion: 1 })
+  );
+  expect(firestore.doc).toHaveBeenCalledWith({}, 'adGroups', '1');
+  expect(select.value).toBe('1');
+});

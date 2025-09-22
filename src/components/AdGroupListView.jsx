@@ -32,6 +32,39 @@ const statusOrder = {
   archived: 7,
 };
 
+const normalizeReviewVersion = (value) => {
+  if (value === undefined || value === null) return '1';
+
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) return '1';
+    return String(value);
+  }
+
+  if (typeof value === 'object') {
+    if (value.reviewVersion !== undefined) {
+      return normalizeReviewVersion(value.reviewVersion);
+    }
+    if (value.reviewType !== undefined) {
+      return normalizeReviewVersion(value.reviewType);
+    }
+    if (value.type !== undefined) {
+      return normalizeReviewVersion(value.type);
+    }
+    if (value.version !== undefined) {
+      return normalizeReviewVersion(value.version);
+    }
+    return '1';
+  }
+
+  const normalized = String(value).toLowerCase();
+  if (normalized === '1' || normalized.includes('legacy')) return '1';
+  if (normalized === '2' || normalized.includes('2.0') || normalized.includes('v2')) {
+    return '2';
+  }
+  if (normalized === '3' || normalized.includes('brief')) return '3';
+  return '1';
+};
+
 const AdGroupListView = ({
   groups = [],
   loading,
@@ -63,8 +96,9 @@ const AdGroupListView = ({
   const [updatingReview, setUpdatingReview] = useState(null);
 
   const handleReviewTypeChange = async (groupId, newValue, previousValue, hadOverride) => {
-    const numericValue = Number(newValue);
-    setReviewVersions((prev) => ({ ...prev, [groupId]: numericValue }));
+    const normalizedValue = normalizeReviewVersion(newValue);
+    const numericValue = Number(normalizedValue);
+    setReviewVersions((prev) => ({ ...prev, [groupId]: normalizedValue }));
     setUpdatingReview(groupId);
     try {
       await updateDoc(doc(db, 'adGroups', groupId), { reviewVersion: numericValue });
@@ -243,58 +277,68 @@ const AdGroupListView = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {displayGroups.map((g) => (
-                    <tr key={g.id}>
-                      <td>
-                        {linkToDetail ? (
-                          <Link to={`/ad-group/${g.id}`}>{g.name}</Link>
-                        ) : (
-                          g.name
-                        )}
-                      </td>
-                      <td>{g.brandCode}</td>
-                      <td>
-                        <MonthTag month={g.month} />
-                      </td>
-                      <td className="text-center">
-                        <select
-                          className="border rounded p-1 text-sm"
-                          aria-label={`Review type for ${g.name || g.id}`}
-                          value={String(reviewVersions[g.id] ?? g.reviewVersion ?? 1)}
-                          onChange={(e) =>
-                            handleReviewTypeChange(
-                              g.id,
-                              e.target.value,
-                              reviewVersions[g.id] ?? g.reviewVersion ?? 1,
-                              reviewVersions[g.id] !== undefined,
-                            )
-                          }
-                          disabled={updatingReview === g.id}
-                        >
-                          <option value="1">Legacy</option>
-                          <option value="2">2.0</option>
-                          <option value="3">Brief</option>
-                        </select>
-                      </td>
-                      <td className="text-center">{g.reviewedCount ?? 0}</td>
-                      <td className="text-center">
-                        <StatusBadge status={g.status} />
-                      </td>
-                      <td className="text-center">
-                        <div className="flex items-center justify-center">
-                          <IconButton onClick={() => onGallery(g.id)} aria-label="See Gallery">
-                            <FiGrid />
-                          </IconButton>
-                          <IconButton onClick={() => onCopy(g.id)} className="ml-2" aria-label="See Platform Copy">
-                            <FiType />
-                          </IconButton>
-                          <IconButton onClick={() => onDownload(g.id)} className="ml-2" aria-label="Download Approved Assets">
-                            <FiDownload />
-                          </IconButton>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {displayGroups.map((g) => {
+                    const normalizedReviewVersion =
+                      reviewVersions[g.id] ?? normalizeReviewVersion(g.reviewVersion ?? 1);
+                    const hadOverride = reviewVersions[g.id] !== undefined;
+
+                    return (
+                      <tr key={g.id}>
+                        <td>
+                          {linkToDetail ? (
+                            <Link to={`/ad-group/${g.id}`}>{g.name}</Link>
+                          ) : (
+                            g.name
+                          )}
+                        </td>
+                        <td>{g.brandCode}</td>
+                        <td>
+                          <MonthTag month={g.month} />
+                        </td>
+                        <td className="text-center">
+                          <select
+                            className="border rounded p-1 text-sm"
+                            aria-label={`Review type for ${g.name || g.id}`}
+                            value={normalizedReviewVersion}
+                            onChange={(e) =>
+                              handleReviewTypeChange(
+                                g.id,
+                                e.target.value,
+                                normalizedReviewVersion,
+                                hadOverride,
+                              )
+                            }
+                            disabled={updatingReview === g.id}
+                          >
+                            <option value="1">Legacy</option>
+                            <option value="2">2.0</option>
+                            <option value="3">Brief</option>
+                          </select>
+                        </td>
+                        <td className="text-center">{g.reviewedCount ?? 0}</td>
+                        <td className="text-center">
+                          <StatusBadge status={g.status} />
+                        </td>
+                        <td className="text-center">
+                          <div className="flex items-center justify-center">
+                            <IconButton onClick={() => onGallery(g.id)} aria-label="See Gallery">
+                              <FiGrid />
+                            </IconButton>
+                            <IconButton onClick={() => onCopy(g.id)} className="ml-2" aria-label="See Platform Copy">
+                              <FiType />
+                            </IconButton>
+                            <IconButton
+                              onClick={() => onDownload(g.id)}
+                              className="ml-2"
+                              aria-label="Download Approved Assets"
+                            >
+                              <FiDownload />
+                            </IconButton>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </Table>
             </div>
