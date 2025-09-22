@@ -13,18 +13,15 @@ const EditorAdGroups = () => {
   const [filter, setFilter] = useState('');
 
   const user = auth.currentUser;
+  const editorUid = user?.uid;
 
   useEffect(() => {
     const fetchGroups = async () => {
-      if (!user?.uid) {
-        setGroups([]);
-        setLoading(false);
-        return;
-      }
+      if (!editorUid) return;
       setLoading(true);
       try {
         const snap = await getDocs(
-          query(collection(db, 'adGroups'), where('editorId', '==', user.uid))
+          query(collection(db, 'adGroups'), where('editorId', '==', editorUid))
         );
         const docs = snap.docs.filter((d) => d.data()?.status !== 'archived');
         const list = await Promise.all(
@@ -94,7 +91,7 @@ const EditorAdGroups = () => {
     };
 
     fetchGroups();
-  }, [user?.uid]);
+  }, [editorUid]);
 
   const term = filter.toLowerCase();
   const displayGroups = groups.filter(
