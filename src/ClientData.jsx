@@ -223,13 +223,15 @@ const ClientData = ({ brandCodes = [] }) => {
             if (!recipe || !url) return;
             const normalized = recipe.replace(/^0+/, '');
             let aspect = info.aspectRatio || aData.aspectRatio || '';
-            const aspectValid = /^\d+x\d+$/.test(aspect);
-            if (!aspectValid && aData.filename) {
+            if (!/^\d+x\d+$/i.test(aspect) && aData.filename) {
               const base = aData.filename.replace(/\.[^/.]+$/, '');
-              const match = base.match(/(\d+x\d+)/);
+              const match = base.match(/(\d+x\d+)/i);
               if (match) aspect = match[1];
             }
-            aspect = aspect.replace(/_?V\d+$/i, '').replace(/s$/, '');
+            if (aspect) {
+              aspect = aspect.trim().toLowerCase();
+              aspect = aspect.replace(/_?v\d+$/i, '').replace(/s$/, '');
+            }
             if (!['1x1', '9x16'].includes(aspect)) {
               if (!aspect) {
                 aspect = '9x16';
