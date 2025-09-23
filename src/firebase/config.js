@@ -57,8 +57,11 @@ const shouldForceLongPolling = (() => {
 
 const firestoreSettings = shouldForceLongPolling
   ? {
-      experimentalAutoDetectLongPolling: true,
+      // Force long polling for Safari/iOS, but do not enable auto detection at
+      // the same time—Firebase rejects that combination with an
+      // `invalid-argument` error.
       experimentalForceLongPolling: true,
+      useFetchStreams: false,
     }
   : {
       // Use the default WebChannel transport so change streams stay truly
