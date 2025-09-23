@@ -19,6 +19,32 @@ const formatMonth = (m) => {
   });
 };
 
+const normalizeAspectRatio = (value) => {
+  if (value == null) return '';
+  const str = String(value).trim().toLowerCase();
+  if (!str) return '';
+  if (str === 'square') return '1x1';
+  if (['vertical', 'portrait', 'story', 'stories', 'reel', 'reels'].includes(str)) {
+    return '9x16';
+  }
+  const match = str.match(/(\d+)\s*(?:x|×|:|-|by|_)\s*(\d+)/);
+  if (match) {
+    return `${match[1]}x${match[2]}`;
+  }
+  return '';
+};
+
+const findAspectInFilename = (filename) => {
+  if (!filename) return '';
+  const base = filename.replace(/\.[^/.]+$/, '');
+  const parts = base.split(/[_\s-]+/);
+  for (const part of parts) {
+    const normalized = normalizeAspectRatio(part);
+    if (normalized) return normalized;
+  }
+  return '';
+};
+
 const baseColumnDefs = [
   { key: 'storeId', label: 'Store ID', width: 'auto' },
   { key: 'groupName', label: 'Ad Group', width: 'auto' },
@@ -222,22 +248,16 @@ const ClientData = ({ brandCodes = [] }) => {
             const url = aData.adUrl || aData.firebaseUrl || aData.url;
             if (!recipe || !url) return;
             const normalized = recipe.replace(/^0+/, '');
-            let aspect = info.aspectRatio || aData.aspectRatio || '';
-            if (!/^\d+x\d+$/i.test(aspect) && aData.filename) {
-              const base = aData.filename.replace(/\.[^/.]+$/, '');
-              const match = base.match(/(\d+x\d+)/i);
-              if (match) aspect = match[1];
-            }
-            if (aspect) {
-              aspect = aspect.trim().toLowerCase();
-              aspect = aspect.replace(/_?v\d+$/i, '').replace(/s$/, '');
+            const aspectFromFilename = findAspectInFilename(aData.filename || '');
+            let aspect =
+              normalizeAspectRatio(info.aspectRatio) ||
+              normalizeAspectRatio(aData.aspectRatio) ||
+              aspectFromFilename;
+            if (!aspect) {
+              aspect = '9x16';
             }
             if (!['1x1', '9x16'].includes(aspect)) {
-              if (!aspect) {
-                aspect = '9x16';
-              } else {
-                return;
-              }
+              return;
             }
             const label = aspect;
             const entry = { url, label, status: aData.status || '' };

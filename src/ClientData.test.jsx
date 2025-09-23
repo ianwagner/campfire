@@ -167,3 +167,79 @@ test('populates asset columns for normalized aspect ratios', async () => {
   expect(errorSpy).not.toHaveBeenCalled();
   errorSpy.mockRestore();
 });
+
+test('treats missing aspect ratios as 9x16', async () => {
+  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  getDocs
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'g1',
+          data: () => ({
+            month: '2023-09',
+            dueDate: new Date('2023-09-15'),
+            brandCode: 'BR1',
+          }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'g1',
+          data: () => ({ name: 'Group1', brandCode: 'BR1', metadata: {} }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({
+      docs: [{ data: () => ({ storeId: 'store-123' }) }],
+    })
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'r1',
+          data: () => ({
+            recipeNo: '001',
+            product: { name: 'Product A' },
+            metadata: {},
+            components: {},
+            status: 'active',
+          }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          data: () => ({
+            filename: 'BR1_GROUP1_001__V1.png',
+            recipeCode: '001',
+            firebaseUrl: 'https://example.com/9x16-missing',
+            status: 'approved',
+          }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({ docs: [] });
+
+  render(<ClientData brandCodes={['BR1']} />);
+
+  await screen.findAllByRole('option', { name: 'Sep 2023' });
+  await screen.findByRole('option', { name: 'BR1' });
+
+  const selects = screen.getAllByRole('combobox');
+  fireEvent.change(selects[0], { target: { value: '2023-09' } });
+  fireEvent.change(selects[2], { target: { value: 'BR1' } });
+
+  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(6));
+  await screen.findByText('Group1');
+
+  await waitFor(() =>
+    expect(screen.getByRole('link', { name: 'Link' })).toHaveAttribute(
+      'href',
+      'https://example.com/9x16-missing',
+    ),
+  );
+
+  errorSpy.mockRestore();
+});
