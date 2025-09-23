@@ -87,6 +87,67 @@ const assetCols = [
 
 const allColumnDefs = [...baseColumnDefs, ...assetCols];
 
+const normalizeFieldKey = (key = '') =>
+  String(key)
+    .trim()
+    .replace(/[\s._-]+/g, '')
+    .toLowerCase();
+
+const coerceMetadataValue = (value) => {
+  if (value == null) return value;
+  if (typeof value === 'object') {
+    if ('value' in value && value.value != null && value.value !== '') {
+      return value.value;
+    }
+    if ('label' in value && value.label != null && value.label !== '') {
+      return value.label;
+    }
+  }
+  return value;
+};
+
+const hasMeaningfulValue = (value) => {
+  if (value == null) return false;
+  if (typeof value === 'string') {
+    return value.trim() !== '';
+  }
+  return true;
+};
+
+const firstMeaningfulValue = (...values) => {
+  for (const value of values) {
+    const coerced = coerceMetadataValue(value);
+    if (hasMeaningfulValue(coerced)) {
+      return coerced;
+    }
+  }
+  return '';
+};
+
+const extractValueFromObject = (obj, key) => {
+  if (!obj || typeof obj !== 'object') return undefined;
+  if (key in obj) {
+    return coerceMetadataValue(obj[key]);
+  }
+  const normalizedKey = normalizeFieldKey(key);
+  for (const [candidateKey, candidateValue] of Object.entries(obj)) {
+    if (normalizeFieldKey(candidateKey) === normalizedKey) {
+      return coerceMetadataValue(candidateValue);
+    }
+  }
+  return undefined;
+};
+
+const pickMetaField = (fieldName, ...sources) => {
+  for (const source of sources) {
+    const value = extractValueFromObject(source, fieldName);
+    if (hasMeaningfulValue(value)) {
+      return value;
+    }
+  }
+  return '';
+};
+
 const baseColumnKeys = new Set(baseColumnDefs.map((c) => c.key));
 const structuralKeys = new Set([
   'components',
@@ -98,13 +159,22 @@ const structuralKeys = new Set([
 ]);
 
 const shouldOmitKey = (k) => {
+  const normalizedKey = normalizeFieldKey(k);
   const matchBase = Array.from(baseColumnKeys).some((b) => {
-    if (b === 'product') return k === b;
-    return k === b || k.startsWith(`${b}.`);
+    if (b === 'product') return normalizeFieldKey(b) === normalizedKey;
+    const normalizedBase = normalizeFieldKey(b);
+    return (
+      normalizedKey === normalizedBase ||
+      normalizedKey.startsWith(`${normalizedBase}.`)
+    );
   });
-  const matchStructural = Array.from(structuralKeys).some(
-    (b) => k === b || k.startsWith(`${b}.`),
-  );
+  const matchStructural = Array.from(structuralKeys).some((b) => {
+    const normalizedStructural = normalizeFieldKey(b);
+    return (
+      normalizedKey === normalizedStructural ||
+      normalizedKey.startsWith(`${normalizedStructural}.`)
+    );
+  });
   return matchBase || matchStructural;
 };
 
@@ -288,13 +358,23 @@ const ClientData = ({ brandCodes = [] }) => {
               rData.product ||
               rData.components?.['product.name'] ||
               '';
-            const url =
-              rData.metadata?.url ||
-              rData.url ||
-              rData.product?.url ||
-              rData.components?.product?.url ||
-              rData.components?.['product.url'] ||
-              '';
+            let url = firstMeaningfulValue(
+              rData.metadata?.url,
+              rData.url,
+              rData.product?.url,
+              rData.components?.product?.url,
+              rData.components?.['product.url'],
+            );
+            if (!hasMeaningfulValue(url)) {
+              url = pickMetaField(
+                'url',
+                rData.metadata,
+                rData,
+                rData.components,
+                gData.metadata,
+                gData,
+              );
+            }
             const copyList = copiesByProduct[product] || [];
             const copy =
               copyList.length > 0
@@ -310,18 +390,30 @@ const ClientData = ({ brandCodes = [] }) => {
               rData.audience ||
               rData.components?.audience ||
               '';
-            const moment =
-              rData.metadata?.moment ||
-              gData.metadata?.moment ||
-              '';
-            const funnel =
-              rData.metadata?.funnel ||
-              gData.metadata?.funnel ||
-              '';
-            const goLive =
-              rData.metadata?.goLive ||
-              gData.metadata?.goLive ||
-              '';
+            const moment = pickMetaField(
+              'moment',
+              rData.metadata,
+              rData,
+              rData.components,
+              gData.metadata,
+              gData,
+            );
+            const funnel = pickMetaField(
+              'funnel',
+              rData.metadata,
+              rData,
+              rData.components,
+              gData.metadata,
+              gData,
+            );
+            const goLive = pickMetaField(
+              'goLive',
+              rData.metadata,
+              rData,
+              rData.components,
+              gData.metadata,
+              gData,
+            );
             const primary = rData.metadata?.primary || copy.primary || '';
             const headline = rData.metadata?.headline || copy.headline || '';
             const description =
