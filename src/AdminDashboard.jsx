@@ -196,6 +196,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                         'approved',
                         'rejected',
                         'edit_requested',
+                        'pending',
                       ])
                     )
                   ),
