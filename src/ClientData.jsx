@@ -321,10 +321,12 @@ const ClientData = ({ brandCodes = [] }) => {
             const headline = rData.metadata?.headline || copy.headline || '';
             const description =
               rData.metadata?.description || copy.description || '';
+            const recipeKey = String(recipeNo);
+            const normalizedRecipeKey = recipeKey.replace(/^0+/, '') || recipeKey;
             const assets =
               rData.status === 'archived' || rData.status === 'rejected'
                 ? []
-                : assetMap[String(recipeNo)] || [];
+                : assetMap[recipeKey] || assetMap[normalizedRecipeKey] || [];
             const status = assets[0]?.status || rData.status || '';
             const row = {
               id: `${gDoc.id}|${rDoc.id}`,
