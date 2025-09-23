@@ -245,7 +245,12 @@ const ClientData = ({ brandCodes = [] }) => {
             if (["archived", "rejected"].includes(aData.status)) return;
             const info = parseAdFilename(aData.filename || '');
             const recipe = String(aData.recipeCode || info.recipeCode || '');
-            const url = aData.adUrl || aData.firebaseUrl || aData.url;
+            const url =
+              aData.adUrl ||
+              aData.firebaseUrl ||
+              aData.url ||
+              aData.cdnUrl ||
+              aData.thumbnailUrl;
             if (!recipe || !url) return;
             const normalized = recipe.replace(/^0+/, '');
             const aspectFromFilename = findAspectInFilename(aData.filename || '');
