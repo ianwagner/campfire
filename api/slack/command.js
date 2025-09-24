@@ -191,7 +191,7 @@ export default async function handler(req, res) {
     });
 
     if (!isValidSignature) {
-      res.status(401).send("Invalid Slack signature");
+      sendEphemeral(res, "Slack signature verification failed; please re-check the signing secret.");
       return;
     }
 
