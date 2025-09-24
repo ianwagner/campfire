@@ -11,6 +11,7 @@ import sharp from 'sharp';
 import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
+import https from 'https';
 import { tagger } from './tagger.js';
 import { generateThumbnailsForAssets, deleteThumbnails } from './thumbnails.js';
 import { generateTagsForAssets } from './tagAssets.js';
@@ -26,6 +27,119 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
+
+const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || '';
+
+async function postSlackMessage(channelId, text) {
+  if (!SLACK_BOT_TOKEN) {
+    console.warn('SLACK_BOT_TOKEN is not configured; skipping Slack notification');
+    return;
+  }
+
+  const payload = JSON.stringify({ channel: channelId, text });
+
+  await new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: 'slack.com',
+        path: '/api/chat.postMessage',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
+          'Content-Length': Buffer.byteLength(payload),
+        },
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+        res.on('end', () => {
+          const bodyText = Buffer.concat(chunks).toString('utf8');
+
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            reject(new Error(`Slack API HTTP ${res.statusCode}: ${bodyText}`));
+            return;
+          }
+
+          if (!bodyText) {
+            resolve();
+            return;
+          }
+
+          let parsed;
+          try {
+            parsed = JSON.parse(bodyText);
+          } catch (err) {
+            reject(new Error(`Slack API parse error: ${err.message}`));
+            return;
+          }
+
+          if (parsed && parsed.ok === false) {
+            reject(new Error(`Slack API error: ${parsed.error || 'unknown_error'}`));
+            return;
+          }
+
+          resolve();
+        });
+      }
+    );
+
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
+async function sendSlackNotificationToBrand(brandCode, text) {
+  if (!SLACK_BOT_TOKEN) {
+    return;
+  }
+
+  const normalizedBrand = (brandCode || '').trim();
+  if (!normalizedBrand) {
+    console.warn('Missing brand code for Slack notification');
+    return;
+  }
+
+  let channelDocs = [];
+
+  try {
+    const snap = await db
+      .collection('slackChannelMappings')
+      .where('brandCode', '==', normalizedBrand)
+      .get();
+    if (!snap.empty) {
+      channelDocs = snap.docs;
+    } else {
+      const fallbackSnap = await db.collection('slackChannelMappings').get();
+      channelDocs = fallbackSnap.docs.filter((doc) => {
+        const stored = doc.data()?.brandCode;
+        return (
+          typeof stored === 'string' && stored.trim().toLowerCase() === normalizedBrand.toLowerCase()
+        );
+      });
+    }
+  } catch (err) {
+    console.error('Failed to load Slack channel mappings', err);
+    return;
+  }
+
+  if (!channelDocs.length) {
+    console.log(`No Slack channels connected for brand ${normalizedBrand}; skipping notification.`);
+    return;
+  }
+
+  await Promise.all(
+    channelDocs.map(async (doc) => {
+      const channelId = doc.id;
+      try {
+        await postSlackMessage(channelId, text);
+      } catch (err) {
+        console.error(`Failed to send Slack message to channel ${channelId}`, err);
+      }
+    })
+  );
+}
 
 
 function parseAdFilename(filename) {
@@ -585,6 +699,63 @@ export const archiveProjectOnRequestDone = onDocumentUpdated('requests/{requestI
   } catch (err) {
     console.error('Failed to archive project on request done', err);
   }
+  return null;
+});
+
+export const notifySlackOnAdGroupReviewed = onDocumentUpdated('adGroups/{groupId}', async (event) => {
+  const before = event.data.before.data() || {};
+  const after = event.data.after.data() || {};
+
+  const beforeStatus = typeof before.status === 'string' ? before.status.toLowerCase() : '';
+  const afterStatus = typeof after.status === 'string' ? after.status.toLowerCase() : '';
+
+  if (beforeStatus === 'reviewed' || afterStatus !== 'reviewed') {
+    return null;
+  }
+
+  const brandCode = after.brandCode || before.brandCode;
+  if (!brandCode) {
+    console.warn('Ad group reviewed without brandCode; skipping Slack notification');
+    return null;
+  }
+
+  let assetsSnap;
+  try {
+    assetsSnap = await event.data.after.ref.collection('assets').get();
+  } catch (err) {
+    console.error('Failed to load assets for Slack notification', err);
+    return null;
+  }
+
+  const counts = {
+    approved: 0,
+    edit_requested: 0,
+    rejected: 0,
+  };
+
+  assetsSnap.forEach((doc) => {
+    const status = (doc.data()?.status || '').toLowerCase();
+    if (status === 'approved') counts.approved += 1;
+    else if (status === 'edit_requested') counts.edit_requested += 1;
+    else if (status === 'rejected') counts.rejected += 1;
+  });
+
+  const groupName =
+    after.name ||
+    before.name ||
+    after.adGroupCode ||
+    before.adGroupCode ||
+    event.params.groupId;
+
+  const lines = [
+    `${brandCode ? `[${brandCode}] ` : ''}Ad group *${groupName}* has been marked as *reviewed*.`,
+    `• Approved: ${counts.approved}`,
+    `• Edit requested: ${counts.edit_requested}`,
+    `• Rejected: ${counts.rejected}`,
+  ];
+
+  await sendSlackNotificationToBrand(brandCode, lines.join('\n'));
+
   return null;
 });
 
