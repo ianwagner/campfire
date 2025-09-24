@@ -1,4 +1,6 @@
 const { createHmac, timingSafeEqual } = require("crypto");
+const { request: httpRequest } = require("http");
+const { request: httpsRequest } = require("https");
 const admin = require("firebase-admin");
 
 const FIREBASE_PROJECT_ID =
@@ -44,6 +46,70 @@ const db = admin.apps.length ? admin.firestore() : null;
 
 const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
+
+function fetchWithFallback(url, options = {}) {
+  if (typeof global.fetch === "function") {
+    return global.fetch(url, options);
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const parsedUrl = new URL(url);
+      const isHttps = parsedUrl.protocol === "https:";
+      const requestFn = isHttps ? httpsRequest : httpRequest;
+      const method = options.method || "GET";
+      const headers = options.headers || {};
+      const body = options.body;
+
+      const requestOptions = {
+        method,
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (isHttps ? 443 : 80),
+        path: `${parsedUrl.pathname}${parsedUrl.search}`,
+        headers,
+      };
+
+      const req = requestFn(requestOptions, (res) => {
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        res.on("end", () => {
+          const buffer = Buffer.concat(chunks);
+          const textBody = buffer.toString("utf8");
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            statusText: res.statusMessage,
+            headers: res.headers,
+            text: async () => textBody,
+            json: async () => {
+              if (!textBody) {
+                return {};
+              }
+
+              try {
+                return JSON.parse(textBody);
+              } catch (error) {
+                throw new Error(
+                  `Failed to parse JSON response: ${error.message}`
+                );
+              }
+            },
+          });
+        });
+      });
+
+      req.on("error", reject);
+
+      if (body) {
+        req.write(body);
+      }
+
+      req.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
 
 async function readRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -106,7 +172,7 @@ async function postSlackResponse(responseUrl, text) {
   }
 
   try {
-    const response = await fetch(responseUrl, {
+    const response = await fetchWithFallback(responseUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
@@ -189,7 +255,7 @@ async function handleTest(params) {
     throw new Error("SLACK_BOT_TOKEN is not configured");
   }
 
-  const response = await fetch("https://slack.com/api/chat.postMessage", {
+  const response = await fetchWithFallback("https://slack.com/api/chat.postMessage", {
     method: "POST",
     headers: {
       "Content-Type": "application/json; charset=utf-8",
