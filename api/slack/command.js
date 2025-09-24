@@ -2,20 +2,11 @@ const { createHmac, timingSafeEqual } = require("crypto");
 const admin = require("firebase-admin");
 
 const FIREBASE_PROJECT_ID =
-  process.env.FIREBASE_PROJECT_ID ||
-  process.env.FIREBASE_ADMIN_PROJECT_ID ||
-  process.env.VITE_FIREBASE_PROJECT_ID ||
-  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
-  process.env.GCLOUD_PROJECT ||
-  process.env.GOOGLE_CLOUD_PROJECT;
+  process.env.FIREBASE_PROJECT_ID
 const FIREBASE_CLIENT_EMAIL =
-  process.env.FIREBASE_CLIENT_EMAIL ||
-  process.env.FIREBASE_ADMIN_CLIENT_EMAIL ||
-  process.env.GOOGLE_CLIENT_EMAIL;
+  process.env.FIREBASE_CLIENT_EMAIL
 const FIREBASE_PRIVATE_KEY =
-  process.env.FIREBASE_PRIVATE_KEY ||
-  process.env.FIREBASE_ADMIN_PRIVATE_KEY ||
-  process.env.GOOGLE_PRIVATE_KEY;
+  process.env.FIREBASE_PRIVATE_KEY
 
 const missingFirebaseEnvVars = [
   !FIREBASE_PROJECT_ID ? "FIREBASE_PROJECT_ID" : null,
