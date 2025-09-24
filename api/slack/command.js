@@ -223,11 +223,11 @@ export default async function handler(req, res) {
     });
 
     sendEphemeral(res, message);
-  } catch (error) {
-    console.error("Slack command error", error);
-    res.status(200).json({
-      response_type: "ephemeral",
-      text: "An unexpected error occurred handling your request.",
-    });
-  }
+} catch (error) {
+  console.error("Slack command error", error);
+  res.status(200).json({
+    response_type: "ephemeral",
+    text: `Error: ${error.message || String(error)}`,
+  });
+}
 }
