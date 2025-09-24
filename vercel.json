@@ -2,7 +2,7 @@
   "routes": [
     { "handle": "filesystem" },
     {
-      "src": "/((?!.*\\.(?:js|css|png|jpg|jpeg|svg|ico|json|txt|woff2|ttf|map)).*)",
+      "src": "/(?!api/)((?!.*\\.(?:js|css|png|jpg|jpeg|svg|ico|json|txt|woff2|ttf|map)).*)",
       "dest": "/index.html"
     }
   ]
