@@ -79,6 +79,118 @@ test('saves edited values to metadata', async () => {
   );
 });
 
+test('preserves asset links after saving edits', async () => {
+  getDocs
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'g1',
+          data: () => ({
+            month: '2023-09',
+            dueDate: new Date('2023-09-15'),
+            brandCode: 'BR1',
+          }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'g1',
+          data: () => ({ name: 'Group1', brandCode: 'BR1', metadata: {} }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({
+      docs: [{ data: () => ({ storeId: 'store-123' }) }],
+    })
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'r1',
+          data: () => ({
+            recipeNo: '001',
+            metadata: { angle: 'Angle One', url: 'https://example.com/r1' },
+            components: {},
+            product: { name: 'Product A' },
+            status: 'approved',
+          }),
+        },
+        {
+          id: 'r2',
+          data: () => ({
+            recipeNo: '002',
+            metadata: { angle: 'Angle Two', url: 'https://example.com/r2' },
+            components: {},
+            product: { name: 'Product B' },
+            status: 'approved',
+          }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          data: () => ({
+            filename: 'BR1_GROUP1_001_9x16.png',
+            recipeCode: '001',
+            adUrl: 'https://example.com/r1-9x16',
+            status: 'approved',
+          }),
+        },
+        {
+          data: () => ({
+            filename: 'BR1_GROUP1_002_9x16.png',
+            recipeCode: '002',
+            adUrl: 'https://example.com/r2-9x16',
+            status: 'approved',
+          }),
+        },
+      ],
+    })
+    .mockResolvedValueOnce({ docs: [] });
+
+  doc.mockImplementation(() => 'docRef');
+  updateDoc.mockResolvedValue();
+
+  render(<ClientData brandCodes={['BR1']} />);
+
+  await screen.findAllByRole('option', { name: 'Sep 2023' });
+  await screen.findByRole('option', { name: 'BR1' });
+
+  const selects = screen.getAllByRole('combobox');
+  fireEvent.change(selects[0], { target: { value: '2023-09' } });
+  fireEvent.change(selects[2], { target: { value: 'BR1' } });
+
+  await screen.findAllByRole('cell', { name: 'Group1' });
+
+  await waitFor(() =>
+    expect(screen.getAllByRole('link', { name: 'Link' })).toHaveLength(2),
+  );
+
+  fireEvent.click(screen.getByLabelText('Edit'));
+
+  const angleInput = screen.getByDisplayValue('Angle One');
+  fireEvent.change(angleInput, { target: { value: 'Updated Angle' } });
+
+  fireEvent.click(screen.getByLabelText('Save'));
+
+  await waitFor(() => expect(updateDoc).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.getByLabelText('Edit')).toBeEnabled());
+
+  await waitFor(() => {
+    const links = screen.getAllByRole('link', { name: 'Link' });
+    expect(links).toHaveLength(2);
+    const hrefs = links.map((link) => link.getAttribute('href'));
+    expect(hrefs).toEqual(
+      expect.arrayContaining([
+        'https://example.com/r1-9x16',
+        'https://example.com/r2-9x16',
+      ]),
+    );
+  });
+});
+
 test('populates asset columns for normalized aspect ratios', async () => {
   const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   getDocs

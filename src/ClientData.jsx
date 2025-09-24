@@ -471,24 +471,34 @@ const ClientData = ({ brandCodes = [] }) => {
   };
 
   const handleSave = async () => {
+    const sanitizedEditedRows = {};
     const updates = [];
     Object.entries(editedRows).forEach(([rowId, changes]) => {
+      const filteredChanges = Object.fromEntries(
+        Object.entries(changes).filter(([k]) => !nonEditable.has(k)),
+      );
+      if (!Object.keys(filteredChanges).length) {
+        return;
+      }
+
+      sanitizedEditedRows[rowId] = filteredChanges;
+
       const [groupId, recipeId] = rowId.split('|');
       if (!groupId || !recipeId) return;
       const payload = {};
-      Object.entries(changes).forEach(([k, v]) => {
-        if (!nonEditable.has(k)) {
-          payload[`metadata.${k}`] = v;
-        }
+      Object.entries(filteredChanges).forEach(([k, v]) => {
+        payload[`metadata.${k}`] = v;
       });
-      if (Object.keys(payload).length > 0) {
-        updates.push(updateDoc(doc(db, 'adGroups', groupId, 'recipes', recipeId), payload));
-      }
+      updates.push(updateDoc(doc(db, 'adGroups', groupId, 'recipes', recipeId), payload));
     });
+
+    setEditedRows(sanitizedEditedRows);
     try {
       await Promise.all(updates);
       setRows((prev) =>
-        prev.map((r) => (editedRows[r.id] ? { ...r, ...editedRows[r.id] } : r)),
+        prev.map((r) =>
+          sanitizedEditedRows[r.id] ? { ...r, ...sanitizedEditedRows[r.id] } : r,
+        ),
       );
       setEditMode(false);
       setEditedRows({});
