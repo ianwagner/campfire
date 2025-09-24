@@ -1,11 +1,55 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import admin from "firebase-admin";
 
+const FIREBASE_PROJECT_ID =
+  process.env.FIREBASE_PROJECT_ID ||
+  process.env.FIREBASE_ADMIN_PROJECT_ID ||
+  process.env.VITE_FIREBASE_PROJECT_ID ||
+  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
+  process.env.GCLOUD_PROJECT ||
+  process.env.GOOGLE_CLOUD_PROJECT;
+const FIREBASE_CLIENT_EMAIL =
+  process.env.FIREBASE_CLIENT_EMAIL ||
+  process.env.FIREBASE_ADMIN_CLIENT_EMAIL ||
+  process.env.GOOGLE_CLIENT_EMAIL;
+const FIREBASE_PRIVATE_KEY =
+  process.env.FIREBASE_PRIVATE_KEY ||
+  process.env.FIREBASE_ADMIN_PRIVATE_KEY ||
+  process.env.GOOGLE_PRIVATE_KEY;
+
+const missingFirebaseEnvVars = [
+  !FIREBASE_PROJECT_ID ? "FIREBASE_PROJECT_ID" : null,
+  !FIREBASE_CLIENT_EMAIL ? "FIREBASE_CLIENT_EMAIL" : null,
+  !FIREBASE_PRIVATE_KEY ? "FIREBASE_PRIVATE_KEY" : null,
+].filter(Boolean);
+
+let firebaseInitError;
+
 if (!admin.apps.length) {
-  admin.initializeApp();
+  if (missingFirebaseEnvVars.length) {
+    firebaseInitError = new Error(
+      `Missing Firebase Admin environment variables: ${missingFirebaseEnvVars.join(", ")}`
+    );
+    console.error("Firebase Admin SDK initialization error:", firebaseInitError.message);
+  } else {
+    try {
+      const normalizedPrivateKey = FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n");
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: FIREBASE_PROJECT_ID,
+          clientEmail: FIREBASE_CLIENT_EMAIL,
+          privateKey: normalizedPrivateKey,
+        }),
+        projectId: FIREBASE_PROJECT_ID,
+      });
+    } catch (error) {
+      firebaseInitError = error;
+      console.error("Firebase Admin SDK initialization error", error);
+    }
+  }
 }
 
-const db = admin.firestore();
+const db = admin.apps.length ? admin.firestore() : null;
 
 const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
@@ -192,6 +236,15 @@ export default async function handler(req, res) {
 
     if (!isValidSignature) {
       sendEphemeral(res, "Slack signature verification failed; please re-check the signing secret.");
+      return;
+    }
+
+    if (!db) {
+      const firebaseErrorText = missingFirebaseEnvVars.length
+        ? `Missing Firebase configuration. Please set ${missingFirebaseEnvVars.join(", ")} in the environment.`
+        : firebaseInitError?.message || "Firebase configuration error. See server logs for details.";
+      console.error("Firebase Admin SDK is not initialized", firebaseInitError);
+      sendEphemeral(res, `Firebase configuration error: ${firebaseErrorText}`);
       return;
     }
 
