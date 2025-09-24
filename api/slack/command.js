@@ -358,21 +358,23 @@ module.exports = async function handler(req, res) {
     const acknowledgementText = `Processing /campfire ${command}...`;
     sendEphemeral(res, acknowledgementText);
 
-    try {
-      const message = await dispatchCommand(command, {
-        args,
-        channelId,
-        channelName,
-        userId,
-        workspaceId,
-      });
+    (async () => {
+      try {
+        const message = await dispatchCommand(command, {
+          args,
+          channelId,
+          channelName,
+          userId,
+          workspaceId,
+        });
 
-      await postSlackResponse(responseUrl, message);
-    } catch (error) {
-      console.error("Slack command error", error);
-      const errorMessage = `Error: ${error.message || String(error)}`;
-      await postSlackResponse(responseUrl, errorMessage);
-    }
+        await postSlackResponse(responseUrl, message);
+      } catch (error) {
+        console.error("Slack command error", error);
+        const errorMessage = `Error: ${error.message || String(error)}`;
+        await postSlackResponse(responseUrl, errorMessage);
+      }
+    })();
     return;
   } catch (error) {
     console.error("Slack command error", error);
