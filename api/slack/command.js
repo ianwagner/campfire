@@ -1,5 +1,5 @@
-import { createHmac, timingSafeEqual } from "crypto";
-import admin from "firebase-admin";
+const { createHmac, timingSafeEqual } = require("crypto");
+const admin = require("firebase-admin");
 
 const FIREBASE_PROJECT_ID =
   process.env.FIREBASE_PROJECT_ID ||
@@ -209,13 +209,7 @@ async function dispatchCommand(command, params) {
   }
 }
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).send("Method Not Allowed");
     return;
@@ -235,7 +229,10 @@ export default async function handler(req, res) {
     });
 
     if (!isValidSignature) {
-      sendEphemeral(res, "Slack signature verification failed; please re-check the signing secret.");
+      sendEphemeral(
+        res,
+        "Slack signature verification failed; please re-check the signing secret."
+      );
       return;
     }
 
@@ -259,7 +256,10 @@ export default async function handler(req, res) {
     const command = args.shift()?.toLowerCase();
 
     if (!command) {
-      sendEphemeral(res, "Please provide a subcommand. Available commands: connect, status, disconnect, test.");
+      sendEphemeral(
+        res,
+        "Please provide a subcommand. Available commands: connect, status, disconnect, test."
+      );
       return;
     }
 
@@ -276,11 +276,17 @@ export default async function handler(req, res) {
     });
 
     sendEphemeral(res, message);
-} catch (error) {
-  console.error("Slack command error", error);
-  res.status(200).json({
-    response_type: "ephemeral",
-    text: `Error: ${error.message || String(error)}`,
-  });
-}
-}
+  } catch (error) {
+    console.error("Slack command error", error);
+    res.status(200).json({
+      response_type: "ephemeral",
+      text: `Error: ${error.message || String(error)}`,
+    });
+  }
+};
+
+module.exports.config = {
+  api: {
+    bodyParser: false,
+  },
+};
