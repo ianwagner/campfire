@@ -6,6 +6,7 @@ import {
 } from 'firebase-functions/v2/firestore';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
+import { config as functionsConfig } from 'firebase-functions';
 import admin from 'firebase-admin';
 import sharp from 'sharp';
 import os from 'os';
@@ -28,7 +29,24 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || '';
+const runtimeConfig = (() => {
+  try {
+    return functionsConfig();
+  } catch (err) {
+    return {};
+  }
+})();
+
+function getSlackBotToken() {
+  if (process.env.SLACK_BOT_TOKEN) {
+    return process.env.SLACK_BOT_TOKEN;
+  }
+  const slackConfig = runtimeConfig?.slack;
+  if (slackConfig && typeof slackConfig.bot_token === 'string' && slackConfig.bot_token) {
+    return slackConfig.bot_token;
+  }
+  return '';
+}
 
 function normalizeBrandCodeValue(value) {
   if (typeof value !== 'string') return '';
@@ -68,6 +86,11 @@ function collectNormalizedBrandCodes(data) {
 }
 
 async function postSlackMessage(channelId, text) {
+  const token = getSlackBotToken();
+  if (!token) {
+    throw new Error('Slack bot token is not configured');
+  }
+
   const payload = JSON.stringify({ channel: channelId, text });
 
   await new Promise((resolve, reject) => {
@@ -78,7 +101,7 @@ async function postSlackMessage(channelId, text) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
+          Authorization: `Bearer ${token}`,
           'Content-Length': Buffer.byteLength(payload),
         },
       },
@@ -159,9 +182,9 @@ async function sendSlackNotificationToBrand(brandCode, text) {
     return;
   }
 
-  if (!SLACK_BOT_TOKEN) {
+  if (!getSlackBotToken()) {
     console.warn(
-      `SLACK_BOT_TOKEN is not configured; skipping Slack notification for brand ${displayBrand || normalizedBrand}.`,
+      `Slack bot token is not configured; skipping Slack notification for brand ${displayBrand || normalizedBrand}.`,
     );
     return;
   }
@@ -183,6 +206,90 @@ async function sendSlackNotificationToBrand(brandCode, text) {
     })
   );
 }
+
+export const notifyAdGroupReviewed = onCall(async (data, context) => {
+  const rawGroupId = data?.groupId;
+  if (typeof rawGroupId !== 'string' || !rawGroupId.trim()) {
+    throw new HttpsError('invalid-argument', 'groupId is required');
+  }
+
+  const groupId = rawGroupId.trim();
+  console.log('notifyAdGroupReviewed invoked', { groupId, uid: context?.auth?.uid || null });
+
+  let groupSnap;
+  const groupRef = db.collection('adGroups').doc(groupId);
+  try {
+    groupSnap = await groupRef.get();
+  } catch (err) {
+    console.error('Failed to load ad group for Slack notification', err);
+    throw new HttpsError('internal', 'Failed to load ad group');
+  }
+
+  if (!groupSnap.exists) {
+    throw new HttpsError('not-found', 'Ad group not found');
+  }
+
+  const groupData = groupSnap.data() || {};
+  if (groupData.reviewNotifiedAt) {
+    console.log('notifyAdGroupReviewed skipped: already notified', { groupId });
+    return { skipped: true };
+  }
+
+  if (groupData.status !== 'reviewed') {
+    throw new HttpsError('failed-precondition', 'Ad group status must be reviewed');
+  }
+
+  const brandCode = typeof groupData.brandCode === 'string' ? groupData.brandCode.trim() : '';
+  if (!brandCode) {
+    console.warn('Ad group reviewed without brandCode; skipping Slack notification', { groupId });
+    return { skipped: true };
+  }
+
+  let assetsSnap;
+  try {
+    assetsSnap = await groupRef.collection('assets').get();
+  } catch (err) {
+    console.error('Failed to load assets for Slack notification', err);
+    throw new HttpsError('internal', 'Failed to load assets');
+  }
+
+  const counts = {
+    approved: 0,
+    edit_requested: 0,
+    rejected: 0,
+  };
+
+  assetsSnap.forEach((doc) => {
+    const status = doc.data()?.status;
+    if (status === 'approved') counts.approved += 1;
+    else if (status === 'edit_requested') counts.edit_requested += 1;
+    else if (status === 'rejected') counts.rejected += 1;
+  });
+
+  const groupName = groupData.name || groupData.adGroupCode || groupId;
+
+  const lines = [
+    `${brandCode ? `[${brandCode}] ` : ''}Ad group *${groupName}* has been marked as *reviewed*.`,
+    `• Approved: ${counts.approved}`,
+    `• Edit requested: ${counts.edit_requested}`,
+    `• Rejected: ${counts.rejected}`,
+  ];
+
+  console.log('notifyAdGroupReviewed sending Slack notification', { groupId, brandCode, counts });
+
+  await sendSlackNotificationToBrand(brandCode, lines.join('\n'));
+
+  try {
+    await groupRef.update({ reviewNotifiedAt: admin.firestore.FieldValue.serverTimestamp() });
+  } catch (err) {
+    console.error('Failed to set reviewNotifiedAt on ad group', err);
+    throw new HttpsError('internal', 'Failed to update ad group');
+  }
+
+  console.log('notifyAdGroupReviewed completed', { groupId });
+
+  return { notified: true };
+});
 
 
 function parseAdFilename(filename) {
@@ -744,83 +851,6 @@ export const archiveProjectOnRequestDone = onDocumentUpdated('requests/{requestI
   }
   return null;
 });
-
-export const notifySlackOnAdGroupReviewed = onDocumentUpdated(
-  'adGroups/{groupId}',
-  async (event) => {
-    const beforeSnap = event.data?.before;
-    const afterSnap = event.data?.after;
-
-    if (!beforeSnap?.exists || !afterSnap?.exists) {
-      return null;
-    }
-
-    const before = beforeSnap.data() || {};
-    const after = afterSnap.data() || {};
-
-    const beforeStatus = before.status;
-    const afterStatus = after.status;
-
-    if (beforeStatus === 'reviewed' || afterStatus !== 'reviewed') {
-      return null;
-    }
-
-    const brandCode =
-      typeof after.brandCode === 'string' && after.brandCode.trim()
-        ? after.brandCode.trim()
-        : typeof before.brandCode === 'string' && before.brandCode.trim()
-          ? before.brandCode.trim()
-          : '';
-    if (!brandCode) {
-      console.warn('Ad group reviewed without brandCode; skipping Slack notification');
-      return null;
-    }
-
-    let assetsSnap;
-    try {
-      assetsSnap = await afterSnap.ref.collection('assets').get();
-    } catch (err) {
-      console.error('Failed to load assets for Slack notification', err);
-      return null;
-    }
-
-    const counts = {
-      approved: 0,
-      edit_requested: 0,
-      rejected: 0,
-    };
-
-    assetsSnap.forEach((doc) => {
-      const status = doc.data()?.status;
-      if (status === 'approved') counts.approved += 1;
-      else if (status === 'edit_requested') counts.edit_requested += 1;
-      else if (status === 'rejected') counts.rejected += 1;
-    });
-
-    const groupName =
-      after.name ||
-      before.name ||
-      after.adGroupCode ||
-      before.adGroupCode ||
-      event.params.groupId;
-
-    const lines = [
-      `${brandCode ? `[${brandCode}] ` : ''}Ad group *${groupName}* has been marked as *reviewed*.`,
-      `• Approved: ${counts.approved}`,
-      `• Edit requested: ${counts.edit_requested}`,
-      `• Rejected: ${counts.rejected}`,
-    ];
-
-    console.log(
-      `Ad group ${event.params.groupId} reviewed for brand ${brandCode}; notifying Slack with counts`,
-      counts,
-    );
-
-    await sendSlackNotificationToBrand(brandCode, lines.join('\n'));
-
-    return null;
-  },
-);
 
 export const syncProjectStatus = onDocumentWritten('adGroups/{groupId}', async (event) => {
   const before = event.data.before.data() || {};

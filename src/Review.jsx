@@ -38,7 +38,8 @@ import {
   onSnapshot,
   orderBy,
 } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
@@ -108,6 +109,37 @@ const assetsReferToSameDoc = (first, second) => {
   const firstUrl = getAssetUrlKey(first);
   const secondUrl = getAssetUrlKey(second);
   return Boolean(firstUrl && secondUrl && firstUrl === secondUrl);
+};
+
+const showToast = (type, message) => {
+  if (typeof window !== 'undefined') {
+    const target = window;
+    if (target.toast && typeof target.toast === 'function') {
+      target.toast(message);
+      return;
+    }
+    if (target.toast && typeof target.toast[type] === 'function') {
+      target.toast[type](message);
+      return;
+    }
+    if (target.campfireToast && typeof target.campfireToast.show === 'function') {
+      target.campfireToast.show({ type, message });
+      return;
+    }
+    if (typeof target.dispatchEvent === 'function') {
+      target.dispatchEvent(new CustomEvent('campfire:toast', { detail: { type, message } }));
+      return;
+    }
+    if (typeof target.alert === 'function') {
+      target.alert(message);
+      return;
+    }
+  }
+  if (type === 'error') {
+    console.error(message);
+  } else {
+    console.log(message);
+  }
 };
 
 const assetMatchesReference = (asset, referenceId) => {
@@ -2877,6 +2909,21 @@ useEffect(() => {
       };
 
       await updateDoc(doc(db, 'adGroups', groupId), updateData);
+
+      const notifyReviewed = httpsCallable(functions, 'notifyAdGroupReviewed');
+      notifyReviewed({ groupId })
+        .then((result) => {
+          const payload = result?.data;
+          if (payload?.skipped) {
+            showToast('success', 'Slack notification already sent.');
+          } else {
+            showToast('success', 'Slack notification sent.');
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to notify Slack about review', err);
+          showToast('error', 'Slack notification failed.');
+        });
 
       if (isPublicReviewer) {
         try {
