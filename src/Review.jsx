@@ -2891,7 +2891,9 @@ useEffect(() => {
   };
 
   const handleFinalizeReview = async (approvePending = false) => {
-    if (!groupId) {
+    const trimmedGroupId = typeof groupId === 'string' ? groupId.trim() : '';
+
+    if (!trimmedGroupId) {
       setShowFinalizeModal(null);
       return;
     }
@@ -2908,10 +2910,10 @@ useEffect(() => {
         lastUpdated: serverTimestamp(),
       };
 
-      await updateDoc(doc(db, 'adGroups', groupId), updateData);
+      await updateDoc(doc(db, 'adGroups', trimmedGroupId), updateData);
 
       const notifyReviewed = httpsCallable(functions, 'notifyAdGroupReviewed');
-      notifyReviewed({ groupId })
+      notifyReviewed({ groupId: trimmedGroupId })
         .then((result) => {
           const payload = result?.data;
           if (payload?.skipped) {
@@ -2927,7 +2929,7 @@ useEffect(() => {
 
       if (isPublicReviewer) {
         try {
-          await addDoc(collection(db, 'adGroups', groupId, 'publicUpdates'), {
+          await addDoc(collection(db, 'adGroups', trimmedGroupId, 'publicUpdates'), {
             type: 'status',
             update: {
               status: 'reviewed',
