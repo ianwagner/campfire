@@ -207,8 +207,9 @@ async function sendSlackNotificationToBrand(brandCode, text) {
   );
 }
 
-export const notifyAdGroupReviewed = onCall(async (data, context) => {
-  const rawGroupIdInput = typeof data === 'string' ? data : data?.groupId;
+export const notifyAdGroupReviewed = onCall(async (request) => {
+  const payload = request?.data;
+  const rawGroupIdInput = typeof payload === 'string' ? payload : payload?.groupId;
   const rawGroupId =
     typeof rawGroupIdInput === 'string'
       ? rawGroupIdInput
@@ -220,7 +221,10 @@ export const notifyAdGroupReviewed = onCall(async (data, context) => {
   if (!groupId) {
     throw new HttpsError('invalid-argument', 'groupId is required');
   }
-  console.log('notifyAdGroupReviewed invoked', { groupId, uid: context?.auth?.uid || null });
+  console.log('notifyAdGroupReviewed invoked', {
+    groupId,
+    uid: request?.auth?.uid || null,
+  });
 
   let groupSnap;
   const groupRef = db.collection('adGroups').doc(groupId);
@@ -616,11 +620,13 @@ export const processUpload = onObjectFinalized(async (event) => {
   return null;
 });
 
-export const signOutUser = onCall(async (data, context) => {
-  if (!context.auth || !context.auth.token.admin) {
+export const signOutUser = onCall(async (request) => {
+  const { auth, data } = request || {};
+  if (!auth || !auth.token?.admin) {
     throw new HttpsError('permission-denied', 'Admin only');
   }
-  const uid = data.uid;
+  const rawUid = typeof data === 'string' ? data : data?.uid;
+  const uid = typeof rawUid === 'string' ? rawUid.trim() : '';
   if (!uid) {
     throw new HttpsError('invalid-argument', 'Missing uid');
   }
@@ -628,8 +634,8 @@ export const signOutUser = onCall(async (data, context) => {
   return { success: true };
 });
 
-export const createStripeCustomer = onCall(async (data) => {
-  console.log('createStripeCustomer payload:', data);
+export const createStripeCustomer = onCall(async (request) => {
+  console.log('createStripeCustomer payload:', request?.data);
   return { customerId: 'dummy_customer_id' };
 });
 
