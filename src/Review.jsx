@@ -99,6 +99,38 @@ const getAssetUnitId = (asset) =>
 const getAssetUrlKey = (asset) =>
   normalizeKeyPart(asset?.adUrl || asset?.firebaseUrl || asset?.assetUrl);
 
+const extractGroupIdentifier = (item) => {
+  if (!item || typeof item !== 'object') return '';
+
+  const candidates = [
+    item.adGroupId,
+    item.groupId,
+    item.groupCode,
+    item?.group?.id,
+    item?.group?.groupId,
+    item?.ad?.adGroupId,
+    item?.data?.adGroupId,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeKeyPart(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  if (Array.isArray(item.assets)) {
+    for (const asset of item.assets) {
+      const nested = extractGroupIdentifier(asset);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return '';
+};
+
 const assetsReferToSameDoc = (first, second) => {
   if (!first || !second) return false;
   const firstId = getAssetDocumentId(first);
@@ -1472,6 +1504,32 @@ useEffect(() => {
 
   const currentAd = reviewAds[currentIndex];
   const currentAssetId = getAssetDocumentId(currentAd);
+  const resolvedGroupId = useMemo(() => {
+    const direct = normalizeKeyPart(groupId);
+    if (direct) {
+      return direct;
+    }
+
+    const fromCurrent = extractGroupIdentifier(currentAd);
+    if (fromCurrent) {
+      return fromCurrent;
+    }
+
+    const sources = [reviewAds, ads, allAds];
+    for (const list of sources) {
+      if (!Array.isArray(list)) {
+        continue;
+      }
+      for (const item of list) {
+        const identifier = extractGroupIdentifier(item);
+        if (identifier) {
+          return identifier;
+        }
+      }
+    }
+
+    return '';
+  }, [groupId, currentAd, reviewAds, ads, allAds]);
   const versions = useMemo(() => {
     if (!currentAd) return [];
     const related = allAds.filter((a) => isSameAdUnit(a, currentAd));
@@ -2891,9 +2949,10 @@ useEffect(() => {
   };
 
   const handleFinalizeReview = async (approvePending = false) => {
-    const trimmedGroupId = typeof groupId === 'string' ? groupId.trim() : '';
+    const trimmedGroupId = resolvedGroupId;
 
     if (!trimmedGroupId) {
+      showToast('error', 'Missing ad group identifier. Cannot finalize review.');
       setShowFinalizeModal(null);
       return;
     }
@@ -2913,19 +2972,18 @@ useEffect(() => {
       await updateDoc(doc(db, 'adGroups', trimmedGroupId), updateData);
 
       const notifyReviewed = httpsCallable(functions, 'notifyAdGroupReviewed');
-      notifyReviewed({ groupId: trimmedGroupId })
-        .then((result) => {
-          const payload = result?.data;
-          if (payload?.skipped) {
-            showToast('success', 'Slack notification already sent.');
-          } else {
-            showToast('success', 'Slack notification sent.');
-          }
-        })
-        .catch((err) => {
-          console.error('Failed to notify Slack about review', err);
-          showToast('error', 'Slack notification failed.');
-        });
+      try {
+        const result = await notifyReviewed({ groupId: trimmedGroupId });
+        const payload = result?.data;
+        if (payload?.skipped) {
+          showToast('success', 'Slack notification already sent.');
+        } else {
+          showToast('success', 'Slack notification sent.');
+        }
+      } catch (err) {
+        console.error('Failed to notify Slack about review', err);
+        showToast('error', 'Slack notification failed.');
+      }
 
       if (isPublicReviewer) {
         try {
@@ -2957,7 +3015,7 @@ useEffect(() => {
   };
 
   const openFinalizeModal = () => {
-    if (finalizeProcessing || !groupId) return;
+    if (finalizeProcessing || !resolvedGroupId) return;
     const pendingCount = reviewStatusCounts?.pending ?? 0;
     setShowFinalizeModal(pendingCount > 0 ? 'pending' : 'confirm');
   };
@@ -3370,12 +3428,12 @@ useEffect(() => {
                         type="button"
                         onClick={openFinalizeModal}
                         disabled={
-                          finalizeProcessing || submitting || !groupId
+                          finalizeProcessing || submitting || !resolvedGroupId
                         }
                         className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${
                           statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
                         } ${
-                          finalizeProcessing || submitting || !groupId
+                          finalizeProcessing || submitting || !resolvedGroupId
                             ? 'opacity-60 cursor-not-allowed'
                             : ''
                         }`}
