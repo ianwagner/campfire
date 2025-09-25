@@ -4,7 +4,6 @@ import {
   onDocumentDeleted,
   onDocumentWritten,
 } from 'firebase-functions/v2/firestore';
-import { document as firestoreDocument } from 'firebase-functions/v1/firestore';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import admin from 'firebase-admin';
@@ -746,12 +745,13 @@ export const archiveProjectOnRequestDone = onDocumentUpdated('requests/{requestI
   return null;
 });
 
-export const notifySlackOnAdGroupReviewed = firestoreDocument('adGroups/{groupId}').onUpdate(
-  async (change, context) => {
-    const beforeSnap = change.before;
-    const afterSnap = change.after;
+export const notifySlackOnAdGroupReviewed = onDocumentUpdated(
+  'adGroups/{groupId}',
+  async (event) => {
+    const beforeSnap = event.data?.before;
+    const afterSnap = event.data?.after;
 
-    if (!beforeSnap.exists || !afterSnap.exists) {
+    if (!beforeSnap?.exists || !afterSnap?.exists) {
       return null;
     }
 
@@ -802,7 +802,7 @@ export const notifySlackOnAdGroupReviewed = firestoreDocument('adGroups/{groupId
       before.name ||
       after.adGroupCode ||
       before.adGroupCode ||
-      context.params.groupId;
+      event.params.groupId;
 
     const lines = [
       `${brandCode ? `[${brandCode}] ` : ''}Ad group *${groupName}* has been marked as *reviewed*.`,
@@ -812,7 +812,7 @@ export const notifySlackOnAdGroupReviewed = firestoreDocument('adGroups/{groupId
     ];
 
     console.log(
-      `Ad group ${context.params.groupId} reviewed for brand ${brandCode}; notifying Slack with counts`,
+      `Ad group ${event.params.groupId} reviewed for brand ${brandCode}; notifying Slack with counts`,
       counts,
     );
 
