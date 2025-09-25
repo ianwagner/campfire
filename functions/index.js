@@ -208,12 +208,18 @@ async function sendSlackNotificationToBrand(brandCode, text) {
 }
 
 export const notifyAdGroupReviewed = onCall(async (data, context) => {
-  const rawGroupId = data?.groupId;
-  if (typeof rawGroupId !== 'string' || !rawGroupId.trim()) {
-    throw new HttpsError('invalid-argument', 'groupId is required');
-  }
+  const rawGroupIdInput = typeof data === 'string' ? data : data?.groupId;
+  const rawGroupId =
+    typeof rawGroupIdInput === 'string'
+      ? rawGroupIdInput
+      : rawGroupIdInput === null || rawGroupIdInput === undefined
+        ? ''
+        : String(rawGroupIdInput);
 
   const groupId = rawGroupId.trim();
+  if (!groupId) {
+    throw new HttpsError('invalid-argument', 'groupId is required');
+  }
   console.log('notifyAdGroupReviewed invoked', { groupId, uid: context?.auth?.uid || null });
 
   let groupSnap;
