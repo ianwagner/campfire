@@ -4,6 +4,7 @@ import {
   onDocumentDeleted,
   onDocumentWritten,
 } from 'firebase-functions/v2/firestore';
+import { firestore as firestoreV1 } from 'firebase-functions/v1';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import admin from 'firebase-admin';
@@ -745,72 +746,74 @@ export const archiveProjectOnRequestDone = onDocumentUpdated('requests/{requestI
   return null;
 });
 
-export const notifySlackOnAdGroupReviewed = onDocumentUpdated('adGroups/{groupId}', async (event) => {
-  const before = event.data.before.data() || {};
-  const after = event.data.after.data() || {};
+export const notifySlackOnAdGroupReviewed = firestoreV1
+  .document('adGroups/{groupId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data() || {};
+    const after = change.after.data() || {};
 
-  const beforeStatus = before.status;
-  const afterStatus = after.status;
+    const beforeStatus = before.status;
+    const afterStatus = after.status;
 
-  if (beforeStatus === 'reviewed' || afterStatus !== 'reviewed') {
+    if (beforeStatus === 'reviewed' || afterStatus !== 'reviewed') {
+      return null;
+    }
+
+    const brandCode =
+      typeof after.brandCode === 'string' && after.brandCode.trim()
+        ? after.brandCode.trim()
+        : typeof before.brandCode === 'string' && before.brandCode.trim()
+          ? before.brandCode.trim()
+          : '';
+    if (!brandCode) {
+      console.warn('Ad group reviewed without brandCode; skipping Slack notification');
+      return null;
+    }
+
+    let assetsSnap;
+    try {
+      assetsSnap = await change.after.ref.collection('assets').get();
+    } catch (err) {
+      console.error('Failed to load assets for Slack notification', err);
+      return null;
+    }
+
+    const counts = {
+      approved: 0,
+      edit_requested: 0,
+      rejected: 0,
+    };
+
+    assetsSnap.forEach((doc) => {
+      const status = doc.data()?.status;
+      if (status === 'approved') counts.approved += 1;
+      else if (status === 'edit_requested') counts.edit_requested += 1;
+      else if (status === 'rejected') counts.rejected += 1;
+    });
+
+    const groupName =
+      after.name ||
+      before.name ||
+      after.adGroupCode ||
+      before.adGroupCode ||
+      context.params.groupId;
+
+    const lines = [
+      `${brandCode ? `[${brandCode}] ` : ''}Ad group *${groupName}* has been marked as *reviewed*.`,
+      `• Approved: ${counts.approved}`,
+      `• Edit requested: ${counts.edit_requested}`,
+      `• Rejected: ${counts.rejected}`,
+    ];
+
+    console.log(
+      `Ad group ${context.params.groupId} reviewed for brand ${brandCode}; notifying Slack with counts`,
+      counts,
+    );
+
+    await sendSlackNotificationToBrand(brandCode, lines.join('\n'));
+
     return null;
-  }
-
-  const brandCode =
-    typeof after.brandCode === 'string' && after.brandCode.trim()
-      ? after.brandCode.trim()
-      : typeof before.brandCode === 'string' && before.brandCode.trim()
-        ? before.brandCode.trim()
-        : '';
-  if (!brandCode) {
-    console.warn('Ad group reviewed without brandCode; skipping Slack notification');
-    return null;
-  }
-
-  let assetsSnap;
-  try {
-    assetsSnap = await event.data.after.ref.collection('assets').get();
-  } catch (err) {
-    console.error('Failed to load assets for Slack notification', err);
-    return null;
-  }
-
-  const counts = {
-    approved: 0,
-    edit_requested: 0,
-    rejected: 0,
-  };
-
-  assetsSnap.forEach((doc) => {
-    const status = doc.data()?.status;
-    if (status === 'approved') counts.approved += 1;
-    else if (status === 'edit_requested') counts.edit_requested += 1;
-    else if (status === 'rejected') counts.rejected += 1;
   });
-
-  const groupName =
-    after.name ||
-    before.name ||
-    after.adGroupCode ||
-    before.adGroupCode ||
-    event.params.groupId;
-
-  const lines = [
-    `${brandCode ? `[${brandCode}] ` : ''}Ad group *${groupName}* has been marked as *reviewed*.`,
-    `• Approved: ${counts.approved}`,
-    `• Edit requested: ${counts.edit_requested}`,
-    `• Rejected: ${counts.rejected}`,
-  ];
-
-  console.log(
-    `Ad group ${event.params.groupId} reviewed for brand ${brandCode}; notifying Slack with counts`,
-    counts,
-  );
-
-  await sendSlackNotificationToBrand(brandCode, lines.join('\n'));
-
-  return null;
-});
 
 export const syncProjectStatus = onDocumentWritten('adGroups/{groupId}', async (event) => {
   const before = event.data.before.data() || {};
