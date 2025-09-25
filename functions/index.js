@@ -92,28 +92,54 @@ async function sendSlackNotificationToBrand(brandCode, text) {
     return;
   }
 
-  let channelDocs = [];
+  const normalizedBrandLower = normalizedBrand.toLowerCase();
+  const channelDocMap = new Map();
 
   try {
-    const snap = await db
-      .collection('slackChannelMappings')
-      .where('brandCode', '==', normalizedBrand)
-      .get();
-    if (!snap.empty) {
-      channelDocs = snap.docs;
-    } else {
-      const fallbackSnap = await db.collection('slackChannelMappings').get();
-      channelDocs = fallbackSnap.docs.filter((doc) => {
-        const stored = doc.data()?.brandCode;
-        return (
-          typeof stored === 'string' && stored.trim().toLowerCase() === normalizedBrand.toLowerCase()
-        );
+    const baseCollection = db.collection('slackChannelMappings');
+
+    const [exactMatchSnap, arrayMatchSnap] = await Promise.all([
+      baseCollection.where('brandCode', '==', normalizedBrand).get(),
+      baseCollection.where('brandCodes', 'array-contains', normalizedBrand).get().catch((err) => {
+        console.warn('Failed to query Slack channel mappings by brandCodes', err);
+        return null;
+      }),
+    ]);
+
+    if (exactMatchSnap && !exactMatchSnap.empty) {
+      exactMatchSnap.docs.forEach((doc) => {
+        channelDocMap.set(doc.id, doc);
+      });
+    }
+
+    if (arrayMatchSnap && !arrayMatchSnap.empty) {
+      arrayMatchSnap.docs.forEach((doc) => {
+        channelDocMap.set(doc.id, doc);
+      });
+    }
+
+    if (!channelDocMap.size) {
+      const fallbackSnap = await baseCollection.get();
+      fallbackSnap.docs.forEach((doc) => {
+        const data = doc.data() || {};
+        const single = typeof data.brandCode === 'string' ? data.brandCode.trim() : '';
+        const matchesSingle = single && single.toLowerCase() === normalizedBrandLower;
+        const matchesArray = Array.isArray(data.brandCodes)
+          ? data.brandCodes.some(
+              (code) => typeof code === 'string' && code.trim().toLowerCase() === normalizedBrandLower,
+            )
+          : false;
+        if (matchesSingle || matchesArray) {
+          channelDocMap.set(doc.id, doc);
+        }
       });
     }
   } catch (err) {
     console.error('Failed to load Slack channel mappings', err);
     return;
   }
+
+  const channelDocs = Array.from(channelDocMap.values());
 
   if (!channelDocs.length) {
     console.log(`No Slack channels connected for brand ${normalizedBrand}; skipping notification.`);
