@@ -165,35 +165,6 @@ function sendEphemeral(res, text) {
   });
 }
 
-async function postSlackResponse(responseUrl, text) {
-  if (!responseUrl) {
-    console.error("Missing response_url; unable to send Slack response", text);
-    return;
-  }
-
-  try {
-    const response = await fetchWithFallback(responseUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-      },
-      body: JSON.stringify({
-        response_type: "ephemeral",
-        text,
-      }),
-    });
-
-    if (!response.ok) {
-      const body = await response.text();
-      console.error(
-        `Failed to send delayed Slack response: ${response.status} ${body}`
-      );
-    }
-  } catch (error) {
-    console.error("Error sending delayed Slack response", error);
-  }
-}
-
 async function handleConnect(params) {
   const brandCode = params.args[0]?.trim();
   if (!brandCode) {
@@ -337,8 +308,6 @@ module.exports = async function handler(req, res) {
     const channelName = params.get("channel_name") || undefined;
     const userId = params.get("user_id") || "";
     const workspaceId = params.get("team_id") || "";
-    const responseUrl = params.get("response_url") || "";
-
     if (!channelId) {
       sendEphemeral(res, "Error: Missing channel information in Slack payload.");
       return;
@@ -355,27 +324,28 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const acknowledgementText = `Processing /campfire ${command}...`;
-    sendEphemeral(res, acknowledgementText);
+    try {
+      const message = await dispatchCommand(command, {
+        args,
+        channelId,
+        channelName,
+        userId,
+        workspaceId,
+      });
 
-    (async () => {
-      try {
-        const message = await dispatchCommand(command, {
-          args,
-          channelId,
-          channelName,
-          userId,
-          workspaceId,
-        });
-
-        await postSlackResponse(responseUrl, message);
-      } catch (error) {
-        console.error("Slack command error", error);
-        const errorMessage = `Error: ${error.message || String(error)}`;
-        await postSlackResponse(responseUrl, errorMessage);
-      }
-    })();
-    return;
+      res.status(200).json({
+        response_type: "ephemeral",
+        text: message,
+      });
+      return;
+    } catch (error) {
+      console.error("Slack command error", error);
+      res.status(200).json({
+        response_type: "ephemeral",
+        text: `Error: ${error.message || String(error)}`,
+      });
+      return;
+    }
   } catch (error) {
     console.error("Slack command error", error);
     if (!res.headersSent) {
