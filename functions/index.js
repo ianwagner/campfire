@@ -207,6 +207,70 @@ async function sendSlackNotificationToBrand(brandCode, text) {
   );
 }
 
+async function sendReviewNotificationForAdGroup(groupRef, groupId, groupData, logContext) {
+  const context = logContext || 'notifyAdGroupReviewed';
+
+  if (groupData.reviewNotifiedAt) {
+    console.log(`${context} skipped: already notified`, { groupId });
+    return { skipped: true, reason: 'already_notified' };
+  }
+
+  const brandCode = typeof groupData.brandCode === 'string' ? groupData.brandCode.trim() : '';
+  if (!brandCode) {
+    console.warn('Ad group reviewed without brandCode; skipping Slack notification', { groupId });
+    return { skipped: true, reason: 'missing_brand' };
+  }
+
+  let assetsSnap;
+  try {
+    assetsSnap = await groupRef.collection('assets').get();
+  } catch (err) {
+    err.context = err.context || 'load-assets';
+    throw err;
+  }
+
+  const counts = {
+    approved: 0,
+    edit_requested: 0,
+    rejected: 0,
+  };
+
+  assetsSnap.forEach((doc) => {
+    const status = doc.data()?.status;
+    if (status === 'approved') counts.approved += 1;
+    else if (status === 'edit_requested') counts.edit_requested += 1;
+    else if (status === 'rejected') counts.rejected += 1;
+  });
+
+  const groupName = groupData.name || groupData.adGroupCode || groupId;
+  const lines = [
+    `${brandCode ? `[${brandCode}] ` : ''}Ad group *${groupName}* has been marked as *reviewed*.`,
+    `• Approved: ${counts.approved}`,
+    `• Edit requested: ${counts.edit_requested}`,
+    `• Rejected: ${counts.rejected}`,
+  ];
+
+  console.log(`${context} sending Slack notification`, { groupId, brandCode, counts });
+
+  try {
+    await sendSlackNotificationToBrand(brandCode, lines.join('\n'));
+  } catch (err) {
+    err.context = err.context || 'send-slack';
+    throw err;
+  }
+
+  try {
+    await groupRef.update({ reviewNotifiedAt: admin.firestore.FieldValue.serverTimestamp() });
+  } catch (err) {
+    err.context = err.context || 'update-reviewNotifiedAt';
+    throw err;
+  }
+
+  console.log(`${context} completed`, { groupId });
+
+  return { notified: true, counts };
+}
+
 export const notifyAdGroupReviewed = onCall(async (request) => {
   const payload = request?.data;
   const rawGroupIdInput = typeof payload === 'string' ? payload : payload?.groupId;
@@ -240,65 +304,62 @@ export const notifyAdGroupReviewed = onCall(async (request) => {
   }
 
   const groupData = groupSnap.data() || {};
-  if (groupData.reviewNotifiedAt) {
-    console.log('notifyAdGroupReviewed skipped: already notified', { groupId });
-    return { skipped: true };
-  }
 
   if (groupData.status !== 'reviewed') {
     throw new HttpsError('failed-precondition', 'Ad group status must be reviewed');
   }
 
-  const brandCode = typeof groupData.brandCode === 'string' ? groupData.brandCode.trim() : '';
-  if (!brandCode) {
-    console.warn('Ad group reviewed without brandCode; skipping Slack notification', { groupId });
-    return { skipped: true };
-  }
-
-  let assetsSnap;
   try {
-    assetsSnap = await groupRef.collection('assets').get();
+    const result = await sendReviewNotificationForAdGroup(groupRef, groupId, groupData, 'notifyAdGroupReviewed');
+    if (result?.skipped) {
+      return { skipped: true };
+    }
+    return { notified: true };
   } catch (err) {
-    console.error('Failed to load assets for Slack notification', err);
-    throw new HttpsError('internal', 'Failed to load assets');
+    if (err?.context === 'load-assets') {
+      console.error('Failed to load assets for Slack notification', err);
+      throw new HttpsError('internal', 'Failed to load assets');
+    }
+    if (err?.context === 'update-reviewNotifiedAt') {
+      console.error('Failed to set reviewNotifiedAt on ad group', err);
+      throw new HttpsError('internal', 'Failed to update ad group');
+    }
+    console.error('Failed to send Slack notification for reviewed ad group', err);
+    throw new HttpsError('internal', 'Failed to send Slack notification');
+  }
+});
+
+export const notifySlackOnAdGroupReviewed = onDocumentUpdated('adGroups/{groupId}', async (event) => {
+  const beforeData = event.data?.before?.data() || {};
+  const afterData = event.data?.after?.data() || {};
+  const groupId = event.params.groupId;
+
+  if (!afterData || !groupId) {
+    return null;
   }
 
-  const counts = {
-    approved: 0,
-    edit_requested: 0,
-    rejected: 0,
-  };
+  const beforeStatus = beforeData.status;
+  const afterStatus = afterData.status;
 
-  assetsSnap.forEach((doc) => {
-    const status = doc.data()?.status;
-    if (status === 'approved') counts.approved += 1;
-    else if (status === 'edit_requested') counts.edit_requested += 1;
-    else if (status === 'rejected') counts.rejected += 1;
-  });
-
-  const groupName = groupData.name || groupData.adGroupCode || groupId;
-
-  const lines = [
-    `${brandCode ? `[${brandCode}] ` : ''}Ad group *${groupName}* has been marked as *reviewed*.`,
-    `• Approved: ${counts.approved}`,
-    `• Edit requested: ${counts.edit_requested}`,
-    `• Rejected: ${counts.rejected}`,
-  ];
-
-  console.log('notifyAdGroupReviewed sending Slack notification', { groupId, brandCode, counts });
-
-  await sendSlackNotificationToBrand(brandCode, lines.join('\n'));
+  if (beforeStatus === 'reviewed' || afterStatus !== 'reviewed') {
+    return null;
+  }
 
   try {
-    await groupRef.update({ reviewNotifiedAt: admin.firestore.FieldValue.serverTimestamp() });
+    await sendReviewNotificationForAdGroup(event.data.after.ref, groupId, afterData, 'notifySlackOnAdGroupReviewed');
   } catch (err) {
-    console.error('Failed to set reviewNotifiedAt on ad group', err);
-    throw new HttpsError('internal', 'Failed to update ad group');
+    if (err?.context === 'load-assets') {
+      console.error('Failed to load assets for Slack review notification', err);
+      return null;
+    }
+    if (err?.context === 'update-reviewNotifiedAt') {
+      console.error('Failed to update reviewNotifiedAt while sending Slack notification', err);
+      return null;
+    }
+    console.error('Failed to send Slack notification for reviewed ad group (trigger)', err);
   }
 
-  console.log('notifyAdGroupReviewed completed', { groupId });
-
-  return { notified: true };
+  return null;
 });
 
 
