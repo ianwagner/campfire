@@ -31,11 +31,6 @@ const db = admin.firestore();
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || '';
 
 async function postSlackMessage(channelId, text) {
-  if (!SLACK_BOT_TOKEN) {
-    console.warn('SLACK_BOT_TOKEN is not configured; skipping Slack notification');
-    return;
-  }
-
   const payload = JSON.stringify({ channel: channelId, text });
 
   await new Promise((resolve, reject) => {
@@ -91,10 +86,6 @@ async function postSlackMessage(channelId, text) {
 }
 
 async function sendSlackNotificationToBrand(brandCode, text) {
-  if (!SLACK_BOT_TOKEN) {
-    return;
-  }
-
   const normalizedBrand = (brandCode || '').trim();
   if (!normalizedBrand) {
     console.warn('Missing brand code for Slack notification');
@@ -126,6 +117,13 @@ async function sendSlackNotificationToBrand(brandCode, text) {
 
   if (!channelDocs.length) {
     console.log(`No Slack channels connected for brand ${normalizedBrand}; skipping notification.`);
+    return;
+  }
+
+  if (!SLACK_BOT_TOKEN) {
+    console.warn(
+      `SLACK_BOT_TOKEN is not configured; skipping Slack notification for brand ${normalizedBrand}.`,
+    );
     return;
   }
 
