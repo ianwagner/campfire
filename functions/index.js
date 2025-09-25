@@ -4,7 +4,6 @@ import {
   onDocumentDeleted,
   onDocumentWritten,
 } from 'firebase-functions/v2/firestore';
-import { firestore as firestoreV1 } from 'firebase-functions/v1';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import admin from 'firebase-admin';
@@ -746,11 +745,18 @@ export const archiveProjectOnRequestDone = onDocumentUpdated('requests/{requestI
   return null;
 });
 
-export const notifySlackOnAdGroupReviewed = firestoreV1
-  .document('adGroups/{groupId}')
-  .onUpdate(async (change, context) => {
-    const before = change.before.data() || {};
-    const after = change.after.data() || {};
+export const notifySlackOnAdGroupReviewed = onDocumentUpdated(
+  'adGroups/{groupId}',
+  async (event) => {
+    const beforeSnap = event.data?.before;
+    const afterSnap = event.data?.after;
+
+    if (!beforeSnap?.exists || !afterSnap?.exists) {
+      return null;
+    }
+
+    const before = beforeSnap.data() || {};
+    const after = afterSnap.data() || {};
 
     const beforeStatus = before.status;
     const afterStatus = after.status;
@@ -772,7 +778,7 @@ export const notifySlackOnAdGroupReviewed = firestoreV1
 
     let assetsSnap;
     try {
-      assetsSnap = await change.after.ref.collection('assets').get();
+      assetsSnap = await afterSnap.ref.collection('assets').get();
     } catch (err) {
       console.error('Failed to load assets for Slack notification', err);
       return null;
@@ -796,7 +802,7 @@ export const notifySlackOnAdGroupReviewed = firestoreV1
       before.name ||
       after.adGroupCode ||
       before.adGroupCode ||
-      context.params.groupId;
+      event.params.groupId;
 
     const lines = [
       `${brandCode ? `[${brandCode}] ` : ''}Ad group *${groupName}* has been marked as *reviewed*.`,
@@ -806,14 +812,15 @@ export const notifySlackOnAdGroupReviewed = firestoreV1
     ];
 
     console.log(
-      `Ad group ${context.params.groupId} reviewed for brand ${brandCode}; notifying Slack with counts`,
+      `Ad group ${event.params.groupId} reviewed for brand ${brandCode}; notifying Slack with counts`,
       counts,
     );
 
     await sendSlackNotificationToBrand(brandCode, lines.join('\n'));
 
     return null;
-  });
+  },
+);
 
 export const syncProjectStatus = onDocumentWritten('adGroups/{groupId}', async (event) => {
   const before = event.data.before.data() || {};
