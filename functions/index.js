@@ -56,6 +56,99 @@ function parseAdFilename(filename) {
   return { brandCode, adGroupCode, recipeCode, aspectRatio, version };
 }
 
+async function resolveBrandCodeForGroup(groupData = {}) {
+  const takeFirstString = (value) => {
+    if (typeof value !== 'string') return '';
+    const trimmed = value.trim();
+    return trimmed || '';
+  };
+
+  let resolved = '';
+
+  const tryResolve = async (resolver) => {
+    if (resolved) return;
+    const value = await resolver();
+    if (typeof value === 'string' && value.trim()) {
+      resolved = value.trim();
+    }
+  };
+
+  resolved = takeFirstString(groupData.brandCode);
+  if (resolved) return resolved;
+
+  if (groupData.brand && typeof groupData.brand === 'object') {
+    resolved =
+      takeFirstString(groupData.brand.code) || takeFirstString(groupData.brand.codeId);
+    if (resolved) return resolved;
+  }
+
+  if (Array.isArray(groupData.brandCodes)) {
+    for (const code of groupData.brandCodes) {
+      const candidate = takeFirstString(code);
+      if (candidate) return candidate;
+    }
+  }
+
+  await tryResolve(async () => {
+    const projectId = takeFirstString(groupData.projectId || '');
+    if (!projectId) return '';
+    try {
+      const projectSnap = await db.collection('projects').doc(projectId).get();
+      if (!projectSnap.exists) return '';
+      const projectData = projectSnap.data() || {};
+      return (
+        takeFirstString(projectData.brandCode) ||
+        (projectData.brand && typeof projectData.brand === 'object'
+          ? takeFirstString(projectData.brand.code) || takeFirstString(projectData.brand.codeId)
+          : '')
+      );
+    } catch (err) {
+      console.error('Failed to load project while resolving brand code', projectId, err);
+      return '';
+    }
+  });
+
+  if (resolved) return resolved;
+
+  await tryResolve(async () => {
+    const requestId = takeFirstString(groupData.requestId || '');
+    if (!requestId) return '';
+    try {
+      const requestSnap = await db.collection('requests').doc(requestId).get();
+      if (!requestSnap.exists) return '';
+      const requestData = requestSnap.data() || {};
+      return (
+        takeFirstString(requestData.brandCode) ||
+        (requestData.brand && typeof requestData.brand === 'object'
+          ? takeFirstString(requestData.brand.code) ||
+            takeFirstString(requestData.brand.codeId)
+          : '')
+      );
+    } catch (err) {
+      console.error('Failed to load request while resolving brand code', requestId, err);
+      return '';
+    }
+  });
+
+  if (resolved) return resolved;
+
+  await tryResolve(async () => {
+    const brandId = takeFirstString(groupData.brandId || '');
+    if (!brandId) return '';
+    try {
+      const brandSnap = await db.collection('brands').doc(brandId).get();
+      if (!brandSnap.exists) return '';
+      const brandData = brandSnap.data() || {};
+      return takeFirstString(brandData.code) || takeFirstString(brandData.codeId);
+    } catch (err) {
+      console.error('Failed to load brand while resolving brand code', brandId, err);
+      return '';
+    }
+  });
+
+  return resolved;
+}
+
 function monthKey(date) {
   return date.toISOString().slice(0, 7);
 }
@@ -265,6 +358,58 @@ export const updateBrandStatsOnRecipeChange = onDocumentWritten(
     return null;
   }
 );
+
+export const ensureAdGroupBrandCode = onDocumentWritten('adGroups/{groupId}', async (event) => {
+  const afterSnap = event.data.after;
+  if (!afterSnap?.exists) return null;
+
+  const groupId = event.params.groupId;
+  const beforeData = event.data.before?.data() || {};
+  const afterData = afterSnap.data() || {};
+
+  const beforeBrand = typeof beforeData.brandCode === 'string' ? beforeData.brandCode.trim() : '';
+  const afterBrand = typeof afterData.brandCode === 'string' ? afterData.brandCode.trim() : '';
+
+  if (afterBrand) return null;
+
+  let resolvedBrandCode = '';
+  try {
+    resolvedBrandCode = await resolveBrandCodeForGroup(afterData);
+  } catch (err) {
+    console.error('Failed to resolve brand code for ad group', groupId, err);
+    return null;
+  }
+
+  if (!resolvedBrandCode) {
+    if (beforeBrand) {
+      console.warn('Brand code removed from ad group without replacement', {
+        adGroupId: groupId,
+        previousBrandCode: beforeBrand,
+      });
+    } else {
+      const status = typeof afterData.status === 'string' ? afterData.status.toLowerCase() : '';
+      if (status && ['reviewed', 'designed'].includes(status)) {
+        console.warn(
+          `Skipping Slack notification for ${status} ad group ${groupId} because brand code is missing.`,
+          { brandCode: null }
+        );
+      }
+    }
+    return null;
+  }
+
+  try {
+    await afterSnap.ref.update({ brandCode: resolvedBrandCode });
+    console.log('Backfilled brand code for ad group', {
+      adGroupId: groupId,
+      brandCode: resolvedBrandCode,
+    });
+  } catch (err) {
+    console.error('Failed to backfill brand code for ad group', groupId, err);
+  }
+
+  return null;
+});
 
 export const processUpload = onObjectFinalized(async (event) => {
   const object = event.data;
