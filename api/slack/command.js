@@ -355,24 +355,59 @@ module.exports = async function handler(req, res) {
       return;
     }
 
+    const commandPromise = dispatchCommand(command, {
+      args,
+      channelId,
+      channelName,
+      userId,
+      workspaceId,
+    });
+
+    const COMMAND_TIMEOUT_MS = 2500;
+    let timeoutId;
+    const timeoutPromise = new Promise((resolve) => {
+      timeoutId = setTimeout(() => {
+        resolve({ type: "timeout" });
+      }, COMMAND_TIMEOUT_MS);
+    });
+
+    const raceResult = await Promise.race([
+      commandPromise
+        .then((message) => ({ type: "success", message }))
+        .catch((error) => ({ type: "error", error })),
+      timeoutPromise,
+    ]);
+
+    clearTimeout(timeoutId);
+
+    if (raceResult?.type === "success") {
+      sendEphemeral(res, raceResult.message);
+      return;
+    }
+
+    if (raceResult?.type === "error") {
+      const errorMessage = `Error: ${raceResult.error?.message || String(raceResult.error)}`;
+      sendEphemeral(res, errorMessage);
+      return;
+    }
+
     const acknowledgementText = `Processing /campfire ${command}...`;
     sendEphemeral(res, acknowledgementText);
 
-    try {
-      const message = await dispatchCommand(command, {
-        args,
-        channelId,
-        channelName,
-        userId,
-        workspaceId,
+    commandPromise
+      .then(async (message) => {
+        if (!message) {
+          return;
+        }
+
+        await postSlackResponse(responseUrl, message);
+      })
+      .catch(async (error) => {
+        console.error("Slack command error", error);
+        const errorMessage = `Error: ${error.message || String(error)}`;
+        await postSlackResponse(responseUrl, errorMessage);
       });
 
-      await postSlackResponse(responseUrl, message);
-    } catch (error) {
-      console.error("Slack command error", error);
-      const errorMessage = `Error: ${error.message || String(error)}`;
-      await postSlackResponse(responseUrl, errorMessage);
-    }
     return;
   } catch (error) {
     console.error("Slack command error", error);
