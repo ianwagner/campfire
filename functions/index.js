@@ -706,14 +706,19 @@ export const notifySlackOnAdGroupReviewed = onDocumentUpdated('adGroups/{groupId
   const before = event.data.before.data() || {};
   const after = event.data.after.data() || {};
 
-  const beforeStatus = typeof before.status === 'string' ? before.status.toLowerCase() : '';
-  const afterStatus = typeof after.status === 'string' ? after.status.toLowerCase() : '';
+  const beforeStatus = before.status;
+  const afterStatus = after.status;
 
   if (beforeStatus === 'reviewed' || afterStatus !== 'reviewed') {
     return null;
   }
 
-  const brandCode = after.brandCode || before.brandCode;
+  const brandCode =
+    typeof after.brandCode === 'string' && after.brandCode.trim()
+      ? after.brandCode.trim()
+      : typeof before.brandCode === 'string' && before.brandCode.trim()
+        ? before.brandCode.trim()
+        : '';
   if (!brandCode) {
     console.warn('Ad group reviewed without brandCode; skipping Slack notification');
     return null;
@@ -734,7 +739,7 @@ export const notifySlackOnAdGroupReviewed = onDocumentUpdated('adGroups/{groupId
   };
 
   assetsSnap.forEach((doc) => {
-    const status = (doc.data()?.status || '').toLowerCase();
+    const status = doc.data()?.status;
     if (status === 'approved') counts.approved += 1;
     else if (status === 'edit_requested') counts.edit_requested += 1;
     else if (status === 'rejected') counts.rejected += 1;
