@@ -30,6 +30,43 @@ const db = admin.firestore();
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || '';
 
+function normalizeBrandCodeValue(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim().toUpperCase();
+}
+
+function collectNormalizedBrandCodes(data) {
+  const normalized = new Set();
+
+  const single = normalizeBrandCodeValue(data.brandCode);
+  if (single) normalized.add(single);
+
+  const multi = data.brandCodes;
+  if (Array.isArray(multi)) {
+    for (const code of multi) {
+      const normalizedCode = normalizeBrandCodeValue(code);
+      if (normalizedCode) normalized.add(normalizedCode);
+    }
+  } else if (multi && typeof multi === 'object') {
+    for (const [key, value] of Object.entries(multi)) {
+      const normalizedKey = normalizeBrandCodeValue(key);
+      if (normalizedKey) normalized.add(normalizedKey);
+
+      if (Array.isArray(value)) {
+        for (const nested of value) {
+          const nestedCode = normalizeBrandCodeValue(nested);
+          if (nestedCode) normalized.add(nestedCode);
+        }
+      } else {
+        const normalizedValue = normalizeBrandCodeValue(value);
+        if (normalizedValue) normalized.add(normalizedValue);
+      }
+    }
+  }
+
+  return normalized;
+}
+
 async function postSlackMessage(channelId, text) {
   const payload = JSON.stringify({ channel: channelId, text });
 
@@ -86,7 +123,10 @@ async function postSlackMessage(channelId, text) {
 }
 
 async function sendSlackNotificationToBrand(brandCode, text) {
-  const normalizedBrand = (brandCode || '').trim();
+  const rawBrand = typeof brandCode === 'string' ? brandCode : '';
+  const displayBrand = rawBrand.trim();
+  const normalizedBrand = normalizeBrandCodeValue(rawBrand);
+
   if (!normalizedBrand) {
     console.warn('Missing brand code for Slack notification');
     return;
@@ -95,37 +135,42 @@ async function sendSlackNotificationToBrand(brandCode, text) {
   let channelDocs = [];
 
   try {
-    const snap = await db
-      .collection('slackChannelMappings')
-      .where('brandCode', '==', normalizedBrand)
-      .get();
-    if (!snap.empty) {
-      channelDocs = snap.docs;
-    } else {
-      const fallbackSnap = await db.collection('slackChannelMappings').get();
-      channelDocs = fallbackSnap.docs.filter((doc) => {
-        const stored = doc.data()?.brandCode;
-        return (
-          typeof stored === 'string' && stored.trim().toLowerCase() === normalizedBrand.toLowerCase()
-        );
-      });
-    }
+    const mappingSnap = await db.collection('slackChannelMappings').get();
+    const matching = [];
+
+    mappingSnap.forEach((doc) => {
+      const data = doc.data() || {};
+      const normalizedCodes = collectNormalizedBrandCodes(data);
+      if (normalizedCodes.has(normalizedBrand)) {
+        matching.push(doc);
+      }
+    });
+
+    channelDocs = matching;
   } catch (err) {
     console.error('Failed to load Slack channel mappings', err);
     return;
   }
 
   if (!channelDocs.length) {
-    console.log(`No Slack channels connected for brand ${normalizedBrand}; skipping notification.`);
+    console.log(
+      `No Slack channels connected for brand ${displayBrand || normalizedBrand}; skipping notification.`,
+    );
     return;
   }
 
   if (!SLACK_BOT_TOKEN) {
     console.warn(
-      `SLACK_BOT_TOKEN is not configured; skipping Slack notification for brand ${normalizedBrand}.`,
+      `SLACK_BOT_TOKEN is not configured; skipping Slack notification for brand ${displayBrand || normalizedBrand}.`,
     );
     return;
   }
+
+  console.log(
+    `Sending Slack notification for brand ${displayBrand || normalizedBrand} to channels: ${channelDocs
+      .map((doc) => doc.id)
+      .join(', ')}`,
+  );
 
   await Promise.all(
     channelDocs.map(async (doc) => {
@@ -756,6 +801,11 @@ export const notifySlackOnAdGroupReviewed = onDocumentUpdated('adGroups/{groupId
     `• Edit requested: ${counts.edit_requested}`,
     `• Rejected: ${counts.rejected}`,
   ];
+
+  console.log(
+    `Ad group ${event.params.groupId} reviewed for brand ${brandCode}; notifying Slack with counts`,
+    counts,
+  );
 
   await sendSlackNotificationToBrand(brandCode, lines.join('\n'));
 
