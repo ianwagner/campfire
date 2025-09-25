@@ -12,6 +12,7 @@ import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
 import https from 'https';
+import * as firestoreCommon from 'firebase-functions/lib/common/providers/firestore.js';
 import { tagger } from './tagger.js';
 import { generateThumbnailsForAssets, deleteThumbnails } from './thumbnails.js';
 import { generateTagsForAssets } from './tagAssets.js';
@@ -21,6 +22,45 @@ import { parsePdp } from './parsePdp.js';
 import { cacheProductImages } from './cacheProductImages.js';
 import { copyAssetToDrive, cleanupDriveFile } from './driveAssets.js';
 import { openaiProxy } from './openaiProxy.js';
+
+const originalCreateBeforeSnapshotFromProtobuf =
+  firestoreCommon.createBeforeSnapshotFromProtobuf;
+
+if (typeof originalCreateBeforeSnapshotFromProtobuf === 'function') {
+  firestoreCommon.createBeforeSnapshotFromProtobuf = (
+    eventData,
+    resource,
+    database,
+  ) => {
+    try {
+      return originalCreateBeforeSnapshotFromProtobuf(eventData, resource, database);
+    } catch (err) {
+      console.error(
+        'Failed to decode Firestore before snapshot protobuf; falling back to empty snapshot',
+        err,
+      );
+
+      try {
+        return firestoreCommon.createBeforeSnapshotFromJson(
+          undefined,
+          resource,
+          undefined,
+          undefined,
+          database,
+        );
+      } catch (jsonErr) {
+        console.error('Failed to synthesize empty before snapshot', jsonErr);
+        return firestoreCommon.createBeforeSnapshotFromJson(
+          { oldValue: {} },
+          resource,
+          undefined,
+          undefined,
+          database,
+        );
+      }
+    }
+  };
+}
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -751,26 +791,45 @@ export const notifySlackOnAdGroupReviewed = onDocumentUpdated(
     const beforeSnap = event.data?.before;
     const afterSnap = event.data?.after;
 
-    if (!beforeSnap?.exists || !afterSnap?.exists) {
+    if (!afterSnap?.exists) {
       return null;
     }
 
-    const before = beforeSnap.data() || {};
-    const after = afterSnap.data() || {};
+    const beforeData = beforeSnap?.exists ? beforeSnap.data() || {} : {};
+    const afterData = afterSnap.data() || {};
 
-    const beforeStatus = before.status;
-    const afterStatus = after.status;
+    const afterStatus = afterData.status;
+    const beforeStatus = beforeData.status;
 
-    if (beforeStatus === 'reviewed' || afterStatus !== 'reviewed') {
+    if (afterStatus !== 'reviewed') {
+      if (afterData.slackReviewedNotified || afterData.slackReviewedNotifiedAt) {
+        try {
+          await afterSnap.ref.update({
+            slackReviewedNotified: admin.firestore.FieldValue.delete(),
+            slackReviewedNotifiedAt: admin.firestore.FieldValue.delete(),
+          });
+        } catch (err) {
+          console.error('Failed to clear Slack reviewed notification flags', err);
+        }
+      }
+      return null;
+    }
+
+    if (afterData.slackReviewedNotified === true) {
+      return null;
+    }
+
+    if (beforeStatus === 'reviewed') {
       return null;
     }
 
     const brandCode =
-      typeof after.brandCode === 'string' && after.brandCode.trim()
-        ? after.brandCode.trim()
-        : typeof before.brandCode === 'string' && before.brandCode.trim()
-          ? before.brandCode.trim()
+      typeof afterData.brandCode === 'string' && afterData.brandCode.trim()
+        ? afterData.brandCode.trim()
+        : typeof beforeData.brandCode === 'string' && beforeData.brandCode.trim()
+          ? beforeData.brandCode.trim()
           : '';
+
     if (!brandCode) {
       console.warn('Ad group reviewed without brandCode; skipping Slack notification');
       return null;
@@ -798,10 +857,10 @@ export const notifySlackOnAdGroupReviewed = onDocumentUpdated(
     });
 
     const groupName =
-      after.name ||
-      before.name ||
-      after.adGroupCode ||
-      before.adGroupCode ||
+      afterData.name ||
+      beforeData.name ||
+      afterData.adGroupCode ||
+      beforeData.adGroupCode ||
       event.params.groupId;
 
     const lines = [
@@ -817,6 +876,15 @@ export const notifySlackOnAdGroupReviewed = onDocumentUpdated(
     );
 
     await sendSlackNotificationToBrand(brandCode, lines.join('\n'));
+
+    try {
+      await afterSnap.ref.update({
+        slackReviewedNotified: true,
+        slackReviewedNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      console.error('Failed to persist Slack reviewed notification flag', err);
+    }
 
     return null;
   },
