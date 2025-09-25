@@ -710,41 +710,94 @@ export const notifySlackOnAdGroupReviewedV1 = functionsV1
   .firestore.document('adGroups/{groupId}')
   .onUpdate(async (change, ctx) => {
     const before = change.before.data() || {};
-    const after  = change.after.data() || {};
+    const after = change.after.data() || {};
 
-const statusify = (v) =>
-  typeof v === 'string' ? v.trim().toLowerCase() : '';
+    const statusify = (v) => (typeof v === 'string' ? v.trim().toLowerCase() : '');
 
-const b = statusify(before.status);
-const a = statusify(after.status);
+    const beforeStatus = statusify(before.status);
+    const afterStatus = statusify(after.status);
 
-console.log('🔥 reviewed watcher', {
-  groupId: ctx.params.groupId,
-  beforeStatus: b,
-  afterStatus: a,
-  brandCode: after.brandCode || before.brandCode || null,
-});
-
-if (b === 'reviewed' || a !== 'reviewed') return null;
-
-
-    const brandCode = after.brandCode || before.brandCode;
-    if (!brandCode) return null;
-
-    const assetsSnap = await change.after.ref.collection('assets').get();
-    const counts = { approved: 0, edit_requested: 0, rejected: 0 };
-    assetsSnap.forEach(d => {
-      const s = (d.data()?.status || '').toLowerCase();
-      if (s === 'approved') counts.approved++;
-      else if (s === 'edit_requested') counts.edit_requested++;
-      else if (s === 'rejected') counts.rejected++;
+    console.log('🔥 reviewed watcher', {
+      groupId: ctx.params.groupId,
+      beforeStatus,
+      afterStatus,
+      brandCode: after.brandCode || before.brandCode || null,
     });
 
-    const groupName = after.name || before.name || after.adGroupCode || before.adGroupCode || ctx.params.groupId;
-    const text = `${brandCode ? `[${brandCode}] ` : ''}Ad group *${groupName}* has been marked as *reviewed*.\n` +
-                 `• Approved: ${counts.approved}\n` +
-                 `• Edit requested: ${counts.edit_requested}\n` +
-                 `• Rejected: ${counts.rejected}`;
+    if (beforeStatus === 'reviewed' || afterStatus !== 'reviewed') return null;
+
+    const sanitizeBrand = (value) => (typeof value === 'string' ? value.trim() : '');
+
+    let brandCode = sanitizeBrand(after.brandCode) || sanitizeBrand(before.brandCode) || '';
+    if (!brandCode) {
+      const projectId = after.projectId || before.projectId;
+      if (projectId) {
+        try {
+          const projectSnap = await db.collection('projects').doc(projectId).get();
+          const project = projectSnap.data() || {};
+          brandCode = sanitizeBrand(project.brandCode || project.brand?.code || '');
+        } catch (err) {
+          console.warn('Failed to load project for reviewed Slack notification', err);
+        }
+      }
+    }
+
+    if (!brandCode) {
+      const requestId = after.requestId || before.requestId;
+      if (requestId) {
+        try {
+          const requestSnap = await db.collection('requests').doc(requestId).get();
+          const request = requestSnap.data() || {};
+          brandCode = sanitizeBrand(request.brandCode || request.brand?.code || '');
+        } catch (err) {
+          console.warn('Failed to load request for reviewed Slack notification', err);
+        }
+      }
+    }
+
+    if (!brandCode) {
+      console.log(
+        `Skipping Slack notification for reviewed ad group ${ctx.params.groupId} because brand code is missing.`,
+      );
+      return null;
+    }
+
+    const counts = { approved: 0, edit_requested: 0, rejected: 0 };
+    try {
+      const assetsSnap = await change.after.ref.collection('assets').get();
+      if (!assetsSnap.empty) {
+        assetsSnap.forEach((d) => {
+          const s = statusify(d.data()?.status);
+          if (s === 'approved') counts.approved += 1;
+          else if (s === 'edit_requested') counts.edit_requested += 1;
+          else if (s === 'rejected') counts.rejected += 1;
+        });
+      } else {
+        counts.approved = Number(after.approvedCount || before.approvedCount || 0);
+        counts.edit_requested = Number(after.editCount || before.editCount || 0);
+        counts.rejected = Number(after.rejectedCount || before.rejectedCount || 0);
+      }
+    } catch (err) {
+      console.error('Failed to load asset counts for Slack notification', err);
+      counts.approved = Number(after.approvedCount || before.approvedCount || 0);
+      counts.edit_requested = Number(after.editCount || before.editCount || 0);
+      counts.rejected = Number(after.rejectedCount || before.rejectedCount || 0);
+    }
+
+    const groupName =
+      after.name ||
+      before.name ||
+      after.adGroupCode ||
+      before.adGroupCode ||
+      ctx.params.groupId;
+
+    const text =
+      `${brandCode ? `[${brandCode}] ` : ''}` +
+      `Ad group *${groupName}* has been marked as *reviewed*.\n` +
+      `• Approved: ${counts.approved}\n` +
+      `• Edit requested: ${counts.edit_requested}\n` +
+      `• Rejected: ${counts.rejected}`;
+
     await sendSlackNotificationToBrand(brandCode, text);
     return null;
   });
