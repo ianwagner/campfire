@@ -274,13 +274,32 @@ const ClientData = ({ brandCodes = [] }) => {
 
   useEffect(() => {
     const fetchRows = async () => {
-      if (!brandCodes.includes(brand) || (!month && !dueMonth)) {
+      const normalizedBrandCodes = Array.from(
+        new Set(
+          brandCodes
+            .filter((code) => typeof code === 'string')
+            .map((code) => code.trim())
+            .filter(Boolean),
+        ),
+      );
+      const normalizedSelectedBrand =
+        typeof brand === 'string' ? brand.trim() : '';
+      const hasSelectedBrand =
+        normalizedSelectedBrand &&
+        normalizedBrandCodes.includes(normalizedSelectedBrand);
+      const targetBrands = hasSelectedBrand
+        ? [normalizedSelectedBrand]
+        : normalizedBrandCodes;
+
+      if ((!month && !dueMonth) || targetBrands.length === 0) {
         setRows([]);
         return;
       }
       setLoading(true);
       try {
-        const args = [collection(db, 'adGroups'), where('brandCode', '==', brand)];
+        const args = [collection(db, 'adGroups')];
+        if (hasSelectedBrand)
+          args.push(where('brandCode', '==', normalizedSelectedBrand));
         if (month) args.push(where('month', '==', month));
         if (dueMonth) {
           const start = new Date(`${dueMonth}-01`);
@@ -289,14 +308,36 @@ const ClientData = ({ brandCodes = [] }) => {
           args.push(where('dueDate', '>=', start));
           args.push(where('dueDate', '<', end));
         }
-        const [gSnap, brandSnap] = await Promise.all([
+        const brandChunks = targetBrands.reduce((chunks, code, idx) => {
+          const chunkIdx = Math.floor(idx / 10);
+          if (!chunks[chunkIdx]) chunks[chunkIdx] = [];
+          chunks[chunkIdx].push(code);
+          return chunks;
+        }, []);
+        const [gSnap, brandSnaps] = await Promise.all([
           getDocs(query(...args)),
-          getDocs(query(collection(db, 'brands'), where('code', '==', brand))),
+          Promise.all(
+            brandChunks.map((chunk) =>
+              getDocs(query(collection(db, 'brands'), where('code', 'in', chunk))),
+            ),
+          ),
         ]);
-        const brandStoreId = brandSnap.empty ? '' : brandSnap.docs[0].data().storeId || '';
+        const storeIdByBrand = {};
+        brandSnaps.forEach((snap) => {
+          snap.docs.forEach((doc) => {
+            const data = doc.data() || {};
+            const code = typeof data.code === 'string' ? data.code.trim() : '';
+            if (!code) return;
+            storeIdByBrand[code] = data.storeId || '';
+          });
+        });
+        const allowedBrands = new Set(targetBrands);
         const list = [];
         for (const gDoc of gSnap.docs) {
           const gData = gDoc.data();
+          const groupBrand =
+            typeof gData.brandCode === 'string' ? gData.brandCode.trim() : '';
+          if (!allowedBrands.has(groupBrand)) continue;
           const groupMeta = flattenMeta(gData.metadata || {});
           const rSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'recipes'));
           const aSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'assets'));
@@ -448,7 +489,8 @@ const ClientData = ({ brandCodes = [] }) => {
                 row[label] = url;
               }
             });
-            row.storeId = brandStoreId || gData.storeId || row.storeId || '';
+            row.storeId =
+              storeIdByBrand[groupBrand] || gData.storeId || row.storeId || '';
             list.push(row);
           });
         }
@@ -545,7 +587,8 @@ const ClientData = ({ brandCodes = [] }) => {
     const blob = new Blob([csv], { type: 'text/csv' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    const file = `${brand}_${month || dueMonth}.csv`;
+    const exportBrand = (typeof brand === 'string' && brand.trim()) || 'all-brands';
+    const file = `${exportBrand}_${month || dueMonth}.csv`;
     link.setAttribute('download', file);
     document.body.appendChild(link);
     link.click();
