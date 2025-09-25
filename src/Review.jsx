@@ -1530,6 +1530,10 @@ useEffect(() => {
 
     return '';
   }, [groupId, currentAd, reviewAds, ads, allAds]);
+  const normalizedResolvedGroupId = useMemo(
+    () => normalizeKeyPart(resolvedGroupId),
+    [resolvedGroupId],
+  );
   const versions = useMemo(() => {
     if (!currentAd) return [];
     const related = allAds.filter((a) => isSameAdUnit(a, currentAd));
@@ -2949,7 +2953,7 @@ useEffect(() => {
   };
 
   const handleFinalizeReview = async (approvePending = false) => {
-    const trimmedGroupId = resolvedGroupId;
+    const trimmedGroupId = normalizedResolvedGroupId;
 
     if (!trimmedGroupId) {
       showToast('error', 'Missing ad group identifier. Cannot finalize review.');
@@ -3015,7 +3019,7 @@ useEffect(() => {
   };
 
   const openFinalizeModal = () => {
-    if (finalizeProcessing || !resolvedGroupId) return;
+    if (finalizeProcessing || !normalizedResolvedGroupId) return;
     const pendingCount = reviewStatusCounts?.pending ?? 0;
     setShowFinalizeModal(pendingCount > 0 ? 'pending' : 'confirm');
   };
@@ -3428,12 +3432,12 @@ useEffect(() => {
                         type="button"
                         onClick={openFinalizeModal}
                         disabled={
-                          finalizeProcessing || submitting || !resolvedGroupId
+                          finalizeProcessing || submitting || !normalizedResolvedGroupId
                         }
                         className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${
                           statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
                         } ${
-                          finalizeProcessing || submitting || !resolvedGroupId
+                          finalizeProcessing || submitting || !normalizedResolvedGroupId
                             ? 'opacity-60 cursor-not-allowed'
                             : ''
                         }`}
