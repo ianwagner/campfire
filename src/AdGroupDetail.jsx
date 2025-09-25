@@ -200,6 +200,11 @@ const AdGroupDetail = () => {
   const menuRef = useRef(null);
   let hasApprovedV2 = false;
   const countsRef = useRef(null);
+  const slackStatusRef = useRef({
+    initialized: false,
+    previousStatus: null,
+    brandCode: null,
+  });
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
   const isDesigner = userRole === "designer";
@@ -539,6 +544,81 @@ const AdGroupDetail = () => {
       };
     }
   }, [group]);
+
+  useEffect(() => {
+    if (!group?.status || !group?.brandCode || !id) return;
+
+    const tracker = slackStatusRef.current;
+    if (tracker.brandCode !== group.brandCode) {
+      tracker.brandCode = group.brandCode;
+      tracker.initialized = false;
+      tracker.previousStatus = null;
+    }
+
+    const currentStatus = group.status;
+
+    if (!tracker.initialized) {
+      tracker.initialized = true;
+      tracker.previousStatus = currentStatus;
+      return;
+    }
+
+    if (tracker.previousStatus === currentStatus) {
+      return;
+    }
+
+    tracker.previousStatus = currentStatus;
+
+    if (!["designed", "reviewed"].includes(currentStatus)) {
+      return;
+    }
+
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      return;
+    }
+
+    const notifySlack = async () => {
+      try {
+        const idToken = await currentUser.getIdToken();
+        if (!idToken) return;
+
+        const payload = {
+          brandCode: group.brandCode,
+          adGroupId: id,
+          adGroupName: group.name || "",
+          status: currentStatus,
+        };
+
+        if (typeof window !== "undefined") {
+          const origin = window.location?.origin || "";
+          if (origin) {
+            payload.url = `${origin}/ad-groups/${id}`;
+          } else if (window.location?.href) {
+            payload.url = window.location.href;
+          }
+        }
+
+        const response = await fetch("/api/slack/status-update", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          console.error("Failed to notify Slack", response.status, text);
+        }
+      } catch (error) {
+        console.error("Failed to notify Slack", error);
+      }
+    };
+
+    notifySlack();
+  }, [group?.status, group?.brandCode, group?.name, id]);
 
   useEffect(() => {
     if (!group) return;
