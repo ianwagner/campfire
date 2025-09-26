@@ -78,6 +78,7 @@ import stripVersion from "./utils/stripVersion";
 import summarizeByRecipe from "./utils/summarizeByRecipe";
 import FeedbackPanel from "./components/FeedbackPanel.jsx";
 import detectMissingRatios from "./utils/detectMissingRatios";
+import notifySlackStatusChange from "./utils/notifySlackStatusChange";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -573,51 +574,12 @@ const AdGroupDetail = () => {
       return;
     }
 
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      return;
-    }
-
-    const notifySlack = async () => {
-      try {
-        const idToken = await currentUser.getIdToken();
-        if (!idToken) return;
-
-        const payload = {
-          brandCode: group.brandCode,
-          adGroupId: id,
-          adGroupName: group.name || "",
-          status: currentStatus,
-        };
-
-        if (typeof window !== "undefined") {
-          const origin = window.location?.origin || "";
-          if (origin) {
-            payload.url = `${origin}/ad-groups/${id}`;
-          } else if (window.location?.href) {
-            payload.url = window.location.href;
-          }
-        }
-
-        const response = await fetch("/api/slack/status-update", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          const text = await response.text();
-          console.error("Failed to notify Slack", response.status, text);
-        }
-      } catch (error) {
-        console.error("Failed to notify Slack", error);
-      }
-    };
-
-    notifySlack();
+    notifySlackStatusChange({
+      brandCode: group.brandCode,
+      adGroupId: id,
+      adGroupName: group.name || "",
+      status: currentStatus,
+    });
   }, [group?.status, group?.brandCode, group?.name, id]);
 
   useEffect(() => {

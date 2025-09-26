@@ -64,6 +64,7 @@ import { deductRecipeCredits } from './utils/credits.js';
 import { uploadFile } from './uploadFile.js';
 import DueDateMonthSelector from './components/DueDateMonthSelector.jsx';
 import computeGroupStatus from './utils/computeGroupStatus';
+import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import parseAdFilename from './utils/parseAdFilename';
 import pickHeroAsset from './utils/pickHeroAsset';
 
@@ -327,16 +328,44 @@ const ProjectDetail = () => {
       group?.status === 'designed',
       group?.status,
     );
-    if (newStatus !== group?.status) {
+    if (newStatus === group?.status) {
+      return;
+    }
+
+    const brandCode = group?.brandCode || project?.brandCode || '';
+    const adGroupName = group?.name || project?.title || '';
+    const detailUrl =
+      typeof window === 'undefined' ? undefined : window.location?.href;
+
+    const updateStatus = async () => {
       try {
-        updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
+        await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
       } catch (err) {
         console.error('Failed to update group status', err);
       }
+
       setGroup((p) => (p ? { ...p, status: newStatus } : p));
       setProject((p) => (p ? { ...p, status: newStatus } : p));
-    }
-  }, [assets, groupId, group?.status]);
+
+      await notifySlackStatusChange({
+        brandCode,
+        adGroupId: groupId,
+        adGroupName,
+        status: newStatus,
+        url: detailUrl,
+      });
+    };
+
+    updateStatus();
+  }, [
+    assets,
+    groupId,
+    group?.status,
+    group?.brandCode,
+    group?.name,
+    project?.brandCode,
+    project?.title,
+  ]);
 
   const updateLayout = () => {
     if (typeof window === 'undefined') return;

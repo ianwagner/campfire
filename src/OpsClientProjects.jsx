@@ -16,6 +16,7 @@ import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import useAgencies from './useAgencies';
 import computeGroupStatus from './utils/computeGroupStatus';
+import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import MonthTag from './components/MonthTag.jsx';
 import IconButton from './components/IconButton.jsx';
 
@@ -212,6 +213,19 @@ const OpsClientProjects = () => {
         updateDoc(doc(db, 'adGroups', groupId), { status: newStatus }),
         updateDoc(doc(db, 'projects', project.id), { status: newStatus }),
       ]);
+      const detailUrl = (() => {
+        if (typeof window === 'undefined') return undefined;
+        const origin = window.location?.origin || '';
+        if (!origin) return window.location?.href;
+        return `${origin}/ad-groups/${groupId}`;
+      })();
+      await notifySlackStatusChange({
+        brandCode: project?.group?.brandCode || project?.brandCode || '',
+        adGroupId: groupId,
+        adGroupName: project?.group?.name || project?.title || '',
+        status: newStatus,
+        url: detailUrl,
+      });
       setProjects((prev) => ({
         ...prev,
         [clientId]: prev[clientId].map((p) =>
