@@ -94,6 +94,10 @@ function formatStatus(status) {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
+function normalizeBrandCode(value) {
+  return value.trim().toUpperCase();
+}
+
 async function postSlackMessage(channel, payload) {
   if (!SLACK_BOT_TOKEN) {
     throw new Error("SLACK_BOT_TOKEN is not configured");
@@ -157,13 +161,15 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const brandCode = typeof payload.brandCode === "string" ? payload.brandCode.trim() : "";
+  const rawBrandCode =
+    typeof payload.brandCode === "string" ? payload.brandCode.trim() : "";
+  const normalizedBrandCode = rawBrandCode ? normalizeBrandCode(rawBrandCode) : "";
   const status = typeof payload.status === "string" ? payload.status.trim().toLowerCase() : "";
   const adGroupId = typeof payload.adGroupId === "string" ? payload.adGroupId.trim() : "";
   const adGroupName = typeof payload.adGroupName === "string" ? payload.adGroupName.trim() : "";
   const adGroupUrl = typeof payload.url === "string" ? payload.url.trim() : "";
 
-  if (!brandCode) {
+  if (!normalizedBrandCode) {
     res.status(400).json({ error: "brandCode is required" });
     return;
   }
@@ -174,24 +180,42 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const snap = await db
-      .collection("slackChannelMappings")
-      .where("brandCode", "==", brandCode)
-      .get();
+    const collection = db.collection("slackChannelMappings");
+    const brandCodeQueries = [
+      collection.where("brandCodeNormalized", "==", normalizedBrandCode).get(),
+      collection.where("brandCode", "==", normalizedBrandCode).get(),
+    ];
 
-    if (snap.empty) {
-      res.status(200).json({ ok: true, message: "No Slack channel connected for this brand." });
+    if (rawBrandCode && rawBrandCode !== normalizedBrandCode) {
+      brandCodeQueries.push(collection.where("brandCode", "==", rawBrandCode).get());
+    }
+
+    const snapshots = await Promise.all(brandCodeQueries);
+    const docsById = new Map();
+
+    for (const snap of snapshots) {
+      for (const doc of snap.docs) {
+        if (!docsById.has(doc.id)) {
+          docsById.set(doc.id, doc);
+        }
+      }
+    }
+
+    if (!docsById.size) {
+      res
+        .status(200)
+        .json({ ok: true, message: "No Slack channel connected for this brand." });
       return;
     }
 
     const statusLabel = formatStatus(status);
     const identifier = adGroupName || adGroupId || "an ad group";
-    const baseText = `Ad group *${identifier}* for brand *${brandCode}* is now *${statusLabel}*.`;
+    const baseText = `Ad group *${identifier}* for brand *${normalizedBrandCode}* is now *${statusLabel}*.`;
     const linkText = adGroupUrl ? ` <${adGroupUrl}|View details>` : "";
     const text = `${baseText}${linkText}`;
 
     const results = [];
-    for (const doc of snap.docs) {
+    for (const doc of docsById.values()) {
       try {
         const response = await postSlackMessage(doc.id, { text });
         results.push({ channel: doc.id, ok: true, ts: response.ts });

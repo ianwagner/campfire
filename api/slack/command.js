@@ -158,16 +158,22 @@ async function postSlackResponse(responseUrl, text) {
   }
 }
 
+function normalizeBrandCode(value) {
+  return value.trim().toUpperCase();
+}
+
 async function handleConnect(params) {
-  const brandCode = params.args[0]?.trim();
-  if (!brandCode) {
+  const rawBrandCode = typeof params.args[0] === "string" ? params.args[0].trim() : "";
+  if (!rawBrandCode) {
     return "Please provide a brand code. Usage: /campfire connect BRANDCODE";
   }
 
+  const normalizedBrandCode = normalizeBrandCode(rawBrandCode);
   const channelId = params.channelId;
   const now = admin.firestore.FieldValue.serverTimestamp();
   const docData = {
-    brandCode,
+    brandCode: normalizedBrandCode,
+    brandCodeNormalized: normalizedBrandCode,
     workspaceId: params.workspaceId,
     connectedBy: params.userId,
     connectedAt: now,
@@ -180,7 +186,7 @@ async function handleConnect(params) {
 
   await db.collection("slackChannelMappings").doc(channelId).set(docData, { merge: true });
 
-  return `Connected this channel to brand ${brandCode}.`;
+  return `Connected this channel to brand ${normalizedBrandCode}.`;
 }
 
 async function handleStatus(params) {
