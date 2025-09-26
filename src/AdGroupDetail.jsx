@@ -1989,6 +1989,7 @@ const AdGroupDetail = () => {
           ),
         );
       }
+      setGroup((prev) => ({ ...prev, status: "designed" }));
     } catch (err) {
       console.error("Failed to mark designed", err);
     } finally {
