@@ -64,6 +64,7 @@ import { deductCredits } from './utils/credits';
 import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
+import notifySlackStatusChange from './utils/notifySlackStatusChange';
 
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
@@ -2877,6 +2878,23 @@ useEffect(() => {
       };
 
       await updateDoc(doc(db, 'adGroups', groupId), updateData);
+
+      const detailUrl = (() => {
+        if (typeof window === 'undefined') return undefined;
+        const origin = window.location?.origin || '';
+        if (origin && groupId) {
+          return `${origin}/ad-groups/${groupId}`;
+        }
+        return window.location?.href;
+      })();
+
+      await notifySlackStatusChange({
+        brandCode: groupBrandCode || brandCode || '',
+        adGroupId: groupId,
+        adGroupName: adGroupDisplayName,
+        status: 'reviewed',
+        url: detailUrl,
+      });
 
       if (isPublicReviewer) {
         try {
