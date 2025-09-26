@@ -89,13 +89,21 @@ async function verifyAuth(req) {
   }
 }
 
-function formatStatus(status) {
-  if (!status) return "";
-  return status.charAt(0).toUpperCase() + status.slice(1);
-}
-
 function normalizeBrandCode(value) {
   return value.trim().toUpperCase();
+}
+
+function toNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (value && typeof value.toNumber === "function") {
+    const converted = value.toNumber();
+    return Number.isFinite(converted) ? converted : 0;
+  }
+
+  return 0;
 }
 
 async function postSlackMessage(channel, payload) {
@@ -208,11 +216,36 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const statusLabel = formatStatus(status);
     const identifier = adGroupName || adGroupId || "an ad group";
-    const baseText = `Ad group *${identifier}* for brand *${normalizedBrandCode}* is now *${statusLabel}*.`;
-    const linkText = adGroupUrl ? ` <${adGroupUrl}|View details>` : "";
-    const text = `${baseText}${linkText}`;
+    const linkText = adGroupUrl ? `<${adGroupUrl}|${identifier}>` : identifier;
+
+    let text;
+
+    if (status === "designed") {
+      text = `${linkText} is ready for review!`;
+    } else if (status === "reviewed") {
+      let approvedCount = 0;
+      let editRequestedCount = 0;
+      let rejectedCount = 0;
+
+      if (adGroupId) {
+        try {
+          const adGroupSnap = await db.collection("adGroups").doc(adGroupId).get();
+          if (adGroupSnap.exists) {
+            const data = adGroupSnap.data() || {};
+            approvedCount = toNumber(data.approvedCount);
+            editRequestedCount = toNumber(data.editCount);
+            rejectedCount = toNumber(data.rejectedCount);
+          }
+        } catch (fetchError) {
+          console.error("Failed to fetch ad group review counts", fetchError);
+        }
+      }
+
+      text = `${linkText} has been reviewed!\nApproved: ${approvedCount}\nEdit Requested: ${editRequestedCount}\nRejected: ${rejectedCount}`;
+    } else {
+      text = linkText;
+    }
 
     const results = [];
     for (const doc of docsById.values()) {
