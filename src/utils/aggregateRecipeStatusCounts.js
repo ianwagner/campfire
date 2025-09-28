@@ -2,11 +2,14 @@ import parseAdFilename from './parseAdFilename';
 
 const DEFAULT_STATUS_COUNTS = {
   pending: 0,
-  ready: 0,
   approved: 0,
   rejected: 0,
   edit_requested: 0,
   archived: 0,
+};
+
+const NORMALIZED_STATUS_MAP = {
+  ready: 'pending',
 };
 
 function createEntry() {
@@ -14,7 +17,6 @@ function createEntry() {
     statuses: new Set(),
     activeStatuses: new Set(),
     hasPending: false,
-    hasReady: false,
     hasRejected: false,
     hasEdit: false,
     isEmpty: false,
@@ -41,9 +43,6 @@ function determineRecipeStatus(entry) {
   if (active.every((status) => status === 'approved')) {
     return 'approved';
   }
-  if (entry.hasReady) {
-    return 'ready';
-  }
   if (entry.hasPending) {
     return 'pending';
   }
@@ -60,7 +59,8 @@ export default function aggregateRecipeStatusCounts(assets = [], recipeIds = [])
   (assets || []).forEach((raw) => {
     if (!raw) return;
     const asset = typeof raw.data === 'function' ? { ...raw.data(), id: raw.id } : raw;
-    const status = asset.status || 'pending';
+    const rawStatus = asset.status || 'pending';
+    const status = NORMALIZED_STATUS_MAP[rawStatus] || rawStatus;
     const info = parseAdFilename(asset.filename || '');
     const code = asset.recipeCode || info.recipeCode || '';
     if (!code) return;
@@ -72,9 +72,6 @@ export default function aggregateRecipeStatusCounts(assets = [], recipeIds = [])
     if (status === 'pending') {
       entry.hasPending = true;
     }
-    if (status === 'ready') {
-      entry.hasReady = true;
-    }
     if (status === 'rejected') {
       entry.hasRejected = true;
     }
@@ -84,18 +81,9 @@ export default function aggregateRecipeStatusCounts(assets = [], recipeIds = [])
     map.set(code, entry);
   });
 
-  const normalizedIds = Array.from(
-    new Set((recipeIds || []).map((id) => String(id || '')).filter(Boolean))
-  );
-
-  normalizedIds.forEach((id) => {
-    if (!map.has(id)) {
-      const entry = createEntry();
-      entry.hasPending = true;
-      entry.isEmpty = true;
-      map.set(id, entry);
-    }
-  });
+  // Recipes without assets are intentionally ignored so they are not counted
+  // as pending or as ad units until an asset is uploaded.
+  void recipeIds;
 
   const totals = { ...DEFAULT_STATUS_COUNTS };
 
