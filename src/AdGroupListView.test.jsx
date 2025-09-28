@@ -25,7 +25,7 @@ test('renders link to ad group detail when linkToDetail is true', () => {
   render(
     <MemoryRouter>
       <AdGroupListView
-        groups={[{ id: '1', name: 'Group One', brandCode: 'BR', status: 'processing', month: 1 }]}
+        groups={[{ id: '1', name: 'Group One', brandCode: 'BR', status: 'new', month: 1 }]}
         loading={false}
         filter=""
         onFilterChange={() => {}}
@@ -49,8 +49,8 @@ test('sorts groups by brand when selected', () => {
     <MemoryRouter>
       <AdGroupListView
         groups={[
-          { id: '1', name: 'Group A', brandCode: 'ZZ', status: 'processing', month: 1 },
-          { id: '2', name: 'Group B', brandCode: 'AA', status: 'processing', month: 1 },
+          { id: '1', name: 'Group A', brandCode: 'ZZ', status: 'new', month: 1 },
+          { id: '2', name: 'Group B', brandCode: 'AA', status: 'new', month: 1 },
         ]}
         loading={false}
         filter=""
@@ -77,7 +77,7 @@ test('allows updating review type from the list view', async () => {
   render(
     <MemoryRouter>
       <AdGroupListView
-        groups={[{ id: '1', name: 'Group One', brandCode: 'BR', status: 'processing', month: 1, reviewVersion: 1 }]}
+        groups={[{ id: '1', name: 'Group One', brandCode: 'BR', status: 'new', month: 1, reviewVersion: 1 }]}
         loading={false}
         filter=""
         onFilterChange={() => {}}
@@ -113,7 +113,7 @@ test('normalizes non-numeric review type values', async () => {
             id: '1',
             name: 'Group One',
             brandCode: 'BR',
-            status: 'processing',
+            status: 'new',
             month: 1,
             reviewVersion: 'brief type',
           },
@@ -154,7 +154,7 @@ test('falls back to brief when review type is stored as a labeled object', () =>
             id: '2',
             name: 'Group Two',
             brandCode: 'BR',
-            status: 'processing',
+            status: 'new',
             month: 1,
             reviewVersion: { label: 'Brief Type', value: 'brief type' },
           },
@@ -187,7 +187,7 @@ test('normalizes 3.0 review version strings to the brief option', () => {
             id: '3',
             name: 'Group Three',
             brandCode: 'BR',
-            status: 'processing',
+            status: 'new',
             month: 1,
             reviewVersion: '3.0',
           },
@@ -222,7 +222,7 @@ test('normalizes nested review version values containing v3 to the brief option'
             id: '4',
             name: 'Group Four',
             brandCode: 'BR',
-            status: 'processing',
+            status: 'new',
             month: 1,
             reviewVersion: { value: 'v3' },
           },

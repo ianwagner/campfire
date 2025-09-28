@@ -25,12 +25,11 @@ import { normalizeReviewVersion } from '../utils/reviewVersion';
 const statusOrder = {
   blocked: 0,
   new: 1,
-  processing: 2,
-  briefed: 3,
-  designed: 4,
-  reviewed: 5,
-  done: 6,
-  archived: 7,
+  briefed: 2,
+  designed: 3,
+  reviewed: 4,
+  done: 5,
+  archived: 6,
 };
 
 const AdGroupListView = ({

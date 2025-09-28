@@ -481,14 +481,7 @@ const ClientProjects = ({ brandCodes = [] }) => {
                       </div>
                       <div className="flex flex-col items-end">
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {status === 'processing' ? (
-                            <span
-                              className="processing-dots"
-                              aria-label="processing"
-                            />
-                          ) : (
-                            status
-                          )}
+                          {status || 'new'}
                         </span>
                         {(adCount != null || monthLabel) && (
                           <div className="flex gap-2 mt-1">

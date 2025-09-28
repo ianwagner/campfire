@@ -10,23 +10,9 @@ test('keeps briefed when current status is briefed', () => {
   expect(status).toBe('briefed');
 });
 
-test('returns new when no assets are present', () => {
+test('returns new when no current status is provided', () => {
   const status = computeGroupStatus([], true, false);
   expect(status).toBe('new');
-});
-
-test('returns designed when marked in design and no reviews yet', () => {
-  const status = computeGroupStatus([{ status: 'ready' }], false, true);
-  expect(status).toBe('designed');
-});
-
-test('does not automatically mark reviewed when some assets have been reviewed', () => {
-  const status = computeGroupStatus(
-    [{ status: 'approved' }, { status: 'pending' }],
-    false,
-    false,
-  );
-  expect(status).toBe('processing');
 });
 
 test('normalizes legacy ready status to designed', () => {
@@ -39,6 +25,11 @@ test('normalizes legacy edit request status to reviewed', () => {
   expect(status).toBe('reviewed');
 });
 
+test('normalizes legacy processing status to new', () => {
+  const status = computeGroupStatus([{ status: 'pending' }], false, false, 'processing');
+  expect(status).toBe('new');
+});
+
 test('keeps reviewed status when already finalized', () => {
   const status = computeGroupStatus(
     [{ status: 'approved' }, { status: 'rejected' }],
@@ -49,16 +40,12 @@ test('keeps reviewed status when already finalized', () => {
   expect(status).toBe('reviewed');
 });
 
-test('returns done when all active assets reviewed', () => {
+test('keeps designed status when already set manually', () => {
   const status = computeGroupStatus(
-    [{ status: 'approved' }, { status: 'rejected' }, { status: 'archived' }],
+    [{ status: 'pending' }, { status: 'approved' }],
     false,
     false,
+    'designed',
   );
-  expect(status).toBe('done');
-});
-
-test('falls back to processing when work remains', () => {
-  const status = computeGroupStatus([{ status: 'ready' }], false, false);
-  expect(status).toBe('processing');
+  expect(status).toBe('designed');
 });
