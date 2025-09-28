@@ -1288,8 +1288,9 @@ useEffect(() => {
         const visibleDeduped = deduped.filter((a) => a.status !== 'archived');
 
         if (rv === 2) {
+          const historyAssets = list.filter((a) => a.status !== 'pending');
           const uniqueVisibleDeduped = dedupeByAdUnit(visibleDeduped);
-          setAllAds(visibleAssets);
+          setAllAds(historyAssets);
           setAds(uniqueVisibleDeduped);
           setAllHeroAds(uniqueVisibleDeduped);
           setReviewAds(uniqueVisibleDeduped);
@@ -2213,9 +2214,7 @@ useEffect(() => {
     reviewAds.forEach((ad, idx) => {
       if (!ad) return;
       const cardKey = getAdKey(ad, idx);
-      const related = allAds.filter(
-        (asset) => asset.status !== 'archived' && isSameAdUnit(asset, ad),
-      );
+      const related = allAds.filter((asset) => isSameAdUnit(asset, ad));
       if (related.length === 0) {
         map[cardKey] = [[ad]];
         return;
@@ -2227,23 +2226,19 @@ useEffect(() => {
         verMap[ver].push(asset);
       });
       const groups = Object.values(verMap)
-        .map((group) =>
-          group
-            .filter((asset) => asset.status !== 'archived')
-            .sort((a, b) => {
-              const aspectA =
-                a.aspectRatio ||
-                parseAdFilename(a.filename || '').aspectRatio ||
-                '';
-              const aspectB =
-                b.aspectRatio ||
-                parseAdFilename(b.filename || '').aspectRatio ||
-                '';
-              return (
-                getReviewAspectPriority(aspectA) - getReviewAspectPriority(aspectB)
-              );
-            }),
-        )
+        .map((group) => {
+          const sorted = [...group].sort((a, b) => {
+            const aspectA =
+              a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
+            const aspectB =
+              b.aspectRatio || parseAdFilename(b.filename || '').aspectRatio || '';
+            return (
+              getReviewAspectPriority(aspectA) - getReviewAspectPriority(aspectB)
+            );
+          });
+          const nonArchived = sorted.filter((asset) => asset.status !== 'archived');
+          return nonArchived.length > 0 ? nonArchived : sorted;
+        })
         .filter((group) => group.length > 0)
         .sort((a, b) => getVersion(b[0]) - getVersion(a[0]));
       map[cardKey] = groups.length > 0 ? groups : [[ad]];
@@ -3237,7 +3232,7 @@ useEffect(() => {
       )}
       <div className="flex w-full flex-col items-center">
         <div className="flex w-full flex-col items-center">
-          <div className="w-full max-w-5xl px-4 pt-6 pb-4 sm:px-6">
+          <div className="w-full max-w-[712px] px-4 pt-6 pb-4 sm:px-6">
             <div className="flex items-center justify-between gap-4">
               <InfoTooltip text="exit review" placement="bottom">
                 <button
@@ -3288,7 +3283,7 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="w-full max-w-5xl space-y-6 px-2 pt-2 sm:px-0">
+            <div className="w-full max-w-[712px] space-y-6 px-2 pt-2 sm:px-0">
               <div
                 ref={statusBarSentinelRef}
                 aria-hidden="true"
