@@ -28,6 +28,7 @@ const ReviewPage = ({
   const [reviewerName, setReviewerName] = useState("");
   const [tempName, setTempName] = useState("");
   const [agencyId, setAgencyId] = useState(null);
+  const [brandDashboardSlug, setBrandDashboardSlug] = useState("");
   const [groupPassword, setGroupPassword] = useState(null);
   const [visibility, setVisibility] = useState(null);
   const [requireAuth, setRequireAuth] = useState(false);
@@ -70,23 +71,31 @@ const ReviewPage = ({
         const groupSnap = await getDoc(doc(db, "adGroups", groupId));
         if (!groupSnap.exists()) {
           setAgencyId(null);
+          setBrandDashboardSlug("");
           return;
         }
         const code = groupSnap.data().brandCode;
         if (!code) {
           setAgencyId(null);
+          setBrandDashboardSlug("");
           return;
         }
         const q = query(collection(db, "brands"), where("code", "==", code));
         const bSnap = await getDocs(q);
         if (!bSnap.empty) {
-          setAgencyId(bSnap.docs[0].data().agencyId || null);
+          const brandData = bSnap.docs[0].data();
+          setAgencyId(brandData.agencyId || null);
+          setBrandDashboardSlug(
+            (brandData.publicDashboardSlug || brandData.code || "").trim(),
+          );
         } else {
           setAgencyId(null);
+          setBrandDashboardSlug("");
         }
       } catch (err) {
         console.error("Failed to fetch agency", err);
         setAgencyId(null);
+        setBrandDashboardSlug("");
       }
     };
     loadAgency();
@@ -441,6 +450,7 @@ const ReviewPage = ({
         userRole={user?.isAnonymous ? null : userRole}
         brandCodes={user?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
+        brandDashboardSlug={brandDashboardSlug}
         allowPublicListeners={allowPublicListeners}
         isPublicReviewer={Boolean(user?.isAnonymous)}
       />

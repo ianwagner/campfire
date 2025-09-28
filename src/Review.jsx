@@ -365,6 +365,7 @@ const Review = forwardRef(
       groupId = null,
       reviewerName = '',
       agencyId = null,
+      brandDashboardSlug = '',
       allowPublicListeners = true,
       isPublicReviewer = false,
     },
@@ -769,13 +770,24 @@ const Review = forwardRef(
   const handleExitReview = useCallback(() => {
     releaseLock();
     setStarted(false);
-    const candidate = (groupBrandCode || brandCodes?.[0] || '').trim();
+    const candidate = (
+      brandDashboardSlug ||
+      groupBrandCode ||
+      brandCodes?.[0] ||
+      ''
+    ).trim();
     if (candidate) {
       navigate(`/${candidate}`);
     } else {
       navigate('/');
     }
-  }, [brandCodes, groupBrandCode, navigate, releaseLock]);
+  }, [
+    brandCodes,
+    brandDashboardSlug,
+    groupBrandCode,
+    navigate,
+    releaseLock,
+  ]);
   const [hasPending, setHasPending] = useState(false);
   const [pendingOnly, setPendingOnly] = useState(false);
   const [isMobile, setIsMobile] = useState(
@@ -3354,7 +3366,7 @@ useEffect(() => {
                 )}
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
-                <InfoTooltip text="exit review" placement="bottom">
+                <InfoTooltip text="Exit review" placement="bottom">
                   <button
                     type="button"
                     onClick={handleExitReview}
@@ -3362,10 +3374,9 @@ useEffect(() => {
                     className="btn-action"
                   >
                     <FiHome className="h-4 w-4" />
-                    <span className="hidden sm:inline">Exit Review</span>
                   </button>
                 </InfoTooltip>
-                <InfoTooltip text="leave overall feedback" placement="bottom">
+                <InfoTooltip text="Leave overall feedback" placement="bottom">
                   <button
                     type="button"
                     aria-label="leave overall feedback"
@@ -3373,30 +3384,11 @@ useEffect(() => {
                     className="btn-action"
                   >
                     <FiMessageSquare className="h-4 w-4" />
-                    <span className="hidden sm:inline">Overall Feedback</span>
                   </button>
                 </InfoTooltip>
-                <ThemeToggle className="btn-action !px-2 !py-1" />
-                {copyCards.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowCopyModal(true)}
-                    className="btn-action"
-                  >
-                    <FiType className="h-4 w-4" />
-                    <span className="hidden sm:inline">Platform Copy</span>
-                  </button>
-                )}
-                {ads.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowGallery(true)}
-                    className="btn-action"
-                  >
-                    <FiGrid className="h-4 w-4" />
-                    <span className="hidden sm:inline">Ad Gallery</span>
-                  </button>
-                )}
+                <InfoTooltip text="Toggle theme" placement="bottom">
+                  <ThemeToggle className="btn-action !px-2 !py-1" />
+                </InfoTooltip>
               </div>
             </div>
           </div>
@@ -3459,38 +3451,64 @@ useEffect(() => {
                         })}
                       </div>
                     </div>
-                    {isGroupReviewed ? (
-                      <span
-                        className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 sm:self-center ${
-                          statusBarPinned ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'
-                        }`}
-                      >
-                        <FiCheckCircle
-                          className={
-                            statusBarPinned ? 'h-3.5 w-3.5' : 'h-4 w-4'
+                    <div className="flex items-center justify-end gap-2 sm:self-center">
+                      {copyCards.length > 0 && (
+                        <InfoTooltip text="View platform copy" placement="bottom">
+                          <button
+                            type="button"
+                            aria-label="view platform copy"
+                            onClick={() => setShowCopyModal(true)}
+                            className="btn-action !px-2 !py-1"
+                          >
+                            <FiType className="h-4 w-4" />
+                          </button>
+                        </InfoTooltip>
+                      )}
+                      {ads.length > 0 && (
+                        <InfoTooltip text="View ad gallery" placement="bottom">
+                          <button
+                            type="button"
+                            aria-label="view ad gallery"
+                            onClick={() => setShowGallery(true)}
+                            className="btn-action !px-2 !py-1"
+                          >
+                            <FiGrid className="h-4 w-4" />
+                          </button>
+                        </InfoTooltip>
+                      )}
+                      {isGroupReviewed ? (
+                        <span
+                          className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 ${
+                            statusBarPinned ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'
+                          }`}
+                        >
+                          <FiCheckCircle
+                            className={
+                              statusBarPinned ? 'h-3.5 w-3.5' : 'h-4 w-4'
+                            }
+                            aria-hidden="true"
+                          />
+                          Reviewed
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={openFinalizeModal}
+                          disabled={
+                            finalizeProcessing || submitting || !groupId
                           }
-                          aria-hidden="true"
-                        />
-                        Reviewed
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={openFinalizeModal}
-                        disabled={
-                          finalizeProcessing || submitting || !groupId
-                        }
-                        className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${
-                          statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
-                        } ${
-                          finalizeProcessing || submitting || !groupId
-                            ? 'opacity-60 cursor-not-allowed'
-                            : ''
-                        }`}
-                      >
-                        finalize review
-                      </button>
-                    )}
+                          className={`btn-primary whitespace-nowrap font-semibold ${
+                            statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
+                          } ${
+                            finalizeProcessing || submitting || !groupId
+                              ? 'opacity-60 cursor-not-allowed'
+                              : ''
+                          }`}
+                        >
+                          finalize review
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
