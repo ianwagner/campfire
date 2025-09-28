@@ -216,8 +216,9 @@ const OpsClientProjects = () => {
       const detailUrl = (() => {
         if (typeof window === 'undefined') return undefined;
         const origin = window.location?.origin || '';
+        const search = window.location?.search || '';
         if (!origin) return window.location?.href;
-        return `${origin}/ad-groups/${groupId}`;
+        return `${origin.replace(/\/$/, '')}/review/${groupId}${search}`;
       })();
       await notifySlackStatusChange({
         brandCode: project?.group?.brandCode || project?.brandCode || '',

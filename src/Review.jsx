@@ -2882,8 +2882,9 @@ useEffect(() => {
       const detailUrl = (() => {
         if (typeof window === 'undefined') return undefined;
         const origin = window.location?.origin || '';
+        const search = window.location?.search || '';
         if (origin && groupId) {
-          return `${origin}/ad-groups/${groupId}`;
+          return `${origin.replace(/\/$/, '')}/review/${groupId}${search}`;
         }
         return window.location?.href;
       })();
