@@ -19,6 +19,32 @@ const formatMonth = (m) => {
   });
 };
 
+const normalizeAspectRatio = (value) => {
+  if (value == null) return '';
+  const str = String(value).trim().toLowerCase();
+  if (!str) return '';
+  if (str === 'square') return '1x1';
+  if (['vertical', 'portrait', 'story', 'stories', 'reel', 'reels'].includes(str)) {
+    return '9x16';
+  }
+  const match = str.match(/(\d+)\s*(?:x|×|:|-|by|_)\s*(\d+)/);
+  if (match) {
+    return `${match[1]}x${match[2]}`;
+  }
+  return '';
+};
+
+const findAspectInFilename = (filename) => {
+  if (!filename) return '';
+  const base = filename.replace(/\.[^/.]+$/, '');
+  const parts = base.split(/[_\s-]+/);
+  for (const part of parts) {
+    const normalized = normalizeAspectRatio(part);
+    if (normalized) return normalized;
+  }
+  return '';
+};
+
 const baseColumnDefs = [
   { key: 'storeId', label: 'Store ID', width: 'auto' },
   { key: 'groupName', label: 'Ad Group', width: 'auto' },
@@ -61,6 +87,67 @@ const assetCols = [
 
 const allColumnDefs = [...baseColumnDefs, ...assetCols];
 
+const normalizeFieldKey = (key = '') =>
+  String(key)
+    .trim()
+    .replace(/[\s._-]+/g, '')
+    .toLowerCase();
+
+const coerceMetadataValue = (value) => {
+  if (value == null) return value;
+  if (typeof value === 'object') {
+    if ('value' in value && value.value != null && value.value !== '') {
+      return value.value;
+    }
+    if ('label' in value && value.label != null && value.label !== '') {
+      return value.label;
+    }
+  }
+  return value;
+};
+
+const hasMeaningfulValue = (value) => {
+  if (value == null) return false;
+  if (typeof value === 'string') {
+    return value.trim() !== '';
+  }
+  return true;
+};
+
+const firstMeaningfulValue = (...values) => {
+  for (const value of values) {
+    const coerced = coerceMetadataValue(value);
+    if (hasMeaningfulValue(coerced)) {
+      return coerced;
+    }
+  }
+  return '';
+};
+
+const extractValueFromObject = (obj, key) => {
+  if (!obj || typeof obj !== 'object') return undefined;
+  if (key in obj) {
+    return coerceMetadataValue(obj[key]);
+  }
+  const normalizedKey = normalizeFieldKey(key);
+  for (const [candidateKey, candidateValue] of Object.entries(obj)) {
+    if (normalizeFieldKey(candidateKey) === normalizedKey) {
+      return coerceMetadataValue(candidateValue);
+    }
+  }
+  return undefined;
+};
+
+const pickMetaField = (fieldName, ...sources) => {
+  for (const source of sources) {
+    const value = extractValueFromObject(source, fieldName);
+    if (hasMeaningfulValue(value)) {
+      return value;
+    }
+  }
+  return '';
+};
+
 const baseColumnKeys = new Set(baseColumnDefs.map((c) => c.key));
 const structuralKeys = new Set([
   'components',
@@ -72,13 +159,22 @@ const structuralKeys = new Set([
 ]);
 
 const shouldOmitKey = (k) => {
+  const normalizedKey = normalizeFieldKey(k);
   const matchBase = Array.from(baseColumnKeys).some((b) => {
-    if (b === 'product') return k === b;
-    return k === b || k.startsWith(`${b}.`);
+    if (b === 'product') return normalizeFieldKey(b) === normalizedKey;
+    const normalizedBase = normalizeFieldKey(b);
+    return (
+      normalizedKey === normalizedBase ||
+      normalizedKey.startsWith(`${normalizedBase}.`)
+    );
   });
-  const matchStructural = Array.from(structuralKeys).some(
-    (b) => k === b || k.startsWith(`${b}.`),
-  );
+  const matchStructural = Array.from(structuralKeys).some((b) => {
+    const normalizedStructural = normalizeFieldKey(b);
+    return (
+      normalizedKey === normalizedStructural ||
+      normalizedKey.startsWith(`${normalizedStructural}.`)
+    );
+  });
   return matchBase || matchStructural;
 };
 
@@ -178,13 +274,32 @@ const ClientData = ({ brandCodes = [] }) => {
 
   useEffect(() => {
     const fetchRows = async () => {
-      if (!brandCodes.includes(brand) || (!month && !dueMonth)) {
+      const normalizedBrandCodes = Array.from(
+        new Set(
+          brandCodes
+            .filter((code) => typeof code === 'string')
+            .map((code) => code.trim())
+            .filter(Boolean),
+        ),
+      );
+      const normalizedSelectedBrand =
+        typeof brand === 'string' ? brand.trim() : '';
+      const hasSelectedBrand =
+        normalizedSelectedBrand &&
+        normalizedBrandCodes.includes(normalizedSelectedBrand);
+      const targetBrands = hasSelectedBrand
+        ? [normalizedSelectedBrand]
+        : normalizedBrandCodes;
+
+      if ((!month && !dueMonth) || targetBrands.length === 0) {
         setRows([]);
         return;
       }
       setLoading(true);
       try {
-        const args = [collection(db, 'adGroups'), where('brandCode', '==', brand)];
+        const args = [collection(db, 'adGroups')];
+        if (hasSelectedBrand)
+          args.push(where('brandCode', '==', normalizedSelectedBrand));
         if (month) args.push(where('month', '==', month));
         if (dueMonth) {
           const start = new Date(`${dueMonth}-01`);
@@ -193,14 +308,36 @@ const ClientData = ({ brandCodes = [] }) => {
           args.push(where('dueDate', '>=', start));
           args.push(where('dueDate', '<', end));
         }
-        const [gSnap, brandSnap] = await Promise.all([
+        const brandChunks = targetBrands.reduce((chunks, code, idx) => {
+          const chunkIdx = Math.floor(idx / 10);
+          if (!chunks[chunkIdx]) chunks[chunkIdx] = [];
+          chunks[chunkIdx].push(code);
+          return chunks;
+        }, []);
+        const [gSnap, brandSnaps] = await Promise.all([
           getDocs(query(...args)),
-          getDocs(query(collection(db, 'brands'), where('code', '==', brand))),
+          Promise.all(
+            brandChunks.map((chunk) =>
+              getDocs(query(collection(db, 'brands'), where('code', 'in', chunk))),
+            ),
+          ),
         ]);
-        const brandStoreId = brandSnap.empty ? '' : brandSnap.docs[0].data().storeId || '';
+        const storeIdByBrand = {};
+        brandSnaps.forEach((snap) => {
+          snap.docs.forEach((doc) => {
+            const data = doc.data() || {};
+            const code = typeof data.code === 'string' ? data.code.trim() : '';
+            if (!code) return;
+            storeIdByBrand[code] = data.storeId || '';
+          });
+        });
+        const allowedBrands = new Set(targetBrands);
         const list = [];
         for (const gDoc of gSnap.docs) {
           const gData = gDoc.data();
+          const groupBrand =
+            typeof gData.brandCode === 'string' ? gData.brandCode.trim() : '';
+          if (!allowedBrands.has(groupBrand)) continue;
           const groupMeta = flattenMeta(gData.metadata || {});
           const rSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'recipes'));
           const aSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'assets'));
@@ -219,23 +356,24 @@ const ClientData = ({ brandCodes = [] }) => {
             if (["archived", "rejected"].includes(aData.status)) return;
             const info = parseAdFilename(aData.filename || '');
             const recipe = String(aData.recipeCode || info.recipeCode || '');
-            const url = aData.adUrl || aData.firebaseUrl || aData.url;
+            const url =
+              aData.adUrl ||
+              aData.firebaseUrl ||
+              aData.url ||
+              aData.cdnUrl ||
+              aData.thumbnailUrl;
             if (!recipe || !url) return;
             const normalized = recipe.replace(/^0+/, '');
-            let aspect = info.aspectRatio || aData.aspectRatio || '';
-            const aspectValid = /^\d+x\d+$/.test(aspect);
-            if (!aspectValid && aData.filename) {
-              const base = aData.filename.replace(/\.[^/.]+$/, '');
-              const match = base.match(/(\d+x\d+)/);
-              if (match) aspect = match[1];
+            const aspectFromFilename = findAspectInFilename(aData.filename || '');
+            let aspect =
+              normalizeAspectRatio(info.aspectRatio) ||
+              normalizeAspectRatio(aData.aspectRatio) ||
+              aspectFromFilename;
+            if (!aspect) {
+              aspect = '9x16';
             }
-            aspect = aspect.replace(/_?V\d+$/i, '').replace(/s$/, '');
             if (!['1x1', '9x16'].includes(aspect)) {
-              if (!aspect) {
-                aspect = '9x16';
-              } else {
-                return;
-              }
+              return;
             }
             const label = aspect;
             const entry = { url, label, status: aData.status || '' };
@@ -261,13 +399,23 @@ const ClientData = ({ brandCodes = [] }) => {
               rData.product ||
               rData.components?.['product.name'] ||
               '';
-            const url =
-              rData.metadata?.url ||
-              rData.url ||
-              rData.product?.url ||
-              rData.components?.product?.url ||
-              rData.components?.['product.url'] ||
-              '';
+            let url = firstMeaningfulValue(
+              rData.metadata?.url,
+              rData.url,
+              rData.product?.url,
+              rData.components?.product?.url,
+              rData.components?.['product.url'],
+            );
+            if (!hasMeaningfulValue(url)) {
+              url = pickMetaField(
+                'url',
+                rData.metadata,
+                rData,
+                rData.components,
+                gData.metadata,
+                gData,
+              );
+            }
             const copyList = copiesByProduct[product] || [];
             const copy =
               copyList.length > 0
@@ -283,26 +431,40 @@ const ClientData = ({ brandCodes = [] }) => {
               rData.audience ||
               rData.components?.audience ||
               '';
-            const moment =
-              rData.metadata?.moment ||
-              gData.metadata?.moment ||
-              '';
-            const funnel =
-              rData.metadata?.funnel ||
-              gData.metadata?.funnel ||
-              '';
-            const goLive =
-              rData.metadata?.goLive ||
-              gData.metadata?.goLive ||
-              '';
+            const moment = pickMetaField(
+              'moment',
+              rData.metadata,
+              rData,
+              rData.components,
+              gData.metadata,
+              gData,
+            );
+            const funnel = pickMetaField(
+              'funnel',
+              rData.metadata,
+              rData,
+              rData.components,
+              gData.metadata,
+              gData,
+            );
+            const goLive = pickMetaField(
+              'goLive',
+              rData.metadata,
+              rData,
+              rData.components,
+              gData.metadata,
+              gData,
+            );
             const primary = rData.metadata?.primary || copy.primary || '';
             const headline = rData.metadata?.headline || copy.headline || '';
             const description =
               rData.metadata?.description || copy.description || '';
+            const recipeKey = String(recipeNo);
+            const normalizedRecipeKey = recipeKey.replace(/^0+/, '') || recipeKey;
             const assets =
               rData.status === 'archived' || rData.status === 'rejected'
                 ? []
-                : assetMap[String(recipeNo)] || [];
+                : assetMap[recipeKey] || assetMap[normalizedRecipeKey] || [];
             const status = assets[0]?.status || rData.status || '';
             const row = {
               id: `${gDoc.id}|${rDoc.id}`,
@@ -327,7 +489,8 @@ const ClientData = ({ brandCodes = [] }) => {
                 row[label] = url;
               }
             });
-            row.storeId = brandStoreId || gData.storeId || row.storeId || '';
+            row.storeId =
+              storeIdByBrand[groupBrand] || gData.storeId || row.storeId || '';
             list.push(row);
           });
         }
@@ -350,24 +513,34 @@ const ClientData = ({ brandCodes = [] }) => {
   };
 
   const handleSave = async () => {
+    const sanitizedEditedRows = {};
     const updates = [];
     Object.entries(editedRows).forEach(([rowId, changes]) => {
+      const filteredChanges = Object.fromEntries(
+        Object.entries(changes).filter(([k]) => !nonEditable.has(k)),
+      );
+      if (!Object.keys(filteredChanges).length) {
+        return;
+      }
+
+      sanitizedEditedRows[rowId] = filteredChanges;
+
       const [groupId, recipeId] = rowId.split('|');
       if (!groupId || !recipeId) return;
       const payload = {};
-      Object.entries(changes).forEach(([k, v]) => {
-        if (!nonEditable.has(k)) {
-          payload[`metadata.${k}`] = v;
-        }
+      Object.entries(filteredChanges).forEach(([k, v]) => {
+        payload[`metadata.${k}`] = v;
       });
-      if (Object.keys(payload).length > 0) {
-        updates.push(updateDoc(doc(db, 'adGroups', groupId, 'recipes', recipeId), payload));
-      }
+      updates.push(updateDoc(doc(db, 'adGroups', groupId, 'recipes', recipeId), payload));
     });
+
+    setEditedRows(sanitizedEditedRows);
     try {
       await Promise.all(updates);
       setRows((prev) =>
-        prev.map((r) => (editedRows[r.id] ? { ...r, ...editedRows[r.id] } : r)),
+        prev.map((r) =>
+          sanitizedEditedRows[r.id] ? { ...r, ...sanitizedEditedRows[r.id] } : r,
+        ),
       );
       setEditMode(false);
       setEditedRows({});
@@ -414,7 +587,8 @@ const ClientData = ({ brandCodes = [] }) => {
     const blob = new Blob([csv], { type: 'text/csv' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    const file = `${brand}_${month || dueMonth}.csv`;
+    const exportBrand = (typeof brand === 'string' && brand.trim()) || 'all-brands';
+    const file = `${exportBrand}_${month || dueMonth}.csv`;
     link.setAttribute('download', file);
     document.body.appendChild(link);
     link.click();
