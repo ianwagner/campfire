@@ -47,6 +47,7 @@ const AdGroupCard = ({
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
   const isAdmin = role === 'admin';
+  const hideStaff = role === 'client';
   const dueField =
     role === 'designer'
       ? group.designDueDate
@@ -194,12 +195,12 @@ const AdGroupCard = ({
             <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
               {group.brandCode}
             </p>
-            {group.designerName && role !== 'ops' && (
+            {group.designerName && role !== 'ops' && !hideStaff && (
               <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
                 {group.designerName}
               </p>
             )}
-            {group.editorName && role !== 'ops' && (
+            {group.editorName && role !== 'ops' && !hideStaff && (
               <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
                 {group.editorName}
               </p>

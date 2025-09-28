@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiGrid,
@@ -32,6 +32,8 @@ const statusOrder = {
   archived: 6,
 };
 
+const DEFAULT_VIEWS = ['cards', 'table', 'kanban', 'gantt'];
+
 const AdGroupListView = ({
   groups = [],
   loading,
@@ -55,6 +57,7 @@ const AdGroupListView = ({
   monthFilter,
   onMonthFilterChange,
   restrictGanttToDueDate = false,
+  allowedViews = DEFAULT_VIEWS,
 }) => {
   const term = (filter || '').toLowerCase();
   const months = Array.from(new Set(groups.map((g) => g.month).filter(Boolean))).sort();
@@ -84,6 +87,35 @@ const AdGroupListView = ({
       setUpdatingReview(null);
     }
   };
+
+  const normalizedViews = useMemo(() => {
+    if (!Array.isArray(allowedViews) || allowedViews.length === 0) {
+      return DEFAULT_VIEWS;
+    }
+    return allowedViews.filter(Boolean);
+  }, [JSON.stringify(allowedViews)]);
+
+  const viewButtonConfigs = useMemo(
+    () => ({
+      table: { Icon: FiList, label: 'Table view' },
+      kanban: { Icon: FiColumns, label: 'Kanban view' },
+      gantt: { Icon: FiCalendar, label: 'Gantt view' },
+    }),
+    []
+  );
+
+  const availableViewButtons = ['table', 'kanban', 'gantt'].filter((v) => normalizedViews.includes(v));
+
+  useEffect(() => {
+    if (
+      normalizedViews.length > 0 &&
+      view &&
+      !normalizedViews.includes(view) &&
+      typeof onViewChange === 'function'
+    ) {
+      onViewChange(normalizedViews[0]);
+    }
+  }, [view, normalizedViews, onViewChange]);
 
   const displayGroups = groups
     .filter(
@@ -198,16 +230,26 @@ const AdGroupListView = ({
                 <FiArchive />
               </TabButton>
             )}
-            <div className="border-l h-6 mx-2" />
-            <TabButton active={view === 'table'} onClick={() => onViewChange('table')} aria-label="Table view">
-              <FiList />
-            </TabButton>
-            <TabButton active={view === 'kanban'} onClick={() => onViewChange('kanban')} aria-label="Kanban view">
-              <FiColumns />
-            </TabButton>
-            <TabButton active={view === 'gantt'} onClick={() => onViewChange('gantt')} aria-label="Gantt view">
-              <FiCalendar />
-            </TabButton>
+            {availableViewButtons.length > 1 && (
+              <>
+                <div className="border-l h-6 mx-2" />
+                {availableViewButtons.map((key) => {
+                  const config = viewButtonConfigs[key];
+                  if (!config) return null;
+                  const { Icon, label } = config;
+                  return (
+                    <TabButton
+                      key={key}
+                      active={view === key}
+                      onClick={() => onViewChange && onViewChange(key)}
+                      aria-label={label}
+                    >
+                      <Icon />
+                    </TabButton>
+                  );
+                })}
+              </>
+            )}
           </>
         )}
       />
@@ -287,21 +329,29 @@ const AdGroupListView = ({
                           <StatusBadge status={g.status} />
                         </td>
                         <td className="text-center">
-                          <div className="flex items-center justify-center">
-                            <IconButton onClick={() => onGallery(g.id)} aria-label="See Gallery">
-                              <FiGrid />
-                            </IconButton>
-                            <IconButton onClick={() => onCopy(g.id)} className="ml-2" aria-label="See Platform Copy">
-                              <FiType />
-                            </IconButton>
-                            <IconButton
-                              onClick={() => onDownload(g.id)}
-                              className="ml-2"
-                              aria-label="Download Approved Assets"
-                            >
-                              <FiDownload />
-                            </IconButton>
-                          </div>
+                          {(onGallery || onCopy || onDownload) && (
+                            <div className="flex items-center justify-center">
+                              {onGallery && (
+                                <IconButton onClick={() => onGallery(g.id)} aria-label="See Gallery">
+                                  <FiGrid />
+                                </IconButton>
+                              )}
+                              {onCopy && (
+                                <IconButton onClick={() => onCopy(g.id)} className="ml-2" aria-label="See Platform Copy">
+                                  <FiType />
+                                </IconButton>
+                              )}
+                              {onDownload && (
+                                <IconButton
+                                  onClick={() => onDownload(g.id)}
+                                  className={onGallery || onCopy ? 'ml-2' : 'ml-0'}
+                                  aria-label="Download Approved Assets"
+                                >
+                                  <FiDownload />
+                                </IconButton>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
