@@ -13,6 +13,7 @@ import Login from "./Login";
 import SignUpStepper from "./SignUpStepper.tsx";
 import DesignerSignUp from "./DesignerSignUp.tsx";
 import ReviewRoute from "./ReviewRoute";
+import PublicBrandDashboard from "./PublicBrandDashboard.jsx";
 import AdGroupDetail from "./AdGroupDetail";
 import DesignerDashboard from "./DesignerDashboard";
 import ClientDashboard from "./ClientDashboard";
@@ -1113,6 +1114,10 @@ const App = () => {
                   <Navigate to="/login" replace />
                 )
               }
+            />
+            <Route
+              path="/:brandCode"
+              element={<PublicBrandDashboard />}
             />
             <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
