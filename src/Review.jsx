@@ -530,6 +530,17 @@ const Review = forwardRef(
   }, []);
   const { agency } = useAgencyTheme(agencyId);
   const { settings } = useSiteSettings(false);
+  const reviewLogoUrl = useMemo(
+    () =>
+      agency?.logoUrl ||
+      settings?.campfireLogoUrl ||
+      settings?.logoUrl ||
+      DEFAULT_LOGO_URL,
+    [agency?.logoUrl, settings?.campfireLogoUrl, settings?.logoUrl],
+  );
+  const reviewLogoAlt = agency?.name
+    ? `${agency.name} logo`
+    : 'Campfire logo';
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -1428,12 +1439,7 @@ useEffect(() => {
   }, [reviewAds]);
 
   useEffect(() => {
-    if (!agencyId) {
-      setLogoReady(true);
-      logoUrlRef.current = null;
-      return;
-    }
-    const url = agency.logoUrl || DEFAULT_LOGO_URL;
+    const url = reviewLogoUrl;
     if (!url) {
       setLogoReady(true);
       logoUrlRef.current = null;
@@ -1448,7 +1454,7 @@ useEffect(() => {
     img.onload = () => setLogoReady(true);
     img.onerror = () => setLogoReady(true);
     img.src = url;
-  }, [agencyId, agency.logoUrl]);
+  }, [reviewLogoUrl]);
 
   const currentAd = reviewAds[currentIndex];
   const currentAssetId = getAssetDocumentId(currentAd);
@@ -3081,12 +3087,12 @@ useEffect(() => {
   if (pendingOnly) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
-          {agencyId && (
+          {reviewLogoUrl && (
             <OptimizedImage
-              pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-              alt={`${agency.name || 'Agency'} logo`}
+              pngUrl={reviewLogoUrl}
+              alt={reviewLogoAlt}
               loading="eager"
-              cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+              cacheKey={reviewLogoUrl}
               onLoad={() => setLogoReady(true)}
               className="mb-2 max-h-16 w-auto"
             />
@@ -3240,12 +3246,12 @@ useEffect(() => {
       <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
         <div className="flex flex-col items-center">
           <div className="relative flex flex-col items-center w-fit mx-auto">
-          {agencyId && (
+          {reviewLogoUrl && (
             <OptimizedImage
-              pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-              alt={`${agency.name || 'Agency'} logo`}
+              pngUrl={reviewLogoUrl}
+              alt={reviewLogoAlt}
               loading="eager"
-              cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+              cacheKey={reviewLogoUrl}
               onLoad={() => setLogoReady(true)}
               className="mb-2 max-h-16 w-auto"
             />
