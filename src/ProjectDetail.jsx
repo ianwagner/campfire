@@ -88,7 +88,6 @@ const PlaceholderIcon = ({ ext }) => {
 const statusColorMap = {
   new: 'var(--pending-color)',
   pending: 'var(--pending-color)',
-  processing: 'var(--pending-color)',
   briefed: 'var(--pending-color)',
   ready: 'var(--accent-color)',
   approved: 'var(--approve-color)',

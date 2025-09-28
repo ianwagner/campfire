@@ -962,7 +962,7 @@ const AdGroupDetail = () => {
 
   const resetGroup = async () => {
     if (!group) return;
-    const confirmReset = window.confirm("Reset this group to processing?");
+    const confirmReset = window.confirm("Reset this group to New?");
     if (!confirmReset) return;
     try {
       const batch = writeBatch(db);
@@ -973,10 +973,10 @@ const AdGroupDetail = () => {
           lastUpdatedAt: serverTimestamp(),
         });
       });
-      batch.update(doc(db, "adGroups", id), { status: "processing" });
+      batch.update(doc(db, "adGroups", id), { status: "new" });
       await batch.commit();
       setAssets((prev) => prev.map((a) => ({ ...a, status: "pending" })));
-      setGroup((p) => ({ ...p, status: "processing" }));
+      setGroup((p) => ({ ...p, status: "new" }));
     } catch (err) {
       console.error("Failed to reset group", err);
     }
@@ -1195,11 +1195,11 @@ const AdGroupDetail = () => {
     if (!group) return;
     try {
       await updateDoc(doc(db, "adGroups", id), {
-        status: "processing",
+        status: "new",
         archivedAt: null,
         archivedBy: null,
       });
-      setGroup((p) => ({ ...p, status: "processing" }));
+      setGroup((p) => ({ ...p, status: "new" }));
     } catch (err) {
       console.error("Failed to restore group", err);
     }
@@ -1742,7 +1742,7 @@ const AdGroupDetail = () => {
         );
       });
       await batch.commit();
-      if (["pending", "processing", "new"].includes(group?.status)) {
+      if (["pending", "new"].includes(group?.status)) {
         try {
           await updateDoc(doc(db, "adGroups", id), { status: "briefed" });
           setGroup((prev) => ({ ...prev, status: "briefed" }));
@@ -2083,15 +2083,7 @@ const AdGroupDetail = () => {
     }
   };
 
-  const allStatusOptions = [
-    'new',
-    'processing',
-    'briefed',
-    'designed',
-    'reviewed',
-    'done',
-    'blocked',
-  ];
+  const allStatusOptions = ['new', 'briefed', 'designed', 'reviewed', 'done', 'blocked'];
 
   const editorStatusOptions = ['new', 'briefed', 'blocked'];
   const designerStatusOptions = ['briefed', 'designed', 'blocked'];

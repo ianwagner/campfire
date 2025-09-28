@@ -238,12 +238,12 @@ const AdminAdGroups = () => {
   const handleRestoreGroup = async (groupId) => {
     try {
       await updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'processing',
+        status: 'new',
         archivedAt: null,
         archivedBy: null,
       });
       setGroups((prev) =>
-        prev.map((g) => (g.id === groupId ? { ...g, status: 'processing' } : g))
+        prev.map((g) => (g.id === groupId ? { ...g, status: 'new' } : g))
       );
     } catch (err) {
       console.error('Failed to restore group', err);
@@ -420,12 +420,11 @@ const AdminAdGroups = () => {
   const statusOrder = {
     blocked: 0,
     new: 1,
-    processing: 2,
-    briefed: 3,
-    designed: 4,
-    reviewed: 5,
-    done: 6,
-    archived: 7,
+    briefed: 2,
+    designed: 3,
+    reviewed: 4,
+    done: 5,
+    archived: 6,
   };
 
   const kanbanColumns = [
