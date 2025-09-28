@@ -102,7 +102,7 @@ const ReviewGroupCard = ({
           <div className="absolute inset-0 flex items-center justify-center bg-gray-200 text-3xl font-semibold text-gray-500 dark:bg-gray-700 dark:text-gray-200">
             {(group.name || '?').slice(0, 1).toUpperCase()}
           </div>
-        )}
+        ) : null}
       </div>
       <div className="space-y-4 p-5">
         <div className="space-y-2">
