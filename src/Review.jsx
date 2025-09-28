@@ -273,20 +273,26 @@ const getAdKey = (ad, index = 0) => {
   );
 };
 
+const getAdUnitCandidateKey = (asset) => {
+  if (!asset) return '';
+  return (
+    getRecipeVersionUnitKey(asset) ||
+    getAdUnitKey(asset) ||
+    getAssetUnitId(asset) ||
+    getAssetParentId(asset) ||
+    getAssetDocumentId(asset) ||
+    getAssetUrlKey(asset) ||
+    asset.assetId ||
+    asset.id ||
+    ''
+  );
+};
+
 const dedupeByAdUnit = (list = []) => {
   const seen = new Set();
   return list.filter((item) => {
     if (!item) return false;
-    const recipeVersionKey = getRecipeVersionUnitKey(item);
-    const key =
-      recipeVersionKey ||
-      getAdUnitKey(item) ||
-      getAssetUnitId(item) ||
-      getAssetParentId(item) ||
-      getAssetDocumentId(item) ||
-      getAssetUrlKey(item) ||
-      item.assetId ||
-      item.id;
+    const key = getAdUnitCandidateKey(item);
     if (!key) {
       return true;
     }
@@ -569,7 +575,7 @@ const Review = forwardRef(
     // pixels tall, so rely on its bottom edge instead of the top to avoid the
     // threshold getting stuck when scrolling slowly.
     const pinOffset = 8;
-    const releaseOffset = 48;
+    const releaseOffset = 16;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
@@ -580,14 +586,13 @@ const Review = forwardRef(
         const intersectionRatio = entry.intersectionRatio ?? 0;
         const viewportTop = entry.rootBounds?.top ?? 0;
         setStatusBarPinned((prevPinned) => {
-          if (prevPinned) {
-            if (sentinelBottom >= viewportTop + releaseOffset) {
-              return false;
-            }
-            return true;
+          const pinThreshold = viewportTop + pinOffset;
+          const releaseThreshold = viewportTop + releaseOffset;
+
+          if (entry.isIntersecting || sentinelBottom >= releaseThreshold) {
+            return false;
           }
-          const fullyVisible = intersectionRatio >= 0.99;
-          if (!fullyVisible && sentinelBottom <= viewportTop + pinOffset) {
+          if (sentinelBottom <= pinThreshold || intersectionRatio <= 0) {
             return true;
           }
           return prevPinned;
@@ -1322,8 +1327,17 @@ useEffect(() => {
         const visibleDeduped = deduped.filter((a) => a.status !== 'archived');
 
         if (rv === 2) {
-          const historyAssets = list.filter((a) => a.status !== 'pending');
           const uniqueVisibleDeduped = dedupeByAdUnit(visibleDeduped);
+          const reviewUnitKeys = new Set(
+            uniqueVisibleDeduped
+              .map((asset) => getAdUnitCandidateKey(asset))
+              .filter(Boolean),
+          );
+          const historyAssets = list.filter((a) => {
+            if (a.status !== 'pending') return true;
+            const key = getAdUnitCandidateKey(a);
+            return key && reviewUnitKeys.has(key);
+          });
           setAllAds(historyAssets);
           setAds(uniqueVisibleDeduped);
           setAllHeroAds(uniqueVisibleDeduped);
@@ -1528,6 +1542,12 @@ useEffect(() => {
   const displayAssetId = getAssetDocumentId(displayAd);
   const displayParentId = getAssetParentId(displayAd);
   const displayUnitId = getAssetUnitId(displayAd);
+  const displayVersion = getVersion(displayAd);
+  const hasMultipleVersions = versions.length > 1;
+  const hasDisplayVersion =
+    displayVersion !== null &&
+    displayVersion !== undefined &&
+    displayVersion !== '';
 
   useEffect(() => {
     setVersionIndex(0);
@@ -3288,14 +3308,13 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="w-full max-w-[712px] space-y-6 px-2 pt-2 sm:px-0">
+            <div className="relative w-full max-w-[712px] px-2 pt-2 sm:px-0">
               <div
                 ref={statusBarSentinelRef}
                 aria-hidden="true"
-                className="h-4 w-full opacity-0"
-                style={{ pointerEvents: 'none' }}
+                className="pointer-events-none absolute inset-x-0 -top-6 h-6"
               />
-              <div className="sticky top-0 z-20">
+              <div className="sticky top-0 z-20 mt-2">
                 <div
                   className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
                 >
@@ -3368,12 +3387,13 @@ useEffect(() => {
                   </div>
                 </div>
               </div>
-              {reviewAds.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-gray-300 dark:border-[var(--border-color-default)] bg-white dark:bg-[var(--dark-sidebar-bg)] p-8 text-center text-gray-500 dark:text-gray-300">
-                  No ads to review yet.
-                </div>
-              ) : (
-                reviewAds.map((ad, index) => {
+              <div className="mt-6 space-y-6">
+                {reviewAds.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-gray-300 dark:border-[var(--border-color-default)] bg-white dark:bg-[var(--dark-sidebar-bg)] p-8 text-center text-gray-500 dark:text-gray-300">
+                    No ads to review yet.
+                  </div>
+                ) : (
+                  reviewAds.map((ad, index) => {
                   const {
                     cardKey,
                     groups,
@@ -3744,7 +3764,8 @@ useEffect(() => {
                   );
                 })
               )}
-              <div className="px-4 pt-8 pb-12 text-center text-sm text-gray-500 dark:text-gray-300">
+              </div>
+              <div className="mt-6 px-4 pt-8 pb-12 text-center text-sm text-gray-500 dark:text-gray-300">
                 <p className="mb-2">Thank you for taking the time to review these!</p>
                 <p className="mb-0">
                   When you are all set, just click Finalize Review so we can keep things moving.
@@ -3810,8 +3831,8 @@ useEffect(() => {
       className="w-full h-full object-contain"
     />
   )}
-  {(getVersion(displayAd) > 1 || versions.length > 1) && (
-    versions.length > 1 ? (
+  {hasDisplayVersion && (
+    hasMultipleVersions ? (
       versions.length === 2 ? (
         <span
           onClick={() =>
@@ -3819,7 +3840,7 @@ useEffect(() => {
           }
           className="version-badge cursor-pointer"
         >
-          V{getVersion(displayAd)}
+          V{displayVersion}
         </span>
       ) : (
         <div className="absolute top-0 left-0">
@@ -3827,7 +3848,7 @@ useEffect(() => {
             onClick={() => setShowVersionMenu((o) => !o)}
             className="version-badge cursor-pointer select-none"
           >
-            V{getVersion(displayAd)}
+            V{displayVersion}
           </span>
           {showVersionMenu && (
             <div className="absolute left-0 top-full mt-1 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
@@ -3848,7 +3869,7 @@ useEffect(() => {
         </div>
       )
     ) : (
-      <span className="version-badge">V{getVersion(displayAd)}</span>
+      <span className="version-badge">V{displayVersion}</span>
     )
   )}
 </div>
