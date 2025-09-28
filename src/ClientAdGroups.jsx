@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import ClientGroupCard from './components/ClientGroupCard.jsx';
 import useClientAdGroups from './useClientAdGroups.js';
 
-const ClientDashboard = ({ user, brandCodes = [] }) => {
+const ClientAdGroups = ({ user, brandCodes = [] }) => {
   const { groups, loading, hasNegativeCredits, months } = useClientAdGroups(
     user,
     brandCodes
@@ -22,16 +22,17 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
 
   return (
     <div className="min-h-screen p-4">
+      <h1 className="text-2xl font-semibold mb-4">Ad Groups</h1>
       {hasNegativeCredits && (
         <div className="mb-4 rounded border border-red-200 bg-red-100 p-2 text-red-800">
           Your credit balance is negative. Please add more credits.
         </div>
       )}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
         <input
           type="text"
           placeholder="Search groups"
-          className="border px-2 py-1 rounded flex-1"
+          className="border px-2 py-1 rounded flex-1 min-w-[200px]"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
@@ -60,7 +61,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
       ) : filteredGroups.length === 0 ? (
         <p>No ad groups found.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-5">
           {filteredGroups.map((g) => (
             <ClientGroupCard key={g.id} group={g} />
           ))}
@@ -70,4 +71,4 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
   );
 };
 
-export default ClientDashboard;
+export default ClientAdGroups;
