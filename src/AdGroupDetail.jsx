@@ -231,7 +231,7 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     if (!isClientPortalUser) return;
-    if (!['brief', 'ads', 'copy', 'feedback'].includes(tab)) {
+    if (!['brief', 'ads', 'copy', 'feedback', 'blocker'].includes(tab)) {
       setTab('brief');
     }
   }, [isClientPortalUser, tab]);
@@ -2565,6 +2565,14 @@ const AdGroupDetail = () => {
     return <LoadingOverlay />;
   }
 
+  const blockerTab =
+    group.status === 'blocked' ? (
+      <TabButton active={tab === 'blocker'} onClick={() => setTab('blocker')}>
+        <FiAlertTriangle size={18} />
+        Blocker
+      </TabButton>
+    ) : null;
+
   return (
     <div className="min-h-screen p-4 ">
       <div className="flex items-center mb-2 gap-2">
@@ -2841,6 +2849,7 @@ const AdGroupDetail = () => {
         <div className="flex flex-wrap gap-2">
           {isClientPortalUser ? (
             <>
+              {blockerTab}
               <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
                 <FiFileText size={18} />
                 Brief
@@ -2857,15 +2866,10 @@ const AdGroupDetail = () => {
                 <FiMessageSquare size={18} />
                 Feedback
               </TabButton>
-              {group.status === 'blocked' && (
-                <TabButton active={tab === 'blocker'} onClick={() => setTab('blocker')}>
-                  <FiAlertTriangle size={18} />
-                  Blocker
-                </TabButton>
-              )}
             </>
           ) : (
             <>
+              {blockerTab}
               <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
                 <FiBarChart2 size={18} />
                 Stats
@@ -2892,12 +2896,6 @@ const AdGroupDetail = () => {
                 <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
                   <FiMessageSquare size={18} />
                   Feedback
-                </TabButton>
-              )}
-              {group.status === 'blocked' && (
-                <TabButton active={tab === 'blocker'} onClick={() => setTab('blocker')}>
-                  <FiAlertTriangle size={18} />
-                  Blocker
                 </TabButton>
               )}
             </>
