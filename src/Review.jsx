@@ -636,6 +636,40 @@ const Review = forwardRef(
     );
   }, [copyCards, modalCopies]);
 
+  const renderCopyModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-auto p-4">
+      <div className="flex max-h-[90vh] w-full max-w-[50rem] flex-col rounded-xl bg-white p-4 shadow dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Platform Copy</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => saveCopyCards(modalCopies)}
+              className={`btn-primary ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
+              disabled={!copyChanges}
+            >
+              Save
+            </button>
+            <button onClick={() => setShowCopyModal(false)} className="btn-secondary">
+              Close
+            </button>
+          </div>
+        </div>
+        <p className="mb-2 text-sm">
+          These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
+        </p>
+        <div className="flex-1 overflow-auto">
+          <CopyRecipePreview
+            onSave={saveCopyCards}
+            initialResults={copyCards}
+            showOnlyResults
+            hideBrandSelect
+            onCopiesChange={setModalCopies}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   const submitFeedback = async () => {
     if (!feedbackComment.trim() || !groupId) return;
     try {
@@ -3026,37 +3060,7 @@ useEffect(() => {
           </div>
         </div>
         {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
-        {showCopyModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
-            <div className="bg-white p-4 rounded-xl shadow max-w-[50rem] w-full max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-semibold">Platform Copy</h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => saveCopyCards(modalCopies)}
-                    className={`btn-primary ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
-                    disabled={!copyChanges}
-                  >
-                    Save
-                  </button>
-                  <button onClick={() => setShowCopyModal(false)} className="btn-secondary">Close</button>
-                </div>
-              </div>
-              <p className="text-sm mb-2">
-                These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
-              </p>
-              <div className="overflow-auto flex-1">
-                <CopyRecipePreview
-                  onSave={saveCopyCards}
-                  initialResults={copyCards}
-                  showOnlyResults
-                  hideBrandSelect
-                  onCopiesChange={setModalCopies}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        {showCopyModal && renderCopyModal()}
       </div>
     );
   }
@@ -3077,7 +3081,7 @@ useEffect(() => {
 
   if (pendingOnly) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+      <div className="flex flex-col items-center justify-center space-y-4 text-center min-h-screen">
           {reviewLogoUrl && (
             <OptimizedImage
               pngUrl={reviewLogoUrl}
@@ -3090,13 +3094,14 @@ useEffect(() => {
           )}
         <h1 className="text-2xl font-bold">Ads Pending Review</h1>
         <p className="text-lg">We'll notify you when your ads are ready.</p>
+        {showCopyModal && renderCopyModal()}
       </div>
     );
   }
 
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen space-y-4">
+    <div className="relative flex flex-col items-center justify-center space-y-4 min-h-screen">
       {showFinalizeModal && (
         <Modal>
           <div className="space-y-4">
@@ -3935,35 +3940,7 @@ useEffect(() => {
         />
       )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
-      {showCopyModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto p-4">
-          <div className="bg-white p-4 rounded-xl shadow max-w-[50rem] w-full overflow-auto max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold">Platform Copy</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => saveCopyCards(modalCopies)}
-                  className={`btn-primary ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
-                  disabled={!copyChanges}
-                >
-                  Save
-                </button>
-                <button onClick={() => setShowCopyModal(false)} className="btn-secondary">Close</button>
-              </div>
-            </div>
-            <p className="text-sm mb-2">
-              These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
-            </p>
-            <CopyRecipePreview
-              onSave={saveCopyCards}
-              initialResults={copyCards}
-              showOnlyResults
-              hideBrandSelect
-              onCopiesChange={setModalCopies}
-            />
-          </div>
-        </div>
-      )}
+      {showCopyModal && renderCopyModal()}
       {showFeedbackModal && (
         <FeedbackModal
           comment={feedbackComment}
