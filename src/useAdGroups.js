@@ -84,7 +84,7 @@ const useAdGroups = (brandCodes = [], showArchived = false) => {
                 recipeCount: recipeCount || unitCount,
                 assetCount,
                 unitCount,
-                readyCount: statusCounts.ready,
+                pendingCount: statusCounts.pending,
                 counts: {
                   approved: statusCounts.approved,
                   archived: statusCounts.archived,
