@@ -218,8 +218,13 @@ const AdGroupDetail = () => {
     userRole === "editor" ||
     userRole === "project-manager";
   const canManageStaff = isAdmin || (isManager && !isEditor);
+  const isAgency = userRole === "agency";
   const isClient = userRole === "client";
   const usesTabs = isAdmin || isDesigner || isManager || isClient;
+  const canEditBriefNote = isAdmin || isClient;
+  const canAddBriefAssets = isAdmin || isClient;
+  const canManageCopy = isAdmin || isManager || isClient;
+  const canUploadAds = isAdmin || isDesigner || isAgency;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
   const showStats = usesTabs ? (!isClient && tab === "stats") : !showTable;
@@ -2861,7 +2866,7 @@ const AdGroupDetail = () => {
                 <FiFileText size={18} />
                 Brief
               </TabButton>
-              {(isAdmin || isManager) && (
+              {canManageCopy && (
                 <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
                   <FiType size={18} />
                   Platform Copy
@@ -3125,7 +3130,7 @@ const AdGroupDetail = () => {
             )}
           </>
         )}
-        {usesTabs && tab === "ads" && group.status !== "archived" && (
+        {usesTabs && tab === "ads" && group.status !== "archived" && canUploadAds && (
           <button
             onClick={() => document.getElementById("upload-input").click()}
             className="btn-primary px-2 py-0.5 flex items-center gap-1 ml-2"
@@ -3139,7 +3144,7 @@ const AdGroupDetail = () => {
 
       {recipesTableVisible && (
         <div className="my-4">
-          {userRole === "admin" ? (
+          {canEditBriefNote ? (
             editingNotes ? (
               <>
                 <h4 className="font-medium mb-1">Brief Note:</h4>
@@ -3196,7 +3201,7 @@ const AdGroupDetail = () => {
               </>
             )
           )}
-          {userRole === "admin" && !group?.notes && !editingNotes && (
+          {canEditBriefNote && !group?.notes && !editingNotes && (
             <div className="mb-4">
               <IconButton
                 onClick={() => {
@@ -3230,7 +3235,7 @@ const AdGroupDetail = () => {
                     <FiDownload />
                     Download All
                   </IconButton>
-                  {userRole === "admin" && (
+                  {canAddBriefAssets && (
                     <>
                       <input
                         id="brief-upload"
@@ -3248,7 +3253,7 @@ const AdGroupDetail = () => {
                         }
                       >
                         <FiUpload />
-                        Upload
+                        Add Assets
                       </IconButton>
                     </>
                   )}
@@ -3344,7 +3349,7 @@ const AdGroupDetail = () => {
               </div>
             </>
           )}
-          {userRole === "admin" && briefAssets.length === 0 && (
+          {canAddBriefAssets && briefAssets.length === 0 && (
             <div className="mb-4">
               <input
                 id="brief-upload"
@@ -3369,6 +3374,7 @@ const AdGroupDetail = () => {
               onSelectChange={toggleRecipeSelect}
               onRecipesClick={() => setShowRecipes(true)}
               externalOnly
+              hideActions={isClient}
             />
           )}
           {(["admin", "editor", "project-manager"].includes(userRole)) &&
@@ -3382,27 +3388,23 @@ const AdGroupDetail = () => {
         </div>
       )}
 
-      {(isAdmin || isManager || isClient) && tab === 'copy' && (
+      {canManageCopy && tab === 'copy' && (
         <div className="my-4">
           {copyCards.length > 0 ? (
             <CopyRecipePreview
-              onSave={(isAdmin || isManager) ? saveCopyCards : undefined}
+              onSave={saveCopyCards}
               initialResults={copyCards}
               showOnlyResults
-              onCopyClick={(isAdmin || isManager) ? () => setShowCopyModal(true) : undefined}
+              onCopyClick={() => setShowCopyModal(true)}
               brandCode={group?.brandCode}
               hideBrandSelect
             />
           ) : (
-            (isAdmin || isManager) ? (
-              <div className="mt-4">
-                <IconButton onClick={() => setShowCopyModal(true)}>
-                  <FiType /> Platform Copy
-                </IconButton>
-              </div>
-            ) : (
-              <p className="mt-4">No platform copy available.</p>
-            )
+            <div className="mt-4">
+              <IconButton onClick={() => setShowCopyModal(true)}>
+                <FiType /> Platform Copy
+              </IconButton>
+            </div>
           )}
         </div>
       )}
