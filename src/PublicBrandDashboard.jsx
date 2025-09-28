@@ -227,6 +227,13 @@ const PublicBrandDashboard = () => {
     setGroups((prev) => prev.map((group) => ({ ...group, brandLogo })));
   }, [brandLogo]);
 
+  const title = brand?.name || brand?.code || brandParam;
+  const sanitizedTitle = useMemo(() => {
+    if (!title) return "";
+    const cleaned = title.replace(/\bbrand\b/gi, "").trim();
+    return cleaned || title;
+  }, [title]);
+
   if (brandLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 text-gray-600 dark:bg-[var(--dark-bg)] dark:text-gray-300">
@@ -251,12 +258,6 @@ const PublicBrandDashboard = () => {
     );
   }
 
-  const title = brand?.name || brand?.code || brandParam;
-  const sanitizedTitle = useMemo(() => {
-    if (!title) return "";
-    const cleaned = title.replace(/\bbrand\b/gi, "").trim();
-    return cleaned || title;
-  }, [title]);
   const description = brand?.offering || brand?.tagline || "";
 
   return (
