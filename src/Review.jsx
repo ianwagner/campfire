@@ -18,6 +18,7 @@ import {
   FiEdit3,
   FiCheckCircle,
   FiHome,
+  FiMoreHorizontal,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -402,6 +403,9 @@ const Review = forwardRef(
   const [showGallery, setShowGallery] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
   const [showCopyModal, setShowCopyModal] = useState(false);
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const actionsMenuRef = useRef(null);
+  const actionsMenuButtonRef = useRef(null);
   const [modalCopies, setModalCopies] = useState([]);
   const [reviewVersion, setReviewVersion] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -643,6 +647,41 @@ const Review = forwardRef(
       window.removeEventListener('resize', updateOffsets);
     };
   }, [reviewVersion, reviewAds.length]);
+
+  useEffect(() => {
+    if (!actionsMenuOpen) {
+      return undefined;
+    }
+    const handleDocumentClick = (event) => {
+      const target = event.target;
+      if (
+        (actionsMenuRef.current &&
+          actionsMenuRef.current.contains(target)) ||
+        (actionsMenuButtonRef.current &&
+          actionsMenuButtonRef.current.contains(target))
+      ) {
+        return;
+      }
+      setActionsMenuOpen(false);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setActionsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleDocumentClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [actionsMenuOpen]);
+
+  useEffect(() => {
+    if (reviewVersion !== 2 && actionsMenuOpen) {
+      setActionsMenuOpen(false);
+    }
+  }, [reviewVersion, actionsMenuOpen]);
 
 
 
@@ -2471,6 +2510,38 @@ useEffect(() => {
     return counts;
   }, [reviewAds, buildStatusMeta]);
 
+  const showCopyAction = copyCards.length > 0;
+  const showGalleryAction = ads.length > 0;
+  const reviewMenuActions = [
+    showCopyAction && {
+      key: 'copy',
+      label: 'View platform copy',
+      onSelect: () => {
+        setActionsMenuOpen(false);
+        setShowCopyModal(true);
+      },
+      Icon: FiType,
+    },
+    showGalleryAction && {
+      key: 'gallery',
+      label: 'View ad gallery',
+      onSelect: () => {
+        setActionsMenuOpen(false);
+        setShowGallery(true);
+      },
+      Icon: FiGrid,
+    },
+    {
+      key: 'feedback',
+      label: 'Leave overall feedback',
+      onSelect: () => {
+        setActionsMenuOpen(false);
+        setShowFeedbackModal(true);
+      },
+      Icon: FiMessageSquare,
+    },
+  ].filter(Boolean);
+
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
     // Drop preloaded images that are behind the current index
@@ -3350,6 +3421,62 @@ useEffect(() => {
         </div>
       )}
       <div className="flex w-full flex-col items-center">
+        {reviewVersion === 2 && (
+          <div className="sticky top-4 z-30 flex w-full justify-between px-4 sm:px-6">
+            <button
+              type="button"
+              onClick={handleExitReview}
+              aria-label="Exit review"
+              className="btn-action flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-gray-700 shadow-md backdrop-blur transition hover:bg-white dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+            >
+              <FiHome className="h-4 w-4" />
+              <span className="hidden sm:inline">Home</span>
+            </button>
+            <div className="relative">
+              <button
+                type="button"
+                ref={actionsMenuButtonRef}
+                aria-haspopup="true"
+                aria-expanded={actionsMenuOpen}
+                onClick={() => setActionsMenuOpen((open) => !open)}
+                className="btn-action flex items-center gap-1 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-gray-700 shadow-md backdrop-blur transition hover:bg-white dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                aria-label="Open review actions menu"
+              >
+                <span className="hidden sm:inline">More</span>
+                <FiMoreHorizontal className="h-4 w-4" />
+              </button>
+              {actionsMenuOpen && (
+                <div
+                  ref={actionsMenuRef}
+                  className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg focus:outline-none dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                  role="menu"
+                >
+                  {reviewMenuActions.map(({ key, label, onSelect, Icon }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={onSelect}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                      role="menuitem"
+                    >
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                      {label}
+                    </button>
+                  ))}
+                  <div className="mt-2 border-t border-gray-200 pt-2 dark:border-[var(--border-color-default)]">
+                    <div
+                      role="none"
+                      className="flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200"
+                    >
+                      <span>Toggle theme</span>
+                      <ThemeToggle className="!p-2" onToggle={() => setActionsMenuOpen(false)} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <div className="flex w-full flex-col items-center">
           <div className="w-full max-w-[712px] px-4 pt-6 pb-4 sm:px-6">
             <div className="flex items-center justify-center">
@@ -3386,7 +3513,7 @@ useEffect(() => {
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-x-0 -top-6 h-6"
               />
-              <div ref={statusBarRef} className="sticky top-0 z-20 mt-2">
+              <div ref={statusBarRef} className="sticky top-[88px] z-20 mt-2">
                 <div
                   className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
                 >
@@ -3425,55 +3552,6 @@ useEffect(() => {
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2 sm:self-center">
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        {copyCards.length > 0 && (
-                          <InfoTooltip text="View platform copy" placement="bottom">
-                            <button
-                              type="button"
-                              aria-label="view platform copy"
-                              onClick={() => setShowCopyModal(true)}
-                              className="btn-action !px-2 !py-1"
-                            >
-                              <FiType className="h-4 w-4" />
-                            </button>
-                          </InfoTooltip>
-                        )}
-                        {ads.length > 0 && (
-                          <InfoTooltip text="View ad gallery" placement="bottom">
-                            <button
-                              type="button"
-                              aria-label="view ad gallery"
-                              onClick={() => setShowGallery(true)}
-                              className="btn-action !px-2 !py-1"
-                            >
-                              <FiGrid className="h-4 w-4" />
-                            </button>
-                          </InfoTooltip>
-                        )}
-                        <InfoTooltip text="Exit review" placement="bottom">
-                          <button
-                            type="button"
-                            onClick={handleExitReview}
-                            aria-label="exit review"
-                            className="btn-action"
-                          >
-                            <FiHome className="h-4 w-4" />
-                          </button>
-                        </InfoTooltip>
-                        <InfoTooltip text="Leave overall feedback" placement="bottom">
-                          <button
-                            type="button"
-                            aria-label="leave overall feedback"
-                            onClick={() => setShowFeedbackModal(true)}
-                            className="btn-action"
-                          >
-                            <FiMessageSquare className="h-4 w-4" />
-                          </button>
-                        </InfoTooltip>
-                        <InfoTooltip text="Toggle theme" placement="bottom">
-                          <ThemeToggle className="btn-action !px-2 !py-1" />
-                        </InfoTooltip>
-                      </div>
                       {isGroupReviewed ? (
                         <span
                           className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 ${
