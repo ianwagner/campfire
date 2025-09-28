@@ -2857,6 +2857,12 @@ const AdGroupDetail = () => {
                 <FiMessageSquare size={18} />
                 Feedback
               </TabButton>
+              {group.status === 'blocked' && (
+                <TabButton active={tab === 'blocker'} onClick={() => setTab('blocker')}>
+                  <FiAlertTriangle size={18} />
+                  Blocker
+                </TabButton>
+              )}
             </>
           ) : (
             <>
