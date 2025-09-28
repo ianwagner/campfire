@@ -106,6 +106,96 @@ function toNumber(value) {
   return 0;
 }
 
+function collectStringValues(value, add) {
+  if (value === null || value === undefined) {
+    return;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed) {
+      add(trimmed);
+    }
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectStringValues(item, add));
+    return;
+  }
+
+  if (typeof value === "object") {
+    const possibleKeys = ["value", "name", "label", "text", "product", "productName"];
+    for (const key of possibleKeys) {
+      if (key in value) {
+        collectStringValues(value[key], add);
+      }
+    }
+    if ("values" in value) {
+      collectStringValues(value.values, add);
+    }
+  }
+}
+
+async function getRecipeProductNames(adGroupId) {
+  if (!adGroupId) {
+    return [];
+  }
+
+  try {
+    const snap = await db
+      .collection("adGroups")
+      .doc(adGroupId)
+      .collection("recipes")
+      .get();
+
+    const seen = new Set();
+    const names = [];
+
+    const addName = (name) => {
+      const lower = name.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        names.push(name);
+      }
+    };
+
+    snap.forEach((doc) => {
+      const data = doc.data() || {};
+      const metadata = data.metadata || {};
+      const components = data.components || {};
+
+      const directValues = [
+        data.product,
+        data.productName,
+        data.productDisplayName,
+        data.products,
+        metadata.product,
+        metadata.productName,
+        metadata.products,
+      ];
+      directValues.forEach((value) => collectStringValues(value, addName));
+
+      Object.entries(metadata).forEach(([key, value]) => {
+        if (typeof key === "string" && key.toLowerCase().includes("product")) {
+          collectStringValues(value, addName);
+        }
+      });
+
+      Object.entries(components).forEach(([key, value]) => {
+        if (typeof key === "string" && key.toLowerCase().includes("product")) {
+          collectStringValues(value, addName);
+        }
+      });
+    });
+
+    return names;
+  } catch (error) {
+    console.error("Failed to load recipe product names", error);
+    return [];
+  }
+}
+
 async function postSlackMessage(channel, payload) {
   if (!SLACK_BOT_TOKEN) {
     throw new Error("SLACK_BOT_TOKEN is not configured");
@@ -174,7 +264,7 @@ module.exports = async function handler(req, res) {
   const normalizedBrandCode = rawBrandCode ? normalizeBrandCode(rawBrandCode) : "";
   const status = typeof payload.status === "string" ? payload.status.trim().toLowerCase() : "";
   const adGroupId = typeof payload.adGroupId === "string" ? payload.adGroupId.trim() : "";
-  const adGroupName = typeof payload.adGroupName === "string" ? payload.adGroupName.trim() : "";
+  let adGroupName = typeof payload.adGroupName === "string" ? payload.adGroupName.trim() : "";
   const adGroupUrl = typeof payload.url === "string" ? payload.url.trim() : "";
 
   if (!normalizedBrandCode) {
@@ -216,35 +306,52 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    const identifier = adGroupName || adGroupId || "an ad group";
-    const linkText = adGroupUrl ? `<${adGroupUrl}|${identifier}>` : identifier;
+    let adGroupData = null;
+    if (adGroupId) {
+      try {
+        const adGroupSnap = await db.collection("adGroups").doc(adGroupId).get();
+        if (adGroupSnap.exists) {
+          adGroupData = adGroupSnap.data() || {};
+          if (!adGroupName && typeof adGroupData.name === "string") {
+            adGroupName = adGroupData.name;
+          }
+        }
+      } catch (fetchError) {
+        console.error("Failed to fetch ad group data", fetchError);
+      }
+    }
+
+    const displayName = adGroupName || adGroupId || "this ad group";
+    const reviewUrl = adGroupUrl || "";
 
     let text;
 
     if (status === "designed") {
-      text = `${linkText} is ready for review!`;
+      const productNames = await getRecipeProductNames(adGroupId);
+      const lines = ["✅ Your ads are ready for review!", "", displayName];
+      if (productNames.length) {
+        lines.push(`Products in this batch: ${productNames.join(", ")}`);
+      }
+      lines.push(reviewUrl ? `<${reviewUrl}|Review here>` : "Review here");
+      text = lines.join("\n");
     } else if (status === "reviewed") {
       let approvedCount = 0;
       let editRequestedCount = 0;
       let rejectedCount = 0;
 
-      if (adGroupId) {
-        try {
-          const adGroupSnap = await db.collection("adGroups").doc(adGroupId).get();
-          if (adGroupSnap.exists) {
-            const data = adGroupSnap.data() || {};
-            approvedCount = toNumber(data.approvedCount);
-            editRequestedCount = toNumber(data.editCount);
-            rejectedCount = toNumber(data.rejectedCount);
-          }
-        } catch (fetchError) {
-          console.error("Failed to fetch ad group review counts", fetchError);
-        }
+      if (adGroupData) {
+        approvedCount = toNumber(adGroupData.approvedCount);
+        editRequestedCount = toNumber(adGroupData.editCount);
+        rejectedCount = toNumber(adGroupData.rejectedCount);
       }
 
-      text = `${linkText} has been reviewed!\nApproved: ${approvedCount}\nEdit Requested: ${editRequestedCount}\nRejected: ${rejectedCount}`;
+      text = [
+        `📝 Review completed for ${displayName}`,
+        `Approved: ${approvedCount} | Edits requested: ${editRequestedCount} | Rejected: ${rejectedCount}`,
+        reviewUrl ? `<${reviewUrl}|View details>` : "View details",
+      ].join("\n");
     } else {
-      text = linkText;
+      text = reviewUrl ? `<${reviewUrl}|${displayName}>` : displayName;
     }
 
     const results = [];
