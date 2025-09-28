@@ -3245,40 +3245,42 @@ useEffect(() => {
       )}
       <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
         <div className="flex flex-col items-center">
-          <div className="relative flex flex-col items-center w-fit mx-auto">
-          {reviewLogoUrl && (
-            <OptimizedImage
-              pngUrl={reviewLogoUrl}
-              alt={reviewLogoAlt}
-              loading="eager"
-              cacheKey={reviewLogoUrl}
-              onLoad={() => setLogoReady(true)}
-              className="mb-2 max-h-16 w-auto"
-            />
-          )}
-        {/* Gallery view removed */}
-        {/* Show exit button even during change review */}
-        <div className="w-full max-w-md mb-2.5 flex items-center justify-between px-1">
-          <InfoTooltip text="exit review" placement="bottom">
-            <button
-              type="button"
-              onClick={handleExitReview}
-              aria-label="exit review"
-              className="text-gray-500 hover:text-black dark:hover:text-white"
-            >
-              <FiX />
-            </button>
-          </InfoTooltip>
-          <InfoTooltip text="leave overall feedback" placement="bottom">
-            <button
-              type="button"
-              aria-label="leave overall feedback"
-              onClick={() => setShowFeedbackModal(true)}
-              className="text-gray-500 hover:text-black dark:hover:text-white"
-            >
-              <FiMessageSquare />
-            </button>
-          </InfoTooltip>
+          <div className="relative w-full flex justify-center">
+            <div className="flex w-full max-w-md items-center justify-between gap-4 px-1 pt-4 mb-2.5">
+              <InfoTooltip text="exit review" placement="bottom">
+                <button
+                  type="button"
+                  onClick={handleExitReview}
+                  aria-label="exit review"
+                  className="text-gray-500 hover:text-black dark:hover:text-white"
+                >
+                  <FiX />
+                </button>
+              </InfoTooltip>
+              <div className="flex flex-1 justify-center">
+                {reviewLogoUrl && (
+                  <OptimizedImage
+                    pngUrl={reviewLogoUrl}
+                    alt={reviewLogoAlt}
+                    loading="eager"
+                    cacheKey={reviewLogoUrl}
+                    onLoad={() => setLogoReady(true)}
+                    className="max-h-16 w-auto"
+                  />
+                )}
+              </div>
+              <InfoTooltip text="leave overall feedback" placement="bottom">
+                <button
+                  type="button"
+                  aria-label="leave overall feedback"
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="text-gray-500 hover:text-black dark:hover:text-white"
+                >
+                  <FiMessageSquare />
+                </button>
+              </InfoTooltip>
+            </div>
+          </div>
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
