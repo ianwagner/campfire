@@ -12,14 +12,18 @@ import {
 import { db } from "./firebase/config";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 import MonthTag from "./components/MonthTag.jsx";
+import StatusBadge from "./components/StatusBadge.jsx";
 import parseAdFilename from "./utils/parseAdFilename.js";
 
-const statusLabels = {
-  approved: "Approved",
-  reviewed: "In Review",
-  edit: "Needs Edits",
-  rejected: "Changes Requested",
-  archived: "Archived",
+const formatGroupStatus = (status) => {
+  if (!status) return "";
+  const trimmed = String(status).trim();
+  if (!trimmed) return "";
+  return trimmed
+    .replace(/[_-]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .trim();
 };
 
 const GroupCard = ({ group }) => {
@@ -42,10 +46,18 @@ const GroupCard = ({ group }) => {
     ? { aspectRatio: aspect, background: "#f3f4f6" }
     : { aspectRatio: aspect };
 
-  const totalAds =
-    typeof group.totalAds === "number" && !Number.isNaN(group.totalAds)
-      ? group.totalAds
+  const unitCount =
+    typeof group.unitCount === "number" && !Number.isNaN(group.unitCount)
+      ? group.unitCount
       : group.previewAds.length;
+  const countLabel =
+    group.countSource === "assets"
+      ? unitCount === 1
+        ? "ad"
+        : "ads"
+      : unitCount === 1
+      ? "ad unit"
+      : "ad units";
 
   const updatedLabel = group.updatedAt
     ? group.updatedAt.toLocaleDateString(undefined, {
@@ -55,14 +67,12 @@ const GroupCard = ({ group }) => {
       })
     : null;
 
-  const nonZeroCounts = Object.entries(group.counts).filter(
-    ([, value]) => value > 0
-  );
+  const statusLabel = formatGroupStatus(group.status);
 
   return (
     <Link
       to={`/review/${group.id}`}
-      className="group block rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+      className="group flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
     >
       <div className="relative w-full overflow-hidden rounded-t-xl" style={containerStyle}>
         {showLogo && group.brandLogo ? (
@@ -92,31 +102,32 @@ const GroupCard = ({ group }) => {
           ))
         )}
       </div>
-      <div className="p-5 text-center">
-        <h3 className="text-lg font-semibold text-gray-900">{group.name}</h3>
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-sm text-gray-600">
-          {group.month && <MonthTag month={group.month} />}
-          <span>{totalAds} ads</span>
-          {group.requirePassword && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-              Password required
-            </span>
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-2">
+            <h3 className="text-base font-semibold text-gray-900 line-clamp-2">
+              {group.name}
+            </h3>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
+              {group.month && <MonthTag month={group.month} />}
+              <span className="font-medium text-gray-700">
+                {unitCount} {countLabel}
+              </span>
+            </div>
+          </div>
+          {statusLabel && (
+            <StatusBadge status={statusLabel} className="mt-1 shrink-0 text-xs" />
           )}
         </div>
-        {nonZeroCounts.length > 0 && (
-          <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs text-gray-600">
-            {nonZeroCounts.map(([key, value]) => (
-              <span
-                key={key}
-                className="rounded-full bg-gray-100 px-2 py-0.5 font-medium"
-              >
-                {statusLabels[key] || key}: {value}
-              </span>
-            ))}
+        {group.requirePassword && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700">
+              Password required
+            </span>
           </div>
         )}
         {updatedLabel && (
-          <p className="mt-3 text-xs text-gray-500">Updated {updatedLabel}</p>
+          <p className="mt-auto pt-4 text-xs text-gray-500">Updated {updatedLabel}</p>
         )}
       </div>
     </Link>
@@ -239,20 +250,37 @@ const PublicBrandDashboard = () => {
                   ...adDoc.data(),
                 }));
 
-                let totalAds = 0;
+                let unitCount = 0;
+                let countSource = "adUnits";
                 try {
-                  const countSnap = await getCountFromServer(
-                    collection(db, "adGroups", docSnap.id, "assets")
+                  const unitCountSnap = await getCountFromServer(
+                    collection(db, "adGroups", docSnap.id, "adUnits")
                   );
-                  totalAds = countSnap.data().count || 0;
+                  unitCount = unitCountSnap.data().count || 0;
                 } catch (err) {
-                  console.error("Failed to count assets", err);
-                  totalAds =
-                    counts.approved +
-                    counts.reviewed +
-                    counts.edit +
-                    counts.rejected +
-                    counts.archived;
+                  console.error("Failed to count ad units", err);
+                }
+
+                if (unitCount === 0) {
+                  let assetCount = 0;
+                  try {
+                    const assetCountSnap = await getCountFromServer(
+                      collection(db, "adGroups", docSnap.id, "assets")
+                    );
+                    assetCount = assetCountSnap.data().count || 0;
+                  } catch (err) {
+                    console.error("Failed to count assets", err);
+                    assetCount =
+                      counts.approved +
+                      counts.reviewed +
+                      counts.edit +
+                      counts.rejected +
+                      counts.archived;
+                  }
+                  if (assetCount > 0) {
+                    unitCount = assetCount;
+                    countSource = "assets";
+                  }
                 }
 
                 const updatedAt =
@@ -265,11 +293,12 @@ const PublicBrandDashboard = () => {
                   name: data.name || "Untitled Review",
                   month: data.month || "",
                   previewAds,
-                  counts,
-                  totalAds,
+                  unitCount,
+                  countSource,
                   updatedAt,
                   requirePassword: !!data.requirePassword,
                   brandLogo,
+                  status: data.status || "",
                 };
               })
             );
@@ -347,6 +376,11 @@ const PublicBrandDashboard = () => {
   }
 
   const title = brand?.name || brand?.code || brandParam;
+  const displayTitle = useMemo(() => {
+    if (!title) return "";
+    const withoutBrand = title.replace(/\bbrand\b/gi, "").replace(/\s{2,}/g, " ");
+    return withoutBrand.trim() || title;
+  }, [title]);
   const description = brand?.offering || brand?.tagline || "";
 
   return (
@@ -362,7 +396,7 @@ const PublicBrandDashboard = () => {
               />
             )}
             <div>
-              <h1 className="text-3xl font-semibold text-gray-900">{title}</h1>
+              <h1 className="text-3xl font-semibold text-gray-900">{displayTitle}</h1>
               {description && (
                 <p className="mt-2 max-w-xl text-base text-gray-600">{description}</p>
               )}
