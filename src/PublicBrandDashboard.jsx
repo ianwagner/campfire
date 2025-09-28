@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   collection,
   getDocs,
@@ -11,116 +11,11 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase/config";
 import OptimizedImage from "./components/OptimizedImage.jsx";
-import MonthTag from "./components/MonthTag.jsx";
-import parseAdFilename from "./utils/parseAdFilename.js";
+import ReviewGroupCard from "./components/ReviewGroupCard.jsx";
 
-const statusLabels = {
-  approved: "Approved",
-  reviewed: "In Review",
-  edit: "Needs Edits",
-  rejected: "Changes Requested",
-  archived: "Archived",
-};
-
-const GroupCard = ({ group }) => {
-  const rotations = useMemo(
-    () => group.previewAds.map(() => Math.random() * 10 - 5),
-    [group.id, group.previewAds.length]
-  );
-
-  const showLogo =
-    group.previewAds.length === 0 ||
-    group.previewAds.every((ad) => ad.status === "pending");
-
-  const firstPreview = group.previewAds[0] || {};
-  const parsed = parseAdFilename(firstPreview.filename || "");
-  const aspect = showLogo
-    ? "1/1"
-    : (firstPreview.aspectRatio || parsed.aspectRatio || "9x16").replace("x", "/");
-
-  const containerStyle = showLogo
-    ? { aspectRatio: aspect, background: "#f3f4f6" }
-    : { aspectRatio: aspect };
-
-  const totalAds =
-    typeof group.totalAds === "number" && !Number.isNaN(group.totalAds)
-      ? group.totalAds
-      : group.previewAds.length;
-
-  const updatedLabel = group.updatedAt
-    ? group.updatedAt.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    : null;
-
-  const nonZeroCounts = Object.entries(group.counts).filter(
-    ([, value]) => value > 0
-  );
-
-  return (
-    <Link
-      to={`/review/${group.id}`}
-      className="group block rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-    >
-      <div className="relative w-full overflow-hidden rounded-t-xl" style={containerStyle}>
-        {showLogo && group.brandLogo ? (
-          <OptimizedImage
-            pngUrl={group.brandLogo}
-            alt={`${group.name} logo`}
-            className="absolute inset-0 h-full w-full object-contain p-6"
-          />
-        ) : showLogo ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-200 text-3xl font-semibold text-gray-500">
-            {group.name.slice(0, 1).toUpperCase()}
-          </div>
-        ) : (
-          group.previewAds.map((ad, idx) => (
-            <OptimizedImage
-              key={ad.id || idx}
-              pngUrl={ad.thumbnailUrl || ad.firebaseUrl || ""}
-              alt={group.name}
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{
-                transform: `rotate(${rotations[idx]}deg)`,
-                zIndex: idx + 1,
-                top: `${-idx * 4}px`,
-                left: `${idx * 4}px`,
-              }}
-            />
-          ))
-        )}
-      </div>
-      <div className="p-5 text-center">
-        <h3 className="text-lg font-semibold text-gray-900">{group.name}</h3>
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-sm text-gray-600">
-          {group.month && <MonthTag month={group.month} />}
-          <span>{totalAds} ads</span>
-          {group.requirePassword && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-              Password required
-            </span>
-          )}
-        </div>
-        {nonZeroCounts.length > 0 && (
-          <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs text-gray-600">
-            {nonZeroCounts.map(([key, value]) => (
-              <span
-                key={key}
-                className="rounded-full bg-gray-100 px-2 py-0.5 font-medium"
-              >
-                {statusLabels[key] || key}: {value}
-              </span>
-            ))}
-          </div>
-        )}
-        {updatedLabel && (
-          <p className="mt-3 text-xs text-gray-500">Updated {updatedLabel}</p>
-        )}
-      </div>
-    </Link>
-  );
+const statusBadgeLabels = {
+  designed: "Ready for review",
+  reviewed: "Reviewed",
 };
 
 const PublicBrandDashboard = () => {
@@ -260,16 +155,26 @@ const PublicBrandDashboard = () => {
                   (data.createdAt?.toDate && data.createdAt.toDate()) ||
                   null;
 
+                const showLogo =
+                  previewAds.length === 0 ||
+                  previewAds.every((ad) => ad.status === "pending");
+                const statusLabel = statusBadgeLabels[data.status] || "";
+                const badges = [];
+                if (data.requirePassword) {
+                  badges.push({ label: "Password required", variant: "warning" });
+                }
+
                 return {
                   id: docSnap.id,
                   name: data.name || "Untitled Review",
                   month: data.month || "",
                   previewAds,
-                  counts,
                   totalAds,
                   updatedAt,
-                  requirePassword: !!data.requirePassword,
                   brandLogo,
+                  showLogo,
+                  statusLabel,
+                  badges,
                 };
               })
             );
@@ -324,7 +229,7 @@ const PublicBrandDashboard = () => {
 
   if (brandLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 text-gray-600">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 text-gray-600 dark:bg-[var(--dark-bg)] dark:text-gray-300">
         Loading brand...
       </div>
     );
@@ -332,7 +237,7 @@ const PublicBrandDashboard = () => {
 
   if (brandError) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 text-center text-gray-700">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 text-center text-gray-700 dark:bg-[var(--dark-bg)] dark:text-gray-200">
         {brandError}
       </div>
     );
@@ -340,34 +245,39 @@ const PublicBrandDashboard = () => {
 
   if (notFound) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 text-center text-gray-700">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 text-center text-gray-700 dark:bg-[var(--dark-bg)] dark:text-gray-200">
         We couldn&apos;t find a public dashboard for this brand.
       </div>
     );
   }
 
   const title = brand?.name || brand?.code || brandParam;
+  const sanitizedTitle = useMemo(() => {
+    if (!title) return "";
+    const cleaned = title.replace(/\bbrand\b/gi, "").trim();
+    return cleaned || title;
+  }, [title]);
   const description = brand?.offering || brand?.tagline || "";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="border-b border-gray-200 bg-white">
+    <div className="min-h-screen bg-gray-50 dark:bg-[var(--dark-bg)]">
+      <header className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-6 px-6 py-12 text-center md:flex-row md:items-center md:justify-between md:text-left">
           <div className="flex flex-col items-center gap-4 md:flex-row md:items-center">
             {brandLogo && (
               <OptimizedImage
                 pngUrl={brandLogo}
                 alt={`${title} logo`}
-                className="h-24 w-24 rounded-full border border-gray-200 bg-white object-contain p-4 shadow"
+                className="h-24 w-24 rounded-full border border-gray-200 bg-white object-contain p-4 shadow dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]"
               />
             )}
             <div>
-              <h1 className="text-3xl font-semibold text-gray-900">{title}</h1>
+              <h1 className="text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">{sanitizedTitle}</h1>
               {description && (
-                <p className="mt-2 max-w-xl text-base text-gray-600">{description}</p>
+                <p className="mt-2 max-w-xl text-base text-gray-600 dark:text-gray-300">{description}</p>
               )}
-              <p className="mt-3 text-sm uppercase tracking-wide text-gray-500">
-                Public Review Dashboard
+              <p className="mt-3 text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Public Review
               </p>
             </div>
           </div>
@@ -375,18 +285,23 @@ const PublicBrandDashboard = () => {
       </header>
       <main className="mx-auto w-full max-w-6xl px-6 py-10">
         {groupsError && (
-          <div className="mb-6 rounded border border-amber-200 bg-amber-50 p-4 text-amber-700">
+          <div className="mb-6 rounded border border-amber-200 bg-amber-50 p-4 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
             {groupsError}
           </div>
         )}
         {groupsLoading ? (
-          <p className="text-gray-600">Loading public reviews...</p>
+          <p className="text-gray-600 dark:text-gray-300">Loading public reviews...</p>
         ) : groups.length === 0 ? (
-          <p className="text-gray-600">No public reviews are available for this brand yet.</p>
+          <p className="text-gray-600 dark:text-gray-300">No public reviews are available for this brand yet.</p>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {groups.map((group) => (
-              <GroupCard key={group.id} group={group} />
+              <ReviewGroupCard
+                key={group.id}
+                group={group}
+                badges={group.badges}
+                statusLabel={group.statusLabel}
+              />
             ))}
           </div>
         )}
