@@ -3978,8 +3978,6 @@ useEffect(() => {
           submitting={feedbackSubmitting}
         />
       )}
-      </div>
-    </div>
     </div>
   );
 });
