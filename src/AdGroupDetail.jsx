@@ -77,6 +77,7 @@ import TabButton from "./components/TabButton.jsx";
 import Table from "./components/common/Table";
 import stripVersion from "./utils/stripVersion";
 import summarizeByRecipe from "./utils/summarizeByRecipe";
+import aggregateRecipeStatusCounts from "./utils/aggregateRecipeStatusCounts";
 import FeedbackPanel from "./components/FeedbackPanel.jsx";
 import detectMissingRatios from "./utils/detectMissingRatios";
 import notifySlackStatusChange from "./utils/notifySlackStatusChange";
@@ -679,19 +680,20 @@ const AdGroupDetail = () => {
   }, [recipesMeta]);
 
 
-  const statusCounts = useMemo(() => {
-    const counts = {
-      pending: 0,
-      ready: 0,
-      approved: 0,
-      rejected: 0,
-      edit_requested: 0,
-    };
-    assets.forEach((a) => {
-      if (counts[a.status] !== undefined) counts[a.status] += 1;
-    });
-    return counts;
-  }, [assets]);
+  const recipeStatusSummary = useMemo(() => {
+    const recipeIds = Object.keys(recipesMeta || {});
+    return aggregateRecipeStatusCounts(assets, recipeIds);
+  }, [assets, recipesMeta]);
+
+  const unitStatusCounts = recipeStatusSummary.statusCounts || {
+    pending: 0,
+    ready: 0,
+    approved: 0,
+    rejected: 0,
+    edit_requested: 0,
+    archived: 0,
+  };
+  const unitCount = recipeStatusSummary.unitCount || 0;
 
   function getRecipeStatus(list) {
     const active = list.filter((a) => a.status !== "archived");
@@ -3053,30 +3055,30 @@ const AdGroupDetail = () => {
               <p className="stat-card-value">{recipeCount}</p>
             </div>
             <div className="stat-card">
-              <p className="stat-card-title">Total Ads</p>
-              <p className="stat-card-value">{assets.length}</p>
+              <p className="stat-card-title">Ad Units</p>
+              <p className="stat-card-value">{unitCount}</p>
             </div>
           </div>
           <div className="flex flex-wrap justify-center gap-4 mb-4">
             <div className="stat-card status-pending">
               <p className="stat-card-title">Pending</p>
-              <p className="stat-card-value">{statusCounts.pending}</p>
+              <p className="stat-card-value">{unitStatusCounts.pending}</p>
             </div>
             <div className="stat-card status-ready">
               <p className="stat-card-title">Ready</p>
-              <p className="stat-card-value">{statusCounts.ready}</p>
+              <p className="stat-card-value">{unitStatusCounts.ready}</p>
             </div>
             <div className="stat-card status-approved">
               <p className="stat-card-title">Approved</p>
-              <p className="stat-card-value">{statusCounts.approved}</p>
+              <p className="stat-card-value">{unitStatusCounts.approved}</p>
             </div>
             <div className="stat-card status-rejected">
               <p className="stat-card-title">Rejected</p>
-              <p className="stat-card-value">{statusCounts.rejected}</p>
+              <p className="stat-card-value">{unitStatusCounts.rejected}</p>
             </div>
             <div className="stat-card status-edit_requested">
               <p className="stat-card-title">Edit</p>
-              <p className="stat-card-value">{statusCounts.edit_requested}</p>
+              <p className="stat-card-value">{unitStatusCounts.edit_requested}</p>
             </div>
           </div>
         </>

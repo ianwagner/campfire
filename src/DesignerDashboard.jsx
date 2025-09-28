@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AdGroupCard from './components/AdGroupCard.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import getUserName from './utils/getUserName';
+import aggregateRecipeStatusCounts from './utils/aggregateRecipeStatusCounts';
 import computeKanbanStatus from './utils/computeKanbanStatus';
 import {
   collection,
@@ -86,35 +87,30 @@ const DesignerDashboard = () => {
         const list = await Promise.all(
           snapDocs.map(async (d) => {
             const data = d.data();
-            let recipeCount = 0;
             let assetCount = 0;
-            let readyCount = 0;
-            let approvedCount = 0;
-            let archivedCount = 0;
-            let rejectedCount = 0;
-            let editCount = 0;
-            const set = new Set();
+            const recipeCodes = new Set();
+            let assets = [];
             try {
               const assetSnap = await getDocs(
                 collection(db, 'adGroups', d.id, 'assets')
               );
-              assetCount = assetSnap.docs.length;
-              assetSnap.docs.forEach((adDoc) => {
+              assets = assetSnap.docs.map((adDoc) => {
                 const adData = adDoc.data();
-                if (adData.status === 'ready') readyCount += 1;
-                if (adData.status === 'approved') approvedCount += 1;
-                if (adData.status === 'archived') archivedCount += 1;
-                if (adData.status === 'rejected') rejectedCount += 1;
-                if (adData.status === 'edit_requested') editCount += 1;
                 const code =
                   adData.recipeCode || parseAdFilename(adData.filename || '').recipeCode;
-                if (code) set.add(code);
+                if (code) recipeCodes.add(code);
+                return { id: adDoc.id, ...adData };
               });
-              recipeCount = set.size;
+              assetCount = assets.length;
             } catch (err) {
               console.error('Failed to load assets', err);
-              recipeCount = 0;
             }
+
+            const recipeIds = Array.from(recipeCodes);
+            const { unitCount, statusCounts } = aggregateRecipeStatusCounts(
+              assets,
+              recipeIds,
+            );
 
             const designerName = data.designerId ? await getUserName(data.designerId) : '';
             const editorName = data.editorId ? await getUserName(data.editorId) : '';
@@ -122,14 +118,15 @@ const DesignerDashboard = () => {
             return {
               id: d.id,
               ...data,
-              recipeCount,
+              recipeCount: unitCount,
               assetCount,
-              readyCount,
+              unitCount,
+              readyCount: statusCounts.ready,
               counts: {
-                approved: approvedCount,
-                archived: archivedCount,
-                rejected: rejectedCount,
-                edit: editCount,
+                approved: statusCounts.approved,
+                archived: statusCounts.archived,
+                rejected: statusCounts.rejected,
+                edit: statusCounts.edit_requested,
               },
               designerName,
               editorName,

@@ -1,5 +1,5 @@
 export default function computeKanbanStatus(group) {
-  const assetCount = group?.assetCount || 0;
+  const totalUnits = group?.unitCount ?? group?.assetCount ?? 0;
   const counts = group?.counts || {};
   const approved = counts.approved || 0;
   const archived = counts.archived || 0;
@@ -12,8 +12,8 @@ export default function computeKanbanStatus(group) {
   if (group?.status === 'reviewed') return 'reviewed';
   if (group?.status === 'designed') return 'designed';
   if (group?.status === 'done') return 'done';
-  if (assetCount === 0) return 'new';
-  if (approved + archived + rejected >= assetCount) return 'done';
+  if (totalUnits === 0) return 'new';
+  if (approved + archived + rejected >= totalUnits) return 'done';
   if (reviewed > 0 || edit > 0) return 'reviewed';
   return 'designed';
 }
