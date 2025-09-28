@@ -1,8 +1,7 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import OptimizedImage from './OptimizedImage.jsx';
 import MonthTag from './MonthTag.jsx';
-import parseAdFilename from '../utils/parseAdFilename.js';
 
 const BADGE_VARIANT_CLASSES = {
   info:
@@ -20,19 +19,11 @@ const ReviewGroupCard = ({
   badges = [],
 }) => {
   const previewAds = Array.isArray(group.previewAds) ? group.previewAds : [];
-  const rotations = useMemo(
-    () => previewAds.map(() => Math.random() * 10 - 5),
-    [group.id, previewAds.length]
-  );
-
-  const firstPreview = previewAds[0] || {};
-  const parsed = parseAdFilename(firstPreview.filename || '');
+  const firstPreview = previewAds.length > 0 ? previewAds[0] : null;
   const showLogo =
     group.showLogo ??
     (previewAds.length === 0 || previewAds.every((ad) => ad.status === 'pending'));
-  const aspect = showLogo
-    ? '1/1'
-    : (firstPreview.aspectRatio || parsed.aspectRatio || '9x16').replace('x', '/');
+  const aspect = '1/1';
 
   const containerClasses = [
     'relative w-full overflow-hidden rounded-t-2xl',
@@ -88,20 +79,14 @@ const ReviewGroupCard = ({
             {(group.name || '?').slice(0, 1).toUpperCase()}
           </div>
         ) : (
-          previewAds.map((ad, idx) => (
+          firstPreview && (
             <OptimizedImage
-              key={ad.id || idx}
-              pngUrl={ad.thumbnailUrl || ad.firebaseUrl || ''}
+              key={firstPreview.id || firstPreview.filename || 'preview-ad'}
+              pngUrl={firstPreview.thumbnailUrl || firstPreview.firebaseUrl || ''}
               alt={group.name || 'Ad preview'}
               className="absolute inset-0 h-full w-full object-cover"
-              style={{
-                transform: `rotate(${rotations[idx]}deg)`,
-                zIndex: idx + 1,
-                top: `${-idx * 4}px`,
-                left: `${idx * 4}px`,
-              }}
             />
-          ))
+          )
         )}
       </div>
       <div className="space-y-4 p-5">
