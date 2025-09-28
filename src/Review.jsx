@@ -420,6 +420,7 @@ const Review = forwardRef(
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
   const statusBarSentinelRef = useRef(null);
+  const statusBarRef = useRef(null);
   const [statusBarPinned, setStatusBarPinned] = useState(false);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
@@ -566,16 +567,29 @@ const Review = forwardRef(
       return;
     }
     const sentinel = statusBarSentinelRef.current;
-    if (!sentinel) {
+    const statusBarEl = statusBarRef.current;
+    if (!sentinel || !statusBarEl) {
       setStatusBarPinned(false);
       return;
     }
     // Add some hysteresis so the pinned state is stable even as the bar
     // changes height when it condenses. Use the sentinel's bottom edge, which
     // aligns with the top edge of the status bar, so we can pin exactly when
-    // the bar reaches the top of the viewport.
-    const pinOffset = 0;
-    const releaseOffset = 16;
+    // the bar reaches the top of the viewport. Adjust the pinning threshold by
+    // the bar's margin so we only pin once the visible portion touches the top
+    // of the viewport.
+    const MIN_HYSTERESIS = 8;
+    const computeOffsets = () => {
+      const computedStyle = window.getComputedStyle(statusBarEl);
+      const marginTop = Number.parseFloat(computedStyle?.marginTop || '0') || 0;
+      const pinOffset = -marginTop;
+      const releaseOffset = Math.max(0, pinOffset + MIN_HYSTERESIS);
+      return { pinOffset, releaseOffset };
+    };
+    let offsets = computeOffsets();
+    const updateOffsets = () => {
+      offsets = computeOffsets();
+    };
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
@@ -585,6 +599,7 @@ const Review = forwardRef(
         }
         const viewportTop = entry.rootBounds?.top ?? 0;
         setStatusBarPinned((prevPinned) => {
+          const { pinOffset, releaseOffset } = offsets;
           const pinThreshold = viewportTop + pinOffset;
           const releaseThreshold = viewportTop + releaseOffset;
 
@@ -603,8 +618,20 @@ const Review = forwardRef(
       { threshold: [0, 1] },
     );
     observer.observe(sentinel);
+    const supportsResizeObserver = typeof ResizeObserver === 'function';
+    const resizeObserver = supportsResizeObserver
+      ? new ResizeObserver(updateOffsets)
+      : null;
+    if (resizeObserver) {
+      resizeObserver.observe(statusBarEl);
+    }
+    window.addEventListener('resize', updateOffsets);
     return () => {
       observer.disconnect();
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      window.removeEventListener('resize', updateOffsets);
     };
   }, [reviewVersion, reviewAds.length]);
 
@@ -3316,7 +3343,7 @@ useEffect(() => {
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-x-0 -top-6 h-6"
               />
-              <div className="sticky top-0 z-20 mt-2">
+              <div ref={statusBarRef} className="sticky top-0 z-20 mt-2">
                 <div
                   className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
                 >
