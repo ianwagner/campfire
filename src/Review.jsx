@@ -3099,7 +3099,11 @@ useEffect(() => {
 
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen space-y-4">
+    <div
+      className={`relative flex flex-col items-center justify-center min-h-screen space-y-4 ${
+        reviewVersion === 2 ? 'pb-24' : ''
+      }`}
+    >
       {showFinalizeModal && (
         <Modal>
           <div className="space-y-4">
@@ -3855,6 +3859,13 @@ useEffect(() => {
           )}
         </div>
       </div>
+
+      {reviewVersion === 2 && (
+        <div className="mt-8 px-4 text-center text-sm text-gray-500 dark:text-gray-400">
+          Thank you for taking the time to review these! When you’re all set, just click Finalize
+          Review so we can keep things moving.
+        </div>
+      )}
 
       {showEditModal && (
         <EditRequestModal
