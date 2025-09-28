@@ -879,6 +879,7 @@ const App = () => {
                       "client",
                       "manager",
                       "project-manager",
+                      "ops",
                       "editor",
                     ]}
                     userRole={role} isAdmin={isAdmin}
