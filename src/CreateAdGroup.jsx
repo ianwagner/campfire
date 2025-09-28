@@ -16,14 +16,24 @@ import RecipePreview from './RecipePreview.jsx';
 import { uploadFile } from './uploadFile.js';
 import { deductRecipeCredits } from './utils/credits.js';
 
-const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
+const CreateAdGroup = ({ showSidebar = true, asModal = false, brandCodes: providedBrandCodes }) => {
   const [title, setTitle] = useState('');
   const [step, setStep] = useState(1);
-  const [brandCodes, setBrandCodes] = useState([]);
-  const [brandCode, setBrandCode] = useState('');
+  const initialCodes = Array.isArray(providedBrandCodes) ? providedBrandCodes : [];
+  const [brandCodes, setBrandCodes] = useState(initialCodes);
+  const [brandCode, setBrandCode] = useState(initialCodes[0] || '');
   const navigate = useNavigate();
 
   useEffect(() => {
+    const externalCodes = Array.isArray(providedBrandCodes) ? providedBrandCodes : [];
+    if (externalCodes.length) {
+      setBrandCodes(externalCodes);
+      setBrandCode((prev) =>
+        externalCodes.includes(prev) ? prev : externalCodes[0] || ''
+      );
+      return;
+    }
+
     const fetchCodes = async () => {
       if (!auth.currentUser?.uid) {
         setBrandCodes([]);
@@ -44,7 +54,7 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
       }
     };
     fetchCodes();
-  }, []);
+  }, [providedBrandCodes]);
 
   const handleSave = async (recipes, briefNote, briefAssets, month, dueDate) => {
     if (!brandCode) {
