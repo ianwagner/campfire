@@ -306,8 +306,6 @@ const PublicBrandDashboard = () => {
     );
   }
 
-  const description = brand?.offering || brand?.tagline || "";
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[var(--dark-bg)]">
       <header className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]">
@@ -317,14 +315,11 @@ const PublicBrandDashboard = () => {
               <OptimizedImage
                 pngUrl={brandLogo}
                 alt={`${title} logo`}
-                className="h-24 w-24 rounded-full border border-gray-200 bg-white object-contain p-4 shadow dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]"
+                className="h-24 w-24 border border-gray-200 bg-white object-contain p-4 shadow dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]"
               />
             )}
             <div>
               <h1 className="text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">{sanitizedTitle}</h1>
-              {description && (
-                <p className="mt-2 max-w-xl text-base text-gray-600 dark:text-gray-300">{description}</p>
-              )}
             </div>
           </div>
         </div>
