@@ -1,8 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import OptimizedImage from './components/OptimizedImage.jsx';
-import MonthTag from './components/MonthTag.jsx';
-import parseAdFilename from './utils/parseAdFilename.js';
+import ReviewGroupCard from './components/ReviewGroupCard.jsx';
 import summarizeByRecipe from './utils/summarizeByRecipe.js';
 import summarizeAdUnits from './utils/summarizeAdUnits.js';
 import { db } from './firebase/config';
@@ -16,59 +13,6 @@ import {
   limit,
   onSnapshot,
 } from 'firebase/firestore';
-
-const GroupCard = ({ group }) => {
-  const rotations = useMemo(
-    () => group.previewAds.map(() => Math.random() * 10 - 5),
-    [group.id, group.previewAds.length]
-  );
-
-  const showLogo = group.showLogo;
-  const first = group.previewAds[0] || {};
-  const info = parseAdFilename(first.filename || "");
-  const aspect = showLogo
-    ? "1/1"
-    : (first.aspectRatio || info.aspectRatio || "9x16").replace("x", "/");
-
-  const containerStyle = showLogo
-    ? { aspectRatio: aspect, background: '#efefef', padding: '40px' }
-    : { aspectRatio: aspect };
-
-  return (
-    <Link to={`/review/${group.id}`} className="block text-center p-3">
-      <div className="relative mb-2" style={containerStyle}>
-        {showLogo ? (
-          <OptimizedImage
-            key="logo"
-            pngUrl={group.brandLogo}
-            alt={group.name}
-            className="absolute inset-0 w-full h-full object-contain rounded shadow"
-          />
-        ) : (
-          group.previewAds.map((ad, i) => (
-            <OptimizedImage
-              key={ad.id}
-              pngUrl={ad.thumbnailUrl || ad.firebaseUrl}
-              alt={group.name}
-              className="absolute inset-0 w-full h-full object-cover rounded shadow"
-              style={{
-                transform: `rotate(${rotations[i]}deg)`,
-                zIndex: i + 1,
-                top: `${-i * 4}px`,
-                left: `${i * 4}px`,
-              }}
-            />
-          ))
-        )}
-      </div>
-      <h3 className="font-medium text-gray-700 dark:text-white">{group.name}</h3>
-      <div className="flex justify-center items-center gap-2 mt-1 text-sm">
-        {group.month && <MonthTag month={group.month} />}
-        <span className="text-gray-500 dark:text-gray-300">{group.totalAds} ads</span>
-      </div>
-    </Link>
-  );
-};
 
 const ClientDashboard = ({ user, brandCodes = [] }) => {
   const [groups, setGroups] = useState([]);
@@ -344,7 +288,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-5">
           {filteredGroups.map((g) => (
-            <GroupCard key={g.id} group={g} />
+            <ReviewGroupCard key={g.id} group={g} />
           ))}
         </div>
       )}

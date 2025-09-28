@@ -64,6 +64,7 @@ import { deductCredits } from './utils/credits';
 import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
+import notifySlackStatusChange from './utils/notifySlackStatusChange';
 
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
@@ -272,20 +273,26 @@ const getAdKey = (ad, index = 0) => {
   );
 };
 
+const getAdUnitCandidateKey = (asset) => {
+  if (!asset) return '';
+  return (
+    getRecipeVersionUnitKey(asset) ||
+    getAdUnitKey(asset) ||
+    getAssetUnitId(asset) ||
+    getAssetParentId(asset) ||
+    getAssetDocumentId(asset) ||
+    getAssetUrlKey(asset) ||
+    asset.assetId ||
+    asset.id ||
+    ''
+  );
+};
+
 const dedupeByAdUnit = (list = []) => {
   const seen = new Set();
   return list.filter((item) => {
     if (!item) return false;
-    const recipeVersionKey = getRecipeVersionUnitKey(item);
-    const key =
-      recipeVersionKey ||
-      getAdUnitKey(item) ||
-      getAssetUnitId(item) ||
-      getAssetParentId(item) ||
-      getAssetDocumentId(item) ||
-      getAssetUrlKey(item) ||
-      item.assetId ||
-      item.id;
+    const key = getAdUnitCandidateKey(item);
     if (!key) {
       return true;
     }
@@ -406,6 +413,7 @@ const Review = forwardRef(
   const [versionMode, setVersionMode] = useState(false); // reviewing new versions
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [showVersionMenu, setShowVersionMenu] = useState(false);
+  const [cardVersionIndices, setCardVersionIndices] = useState({});
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
@@ -413,6 +421,7 @@ const Review = forwardRef(
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
   const statusBarSentinelRef = useRef(null);
+  const statusBarRef = useRef(null);
   const [statusBarPinned, setStatusBarPinned] = useState(false);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
@@ -529,6 +538,17 @@ const Review = forwardRef(
   }, []);
   const { agency } = useAgencyTheme(agencyId);
   const { settings } = useSiteSettings(false);
+  const reviewLogoUrl = useMemo(
+    () =>
+      agency?.logoUrl ||
+      settings?.campfireLogoUrl ||
+      settings?.logoUrl ||
+      DEFAULT_LOGO_URL,
+    [agency?.logoUrl, settings?.campfireLogoUrl, settings?.logoUrl],
+  );
+  const reviewLogoAlt = agency?.name
+    ? `${agency.name} logo`
+    : 'Campfire logo';
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -548,48 +568,77 @@ const Review = forwardRef(
       return;
     }
     const sentinel = statusBarSentinelRef.current;
-    if (!sentinel) {
+    const statusBarEl = statusBarRef.current;
+    if (!sentinel || !statusBarEl) {
       setStatusBarPinned(false);
       return;
     }
     // Add some hysteresis so the pinned state is stable even as the bar
-    // changes height when it condenses. The sentinel element is only a pixel
-    // tall, so rely on its bottom edge instead of the top to avoid the
-    // threshold getting stuck when scrolling slowly.
-    const pinOffset = 0;
-    const releaseOffset = 32;
+    // changes height when it condenses. Use the sentinel's bottom edge, which
+    // aligns with the top edge of the status bar, so we can pin exactly when
+    // the bar reaches the top of the viewport. Adjust the pinning threshold by
+    // the bar's margin so we only pin once the visible portion touches the top
+    // of the viewport.
+    const MIN_HYSTERESIS = 8;
+    const computeOffsets = () => {
+      const computedStyle = window.getComputedStyle(statusBarEl);
+      const marginTop = Number.parseFloat(computedStyle?.marginTop || '0') || 0;
+      const pinOffset = -marginTop;
+      const releaseOffset = Math.max(0, pinOffset + MIN_HYSTERESIS);
+      return { pinOffset, releaseOffset };
+    };
+    let offsets = computeOffsets();
+    const updateOffsets = () => {
+      offsets = computeOffsets();
+    };
+    const observerThresholds = Array.from(
+      { length: 101 },
+      (_, index) => index / 100,
+    );
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
-        const rootTop = entry.rootBounds?.top ?? 0;
-        const sentinelTop = entry.boundingClientRect.top;
         const sentinelBottom = entry.boundingClientRect.bottom;
-        if (!Number.isFinite(sentinelTop)) {
-          return;
-        }
         if (!Number.isFinite(sentinelBottom)) {
           return;
         }
-        const intersectionRatio = entry.intersectionRatio ?? 0;
+        const viewportTop = entry.rootBounds?.top ?? 0;
         setStatusBarPinned((prevPinned) => {
+          const { pinOffset, releaseOffset } = offsets;
+          const pinThreshold = viewportTop + pinOffset;
+          const releaseThreshold = viewportTop + releaseOffset;
+
           if (prevPinned) {
-            if (sentinelTop > rootTop + releaseOffset) {
+            if (sentinelBottom >= releaseThreshold) {
               return false;
             }
             return true;
           }
-          const fullyVisible = intersectionRatio >= 0.99;
-          if (!fullyVisible && sentinelBottom <= rootTop + pinOffset) {
+          if (sentinelBottom <= pinThreshold) {
             return true;
           }
-          return prevPinned;
+          return false;
         });
       },
-      { threshold: [0, 1] },
+      {
+        threshold: observerThresholds,
+      },
     );
     observer.observe(sentinel);
+    const supportsResizeObserver = typeof ResizeObserver === 'function';
+    const resizeObserver = supportsResizeObserver
+      ? new ResizeObserver(updateOffsets)
+      : null;
+    if (resizeObserver) {
+      resizeObserver.observe(statusBarEl);
+    }
+    window.addEventListener('resize', updateOffsets);
     return () => {
       observer.disconnect();
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      window.removeEventListener('resize', updateOffsets);
     };
   }, [reviewVersion, reviewAds.length]);
 
@@ -628,6 +677,40 @@ const Review = forwardRef(
     );
   }, [copyCards, modalCopies]);
 
+  const renderCopyModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-auto p-4">
+      <div className="flex max-h-[90vh] w-full max-w-[50rem] flex-col rounded-xl bg-white p-4 shadow dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Platform Copy</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => saveCopyCards(modalCopies)}
+              className={`btn-primary ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
+              disabled={!copyChanges}
+            >
+              Save
+            </button>
+            <button onClick={() => setShowCopyModal(false)} className="btn-secondary">
+              Close
+            </button>
+          </div>
+        </div>
+        <p className="mb-2 text-sm">
+          These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
+        </p>
+        <div className="flex-1 overflow-auto">
+          <CopyRecipePreview
+            onSave={saveCopyCards}
+            initialResults={copyCards}
+            showOnlyResults
+            hideBrandSelect
+            onCopiesChange={setModalCopies}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   const submitFeedback = async () => {
     if (!feedbackComment.trim() || !groupId) return;
     try {
@@ -663,7 +746,35 @@ const Review = forwardRef(
       }
     };
   }, [agencyId, userRole]);
+
+  const releaseLock = useCallback(() => {
+    if (!groupId || initialStatus === 'done') return;
+    const idx = currentIndexRef.current;
+    const len = reviewLengthRef.current;
+    const progress = idx >= len ? null : idx;
+    performGroupUpdate(
+      groupId,
+      {
+        reviewProgress: progress,
+      },
+      {
+        type: 'progress',
+        publicUpdate: { reviewProgress: progress },
+      },
+    ).catch(() => {});
+  }, [groupId, initialStatus, performGroupUpdate]);
+
   const navigate = useNavigate();
+  const handleExitReview = useCallback(() => {
+    releaseLock();
+    setStarted(false);
+    const candidate = (groupBrandCode || brandCodes?.[0] || '').trim();
+    if (candidate) {
+      navigate(`/${candidate}`);
+    } else {
+      navigate('/');
+    }
+  }, [brandCodes, groupBrandCode, navigate, releaseLock]);
   const [hasPending, setHasPending] = useState(false);
   const [pendingOnly, setPendingOnly] = useState(false);
   const [isMobile, setIsMobile] = useState(
@@ -841,23 +952,6 @@ useEffect(() => {
   initialStatus,
   performGroupUpdate,
 ]);
-
-  const releaseLock = useCallback(() => {
-    if (!groupId || initialStatus === 'done') return;
-    const idx = currentIndexRef.current;
-    const len = reviewLengthRef.current;
-    const progress = idx >= len ? null : idx;
-    performGroupUpdate(
-      groupId,
-      {
-        reviewProgress: progress,
-      },
-      {
-        type: 'progress',
-        publicUpdate: { reviewProgress: progress },
-      },
-    ).catch(() => {});
-  }, [groupId, initialStatus, performGroupUpdate]);
 
   useEffect(() => {
     if (!groupId) return;
@@ -1270,7 +1364,17 @@ useEffect(() => {
 
         if (rv === 2) {
           const uniqueVisibleDeduped = dedupeByAdUnit(visibleDeduped);
-          setAllAds(visibleAssets);
+          const reviewUnitKeys = new Set(
+            uniqueVisibleDeduped
+              .map((asset) => getAdUnitCandidateKey(asset))
+              .filter(Boolean),
+          );
+          const historyAssets = list.filter((a) => {
+            if (a.status !== 'pending') return true;
+            const key = getAdUnitCandidateKey(a);
+            return key && reviewUnitKeys.has(key);
+          });
+          setAllAds(historyAssets);
           setAds(uniqueVisibleDeduped);
           setAllHeroAds(uniqueVisibleDeduped);
           setReviewAds(uniqueVisibleDeduped);
@@ -1416,12 +1520,7 @@ useEffect(() => {
   }, [reviewAds]);
 
   useEffect(() => {
-    if (!agencyId) {
-      setLogoReady(true);
-      logoUrlRef.current = null;
-      return;
-    }
-    const url = agency.logoUrl || DEFAULT_LOGO_URL;
+    const url = reviewLogoUrl;
     if (!url) {
       setLogoReady(true);
       logoUrlRef.current = null;
@@ -1436,7 +1535,7 @@ useEffect(() => {
     img.onload = () => setLogoReady(true);
     img.onerror = () => setLogoReady(true);
     img.src = url;
-  }, [agencyId, agency.logoUrl]);
+  }, [reviewLogoUrl]);
 
   const currentAd = reviewAds[currentIndex];
   const currentAssetId = getAssetDocumentId(currentAd);
@@ -1479,6 +1578,12 @@ useEffect(() => {
   const displayAssetId = getAssetDocumentId(displayAd);
   const displayParentId = getAssetParentId(displayAd);
   const displayUnitId = getAssetUnitId(displayAd);
+  const displayVersion = getVersion(displayAd);
+  const hasMultipleVersions = versions.length > 1;
+  const hasDisplayVersion =
+    displayVersion !== null &&
+    displayVersion !== undefined &&
+    displayVersion !== '';
 
   useEffect(() => {
     setVersionIndex(0);
@@ -2199,9 +2304,7 @@ useEffect(() => {
     reviewAds.forEach((ad, idx) => {
       if (!ad) return;
       const cardKey = getAdKey(ad, idx);
-      const related = allAds.filter(
-        (asset) => asset.status !== 'archived' && isSameAdUnit(asset, ad),
-      );
+      const related = allAds.filter((asset) => isSameAdUnit(asset, ad));
       if (related.length === 0) {
         map[cardKey] = [[ad]];
         return;
@@ -2213,29 +2316,70 @@ useEffect(() => {
         verMap[ver].push(asset);
       });
       const groups = Object.values(verMap)
-        .map((group) =>
-          group
-            .filter((asset) => asset.status !== 'archived')
-            .sort((a, b) => {
-              const aspectA =
-                a.aspectRatio ||
-                parseAdFilename(a.filename || '').aspectRatio ||
-                '';
-              const aspectB =
-                b.aspectRatio ||
-                parseAdFilename(b.filename || '').aspectRatio ||
-                '';
-              return (
-                getReviewAspectPriority(aspectA) - getReviewAspectPriority(aspectB)
-              );
-            }),
-        )
+        .map((group) => {
+          const sorted = [...group].sort((a, b) => {
+            const aspectA =
+              a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
+            const aspectB =
+              b.aspectRatio || parseAdFilename(b.filename || '').aspectRatio || '';
+            return (
+              getReviewAspectPriority(aspectA) - getReviewAspectPriority(aspectB)
+            );
+          });
+          const nonArchived = sorted.filter((asset) => asset.status !== 'archived');
+          return nonArchived.length > 0 ? nonArchived : sorted;
+        })
         .filter((group) => group.length > 0)
         .sort((a, b) => getVersion(b[0]) - getVersion(a[0]));
       map[cardKey] = groups.length > 0 ? groups : [[ad]];
     });
     return map;
   }, [reviewAds, allAds]);
+
+  useEffect(() => {
+    setCardVersionIndices((prev) => {
+      if (!reviewAds || reviewAds.length === 0) {
+        return prev;
+      }
+
+      const next = {};
+      let changed = false;
+
+      reviewAds.forEach((ad, idx) => {
+        if (!ad) return;
+
+        const key = getAdKey(ad, idx);
+        const groups = versionGroupsByAd[key] && versionGroupsByAd[key].length > 0
+          ? versionGroupsByAd[key]
+          : [[ad]];
+        const groupCount = groups.length;
+        const prevIndex = prev[key] ?? 0;
+        const clampedIndex = Math.min(prevIndex, groupCount - 1);
+        const normalizedIndex = clampedIndex < 0 ? 0 : clampedIndex;
+
+        next[key] = normalizedIndex;
+
+        if (prevIndex !== normalizedIndex) {
+          changed = true;
+        }
+      });
+
+      const prevKeys = Object.keys(prev || {});
+      const nextKeys = Object.keys(next);
+      if (prevKeys.length !== nextKeys.length) {
+        changed = true;
+      } else if (!changed) {
+        for (const key of prevKeys) {
+          if (!(key in next)) {
+            changed = true;
+            break;
+          }
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [reviewAds, versionGroupsByAd]);
 
   const buildStatusMeta = useCallback(
     (ad, index) => {
@@ -2878,6 +3022,24 @@ useEffect(() => {
 
       await updateDoc(doc(db, 'adGroups', groupId), updateData);
 
+      const detailUrl = (() => {
+        if (typeof window === 'undefined') return undefined;
+        const origin = window.location?.origin || '';
+        const search = window.location?.search || '';
+        if (origin && groupId) {
+          return `${origin.replace(/\/$/, '')}/review/${groupId}${search}`;
+        }
+        return window.location?.href;
+      })();
+
+      await notifySlackStatusChange({
+        brandCode: groupBrandCode || brandCode || '',
+        adGroupId: groupId,
+        adGroupName: adGroupDisplayName,
+        status: 'reviewed',
+        url: detailUrl,
+      });
+
       if (isPublicReviewer) {
         try {
           await addDoc(collection(db, 'adGroups', groupId, 'publicUpdates'), {
@@ -2999,37 +3161,7 @@ useEffect(() => {
           </div>
         </div>
         {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
-        {showCopyModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
-            <div className="bg-white p-4 rounded-xl shadow max-w-[50rem] w-full max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-semibold">Platform Copy</h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => saveCopyCards(modalCopies)}
-                    className={`btn-primary ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
-                    disabled={!copyChanges}
-                  >
-                    Save
-                  </button>
-                  <button onClick={() => setShowCopyModal(false)} className="btn-secondary">Close</button>
-                </div>
-              </div>
-              <p className="text-sm mb-2">
-                These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
-              </p>
-              <div className="overflow-auto flex-1">
-                <CopyRecipePreview
-                  onSave={saveCopyCards}
-                  initialResults={copyCards}
-                  showOnlyResults
-                  hideBrandSelect
-                  onCopiesChange={setModalCopies}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        {showCopyModal && renderCopyModal()}
       </div>
     );
   }
@@ -3050,26 +3182,27 @@ useEffect(() => {
 
   if (pendingOnly) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
-          {agencyId && (
+      <div className="flex flex-col items-center justify-center space-y-4 text-center min-h-screen">
+          {reviewLogoUrl && (
             <OptimizedImage
-              pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-              alt={`${agency.name || 'Agency'} logo`}
+              pngUrl={reviewLogoUrl}
+              alt={reviewLogoAlt}
               loading="eager"
-              cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
+              cacheKey={reviewLogoUrl}
               onLoad={() => setLogoReady(true)}
               className="mb-2 max-h-16 w-auto"
             />
           )}
         <h1 className="text-2xl font-bold">Ads Pending Review</h1>
         <p className="text-lg">We'll notify you when your ads are ready.</p>
+        {showCopyModal && renderCopyModal()}
       </div>
     );
   }
 
 
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen space-y-4">
+    <div className="relative flex flex-col items-center justify-center space-y-4 min-h-screen">
       {showFinalizeModal && (
         <Modal>
           <div className="space-y-4">
@@ -3203,47 +3336,46 @@ useEffect(() => {
           </div>
         </div>
       )}
-      <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
-        <div className="flex flex-col items-center">
-          <div className="relative flex flex-col items-center w-fit mx-auto">
-          {agencyId && (
-            <OptimizedImage
-              pngUrl={agency.logoUrl || DEFAULT_LOGO_URL}
-              alt={`${agency.name || 'Agency'} logo`}
-              loading="eager"
-              cacheKey={agency.logoUrl || DEFAULT_LOGO_URL}
-              onLoad={() => setLogoReady(true)}
-              className="mb-2 max-h-16 w-auto"
-            />
-          )}
-        {/* Gallery view removed */}
-        {/* Show exit button even during change review */}
-        <div className="w-full max-w-md mb-2.5 flex items-center justify-between px-1">
-          <InfoTooltip text="exit review" placement="bottom">
-            <button
-              type="button"
-              onClick={() => {
-                releaseLock();
-                setStarted(false);
-              }}
-              aria-label="exit review"
-              className="text-gray-500 hover:text-black dark:hover:text-white"
-            >
-              <FiX />
-            </button>
-          </InfoTooltip>
-          <InfoTooltip text="leave overall feedback" placement="bottom">
-            <button
-              type="button"
-              aria-label="leave overall feedback"
-              onClick={() => setShowFeedbackModal(true)}
-              className="text-gray-500 hover:text-black dark:hover:text-white"
-            >
-              <FiMessageSquare />
-            </button>
-          </InfoTooltip>
+      <div className="flex w-full flex-col items-center">
+        <div className="flex w-full flex-col items-center">
+          <div className="w-full max-w-[712px] px-4 pt-6 pb-4 sm:px-6">
+            <div className="flex items-center justify-between gap-4">
+              <InfoTooltip text="exit review" placement="bottom">
+                <button
+                  type="button"
+                  onClick={handleExitReview}
+                  aria-label="exit review"
+                  className="text-gray-500 hover:text-black dark:hover:text-white"
+                >
+                  <FiX />
+                </button>
+              </InfoTooltip>
+              <div className="flex flex-1 justify-center">
+                {reviewLogoUrl && (
+                  <OptimizedImage
+                    pngUrl={reviewLogoUrl}
+                    alt={reviewLogoAlt}
+                    loading="eager"
+                    cacheKey={reviewLogoUrl}
+                    onLoad={() => setLogoReady(true)}
+                    className="max-h-16 w-auto"
+                  />
+                )}
+              </div>
+              <InfoTooltip text="leave overall feedback" placement="bottom">
+                <button
+                  type="button"
+                  aria-label="leave overall feedback"
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="text-gray-500 hover:text-black dark:hover:text-white"
+                >
+                  <FiMessageSquare />
+                </button>
+              </InfoTooltip>
+            </div>
+          </div>
         </div>
-        <div className="flex justify-center relative">
+        <div className="relative flex w-full justify-center px-2 sm:px-0">
           {reviewVersion === 3 ? (
             <div className="w-full max-w-5xl">
               <RecipePreview
@@ -3257,14 +3389,13 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="w-full max-w-5xl space-y-6 px-2 pt-2 sm:px-0">
+            <div className="relative w-full max-w-[712px] px-2 pt-2 sm:px-0">
               <div
                 ref={statusBarSentinelRef}
                 aria-hidden="true"
-                className="-mt-px h-px w-full opacity-0"
-                style={{ pointerEvents: 'none' }}
+                className="pointer-events-none absolute inset-x-0 -top-6 h-6"
               />
-              <div className="sticky top-0 z-20">
+              <div ref={statusBarRef} className="sticky top-0 z-20 mt-2">
                 <div
                   className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
                 >
@@ -3337,12 +3468,13 @@ useEffect(() => {
                   </div>
                 </div>
               </div>
-              {reviewAds.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-gray-300 dark:border-[var(--border-color-default)] bg-white dark:bg-[var(--dark-sidebar-bg)] p-8 text-center text-gray-500 dark:text-gray-300">
-                  No ads to review yet.
-                </div>
-              ) : (
-                reviewAds.map((ad, index) => {
+              <div className="mt-6 space-y-6">
+                {reviewAds.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-gray-300 dark:border-[var(--border-color-default)] bg-white dark:bg-[var(--dark-sidebar-bg)] p-8 text-center text-gray-500 dark:text-gray-300">
+                    No ads to review yet.
+                  </div>
+                ) : (
+                  reviewAds.map((ad, index) => {
                   const {
                     cardKey,
                     groups,
@@ -3350,12 +3482,31 @@ useEffect(() => {
                     statusAssets,
                     statusValue,
                   } = buildStatusMeta(ad, index);
-                  const primaryAssets =
+                  const fallbackAssets =
                     latestAssets && latestAssets.length > 0
                       ? latestAssets
                       : ad
                       ? [ad]
                       : [];
+                  const versionGroups =
+                    groups && groups.length > 0
+                      ? groups
+                      : fallbackAssets.length > 0
+                      ? [fallbackAssets]
+                      : [];
+                  const groupCount = versionGroups.length;
+                  const storedVersionIndex = cardVersionIndices[cardKey] ?? 0;
+                  const resolvedVersionIndex =
+                    groupCount > 0
+                      ? Math.min(storedVersionIndex, groupCount - 1)
+                      : 0;
+                  const safeVersionIndex =
+                    resolvedVersionIndex < 0 ? 0 : resolvedVersionIndex;
+                  const primaryAssets =
+                    versionGroups[safeVersionIndex] &&
+                    versionGroups[safeVersionIndex].length > 0
+                      ? versionGroups[safeVersionIndex]
+                      : fallbackAssets;
                   const getAssetAspect = (asset) =>
                     asset?.aspectRatio ||
                     parseAdFilename(asset?.filename || '').aspectRatio ||
@@ -3401,6 +3552,28 @@ useEffect(() => {
                     }));
                   })();
                   const showEditButton = !!hasEditInfo || statusValue === 'edit';
+                  const latestVersionAsset = latestAssets[0] || null;
+                  const latestVersionNumber = latestVersionAsset
+                    ? getVersion(latestVersionAsset)
+                    : null;
+                  const displayVersionAsset =
+                    primaryAssets[0] || latestVersionAsset;
+                  const displayVersionNumber = displayVersionAsset
+                    ? getVersion(displayVersionAsset)
+                    : latestVersionNumber;
+                  const hasMultipleVersions = versionGroups.length > 1;
+                  const handleVersionBadgeClick = () => {
+                    if (!hasMultipleVersions) {
+                      return;
+                    }
+                    setCardVersionIndices((prev) => {
+                      const currentIndex = prev[cardKey] ?? 0;
+                      const nextIndex =
+                        ((currentIndex % versionGroups.length) + 1) %
+                        versionGroups.length;
+                      return { ...prev, [cardKey]: nextIndex };
+                    });
+                  };
                   const isExpanded = !!expandedRequests[cardKey];
                   const recipeLabel =
                     ad.recipeCode ||
@@ -3457,20 +3630,31 @@ useEffect(() => {
                       className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
                       <div className="flex flex-col gap-4 p-4">
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
-                              {recipeLabel}
-                            </h3>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {groups.length > 1 && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                            {recipeLabel}
+                          </h3>
+                          {latestVersionNumber > 1 ? (
+                            hasMultipleVersions ? (
+                              <InfoTooltip text="Toggle between versions" placement="bottom">
+                                <button
+                                  type="button"
+                                  onClick={handleVersionBadgeClick}
+                                  className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                  aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                >
+                                  V{displayVersionNumber || latestVersionNumber}
+                                </button>
+                              </InfoTooltip>
+                            ) : (
                               <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                                V{getVersion(groups[0][0])}
+                                V{displayVersionNumber || latestVersionNumber}
                               </span>
-                            )}
-                          </div>
+                            )
+                          ) : null}
                         </div>
+                      </div>
                         <div className="space-y-4">
                           <div
                             className={`grid gap-3 items-start ${
@@ -3680,6 +3864,13 @@ useEffect(() => {
                   );
                 })
               )}
+              </div>
+              <div className="mt-6 px-4 pt-8 pb-12 text-center text-sm text-gray-500 dark:text-gray-300">
+                <p className="mb-2">Thank you for taking the time to review these!</p>
+                <p className="mb-0">
+                  When you are all set, just click Finalize Review so we can keep things moving.
+                </p>
+              </div>
             </div>
           ) : (
           <div
@@ -3740,8 +3931,8 @@ useEffect(() => {
       className="w-full h-full object-contain"
     />
   )}
-  {(getVersion(displayAd) > 1 || versions.length > 1) && (
-    versions.length > 1 ? (
+  {hasDisplayVersion && (
+    hasMultipleVersions ? (
       versions.length === 2 ? (
         <span
           onClick={() =>
@@ -3749,7 +3940,7 @@ useEffect(() => {
           }
           className="version-badge cursor-pointer"
         >
-          V{getVersion(displayAd)}
+          V{displayVersion}
         </span>
       ) : (
         <div className="absolute top-0 left-0">
@@ -3757,7 +3948,7 @@ useEffect(() => {
             onClick={() => setShowVersionMenu((o) => !o)}
             className="version-badge cursor-pointer select-none"
           >
-            V{getVersion(displayAd)}
+            V{displayVersion}
           </span>
           {showVersionMenu && (
             <div className="absolute left-0 top-full mt-1 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
@@ -3778,7 +3969,7 @@ useEffect(() => {
         </div>
       )
     ) : (
-      <span className="version-badge">V{getVersion(displayAd)}</span>
+      <span className="version-badge">V{displayVersion}</span>
     )
   )}
 </div>
@@ -3870,35 +4061,7 @@ useEffect(() => {
         />
       )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
-      {showCopyModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 overflow-auto p-4">
-          <div className="bg-white p-4 rounded-xl shadow max-w-[50rem] w-full overflow-auto max-h-[90vh] flex flex-col dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold">Platform Copy</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => saveCopyCards(modalCopies)}
-                  className={`btn-primary ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
-                  disabled={!copyChanges}
-                >
-                  Save
-                </button>
-                <button onClick={() => setShowCopyModal(false)} className="btn-secondary">Close</button>
-              </div>
-            </div>
-            <p className="text-sm mb-2">
-              These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
-            </p>
-            <CopyRecipePreview
-              onSave={saveCopyCards}
-              initialResults={copyCards}
-              showOnlyResults
-              hideBrandSelect
-              onCopiesChange={setModalCopies}
-            />
-          </div>
-        </div>
-      )}
+      {showCopyModal && renderCopyModal()}
       {showFeedbackModal && (
         <FeedbackModal
           comment={feedbackComment}
@@ -3908,8 +4071,6 @@ useEffect(() => {
           submitting={feedbackSubmitting}
         />
       )}
-      </div>
-    </div>
     </div>
   );
 });

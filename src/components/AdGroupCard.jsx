@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import {
   FiZap,
   FiGrid,
-  FiCheckCircle,
   FiThumbsUp,
   FiThumbsDown,
   FiEdit,
@@ -47,6 +46,7 @@ const AdGroupCard = ({
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
   const isAdmin = role === 'admin';
+  const hideStaff = role === 'client';
   const dueField =
     role === 'designer'
       ? group.designDueDate
@@ -58,6 +58,10 @@ const AdGroupCard = ({
   const reviewTypeLabel = isAdmin
     ? getReviewTypeLabel(group.reviewVersion ?? group.reviewType ?? 1)
     : null;
+  const unitCount =
+    group.unitCount ?? group.recipeCount ?? group.assetCount ?? 0;
+  const pendingTotal = group.pendingCount ?? 0;
+  const counts = group.counts || {};
 
   const handleClick = (e, cb) => {
     e.preventDefault();
@@ -194,12 +198,12 @@ const AdGroupCard = ({
             <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
               {group.brandCode}
             </p>
-            {group.designerName && role !== 'ops' && (
+            {group.designerName && role !== 'ops' && !hideStaff && (
               <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
                 {group.designerName}
               </p>
             )}
-            {group.editorName && role !== 'ops' && (
+            {group.editorName && role !== 'ops' && !hideStaff && (
               <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
                 {group.editorName}
               </p>
@@ -233,23 +237,23 @@ const AdGroupCard = ({
             </div>
             <div className="flex items-center justify-center gap-1 text-gray-600">
               <FiGrid />
-              <span>{group.assetCount}</span>
+              <span>{unitCount}</span>
             </div>
             <div className="flex items-center justify-center gap-1 text-accent">
-              <FiCheckCircle />
-              <span>{group.readyCount}</span>
+              <FiClock />
+              <span>{pendingTotal}</span>
             </div>
             <div className="flex items-center justify-center gap-1 text-approve">
               <FiThumbsUp />
-              <span>{group.counts.approved}</span>
+              <span>{counts.approved ?? 0}</span>
             </div>
             <div className="flex items-center justify-center gap-1 text-reject">
               <FiThumbsDown />
-              <span>{group.counts.rejected}</span>
+              <span>{counts.rejected ?? 0}</span>
             </div>
             <div className="flex items-center justify-center gap-1 text-edit">
               <FiEdit />
-              <span>{group.counts.edit}</span>
+              <span>{counts.edit ?? 0}</span>
             </div>
           </div>
         </div>

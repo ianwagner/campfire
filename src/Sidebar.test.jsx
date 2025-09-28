@@ -7,7 +7,7 @@ import SidebarBase from './components/SidebarBase';
 jest.mock('./firebase/config', () => ({ auth: {}, db: {} }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
 
-const tabs = [{ label: 'Projects', path: '/dashboard' }];
+const tabs = [{ label: 'Create', path: '/dashboard' }];
 
 test('sidebar has md width class', () => {
   const { container } = render(

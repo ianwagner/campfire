@@ -13,12 +13,14 @@ import Login from "./Login";
 import SignUpStepper from "./SignUpStepper.tsx";
 import DesignerSignUp from "./DesignerSignUp.tsx";
 import ReviewRoute from "./ReviewRoute";
+import PublicBrandDashboard from "./PublicBrandDashboard.jsx";
 import AdGroupDetail from "./AdGroupDetail";
 import DesignerDashboard from "./DesignerDashboard";
 import ClientDashboard from "./ClientDashboard";
 import ClientGallery from "./ClientGallery";
 import MediaLibrary from "./MediaLibrary";
 import ClientData from "./ClientData";
+import ClientAdGroups from "./ClientAdGroups";
 import AdminAdGroups from "./AdminAdGroups";
 import EditorAdGroups from "./EditorAdGroups";
 import AdminRequests from "./AdminRequests";
@@ -325,6 +327,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <ClientProjects brandCodes={brandCodes} />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/ad-groups"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <ClientAdGroups brandCodes={brandCodes} />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
@@ -1096,6 +1114,10 @@ const App = () => {
                   <Navigate to="/login" replace />
                 )
               }
+            />
+            <Route
+              path="/:brandCode"
+              element={<PublicBrandDashboard />}
             />
             <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

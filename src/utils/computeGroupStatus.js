@@ -4,49 +4,40 @@ export default function computeGroupStatus(
   inDesign = false,
   currentStatus,
 ) {
-  let normalized = currentStatus;
-  if (currentStatus === 'ready') normalized = 'designed';
-  else if (currentStatus === 'edit request') normalized = 'reviewed';
-  else if (currentStatus === 'pending') normalized = 'processing';
+  const manualStatuses = new Set([
+    'new',
+    'briefed',
+    'blocked',
+    'designed',
+    'reviewed',
+    'done',
+    'archived',
+  ]);
 
-  if (['archived', 'blocked'].includes(normalized)) return normalized;
-  if (normalized === 'briefed') return 'briefed';
+  const legacyMap = {
+    ready: 'designed',
+    in_design: 'designed',
+    'in design': 'designed',
+    edit_request: 'reviewed',
+    'edit request': 'reviewed',
+    edit_requested: 'reviewed',
+    pending: 'new',
+    processing: 'new',
+  };
 
-  const active = assets.filter((a) => a.status !== 'archived');
-  if (active.length === 0) {
-    return normalized ?? 'new';
+  if (!currentStatus) {
+    return 'new';
   }
 
-  const allReviewed = active.every((a) =>
-    ['approved', 'rejected'].includes(a.status),
-  );
-  if (allReviewed) {
-    if (normalized === 'reviewed') {
-      return 'reviewed';
-    }
-    return 'done';
+  const sanitized = String(currentStatus).trim().replace(/\s+/g, '_').toLowerCase();
+
+  if (legacyMap[sanitized]) {
+    return legacyMap[sanitized];
   }
 
-  if (normalized === 'reviewed') {
-    return 'reviewed';
+  if (manualStatuses.has(sanitized)) {
+    return sanitized;
   }
 
-  const hasReviewed = active.some((a) =>
-    ['approved', 'rejected'].includes(a.status),
-  );
-  if (hasReviewed) {
-    if (normalized && !['done', 'reviewed'].includes(normalized)) {
-      return normalized;
-    }
-    if (inDesign || normalized === 'designed') return 'designed';
-    return normalized ?? 'processing';
-  }
-
-  if (inDesign || normalized === 'designed') return 'designed';
-
-  if (normalized && !['done', 'reviewed'].includes(normalized)) {
-    return normalized;
-  }
-
-  return 'processing';
+  return 'new';
 }

@@ -64,6 +64,7 @@ import { deductRecipeCredits } from './utils/credits.js';
 import { uploadFile } from './uploadFile.js';
 import DueDateMonthSelector from './components/DueDateMonthSelector.jsx';
 import computeGroupStatus from './utils/computeGroupStatus';
+import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import parseAdFilename from './utils/parseAdFilename';
 import pickHeroAsset from './utils/pickHeroAsset';
 
@@ -87,7 +88,6 @@ const PlaceholderIcon = ({ ext }) => {
 const statusColorMap = {
   new: 'var(--pending-color)',
   pending: 'var(--pending-color)',
-  processing: 'var(--pending-color)',
   briefed: 'var(--pending-color)',
   ready: 'var(--accent-color)',
   approved: 'var(--approve-color)',
@@ -327,16 +327,51 @@ const ProjectDetail = () => {
       group?.status === 'designed',
       group?.status,
     );
-    if (newStatus !== group?.status) {
+    if (newStatus === group?.status) {
+      return;
+    }
+
+    const brandCode = group?.brandCode || project?.brandCode || '';
+    const adGroupName = group?.name || project?.title || '';
+    const detailUrl = (() => {
+      if (typeof window === 'undefined') return undefined;
+      const origin = window.location?.origin || '';
+      const search = window.location?.search || '';
+      if (origin && groupId) {
+        return `${origin.replace(/\/$/, '')}/review/${groupId}${search}`;
+      }
+      return window.location?.href;
+    })();
+
+    const updateStatus = async () => {
       try {
-        updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
+        await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
       } catch (err) {
         console.error('Failed to update group status', err);
       }
+
       setGroup((p) => (p ? { ...p, status: newStatus } : p));
       setProject((p) => (p ? { ...p, status: newStatus } : p));
-    }
-  }, [assets, groupId, group?.status]);
+
+      await notifySlackStatusChange({
+        brandCode,
+        adGroupId: groupId,
+        adGroupName,
+        status: newStatus,
+        url: detailUrl,
+      });
+    };
+
+    updateStatus();
+  }, [
+    assets,
+    groupId,
+    group?.status,
+    group?.brandCode,
+    group?.name,
+    project?.brandCode,
+    project?.title,
+  ]);
 
   const updateLayout = () => {
     if (typeof window === 'undefined') return;

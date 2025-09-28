@@ -410,10 +410,6 @@
     background-color: var(--pending-color-10);
     color: var(--pending-color);
   }
-  .status-processing {
-    background-color: var(--pending-color-10);
-    color: var(--pending-color);
-  }
   .status-briefed {
     background-color: var(--pending-color-10);
     color: var(--pending-color);
@@ -486,10 +482,6 @@
     background-color: var(--pending-color-10);
     color: var(--pending-color);
   }
-  .status-select.status-processing {
-    background-color: var(--pending-color-10);
-    color: var(--pending-color);
-  }
   .status-select.status-briefed {
     background-color: var(--pending-color-10);
     color: var(--pending-color);
@@ -543,25 +535,7 @@
     color: var(--edit-color);
   }
 
-  .processing-dots {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 3rem;
-    height: 1.5rem;
-    padding: 0 0.5rem;
-    background-color: var(--table-border-color);
-    border-radius: 9999px;
-  }
-
-  .processing-dots::after {
-    content: '...';
-    display: inline-block;
-    font-size: 1.25rem;
-    overflow: hidden;
-    width: 0;
-    animation: dots-ellipsis 1s steps(4, end) infinite;
-  }
+  
 }
 
 @keyframes dots-ellipsis {

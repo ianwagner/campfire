@@ -27,6 +27,7 @@ import {
   FiMoreHorizontal,
   FiMessageSquare,
   FiAlertTriangle,
+  FiPlay,
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
 import { FaMagic } from "react-icons/fa";
@@ -76,8 +77,10 @@ import TabButton from "./components/TabButton.jsx";
 import Table from "./components/common/Table";
 import stripVersion from "./utils/stripVersion";
 import summarizeByRecipe from "./utils/summarizeByRecipe";
+import aggregateRecipeStatusCounts from "./utils/aggregateRecipeStatusCounts";
 import FeedbackPanel from "./components/FeedbackPanel.jsx";
 import detectMissingRatios from "./utils/detectMissingRatios";
+import notifySlackStatusChange from "./utils/notifySlackStatusChange";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -200,6 +203,11 @@ const AdGroupDetail = () => {
   const menuRef = useRef(null);
   let hasApprovedV2 = false;
   const countsRef = useRef(null);
+  const slackStatusRef = useRef({
+    initialized: false,
+    previousStatus: null,
+    brandCode: null,
+  });
   const { role: userRole } = useUserRole(auth.currentUser?.uid);
   const location = useLocation();
   const isDesigner = userRole === "designer";
@@ -210,11 +218,23 @@ const AdGroupDetail = () => {
     userRole === "editor" ||
     userRole === "project-manager";
   const canManageStaff = isAdmin || (isManager && !isEditor);
+  const isAgency = userRole === "agency";
   const isClient = userRole === "client";
   const usesTabs = isAdmin || isDesigner || isManager || isClient;
+  const canEditBriefNote = isAdmin || isClient;
+  const canAddBriefAssets = isAdmin || isClient;
+  const canManageCopy = isAdmin || isManager || isClient;
+  const canUploadAds = isAdmin || isDesigner || isAgency;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
-  const showStats = usesTabs ? tab === "stats" : !showTable;
+  const showStats = usesTabs ? (!isClient && tab === "stats") : !showTable;
+
+  useEffect(() => {
+    if (!isClient) return;
+    if (!['brief', 'ads', 'copy', 'feedback'].includes(tab)) {
+      setTab('brief');
+    }
+  }, [isClient, tab]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -281,7 +301,7 @@ const AdGroupDetail = () => {
         base = "/dashboard/designer";
         break;
       case "client":
-        base = "/projects";
+        base = "/ad-groups";
         break;
       default:
         base = "/";
@@ -541,6 +561,42 @@ const AdGroupDetail = () => {
   }, [group]);
 
   useEffect(() => {
+    if (!group?.status || !group?.brandCode || !id) return;
+
+    const tracker = slackStatusRef.current;
+    if (tracker.brandCode !== group.brandCode) {
+      tracker.brandCode = group.brandCode;
+      tracker.initialized = false;
+      tracker.previousStatus = null;
+    }
+
+    const currentStatus = group.status;
+
+    if (!tracker.initialized) {
+      tracker.initialized = true;
+      tracker.previousStatus = currentStatus;
+      return;
+    }
+
+    if (tracker.previousStatus === currentStatus) {
+      return;
+    }
+
+    tracker.previousStatus = currentStatus;
+
+    if (!["designed", "reviewed"].includes(currentStatus)) {
+      return;
+    }
+
+    notifySlackStatusChange({
+      brandCode: group.brandCode,
+      adGroupId: id,
+      adGroupName: group.name || "",
+      status: currentStatus,
+    });
+  }, [group?.status, group?.brandCode, group?.name, id]);
+
+  useEffect(() => {
     if (!group) return;
     const summary = summarize(assets);
     const prev = countsRef.current || {};
@@ -629,19 +685,19 @@ const AdGroupDetail = () => {
   }, [recipesMeta]);
 
 
-  const statusCounts = useMemo(() => {
-    const counts = {
-      pending: 0,
-      ready: 0,
-      approved: 0,
-      rejected: 0,
-      edit_requested: 0,
-    };
-    assets.forEach((a) => {
-      if (counts[a.status] !== undefined) counts[a.status] += 1;
-    });
-    return counts;
-  }, [assets]);
+  const recipeStatusSummary = useMemo(() => {
+    const recipeIds = Object.keys(recipesMeta || {});
+    return aggregateRecipeStatusCounts(assets, recipeIds);
+  }, [assets, recipesMeta]);
+
+  const unitStatusCounts = recipeStatusSummary.statusCounts || {
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    edit_requested: 0,
+    archived: 0,
+  };
+  const unitCount = recipeStatusSummary.unitCount || 0;
 
   function getRecipeStatus(list) {
     const active = list.filter((a) => a.status !== "archived");
@@ -919,7 +975,7 @@ const AdGroupDetail = () => {
 
   const resetGroup = async () => {
     if (!group) return;
-    const confirmReset = window.confirm("Reset this group to processing?");
+    const confirmReset = window.confirm("Reset this group to New?");
     if (!confirmReset) return;
     try {
       const batch = writeBatch(db);
@@ -930,10 +986,10 @@ const AdGroupDetail = () => {
           lastUpdatedAt: serverTimestamp(),
         });
       });
-      batch.update(doc(db, "adGroups", id), { status: "processing" });
+      batch.update(doc(db, "adGroups", id), { status: "new" });
       await batch.commit();
       setAssets((prev) => prev.map((a) => ({ ...a, status: "pending" })));
-      setGroup((p) => ({ ...p, status: "processing" }));
+      setGroup((p) => ({ ...p, status: "new" }));
     } catch (err) {
       console.error("Failed to reset group", err);
     }
@@ -1152,11 +1208,11 @@ const AdGroupDetail = () => {
     if (!group) return;
     try {
       await updateDoc(doc(db, "adGroups", id), {
-        status: "processing",
+        status: "new",
         archivedAt: null,
         archivedBy: null,
       });
-      setGroup((p) => ({ ...p, status: "processing" }));
+      setGroup((p) => ({ ...p, status: "new" }));
     } catch (err) {
       console.error("Failed to restore group", err);
     }
@@ -1699,7 +1755,7 @@ const AdGroupDetail = () => {
         );
       });
       await batch.commit();
-      if (["pending", "processing", "new"].includes(group?.status)) {
+      if (["pending", "new"].includes(group?.status)) {
         try {
           await updateDoc(doc(db, "adGroups", id), { status: "briefed" });
           setGroup((prev) => ({ ...prev, status: "briefed" }));
@@ -1947,6 +2003,7 @@ const AdGroupDetail = () => {
           ),
         );
       }
+      setGroup((prev) => ({ ...prev, status: "designed" }));
     } catch (err) {
       console.error("Failed to mark designed", err);
     } finally {
@@ -2039,15 +2096,7 @@ const AdGroupDetail = () => {
     }
   };
 
-  const allStatusOptions = [
-    'new',
-    'processing',
-    'briefed',
-    'designed',
-    'reviewed',
-    'done',
-    'blocked',
-  ];
+  const allStatusOptions = ['new', 'briefed', 'designed', 'reviewed', 'done', 'blocked'];
 
   const editorStatusOptions = ['new', 'briefed', 'blocked'];
   const designerStatusOptions = ['briefed', 'designed', 'blocked'];
@@ -2323,6 +2372,8 @@ const AdGroupDetail = () => {
       (a) => a.status === "edit_requested" && (a.comment || a.copyEdit),
     );
 
+    const activeAds = g.assets.filter((a) => a.status !== "archived");
+
     const isAlt = idx % 2 === 1;
     return (
       <tbody key={g.recipeCode}>
@@ -2335,6 +2386,73 @@ const AdGroupDetail = () => {
             >
               <FiEye />
             </IconButton>
+          </td>
+          <td className="align-top">
+            {activeAds.length === 0 ? (
+              <span className="text-xs text-gray-500">No ads uploaded</span>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {activeAds.map((asset) => {
+                  const videoSource = asset.cdnUrl || asset.firebaseUrl || "";
+                  const isVideo = isVideoUrl(videoSource);
+                  const previewImage =
+                    asset.thumbnailUrl || (!isVideo ? videoSource : "");
+                  const hasPreviewAsset = Boolean(
+                    asset.thumbnailUrl || asset.firebaseUrl || asset.cdnUrl,
+                  );
+                  const aspectLabel = asset.aspectRatio
+                    ? String(asset.aspectRatio).toUpperCase()
+                    : "";
+                  return (
+                    <button
+                      type="button"
+                      key={asset.id || asset.filename}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (hasPreviewAsset) {
+                          setPreviewAsset({ ...asset });
+                        }
+                      }}
+                      disabled={!hasPreviewAsset}
+                      className={`relative group w-16 h-16 flex items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-100 focus:outline-none focus:ring-2 focus:ring-accent ${
+                        hasPreviewAsset
+                          ? "hover:ring-2 hover:ring-accent cursor-pointer"
+                          : "opacity-60 cursor-not-allowed"
+                      }`}
+                      title={asset.filename || undefined}
+                      aria-label={
+                        hasPreviewAsset
+                          ? `Preview ${asset.filename || "ad"}`
+                          : "Preview unavailable"
+                      }
+                    >
+                      {previewImage ? (
+                        <OptimizedImage
+                          pngUrl={previewImage}
+                          alt={asset.filename || "Ad thumbnail"}
+                          cacheKey={asset.id || previewImage}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="px-1 text-[10px] text-gray-600 text-center leading-tight">
+                          No preview
+                        </span>
+                      )}
+                      {isVideo && (
+                        <span className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 text-white">
+                          <FiPlay />
+                        </span>
+                      )}
+                      {aspectLabel && (
+                        <span className="absolute bottom-0 left-0 right-0 text-[10px] font-semibold text-white bg-black bg-opacity-60 px-1 py-0.5 leading-none">
+                          {aspectLabel}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </td>
           <td className="text-center">
             <StatusBadge status={getRecipeStatus(g.assets)} />
@@ -2587,9 +2705,10 @@ const AdGroupDetail = () => {
           </>
         )}
       </p>
-      <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
-        Designer:
-        {canManageStaff ? (
+      {!isClient && (
+        <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
+          Designer:
+          {canManageStaff ? (
           <select
             value={group.designerId || ''}
             onChange={async (e) => {
@@ -2707,7 +2826,8 @@ const AdGroupDetail = () => {
               : 'N/A'}
           </span>
         )}
-      </p>
+        </p>
+      )}
       {group.status === "archived" && (
         <p className="text-red-500 text-sm mb-2">
           This ad group is archived and read-only.
@@ -2716,40 +2836,63 @@ const AdGroupDetail = () => {
 
       <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center justify-between">
         <div className="flex flex-wrap gap-2">
-          <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
-            <FiBarChart2 size={18} />
-            Stats
-          </TabButton>
-          <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
-            <FiFileText size={18} />
-            Brief
-          </TabButton>
-        {(isAdmin || isManager || isClient) && (
-          <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
-            <FiType size={18} />
-            Platform Copy
-          </TabButton>
-        )}
-        <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
-          <FiFolder size={18} />
-          Brand Assets
-        </TabButton>
-        <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
-          <FiEye size={18} />
-          Ads
-        </TabButton>
-        {(isAdmin || isEditor || isDesigner || isManager) && (
-          <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
-            <FiMessageSquare size={18} />
-            Feedback
-          </TabButton>
-        )}
-        {group.status === 'blocked' && (
-          <TabButton active={tab === 'blocker'} onClick={() => setTab('blocker')}>
-            <FiAlertTriangle size={18} />
-            Blocker
-          </TabButton>
-        )}
+          {isClient ? (
+            <>
+              <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
+                <FiFileText size={18} />
+                Brief
+              </TabButton>
+              <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
+                <FiEye size={18} />
+                Ads
+              </TabButton>
+              <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
+                <FiType size={18} />
+                Platform Copy
+              </TabButton>
+              <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
+                <FiMessageSquare size={18} />
+                Feedback
+              </TabButton>
+            </>
+          ) : (
+            <>
+              <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
+                <FiBarChart2 size={18} />
+                Stats
+              </TabButton>
+              <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
+                <FiFileText size={18} />
+                Brief
+              </TabButton>
+              {canManageCopy && (
+                <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
+                  <FiType size={18} />
+                  Platform Copy
+                </TabButton>
+              )}
+              <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
+                <FiFolder size={18} />
+                Brand Assets
+              </TabButton>
+              <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
+                <FiEye size={18} />
+                Ads
+              </TabButton>
+              {(isAdmin || isEditor || isDesigner || isManager) && (
+                <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
+                  <FiMessageSquare size={18} />
+                  Feedback
+                </TabButton>
+              )}
+              {group.status === 'blocked' && (
+                <TabButton active={tab === 'blocker'} onClick={() => setTab('blocker')}>
+                  <FiAlertTriangle size={18} />
+                  Blocker
+                </TabButton>
+              )}
+            </>
+          )}
         </div>
         {(isAdmin || userRole === "agency" || isDesigner) ? (
           <div className="flex flex-wrap gap-2">
@@ -2870,6 +3013,27 @@ const AdGroupDetail = () => {
               </>
             )}
           </div>
+        ) : isClient ? (
+          <div className="flex flex-wrap gap-2">
+            <IconButton onClick={handleShare} aria-label="Share" className="bg-transparent">
+              <FiShare2 size={20} />
+            </IconButton>
+            <IconButton
+              as={Link}
+              to={`/review/${id}`}
+              aria-label="Review"
+              className="bg-transparent"
+            >
+              <FiBookOpen size={20} />
+            </IconButton>
+            <IconButton
+              onClick={() => setExportModal(true)}
+              aria-label="Download Approved"
+              className="bg-transparent"
+            >
+              <FiDownload size={20} />
+            </IconButton>
+          </div>
         ) : userRole === "editor" || userRole === "project-manager" ? (
           <div className="flex flex-wrap gap-2">
             <IconButton
@@ -2895,30 +3059,26 @@ const AdGroupDetail = () => {
               <p className="stat-card-value">{recipeCount}</p>
             </div>
             <div className="stat-card">
-              <p className="stat-card-title">Total Ads</p>
-              <p className="stat-card-value">{assets.length}</p>
+              <p className="stat-card-title">Ad Units</p>
+              <p className="stat-card-value">{unitCount}</p>
             </div>
           </div>
           <div className="flex flex-wrap justify-center gap-4 mb-4">
             <div className="stat-card status-pending">
               <p className="stat-card-title">Pending</p>
-              <p className="stat-card-value">{statusCounts.pending}</p>
-            </div>
-            <div className="stat-card status-ready">
-              <p className="stat-card-title">Ready</p>
-              <p className="stat-card-value">{statusCounts.ready}</p>
+              <p className="stat-card-value">{unitStatusCounts.pending}</p>
             </div>
             <div className="stat-card status-approved">
               <p className="stat-card-title">Approved</p>
-              <p className="stat-card-value">{statusCounts.approved}</p>
+              <p className="stat-card-value">{unitStatusCounts.approved}</p>
             </div>
             <div className="stat-card status-rejected">
               <p className="stat-card-title">Rejected</p>
-              <p className="stat-card-value">{statusCounts.rejected}</p>
+              <p className="stat-card-value">{unitStatusCounts.rejected}</p>
             </div>
             <div className="stat-card status-edit_requested">
               <p className="stat-card-title">Edit</p>
-              <p className="stat-card-value">{statusCounts.edit_requested}</p>
+              <p className="stat-card-value">{unitStatusCounts.edit_requested}</p>
             </div>
           </div>
         </>
@@ -2926,12 +3086,13 @@ const AdGroupDetail = () => {
 
       {(tableVisible || (showStats && specialGroups.length > 0)) && (
         <Table
-          columns={["25%", "20%", "40%", "15%"]}
+          columns={["18%", "32%", "15%", "25%", "10%"]}
           className="min-w-full"
         >
           <thead>
             <tr>
               <th>Recipe</th>
+              <th>Ads</th>
               <th>Status</th>
               <th>Edit Request</th>
               <th></th>
@@ -2964,7 +3125,7 @@ const AdGroupDetail = () => {
             )}
           </>
         )}
-        {usesTabs && tab === "ads" && group.status !== "archived" && (
+        {usesTabs && tab === "ads" && group.status !== "archived" && canUploadAds && (
           <button
             onClick={() => document.getElementById("upload-input").click()}
             className="btn-primary px-2 py-0.5 flex items-center gap-1 ml-2"
@@ -2978,7 +3139,7 @@ const AdGroupDetail = () => {
 
       {recipesTableVisible && (
         <div className="my-4">
-          {userRole === "admin" ? (
+          {canEditBriefNote ? (
             editingNotes ? (
               <>
                 <h4 className="font-medium mb-1">Brief Note:</h4>
@@ -3035,7 +3196,7 @@ const AdGroupDetail = () => {
               </>
             )
           )}
-          {userRole === "admin" && !group?.notes && !editingNotes && (
+          {canEditBriefNote && !group?.notes && !editingNotes && (
             <div className="mb-4">
               <IconButton
                 onClick={() => {
@@ -3069,7 +3230,7 @@ const AdGroupDetail = () => {
                     <FiDownload />
                     Download All
                   </IconButton>
-                  {userRole === "admin" && (
+                  {canAddBriefAssets && (
                     <>
                       <input
                         id="brief-upload"
@@ -3087,7 +3248,7 @@ const AdGroupDetail = () => {
                         }
                       >
                         <FiUpload />
-                        Upload
+                        Add Assets
                       </IconButton>
                     </>
                   )}
@@ -3183,7 +3344,7 @@ const AdGroupDetail = () => {
               </div>
             </>
           )}
-          {userRole === "admin" && briefAssets.length === 0 && (
+          {canAddBriefAssets && briefAssets.length === 0 && (
             <div className="mb-4">
               <input
                 id="brief-upload"
@@ -3208,6 +3369,7 @@ const AdGroupDetail = () => {
               onSelectChange={toggleRecipeSelect}
               onRecipesClick={() => setShowRecipes(true)}
               externalOnly
+              hideActions={isClient}
             />
           )}
           {(["admin", "editor", "project-manager"].includes(userRole)) &&
@@ -3221,32 +3383,28 @@ const AdGroupDetail = () => {
         </div>
       )}
 
-      {(isAdmin || isManager || isClient) && tab === 'copy' && (
+      {canManageCopy && tab === 'copy' && (
         <div className="my-4">
           {copyCards.length > 0 ? (
             <CopyRecipePreview
-              onSave={(isAdmin || isManager) ? saveCopyCards : undefined}
+              onSave={saveCopyCards}
               initialResults={copyCards}
               showOnlyResults
-              onCopyClick={(isAdmin || isManager) ? () => setShowCopyModal(true) : undefined}
+              onCopyClick={() => setShowCopyModal(true)}
               brandCode={group?.brandCode}
               hideBrandSelect
             />
           ) : (
-            (isAdmin || isManager) ? (
-              <div className="mt-4">
-                <IconButton onClick={() => setShowCopyModal(true)}>
-                  <FiType /> Platform Copy
-                </IconButton>
-              </div>
-            ) : (
-              <p className="mt-4">No platform copy available.</p>
-            )
+            <div className="mt-4">
+              <IconButton onClick={() => setShowCopyModal(true)}>
+                <FiType /> Platform Copy
+              </IconButton>
+            </div>
           )}
         </div>
       )}
 
-      {(isAdmin || isEditor || isDesigner || isManager) && tab === 'feedback' && (
+      {(isAdmin || isEditor || isDesigner || isManager || isClient) && tab === 'feedback' && (
         <div className="my-4">
           <FeedbackPanel entries={feedback} />
         </div>

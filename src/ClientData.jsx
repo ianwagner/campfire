@@ -595,6 +595,24 @@ const ClientData = ({ brandCodes = [] }) => {
     document.body.removeChild(link);
   };
 
+  const handleFilterWheel = (event) => {
+    if (event?.deltaY === 0 && event?.deltaX === 0) return;
+    if (typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+    if (typeof event.stopPropagation === 'function') {
+      event.stopPropagation();
+    }
+    if (event?.currentTarget && typeof event.currentTarget.blur === 'function') {
+      event.currentTarget.blur();
+    }
+    if (typeof window !== 'undefined' && typeof window.scrollBy === 'function') {
+      const top = Number.isFinite(event?.deltaY) ? event.deltaY : 0;
+      const left = Number.isFinite(event?.deltaX) ? event.deltaX : 0;
+      window.scrollBy({ top, left, behavior: 'auto' });
+    }
+  };
+
   return (
     <div className="min-h-screen p-4">
       <h1 className="text-2xl mb-4">Data</h1>
@@ -603,6 +621,7 @@ const ClientData = ({ brandCodes = [] }) => {
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
+            onWheel={handleFilterWheel}
             className="p-1 border rounded"
           >
             <option value="">Select Month Tag</option>
@@ -615,6 +634,7 @@ const ClientData = ({ brandCodes = [] }) => {
           <select
             value={dueMonth}
             onChange={(e) => setDueMonth(e.target.value)}
+            onWheel={handleFilterWheel}
             className="p-1 border rounded"
           >
             <option value="">Select Due Date Month</option>
@@ -627,6 +647,7 @@ const ClientData = ({ brandCodes = [] }) => {
           <select
             value={brand}
             onChange={(e) => setBrand(e.target.value)}
+            onWheel={handleFilterWheel}
             className="p-1 border rounded"
           >
             <option value="">Select Brand</option>

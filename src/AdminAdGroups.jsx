@@ -30,6 +30,7 @@ import { auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import parseAdFilename from './utils/parseAdFilename';
 import getUserName from './utils/getUserName';
+import aggregateRecipeStatusCounts from './utils/aggregateRecipeStatusCounts';
 import computeKanbanStatus from './utils/computeKanbanStatus';
 import generatePassword from './utils/generatePassword';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
@@ -101,41 +102,43 @@ const AdminAdGroups = () => {
             const data = d.data();
             let recipeCount = 0;
             let assetCount = 0;
-            let readyCount = 0;
-            let approvedCount = 0;
-            let archivedCount = 0;
-            let rejectedCount = 0;
-            let editCount = 0;
-            const set = new Set();
+            const recipeCodes = new Set();
+            let assets = [];
             try {
               const assetSnap = await getDocs(
                 collection(db, 'adGroups', d.id, 'assets')
               );
-              assetCount = assetSnap.docs.length;
-              assetSnap.docs.forEach((adDoc) => {
+              assets = assetSnap.docs.map((adDoc) => {
                 const adData = adDoc.data();
-                if (adData.status === 'ready') readyCount += 1;
-                if (adData.status === 'approved') approvedCount += 1;
-                if (adData.status === 'archived') archivedCount += 1;
-                if (adData.status === 'rejected') rejectedCount += 1;
-                if (adData.status === 'edit_requested') editCount += 1;
                 const code =
                   adData.recipeCode || parseAdFilename(adData.filename || '').recipeCode;
-                if (code) set.add(code);
+                if (code) recipeCodes.add(code);
+                return { id: adDoc.id, ...adData };
               });
+              assetCount = assets.length;
             } catch (err) {
               console.error('Failed to load assets', err);
             }
+
+            let recipeIds = Array.from(recipeCodes);
             try {
               const recipeSnap = await getDocs(
                 collection(db, 'adGroups', d.id, 'recipes')
               );
+              if (recipeSnap.docs.length > 0) {
+                recipeIds = recipeSnap.docs.map((docSnap) => docSnap.id);
+              }
               recipeCount =
-                recipeSnap.docs.length > 0 ? recipeSnap.docs.length : set.size;
+                recipeSnap.docs.length > 0 ? recipeSnap.docs.length : recipeCodes.size;
             } catch (err) {
               console.error('Failed to load recipes', err);
-              recipeCount = set.size;
+              recipeCount = recipeCodes.size;
             }
+
+            const { unitCount, statusCounts } = aggregateRecipeStatusCounts(
+              assets,
+              recipeIds,
+            );
 
             const designerName = data.designerId ? await getUserName(data.designerId) : '';
             const editorName = data.editorId ? await getUserName(data.editorId) : '';
@@ -143,14 +146,15 @@ const AdminAdGroups = () => {
             return {
               id: d.id,
               ...data,
-              recipeCount,
+              recipeCount: recipeCount || unitCount,
               assetCount,
-              readyCount,
+              unitCount,
+              pendingCount: statusCounts.pending,
               counts: {
-                approved: approvedCount,
-                archived: archivedCount,
-                rejected: rejectedCount,
-                edit: editCount,
+                approved: statusCounts.approved,
+                archived: statusCounts.archived,
+                rejected: statusCounts.rejected,
+                edit: statusCounts.edit_requested,
               },
               designerName,
               editorName,
@@ -238,12 +242,12 @@ const AdminAdGroups = () => {
   const handleRestoreGroup = async (groupId) => {
     try {
       await updateDoc(doc(db, 'adGroups', groupId), {
-        status: 'processing',
+        status: 'new',
         archivedAt: null,
         archivedBy: null,
       });
       setGroups((prev) =>
-        prev.map((g) => (g.id === groupId ? { ...g, status: 'processing' } : g))
+        prev.map((g) => (g.id === groupId ? { ...g, status: 'new' } : g))
       );
     } catch (err) {
       console.error('Failed to restore group', err);
@@ -420,12 +424,11 @@ const AdminAdGroups = () => {
   const statusOrder = {
     blocked: 0,
     new: 1,
-    processing: 2,
-    briefed: 3,
-    designed: 4,
-    reviewed: 5,
-    done: 6,
-    archived: 7,
+    briefed: 2,
+    designed: 3,
+    reviewed: 4,
+    done: 5,
+    archived: 6,
   };
 
   const kanbanColumns = [
