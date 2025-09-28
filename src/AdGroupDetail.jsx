@@ -27,6 +27,7 @@ import {
   FiMoreHorizontal,
   FiMessageSquare,
   FiAlertTriangle,
+  FiPlay,
 } from "react-icons/fi";
 import { Bubbles } from "lucide-react";
 import { FaMagic } from "react-icons/fa";
@@ -2366,6 +2367,8 @@ const AdGroupDetail = () => {
       (a) => a.status === "edit_requested" && (a.comment || a.copyEdit),
     );
 
+    const activeAds = g.assets.filter((a) => a.status !== "archived");
+
     const isAlt = idx % 2 === 1;
     return (
       <tbody key={g.recipeCode}>
@@ -2378,6 +2381,73 @@ const AdGroupDetail = () => {
             >
               <FiEye />
             </IconButton>
+          </td>
+          <td className="align-top">
+            {activeAds.length === 0 ? (
+              <span className="text-xs text-gray-500">No ads uploaded</span>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {activeAds.map((asset) => {
+                  const videoSource = asset.cdnUrl || asset.firebaseUrl || "";
+                  const isVideo = isVideoUrl(videoSource);
+                  const previewImage =
+                    asset.thumbnailUrl || (!isVideo ? videoSource : "");
+                  const hasPreviewAsset = Boolean(
+                    asset.thumbnailUrl || asset.firebaseUrl || asset.cdnUrl,
+                  );
+                  const aspectLabel = asset.aspectRatio
+                    ? String(asset.aspectRatio).toUpperCase()
+                    : "";
+                  return (
+                    <button
+                      type="button"
+                      key={asset.id || asset.filename}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (hasPreviewAsset) {
+                          setPreviewAsset({ ...asset });
+                        }
+                      }}
+                      disabled={!hasPreviewAsset}
+                      className={`relative group w-16 h-16 flex items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-100 focus:outline-none focus:ring-2 focus:ring-accent ${
+                        hasPreviewAsset
+                          ? "hover:ring-2 hover:ring-accent cursor-pointer"
+                          : "opacity-60 cursor-not-allowed"
+                      }`}
+                      title={asset.filename || undefined}
+                      aria-label={
+                        hasPreviewAsset
+                          ? `Preview ${asset.filename || "ad"}`
+                          : "Preview unavailable"
+                      }
+                    >
+                      {previewImage ? (
+                        <OptimizedImage
+                          pngUrl={previewImage}
+                          alt={asset.filename || "Ad thumbnail"}
+                          cacheKey={asset.id || previewImage}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="px-1 text-[10px] text-gray-600 text-center leading-tight">
+                          No preview
+                        </span>
+                      )}
+                      {isVideo && (
+                        <span className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 text-white">
+                          <FiPlay />
+                        </span>
+                      )}
+                      {aspectLabel && (
+                        <span className="absolute bottom-0 left-0 right-0 text-[10px] font-semibold text-white bg-black bg-opacity-60 px-1 py-0.5 leading-none">
+                          {aspectLabel}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </td>
           <td className="text-center">
             <StatusBadge status={getRecipeStatus(g.assets)} />
@@ -2969,12 +3039,13 @@ const AdGroupDetail = () => {
 
       {(tableVisible || (showStats && specialGroups.length > 0)) && (
         <Table
-          columns={["25%", "20%", "40%", "15%"]}
+          columns={["18%", "32%", "15%", "25%", "10%"]}
           className="min-w-full"
         >
           <thead>
             <tr>
               <th>Recipe</th>
+              <th>Ads</th>
               <th>Status</th>
               <th>Edit Request</th>
               <th></th>
