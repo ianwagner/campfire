@@ -2,12 +2,39 @@ import { onCall as onCallFn, HttpsError } from 'firebase-functions/v2/https';
 import { google } from 'googleapis';
 import sharp from 'sharp';
 import admin from 'firebase-admin';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 
 // Generates thumbnails for Drive files and supports shared drives via
 // supportsAllDrives on download calls.
 import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
+
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+
+const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv']);
+
+function looksLikeVideo(value) {
+  if (!value) return false;
+  const lower = value.split('?')[0].toLowerCase();
+  for (const ext of VIDEO_EXTENSIONS) {
+    if (lower.endsWith(`.${ext}`)) return true;
+  }
+  return false;
+}
+
+async function extractVideoFrame(inputPath, outputPath) {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .inputOptions(['-ss', '00:00:01'])
+      .outputOptions(['-frames:v 1'])
+      .output(outputPath)
+      .on('end', resolve)
+      .on('error', reject)
+      .run();
+  });
+}
 
 if (!admin.apps.length) {
   admin.initializeApp({
@@ -45,10 +72,30 @@ export const generateThumbnailsForAssets = onCallFn({ timeoutSeconds: 60, memory
   for (const asset of assets) {
     const { url, name } = asset || {};
     const result = { url, name };
+    const cleanupPaths = new Set();
     try {
       const fileId = extractFileId(url);
       if (!fileId) throw new Error('Invalid Drive URL');
+      let mimeType = '';
+      let fileExtension = '';
+      try {
+        const metaRes = await drive.files.get({
+          fileId,
+          fields: 'mimeType, fileExtension',
+          supportsAllDrives: true,
+        });
+        mimeType = metaRes.data?.mimeType || '';
+        fileExtension = metaRes.data?.fileExtension || '';
+      } catch (metaErr) {
+        console.warn('⚠️  Failed to load metadata for file, falling back to url checks', fileId, metaErr);
+      }
+      const isVideo =
+        mimeType.startsWith('video/') ||
+        VIDEO_EXTENSIONS.has(fileExtension.toLowerCase()) ||
+        looksLikeVideo(name) ||
+        looksLikeVideo(url);
       const tmp = path.join(os.tmpdir(), fileId);
+      cleanupPaths.add(tmp);
       const dl = await drive.files.get({
         fileId,
         alt: 'media',
@@ -56,25 +103,32 @@ export const generateThumbnailsForAssets = onCallFn({ timeoutSeconds: 60, memory
       }, { responseType: 'arraybuffer' });
       await fs.writeFile(tmp, Buffer.from(dl.data));
       let inputTmp = tmp;
-      const meta = await sharp(tmp).metadata().catch(() => ({}));
-      if (meta.format === 'tiff') {
-        const pngTmp = path.join(os.tmpdir(), `${fileId}.png`);
-        await sharp(tmp).toFormat('png').toFile(pngTmp);
-        await fs.unlink(tmp).catch(() => {});
-        inputTmp = pngTmp;
+      if (isVideo) {
+        const frameTmp = path.join(os.tmpdir(), `${fileId}-frame.jpg`);
+        cleanupPaths.add(frameTmp);
+        await extractVideoFrame(tmp, frameTmp);
+        inputTmp = frameTmp;
+      } else {
+        const meta = await sharp(tmp).metadata().catch(() => ({}));
+        if (meta.format === 'tiff') {
+          const pngTmp = path.join(os.tmpdir(), `${fileId}.png`);
+          cleanupPaths.add(pngTmp);
+          await sharp(tmp).toFormat('png').toFile(pngTmp);
+          inputTmp = pngTmp;
+        }
       }
       const thumbTmp = path.join(os.tmpdir(), `${fileId}.webp`);
+      cleanupPaths.add(thumbTmp);
       await sharp(inputTmp).resize({ width: 300 }).toFormat('webp').toFile(thumbTmp);
       const dest = `thumbnails/${name}.webp`;
       await bucket.upload(thumbTmp, { destination: dest, contentType: 'image/webp', resumable: false });
       await bucket.file(dest).makePublic();
       result.thumbnailUrl = `https://storage.googleapis.com/${bucket.name}/${dest}`;
-      if (inputTmp !== tmp) await fs.unlink(inputTmp).catch(() => {});
-      await fs.unlink(tmp).catch(() => {});
-      await fs.unlink(thumbTmp).catch(() => {});
     } catch (err) {
       console.error('Failed processing', name, err);
       result.error = err.message || 'error';
+    } finally {
+      await Promise.all([...cleanupPaths].map((p) => fs.unlink(p).catch(() => {})));
     }
     results.push(result);
   }
