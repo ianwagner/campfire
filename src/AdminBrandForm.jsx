@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencies from './useAgencies';
+import { generateUniquePublicSlug } from './utils/generatePublicSlug.js';
 
 const driveIdRegex = /^[\w-]{10,}$/;
 const isValidDriveId = (id) => driveIdRegex.test(id);
@@ -28,6 +29,7 @@ const AdminBrandForm = () => {
     }
     setLoading(true);
     try {
+      const publicSlug = await generateUniquePublicSlug(db);
       await addDoc(collection(db, 'brands'), {
         code: code.trim(),
         name: name.trim(),
@@ -43,6 +45,7 @@ const AdminBrandForm = () => {
         credits: 0,
         lastCreditReset: serverTimestamp(),
         stripeCustomerId: null,
+        publicDashboardSlug: publicSlug,
       });
       setCode('');
       setName('');
