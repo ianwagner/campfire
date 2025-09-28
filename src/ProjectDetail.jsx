@@ -334,8 +334,15 @@ const ProjectDetail = () => {
 
     const brandCode = group?.brandCode || project?.brandCode || '';
     const adGroupName = group?.name || project?.title || '';
-    const detailUrl =
-      typeof window === 'undefined' ? undefined : window.location?.href;
+    const detailUrl = (() => {
+      if (typeof window === 'undefined') return undefined;
+      const origin = window.location?.origin || '';
+      const search = window.location?.search || '';
+      if (origin && groupId) {
+        return `${origin.replace(/\/$/, '')}/review/${groupId}${search}`;
+      }
+      return window.location?.href;
+    })();
 
     const updateStatus = async () => {
       try {
