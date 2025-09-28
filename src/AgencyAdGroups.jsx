@@ -21,6 +21,7 @@ import deleteGroup from './utils/deleteGroup';
 import generatePassword from './utils/generatePassword';
 import parseAdFilename from './utils/parseAdFilename';
 import getUserName from './utils/getUserName';
+import aggregateRecipeStatusCounts from './utils/aggregateRecipeStatusCounts';
 import ShareLinkModal from './components/ShareLinkModal.jsx';
 import StatusBadge from './components/StatusBadge.jsx';
 import Table from './components/common/Table';
@@ -108,64 +109,67 @@ const AgencyAdGroups = ({ agencyId: propAgencyId, brandCodes: propBrandCodes = [
               return true;
             })
             .map(async (d) => {
-            const data = d.data();
-            let recipeCount = 0;
-            let assetCount = 0;
-            let readyCount = 0;
-            let approvedCount = 0;
-            let archivedCount = 0;
-            let rejectedCount = 0;
-            let editCount = 0;
-            const set = new Set();
-            try {
-              const assetSnap = await getDocs(
-                collection(db, 'adGroups', d.id, 'assets')
-              );
-              assetCount = assetSnap.docs.length;
-              assetSnap.docs.forEach((adDoc) => {
-                const adData = adDoc.data();
-                if (adData.status === 'ready') readyCount += 1;
-                if (adData.status === 'approved') approvedCount += 1;
-                if (adData.status === 'archived') archivedCount += 1;
-                if (adData.status === 'rejected') rejectedCount += 1;
-                if (adData.status === 'edit_requested') editCount += 1;
-                const code =
-                  adData.recipeCode || parseAdFilename(adData.filename || '').recipeCode;
-                if (code) set.add(code);
-              });
-            } catch (err) {
-              console.error('Failed to load assets', err);
-            }
-            try {
-              const recipeSnap = await getDocs(
-                collection(db, 'adGroups', d.id, 'recipes')
-              );
-              recipeCount =
-                recipeSnap.docs.length > 0 ? recipeSnap.docs.length : set.size;
-            } catch (err) {
-              console.error('Failed to load recipes', err);
-              recipeCount = set.size;
-            }
+              const data = d.data();
+              let recipeCount = 0;
+              let assetCount = 0;
+              const recipeCodes = new Set();
+              let assets = [];
+              try {
+                const assetSnap = await getDocs(
+                  collection(db, 'adGroups', d.id, 'assets')
+                );
+                assets = assetSnap.docs.map((adDoc) => {
+                  const adData = adDoc.data();
+                  const code =
+                    adData.recipeCode || parseAdFilename(adData.filename || '').recipeCode;
+                  if (code) recipeCodes.add(code);
+                  return { id: adDoc.id, ...adData };
+                });
+                assetCount = assets.length;
+              } catch (err) {
+                console.error('Failed to load assets', err);
+              }
 
-            const designerName = data.designerId ? await getUserName(data.designerId) : '';
-            const editorName = data.editorId ? await getUserName(data.editorId) : '';
+              let recipeIds = Array.from(recipeCodes);
+              try {
+                const recipeSnap = await getDocs(
+                  collection(db, 'adGroups', d.id, 'recipes')
+                );
+                if (recipeSnap.docs.length > 0) {
+                  recipeIds = recipeSnap.docs.map((docSnap) => docSnap.id);
+                }
+                recipeCount =
+                  recipeSnap.docs.length > 0 ? recipeSnap.docs.length : recipeCodes.size;
+              } catch (err) {
+                console.error('Failed to load recipes', err);
+                recipeCount = recipeCodes.size;
+              }
 
-            return {
-              id: d.id,
-              ...data,
-              recipeCount,
-              assetCount,
-              readyCount,
-              counts: {
-                approved: approvedCount,
-                archived: archivedCount,
-                rejected: rejectedCount,
-                edit: editCount,
-              },
-              designerName,
-              editorName,
-            };
-          })
+              const { unitCount, statusCounts } = aggregateRecipeStatusCounts(
+                assets,
+                recipeIds,
+              );
+
+              const designerName = data.designerId ? await getUserName(data.designerId) : '';
+              const editorName = data.editorId ? await getUserName(data.editorId) : '';
+
+              return {
+                id: d.id,
+                ...data,
+                recipeCount: recipeCount || unitCount,
+                assetCount,
+                unitCount,
+                readyCount: statusCounts.ready,
+                counts: {
+                  approved: statusCounts.approved,
+                  archived: statusCounts.archived,
+                  rejected: statusCounts.rejected,
+                  edit: statusCounts.edit_requested,
+                },
+                designerName,
+                editorName,
+              };
+            })
         );
         setGroups(list.filter((g) => g.status !== 'archived'));
       } catch (err) {
