@@ -348,14 +348,6 @@ const getDisplayAssetKey = (asset, index = 0) => {
   if (aspect) {
     return `aspect:${aspect}`;
   }
-  const unitId = getAssetUnitId(asset);
-  if (unitId) {
-    return `unit:${unitId}`;
-  }
-  const parentId = getAssetParentId(asset);
-  if (parentId) {
-    return `parent:${parentId}`;
-  }
   const docId = getAssetDocumentId(asset);
   if (docId) {
     return `doc:${docId}`;
@@ -363,6 +355,14 @@ const getDisplayAssetKey = (asset, index = 0) => {
   const urlKey = getAssetUrlKey(asset);
   if (urlKey) {
     return `url:${urlKey}`;
+  }
+  const unitId = getAssetUnitId(asset);
+  if (unitId) {
+    return `unit:${unitId}`;
+  }
+  const parentId = getAssetParentId(asset);
+  if (parentId) {
+    return `parent:${parentId}`;
   }
   return `fallback-${index}`;
 };
@@ -637,14 +637,14 @@ const Review = forwardRef(
           return;
         }
         const intersectionRatio = entry.intersectionRatio ?? 0;
+        const fullyVisible = intersectionRatio >= 0.99;
         setStatusBarPinned((prevPinned) => {
           if (prevPinned) {
-            if (sentinelTop > rootTop + releaseOffset) {
+            if (fullyVisible || sentinelTop > rootTop + releaseOffset) {
               return false;
             }
             return true;
           }
-          const fullyVisible = intersectionRatio >= 0.99;
           if (!fullyVisible && sentinelBottom <= rootTop + pinOffset) {
             return true;
           }
@@ -3373,16 +3373,20 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="w-full max-w-5xl space-y-6 px-2 pt-2 sm:px-0">
+            <div className="w-full max-w-5xl space-y-5 px-2 pt-1 sm:px-0">
               <div
                 ref={statusBarSentinelRef}
                 aria-hidden="true"
                 className="-mt-px h-px w-full opacity-0"
                 style={{ pointerEvents: 'none' }}
               />
-              <div className="sticky top-0 z-20">
+              <div
+                className={`sticky top-0 z-20 flex justify-center transition-all duration-200 ${
+                  statusBarPinned ? 'pt-2' : 'pt-3'
+                } px-2 sm:px-4`}
+              >
                 <div
-                  className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
+                  className={`w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
                 >
                   <div
                     className={`flex flex-col sm:flex-row sm:items-center sm:justify-between ${statusBarPinned ? 'gap-3' : 'gap-4'}`}
@@ -3632,7 +3636,7 @@ useEffect(() => {
                                   V{displayVersionNumber}
                                 </button>
                                 {canToggleVersions &&
-                                  groups.length > 2 &&
+                                  groups.length > 1 &&
                                   showVersionMenu && (
                                     <div className="absolute right-0 top-full z-20 mt-1 w-32 overflow-hidden rounded border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]">
                                       {groups.map((group, idx) => {
