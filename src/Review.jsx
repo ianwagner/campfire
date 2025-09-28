@@ -590,6 +590,10 @@ const Review = forwardRef(
     const updateOffsets = () => {
       offsets = computeOffsets();
     };
+    const observerThresholds = Array.from(
+      { length: 101 },
+      (_, index) => index / 100,
+    );
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
@@ -615,7 +619,9 @@ const Review = forwardRef(
           return false;
         });
       },
-      { threshold: [0, 1] },
+      {
+        threshold: observerThresholds,
+      },
     );
     observer.observe(sentinel);
     const supportsResizeObserver = typeof ResizeObserver === 'function';
