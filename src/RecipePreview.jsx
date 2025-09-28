@@ -1415,7 +1415,7 @@ const RecipePreview = ({
           }
           right={
             <>
-              {results.length > 0 && !hideActions && (
+              {results.length > 0 && !hideActions && userRole !== 'client' && (
                 <button
                   type="button"
                   className="btn-secondary"
