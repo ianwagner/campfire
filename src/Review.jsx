@@ -664,6 +664,24 @@ const Review = forwardRef(
       }
     };
   }, [agencyId, userRole]);
+
+  const releaseLock = useCallback(() => {
+    if (!groupId || initialStatus === 'done') return;
+    const idx = currentIndexRef.current;
+    const len = reviewLengthRef.current;
+    const progress = idx >= len ? null : idx;
+    performGroupUpdate(
+      groupId,
+      {
+        reviewProgress: progress,
+      },
+      {
+        type: 'progress',
+        publicUpdate: { reviewProgress: progress },
+      },
+    ).catch(() => {});
+  }, [groupId, initialStatus, performGroupUpdate]);
+
   const navigate = useNavigate();
   const handleExitReview = useCallback(() => {
     releaseLock();
@@ -852,23 +870,6 @@ useEffect(() => {
   initialStatus,
   performGroupUpdate,
 ]);
-
-  const releaseLock = useCallback(() => {
-    if (!groupId || initialStatus === 'done') return;
-    const idx = currentIndexRef.current;
-    const len = reviewLengthRef.current;
-    const progress = idx >= len ? null : idx;
-    performGroupUpdate(
-      groupId,
-      {
-        reviewProgress: progress,
-      },
-      {
-        type: 'progress',
-        publicUpdate: { reviewProgress: progress },
-      },
-    ).catch(() => {});
-  }, [groupId, initialStatus, performGroupUpdate]);
 
   useEffect(() => {
     if (!groupId) return;
