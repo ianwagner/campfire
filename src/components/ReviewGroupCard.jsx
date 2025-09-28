@@ -6,7 +6,7 @@ import parseAdFilename from '../utils/parseAdFilename.js';
 
 const BADGE_VARIANT_CLASSES = {
   info:
-    'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-100 border-blue-200 dark:border-blue-500/40',
+    'bg-[var(--accent-color-10)] text-[var(--accent-color)] dark:bg-[var(--accent-color-10)] dark:text-[var(--accent-color)] border-[var(--accent-color-10)] dark:border-[var(--accent-color-10)]',
   warning:
     'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-100 border-amber-200 dark:border-amber-500/30',
   neutral:
