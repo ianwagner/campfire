@@ -10,7 +10,6 @@ import React, {
   useCallback,
 } from 'react';
 import {
-  FiX,
   FiGrid,
   FiCheck,
   FiType,
@@ -18,6 +17,7 @@ import {
   FiPlus,
   FiEdit3,
   FiCheckCircle,
+  FiHome,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -55,6 +55,7 @@ import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
 import diffWords from './utils/diffWords';
 import LoadingOverlay from "./LoadingOverlay";
+import ThemeToggle from './ThemeToggle.jsx';
 import debugLog from './utils/debugLog';
 import useDebugTrace from './utils/useDebugTrace';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
@@ -3340,17 +3341,7 @@ useEffect(() => {
         <div className="flex w-full flex-col items-center">
           <div className="w-full max-w-[712px] px-4 pt-6 pb-4 sm:px-6">
             <div className="flex items-center justify-between gap-4">
-              <InfoTooltip text="exit review" placement="bottom">
-                <button
-                  type="button"
-                  onClick={handleExitReview}
-                  aria-label="exit review"
-                  className="text-gray-500 hover:text-black dark:hover:text-white"
-                >
-                  <FiX />
-                </button>
-              </InfoTooltip>
-              <div className="flex flex-1 justify-center">
+              <div className="flex flex-1 items-center">
                 {reviewLogoUrl && (
                   <OptimizedImage
                     pngUrl={reviewLogoUrl}
@@ -3362,16 +3353,51 @@ useEffect(() => {
                   />
                 )}
               </div>
-              <InfoTooltip text="leave overall feedback" placement="bottom">
-                <button
-                  type="button"
-                  aria-label="leave overall feedback"
-                  onClick={() => setShowFeedbackModal(true)}
-                  className="text-gray-500 hover:text-black dark:hover:text-white"
-                >
-                  <FiMessageSquare />
-                </button>
-              </InfoTooltip>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <InfoTooltip text="exit review" placement="bottom">
+                  <button
+                    type="button"
+                    onClick={handleExitReview}
+                    aria-label="exit review"
+                    className="btn-action"
+                  >
+                    <FiHome className="h-4 w-4" />
+                    <span className="hidden sm:inline">Exit Review</span>
+                  </button>
+                </InfoTooltip>
+                <InfoTooltip text="leave overall feedback" placement="bottom">
+                  <button
+                    type="button"
+                    aria-label="leave overall feedback"
+                    onClick={() => setShowFeedbackModal(true)}
+                    className="btn-action"
+                  >
+                    <FiMessageSquare className="h-4 w-4" />
+                    <span className="hidden sm:inline">Overall Feedback</span>
+                  </button>
+                </InfoTooltip>
+                <ThemeToggle className="btn-action !px-2 !py-1" />
+                {copyCards.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCopyModal(true)}
+                    className="btn-action"
+                  >
+                    <FiType className="h-4 w-4" />
+                    <span className="hidden sm:inline">Platform Copy</span>
+                  </button>
+                )}
+                {ads.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowGallery(true)}
+                    className="btn-action"
+                  >
+                    <FiGrid className="h-4 w-4" />
+                    <span className="hidden sm:inline">Ad Gallery</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
