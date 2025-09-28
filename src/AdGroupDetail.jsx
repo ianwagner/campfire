@@ -221,7 +221,14 @@ const AdGroupDetail = () => {
   const usesTabs = isAdmin || isDesigner || isManager || isClient;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
-  const showStats = usesTabs ? tab === "stats" : !showTable;
+  const showStats = usesTabs ? (!isClient && tab === "stats") : !showTable;
+
+  useEffect(() => {
+    if (!isClient) return;
+    if (!['brief', 'ads', 'copy', 'feedback'].includes(tab)) {
+      setTab('brief');
+    }
+  }, [isClient, tab]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -288,7 +295,7 @@ const AdGroupDetail = () => {
         base = "/dashboard/designer";
         break;
       case "client":
-        base = "/projects";
+        base = "/ad-groups";
         break;
       default:
         base = "/";
@@ -2692,9 +2699,10 @@ const AdGroupDetail = () => {
           </>
         )}
       </p>
-      <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
-        Designer:
-        {canManageStaff ? (
+      {!isClient && (
+        <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
+          Designer:
+          {canManageStaff ? (
           <select
             value={group.designerId || ''}
             onChange={async (e) => {
@@ -2812,7 +2820,8 @@ const AdGroupDetail = () => {
               : 'N/A'}
           </span>
         )}
-      </p>
+        </p>
+      )}
       {group.status === "archived" && (
         <p className="text-red-500 text-sm mb-2">
           This ad group is archived and read-only.
@@ -2821,40 +2830,63 @@ const AdGroupDetail = () => {
 
       <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center justify-between">
         <div className="flex flex-wrap gap-2">
-          <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
-            <FiBarChart2 size={18} />
-            Stats
-          </TabButton>
-          <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
-            <FiFileText size={18} />
-            Brief
-          </TabButton>
-        {(isAdmin || isManager || isClient) && (
-          <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
-            <FiType size={18} />
-            Platform Copy
-          </TabButton>
-        )}
-        <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
-          <FiFolder size={18} />
-          Brand Assets
-        </TabButton>
-        <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
-          <FiEye size={18} />
-          Ads
-        </TabButton>
-        {(isAdmin || isEditor || isDesigner || isManager) && (
-          <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
-            <FiMessageSquare size={18} />
-            Feedback
-          </TabButton>
-        )}
-        {group.status === 'blocked' && (
-          <TabButton active={tab === 'blocker'} onClick={() => setTab('blocker')}>
-            <FiAlertTriangle size={18} />
-            Blocker
-          </TabButton>
-        )}
+          {isClient ? (
+            <>
+              <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
+                <FiFileText size={18} />
+                Brief
+              </TabButton>
+              <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
+                <FiEye size={18} />
+                Ads
+              </TabButton>
+              <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
+                <FiType size={18} />
+                Platform Copy
+              </TabButton>
+              <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
+                <FiMessageSquare size={18} />
+                Feedback
+              </TabButton>
+            </>
+          ) : (
+            <>
+              <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
+                <FiBarChart2 size={18} />
+                Stats
+              </TabButton>
+              <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
+                <FiFileText size={18} />
+                Brief
+              </TabButton>
+              {(isAdmin || isManager) && (
+                <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
+                  <FiType size={18} />
+                  Platform Copy
+                </TabButton>
+              )}
+              <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
+                <FiFolder size={18} />
+                Brand Assets
+              </TabButton>
+              <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
+                <FiEye size={18} />
+                Ads
+              </TabButton>
+              {(isAdmin || isEditor || isDesigner || isManager) && (
+                <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
+                  <FiMessageSquare size={18} />
+                  Feedback
+                </TabButton>
+              )}
+              {group.status === 'blocked' && (
+                <TabButton active={tab === 'blocker'} onClick={() => setTab('blocker')}>
+                  <FiAlertTriangle size={18} />
+                  Blocker
+                </TabButton>
+              )}
+            </>
+          )}
         </div>
         {(isAdmin || userRole === "agency" || isDesigner) ? (
           <div className="flex flex-wrap gap-2">
@@ -2974,6 +3006,27 @@ const AdGroupDetail = () => {
                 )}
               </>
             )}
+          </div>
+        ) : isClient ? (
+          <div className="flex flex-wrap gap-2">
+            <IconButton onClick={handleShare} aria-label="Share" className="bg-transparent">
+              <FiShare2 size={20} />
+            </IconButton>
+            <IconButton
+              as={Link}
+              to={`/review/${id}`}
+              aria-label="Review"
+              className="bg-transparent"
+            >
+              <FiBookOpen size={20} />
+            </IconButton>
+            <IconButton
+              onClick={() => setExportModal(true)}
+              aria-label="Download Approved"
+              className="bg-transparent"
+            >
+              <FiDownload size={20} />
+            </IconButton>
           </div>
         ) : userRole === "editor" || userRole === "project-manager" ? (
           <div className="flex flex-wrap gap-2">
@@ -3352,7 +3405,7 @@ const AdGroupDetail = () => {
         </div>
       )}
 
-      {(isAdmin || isEditor || isDesigner || isManager) && tab === 'feedback' && (
+      {(isAdmin || isEditor || isDesigner || isManager || isClient) && tab === 'feedback' && (
         <div className="my-4">
           <FeedbackPanel entries={feedback} />
         </div>
