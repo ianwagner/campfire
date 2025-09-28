@@ -1288,12 +1288,12 @@ useEffect(() => {
         });
         const deduped = Object.values(versionMap);
 
-        const nonPendingAssets = list.filter((a) => a.status !== 'pending');
+        const visibleAssets = list.filter((a) => a.status !== 'archived');
         const visibleDeduped = deduped.filter((a) => a.status !== 'archived');
 
         if (rv === 2) {
           const uniqueVisibleDeduped = dedupeByAdUnit(visibleDeduped);
-          setAllAds(nonPendingAssets);
+          setAllAds(visibleAssets);
           setAds(uniqueVisibleDeduped);
           setAllHeroAds(uniqueVisibleDeduped);
           setReviewAds(uniqueVisibleDeduped);
@@ -3443,11 +3443,6 @@ useEffect(() => {
                     ad.recipeCode ||
                     parseAdFilename(ad.filename || '').recipeCode ||
                     'Ad Unit';
-                  const latestVersionAsset = groups[0]?.[0] || ad;
-                  const latestVersionNumber =
-                    (latestVersionAsset && getVersion(latestVersionAsset)) || 1;
-                  const showVersionChip =
-                    latestVersionNumber > 1 || groups.length > 1;
                   const selectId = `ad-status-${cardKey}`;
                   const handleSelectChange = async (event) => {
                     const value = event.target.value;
@@ -3500,13 +3495,15 @@ useEffect(() => {
                     >
                       <div className="flex flex-col gap-4 p-4">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div>
                             <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
                               {recipeLabel}
                             </h3>
-                            {showVersionChip && (
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {groups.length > 1 && (
                               <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                                V{latestVersionNumber}
+                                V{getVersion(groups[0][0])}
                               </span>
                             )}
                           </div>
@@ -3792,7 +3789,7 @@ useEffect(() => {
           V{getVersion(displayAd)}
         </span>
       ) : (
-        <div className="absolute top-0 right-0">
+        <div className="absolute top-0 left-0">
           <span
             onClick={() => setShowVersionMenu((o) => !o)}
             className="version-badge cursor-pointer select-none"
@@ -3800,7 +3797,7 @@ useEffect(() => {
             V{getVersion(displayAd)}
           </span>
           {showVersionMenu && (
-            <div className="absolute right-0 top-full mt-1 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
+            <div className="absolute left-0 top-full mt-1 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
               {versions.map((v, idx) => (
                 <button
                   key={idx}
