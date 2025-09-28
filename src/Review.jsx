@@ -3352,44 +3352,17 @@ useEffect(() => {
       <div className="flex w-full flex-col items-center">
         <div className="flex w-full flex-col items-center">
           <div className="w-full max-w-[712px] px-4 pt-6 pb-4 sm:px-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex flex-1 items-center">
-                {reviewLogoUrl && (
-                  <OptimizedImage
-                    pngUrl={reviewLogoUrl}
-                    alt={reviewLogoAlt}
-                    loading="eager"
-                    cacheKey={reviewLogoUrl}
-                    onLoad={() => setLogoReady(true)}
-                    className="max-h-16 w-auto"
-                  />
-                )}
-              </div>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <InfoTooltip text="Exit review" placement="bottom">
-                  <button
-                    type="button"
-                    onClick={handleExitReview}
-                    aria-label="exit review"
-                    className="btn-action"
-                  >
-                    <FiHome className="h-4 w-4" />
-                  </button>
-                </InfoTooltip>
-                <InfoTooltip text="Leave overall feedback" placement="bottom">
-                  <button
-                    type="button"
-                    aria-label="leave overall feedback"
-                    onClick={() => setShowFeedbackModal(true)}
-                    className="btn-action"
-                  >
-                    <FiMessageSquare className="h-4 w-4" />
-                  </button>
-                </InfoTooltip>
-                <InfoTooltip text="Toggle theme" placement="bottom">
-                  <ThemeToggle className="btn-action !px-2 !py-1" />
-                </InfoTooltip>
-              </div>
+            <div className="flex items-center justify-center">
+              {reviewLogoUrl && (
+                <OptimizedImage
+                  pngUrl={reviewLogoUrl}
+                  alt={reviewLogoAlt}
+                  loading="eager"
+                  cacheKey={reviewLogoUrl}
+                  onLoad={() => setLogoReady(true)}
+                  className="max-h-16 w-auto"
+                />
+              )}
             </div>
           </div>
         </div>
@@ -3451,31 +3424,56 @@ useEffect(() => {
                         })}
                       </div>
                     </div>
-                    <div className="flex items-center justify-end gap-2 sm:self-center">
-                      {copyCards.length > 0 && (
-                        <InfoTooltip text="View platform copy" placement="bottom">
+                    <div className="flex flex-col items-end gap-2 sm:self-center">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {copyCards.length > 0 && (
+                          <InfoTooltip text="View platform copy" placement="bottom">
+                            <button
+                              type="button"
+                              aria-label="view platform copy"
+                              onClick={() => setShowCopyModal(true)}
+                              className="btn-action !px-2 !py-1"
+                            >
+                              <FiType className="h-4 w-4" />
+                            </button>
+                          </InfoTooltip>
+                        )}
+                        {ads.length > 0 && (
+                          <InfoTooltip text="View ad gallery" placement="bottom">
+                            <button
+                              type="button"
+                              aria-label="view ad gallery"
+                              onClick={() => setShowGallery(true)}
+                              className="btn-action !px-2 !py-1"
+                            >
+                              <FiGrid className="h-4 w-4" />
+                            </button>
+                          </InfoTooltip>
+                        )}
+                        <InfoTooltip text="Exit review" placement="bottom">
                           <button
                             type="button"
-                            aria-label="view platform copy"
-                            onClick={() => setShowCopyModal(true)}
-                            className="btn-action !px-2 !py-1"
+                            onClick={handleExitReview}
+                            aria-label="exit review"
+                            className="btn-action"
                           >
-                            <FiType className="h-4 w-4" />
+                            <FiHome className="h-4 w-4" />
                           </button>
                         </InfoTooltip>
-                      )}
-                      {ads.length > 0 && (
-                        <InfoTooltip text="View ad gallery" placement="bottom">
+                        <InfoTooltip text="Leave overall feedback" placement="bottom">
                           <button
                             type="button"
-                            aria-label="view ad gallery"
-                            onClick={() => setShowGallery(true)}
-                            className="btn-action !px-2 !py-1"
+                            aria-label="leave overall feedback"
+                            onClick={() => setShowFeedbackModal(true)}
+                            className="btn-action"
                           >
-                            <FiGrid className="h-4 w-4" />
+                            <FiMessageSquare className="h-4 w-4" />
                           </button>
                         </InfoTooltip>
-                      )}
+                        <InfoTooltip text="Toggle theme" placement="bottom">
+                          <ThemeToggle className="btn-action !px-2 !py-1" />
+                        </InfoTooltip>
+                      </div>
                       {isGroupReviewed ? (
                         <span
                           className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 ${
