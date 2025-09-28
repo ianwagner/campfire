@@ -1277,12 +1277,12 @@ useEffect(() => {
         });
         const deduped = Object.values(versionMap);
 
-        const visibleAssets = list.filter((a) => a.status !== 'archived');
+        const nonPendingAssets = list.filter((a) => a.status !== 'pending');
         const visibleDeduped = deduped.filter((a) => a.status !== 'archived');
 
         if (rv === 2) {
           const uniqueVisibleDeduped = dedupeByAdUnit(visibleDeduped);
-          setAllAds(visibleAssets);
+          setAllAds(nonPendingAssets);
           setAds(uniqueVisibleDeduped);
           setAllHeroAds(uniqueVisibleDeduped);
           setReviewAds(uniqueVisibleDeduped);
@@ -1452,6 +1452,10 @@ useEffect(() => {
 
   const currentAd = reviewAds[currentIndex];
   const currentAssetId = getAssetDocumentId(currentAd);
+  const activeCardKey =
+    currentAd && typeof currentIndex === 'number'
+      ? getAdKey(currentAd, currentIndex)
+      : null;
   const versions = useMemo(() => {
     if (!currentAd) return [];
     const related = allAds.filter((a) => isSameAdUnit(a, currentAd));
@@ -1494,6 +1498,7 @@ useEffect(() => {
 
   useEffect(() => {
     setVersionIndex(0);
+    setShowVersionMenu(false);
   }, [currentAssetId]);
 
   const adUrl =
@@ -2211,9 +2216,7 @@ useEffect(() => {
     reviewAds.forEach((ad, idx) => {
       if (!ad) return;
       const cardKey = getAdKey(ad, idx);
-      const related = allAds.filter(
-        (asset) => asset.status !== 'archived' && isSameAdUnit(asset, ad),
-      );
+      const related = allAds.filter((asset) => isSameAdUnit(asset, ad));
       if (related.length === 0) {
         map[cardKey] = [[ad]];
         return;
@@ -2226,21 +2229,19 @@ useEffect(() => {
       });
       const groups = Object.values(verMap)
         .map((group) =>
-          group
-            .filter((asset) => asset.status !== 'archived')
-            .sort((a, b) => {
-              const aspectA =
-                a.aspectRatio ||
-                parseAdFilename(a.filename || '').aspectRatio ||
-                '';
-              const aspectB =
-                b.aspectRatio ||
-                parseAdFilename(b.filename || '').aspectRatio ||
-                '';
-              return (
-                getReviewAspectPriority(aspectA) - getReviewAspectPriority(aspectB)
-              );
-            }),
+          group.sort((a, b) => {
+            const aspectA =
+              a.aspectRatio ||
+              parseAdFilename(a.filename || '').aspectRatio ||
+              '';
+            const aspectB =
+              b.aspectRatio ||
+              parseAdFilename(b.filename || '').aspectRatio ||
+              '';
+            return (
+              getReviewAspectPriority(aspectA) - getReviewAspectPriority(aspectB)
+            );
+          }),
         )
         .filter((group) => group.length > 0)
         .sort((a, b) => getVersion(b[0]) - getVersion(a[0]));
@@ -2263,6 +2264,21 @@ useEffect(() => {
       const cardKey = getAdKey(ad, index);
       const groups = versionGroupsByAd[cardKey] || [[ad]];
       const latestAssets = groups[0] || [ad];
+      const selectedGroupIndex =
+        cardKey === activeCardKey && groups.length > 0
+          ? Math.min(Math.max(versionIndex, 0), groups.length - 1)
+          : 0;
+      const displayAssets =
+        groups[selectedGroupIndex] && groups[selectedGroupIndex].length > 0
+          ? groups[selectedGroupIndex]
+          : latestAssets;
+      const displayVersionAsset =
+        displayAssets[0] || latestAssets[0] || ad;
+      const displayVersionNumber =
+        (displayVersionAsset && getVersion(displayVersionAsset)) ||
+        (latestAssets[0] && getVersion(latestAssets[0])) ||
+        getVersion(ad) ||
+        1;
       const statusAssetsFiltered = latestAssets.filter((asset) =>
         isSameAdUnit(asset, ad),
       );
@@ -2304,11 +2320,19 @@ useEffect(() => {
         cardKey,
         groups,
         latestAssets,
+        displayAssets,
+        displayVersionNumber,
         statusAssets,
         statusValue: normalizedStatus,
       };
     },
-    [versionGroupsByAd, responses, manualStatus],
+    [
+      versionGroupsByAd,
+      responses,
+      manualStatus,
+      activeCardKey,
+      versionIndex,
+    ],
   );
 
   const reviewStatusCounts = useMemo(() => {
@@ -3374,11 +3398,15 @@ useEffect(() => {
                     cardKey,
                     groups,
                     latestAssets,
+                    displayAssets,
+                    displayVersionNumber,
                     statusAssets,
                     statusValue,
                   } = buildStatusMeta(ad, index);
                   const primaryAssets =
-                    latestAssets && latestAssets.length > 0
+                    displayAssets && displayAssets.length > 0
+                      ? displayAssets
+                      : latestAssets && latestAssets.length > 0
                       ? latestAssets
                       : ad
                       ? [ad]
@@ -3433,6 +3461,23 @@ useEffect(() => {
                     ad.recipeCode ||
                     parseAdFilename(ad.filename || '').recipeCode ||
                     'Ad Unit';
+                  const showVersionChip =
+                    displayVersionNumber > 1 || groups.length > 1;
+                  const isActiveCard = cardKey === activeCardKey;
+                  const canToggleVersions = isActiveCard && groups.length > 1;
+                  const totalVersionCount = versions.length || groups.length;
+                  const handleVersionChipClick = () => {
+                    if (!canToggleVersions) return;
+                    if (groups.length === 2) {
+                      setShowVersionMenu(false);
+                      setVersionIndex((prev) => {
+                        const total = Math.max(1, Math.min(groups.length, totalVersionCount));
+                        return total > 0 ? (prev + 1) % total : 0;
+                      });
+                      return;
+                    }
+                    setShowVersionMenu((open) => !open);
+                  };
                   const selectId = `ad-status-${cardKey}`;
                   const handleSelectChange = async (event) => {
                     const value = event.target.value;
@@ -3485,16 +3530,56 @@ useEffect(() => {
                     >
                       <div className="flex flex-col gap-4 p-4">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
+                          <div className="flex flex-wrap items-center gap-2">
                             <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
                               {recipeLabel}
                             </h3>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {groups.length > 1 && (
-                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                                V{getVersion(groups[0][0])}
-                              </span>
+                            {showVersionChip && (
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={handleVersionChipClick}
+                                  disabled={!canToggleVersions}
+                                  className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium transition-colors ${
+                                    canToggleVersions
+                                      ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]/80'
+                                      : 'bg-gray-100 text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200'
+                                  }`}
+                                >
+                                  V{displayVersionNumber}
+                                </button>
+                                {canToggleVersions &&
+                                  groups.length > 2 &&
+                                  showVersionMenu && (
+                                    <div className="absolute right-0 top-full z-20 mt-1 w-32 overflow-hidden rounded border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]">
+                                      {groups.map((group, idx) => {
+                                        const baseAsset = group[0] || ad;
+                                        const versionValue =
+                                          (baseAsset && getVersion(baseAsset)) || 1;
+                                        const isSelected =
+                                          Math.min(versionIndex, groups.length - 1) === idx;
+                                        return (
+                                          <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => {
+                                              const maxIndex = Math.max(0, Math.min(idx, versions.length - 1));
+                                              setVersionIndex(maxIndex);
+                                              setShowVersionMenu(false);
+                                            }}
+                                            className={`block w-full px-2 py-1 text-left text-sm ${
+                                              isSelected
+                                                ? 'bg-gray-100 font-semibold text-gray-900 dark:bg-[var(--dark-sidebar-hover)] dark:text-white'
+                                                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]'
+                                            }`}
+                                          >
+                                            V{versionValue}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -3766,47 +3851,6 @@ useEffect(() => {
       }
       className="w-full h-full object-contain"
     />
-  )}
-  {(getVersion(displayAd) > 1 || versions.length > 1) && (
-    versions.length > 1 ? (
-      versions.length === 2 ? (
-        <span
-          onClick={() =>
-            setVersionIndex((i) => (i + 1) % versions.length)
-          }
-          className="version-badge cursor-pointer"
-        >
-          V{getVersion(displayAd)}
-        </span>
-      ) : (
-        <div className="absolute top-0 left-0">
-          <span
-            onClick={() => setShowVersionMenu((o) => !o)}
-            className="version-badge cursor-pointer select-none"
-          >
-            V{getVersion(displayAd)}
-          </span>
-          {showVersionMenu && (
-            <div className="absolute left-0 top-full mt-1 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm">
-              {versions.map((v, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setVersionIndex(idx);
-                    setShowVersionMenu(false);
-                  }}
-                  className="block w-full text-left px-2 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]"
-                >
-                  V{getVersion(v[0])}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )
-    ) : (
-      <span className="version-badge">V{getVersion(displayAd)}</span>
-    )
   )}
 </div>
               {otherSizes.map((a, idx) => (

@@ -705,11 +705,6 @@
   @apply h-full bg-green-500 transition-all rounded-full;
 }
 
-.version-badge {
-  @apply absolute top-1 left-1 bg-black bg-opacity-60 text-white text-xs px-1 rounded;
-  z-index: 10;
-}
-
 /* simple card for displaying summary stats */
 .stat-card {
   @apply p-4 text-center bg-white rounded shadow w-32 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)];
