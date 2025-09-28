@@ -565,33 +565,29 @@ const Review = forwardRef(
       return;
     }
     // Add some hysteresis so the pinned state is stable even as the bar
-    // changes height when it condenses. The sentinel element is only a pixel
-    // tall, so rely on its bottom edge instead of the top to avoid the
+    // changes height when it condenses. The sentinel element is only a few
+    // pixels tall, so rely on its bottom edge instead of the top to avoid the
     // threshold getting stuck when scrolling slowly.
-    const pinOffset = 0;
-    const releaseOffset = 32;
+    const pinOffset = 8;
+    const releaseOffset = 48;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
-        const rootTop = entry.rootBounds?.top ?? 0;
-        const sentinelTop = entry.boundingClientRect.top;
         const sentinelBottom = entry.boundingClientRect.bottom;
-        if (!Number.isFinite(sentinelTop)) {
-          return;
-        }
         if (!Number.isFinite(sentinelBottom)) {
           return;
         }
         const intersectionRatio = entry.intersectionRatio ?? 0;
+        const viewportTop = entry.rootBounds?.top ?? 0;
         setStatusBarPinned((prevPinned) => {
           if (prevPinned) {
-            if (sentinelTop > rootTop + releaseOffset) {
+            if (sentinelBottom >= viewportTop + releaseOffset) {
               return false;
             }
             return true;
           }
           const fullyVisible = intersectionRatio >= 0.99;
-          if (!fullyVisible && sentinelBottom <= rootTop + pinOffset) {
+          if (!fullyVisible && sentinelBottom <= viewportTop + pinOffset) {
             return true;
           }
           return prevPinned;
@@ -3240,41 +3236,43 @@ useEffect(() => {
         </div>
       )}
       <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
-        <div className="flex flex-col items-center">
-          <div className="relative flex flex-col items-center w-fit mx-auto">
-          {reviewLogoUrl && (
-            <OptimizedImage
-              pngUrl={reviewLogoUrl}
-              alt={reviewLogoAlt}
-              loading="eager"
-              cacheKey={reviewLogoUrl}
-              onLoad={() => setLogoReady(true)}
-              className="mb-2 max-h-16 w-auto"
-            />
-          )}
-        {/* Gallery view removed */}
-        {/* Show exit button even during change review */}
-        <div className="w-full max-w-md mb-2.5 flex items-center justify-between px-1">
-          <InfoTooltip text="exit review" placement="bottom">
-            <button
-              type="button"
-              onClick={handleExitReview}
-              aria-label="exit review"
-              className="text-gray-500 hover:text-black dark:hover:text-white"
-            >
-              <FiX />
-            </button>
-          </InfoTooltip>
-          <InfoTooltip text="leave overall feedback" placement="bottom">
-            <button
-              type="button"
-              aria-label="leave overall feedback"
-              onClick={() => setShowFeedbackModal(true)}
-              className="text-gray-500 hover:text-black dark:hover:text-white"
-            >
-              <FiMessageSquare />
-            </button>
-          </InfoTooltip>
+        <div className="flex w-full flex-col items-center">
+          <div className="w-full max-w-md px-6 pt-6 pb-4">
+            <div className="flex items-center justify-between gap-4">
+              <InfoTooltip text="exit review" placement="bottom">
+                <button
+                  type="button"
+                  onClick={handleExitReview}
+                  aria-label="exit review"
+                  className="text-gray-500 hover:text-black dark:hover:text-white"
+                >
+                  <FiX />
+                </button>
+              </InfoTooltip>
+              <div className="flex flex-1 justify-center">
+                {reviewLogoUrl && (
+                  <OptimizedImage
+                    pngUrl={reviewLogoUrl}
+                    alt={reviewLogoAlt}
+                    loading="eager"
+                    cacheKey={reviewLogoUrl}
+                    onLoad={() => setLogoReady(true)}
+                    className="max-h-16 w-auto"
+                  />
+                )}
+              </div>
+              <InfoTooltip text="leave overall feedback" placement="bottom">
+                <button
+                  type="button"
+                  aria-label="leave overall feedback"
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="text-gray-500 hover:text-black dark:hover:text-white"
+                >
+                  <FiMessageSquare />
+                </button>
+              </InfoTooltip>
+            </div>
+          </div>
         </div>
         <div className="flex justify-center relative">
           {reviewVersion === 3 ? (
@@ -3294,7 +3292,7 @@ useEffect(() => {
               <div
                 ref={statusBarSentinelRef}
                 aria-hidden="true"
-                className="-mt-px h-px w-full opacity-0"
+                className="h-4 w-full opacity-0"
                 style={{ pointerEvents: 'none' }}
               />
               <div className="sticky top-0 z-20">
@@ -3434,6 +3432,28 @@ useEffect(() => {
                     }));
                   })();
                   const showEditButton = !!hasEditInfo || statusValue === 'edit';
+                  const latestVersionAsset = latestAssets[0] || null;
+                  const latestVersionNumber = latestVersionAsset
+                    ? getVersion(latestVersionAsset)
+                    : null;
+                  const previousGroup =
+                    groups.length > 1
+                      ? groups.find((group, idx) => idx > 0 && group.length > 0)
+                      : null;
+                  const previousVersionAsset =
+                    previousGroup && previousGroup.length > 0
+                      ? previousGroup[0]
+                      : null;
+                  const handleVersionBadgeClick = () => {
+                    if (!latestVersionAsset || !previousVersionAsset) {
+                      return;
+                    }
+                    setVersionView('current');
+                    setVersionModal({
+                      current: latestVersionAsset,
+                      previous: previousVersionAsset,
+                    });
+                  };
                   const isExpanded = !!expandedRequests[cardKey];
                   const recipeLabel =
                     ad.recipeCode ||
@@ -3490,20 +3510,31 @@ useEffect(() => {
                       className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
                       <div className="flex flex-col gap-4 p-4">
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
-                              {recipeLabel}
-                            </h3>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {groups.length > 1 && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                            {recipeLabel}
+                          </h3>
+                          {groups.length > 1 && latestVersionNumber ? (
+                            previousVersionAsset ? (
+                              <InfoTooltip text="View previous versions" placement="bottom">
+                                <button
+                                  type="button"
+                                  onClick={handleVersionBadgeClick}
+                                  className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                  aria-label="View previous versions"
+                                >
+                                  V{latestVersionNumber}
+                                </button>
+                              </InfoTooltip>
+                            ) : (
                               <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                                V{getVersion(groups[0][0])}
+                                V{latestVersionNumber}
                               </span>
-                            )}
-                          </div>
+                            )
+                          ) : null}
                         </div>
+                      </div>
                         <div className="space-y-4">
                           <div
                             className={`grid gap-3 items-start ${
@@ -3713,6 +3744,12 @@ useEffect(() => {
                   );
                 })
               )}
+              <div className="px-4 pt-8 pb-12 text-center text-sm text-gray-500 dark:text-gray-300">
+                <p className="mb-2">Thank you for taking the time to review these!</p>
+                <p className="mb-0">
+                  When you are all set, just click Finalize Review so we can keep things moving.
+                </p>
+              </div>
             </div>
           ) : (
           <div
