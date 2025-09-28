@@ -18,6 +18,13 @@ const statusBadgeLabels = {
   reviewed: "Reviewed",
 };
 
+const toDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === "function") return value.toDate();
+  return null;
+};
+
 const PublicBrandDashboard = () => {
   const { brandCode: brandParam = "" } = useParams();
   const codeCandidates = useMemo(() => {
@@ -135,25 +142,52 @@ const PublicBrandDashboard = () => {
                 }));
 
                 let totalAds = 0;
+                let unitCount = null;
                 try {
-                  const countSnap = await getCountFromServer(
-                    collection(db, "adGroups", docSnap.id, "assets")
+                  const unitCountSnap = await getCountFromServer(
+                    collection(db, "adGroups", docSnap.id, "adUnits")
                   );
-                  totalAds = countSnap.data().count || 0;
+                  unitCount = unitCountSnap.data().count ?? 0;
                 } catch (err) {
-                  console.error("Failed to count assets", err);
-                  totalAds =
-                    counts.approved +
-                    counts.reviewed +
-                    counts.edit +
-                    counts.rejected +
-                    counts.archived;
+                  console.error("Failed to count ad units", err);
                 }
 
+                if (unitCount !== null) {
+                  totalAds = unitCount;
+                } else {
+                  let recipeCount = null;
+                  try {
+                    const recipeCountSnap = await getCountFromServer(
+                      collection(db, "adGroups", docSnap.id, "recipes")
+                    );
+                    recipeCount = recipeCountSnap.data().count ?? 0;
+                  } catch (err) {
+                    console.error("Failed to count recipes", err);
+                  }
+
+                  if (recipeCount !== null) {
+                    totalAds = recipeCount;
+                  } else {
+                    try {
+                      const countSnap = await getCountFromServer(
+                        collection(db, "adGroups", docSnap.id, "assets")
+                      );
+                      totalAds = countSnap.data().count || 0;
+                    } catch (err) {
+                      console.error("Failed to count assets", err);
+                      totalAds =
+                        counts.approved +
+                        counts.reviewed +
+                        counts.edit +
+                        counts.rejected +
+                        counts.archived;
+                    }
+                  }
+                }
+
+                const createdAt = toDate(data.createdAt);
                 const updatedAt =
-                  (data.lastUpdated?.toDate && data.lastUpdated.toDate()) ||
-                  (data.createdAt?.toDate && data.createdAt.toDate()) ||
-                  null;
+                  toDate(data.lastUpdated) || toDate(data.updatedAt) || createdAt;
 
                 const showLogo =
                   previewAds.length === 0 ||
@@ -171,6 +205,7 @@ const PublicBrandDashboard = () => {
                   previewAds,
                   totalAds,
                   updatedAt,
+                  createdAt,
                   brandLogo,
                   showLogo,
                   statusLabel,
@@ -180,9 +215,22 @@ const PublicBrandDashboard = () => {
             );
             if (!cancelled) {
               list.sort((a, b) => {
-                const aTime = a.updatedAt ? a.updatedAt.getTime() : 0;
-                const bTime = b.updatedAt ? b.updatedAt.getTime() : 0;
-                return bTime - aTime;
+                const aPrimary = a.createdAt
+                  ? a.createdAt.getTime()
+                  : a.updatedAt
+                  ? a.updatedAt.getTime()
+                  : 0;
+                const bPrimary = b.createdAt
+                  ? b.createdAt.getTime()
+                  : b.updatedAt
+                  ? b.updatedAt.getTime()
+                  : 0;
+                if (bPrimary !== aPrimary) {
+                  return bPrimary - aPrimary;
+                }
+                const aUpdated = a.updatedAt ? a.updatedAt.getTime() : 0;
+                const bUpdated = b.updatedAt ? b.updatedAt.getTime() : 0;
+                return bUpdated - aUpdated;
               });
               setGroups(list);
               setGroupsLoading(false);
@@ -277,9 +325,6 @@ const PublicBrandDashboard = () => {
               {description && (
                 <p className="mt-2 max-w-xl text-base text-gray-600 dark:text-gray-300">{description}</p>
               )}
-              <p className="mt-3 text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                Public Review
-              </p>
             </div>
           </div>
         </div>

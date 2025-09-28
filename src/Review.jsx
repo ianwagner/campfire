@@ -665,6 +665,16 @@ const Review = forwardRef(
     };
   }, [agencyId, userRole]);
   const navigate = useNavigate();
+  const handleExitReview = useCallback(() => {
+    releaseLock();
+    setStarted(false);
+    const candidate = (groupBrandCode || brandCodes?.[0] || '').trim();
+    if (candidate) {
+      navigate(`/${candidate}`);
+    } else {
+      navigate('/');
+    }
+  }, [brandCodes, groupBrandCode, navigate, releaseLock]);
   const [hasPending, setHasPending] = useState(false);
   const [pendingOnly, setPendingOnly] = useState(false);
   const [isMobile, setIsMobile] = useState(
@@ -3241,10 +3251,7 @@ useEffect(() => {
           <InfoTooltip text="exit review" placement="bottom">
             <button
               type="button"
-              onClick={() => {
-                releaseLock();
-                setStarted(false);
-              }}
+              onClick={handleExitReview}
               aria-label="exit review"
               className="text-gray-500 hover:text-black dark:hover:text-white"
             >
