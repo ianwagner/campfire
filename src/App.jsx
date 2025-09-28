@@ -63,6 +63,7 @@ import PmAdGroups from "./PmAdGroups";
 import PmDashboard from "./PmDashboard";
 import PmRequests from "./PmRequests";
 import PmData from "./PmData";
+import PublicBrandDashboard from "./PublicBrandDashboard";
 import OpsContracts from "./OpsContracts";
 import OpsBrandContracts from "./OpsBrandContracts";
 import OpsClientProjects from "./OpsClientProjects";
@@ -1097,6 +1098,7 @@ const App = () => {
                 )
               }
             />
+            <Route path="/:brandCode" element={<PublicBrandDashboard />} />
             <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>

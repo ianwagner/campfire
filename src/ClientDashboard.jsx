@@ -70,11 +70,20 @@ const GroupCard = ({ group }) => {
   );
 };
 
-const ClientDashboard = ({ user, brandCodes = [] }) => {
+const ClientDashboard = ({
+  user,
+  brandCodes = [],
+  publicOnly = false,
+  allowAnonymous = false,
+  sortByMonth = false,
+  enableCreditCheck = true,
+  initialBrandLogos = {},
+  headerContent = null,
+}) => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasNegativeCredits, setHasNegativeCredits] = useState(false);
-  const [brandLogos, setBrandLogos] = useState({});
+  const [brandLogos, setBrandLogos] = useState(initialBrandLogos);
   const [filter, setFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
 
@@ -94,6 +103,14 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
   );
 
   useEffect(() => {
+    setBrandLogos((prev) => ({ ...prev, ...initialBrandLogos }));
+  }, [initialBrandLogos]);
+
+  useEffect(() => {
+    if (!enableCreditCheck) {
+      setHasNegativeCredits(false);
+      return;
+    }
     if (brandCodes.length === 0) {
       setHasNegativeCredits(false);
       setBrandLogos({});
@@ -121,10 +138,10 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
       }
     };
     checkCredits();
-  }, [brandCodes]);
+  }, [brandCodes, enableCreditCheck]);
 
   useEffect(() => {
-    if (!user?.uid || brandCodes.length === 0) {
+    if ((!allowAnonymous && !user?.uid) || brandCodes.length === 0) {
       setGroups([]);
       setLoading(false);
       return;
@@ -267,14 +284,30 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
             return group;
           })
         );
-          setGroups(
-            list.filter(
-              (g) =>
-                g.status !== 'archived' &&
-                (['designed', 'reviewed', 'done'].includes(g.status) ||
-                  g.visibility === 'public')
-            )
+          let filtered = list.filter(
+            (g) =>
+              g.status !== 'archived' &&
+              (['designed', 'reviewed', 'done'].includes(g.status) ||
+                g.visibility === 'public')
           );
+          if (publicOnly) {
+            filtered = filtered.filter((g) => g.visibility === 'public');
+          }
+          if (sortByMonth) {
+            filtered = [...filtered].sort((a, b) => {
+              const monthA = a.month || '';
+              const monthB = b.month || '';
+              if (monthA && monthB && monthA !== monthB) {
+                return monthB.localeCompare(monthA);
+              }
+              if (monthA && !monthB) return -1;
+              if (!monthA && monthB) return 1;
+              const timeA = a.lastUpdated?.getTime?.() || 0;
+              const timeB = b.lastUpdated?.getTime?.() || 0;
+              return timeB - timeA;
+            });
+          }
+          setGroups(filtered);
           setLoading(false);
         } catch (err) {
           console.error('Failed to fetch groups', err);
@@ -290,7 +323,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
     );
 
     return () => unsub();
-  }, [brandCodes, user]);
+  }, [allowAnonymous, brandCodes, publicOnly, sortByMonth, user]);
 
   useEffect(() => {
     if (Object.keys(brandLogos).length === 0) return;
@@ -304,6 +337,7 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
 
   return (
     <div className="min-h-screen p-4">
+      {headerContent}
       {hasNegativeCredits && (
         <div className="mb-4 rounded border border-red-200 bg-red-100 p-2 text-red-800">
           Your credit balance is negative. Please add more credits.
