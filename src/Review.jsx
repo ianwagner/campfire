@@ -340,6 +340,60 @@ const getReviewAspectPriority = (aspect) => {
   return idx === -1 ? REVIEW_V2_ASPECT_ORDER.length : idx;
 };
 
+const getDisplayAssetKey = (asset, index = 0) => {
+  if (!asset) return `fallback-${index}`;
+  const aspect = normalizeAspectKey(
+    asset.aspectRatio || parseAdFilename(asset.filename || '').aspectRatio || '',
+  );
+  if (aspect) {
+    return `aspect:${aspect}`;
+  }
+  const unitId = getAssetUnitId(asset);
+  if (unitId) {
+    return `unit:${unitId}`;
+  }
+  const parentId = getAssetParentId(asset);
+  if (parentId) {
+    return `parent:${parentId}`;
+  }
+  const docId = getAssetDocumentId(asset);
+  if (docId) {
+    return `doc:${docId}`;
+  }
+  const urlKey = getAssetUrlKey(asset);
+  if (urlKey) {
+    return `url:${urlKey}`;
+  }
+  return `fallback-${index}`;
+};
+
+const mergeVersionAssetsForDisplay = (groups = [], selectedIndex = 0) => {
+  if (!Array.isArray(groups) || groups.length === 0) {
+    return [];
+  }
+  const seen = new Set();
+  const result = [];
+  const addAsset = (asset) => {
+    if (!asset) return;
+    const key = getDisplayAssetKey(asset, result.length);
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    result.push(asset);
+  };
+  const clampedIndex = Number.isFinite(selectedIndex)
+    ? Math.min(Math.max(selectedIndex, 0), groups.length - 1)
+    : 0;
+  const primaryGroup = groups[clampedIndex] || [];
+  primaryGroup.forEach(addAsset);
+  groups.forEach((group, idx) => {
+    if (!Array.isArray(group) || idx === clampedIndex) return;
+    group.forEach(addAsset);
+  });
+  return result;
+};
+
 const compareRecipeCodes = (first, second) => {
   const a = normalizeKeyPart(first);
   const b = normalizeKeyPart(second);
@@ -2329,6 +2383,7 @@ useEffect(() => {
         displayAssets,
         displayVersionNumber,
         statusAssets,
+        selectedGroupIndex,
         statusValue: normalizedStatus,
       };
     },
@@ -3267,46 +3322,44 @@ useEffect(() => {
           </div>
         </div>
       )}
-      <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
-        <div className="flex flex-col items-center">
-          <div className="relative w-full flex justify-center">
-            <div className="flex w-full max-w-md items-center justify-between gap-4 px-1 pt-4 mb-2.5">
-              <InfoTooltip text="exit review" placement="bottom">
-                <button
-                  type="button"
-                  onClick={handleExitReview}
-                  aria-label="exit review"
-                  className="text-gray-500 hover:text-black dark:hover:text-white"
-                >
-                  <FiX />
-                </button>
-              </InfoTooltip>
-              <div className="flex flex-1 justify-center">
-                {reviewLogoUrl && (
-                  <OptimizedImage
-                    pngUrl={reviewLogoUrl}
-                    alt={reviewLogoAlt}
-                    loading="eager"
-                    cacheKey={reviewLogoUrl}
-                    onLoad={() => setLogoReady(true)}
-                    className="max-h-16 w-auto"
-                  />
-                )}
-              </div>
-              <InfoTooltip text="leave overall feedback" placement="bottom">
-                <button
-                  type="button"
-                  aria-label="leave overall feedback"
-                  onClick={() => setShowFeedbackModal(true)}
-                  className="text-gray-500 hover:text-black dark:hover:text-white"
-                >
-                  <FiMessageSquare />
-                </button>
-              </InfoTooltip>
+      <div className="flex w-full flex-col items-center gap-4 md:gap-6">
+        <div className="flex w-full justify-center">
+          <div className="flex w-full max-w-md items-center justify-between gap-4 px-1 pt-4 mb-2.5">
+            <InfoTooltip text="exit review" placement="bottom">
+              <button
+                type="button"
+                onClick={handleExitReview}
+                aria-label="exit review"
+                className="text-gray-500 hover:text-black dark:hover:text-white"
+              >
+                <FiX />
+              </button>
+            </InfoTooltip>
+            <div className="flex flex-1 justify-center">
+              {reviewLogoUrl && (
+                <OptimizedImage
+                  pngUrl={reviewLogoUrl}
+                  alt={reviewLogoAlt}
+                  loading="eager"
+                  cacheKey={reviewLogoUrl}
+                  onLoad={() => setLogoReady(true)}
+                  className="max-h-16 w-auto"
+                />
+              )}
             </div>
+            <InfoTooltip text="leave overall feedback" placement="bottom">
+              <button
+                type="button"
+                aria-label="leave overall feedback"
+                onClick={() => setShowFeedbackModal(true)}
+                className="text-gray-500 hover:text-black dark:hover:text-white"
+              >
+                <FiMessageSquare />
+              </button>
+            </InfoTooltip>
           </div>
         </div>
-        <div className="flex justify-center relative">
+        <div className="relative flex w-full justify-center">
           {reviewVersion === 3 ? (
             <div className="w-full max-w-5xl">
               <RecipePreview
@@ -3413,10 +3466,17 @@ useEffect(() => {
                     displayAssets,
                     displayVersionNumber,
                     statusAssets,
+                    selectedGroupIndex,
                     statusValue,
                   } = buildStatusMeta(ad, index);
+                  const mergedAssets = mergeVersionAssetsForDisplay(
+                    groups,
+                    selectedGroupIndex,
+                  );
                   const primaryAssets =
-                    displayAssets && displayAssets.length > 0
+                    mergedAssets && mergedAssets.length > 0
+                      ? mergedAssets
+                      : displayAssets && displayAssets.length > 0
                       ? displayAssets
                       : latestAssets && latestAssets.length > 0
                       ? latestAssets
@@ -3477,17 +3537,22 @@ useEffect(() => {
                     displayVersionNumber > 1 || groups.length > 1;
                   const isActiveCard = cardKey === activeCardKey;
                   const canToggleVersions = isActiveCard && groups.length > 1;
-                  const totalVersionCount = versions.length || groups.length;
+                  const totalVersionCount = groups.length;
                   const handleVersionChipClick = () => {
-                    if (!canToggleVersions) return;
-                    if (groups.length === 2) {
-                      setShowVersionMenu(false);
-                      setVersionIndex((prev) => {
-                        const total = Math.max(1, Math.min(groups.length, totalVersionCount));
-                        return total > 0 ? (prev + 1) % total : 0;
-                      });
+                    if (!canToggleVersions || totalVersionCount <= 1) {
                       return;
                     }
+                    setShowVersionMenu(false);
+                    setVersionIndex((prev) => {
+                      const total = Math.max(1, totalVersionCount);
+                      return total > 0 ? (prev + 1) % total : 0;
+                    });
+                  };
+                  const handleVersionChipContextMenu = (event) => {
+                    if (!canToggleVersions || totalVersionCount <= 1) {
+                      return;
+                    }
+                    event.preventDefault();
                     setShowVersionMenu((open) => !open);
                   };
                   const selectId = `ad-status-${cardKey}`;
@@ -3551,7 +3616,13 @@ useEffect(() => {
                                 <button
                                   type="button"
                                   onClick={handleVersionChipClick}
+                                  onContextMenu={handleVersionChipContextMenu}
                                   disabled={!canToggleVersions}
+                                  title={
+                                    canToggleVersions && groups.length > 1
+                                      ? 'Click to cycle through versions. Right-click to pick a version.'
+                                      : undefined
+                                  }
                                   className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium transition-colors ${
                                     canToggleVersions
                                       ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]/80'
