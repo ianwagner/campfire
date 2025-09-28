@@ -12,8 +12,15 @@ import {
 import { db } from "./firebase/config";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 import MonthTag from "./components/MonthTag.jsx";
-import StatusBadge from "./components/StatusBadge.jsx";
 import parseAdFilename from "./utils/parseAdFilename.js";
+
+const statusLabels = {
+  approved: "Approved",
+  reviewed: "In Review",
+  edit: "Needs Edits",
+  rejected: "Changes Requested",
+  archived: "Archived",
+};
 
 const GroupCard = ({ group }) => {
   const rotations = useMemo(
@@ -22,9 +29,8 @@ const GroupCard = ({ group }) => {
   );
 
   const showLogo =
-    typeof group.showLogo === "boolean"
-      ? group.showLogo
-      : group.previewAds.length === 0;
+    group.previewAds.length === 0 ||
+    group.previewAds.every((ad) => ad.status === "pending");
 
   const firstPreview = group.previewAds[0] || {};
   const parsed = parseAdFilename(firstPreview.filename || "");
@@ -36,9 +42,9 @@ const GroupCard = ({ group }) => {
     ? { aspectRatio: aspect, background: "#f3f4f6" }
     : { aspectRatio: aspect };
 
-  const totalUnits =
-    typeof group.totalUnits === "number" && !Number.isNaN(group.totalUnits)
-      ? group.totalUnits
+  const totalAds =
+    typeof group.totalAds === "number" && !Number.isNaN(group.totalAds)
+      ? group.totalAds
       : group.previewAds.length;
 
   const updatedLabel = group.updatedAt
@@ -49,15 +55,16 @@ const GroupCard = ({ group }) => {
       })
     : null;
 
+  const nonZeroCounts = Object.entries(group.counts).filter(
+    ([, value]) => value > 0
+  );
+
   return (
     <Link
       to={`/review/${group.id}`}
       className="group block rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
     >
-      <div
-        className="relative w-full overflow-hidden rounded-t-xl"
-        style={containerStyle}
-      >
+      <div className="relative w-full overflow-hidden rounded-t-xl" style={containerStyle}>
         {showLogo && group.brandLogo ? (
           <OptimizedImage
             pngUrl={group.brandLogo}
@@ -89,14 +96,25 @@ const GroupCard = ({ group }) => {
         <h3 className="text-lg font-semibold text-gray-900">{group.name}</h3>
         <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-sm text-gray-600">
           {group.month && <MonthTag month={group.month} />}
-          <span>{totalUnits} ad units</span>
-          {group.status && <StatusBadge status={group.status} className="text-xs" />}
+          <span>{totalAds} ads</span>
           {group.requirePassword && (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
               Password required
             </span>
           )}
         </div>
+        {nonZeroCounts.length > 0 && (
+          <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs text-gray-600">
+            {nonZeroCounts.map(([key, value]) => (
+              <span
+                key={key}
+                className="rounded-full bg-gray-100 px-2 py-0.5 font-medium"
+              >
+                {statusLabels[key] || key}: {value}
+              </span>
+            ))}
+          </div>
+        )}
         {updatedLabel && (
           <p className="mt-3 text-xs text-gray-500">Updated {updatedLabel}</p>
         )}
@@ -194,6 +212,14 @@ const PublicBrandDashboard = () => {
             const list = await Promise.all(
               snapshot.docs.map(async (docSnap) => {
                 const data = docSnap.data();
+                const counts = {
+                  approved: data.approvedCount || 0,
+                  reviewed: data.reviewedCount || 0,
+                  edit: data.editCount || 0,
+                  rejected: data.rejectedCount || 0,
+                  archived: data.archivedCount || 0,
+                };
+
                 let previewSnap;
                 try {
                   previewSnap = await getDocs(
@@ -213,40 +239,20 @@ const PublicBrandDashboard = () => {
                   ...adDoc.data(),
                 }));
 
-                const showLogo =
-                  previewAds.length === 0 ||
-                  previewAds.every((ad) => ad.status === "pending");
-
-                let totalUnits = 0;
+                let totalAds = 0;
                 try {
                   const countSnap = await getCountFromServer(
-                    collection(db, "adGroups", docSnap.id, "adUnits")
+                    collection(db, "adGroups", docSnap.id, "assets")
                   );
-                  totalUnits = countSnap.data().count || 0;
+                  totalAds = countSnap.data().count || 0;
                 } catch (err) {
-                  console.error("Failed to count ad units", err);
-                  const fallbackCandidates = [
-                    data.adUnitCount,
-                    data.totalAdUnits,
-                    data.totalAds,
-                    data.assetCount,
-                  ];
-                  const fallbackValue = fallbackCandidates.find(
-                    (val) => typeof val === "number" && !Number.isNaN(val)
-                  );
-                  if (typeof fallbackValue === "number") {
-                    totalUnits = fallbackValue;
-                  } else {
-                    try {
-                      const assetCountSnap = await getCountFromServer(
-                        collection(db, "adGroups", docSnap.id, "assets")
-                      );
-                      totalUnits = assetCountSnap.data().count || 0;
-                    } catch (assetErr) {
-                      console.error("Failed to count assets", assetErr);
-                      totalUnits = previewAds.length;
-                    }
-                  }
+                  console.error("Failed to count assets", err);
+                  totalAds =
+                    counts.approved +
+                    counts.reviewed +
+                    counts.edit +
+                    counts.rejected +
+                    counts.archived;
                 }
 
                 const updatedAt =
@@ -259,12 +265,11 @@ const PublicBrandDashboard = () => {
                   name: data.name || "Untitled Review",
                   month: data.month || "",
                   previewAds,
-                  totalUnits,
+                  counts,
+                  totalAds,
                   updatedAt,
                   requirePassword: !!data.requirePassword,
                   brandLogo,
-                  status: data.status || "",
-                  showLogo,
                 };
               })
             );
@@ -344,17 +349,6 @@ const PublicBrandDashboard = () => {
   const title = brand?.name || brand?.code || brandParam;
   const description = brand?.offering || brand?.tagline || "";
 
-  useEffect(() => {
-    if (typeof document === "undefined") return undefined;
-    const previousTitle = document.title;
-    document.title = title
-      ? `${title} · Public Dashboard`
-      : "Public Dashboard";
-    return () => {
-      document.title = previousTitle;
-    };
-  }, [title]);
-
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
@@ -373,7 +367,7 @@ const PublicBrandDashboard = () => {
                 <p className="mt-2 max-w-xl text-base text-gray-600">{description}</p>
               )}
               <p className="mt-3 text-sm uppercase tracking-wide text-gray-500">
-                Public Dashboard
+                Public Review Dashboard
               </p>
             </div>
           </div>
