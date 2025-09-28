@@ -571,10 +571,10 @@ const Review = forwardRef(
       return;
     }
     // Add some hysteresis so the pinned state is stable even as the bar
-    // changes height when it condenses. The sentinel element is only a few
-    // pixels tall, so rely on its bottom edge instead of the top to avoid the
-    // threshold getting stuck when scrolling slowly.
-    const pinOffset = 8;
+    // changes height when it condenses. Use the sentinel's bottom edge, which
+    // aligns with the top edge of the status bar, so we can pin exactly when
+    // the bar reaches the top of the viewport.
+    const pinOffset = 0;
     const releaseOffset = 16;
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -583,19 +583,21 @@ const Review = forwardRef(
         if (!Number.isFinite(sentinelBottom)) {
           return;
         }
-        const intersectionRatio = entry.intersectionRatio ?? 0;
         const viewportTop = entry.rootBounds?.top ?? 0;
         setStatusBarPinned((prevPinned) => {
           const pinThreshold = viewportTop + pinOffset;
           const releaseThreshold = viewportTop + releaseOffset;
 
-          if (entry.isIntersecting || sentinelBottom >= releaseThreshold) {
-            return false;
-          }
-          if (sentinelBottom <= pinThreshold || intersectionRatio <= 0) {
+          if (prevPinned) {
+            if (sentinelBottom >= releaseThreshold) {
+              return false;
+            }
             return true;
           }
-          return prevPinned;
+          if (sentinelBottom <= pinThreshold) {
+            return true;
+          }
+          return false;
         });
       },
       { threshold: [0, 1] },
@@ -3535,7 +3537,7 @@ useEffect(() => {
                           <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
                             {recipeLabel}
                           </h3>
-                          {groups.length > 1 && latestVersionNumber ? (
+                          {latestVersionNumber > 1 ? (
                             previousVersionAsset ? (
                               <InfoTooltip text="View previous versions" placement="bottom">
                                 <button
