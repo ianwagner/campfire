@@ -687,7 +687,6 @@ const AdGroupDetail = () => {
 
   const unitStatusCounts = recipeStatusSummary.statusCounts || {
     pending: 0,
-    ready: 0,
     approved: 0,
     rejected: 0,
     edit_requested: 0,
@@ -3063,10 +3062,6 @@ const AdGroupDetail = () => {
             <div className="stat-card status-pending">
               <p className="stat-card-title">Pending</p>
               <p className="stat-card-value">{unitStatusCounts.pending}</p>
-            </div>
-            <div className="stat-card status-ready">
-              <p className="stat-card-title">Ready</p>
-              <p className="stat-card-value">{unitStatusCounts.ready}</p>
             </div>
             <div className="stat-card status-approved">
               <p className="stat-card-title">Approved</p>

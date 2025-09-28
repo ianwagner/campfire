@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import {
   FiZap,
   FiGrid,
-  FiCheckCircle,
   FiThumbsUp,
   FiThumbsDown,
   FiEdit,
@@ -61,7 +60,7 @@ const AdGroupCard = ({
     : null;
   const unitCount =
     group.unitCount ?? group.recipeCount ?? group.assetCount ?? 0;
-  const readyTotal = group.readyCount ?? 0;
+  const pendingTotal = group.pendingCount ?? 0;
   const counts = group.counts || {};
 
   const handleClick = (e, cb) => {
@@ -241,8 +240,8 @@ const AdGroupCard = ({
               <span>{unitCount}</span>
             </div>
             <div className="flex items-center justify-center gap-1 text-accent">
-              <FiCheckCircle />
-              <span>{readyTotal}</span>
+              <FiClock />
+              <span>{pendingTotal}</span>
             </div>
             <div className="flex items-center justify-center gap-1 text-approve">
               <FiThumbsUp />
