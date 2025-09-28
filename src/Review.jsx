@@ -428,7 +428,9 @@ const Review = forwardRef(
   const [manualStatus, setManualStatus] = useState({});
   const statusBarSentinelRef = useRef(null);
   const statusBarRef = useRef(null);
+  const toolbarRef = useRef(null);
   const [statusBarPinned, setStatusBarPinned] = useState(false);
+  const [toolbarOffset, setToolbarOffset] = useState(0);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -567,10 +569,12 @@ const Review = forwardRef(
   useEffect(() => {
     if (reviewVersion !== 2) {
       setStatusBarPinned(false);
+      setToolbarOffset(0);
       return;
     }
     if (typeof window === 'undefined' || typeof IntersectionObserver !== 'function') {
       setStatusBarPinned(false);
+      setToolbarOffset(0);
       return;
     }
     const sentinel = statusBarSentinelRef.current;
@@ -647,6 +651,68 @@ const Review = forwardRef(
       window.removeEventListener('resize', updateOffsets);
     };
   }, [reviewVersion, reviewAds.length]);
+
+  useEffect(() => {
+    if (reviewVersion !== 2) {
+      setToolbarOffset(0);
+      return undefined;
+    }
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const toolbarEl = toolbarRef.current;
+    if (!toolbarEl) {
+      setToolbarOffset(0);
+      return undefined;
+    }
+
+    const raf =
+      typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame.bind(window)
+        : (callback) => window.setTimeout(callback, 16);
+    const cancelRaf =
+      typeof window.cancelAnimationFrame === 'function'
+        ? window.cancelAnimationFrame.bind(window)
+        : window.clearTimeout.bind(window);
+
+    let frame = null;
+
+    const updateOffset = () => {
+      if (frame !== null) {
+        cancelRaf(frame);
+      }
+      frame = raf(() => {
+        frame = null;
+        const { height } = toolbarEl.getBoundingClientRect();
+        setToolbarOffset((prev) => {
+          const next = Math.max(0, Math.round(height));
+          return prev === next ? prev : next;
+        });
+      });
+    };
+
+    updateOffset();
+
+    const supportsResizeObserver = typeof ResizeObserver === 'function';
+    const resizeObserver = supportsResizeObserver
+      ? new ResizeObserver(updateOffset)
+      : null;
+    if (resizeObserver) {
+      resizeObserver.observe(toolbarEl);
+    }
+    window.addEventListener('resize', updateOffset);
+
+    return () => {
+      if (frame !== null) {
+        cancelRaf(frame);
+      }
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      window.removeEventListener('resize', updateOffset);
+    };
+  }, [reviewVersion]);
 
   useEffect(() => {
     if (!actionsMenuOpen) {
@@ -3422,15 +3488,17 @@ useEffect(() => {
       )}
       <div className="flex w-full flex-col items-center">
         {reviewVersion === 2 && (
-          <div className="sticky top-4 z-30 flex w-full justify-between px-4 sm:px-6">
+          <div
+            ref={toolbarRef}
+            className="sticky top-0 z-30 flex w-full justify-between px-4 pt-[env(safe-area-inset-top,0px)] sm:px-6"
+          >
             <button
               type="button"
               onClick={handleExitReview}
               aria-label="Exit review"
-              className="btn-action flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-gray-700 shadow-md backdrop-blur transition hover:bg-white dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+              className="btn-action flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-gray-700 backdrop-blur transition hover:bg-white dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
             >
               <FiHome className="h-4 w-4" />
-              <span className="hidden sm:inline">Home</span>
             </button>
             <div className="relative">
               <button
@@ -3439,10 +3507,9 @@ useEffect(() => {
                 aria-haspopup="true"
                 aria-expanded={actionsMenuOpen}
                 onClick={() => setActionsMenuOpen((open) => !open)}
-                className="btn-action flex items-center gap-1 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-gray-700 shadow-md backdrop-blur transition hover:bg-white dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                className="btn-action flex items-center gap-1 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-gray-700 backdrop-blur transition hover:bg-white dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
                 aria-label="Open review actions menu"
               >
-                <span className="hidden sm:inline">More</span>
                 <FiMoreHorizontal className="h-4 w-4" />
               </button>
               {actionsMenuOpen && (
@@ -3513,7 +3580,11 @@ useEffect(() => {
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-x-0 -top-6 h-6"
               />
-              <div ref={statusBarRef} className="sticky top-[88px] z-20 mt-2">
+              <div
+                ref={statusBarRef}
+                className="sticky z-20 mt-2"
+                style={{ top: toolbarOffset ? `${toolbarOffset}px` : 0 }}
+              >
                 <div
                   className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
                 >
