@@ -3235,9 +3235,9 @@ useEffect(() => {
           </div>
         </div>
       )}
-      <div className="flex flex-col items-center md:flex-row md:items-start md:justify-center md:gap-4 w-full">
+      <div className="flex w-full flex-col items-center">
         <div className="flex w-full flex-col items-center">
-          <div className="w-full max-w-md px-6 pt-6 pb-4">
+          <div className="w-full max-w-5xl px-4 pt-6 pb-4 sm:px-6">
             <div className="flex items-center justify-between gap-4">
               <InfoTooltip text="exit review" placement="bottom">
                 <button
@@ -3274,7 +3274,7 @@ useEffect(() => {
             </div>
           </div>
         </div>
-        <div className="flex justify-center relative">
+        <div className="relative flex w-full justify-center px-2 sm:px-0">
           {reviewVersion === 3 ? (
             <div className="w-full max-w-5xl">
               <RecipePreview
