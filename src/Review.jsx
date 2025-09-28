@@ -413,6 +413,7 @@ const Review = forwardRef(
   const [versionMode, setVersionMode] = useState(false); // reviewing new versions
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [showVersionMenu, setShowVersionMenu] = useState(false);
+  const [cardVersionIndices, setCardVersionIndices] = useState({});
   const [swipeX, setSwipeX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
@@ -2335,6 +2336,51 @@ useEffect(() => {
     return map;
   }, [reviewAds, allAds]);
 
+  useEffect(() => {
+    setCardVersionIndices((prev) => {
+      if (!reviewAds || reviewAds.length === 0) {
+        return prev;
+      }
+
+      const next = {};
+      let changed = false;
+
+      reviewAds.forEach((ad, idx) => {
+        if (!ad) return;
+
+        const key = getAdKey(ad, idx);
+        const groups = versionGroupsByAd[key] && versionGroupsByAd[key].length > 0
+          ? versionGroupsByAd[key]
+          : [[ad]];
+        const groupCount = groups.length;
+        const prevIndex = prev[key] ?? 0;
+        const clampedIndex = Math.min(prevIndex, groupCount - 1);
+        const normalizedIndex = clampedIndex < 0 ? 0 : clampedIndex;
+
+        next[key] = normalizedIndex;
+
+        if (prevIndex !== normalizedIndex) {
+          changed = true;
+        }
+      });
+
+      const prevKeys = Object.keys(prev || {});
+      const nextKeys = Object.keys(next);
+      if (prevKeys.length !== nextKeys.length) {
+        changed = true;
+      } else if (!changed) {
+        for (const key of prevKeys) {
+          if (!(key in next)) {
+            changed = true;
+            break;
+          }
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [reviewAds, versionGroupsByAd]);
+
   const buildStatusMeta = useCallback(
     (ad, index) => {
       const fallback = {
@@ -3436,12 +3482,31 @@ useEffect(() => {
                     statusAssets,
                     statusValue,
                   } = buildStatusMeta(ad, index);
-                  const primaryAssets =
+                  const fallbackAssets =
                     latestAssets && latestAssets.length > 0
                       ? latestAssets
                       : ad
                       ? [ad]
                       : [];
+                  const versionGroups =
+                    groups && groups.length > 0
+                      ? groups
+                      : fallbackAssets.length > 0
+                      ? [fallbackAssets]
+                      : [];
+                  const groupCount = versionGroups.length;
+                  const storedVersionIndex = cardVersionIndices[cardKey] ?? 0;
+                  const resolvedVersionIndex =
+                    groupCount > 0
+                      ? Math.min(storedVersionIndex, groupCount - 1)
+                      : 0;
+                  const safeVersionIndex =
+                    resolvedVersionIndex < 0 ? 0 : resolvedVersionIndex;
+                  const primaryAssets =
+                    versionGroups[safeVersionIndex] &&
+                    versionGroups[safeVersionIndex].length > 0
+                      ? versionGroups[safeVersionIndex]
+                      : fallbackAssets;
                   const getAssetAspect = (asset) =>
                     asset?.aspectRatio ||
                     parseAdFilename(asset?.filename || '').aspectRatio ||
@@ -3491,22 +3556,22 @@ useEffect(() => {
                   const latestVersionNumber = latestVersionAsset
                     ? getVersion(latestVersionAsset)
                     : null;
-                  const previousGroup =
-                    groups.length > 1
-                      ? groups.find((group, idx) => idx > 0 && group.length > 0)
-                      : null;
-                  const previousVersionAsset =
-                    previousGroup && previousGroup.length > 0
-                      ? previousGroup[0]
-                      : null;
+                  const displayVersionAsset =
+                    primaryAssets[0] || latestVersionAsset;
+                  const displayVersionNumber = displayVersionAsset
+                    ? getVersion(displayVersionAsset)
+                    : latestVersionNumber;
+                  const hasMultipleVersions = versionGroups.length > 1;
                   const handleVersionBadgeClick = () => {
-                    if (!latestVersionAsset || !previousVersionAsset) {
+                    if (!hasMultipleVersions) {
                       return;
                     }
-                    setVersionView('current');
-                    setVersionModal({
-                      current: latestVersionAsset,
-                      previous: previousVersionAsset,
+                    setCardVersionIndices((prev) => {
+                      const currentIndex = prev[cardKey] ?? 0;
+                      const nextIndex =
+                        ((currentIndex % versionGroups.length) + 1) %
+                        versionGroups.length;
+                      return { ...prev, [cardKey]: nextIndex };
                     });
                   };
                   const isExpanded = !!expandedRequests[cardKey];
@@ -3571,20 +3636,20 @@ useEffect(() => {
                             {recipeLabel}
                           </h3>
                           {latestVersionNumber > 1 ? (
-                            previousVersionAsset ? (
-                              <InfoTooltip text="View previous versions" placement="bottom">
+                            hasMultipleVersions ? (
+                              <InfoTooltip text="Toggle between versions" placement="bottom">
                                 <button
                                   type="button"
                                   onClick={handleVersionBadgeClick}
                                   className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
-                                  aria-label="View previous versions"
+                                  aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
                                 >
-                                  V{latestVersionNumber}
+                                  V{displayVersionNumber || latestVersionNumber}
                                 </button>
                               </InfoTooltip>
                             ) : (
                               <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                                V{latestVersionNumber}
+                                V{displayVersionNumber || latestVersionNumber}
                               </span>
                             )
                           ) : null}
