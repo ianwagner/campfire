@@ -1117,7 +1117,7 @@ const App = () => {
               }
             />
             <Route
-              path="/:brandCode"
+              path="/:brandSlug"
               element={<PublicBrandDashboard />}
             />
             <Route path="*" element={<Navigate to="/" replace />} />
