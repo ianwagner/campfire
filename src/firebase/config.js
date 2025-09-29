@@ -40,34 +40,73 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Use explicit Firestore initialization so we can tune the transport layer.
-const shouldForceLongPolling = (() => {
+const { shouldForceLongPolling, shouldAutoDetectLongPolling } = (() => {
   if (typeof navigator === 'undefined') {
-    return false;
+    return {
+      shouldForceLongPolling: false,
+      shouldAutoDetectLongPolling: false,
+    };
   }
   const ua = navigator.userAgent || '';
-  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && /Mobile/.test(ua));
   const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|Chromium|Android/i.test(ua);
-  // Force long polling only on browsers that still have trouble with the
-  // default streaming implementation. Relying on the legacy WebChannel
-  // transport causes authenticated listeners to send the ID token in the query
-  // string, which in turn produces a stream of 400 errors for logged-in users
-  // (the bug reported in the review flow).
-  return isIOS || isSafari;
+
+  if (!isIOS && !isSafari) {
+    return {
+      shouldForceLongPolling: false,
+      shouldAutoDetectLongPolling: false,
+    };
+  }
+
+  const parseMajor = (regex) => {
+    const match = ua.match(regex);
+    return match ? parseInt(match[1], 10) : null;
+  };
+
+  const iosMajor = parseMajor(/OS (\d+)_/);
+  const safariMajor = parseMajor(/Version\/(\d+)/);
+  const webkitMajor = parseMajor(/AppleWebKit\/(\d+)/);
+
+  const needsLegacyTransport = () => {
+    if (iosMajor && iosMajor < 16) {
+      return true;
+    }
+    if (safariMajor && safariMajor < 16) {
+      return true;
+    }
+    // When Safari omits the Version token (older desktop builds), fall back
+    // to the WebKit engine version as a final heuristic.
+    if (!safariMajor && webkitMajor && webkitMajor < 605) {
+      return true;
+    }
+    return false;
+  };
+
+  const legacy = needsLegacyTransport();
+
+  return {
+    shouldForceLongPolling: legacy,
+    // Allow modern Safari (16+) to fall back to long polling when necessary
+    // without forcing the legacy transport outright. Other browsers continue
+    // to use the default streaming transport.
+    shouldAutoDetectLongPolling: !legacy,
+  };
 })();
 
 const firestoreSettings = shouldForceLongPolling
   ? {
-      // Force long polling for Safari/iOS, but do not enable auto detection at
-      // the same time—Firebase rejects that combination with an
-      // `invalid-argument` error.
+      // Force long polling for legacy Safari/iOS builds that still have
+      // trouble with the default streaming implementation. Relying on the
+      // legacy WebChannel transport causes authenticated listeners to send the
+      // ID token in the query string, which in turn produces a stream of 400
+      // errors for logged-in users (the bug reported in the review flow).
       experimentalForceLongPolling: true,
       useFetchStreams: false,
     }
   : {
-      // Use the default WebChannel transport so change streams stay truly
-      // realtime for reviewers and avoid the noisy Fetch logging that appears
-      // in Chrome devtools when long polling is enabled for public sessions.
-      experimentalAutoDetectLongPolling: false,
+      // Allow modern Safari to auto-detect the optimal transport so it can use
+      // streaming by default yet fall back gracefully if needed.
+      experimentalAutoDetectLongPolling: shouldAutoDetectLongPolling,
       useFetchStreams: false,
     };
 
