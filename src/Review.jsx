@@ -502,9 +502,14 @@ const Review = forwardRef(
   const logoUrlRef = useRef(null);
   const [initialStatus, setInitialStatus] = useState(null);
   const [groupStatus, setGroupStatus] = useState(null);
-  const isGroupReviewed = groupStatus === 'reviewed';
+  const normalizedGroupStatus = useMemo(() => {
+    if (!groupStatus) return '';
+    return String(groupStatus).trim().toLowerCase();
+  }, [groupStatus]);
+  const isGroupReviewed =
+    normalizedGroupStatus === 'reviewed' || normalizedGroupStatus === 'done';
   const reviewedLockMessage =
-    'This ad group has been reviewed. Further changes are disabled.';
+    'This ad group review has been finalized. Further changes are disabled.';
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
   // refs to track latest values for cleanup on unmount
