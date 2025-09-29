@@ -1,4 +1,11 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useMemo,
+  useRef,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { getDownloadURL, ref } from 'firebase/storage';
 import {
@@ -13,7 +20,6 @@ import {
   FiSave,
   FiColumns,
   FiLink,
-  FiInfo,
 } from 'react-icons/fi';
 import { FaMagic } from 'react-icons/fa';
 import { auth, db, storage } from './firebase/config';
@@ -37,7 +43,6 @@ import BriefStepSelect from './components/BriefStepSelect.jsx';
 import BriefStepForm from './components/BriefStepForm.jsx';
 import getMonthString from './utils/getMonthString.js';
 import Table from './components/common/Table';
-import InfoTooltip from './components/InfoTooltip.jsx';
 
 const similarityScore = (a, b) => {
   if (!a || !b) return 1;
@@ -55,7 +60,7 @@ const similarityScore = (a, b) => {
 };
 
 
-const RecipePreview = ({
+const RecipePreview = forwardRef(({
   onSave = null,
   initialResults = null,
   showOnlyResults = false,
@@ -73,7 +78,7 @@ const RecipePreview = ({
   onBrandCodeChange = null,
   showBriefExtras = false,
   hideActions = false,
-}) => {
+}, ref) => {
   const [types, setTypes] = useState([]);
   const [components, setComponents] = useState([]);
   const [instances, setInstances] = useState([]);
@@ -1339,6 +1344,129 @@ const RecipePreview = ({
     return widths;
   }, [visibleColumns, columnMeta, hideActions]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      downloadVisibleCsv: (filename = 'brief.csv') => {
+        if (
+          typeof window === 'undefined' ||
+          typeof document === 'undefined' ||
+          !Array.isArray(results) ||
+          results.length === 0
+        ) {
+          return false;
+        }
+
+        const activeColumns = [];
+        if (visibleColumns.recipeNo) {
+          activeColumns.push({
+            header: '#',
+            accessor: (row) => row.recipeNo ?? '',
+          });
+        }
+        columnMeta.forEach((col) => {
+          if (visibleColumns[col.key]) {
+            activeColumns.push({
+              header: col.label,
+              accessor: (row) => {
+                const components = row?.components || {};
+                const value = components[col.key];
+                if (col.key.endsWith('.assets')) {
+                  if (!Array.isArray(value) || value.length === 0) return '';
+                  return value
+                    .map((asset) => {
+                      if (!asset) return '';
+                      if (typeof asset === 'string') return asset;
+                      return (
+                        asset.assetName ||
+                        asset.name ||
+                        asset.filename ||
+                        asset.firebaseUrl ||
+                        asset.adUrl ||
+                        ''
+                      );
+                    })
+                    .filter(Boolean)
+                    .join('; ');
+                }
+                if (Array.isArray(value)) {
+                  return value
+                    .map((item) => {
+                      if (item === null || item === undefined) return '';
+                      if (typeof item === 'string') return item;
+                      if (typeof item === 'number' || typeof item === 'boolean') {
+                        return String(item);
+                      }
+                      if (typeof item === 'object') {
+                        if (typeof item.label === 'string') return item.label;
+                        if (typeof item.name === 'string') return item.name;
+                        if (typeof item.value === 'string') return item.value;
+                        return JSON.stringify(item);
+                      }
+                      return String(item);
+                    })
+                    .filter((str) => str.length > 0)
+                    .join(', ');
+                }
+                if (value && typeof value === 'object') {
+                  if (typeof value.label === 'string') return value.label;
+                  if (typeof value.name === 'string') return value.name;
+                  if (typeof value.value === 'string') return value.value;
+                  return JSON.stringify(value);
+                }
+                if (value === null || value === undefined) return '';
+                return value;
+              },
+            });
+          }
+        });
+        if (visibleColumns.copy) {
+          activeColumns.push({
+            header: 'Copy',
+            accessor: (row) => row.copy ?? '',
+          });
+        }
+
+        if (activeColumns.length === 0) {
+          return false;
+        }
+
+        const escapeCsv = (input) => {
+          if (input === null || input === undefined) return '';
+          const str = String(input).replace(/\r?\n/g, '\n');
+          if (/[",\n]/.test(str)) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        };
+
+        const rows = [
+          activeColumns.map((col) => escapeCsv(col.header)).join(','),
+          ...results.map((row) =>
+            activeColumns
+              .map((col) => escapeCsv(col.accessor(row)))
+              .join(','),
+          ),
+        ];
+
+        const csvContent = rows.join('\r\n');
+        const blob = new Blob([csvContent], {
+          type: 'text/csv;charset=utf-8;',
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.setTimeout(() => URL.revokeObjectURL(url), 0);
+        return true;
+      },
+    }),
+    [columnMeta, results, visibleColumns],
+  );
+
   return (
     <div>
       {!showOnlyResults && (
@@ -1517,48 +1645,29 @@ const RecipePreview = ({
             <thead>
               <tr>
                 {visibleColumns['recipeNo'] && (
-                  <th className="text-center">
-                    <InfoTooltip text="Recipe #" maxWidth="80rem">
-                      <button type="button" aria-label="Recipe #">
-                        <FiInfo />
-                      </button>
-                    </InfoTooltip>
+                  <th className="px-2 py-1 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                    #
                   </th>
                 )}
                 {columnMeta.map(
                   (col) =>
                     visibleColumns[col.key] && (
-                      <th key={col.key} className="text-center">
-                        <InfoTooltip text={col.label} maxWidth="80rem">
-                          <button type="button" aria-label={col.label}>
-                            <FiInfo />
-                          </button>
-                        </InfoTooltip>
+                      <th
+                        key={col.key}
+                        className="px-2 py-1 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300 whitespace-pre-wrap break-words"
+                      >
+                        {col.label}
                       </th>
                     )
                 )}
                 {visibleColumns['copy'] && (
-                  <th className="text-center">
-                    <InfoTooltip text="Copy" maxWidth="80rem">
-                      <button type="button" aria-label="Copy">
-                        <FiInfo />
-                      </button>
-                    </InfoTooltip>
+                  <th className="px-2 py-1 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                    Copy
                   </th>
                 )}
                 {!hideActions && (
-                  <th className="text-center">
-                    <InfoTooltip
-                      text={canEditRecipes ? 'Actions' : 'Select'}
-                      maxWidth="80rem"
-                    >
-                      <button
-                        type="button"
-                        aria-label={canEditRecipes ? 'Actions' : 'Select'}
-                      >
-                        <FiInfo />
-                      </button>
-                    </InfoTooltip>
+                  <th className="px-2 py-1 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                    {canEditRecipes ? 'Actions' : 'Select'}
                   </th>
                 )}
               </tr>
@@ -1803,6 +1912,8 @@ const RecipePreview = ({
     )}
   </div>
 );
-};
+});
+
+RecipePreview.displayName = 'RecipePreview';
 
 export default RecipePreview;
