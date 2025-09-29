@@ -3534,7 +3534,6 @@ useEffect(() => {
                   <div className="mt-2 border-t border-gray-200 pt-2 dark:border-[var(--border-color-default)]">
                     <ThemeToggle
                       variant="menu"
-                      onToggle={() => setActionsMenuOpen(false)}
                       role="menuitem"
                     />
                   </div>
