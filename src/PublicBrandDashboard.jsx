@@ -12,6 +12,7 @@ import {
 import { db } from "./firebase/config";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 import ReviewGroupCard from "./components/ReviewGroupCard.jsx";
+import normalizeAssetType from "./utils/normalizeAssetType.js";
 
 const statusBadgeLabels = {
   designed: "Ready for review",
@@ -159,6 +160,23 @@ const PublicBrandDashboard = () => {
                   ...adDoc.data(),
                 }));
 
+                const onlyVideos =
+                  previewAds.length > 0 &&
+                  previewAds.every(
+                    (ad) =>
+                      normalizeAssetType(ad.type || ad.assetType) === "video"
+                  );
+
+                const hasPreviewImage = previewAds.some((ad) => {
+                  const previewUrl =
+                    ad.thumbnailUrl ||
+                    ad.url ||
+                    ad.firebaseUrl ||
+                    ad.pngUrl ||
+                    "";
+                  return Boolean(previewUrl);
+                });
+
                 let totalAds = 0;
                 let unitCount = null;
                 try {
@@ -209,7 +227,8 @@ const PublicBrandDashboard = () => {
 
                 const showLogo =
                   previewAds.length === 0 ||
-                  previewAds.every((ad) => ad.status === "pending");
+                  previewAds.every((ad) => ad.status === "pending") ||
+                  (onlyVideos && !hasPreviewImage);
                 const statusLabel = statusBadgeLabels[data.status] || "";
                 const badges = [];
                 if (data.requirePassword) {
