@@ -1996,7 +1996,20 @@ const AdGroupDetail = () => {
           lastUpdatedAt: serverTimestamp(),
         });
       }
-      batch.update(doc(db, "adGroups", id), { status: "designed" });
+      const groupVisibilityDefaults =
+        group?.visibility !== "public"
+          ? {
+              visibility: "public",
+              requireAuth: false,
+              requirePassword: false,
+              password: "",
+            }
+          : {};
+
+      batch.update(doc(db, "adGroups", id), {
+        status: "designed",
+        ...groupVisibilityDefaults,
+      });
       await batch.commit();
       if (pendingAssets.length > 0) {
         setAssets((prev) =>
@@ -2007,7 +2020,11 @@ const AdGroupDetail = () => {
           ),
         );
       }
-      setGroup((prev) => ({ ...prev, status: "designed" }));
+      setGroup((prev) => ({
+        ...prev,
+        status: "designed",
+        ...groupVisibilityDefaults,
+      }));
     } catch (err) {
       console.error("Failed to mark designed", err);
     } finally {
@@ -2124,11 +2141,27 @@ const AdGroupDetail = () => {
     if (!id) return;
     const newStatus = e.target.value;
     if (!statusOptions.includes(newStatus)) return;
+    const visibilityDefaults =
+      newStatus === "designed" && group?.visibility !== "public"
+        ? {
+            visibility: "public",
+            requireAuth: false,
+            requirePassword: false,
+            password: "",
+          }
+        : {};
     try {
-      await updateDoc(doc(db, 'adGroups', id), { status: newStatus });
-      setGroup((p) => ({ ...p, status: newStatus }));
+      await updateDoc(doc(db, "adGroups", id), {
+        status: newStatus,
+        ...visibilityDefaults,
+      });
+      setGroup((p) => ({
+        ...p,
+        status: newStatus,
+        ...visibilityDefaults,
+      }));
     } catch (err) {
-      console.error('Failed to update status', err);
+      console.error("Failed to update status", err);
     }
   };
 
