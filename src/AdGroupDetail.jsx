@@ -213,13 +213,14 @@ const AdGroupDetail = () => {
   const isDesigner = userRole === "designer";
   const isAdmin = userRole === "admin";
   const isEditor = userRole === "editor";
+  const isProjectManager = userRole === "project-manager";
   const isManager =
     userRole === "manager" ||
     userRole === "editor" ||
-    userRole === "project-manager";
+    isProjectManager;
   const canManageStaff = isAdmin || (isManager && !isEditor);
   const isAgency = userRole === "agency";
-  const isClientPortalUser = ["client", "project-manager", "ops"].includes(userRole);
+  const isClientPortalUser = ["client", "ops"].includes(userRole) || isProjectManager;
   const usesTabs = isAdmin || isDesigner || isManager || isClientPortalUser;
   const canEditBriefNote = isAdmin || isClientPortalUser;
   const canAddBriefAssets = isAdmin || isClientPortalUser;
@@ -2716,33 +2717,34 @@ const AdGroupDetail = () => {
           </>
         )}
       </p>
-      {!isClientPortalUser && (
+      {(!isClientPortalUser || isProjectManager) && (
         <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
           Designer:
           {canManageStaff ? (
-          <select
-            value={group.designerId || ''}
-            onChange={async (e) => {
-              const value = e.target.value || null;
-              try {
-                await updateDoc(doc(db, 'adGroups', id), { designerId: value });
-                setGroup((p) => ({ ...p, designerId: value }));
-              } catch (err) {
-                console.error('Failed to update designer', err);
-              }
-            }}
-            className="border p-1 rounded"
-          >
-            <option value="">Unassigned</option>
-            {designers.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span>{designerName || 'Unassigned'}</span>
-        )}
+            <select
+              aria-label="Designer Assignment"
+              value={group.designerId || ''}
+              onChange={async (e) => {
+                const value = e.target.value || null;
+                try {
+                  await updateDoc(doc(db, 'adGroups', id), { designerId: value });
+                  setGroup((p) => ({ ...p, designerId: value }));
+                } catch (err) {
+                  console.error('Failed to update designer', err);
+                }
+              }}
+              className="border p-1 rounded"
+            >
+              <option value="">Unassigned</option>
+              {designers.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span>{designerName || 'Unassigned'}</span>
+          )}
         <span className="hidden sm:inline">|</span>
         Design Due Date:
         {canManageStaff ? (
@@ -2781,6 +2783,7 @@ const AdGroupDetail = () => {
         Editor:
         {canManageStaff ? (
           <select
+            aria-label="Editor Assignment"
             value={group.editorId || ''}
             onChange={async (e) => {
               const value = e.target.value || null;
