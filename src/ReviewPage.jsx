@@ -11,7 +11,6 @@ import {
 import { db } from "./firebase/config";
 import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
-import ThemeToggle from "./ThemeToggle";
 
 const ReviewPage = ({
   userRole = null,
@@ -245,9 +244,6 @@ const ReviewPage = ({
 
   return (
     <div className="min-h-screen relative">
-      <div className="absolute top-2 right-2 z-40">
-        {user?.isAnonymous && <ThemeToggle />}
-      </div>
       <Review
         ref={reviewRef}
         user={userObj}
