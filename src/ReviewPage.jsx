@@ -11,6 +11,7 @@ import {
 import { db } from "./firebase/config";
 import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
+import ensurePublicDashboardSlug from "./utils/ensurePublicDashboardSlug.js";
 
 const ReviewPage = ({
   userRole = null,
@@ -51,41 +52,60 @@ const ReviewPage = ({
   useEffect(() => {
     if (!groupId) {
       setAgencyId(null);
-      return;
+      return undefined;
     }
+    let cancelled = false;
     const loadAgency = async () => {
       try {
         const groupSnap = await getDoc(doc(db, "adGroups", groupId));
         if (!groupSnap.exists()) {
-          setAgencyId(null);
-          setBrandDashboardSlug("");
+          if (!cancelled) {
+            setAgencyId(null);
+            setBrandDashboardSlug("");
+          }
           return;
         }
         const code = groupSnap.data().brandCode;
         if (!code) {
-          setAgencyId(null);
-          setBrandDashboardSlug("");
+          if (!cancelled) {
+            setAgencyId(null);
+            setBrandDashboardSlug("");
+          }
           return;
         }
         const q = query(collection(db, "brands"), where("code", "==", code));
         const bSnap = await getDocs(q);
         if (!bSnap.empty) {
-          const brandData = bSnap.docs[0].data();
-          setAgencyId(brandData.agencyId || null);
-          setBrandDashboardSlug(
-            (brandData.publicDashboardSlug || brandData.code || "").trim(),
-          );
-        } else {
+          const brandDoc = bSnap.docs[0];
+          const brandData = brandDoc.data();
+          let slug = (brandData.publicDashboardSlug || "").trim();
+          if (!slug) {
+            try {
+              slug = await ensurePublicDashboardSlug(db, brandDoc.id);
+            } catch (slugErr) {
+              console.error("Failed to ensure public dashboard slug", slugErr);
+            }
+          }
+          if (!cancelled) {
+            setAgencyId(brandData.agencyId || null);
+            setBrandDashboardSlug((slug || brandData.code || "").trim());
+          }
+        } else if (!cancelled) {
           setAgencyId(null);
           setBrandDashboardSlug("");
         }
       } catch (err) {
         console.error("Failed to fetch agency", err);
-        setAgencyId(null);
-        setBrandDashboardSlug("");
+        if (!cancelled) {
+          setAgencyId(null);
+          setBrandDashboardSlug("");
+        }
       }
     };
     loadAgency();
+    return () => {
+      cancelled = true;
+    };
   }, [groupId]);
 
   useEffect(() => {
