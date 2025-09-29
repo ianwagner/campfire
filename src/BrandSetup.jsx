@@ -21,7 +21,7 @@ import IconButton from './components/IconButton.jsx';
 import { FiEdit2 } from 'react-icons/fi';
 import BrandAssetsLayout from './BrandAssetsLayout.jsx';
 import useUnsavedChanges from './useUnsavedChanges.js';
-import { generateUniquePublicSlug } from './utils/generatePublicSlug.js';
+import ensurePublicDashboardSlug from './utils/ensurePublicDashboardSlug.js';
 
 const driveIdRegex = /^[\w-]{10,}$/;
 const isValidDriveId = (id) => driveIdRegex.test(id);
@@ -49,6 +49,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const [dirty, setDirty] = useState(false);
   const [publicDashboardSlug, setPublicDashboardSlug] = useState('');
   const [slugLoading, setSlugLoading] = useState(false);
+  const [slugInitialized, setSlugInitialized] = useState(false);
   const { agencies } = useAgencies();
 
   useEffect(() => {
@@ -58,7 +59,9 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   }, [brandCodes, propId, propCode]);
 
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
+      setSlugInitialized(false);
       try {
         if (propId) {
           const snap = await getDoc(doc(db, 'brands', propId));
@@ -90,7 +93,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
                   }))
                 : [{ ...emptyFont }]
             );
-            setPublicDashboardSlug(data.publicDashboardSlug || '');
+            setPublicDashboardSlug((data.publicDashboardSlug || '').trim());
           }
         } else if (brandCode) {
           const q = query(collection(db, 'brands'), where('code', '==', brandCode));
@@ -124,26 +127,34 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
                   }))
                 : [{ ...emptyFont }]
             );
-            setPublicDashboardSlug(data.publicDashboardSlug || '');
+            setPublicDashboardSlug((data.publicDashboardSlug || '').trim());
           }
         }
-        setDirty(false);
+        if (!cancelled) {
+          setDirty(false);
+        }
       } catch (err) {
         console.error('Failed to load brand', err);
+      } finally {
+        if (!cancelled) {
+          setSlugInitialized(true);
+        }
       }
     };
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [brandCode, propId, propCode]);
 
   useEffect(() => {
-    if (!brandId || publicDashboardSlug) return undefined;
+    const trimmed = (publicDashboardSlug || '').trim();
+    if (!brandId || !slugInitialized || trimmed) return undefined;
     let cancelled = false;
     const ensureSlug = async () => {
       setSlugLoading(true);
       try {
-        const slug = await generateUniquePublicSlug(db);
-        if (cancelled) return;
-        await updateDoc(doc(db, 'brands', brandId), { publicDashboardSlug: slug });
+        const slug = await ensurePublicDashboardSlug(db, brandId, trimmed);
         if (!cancelled) {
           setPublicDashboardSlug(slug);
         }
@@ -159,7 +170,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
     return () => {
       cancelled = true;
     };
-  }, [brandId, publicDashboardSlug]);
+  }, [brandId, publicDashboardSlug, slugInitialized]);
 
   const dashboardUrl = useMemo(() => {
     if (!publicDashboardSlug) return '';

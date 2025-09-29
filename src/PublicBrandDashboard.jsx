@@ -12,6 +12,7 @@ import {
 import { db } from "./firebase/config";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 import ReviewGroupCard from "./components/ReviewGroupCard.jsx";
+import ensurePublicDashboardSlug from "./utils/ensurePublicDashboardSlug.js";
 
 const statusBadgeLabels = {
   designed: "Ready for review",
@@ -83,8 +84,17 @@ const PublicBrandDashboard = () => {
           docSnap = await tryCandidates("code", codeCandidates);
         }
         if (docSnap) {
+          const docData = docSnap.data();
+          let slug = (docData.publicDashboardSlug || "").trim();
+          if (!slug) {
+            try {
+              slug = await ensurePublicDashboardSlug(db, docSnap.id);
+            } catch (slugErr) {
+              console.error("Failed to ensure public dashboard slug", slugErr);
+            }
+          }
           if (cancelled) return;
-          setBrand({ id: docSnap.id, ...docSnap.data() });
+          setBrand({ id: docSnap.id, ...docData, publicDashboardSlug: slug || docData.publicDashboardSlug || "" });
           setBrandLoading(false);
           return;
         }
