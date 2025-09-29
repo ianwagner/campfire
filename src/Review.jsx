@@ -3490,15 +3490,16 @@ useEffect(() => {
         {reviewVersion === 2 && (
           <div
             ref={toolbarRef}
-            className="sticky top-0 z-30 flex w-full justify-between px-4 pt-[env(safe-area-inset-top,0px)] sm:px-6"
+            className="sticky top-0 z-30 flex w-full justify-between px-4 py-3 sm:px-6"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
           >
             <button
               type="button"
               onClick={handleExitReview}
               aria-label="Exit review"
-              className="btn-action flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-gray-700 backdrop-blur transition hover:bg-white dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+              className="btn-action flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
             >
-              <FiHome className="h-4 w-4" />
+              <FiHome className="h-5 w-5" />
             </button>
             <div className="relative">
               <button
@@ -3507,15 +3508,15 @@ useEffect(() => {
                 aria-haspopup="true"
                 aria-expanded={actionsMenuOpen}
                 onClick={() => setActionsMenuOpen((open) => !open)}
-                className="btn-action flex items-center gap-1 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-gray-700 backdrop-blur transition hover:bg-white dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                className="btn-action flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
                 aria-label="Open review actions menu"
               >
-                <FiMoreHorizontal className="h-4 w-4" />
+                <FiMoreHorizontal className="h-5 w-5" />
               </button>
               {actionsMenuOpen && (
                 <div
                   ref={actionsMenuRef}
-                  className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg focus:outline-none dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                  className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-md focus:outline-none dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                   role="menu"
                 >
                   {reviewMenuActions.map(({ key, label, onSelect, Icon }) => (
@@ -3531,13 +3532,11 @@ useEffect(() => {
                     </button>
                   ))}
                   <div className="mt-2 border-t border-gray-200 pt-2 dark:border-[var(--border-color-default)]">
-                    <div
-                      role="none"
-                      className="flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200"
-                    >
-                      <span>Toggle theme</span>
-                      <ThemeToggle className="!p-2" onToggle={() => setActionsMenuOpen(false)} />
-                    </div>
+                    <ThemeToggle
+                      variant="menu"
+                      onToggle={() => setActionsMenuOpen(false)}
+                      role="menuitem"
+                    />
                   </div>
                 </div>
               )}
