@@ -13,6 +13,8 @@ const BADGE_VARIANT_CLASSES = {
     'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-100 border-amber-200 dark:border-amber-500/30',
   neutral:
     'bg-gray-100 text-gray-600 dark:bg-gray-700/60 dark:text-gray-200 border-gray-200 dark:border-gray-600/80',
+  approved:
+    'bg-[var(--approve-color-10)] text-[var(--approve-color)] dark:bg-[var(--approve-color-10)] dark:text-[var(--approve-color)] border-[var(--approve-color-10)] dark:border-[var(--approve-color-10)]',
 };
 
 const ReviewGroupCard = ({
@@ -66,16 +68,29 @@ const ReviewGroupCard = ({
       })
     : null;
 
+  const normalizedStatus = (group.status || '').toLowerCase();
+
+  const statusBadge = (() => {
+    if (['reviewed', 'done'].includes(normalizedStatus)) {
+      return { label: 'Review complete', variant: 'approved' };
+    }
+    if (statusLabel) {
+      return { label: statusLabel, variant: 'info' };
+    }
+    return null;
+  })();
+
   const combinedBadges = [
-    ...(statusLabel
+    ...(statusBadge ? [statusBadge] : []),
+    ...badges,
+    ...(totalAds > 0
       ? [
           {
-            label: statusLabel,
-            variant: 'info',
+            label: `${totalAds} ad unit${totalAds === 1 ? '' : 's'}`,
+            variant: 'neutral',
           },
         ]
       : []),
-    ...badges,
   ];
 
   const badgeClassFor = (variant = 'neutral') =>
@@ -134,11 +149,6 @@ const ReviewGroupCard = ({
                 </span>
               ))}
               {group.month && <MonthTag month={group.month} />}
-              {totalAds > 0 && (
-                <span className="rounded-full border border-gray-200 bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:border-gray-600 dark:bg-gray-700/60 dark:text-gray-200">
-                  {totalAds} ads
-                </span>
-              )}
             </div>
           )}
         </div>
