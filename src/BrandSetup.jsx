@@ -21,7 +21,7 @@ import IconButton from './components/IconButton.jsx';
 import { FiEdit2 } from 'react-icons/fi';
 import BrandAssetsLayout from './BrandAssetsLayout.jsx';
 import useUnsavedChanges from './useUnsavedChanges.js';
-import { generateUniquePublicSlug } from './utils/generatePublicSlug.js';
+import ensurePublicDashboardSlug from './utils/ensurePublicDashboardSlug.js';
 
 const driveIdRegex = /^[\w-]{10,}$/;
 const isValidDriveId = (id) => driveIdRegex.test(id);
@@ -90,7 +90,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
                   }))
                 : [{ ...emptyFont }]
             );
-            setPublicDashboardSlug(data.publicDashboardSlug || '');
+            setPublicDashboardSlug((data.publicDashboardSlug || '').trim());
           }
         } else if (brandCode) {
           const q = query(collection(db, 'brands'), where('code', '==', brandCode));
@@ -124,7 +124,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
                   }))
                 : [{ ...emptyFont }]
             );
-            setPublicDashboardSlug(data.publicDashboardSlug || '');
+            setPublicDashboardSlug((data.publicDashboardSlug || '').trim());
           }
         }
         setDirty(false);
@@ -136,14 +136,13 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   }, [brandCode, propId, propCode]);
 
   useEffect(() => {
-    if (!brandId || publicDashboardSlug) return undefined;
+    const trimmed = (publicDashboardSlug || '').trim();
+    if (!brandId || trimmed) return undefined;
     let cancelled = false;
     const ensureSlug = async () => {
       setSlugLoading(true);
       try {
-        const slug = await generateUniquePublicSlug(db);
-        if (cancelled) return;
-        await updateDoc(doc(db, 'brands', brandId), { publicDashboardSlug: slug });
+        const slug = await ensurePublicDashboardSlug(db, brandId, trimmed);
         if (!cancelled) {
           setPublicDashboardSlug(slug);
         }
