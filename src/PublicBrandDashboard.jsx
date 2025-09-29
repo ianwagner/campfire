@@ -26,16 +26,24 @@ const toDate = (value) => {
 };
 
 const PublicBrandDashboard = () => {
-  const { brandCode: brandParam = "" } = useParams();
+  const { brandSlug: routeParam = "" } = useParams();
+  const normalizedParam = useMemo(() => (routeParam || "").trim(), [routeParam]);
+  const slugCandidates = useMemo(() => {
+    if (!normalizedParam) return [];
+    return [normalizedParam.toLowerCase()];
+  }, [normalizedParam]);
   const codeCandidates = useMemo(() => {
-    const trimmed = (brandParam || "").trim();
-    if (!trimmed) return [];
-    const variants = new Set([trimmed, trimmed.toUpperCase(), trimmed.toLowerCase()]);
-    if (/\s/.test(trimmed)) {
-      variants.add(trimmed.replace(/\s+/g, "").toUpperCase());
+    if (!normalizedParam) return [];
+    const variants = new Set([
+      normalizedParam,
+      normalizedParam.toUpperCase(),
+      normalizedParam.toLowerCase(),
+    ]);
+    if (/\s/.test(normalizedParam)) {
+      variants.add(normalizedParam.replace(/\s+/g, "").toUpperCase());
     }
     return Array.from(variants);
-  }, [brandParam]);
+  }, [normalizedParam]);
 
   const [brand, setBrand] = useState(null);
   const [brandError, setBrandError] = useState("");
@@ -52,23 +60,33 @@ const PublicBrandDashboard = () => {
       setBrandError("");
       setNotFound(false);
       setBrandLoading(true);
-      if (codeCandidates.length === 0) {
+      if (slugCandidates.length === 0 && codeCandidates.length === 0) {
         setBrandLoading(false);
         setNotFound(true);
         return;
       }
       try {
-        for (const code of codeCandidates) {
-          const snap = await getDocs(
-            query(collection(db, "brands"), where("code", "==", code), limit(1))
-          );
-          if (!snap.empty) {
-            if (cancelled) return;
-            const docSnap = snap.docs[0];
-            setBrand({ id: docSnap.id, ...docSnap.data() });
-            setBrandLoading(false);
-            return;
+        const tryCandidates = async (field, candidates) => {
+          for (const value of candidates) {
+            const snap = await getDocs(
+              query(collection(db, "brands"), where(field, "==", value), limit(1))
+            );
+            if (!snap.empty) {
+              return snap.docs[0];
+            }
           }
+          return null;
+        };
+
+        let docSnap = await tryCandidates("publicDashboardSlug", slugCandidates);
+        if (!docSnap) {
+          docSnap = await tryCandidates("code", codeCandidates);
+        }
+        if (docSnap) {
+          if (cancelled) return;
+          setBrand({ id: docSnap.id, ...docSnap.data() });
+          setBrandLoading(false);
+          return;
         }
         if (!cancelled) {
           setBrandLoading(false);
@@ -86,7 +104,7 @@ const PublicBrandDashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [codeCandidates]);
+  }, [codeCandidates, slugCandidates]);
 
   useEffect(() => {
     if (!brand?.code) {
@@ -275,7 +293,7 @@ const PublicBrandDashboard = () => {
     setGroups((prev) => prev.map((group) => ({ ...group, brandLogo })));
   }, [brandLogo]);
 
-  const title = brand?.name || brand?.code || brandParam;
+  const title = brand?.name || brand?.code || normalizedParam;
   const sanitizedTitle = useMemo(() => {
     if (!title) return "";
     const cleaned = title.replace(/\bbrand\b/gi, "").trim();
@@ -306,8 +324,6 @@ const PublicBrandDashboard = () => {
     );
   }
 
-  const description = brand?.offering || brand?.tagline || "";
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[var(--dark-bg)]">
       <header className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]">
@@ -317,14 +333,11 @@ const PublicBrandDashboard = () => {
               <OptimizedImage
                 pngUrl={brandLogo}
                 alt={`${title} logo`}
-                className="h-24 w-24 rounded-full border border-gray-200 bg-white object-contain p-4 shadow dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]"
+                className="h-24 w-24 rounded-2xl border border-gray-200 bg-white object-contain p-4 shadow dark:border-gray-600 dark:bg-white"
               />
             )}
             <div>
               <h1 className="text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">{sanitizedTitle}</h1>
-              {description && (
-                <p className="mt-2 max-w-xl text-base text-gray-600 dark:text-gray-300">{description}</p>
-              )}
             </div>
           </div>
         </div>

@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import OptimizedImage from './OptimizedImage.jsx';
 import MonthTag from './MonthTag.jsx';
-import parseAdFilename from '../utils/parseAdFilename.js';
+import parseAdFilename from '../utils/parseAdFilename';
 
 const BADGE_VARIANT_CLASSES = {
   info:
@@ -20,23 +20,30 @@ const ReviewGroupCard = ({
   badges = [],
 }) => {
   const previewAds = Array.isArray(group.previewAds) ? group.previewAds : [];
-  const rotations = useMemo(
-    () => previewAds.map(() => Math.random() * 10 - 5),
-    [group.id, previewAds.length]
-  );
 
-  const firstPreview = previewAds[0] || {};
-  const parsed = parseAdFilename(firstPreview.filename || '');
-  const showLogo =
-    group.showLogo ??
-    (previewAds.length === 0 || previewAds.every((ad) => ad.status === 'pending'));
-  const aspect = showLogo
-    ? '1/1'
-    : (firstPreview.aspectRatio || parsed.aspectRatio || '9x16').replace('x', '/');
+  const getAspectRatio = (ad) =>
+    ad?.aspectRatio || parseAdFilename(ad?.filename || '').aspectRatio || '';
+
+  const getPreviewUrl = (ad) =>
+    ad?.thumbnailUrl || ad?.url || ad?.firebaseUrl || ad?.pngUrl || '';
+
+  const previewCandidates = previewAds.filter((ad) => Boolean(getPreviewUrl(ad)));
+
+  const previewAd =
+    previewCandidates.find((ad) => getAspectRatio(ad) === '1x1') ||
+    previewCandidates[0] ||
+    null;
+
+  const previewUrl = previewAd ? getPreviewUrl(previewAd) : '';
+
+  const hasPreviewImage = Boolean(previewUrl);
+  const shouldShowLogo =
+    group.showLogo === true || (!hasPreviewImage && Boolean(group.brandLogo));
+  const aspect = '1/1';
 
   const containerClasses = [
     'relative w-full overflow-hidden rounded-t-2xl',
-    showLogo ? 'bg-gray-200 dark:bg-gray-700' : '',
+    !hasPreviewImage ? 'bg-gray-200 dark:bg-gray-700' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -77,32 +84,25 @@ const ReviewGroupCard = ({
       className="group block rounded-2xl border border-gray-200 bg-white text-center shadow-sm transition hover:-translate-y-1 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]"
     >
       <div className={containerClasses} style={{ aspectRatio: aspect }}>
-        {showLogo && group.brandLogo ? (
+        {hasPreviewImage ? (
+          <OptimizedImage
+            key={previewAd?.id || previewUrl}
+            pngUrl={previewUrl}
+            cacheKey={previewAd?.firebaseUrl || previewUrl}
+            alt={group.name || 'Ad preview'}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : shouldShowLogo && group.brandLogo ? (
           <OptimizedImage
             pngUrl={group.brandLogo}
             alt={`${group.name || 'Brand'} logo`}
             className="absolute inset-0 h-full w-full object-contain bg-white p-6 dark:bg-[var(--dark-sidebar-bg)]"
           />
-        ) : showLogo ? (
+        ) : !hasPreviewImage ? (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-200 text-3xl font-semibold text-gray-500 dark:bg-gray-700 dark:text-gray-200">
             {(group.name || '?').slice(0, 1).toUpperCase()}
           </div>
-        ) : (
-          previewAds.map((ad, idx) => (
-            <OptimizedImage
-              key={ad.id || idx}
-              pngUrl={ad.thumbnailUrl || ad.firebaseUrl || ''}
-              alt={group.name || 'Ad preview'}
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{
-                transform: `rotate(${rotations[idx]}deg)`,
-                zIndex: idx + 1,
-                top: `${-idx * 4}px`,
-                left: `${idx * 4}px`,
-              }}
-            />
-          ))
-        )}
+        ) : null}
       </div>
       <div className="space-y-4 p-5">
         <div className="space-y-2">

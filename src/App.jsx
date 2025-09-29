@@ -879,6 +879,7 @@ const App = () => {
                       "client",
                       "manager",
                       "project-manager",
+                      "ops",
                       "editor",
                     ]}
                     userRole={role} isAdmin={isAdmin}
@@ -1116,7 +1117,7 @@ const App = () => {
               }
             />
             <Route
-              path="/:brandCode"
+              path="/:brandSlug"
               element={<PublicBrandDashboard />}
             />
             <Route path="*" element={<Navigate to="/" replace />} />

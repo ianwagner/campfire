@@ -10,7 +10,6 @@ import React, {
   useCallback,
 } from 'react';
 import {
-  FiX,
   FiGrid,
   FiCheck,
   FiType,
@@ -18,6 +17,8 @@ import {
   FiPlus,
   FiEdit3,
   FiCheckCircle,
+  FiHome,
+  FiMoreHorizontal,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -55,6 +56,7 @@ import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
 import diffWords from './utils/diffWords';
 import LoadingOverlay from "./LoadingOverlay";
+import ThemeToggle from './ThemeToggle.jsx';
 import debugLog from './utils/debugLog';
 import useDebugTrace from './utils/useDebugTrace';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
@@ -364,6 +366,7 @@ const Review = forwardRef(
       groupId = null,
       reviewerName = '',
       agencyId = null,
+      brandDashboardSlug = '',
       allowPublicListeners = true,
       isPublicReviewer = false,
     },
@@ -400,6 +403,9 @@ const Review = forwardRef(
   const [showGallery, setShowGallery] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
   const [showCopyModal, setShowCopyModal] = useState(false);
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const actionsMenuRef = useRef(null);
+  const actionsMenuButtonRef = useRef(null);
   const [modalCopies, setModalCopies] = useState([]);
   const [reviewVersion, setReviewVersion] = useState(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -422,7 +428,9 @@ const Review = forwardRef(
   const [manualStatus, setManualStatus] = useState({});
   const statusBarSentinelRef = useRef(null);
   const statusBarRef = useRef(null);
+  const toolbarRef = useRef(null);
   const [statusBarPinned, setStatusBarPinned] = useState(false);
+  const [toolbarOffset, setToolbarOffset] = useState(0);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -561,10 +569,12 @@ const Review = forwardRef(
   useEffect(() => {
     if (reviewVersion !== 2) {
       setStatusBarPinned(false);
+      setToolbarOffset(0);
       return;
     }
     if (typeof window === 'undefined' || typeof IntersectionObserver !== 'function') {
       setStatusBarPinned(false);
+      setToolbarOffset(0);
       return;
     }
     const sentinel = statusBarSentinelRef.current;
@@ -641,6 +651,103 @@ const Review = forwardRef(
       window.removeEventListener('resize', updateOffsets);
     };
   }, [reviewVersion, reviewAds.length]);
+
+  useEffect(() => {
+    if (reviewVersion !== 2) {
+      setToolbarOffset(0);
+      return undefined;
+    }
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const toolbarEl = toolbarRef.current;
+    if (!toolbarEl) {
+      setToolbarOffset(0);
+      return undefined;
+    }
+
+    const raf =
+      typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame.bind(window)
+        : (callback) => window.setTimeout(callback, 16);
+    const cancelRaf =
+      typeof window.cancelAnimationFrame === 'function'
+        ? window.cancelAnimationFrame.bind(window)
+        : window.clearTimeout.bind(window);
+
+    let frame = null;
+
+    const updateOffset = () => {
+      if (frame !== null) {
+        cancelRaf(frame);
+      }
+      frame = raf(() => {
+        frame = null;
+        const { height } = toolbarEl.getBoundingClientRect();
+        setToolbarOffset((prev) => {
+          const next = Math.max(0, Math.round(height));
+          return prev === next ? prev : next;
+        });
+      });
+    };
+
+    updateOffset();
+
+    const supportsResizeObserver = typeof ResizeObserver === 'function';
+    const resizeObserver = supportsResizeObserver
+      ? new ResizeObserver(updateOffset)
+      : null;
+    if (resizeObserver) {
+      resizeObserver.observe(toolbarEl);
+    }
+    window.addEventListener('resize', updateOffset);
+
+    return () => {
+      if (frame !== null) {
+        cancelRaf(frame);
+      }
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      window.removeEventListener('resize', updateOffset);
+    };
+  }, [reviewVersion]);
+
+  useEffect(() => {
+    if (!actionsMenuOpen) {
+      return undefined;
+    }
+    const handleDocumentClick = (event) => {
+      const target = event.target;
+      if (
+        (actionsMenuRef.current &&
+          actionsMenuRef.current.contains(target)) ||
+        (actionsMenuButtonRef.current &&
+          actionsMenuButtonRef.current.contains(target))
+      ) {
+        return;
+      }
+      setActionsMenuOpen(false);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setActionsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleDocumentClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [actionsMenuOpen]);
+
+  useEffect(() => {
+    if (reviewVersion !== 2 && actionsMenuOpen) {
+      setActionsMenuOpen(false);
+    }
+  }, [reviewVersion, actionsMenuOpen]);
 
 
 
@@ -768,13 +875,24 @@ const Review = forwardRef(
   const handleExitReview = useCallback(() => {
     releaseLock();
     setStarted(false);
-    const candidate = (groupBrandCode || brandCodes?.[0] || '').trim();
+    const candidate = (
+      brandDashboardSlug ||
+      groupBrandCode ||
+      brandCodes?.[0] ||
+      ''
+    ).trim();
     if (candidate) {
       navigate(`/${candidate}`);
     } else {
       navigate('/');
     }
-  }, [brandCodes, groupBrandCode, navigate, releaseLock]);
+  }, [
+    brandCodes,
+    brandDashboardSlug,
+    groupBrandCode,
+    navigate,
+    releaseLock,
+  ]);
   const [hasPending, setHasPending] = useState(false);
   const [pendingOnly, setPendingOnly] = useState(false);
   const [isMobile, setIsMobile] = useState(
@@ -2458,6 +2576,38 @@ useEffect(() => {
     return counts;
   }, [reviewAds, buildStatusMeta]);
 
+  const showCopyAction = copyCards.length > 0;
+  const showGalleryAction = ads.length > 0;
+  const reviewMenuActions = [
+    showCopyAction && {
+      key: 'copy',
+      label: 'View platform copy',
+      onSelect: () => {
+        setActionsMenuOpen(false);
+        setShowCopyModal(true);
+      },
+      Icon: FiType,
+    },
+    showGalleryAction && {
+      key: 'gallery',
+      label: 'View ad gallery',
+      onSelect: () => {
+        setActionsMenuOpen(false);
+        setShowGallery(true);
+      },
+      Icon: FiGrid,
+    },
+    {
+      key: 'feedback',
+      label: 'Leave overall feedback',
+      onSelect: () => {
+        setActionsMenuOpen(false);
+        setShowFeedbackModal(true);
+      },
+      Icon: FiMessageSquare,
+    },
+  ].filter(Boolean);
+
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
     // Drop preloaded images that are behind the current index
@@ -3337,41 +3487,75 @@ useEffect(() => {
         </div>
       )}
       <div className="flex w-full flex-col items-center">
+        {reviewVersion === 2 && (
+          <div
+            ref={toolbarRef}
+            className="sticky top-0 z-30 flex w-full justify-between px-4 py-3 sm:px-6"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+          >
+            <button
+              type="button"
+              onClick={handleExitReview}
+              aria-label="Exit review"
+              className="btn-action flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+            >
+              <FiHome className="h-5 w-5" />
+            </button>
+            <div className="relative">
+              <button
+                type="button"
+                ref={actionsMenuButtonRef}
+                aria-haspopup="true"
+                aria-expanded={actionsMenuOpen}
+                onClick={() => setActionsMenuOpen((open) => !open)}
+                className="btn-action flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                aria-label="Open review actions menu"
+              >
+                <FiMoreHorizontal className="h-5 w-5" />
+              </button>
+              {actionsMenuOpen && (
+                <div
+                  ref={actionsMenuRef}
+                  className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-md focus:outline-none dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                  role="menu"
+                >
+                  {reviewMenuActions.map(({ key, label, onSelect, Icon }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={onSelect}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                      role="menuitem"
+                    >
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                      {label}
+                    </button>
+                  ))}
+                  <div className="mt-2 border-t border-gray-200 pt-2 dark:border-[var(--border-color-default)]">
+                    <ThemeToggle
+                      variant="menu"
+                      onToggle={() => setActionsMenuOpen(false)}
+                      role="menuitem"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <div className="flex w-full flex-col items-center">
           <div className="w-full max-w-[712px] px-4 pt-6 pb-4 sm:px-6">
-            <div className="flex items-center justify-between gap-4">
-              <InfoTooltip text="exit review" placement="bottom">
-                <button
-                  type="button"
-                  onClick={handleExitReview}
-                  aria-label="exit review"
-                  className="text-gray-500 hover:text-black dark:hover:text-white"
-                >
-                  <FiX />
-                </button>
-              </InfoTooltip>
-              <div className="flex flex-1 justify-center">
-                {reviewLogoUrl && (
-                  <OptimizedImage
-                    pngUrl={reviewLogoUrl}
-                    alt={reviewLogoAlt}
-                    loading="eager"
-                    cacheKey={reviewLogoUrl}
-                    onLoad={() => setLogoReady(true)}
-                    className="max-h-16 w-auto"
-                  />
-                )}
-              </div>
-              <InfoTooltip text="leave overall feedback" placement="bottom">
-                <button
-                  type="button"
-                  aria-label="leave overall feedback"
-                  onClick={() => setShowFeedbackModal(true)}
-                  className="text-gray-500 hover:text-black dark:hover:text-white"
-                >
-                  <FiMessageSquare />
-                </button>
-              </InfoTooltip>
+            <div className="flex items-center justify-center">
+              {reviewLogoUrl && (
+                <OptimizedImage
+                  pngUrl={reviewLogoUrl}
+                  alt={reviewLogoAlt}
+                  loading="eager"
+                  cacheKey={reviewLogoUrl}
+                  onLoad={() => setLogoReady(true)}
+                  className="max-h-16 w-auto"
+                />
+              )}
             </div>
           </div>
         </div>
@@ -3395,7 +3579,11 @@ useEffect(() => {
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-x-0 -top-6 h-6"
               />
-              <div ref={statusBarRef} className="sticky top-0 z-20 mt-2">
+              <div
+                ref={statusBarRef}
+                className="sticky z-20 mt-2"
+                style={{ top: toolbarOffset ? `${toolbarOffset}px` : 0 }}
+              >
                 <div
                   className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
                 >
@@ -3433,38 +3621,40 @@ useEffect(() => {
                         })}
                       </div>
                     </div>
-                    {isGroupReviewed ? (
-                      <span
-                        className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 sm:self-center ${
-                          statusBarPinned ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'
-                        }`}
-                      >
-                        <FiCheckCircle
-                          className={
-                            statusBarPinned ? 'h-3.5 w-3.5' : 'h-4 w-4'
+                    <div className="flex flex-col items-end gap-2 sm:self-center">
+                      {isGroupReviewed ? (
+                        <span
+                          className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 ${
+                            statusBarPinned ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'
+                          }`}
+                        >
+                          <FiCheckCircle
+                            className={
+                              statusBarPinned ? 'h-3.5 w-3.5' : 'h-4 w-4'
+                            }
+                            aria-hidden="true"
+                          />
+                          Reviewed
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={openFinalizeModal}
+                          disabled={
+                            finalizeProcessing || submitting || !groupId
                           }
-                          aria-hidden="true"
-                        />
-                        Reviewed
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={openFinalizeModal}
-                        disabled={
-                          finalizeProcessing || submitting || !groupId
-                        }
-                        className={`btn-primary whitespace-nowrap font-semibold sm:self-center ${
-                          statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
-                        } ${
-                          finalizeProcessing || submitting || !groupId
-                            ? 'opacity-60 cursor-not-allowed'
-                            : ''
-                        }`}
-                      >
-                        finalize review
-                      </button>
-                    )}
+                          className={`btn-primary whitespace-nowrap font-semibold ${
+                            statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
+                          } ${
+                            finalizeProcessing || submitting || !groupId
+                              ? 'opacity-60 cursor-not-allowed'
+                              : ''
+                          }`}
+                        >
+                          finalize review
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

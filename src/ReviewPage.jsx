@@ -6,15 +6,12 @@ import {
   collection,
   getDocs,
   query,
-  onSnapshot,
   where,
 } from "firebase/firestore";
 import { db } from "./firebase/config";
 import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
 import ThemeToggle from "./ThemeToggle";
-import { FiGrid, FiType } from "react-icons/fi";
-import { isRealtimeReviewerEligible } from "./utils/realtimeEligibility";
 
 const ReviewPage = ({
   userRole = null,
@@ -28,6 +25,7 @@ const ReviewPage = ({
   const [reviewerName, setReviewerName] = useState("");
   const [tempName, setTempName] = useState("");
   const [agencyId, setAgencyId] = useState(null);
+  const [brandDashboardSlug, setBrandDashboardSlug] = useState("");
   const [groupPassword, setGroupPassword] = useState(null);
   const [visibility, setVisibility] = useState(null);
   const [requireAuth, setRequireAuth] = useState(false);
@@ -36,19 +34,10 @@ const ReviewPage = ({
   const [groupAccessEvaluated, setGroupAccessEvaluated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordOk, setPasswordOk] = useState(false);
-  const [copyCount, setCopyCount] = useState(0);
-  const [adCount, setAdCount] = useState(0);
   const reviewRef = useRef(null);
   const isAnonymousReviewer = Boolean(user?.isAnonymous);
   const allowPublicListeners =
     groupAccessEvaluated && !accessBlocked && (!requirePassword || passwordOk);
-  const reviewerNameValue = typeof reviewerName === "string" ? reviewerName : "";
-  const canUseRealtimeCounts = isRealtimeReviewerEligible({
-    allowPublicListeners,
-    isPublicReviewer: isAnonymousReviewer,
-    isAuthenticated: Boolean(user?.uid),
-    reviewerName: reviewerNameValue,
-  });
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -70,189 +59,35 @@ const ReviewPage = ({
         const groupSnap = await getDoc(doc(db, "adGroups", groupId));
         if (!groupSnap.exists()) {
           setAgencyId(null);
+          setBrandDashboardSlug("");
           return;
         }
         const code = groupSnap.data().brandCode;
         if (!code) {
           setAgencyId(null);
+          setBrandDashboardSlug("");
           return;
         }
         const q = query(collection(db, "brands"), where("code", "==", code));
         const bSnap = await getDocs(q);
         if (!bSnap.empty) {
-          setAgencyId(bSnap.docs[0].data().agencyId || null);
+          const brandData = bSnap.docs[0].data();
+          setAgencyId(brandData.agencyId || null);
+          setBrandDashboardSlug(
+            (brandData.publicDashboardSlug || brandData.code || "").trim(),
+          );
         } else {
           setAgencyId(null);
+          setBrandDashboardSlug("");
         }
       } catch (err) {
         console.error("Failed to fetch agency", err);
         setAgencyId(null);
+        setBrandDashboardSlug("");
       }
     };
     loadAgency();
   }, [groupId]);
-
-  useEffect(() => {
-    if (
-      !groupId ||
-      !groupAccessEvaluated ||
-      accessBlocked ||
-      (requirePassword && !passwordOk)
-    ) {
-      setCopyCount(0);
-      return undefined;
-    }
-
-    const collectionRef = collection(db, 'adGroups', groupId, 'copyCards');
-    let cancelled = false;
-    let pollTimer = null;
-    let unsubscribe = null;
-
-    const fetchCount = async () => {
-      try {
-        const snap = await getDocs(collectionRef);
-        if (!cancelled) {
-          setCopyCount(snap.size);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error('Failed to load copy card count', err);
-          setCopyCount(0);
-        }
-      }
-    };
-
-    const startPolling = () => {
-      if (pollTimer) return;
-      if (unsubscribe) {
-        try {
-          unsubscribe();
-        } catch (err) {
-          console.warn('Failed to clean up copy count listener', err);
-        }
-        unsubscribe = null;
-      }
-      fetchCount();
-      pollTimer = setInterval(fetchCount, 10000);
-    };
-
-    if (!canUseRealtimeCounts) {
-      startPolling();
-    } else {
-      try {
-        unsubscribe = onSnapshot(
-          collectionRef,
-          (snap) => setCopyCount(snap.size),
-          (error) => {
-            console.error('Failed to subscribe to copy count updates', error);
-            startPolling();
-          },
-        );
-      } catch (err) {
-        console.error('Realtime copy count listener setup failed', err);
-        startPolling();
-      }
-    }
-
-    return () => {
-      cancelled = true;
-      if (unsubscribe) {
-        unsubscribe();
-      }
-      if (pollTimer) {
-        clearInterval(pollTimer);
-      }
-    };
-  }, [
-    groupId,
-    groupAccessEvaluated,
-    accessBlocked,
-    requirePassword,
-    passwordOk,
-    isAnonymousReviewer,
-    canUseRealtimeCounts,
-  ]);
-
-  useEffect(() => {
-    if (
-      !groupId ||
-      !groupAccessEvaluated ||
-      accessBlocked ||
-      (requirePassword && !passwordOk)
-    ) {
-      setAdCount(0);
-      return undefined;
-    }
-
-    const collectionRef = collection(db, 'adGroups', groupId, 'assets');
-    let cancelled = false;
-    let pollTimer = null;
-    let unsubscribe = null;
-
-    const fetchCount = async () => {
-      try {
-        const snap = await getDocs(collectionRef);
-        if (!cancelled) {
-          setAdCount(snap.size);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error('Failed to load asset count', err);
-          setAdCount(0);
-        }
-      }
-    };
-
-    const startPolling = () => {
-      if (pollTimer) return;
-      if (unsubscribe) {
-        try {
-          unsubscribe();
-        } catch (err) {
-          console.warn('Failed to clean up asset count listener', err);
-        }
-        unsubscribe = null;
-      }
-      fetchCount();
-      pollTimer = setInterval(fetchCount, 10000);
-    };
-
-    if (!canUseRealtimeCounts) {
-      startPolling();
-    } else {
-      try {
-        unsubscribe = onSnapshot(
-          collectionRef,
-          (snap) => setAdCount(snap.size),
-          (error) => {
-            console.error('Failed to subscribe to asset count updates', error);
-            startPolling();
-          },
-        );
-      } catch (err) {
-        console.error('Realtime asset count listener setup failed', err);
-        startPolling();
-      }
-    }
-
-    return () => {
-      cancelled = true;
-      if (unsubscribe) {
-        unsubscribe();
-      }
-      if (pollTimer) {
-        clearInterval(pollTimer);
-      }
-    };
-  }, [
-    groupId,
-    groupAccessEvaluated,
-    accessBlocked,
-    requirePassword,
-    passwordOk,
-    isAnonymousReviewer,
-    canUseRealtimeCounts,
-  ]);
 
   useEffect(() => {
     setGroupAccessEvaluated(false);
@@ -410,28 +245,8 @@ const ReviewPage = ({
 
   return (
     <div className="min-h-screen relative">
-      <div className="absolute top-2 right-2 flex gap-2 z-40">
+      <div className="absolute top-2 right-2 z-40">
         {user?.isAnonymous && <ThemeToggle />}
-        {copyCount > 0 && (
-          <button
-            type="button"
-            aria-label="See platform copy"
-            onClick={() => reviewRef.current?.openCopy()}
-            className="p-2 rounded"
-          >
-            <FiType />
-          </button>
-        )}
-        {adCount > 0 && (
-          <button
-            type="button"
-            aria-label="See gallery"
-            onClick={() => reviewRef.current?.openGallery()}
-            className="p-2 rounded"
-          >
-            <FiGrid />
-          </button>
-        )}
       </div>
       <Review
         ref={reviewRef}
@@ -441,6 +256,7 @@ const ReviewPage = ({
         userRole={user?.isAnonymous ? null : userRole}
         brandCodes={user?.isAnonymous ? [] : brandCodes}
         agencyId={agencyId}
+        brandDashboardSlug={brandDashboardSlug}
         allowPublicListeners={allowPublicListeners}
         isPublicReviewer={Boolean(user?.isAnonymous)}
       />

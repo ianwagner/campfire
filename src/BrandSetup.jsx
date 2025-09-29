@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   collection,
   query,
@@ -21,6 +21,7 @@ import IconButton from './components/IconButton.jsx';
 import { FiEdit2 } from 'react-icons/fi';
 import BrandAssetsLayout from './BrandAssetsLayout.jsx';
 import useUnsavedChanges from './useUnsavedChanges.js';
+import { generateUniquePublicSlug } from './utils/generatePublicSlug.js';
 
 const driveIdRegex = /^[\w-]{10,}$/;
 const isValidDriveId = (id) => driveIdRegex.test(id);
@@ -46,6 +47,8 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [publicDashboardSlug, setPublicDashboardSlug] = useState('');
+  const [slugLoading, setSlugLoading] = useState(false);
   const { agencies } = useAgencies();
 
   useEffect(() => {
@@ -87,6 +90,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
                   }))
                 : [{ ...emptyFont }]
             );
+            setPublicDashboardSlug(data.publicDashboardSlug || '');
           }
         } else if (brandCode) {
           const q = query(collection(db, 'brands'), where('code', '==', brandCode));
@@ -120,6 +124,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
                   }))
                 : [{ ...emptyFont }]
             );
+            setPublicDashboardSlug(data.publicDashboardSlug || '');
           }
         }
         setDirty(false);
@@ -129,6 +134,64 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
     };
     load();
   }, [brandCode, propId, propCode]);
+
+  useEffect(() => {
+    if (!brandId || publicDashboardSlug) return undefined;
+    let cancelled = false;
+    const ensureSlug = async () => {
+      setSlugLoading(true);
+      try {
+        const slug = await generateUniquePublicSlug(db);
+        if (cancelled) return;
+        await updateDoc(doc(db, 'brands', brandId), { publicDashboardSlug: slug });
+        if (!cancelled) {
+          setPublicDashboardSlug(slug);
+        }
+      } catch (err) {
+        console.error('Failed to assign public dashboard slug', err);
+      } finally {
+        if (!cancelled) {
+          setSlugLoading(false);
+        }
+      }
+    };
+    ensureSlug();
+    return () => {
+      cancelled = true;
+    };
+  }, [brandId, publicDashboardSlug]);
+
+  const dashboardUrl = useMemo(() => {
+    if (!publicDashboardSlug) return '';
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return `${window.location.origin}/${publicDashboardSlug}`;
+    }
+    return `/${publicDashboardSlug}`;
+  }, [publicDashboardSlug]);
+
+  const renderDashboardUrlField = (className = '') => (
+    <FormField label="Public Dashboard URL" className={className}>
+      <input
+        type="text"
+        value={dashboardUrl}
+        readOnly
+        onFocus={(e) => e.target.select()}
+        className="w-full p-2 border rounded bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+        placeholder={slugLoading ? 'Generating link…' : 'Link not available yet'}
+      />
+      {publicDashboardSlug ? (
+        <p className="text-xs text-gray-600 mt-1 dark:text-gray-400">
+          Share this read-only link with partners to give them access to the public dashboard.
+        </p>
+      ) : (
+        <p className="text-xs text-gray-600 mt-1 dark:text-gray-400">
+          {slugLoading
+            ? 'Generating a shareable dashboard link…'
+            : 'A shareable dashboard link will appear here once it is ready.'}
+        </p>
+      )}
+    </FormField>
+  );
 
   const handleSave = async (e) => {
     e?.preventDefault();
@@ -350,6 +413,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             Optional. Use the ID from the folder's URL and share the folder with the service account to store uploaded ads.
           </p>
         </FormField>
+        {renderDashboardUrlField()}
         <h2 className="text-xl mb-2">Brand Assets</h2>
         <FormField label="Brand Guidelines (PDF)">
           <input
@@ -513,10 +577,13 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
         {message && <p className="text-sm">{message}</p>}
       </form>
       ) : (
-        <BrandAssetsLayout
-          brandCode={brandCode}
-          guidelinesUrl={guidelines.url}
-        />
+        <div className="space-y-6">
+          {renderDashboardUrlField('max-w-2xl')}
+          <BrandAssetsLayout
+            brandCode={brandCode}
+            guidelinesUrl={guidelines.url}
+          />
+        </div>
       )}
     </PageWrapper>
   );

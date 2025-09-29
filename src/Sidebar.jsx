@@ -44,7 +44,6 @@ const opsTabs = [
   { label: 'Tickets', path: '/pm/tickets', icon: FiList },
   { label: 'Ad Groups', path: '/pm/ad-groups', icon: FiGrid },
   { label: 'Data', path: '/pm/data', icon: FiDatabase },
-  { label: 'Client Projects', path: '/ops/projects', icon: FiFolder },
   { label: 'Contracts', path: '/ops/contracts', icon: FiFileText },
   { label: 'Account Settings', path: '/account-settings', icon: FiUser },
 ];

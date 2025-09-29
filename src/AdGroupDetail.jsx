@@ -219,22 +219,22 @@ const AdGroupDetail = () => {
     userRole === "project-manager";
   const canManageStaff = isAdmin || (isManager && !isEditor);
   const isAgency = userRole === "agency";
-  const isClient = userRole === "client";
-  const usesTabs = isAdmin || isDesigner || isManager || isClient;
-  const canEditBriefNote = isAdmin || isClient;
-  const canAddBriefAssets = isAdmin || isClient;
-  const canManageCopy = isAdmin || isManager || isClient;
+  const isClientPortalUser = ["client", "project-manager", "ops"].includes(userRole);
+  const usesTabs = isAdmin || isDesigner || isManager || isClientPortalUser;
+  const canEditBriefNote = isAdmin || isClientPortalUser;
+  const canAddBriefAssets = isAdmin || isClientPortalUser;
+  const canManageCopy = isAdmin || isManager || isClientPortalUser;
   const canUploadAds = isAdmin || isDesigner || isAgency;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
-  const showStats = usesTabs ? (!isClient && tab === "stats") : !showTable;
+  const showStats = usesTabs ? (!isClientPortalUser && tab === "stats") : !showTable;
 
   useEffect(() => {
-    if (!isClient) return;
-    if (!['brief', 'ads', 'copy', 'feedback'].includes(tab)) {
+    if (!isClientPortalUser) return;
+    if (!['brief', 'ads', 'copy', 'feedback', 'blocker'].includes(tab)) {
       setTab('brief');
     }
-  }, [isClient, tab]);
+  }, [isClientPortalUser, tab]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -292,6 +292,9 @@ const AdGroupDetail = () => {
         base = "/editor/ad-groups";
         break;
       case "project-manager":
+        base = "/pm/ad-groups";
+        break;
+      case "ops":
         base = "/pm/ad-groups";
         break;
       case "agency":
@@ -2562,6 +2565,14 @@ const AdGroupDetail = () => {
     return <LoadingOverlay />;
   }
 
+  const blockerTab =
+    group.status === 'blocked' ? (
+      <TabButton active={tab === 'blocker'} onClick={() => setTab('blocker')}>
+        <FiAlertTriangle size={18} />
+        Blocker
+      </TabButton>
+    ) : null;
+
   return (
     <div className="min-h-screen p-4 ">
       <div className="flex items-center mb-2 gap-2">
@@ -2705,7 +2716,7 @@ const AdGroupDetail = () => {
           </>
         )}
       </p>
-      {!isClient && (
+      {!isClientPortalUser && (
         <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
           Designer:
           {canManageStaff ? (
@@ -2836,8 +2847,9 @@ const AdGroupDetail = () => {
 
       <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center justify-between">
         <div className="flex flex-wrap gap-2">
-          {isClient ? (
+          {isClientPortalUser ? (
             <>
+              {blockerTab}
               <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
                 <FiFileText size={18} />
                 Brief
@@ -2857,6 +2869,7 @@ const AdGroupDetail = () => {
             </>
           ) : (
             <>
+              {blockerTab}
               <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
                 <FiBarChart2 size={18} />
                 Stats
@@ -2883,12 +2896,6 @@ const AdGroupDetail = () => {
                 <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
                   <FiMessageSquare size={18} />
                   Feedback
-                </TabButton>
-              )}
-              {group.status === 'blocked' && (
-                <TabButton active={tab === 'blocker'} onClick={() => setTab('blocker')}>
-                  <FiAlertTriangle size={18} />
-                  Blocker
                 </TabButton>
               )}
             </>
@@ -3013,7 +3020,7 @@ const AdGroupDetail = () => {
               </>
             )}
           </div>
-        ) : isClient ? (
+        ) : isClientPortalUser ? (
           <div className="flex flex-wrap gap-2">
             <IconButton onClick={handleShare} aria-label="Share" className="bg-transparent">
               <FiShare2 size={20} />
@@ -3034,7 +3041,7 @@ const AdGroupDetail = () => {
               <FiDownload size={20} />
             </IconButton>
           </div>
-        ) : userRole === "editor" || userRole === "project-manager" ? (
+        ) : userRole === "editor" ? (
           <div className="flex flex-wrap gap-2">
             <IconButton
               onClick={() => setShowGallery(true)}
@@ -3369,7 +3376,7 @@ const AdGroupDetail = () => {
               onSelectChange={toggleRecipeSelect}
               onRecipesClick={() => setShowRecipes(true)}
               externalOnly
-              hideActions={isClient}
+              hideActions={isClientPortalUser}
             />
           )}
           {(["admin", "editor", "project-manager"].includes(userRole)) &&
@@ -3404,7 +3411,8 @@ const AdGroupDetail = () => {
         </div>
       )}
 
-      {(isAdmin || isEditor || isDesigner || isManager || isClient) && tab === 'feedback' && (
+      {(isAdmin || isEditor || isDesigner || isManager || isClientPortalUser) &&
+        tab === 'feedback' && (
         <div className="my-4">
           <FeedbackPanel entries={feedback} />
         </div>
