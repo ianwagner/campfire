@@ -49,6 +49,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const [dirty, setDirty] = useState(false);
   const [publicDashboardSlug, setPublicDashboardSlug] = useState('');
   const [slugLoading, setSlugLoading] = useState(false);
+  const [slugInitialized, setSlugInitialized] = useState(false);
   const { agencies } = useAgencies();
 
   useEffect(() => {
@@ -58,7 +59,9 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   }, [brandCodes, propId, propCode]);
 
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
+      setSlugInitialized(false);
       try {
         if (propId) {
           const snap = await getDoc(doc(db, 'brands', propId));
@@ -127,17 +130,26 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
             setPublicDashboardSlug((data.publicDashboardSlug || '').trim());
           }
         }
-        setDirty(false);
+        if (!cancelled) {
+          setDirty(false);
+        }
       } catch (err) {
         console.error('Failed to load brand', err);
+      } finally {
+        if (!cancelled) {
+          setSlugInitialized(true);
+        }
       }
     };
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [brandCode, propId, propCode]);
 
   useEffect(() => {
     const trimmed = (publicDashboardSlug || '').trim();
-    if (!brandId || trimmed) return undefined;
+    if (!brandId || !slugInitialized || trimmed) return undefined;
     let cancelled = false;
     const ensureSlug = async () => {
       setSlugLoading(true);
@@ -158,7 +170,7 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
     return () => {
       cancelled = true;
     };
-  }, [brandId, publicDashboardSlug]);
+  }, [brandId, publicDashboardSlug, slugInitialized]);
 
   const dashboardUrl = useMemo(() => {
     if (!publicDashboardSlug) return '';
