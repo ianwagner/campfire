@@ -79,6 +79,7 @@ import useTaggerJobWatcher from "./useTaggerJobWatcher";
 import AdminClaimDebug from "./AdminClaimDebug";
 import AdminDistribution from "./AdminDistribution";
 import AdminCapacityPlanner from "./AdminCapacityPlanner";
+import MiniGame from "./MiniGame.jsx";
 
 const ThemeWatcher = () => {
   useTheme();
@@ -217,6 +218,7 @@ const App = () => {
                 )
               }
             />
+            <Route path="/mini-game" element={<MiniGame />} />
             <Route
               path="/signup/designer"
               element={
