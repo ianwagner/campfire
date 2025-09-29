@@ -19,6 +19,7 @@ import {
   FiCheckCircle,
   FiHome,
   FiMoreHorizontal,
+  FiDownload,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -429,6 +430,7 @@ const Review = forwardRef(
   const statusBarSentinelRef = useRef(null);
   const statusBarRef = useRef(null);
   const toolbarRef = useRef(null);
+  const recipePreviewRef = useRef(null);
   const [statusBarPinned, setStatusBarPinned] = useState(false);
   const [toolbarOffset, setToolbarOffset] = useState(0);
   const preloads = useRef([]);
@@ -500,9 +502,14 @@ const Review = forwardRef(
   const logoUrlRef = useRef(null);
   const [initialStatus, setInitialStatus] = useState(null);
   const [groupStatus, setGroupStatus] = useState(null);
-  const isGroupReviewed = groupStatus === 'reviewed';
+  const normalizedGroupStatus = useMemo(() => {
+    if (!groupStatus) return '';
+    return String(groupStatus).trim().toLowerCase();
+  }, [groupStatus]);
+  const isGroupReviewed =
+    normalizedGroupStatus === 'reviewed' || normalizedGroupStatus === 'done';
   const reviewedLockMessage =
-    'This ad group has been reviewed. Further changes are disabled.';
+    'This ad group review has been finalized. Further changes are disabled.';
   const [historyEntries, setHistoryEntries] = useState({});
   const [recipeCopyMap, setRecipeCopyMap] = useState({});
   // refs to track latest values for cleanup on unmount
@@ -744,7 +751,7 @@ const Review = forwardRef(
   }, [actionsMenuOpen]);
 
   useEffect(() => {
-    if (reviewVersion !== 2 && actionsMenuOpen) {
+    if (![2, 3].includes(reviewVersion) && actionsMenuOpen) {
       setActionsMenuOpen(false);
     }
   }, [reviewVersion, actionsMenuOpen]);
@@ -2576,8 +2583,28 @@ useEffect(() => {
     return counts;
   }, [reviewAds, buildStatusMeta]);
 
+  const handleDownloadBrief = useCallback(() => {
+    if (
+      !recipePreviewRef.current ||
+      typeof recipePreviewRef.current.downloadVisibleCsv !== 'function'
+    ) {
+      return;
+    }
+    const baseName =
+      adGroupDisplayName ||
+      (groupId ? `ad-group-${groupId}` : 'brief');
+    const normalized = baseName
+      .toString()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const filename = `${normalized || 'brief'}-brief.csv`;
+    recipePreviewRef.current.downloadVisibleCsv(filename);
+  }, [adGroupDisplayName, groupId]);
+
   const showCopyAction = copyCards.length > 0;
-  const showGalleryAction = ads.length > 0;
+  const showGalleryAction = reviewVersion !== 3 && ads.length > 0;
+  const canDownloadBrief = reviewVersion === 3 && recipes.length > 0;
   const reviewMenuActions = [
     showCopyAction && {
       key: 'copy',
@@ -2588,15 +2615,28 @@ useEffect(() => {
       },
       Icon: FiType,
     },
-    showGalleryAction && {
-      key: 'gallery',
-      label: 'View ad gallery',
-      onSelect: () => {
-        setActionsMenuOpen(false);
-        setShowGallery(true);
-      },
-      Icon: FiGrid,
-    },
+    reviewVersion === 3 && canDownloadBrief
+      ? {
+          key: 'download',
+          label: 'Download brief (CSV)',
+          onSelect: () => {
+            setActionsMenuOpen(false);
+            handleDownloadBrief();
+          },
+          Icon: FiDownload,
+        }
+      : null,
+    reviewVersion !== 3 && showGalleryAction
+      ? {
+          key: 'gallery',
+          label: 'View ad gallery',
+          onSelect: () => {
+            setActionsMenuOpen(false);
+            setShowGallery(true);
+          },
+          Icon: FiGrid,
+        }
+      : null,
     {
       key: 'feedback',
       label: 'Leave overall feedback',
@@ -3487,7 +3527,7 @@ useEffect(() => {
         </div>
       )}
       <div className="flex w-full flex-col items-center">
-        {reviewVersion === 2 && (
+        {(reviewVersion === 2 || reviewVersion === 3) && (
           <div
             ref={toolbarRef}
             className="sticky top-0 z-30 flex w-full justify-between px-4 py-3 sm:px-6"
@@ -3543,7 +3583,11 @@ useEffect(() => {
           </div>
         )}
         <div className="flex w-full flex-col items-center">
-          <div className="w-full max-w-[712px] px-4 pt-6 pb-4 sm:px-6">
+          <div
+            className={`w-full px-4 pt-6 pb-4 sm:px-6 ${
+              reviewVersion === 3 ? 'max-w-5xl' : 'max-w-[712px]'
+            }`}
+          >
             <div className="flex items-center justify-center">
               {reviewLogoUrl && (
                 <OptimizedImage
@@ -3562,6 +3606,7 @@ useEffect(() => {
           {reviewVersion === 3 ? (
             <div className="w-full max-w-5xl">
               <RecipePreview
+                ref={recipePreviewRef}
                 initialResults={recipes}
                 showOnlyResults
                 brandCode={groupBrandCode}

@@ -236,6 +236,7 @@ const PublicBrandDashboard = () => {
                   createdAt,
                   brandLogo,
                   showLogo,
+                  status: data.status || "",
                   statusLabel,
                   badges,
                 };
