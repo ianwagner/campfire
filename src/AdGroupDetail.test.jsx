@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import AdGroupDetail from './AdGroupDetail';
@@ -155,6 +155,61 @@ test('project manager can open recipe modal and save recipes', async () => {
 
   await waitFor(() => expect(mockBatchCommit).toHaveBeenCalled());
   expect(screen.queryByTestId('recipe-preview')).not.toBeInTheDocument();
+});
+
+test('project manager can assign staff', async () => {
+  mockUseUserRole.mockReturnValue({ role: 'project-manager', brandCodes: [], loading: false });
+  mockOnSnapshot.mockImplementation((col, cb) => {
+    cb({ docs: [] });
+    return jest.fn();
+  });
+  mockGetDocs.mockImplementation((args) => {
+    const [collectionArgs, whereArgs] = args || [];
+    if (
+      Array.isArray(collectionArgs) &&
+      collectionArgs[1] === 'users' &&
+      Array.isArray(whereArgs) &&
+      whereArgs[0] === 'role'
+    ) {
+      if (whereArgs[2] === 'designer') {
+        return Promise.resolve({
+          empty: false,
+          docs: [
+            {
+              id: 'designer1',
+              data: () => ({ fullName: 'Designer One' }),
+            },
+          ],
+        });
+      }
+      if (whereArgs[2] === 'editor') {
+        return Promise.resolve({
+          empty: false,
+          docs: [
+            {
+              id: 'editor1',
+              data: () => ({ fullName: 'Editor One' }),
+            },
+          ],
+        });
+      }
+    }
+    return Promise.resolve({ empty: true, docs: [] });
+  });
+
+  render(
+    <MemoryRouter>
+      <AdGroupDetail />
+    </MemoryRouter>
+  );
+
+  const designerSelect = await screen.findByLabelText('Designer Assignment');
+  const editorSelect = await screen.findByLabelText('Editor Assignment');
+
+  expect(designerSelect).toBeInTheDocument();
+  expect(editorSelect).toBeInTheDocument();
+  expect(within(designerSelect).getByText('Designer One')).toBeInTheDocument();
+  expect(within(editorSelect).getByText('Editor One')).toBeInTheDocument();
 });
 
 test('editor can open gallery modal', async () => {
