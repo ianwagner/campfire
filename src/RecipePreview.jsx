@@ -1364,12 +1364,51 @@ const RecipePreview = forwardRef(({
             accessor: (row) => row.recipeNo ?? '',
           });
         }
+        const resolveLayoutName = (row, components) => {
+          const candidates = [
+            components['layout.layoutName'],
+            components['layout.name'],
+            components['layout.layout'],
+            components['layout.title'],
+            components['layout.label'],
+            components['layout'],
+            row?.layoutName,
+            row?.layout,
+          ];
+          for (const candidate of candidates) {
+            if (!candidate) continue;
+            if (typeof candidate === 'string' && candidate.trim().length > 0) {
+              return candidate;
+            }
+            if (typeof candidate === 'object') {
+              const { label, name, value, title } = candidate;
+              if (typeof label === 'string' && label.trim().length > 0) {
+                return label;
+              }
+              if (typeof name === 'string' && name.trim().length > 0) {
+                return name;
+              }
+              if (typeof value === 'string' && value.trim().length > 0) {
+                return value;
+              }
+              if (typeof title === 'string' && title.trim().length > 0) {
+                return title;
+              }
+            }
+          }
+          return '';
+        };
+        const layoutExampleKeyPattern = /^layout\..*example/i;
         columnMeta.forEach((col) => {
           if (visibleColumns[col.key]) {
             activeColumns.push({
               header: col.label,
               accessor: (row) => {
                 const components = row?.components || {};
+                if (layoutExampleKeyPattern.test(col.key)) {
+                  const layoutName = resolveLayoutName(row, components);
+                  if (layoutName) return layoutName;
+                }
                 const value = components[col.key];
                 if (col.key.endsWith('.assets')) {
                   if (!Array.isArray(value) || value.length === 0) return '';
