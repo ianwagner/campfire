@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where, deleteField } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal } from 'react-icons/fi';
@@ -41,6 +41,12 @@ const createEmptyForm = (overrides = {}) => ({
   agencyId: '',
   toneOfVoice: '',
   offering: '',
+  brandAssetsLink: '',
+  contractType: 'production',
+  contractDeliverables: '',
+  contractStartDate: '',
+  contractEndDate: '',
+  contractLink: '',
   designerId: '',
   editorId: '',
   infoNote: '',
@@ -67,17 +73,32 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const [calendarMenuOpen, setCalendarMenuOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [brandCodeError, setBrandCodeError] = useState('');
   const menuBtnRef = useRef(null);
   const menuRef = useRef(null);
   const calendarRef = useRef(null);
   const editStatus = editId ? requests.find((r) => r.id === editId)?.status : null;
   const navigate = useNavigate();
   const { agencies } = useAgencies();
-  const { role } = useUserRole(auth.currentUser?.uid);
+  const { role, agencyId: userAgencyId } = useUserRole(auth.currentUser?.uid);
   const isOps = role === 'ops';
   const isProjectManager = role === 'project-manager';
   const showDesignerSelect = !isOps && !isProjectManager;
   const showEditorSelect = canAssignEditor && !isOps && !isProjectManager;
+  const existingBrandCodes = useMemo(() => {
+    const codes = new Set();
+    brands.forEach((brand) => {
+      const code = typeof brand?.code === 'string' ? brand.code.trim().toUpperCase() : '';
+      if (code) codes.add(code);
+    });
+    requests.forEach((req) => {
+      if (req?.type !== 'newBrand' || !req.brandCode) return;
+      if (editId && req.id === editId) return;
+      const code = String(req.brandCode).trim().toUpperCase();
+      if (code) codes.add(code);
+    });
+    return codes;
+  }, [brands, requests, editId]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -192,6 +213,23 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     return () => document.removeEventListener('click', handleClick);
   }, []);
 
+  useEffect(() => {
+    if (!userAgencyId || editId) return;
+    setForm((prev) => {
+      if (prev.agencyId) return prev;
+      return { ...prev, agencyId: userAgencyId };
+    });
+  }, [userAgencyId, editId]);
+
+  useEffect(() => {
+    if (form.type !== 'newBrand' || !userAgencyId) return;
+    if (form.agencyId) return;
+    setForm((prev) => {
+      if (prev.type !== 'newBrand' || prev.agencyId) return prev;
+      return { ...prev, agencyId: userAgencyId };
+    });
+  }, [form.type, form.agencyId, userAgencyId]);
+
   const getBrandProducts = (code) => {
     const brand = brands.find((br) => br.code === code);
     return Array.isArray(brand?.products) ? brand.products : [];
@@ -206,10 +244,11 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   }, 0);
 
   const resetForm = () => {
-    setForm(createEmptyForm());
+    setForm(createEmptyForm({ agencyId: userAgencyId || '' }));
     setEditId(null);
     setSaveError('');
     setSaving(false);
+    setBrandCodeError('');
   };
 
   const openCreate = () => {
@@ -281,7 +320,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     }, 0);
     setForm({
       type: req.type || 'newAds',
-      brandCode: req.brandCode || '',
+      brandCode: (req.brandCode || '').toUpperCase(),
       title: req.title || '',
       dueDate: req.dueDate ? req.dueDate.toDate().toISOString().slice(0,10) : '',
       numAds: req.numAds || totalFromProducts || 1,
@@ -295,6 +334,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       agencyId: req.agencyId || '',
       toneOfVoice: req.toneOfVoice || '',
       offering: req.offering || '',
+      brandAssetsLink: req.brandAssetsLink || '',
+      contractType: req.contractType || 'production',
+      contractDeliverables:
+        typeof req.contractDeliverables === 'number' && !Number.isNaN(req.contractDeliverables)
+          ? String(req.contractDeliverables)
+          : req.contractDeliverables || '',
+      contractStartDate: formatDateInputValue(req.contractStartDate),
+      contractEndDate: formatDateInputValue(req.contractEndDate),
+      contractLink: req.contractLink || '',
       designerId: req.designerId || '',
       editorId: req.editorId || '',
       infoNote: req.infoNote || '',
@@ -302,6 +350,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     });
     const b = brands.find((br) => br.code === req.brandCode);
     setAiArtStyle(b?.aiArtStyle || '');
+    setBrandCodeError('');
     setShowModal(true);
   };
 
@@ -310,7 +359,8 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     setSaveError('');
     setSaving(true);
     try {
-      const brandCode = (form.brandCode || '').trim();
+      const rawBrandCode = (form.brandCode || '').trim();
+      const normalizedBrandCode = rawBrandCode.toUpperCase();
       const assetLinks = (form.assetLinks || []).map((l) => l.trim()).filter((l) => l);
       if (form.type === 'newAds' && assetLinks.length === 0) {
         setSaveError('Please provide at least one Google Drive asset link.');
@@ -318,13 +368,20 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       }
       let productRequests = [];
       let numAds = Number(form.numAds) || 0;
+      let driveVerifierCallable = null;
+      const getDriveVerifier = () => {
+        if (!driveVerifierCallable) {
+          driveVerifierCallable = httpsCallable(functions, 'verifyDriveAccess', { timeout: 60000 });
+        }
+        return driveVerifierCallable;
+      };
 
       if (form.type === 'newAds') {
-        if (!brandCode) {
+        if (!normalizedBrandCode) {
           setSaveError('Brand is required for new ad tickets.');
           return;
         }
-        const availableProducts = getBrandProducts(brandCode);
+        const availableProducts = getBrandProducts(normalizedBrandCode);
         productRequests = (Array.isArray(form.productRequests) ? form.productRequests : [])
           .map((item) => {
             if (!item) return null;
@@ -343,8 +400,8 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       }
 
       if (assetLinks.length) {
-        const verifyDriveAccess = httpsCallable(functions, 'verifyDriveAccess', { timeout: 60000 });
         try {
+          const verifyDriveAccess = getDriveVerifier();
           await Promise.all(assetLinks.map((url) => verifyDriveAccess({ url })));
         } catch (err) {
           console.error('Failed to verify asset link', err);
@@ -355,9 +412,81 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
         }
       }
 
+      let brandAssetsLink = '';
+      let contractType = '';
+      let contractDeliverables = null;
+      let contractStartDate = null;
+      let contractEndDate = null;
+      let contractLink = '';
+
+      const isNewBrand = form.type === 'newBrand';
+
+      if (isNewBrand) {
+        const brandName = (form.name || '').trim();
+        if (!brandName) {
+          setSaveError('Brand name is required.');
+          return;
+        }
+        if (!/^[A-Z]{4}$/.test(normalizedBrandCode)) {
+          setBrandCodeError('Brand code must be four letters.');
+          setSaveError('Brand code must be four letters.');
+          return;
+        }
+        if (existingBrandCodes.has(normalizedBrandCode)) {
+          setBrandCodeError('This brand code is already in use.');
+          setSaveError('Brand code is already in use.');
+          return;
+        }
+        if (brandCodeError) setBrandCodeError('');
+        const cleanedAssetsLink = (form.brandAssetsLink || '').trim();
+        if (!cleanedAssetsLink) {
+          setSaveError('Please provide a Brand Assets Google Drive link.');
+          return;
+        }
+        try {
+          const verifyDriveAccess = getDriveVerifier();
+          await verifyDriveAccess({ url: cleanedAssetsLink });
+        } catch (err) {
+          console.error('Failed to verify brand assets link', err);
+          setSaveError(
+            'We cannot access the brand assets link. Please update the sharing permissions and try again.'
+          );
+          return;
+        }
+        brandAssetsLink = cleanedAssetsLink;
+        contractType = form.contractType === 'briefs' ? 'briefs' : 'production';
+        if (form.contractDeliverables !== '') {
+          const parsedDeliverables = Number(form.contractDeliverables);
+          if (Number.isNaN(parsedDeliverables) || parsedDeliverables <= 0) {
+            setSaveError('Number of deliverables must be a positive number.');
+            return;
+          }
+          contractDeliverables = parsedDeliverables;
+        }
+        const parseDate = (value) => {
+          if (!value) return null;
+          const parsed = new Date(value);
+          if (Number.isNaN(parsed.getTime())) return null;
+          return parsed;
+        };
+        const startDateObj = parseDate(form.contractStartDate);
+        if (form.contractStartDate && !startDateObj) {
+          setSaveError('Invalid contract start date.');
+          return;
+        }
+        const endDateObj = parseDate(form.contractEndDate);
+        if (form.contractEndDate && !endDateObj) {
+          setSaveError('Invalid contract end date.');
+          return;
+        }
+        contractStartDate = startDateObj ? Timestamp.fromDate(startDateObj) : null;
+        contractEndDate = endDateObj ? Timestamp.fromDate(endDateObj) : null;
+        contractLink = (form.contractLink || '').trim();
+      }
+
       const data = {
         type: form.type,
-        brandCode: form.type === 'newAds' ? brandCode : (form.brandCode || '').trim(),
+        brandCode: normalizedBrandCode,
         title: form.title,
         dueDate: form.dueDate ? Timestamp.fromDate(new Date(form.dueDate)) : null,
         numAds,
@@ -366,11 +495,17 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
         uploadLink: form.uploadLink,
         assetLinks,
         details: form.details,
-        priority: form.priority,
+        priority: isNewBrand ? '' : form.priority,
         name: form.name,
         agencyId: form.agencyId,
-        toneOfVoice: form.toneOfVoice,
-        offering: form.offering,
+        toneOfVoice: isNewBrand ? '' : form.toneOfVoice,
+        offering: isNewBrand ? '' : form.offering,
+        brandAssetsLink: isNewBrand ? brandAssetsLink : '',
+        contractType: isNewBrand ? contractType : '',
+        contractDeliverables: isNewBrand && contractDeliverables !== null ? contractDeliverables : null,
+        contractStartDate: isNewBrand ? contractStartDate : null,
+        contractEndDate: isNewBrand ? contractEndDate : null,
+        contractLink: isNewBrand ? contractLink : '',
         designerId: form.designerId || null,
         editorId: showEditorSelect
           ? form.editorId || null
@@ -541,8 +676,23 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     }
   };
 
+  const formatDateInputValue = (value) => {
+    if (!value) return '';
+    try {
+      if (value instanceof Date) return value.toISOString().slice(0, 10);
+      if (typeof value.toDate === 'function') {
+        return value.toDate().toISOString().slice(0, 10);
+      }
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return parsed.toISOString().slice(0, 10);
+    } catch (err) {
+      return '';
+    }
+  };
+
   const handleBrandChange = (e) => {
-    const code = e.target.value;
+    const code = (e.target.value || '').toUpperCase();
     const availableProducts = getBrandProducts(code);
     setForm((f) => {
       const existing = Array.isArray(f.productRequests) && f.productRequests.length
@@ -563,6 +713,55 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     });
     const b = brands.find((br) => br.code === code);
     setAiArtStyle(b?.aiArtStyle || '');
+  };
+
+  const handleBrandCodeChange = (value) => {
+    const sanitized = value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+    setForm((prev) => ({ ...prev, brandCode: sanitized }));
+    if (sanitized.length === 4 && existingBrandCodes.has(sanitized)) {
+      setBrandCodeError('This brand code is already in use.');
+    } else if (brandCodeError) {
+      setBrandCodeError('');
+    }
+  };
+
+  const generateBrandCode = () => {
+    const cleanedName = (form.name || '').toUpperCase().replace(/[^A-Z]/g, '');
+    if (!cleanedName) {
+      setBrandCodeError('Enter a brand name to generate a code.');
+      return;
+    }
+    if (!cleanedName.length) {
+      setBrandCodeError('Unable to generate a code from this brand name.');
+      return;
+    }
+    let generated = '';
+    const seen = new Set();
+    const cycleLength = Math.max(cleanedName.length, 1);
+    let attempt = 0;
+    while (attempt < cycleLength * 5) {
+      let candidate = '';
+      for (let i = 0; i < 4; i += 1) {
+        candidate += cleanedName[(attempt + i) % cleanedName.length];
+      }
+      if (!existingBrandCodes.has(candidate)) {
+        generated = candidate;
+        break;
+      }
+      if (seen.has(candidate)) {
+        break;
+      }
+      seen.add(candidate);
+      attempt += 1;
+    }
+    if (!generated) {
+      setBrandCodeError(
+        'All possible codes from this brand name are already in use. Please adjust the name or enter a custom code.'
+      );
+      return;
+    }
+    setForm((prev) => ({ ...prev, brandCode: generated }));
+    setBrandCodeError('');
   };
 
   const addAssetLink = () => {
@@ -1433,22 +1632,46 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           {form.type === 'newBrand' && (
             <>
               <div>
-                <label className="block mb-1 text-sm font-medium">Brand Code</label>
-                <input
-                  type="text"
-                  value={form.brandCode}
-                  onChange={(e) => setForm((f) => ({ ...f, brandCode: e.target.value }))}
-                  className="w-full p-2 border rounded"
-                />
-              </div>
-              <div>
                 <label className="block mb-1 text-sm font-medium">Brand Name</label>
                 <input
                   type="text"
                   value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, name: e.target.value }));
+                    if (brandCodeError) setBrandCodeError('');
+                  }}
                   className="w-full p-2 border rounded"
+                  placeholder="Enter brand name"
                 />
+              </div>
+              <div>
+                <label className="block mb-1 text-sm font-medium">Brand Code</label>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                  <input
+                    type="text"
+                    value={form.brandCode}
+                    onChange={(e) => handleBrandCodeChange(e.target.value)}
+                    className="w-full p-2 border rounded uppercase tracking-widest"
+                    maxLength={4}
+                    placeholder="Auto-generate or enter code"
+                  />
+                  <button
+                    type="button"
+                    onClick={generateBrandCode}
+                    disabled={!form.name.trim()}
+                    className={`btn-secondary whitespace-nowrap ${
+                      form.name.trim() ? '' : 'opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    Generate Code
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
+                  Code must be four letters derived from the brand name.
+                </p>
+                {brandCodeError && (
+                  <p className="text-xs text-red-600 mt-1">{brandCodeError}</p>
+                )}
               </div>
               <div>
                 <label className="block mb-1 text-sm font-medium">Agency ID</label>
@@ -1465,35 +1688,96 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Tone of Voice</label>
-                <input
-                  type="text"
-                  value={form.toneOfVoice}
-                  onChange={(e) => setForm((f) => ({ ...f, toneOfVoice: e.target.value }))}
-                  className="w-full p-2 border rounded"
+              <div className="pt-2">
+                <h3 className="text-sm font-semibold text-black dark:text-[var(--dark-text)] mb-2">
+                  Brand Assets
+                </h3>
+                <label className="block mb-1 text-sm font-medium">Google Drive Link</label>
+                <UrlCheckInput
+                  value={form.brandAssetsLink}
+                  onChange={(val) => setForm((f) => ({ ...f, brandAssetsLink: val }))}
+                  inputClass="p-2"
+                  required
                 />
               </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Offering</label>
-                <input
-                  type="text"
-                  value={form.offering}
-                  onChange={(e) => setForm((f) => ({ ...f, offering: e.target.value }))}
-                  className="w-full p-2 border rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Priority</label>
-                <select
-                  value={form.priority}
-                  onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
+              <div className="pt-2">
+                <h3 className="text-sm font-semibold text-black dark:text-[var(--dark-text)] mb-2">
+                  Contract
+                </h3>
+                <div className="mb-3">
+                  <span className="block mb-1 text-sm font-medium">Type</span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, contractType: 'production' }))}
+                      className={`px-3 py-1 rounded border text-sm transition-colors ${
+                        form.contractType === 'briefs'
+                          ? 'bg-white dark:bg-[var(--dark-card-bg)] text-gray-700 dark:text-[var(--dark-text)] border-gray-300 dark:border-gray-600'
+                          : 'bg-blue-600 text-white border-blue-600'
+                      }`}
+                    >
+                      Production
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, contractType: 'briefs' }))}
+                      className={`px-3 py-1 rounded border text-sm transition-colors ${
+                        form.contractType === 'briefs'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white dark:bg-[var(--dark-card-bg)] text-gray-700 dark:text-[var(--dark-text)] border-gray-300 dark:border-gray-600'
+                      }`}
+                    >
+                      Briefs
+                    </button>
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <label className="block mb-1 text-sm font-medium">Number of Deliverables</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.contractDeliverables}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, contractDeliverables: e.target.value }))
+                    }
+                    className="w-full p-2 border rounded"
+                    placeholder="Enter number of deliverables"
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block mb-1 text-sm font-medium">Start Date</label>
+                    <input
+                      type="date"
+                      value={form.contractStartDate}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, contractStartDate: e.target.value }))
+                      }
+                      className="w-full p-2 border rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-sm font-medium">End Date</label>
+                    <input
+                      type="date"
+                      value={form.contractEndDate}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, contractEndDate: e.target.value }))
+                      }
+                      className="w-full p-2 border rounded"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <label className="block mb-1 text-sm font-medium">Contract Link</label>
+                  <input
+                    type="text"
+                    value={form.contractLink}
+                    onChange={(e) => setForm((f) => ({ ...f, contractLink: e.target.value }))}
+                    className="w-full p-2 border rounded"
+                    placeholder="Paste contract link"
+                  />
+                </div>
               </div>
             </>
         )}

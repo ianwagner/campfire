@@ -203,6 +203,31 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
               )
             )}
             {expanded && request.type === 'newAIAssets' && <span># Assets: {request.numAssets}</span>}
+            {expanded && request.type === 'newBrand' && (
+              <div className="text-left text-black dark:text-[var(--dark-text)] text-xs space-y-1 mt-2">
+                {request.brandAssetsLink && (
+                  <p className="mb-0">
+                    Assets:{' '}
+                    <a
+                      href={request.brandAssetsLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all text-blue-600"
+                    >
+                      {request.brandAssetsLink}
+                    </a>
+                  </p>
+                )}
+                {request.contractType && (
+                  <p className="mb-0">
+                    Contract: {request.contractType === 'briefs' ? 'Briefs' : 'Production'}
+                  </p>
+                )}
+                {typeof request.contractDeliverables === 'number' && request.contractDeliverables > 0 && (
+                  <p className="mb-0">Deliverables: {request.contractDeliverables}</p>
+                )}
+              </div>
+            )}
           </div>
           <div className="text-right">
             {request.type === 'newAds' || request.type === 'newBrand' ? (

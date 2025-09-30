@@ -280,12 +280,20 @@ module.exports = async function handler(req, res) {
   try {
     const collection = db.collection("slackChannelMappings");
     const brandCodeQueries = [
+      collection.where("brandCodesNormalized", "array-contains", normalizedBrandCode).get(),
       collection.where("brandCodeNormalized", "==", normalizedBrandCode).get(),
       collection.where("brandCode", "==", normalizedBrandCode).get(),
     ];
 
+    brandCodeQueries.push(
+      collection.where("brandCodes", "array-contains", normalizedBrandCode).get()
+    );
+
     if (rawBrandCode && rawBrandCode !== normalizedBrandCode) {
       brandCodeQueries.push(collection.where("brandCode", "==", rawBrandCode).get());
+      brandCodeQueries.push(
+        collection.where("brandCodes", "array-contains", rawBrandCode).get()
+      );
     }
 
     const snapshots = await Promise.all(brandCodeQueries);
