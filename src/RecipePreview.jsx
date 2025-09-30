@@ -851,7 +851,13 @@ const RecipePreview = forwardRef(({
       window.alert(`Please fill out required fields: ${missing.join(', ')}`);
       return;
     }
-    const times = Number(generateCount) || 1;
+    const parsedTimes = Number.parseInt(generateCount, 10);
+    const times = Number.isNaN(parsedTimes) ? 0 : Math.max(0, parsedTimes);
+    if (times === 0) {
+      setLastPlannedCount(0);
+      setLastPlannedTotal(results.length);
+      return;
+    }
     const startingCount = results.length;
     let created = 0;
     setLastPlannedCount(times);
