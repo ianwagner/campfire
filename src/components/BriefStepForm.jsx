@@ -37,8 +37,6 @@ export default function BriefStepForm({
   allInstances,
   selectedInstances,
   setSelectedInstances,
-  showOptionLists,
-  setShowOptionLists,
   showProductModal,
   setShowProductModal,
   showImportModal,
@@ -55,7 +53,52 @@ export default function BriefStepForm({
   dueDate,
   setDueDate,
   isAgency,
+  isPlanning,
+  lastPlannedCount,
+  lastPlannedTotal,
 }) {
+
+  React.useEffect(() => {
+    const defaults = {
+      funnel: 'Awareness',
+      market: 'US',
+      format: 'Static',
+    };
+    const updates = {};
+    let shouldUpdate = false;
+    displayedComponents.forEach((component) => {
+      const desired = defaults[component.key];
+      if (!desired) return;
+      if (selectedInstances[component.key] !== undefined) return;
+      if (component.selectionMode !== 'dropdown') return;
+      const instOptions = allInstances.filter(
+        (i) =>
+          i.componentKey === component.key &&
+          (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
+      );
+      const match = instOptions.find((i) => i.name === desired);
+      if (match) {
+        updates[component.key] = match.id;
+        shouldUpdate = true;
+      }
+    });
+    if (shouldUpdate) {
+      setSelectedInstances((prev) => ({ ...prev, ...updates }));
+    }
+  }, [
+    allInstances,
+    brandCode,
+    displayedComponents,
+    selectedInstances,
+    setSelectedInstances,
+  ]);
+
+  const adsCount = Number(generateCount) || 1;
+  const planningMessage = isPlanning
+    ? `Planning ${(lastPlannedCount || adsCount).toString()} ads…`
+    : lastPlannedTotal !== null
+    ? `Total ads planned: ${lastPlannedTotal}`
+    : '';
 
   return (
     <>
@@ -228,186 +271,178 @@ export default function BriefStepForm({
                 )}
               </>
             )}
-          {displayedComponents.map((c) => {
-            if (c.key === 'brand') return null;
-            const instOptions = allInstances.filter(
-              (i) =>
-                i.componentKey === c.key &&
-                (!i.relationships?.brandCode || i.relationships.brandCode === brandCode)
-            );
-            const defaultList = instOptions.map((i) => i.id);
-            const current =
-              selectedInstances[c.key] !== undefined
-                ? selectedInstances[c.key]
-                : c.selectionMode === 'checklist'
-                ? defaultList
-                : '';
-            const listVisible = !!showOptionLists[c.id];
-            const inst =
-              c.selectionMode === 'dropdown'
-                ? allInstances.find(
-                    (i) =>
-                      i.id === current &&
-                      i.componentKey === c.key &&
-                      (!i.relationships?.brandCode ||
-                        i.relationships.brandCode === brandCode)
-                  )
-                : null;
-            const imgAttr = c.attributes?.find((a) => a.inputType === 'image');
-            if (c.key === 'product') {
-              const currentList = Array.isArray(current) ? current : defaultList;
-              const toggle = (id) => {
-                setSelectedInstances({
-                  ...selectedInstances,
-                  [c.key]: currentList.includes(id)
-                    ? currentList.filter((x) => x !== id)
-                    : [...currentList, id],
-                });
-              };
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {displayedComponents.map((c) => {
+              if (c.key === 'brand') return null;
+              const instOptions = allInstances.filter(
+                (i) =>
+                  i.componentKey === c.key &&
+                  (!i.relationships?.brandCode || i.relationships.brandCode === brandCode)
+              );
+              const defaultList = instOptions.map((i) => i.id);
+              const current =
+                selectedInstances[c.key] !== undefined
+                  ? selectedInstances[c.key]
+                  : c.selectionMode === 'checklist'
+                  ? defaultList
+                  : '';
+              const inst =
+                c.selectionMode === 'dropdown'
+                  ? allInstances.find(
+                      (i) =>
+                        i.id === current &&
+                        i.componentKey === c.key &&
+                        (!i.relationships?.brandCode ||
+                          i.relationships.brandCode === brandCode)
+                    )
+                  : null;
+              const imgAttr = c.attributes?.find((a) => a.inputType === 'image');
+              if (c.key === 'product') {
+                const currentList = Array.isArray(current) ? current : defaultList;
+                const toggle = (id) => {
+                  setSelectedInstances({
+                    ...selectedInstances,
+                    [c.key]: currentList.includes(id)
+                      ? currentList.filter((x) => x !== id)
+                      : [...currentList, id],
+                  });
+                };
+                return (
+                  <div
+                    key={c.id}
+                    className="space-y-2 md:col-span-2 xl:col-span-3"
+                  >
+                    <label className="block mb-1 text-sm font-medium">Products</label>
+                    <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                      {instOptions.map((i) => (
+                        <ProductCard
+                          key={i.id}
+                          product={{ ...i.values, name: i.name }}
+                          selected={currentList.includes(i.id)}
+                          onClick={() => toggle(i.id)}
+                        />
+                      ))}
+                      <AddProductCard
+                        onAdd={() => setShowProductModal(true)}
+                        onImport={() => setShowImportModal(true)}
+                      />
+                    </div>
+                    {showProductModal && (
+                      <ProductEditModal
+                        product={{
+                          name: '',
+                          url: '',
+                          description: [],
+                          benefits: [],
+                          featuredImage: '',
+                          images: [],
+                        }}
+                        brandCode={brandCode}
+                        onSave={(p) => {
+                          const id = `product-${brandProducts.length}`;
+                          const newProd = {
+                            id,
+                            componentKey: 'product',
+                            name: p.name,
+                            values: {
+                              name: p.name,
+                              url: p.url || '',
+                              description: p.description,
+                              benefits: p.benefits,
+                              featuredImage: p.featuredImage || p.images?.[0]?.url || '',
+                              images: Array.isArray(p.images)
+                                ? p.images.map((img) => img.url)
+                                : [],
+                            },
+                            relationships: { brandCode },
+                          };
+                          const updated = [...brandProducts, newProd];
+                          setBrandProducts(updated);
+                          setSelectedInstances((prev) => ({
+                            ...prev,
+                            [c.key]: [...currentList, id],
+                          }));
+                          const brand = brands.find((b) => b.code === brandCode);
+                          saveBrandProducts(brand?.id, updated);
+                        }}
+                        onClose={() => setShowProductModal(false)}
+                      />
+                    )}
+                    {showImportModal && (
+                      <ProductImportModal
+                        brandCode={brandCode}
+                        onAdd={(p) => {
+                          const id = `product-${brandProducts.length}`;
+                          const newProd = {
+                            id,
+                            componentKey: 'product',
+                            name: p.name,
+                            values: {
+                              name: p.name,
+                              url: p.url || '',
+                              description: p.description,
+                              benefits: p.benefits,
+                              featuredImage: p.featuredImage || p.images?.[0]?.url || '',
+                              images: Array.isArray(p.images)
+                                ? p.images.map((img) => img.url)
+                                : [],
+                            },
+                            relationships: { brandCode },
+                          };
+                          const updated = [...brandProducts, newProd];
+                          setBrandProducts(updated);
+                          setSelectedInstances((prev) => ({
+                            ...prev,
+                            [c.key]: [...currentList, id],
+                          }));
+                          const brand = brands.find((b) => b.code === brandCode);
+                          saveBrandProducts(brand?.id, updated);
+                        }}
+                        onClose={() => setShowImportModal(false)}
+                      />
+                    )}
+                  </div>
+                );
+              }
               return (
                 <div key={c.id} className="space-y-2">
-                  <label className="block mb-1 text-sm font-medium">Products</label>
-                  <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-                    {instOptions.map((i) => (
-                      <ProductCard
-                        key={i.id}
-                        product={{ ...i.values, name: i.name }}
-                        selected={currentList.includes(i.id)}
-                        onClick={() => toggle(i.id)}
-                      />
-                    ))}
-                    <AddProductCard
-                      onAdd={() => setShowProductModal(true)}
-                      onImport={() => setShowImportModal(true)}
-                    />
-                  </div>
-                  {showProductModal && (
-                    <ProductEditModal
-                      product={{
-                        name: '',
-                        url: '',
-                        description: [],
-                        benefits: [],
-                        featuredImage: '',
-                        images: [],
-                      }}
-                      brandCode={brandCode}
-                      onSave={(p) => {
-                        const id = `product-${brandProducts.length}`;
-                        const newProd = {
-                          id,
-                          componentKey: 'product',
-                          name: p.name,
-                          values: {
-                            name: p.name,
-                            url: p.url || '',
-                            description: p.description,
-                            benefits: p.benefits,
-                            featuredImage: p.featuredImage || p.images?.[0]?.url || '',
-                            images: Array.isArray(p.images)
-                              ? p.images.map((img) => img.url)
-                              : [],
-                          },
-                          relationships: { brandCode },
-                        };
-                        const updated = [...brandProducts, newProd];
-                        setBrandProducts(updated);
-                        setSelectedInstances((prev) => ({
-                          ...prev,
-                          [c.key]: [...currentList, id],
-                        }));
-                        const brand = brands.find((b) => b.code === brandCode);
-                        saveBrandProducts(brand?.id, updated);
-                      }}
-                      onClose={() => setShowProductModal(false)}
-                    />
-                  )}
-                  {showImportModal && (
-                    <ProductImportModal
-                      brandCode={brandCode}
-                      onAdd={(p) => {
-                        const id = `product-${brandProducts.length}`;
-                        const newProd = {
-                          id,
-                          componentKey: 'product',
-                          name: p.name,
-                          values: {
-                            name: p.name,
-                            url: p.url || '',
-                            description: p.description,
-                            benefits: p.benefits,
-                            featuredImage: p.featuredImage || p.images?.[0]?.url || '',
-                            images: Array.isArray(p.images)
-                              ? p.images.map((img) => img.url)
-                              : [],
-                          },
-                          relationships: { brandCode },
-                        };
-                        const updated = [...brandProducts, newProd];
-                        setBrandProducts(updated);
-                        setSelectedInstances((prev) => ({
-                          ...prev,
-                          [c.key]: [...currentList, id],
-                        }));
-                        const brand = brands.find((b) => b.code === brandCode);
-                        saveBrandProducts(brand?.id, updated);
-                      }}
-                      onClose={() => setShowImportModal(false)}
-                    />
-                  )}
-                </div>
-              );
-            }
-            return (
-              <div key={c.id} className="space-y-2">
-                <label className="block mb-1 text-sm font-medium">{c.label}</label>
-                {c.selectionMode === 'dropdown' && instOptions.length > 0 && (
-                  imgAttr ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                      {instOptions.map((i) => {
-                        const imgUrl = i.values?.[imgAttr.key] || '';
-                        const selected = current === i.id;
-                        return (
-                          <button
-                            type="button"
-                            key={i.id}
-                            onClick={() =>
-                              setSelectedInstances({ ...selectedInstances, [c.key]: i.id })
-                            }
-                            className={`border rounded p-2 flex flex-col items-center ${
-                              selected ? 'ring-2 ring-blue-500' : ''
-                            }`}
-                          >
-                            {imgUrl ? (
-                              <OptimizedImage
-                                pngUrl={imgUrl}
-                                alt={i.name}
-                                className="w-full h-24 object-cover mb-2"
-                              />
-                            ) : (
-                              <div className="w-full h-24 flex items-center justify-center bg-gray-100 mb-2">
-                                <FiImage className="text-3xl text-gray-400" />
-                              </div>
-                            )}
-                            <span className="text-xs sm:text-sm text-center">
-                              {i.name}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : !listVisible ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowOptionLists((p) => ({ ...p, [c.id]: true }))
-                      }
-                      className="text-xs underline text-accent"
-                    >
-                      See options
-                    </button>
-                  ) : (
-                    <>
+                  <label className="block mb-1 text-sm font-medium">{c.label}</label>
+                  {c.selectionMode === 'dropdown' && instOptions.length > 0 && (
+                    imgAttr ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        {instOptions.map((i) => {
+                          const imgUrl = i.values?.[imgAttr.key] || '';
+                          const selected = current === i.id;
+                          return (
+                            <button
+                              type="button"
+                              key={i.id}
+                              onClick={() =>
+                                setSelectedInstances({ ...selectedInstances, [c.key]: i.id })
+                              }
+                              className={`border rounded p-2 flex flex-col items-center ${
+                                selected ? 'ring-2 ring-blue-500' : ''
+                              }`}
+                            >
+                              {imgUrl ? (
+                                <OptimizedImage
+                                  pngUrl={imgUrl}
+                                  alt={i.name}
+                                  className="w-full h-24 object-cover mb-2"
+                                />
+                              ) : (
+                                <div className="w-full h-24 flex items-center justify-center bg-gray-100 mb-2">
+                                  <FiImage className="text-3xl text-gray-400" />
+                                </div>
+                              )}
+                              <span className="text-xs sm:text-sm text-center">
+                                {i.name}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
                       <select
                         className="w-full p-2 border rounded"
                         value={current}
@@ -425,69 +460,39 @@ export default function BriefStepForm({
                           </option>
                         ))}
                       </select>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowOptionLists((p) => ({ ...p, [c.id]: false }))
-                        }
-                        className="text-xs underline text-accent"
-                      >
-                        Hide options
-                      </button>
-                    </>
-                  )
-                )}
-                {c.selectionMode === 'checklist' && instOptions.length > 0 && (
-                  !listVisible ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowOptionLists((p) => ({ ...p, [c.id]: true }))
+                    )
+                  )}
+                  {c.selectionMode === 'checklist' && instOptions.length > 0 && (
+                    <TagChecklist
+                      options={instOptions.map((i) => ({ id: i.id, name: i.name }))}
+                      value={current}
+                      onChange={(arr) =>
+                        setSelectedInstances({ ...selectedInstances, [c.key]: arr })
                       }
-                      className="text-xs underline text-accent"
-                    >
-                      See options
-                    </button>
-                  ) : (
-                    <>
-                      <TagChecklist
-                        options={instOptions.map((i) => ({ id: i.id, name: i.name }))}
-                        value={current}
-                        onChange={(arr) => setSelectedInstances({ ...selectedInstances, [c.key]: arr })}
-                        id={`check-${c.id}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowOptionLists((p) => ({ ...p, [c.id]: false }))
-                        }
-                        className="text-xs underline text-accent"
-                      >
-                        Hide options
-                      </button>
-                    </>
-                  )
-                )}
-                {c.selectionMode === 'random' && instOptions.length > 0 && (
-                  <p className="text-sm italic">Random instance</p>
-                )}
-                {((c.selectionMode === 'dropdown' && !inst) || instOptions.length === 0) &&
-                  c.attributes?.map((a) => (
-                    <div key={a.key}>
-                      <label className="block mb-1 text-sm font-medium">{a.label}</label>
-                      <input
-                        className="w-full p-2 border rounded"
-                        value={formData[`${c.key}.${a.key}`] || ''}
-                        onChange={(e) =>
-                          setFormData({ ...formData, [`${c.key}.${a.key}`]: e.target.value })
-                        }
-                        required={a.required}
-                      />
-                    </div>
-                  ))}
-              </div>
-            );
-          })}
+                      id={`check-${c.id}`}
+                    />
+                  )}
+                  {c.selectionMode === 'random' && instOptions.length > 0 && (
+                    <p className="text-sm italic">Random instance</p>
+                  )}
+                  {((c.selectionMode === 'dropdown' && !inst) || instOptions.length === 0) &&
+                    c.attributes?.map((a) => (
+                      <div key={a.key}>
+                        <label className="block mb-1 text-sm font-medium">{a.label}</label>
+                        <input
+                          className="w-full p-2 border rounded"
+                          value={formData[`${c.key}.${a.key}`] || ''}
+                          onChange={(e) =>
+                            setFormData({ ...formData, [`${c.key}.${a.key}`]: e.target.value })
+                          }
+                          required={a.required}
+                        />
+                      </div>
+                    ))}
+                </div>
+              );
+            })}
+          </div>
           {writeFields.map((f) => (
             <div key={f.key}>
               <label className="block mb-1 text-sm font-medium">{f.label}</label>
@@ -518,20 +523,37 @@ export default function BriefStepForm({
               )}
             </div>
           ))}
-          <div className="flex items-center gap-2">
-            <button type="submit" className="btn-primary">
-              Generate
-            </button>
-            <input
-              type="number"
-              min="1"
-              className="p-2 border rounded w-20"
-              value={generateCount}
-              onChange={(e) =>
-                setGenerateCount(Math.max(1, parseInt(e.target.value, 10) || 1))
-              }
-            />
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="w-full md:max-w-xs">
+              <label className="block mb-1 text-sm font-medium" htmlFor="ads-count-input">
+                Number of ads
+              </label>
+              <input
+                id="ads-count-input"
+                type="number"
+                min="1"
+                className="w-full p-2 border rounded"
+                value={generateCount}
+                onChange={(e) =>
+                  setGenerateCount(Math.max(1, parseInt(e.target.value, 10) || 1))
+                }
+              />
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                Number of ads to create with this combination.
+              </p>
+            </div>
+            <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-end w-full md:w-auto">
+              <button type="submit" className="btn-primary md:order-1 order-2">
+                {`Create ${adsCount} Ads`}
+              </button>
+              <div className="text-sm text-gray-600 dark:text-gray-400 text-right min-h-[1.25rem] md:min-w-[12rem] md:order-2 order-1">
+                {planningMessage}
+              </div>
+            </div>
           </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Scroll down to edit plan.
+          </p>
         </div>
       )}
     </>
