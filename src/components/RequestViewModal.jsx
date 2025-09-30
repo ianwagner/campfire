@@ -59,6 +59,35 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
     Number.isNaN(normalizedNumAds) || normalizedNumAds <= 0
       ? fallbackAds || request.numAds || 0
       : normalizedNumAds;
+  const formatDateValue = (value) => {
+    if (!value) return '';
+    try {
+      if (typeof value.toDate === 'function') {
+        return value.toDate().toLocaleDateString();
+      }
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) return '';
+      return date.toLocaleDateString();
+    } catch (err) {
+      return '';
+    }
+  };
+  const contractTypeLabel =
+    request.contractType === 'briefs'
+      ? 'Briefs'
+      : request.contractType === 'production'
+        ? 'Production'
+        : '';
+  const contractStart = formatDateValue(request.contractStartDate);
+  const contractEnd = formatDateValue(request.contractEndDate);
+  const contractDateText =
+    contractStart && contractEnd
+      ? `${contractStart} – ${contractEnd}`
+      : contractStart
+        ? `Start: ${contractStart}`
+        : contractEnd
+          ? `End: ${contractEnd}`
+          : '';
   return (
     <ScrollModal
       sizeClass="max-w-none"
@@ -137,6 +166,44 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
         )}
         {request.offering && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Offering: {request.offering}</p>
+        )}
+        {request.brandAssetsLink && (
+          <p className="text-black dark:text-[var(--dark-text)] mb-0">
+            Brand Assets:{' '}
+            <a
+              href={request.brandAssetsLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="break-all text-blue-600"
+            >
+              {request.brandAssetsLink}
+            </a>
+          </p>
+        )}
+        {(contractTypeLabel ||
+          (typeof request.contractDeliverables === 'number' && request.contractDeliverables > 0) ||
+          contractDateText ||
+          request.contractLink) && (
+          <div className="text-black dark:text-[var(--dark-text)] mb-0 space-y-1">
+            {contractTypeLabel && <p className="mb-0">Contract Type: {contractTypeLabel}</p>}
+            {typeof request.contractDeliverables === 'number' && request.contractDeliverables > 0 && (
+              <p className="mb-0">Contract Deliverables: {request.contractDeliverables}</p>
+            )}
+            {contractDateText && <p className="mb-0">Contract Dates: {contractDateText}</p>}
+            {request.contractLink && (
+              <p className="mb-0">
+                Contract Link:{' '}
+                <a
+                  href={request.contractLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="break-all text-blue-600"
+                >
+                  {request.contractLink}
+                </a>
+              </p>
+            )}
+          </div>
         )}
         {request.inspiration && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Inspiration: {request.inspiration}</p>
