@@ -60,9 +60,9 @@ export default function BriefStepForm({
 
   React.useEffect(() => {
     const defaults = {
-      funnel: 'Awareness',
-      market: 'US',
-      format: 'Static',
+      funnel: { names: ['Acquisition'] },
+      market: { names: ['US'], multi: true },
+      format: { names: ['Static'] },
     };
     const updates = {};
     let shouldUpdate = false;
@@ -70,16 +70,24 @@ export default function BriefStepForm({
       const desired = defaults[component.key];
       if (!desired) return;
       if (selectedInstances[component.key] !== undefined) return;
-      if (component.selectionMode !== 'dropdown') return;
       const instOptions = allInstances.filter(
         (i) =>
           i.componentKey === component.key &&
           (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
       );
-      const match = instOptions.find((i) => i.name === desired);
-      if (match) {
-        updates[component.key] = match.id;
-        shouldUpdate = true;
+      const matches = instOptions.filter((i) => desired.names?.includes(i.name));
+      if (component.selectionMode === 'dropdown') {
+        const match = matches[0];
+        if (match) {
+          updates[component.key] = match.id;
+          shouldUpdate = true;
+        }
+      } else if (component.selectionMode === 'checklist') {
+        const ids = matches.map((i) => i.id);
+        if (ids.length > 0) {
+          updates[component.key] = ids;
+          shouldUpdate = true;
+        }
       }
     });
     if (shouldUpdate) {
@@ -93,7 +101,8 @@ export default function BriefStepForm({
     setSelectedInstances,
   ]);
 
-  const adsCount = Number(generateCount) || 1;
+  const parsedAdsCount = Number.parseInt(generateCount, 10);
+  const adsCount = Number.isNaN(parsedAdsCount) ? 0 : Math.max(0, parsedAdsCount);
   const planningMessage = isPlanning
     ? `Planning ${(lastPlannedCount || adsCount).toString()} ads…`
     : lastPlannedTotal !== null
@@ -280,11 +289,18 @@ export default function BriefStepForm({
                   (!i.relationships?.brandCode || i.relationships.brandCode === brandCode)
               );
               const defaultList = instOptions.map((i) => i.id);
+              const defaultChecklist = (() => {
+                if (c.key === 'market') {
+                  const desired = instOptions.filter((i) => i.name === 'US').map((i) => i.id);
+                  if (desired.length > 0) return desired;
+                }
+                return defaultList;
+              })();
               const current =
                 selectedInstances[c.key] !== undefined
                   ? selectedInstances[c.key]
                   : c.selectionMode === 'checklist'
-                  ? defaultList
+                  ? defaultChecklist
                   : '';
               const inst =
                 c.selectionMode === 'dropdown'
@@ -523,37 +539,43 @@ export default function BriefStepForm({
               )}
             </div>
           ))}
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="w-full md:max-w-xs">
-              <label className="block mb-1 text-sm font-medium" htmlFor="ads-count-input">
-                Number of ads
-              </label>
-              <input
-                id="ads-count-input"
-                type="number"
-                min="1"
-                className="w-full p-2 border rounded"
-                value={generateCount}
-                onChange={(e) =>
-                  setGenerateCount(Math.max(1, parseInt(e.target.value, 10) || 1))
-                }
-              />
-              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                Number of ads to create with this combination.
-              </p>
-            </div>
-            <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-end w-full md:w-auto">
-              <button type="submit" className="btn-primary md:order-1 order-2">
-                {`Create ${adsCount} Ads`}
-              </button>
-              <div className="text-sm text-gray-600 dark:text-gray-400 text-right min-h-[1.25rem] md:min-w-[12rem] md:order-2 order-1">
-                {planningMessage}
+          <div className="mt-6 border-t border-gray-200 pt-4 dark:border-gray-700">
+            <h3 className="mb-4 text-lg font-semibold">
+              Add to the plan with this combination
+            </h3>
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div className="w-full md:max-w-xs">
+                <label className="block mb-1 text-sm font-medium" htmlFor="ads-count-input">
+                  Number of ads
+                </label>
+                <input
+                  id="ads-count-input"
+                  type="number"
+                  min="0"
+                  className="w-full p-2 border rounded"
+                  value={generateCount}
+                  onChange={(e) => {
+                    const value = Number.parseInt(e.target.value, 10);
+                    setGenerateCount(Number.isNaN(value) ? 0 : Math.max(0, value));
+                  }}
+                />
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                  Number of ads to create with this combination.
+                </p>
+              </div>
+              <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-end w-full md:w-auto">
+                <button type="submit" className="order-2 btn-primary md:order-1">
+                  {`Plan ${adsCount} ${adsCount === 1 ? 'ad' : 'ads'}`}
+                </button>
+                <div className="order-1 min-h-[1.25rem] text-right text-sm text-gray-600 dark:text-gray-400 md:order-2 md:min-w-[12rem]">
+                  {planningMessage}
+                </div>
               </div>
             </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Scroll down to edit plan.
+            </p>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Scroll down to edit plan.
-          </p>
         </div>
       )}
     </>
