@@ -217,33 +217,60 @@ function formatBrandList(brands) {
 }
 
 async function handleConnect(params) {
-  const rawBrandCode = typeof params.args[0] === "string" ? params.args[0].trim() : "";
-  if (!rawBrandCode) {
-    return "Please provide a brand code. Usage: /campfire connect BRANDCODE";
+  const argList = Array.isArray(params.args) ? params.args : [];
+  const rawBrandText = argList.join(" ").trim();
+
+  if (!rawBrandText) {
+    return "Please provide at least one brand code. Usage: /campfire connect BRANDCODE[, BRANDCODE2...]";
   }
 
-  const normalizedBrandCode = normalizeBrandCode(rawBrandCode);
+  const requestedBrandCodes = uniqueNormalizedBrands(
+    rawBrandText
+      .split(",")
+      .flatMap((segment) =>
+        segment
+          .split(/\s+/)
+          .map((value) => value.trim())
+          .filter(Boolean)
+      )
+  );
+
+  if (!requestedBrandCodes.length) {
+    return "Please provide at least one brand code. Usage: /campfire connect BRANDCODE[, BRANDCODE2...]";
+  }
+
   const channelId = params.channelId;
   const docRef = db.collection("slackChannelMappings").doc(channelId);
   const existingSnap = await docRef.get();
   const existingData = existingSnap.exists ? existingSnap.data() : null;
   const existingBrands = getExistingBrandCodes(existingData);
-
-  if (existingBrands.includes(normalizedBrandCode)) {
-    const connectedList = formatBrandList(existingBrands);
-    return connectedList
-      ? `This channel is already connected to brand ${normalizedBrandCode}. Connected brands: ${connectedList}.`
-      : `This channel is already connected to brand ${normalizedBrandCode}.`;
-  }
-
+  const newBrands = requestedBrandCodes.filter(
+    (code) => !existingBrands.includes(code)
+  );
   const updatedBrands = uniqueNormalizedBrands([
     ...existingBrands,
-    normalizedBrandCode,
+    ...requestedBrandCodes,
   ]);
+
+  if (!newBrands.length) {
+    const connectedList = formatBrandList(existingBrands);
+
+    if (requestedBrandCodes.length === 1) {
+      const requestedBrand = requestedBrandCodes[0];
+      return connectedList
+        ? `This channel is already connected to brand ${requestedBrand}. Connected brands: ${connectedList}.`
+        : `This channel is already connected to brand ${requestedBrand}.`;
+    }
+
+    return connectedList
+      ? `All requested brands are already connected. Connected brands: ${connectedList}.`
+      : "Channel is already connected to the requested brands.";
+  }
+
   const now = admin.firestore.FieldValue.serverTimestamp();
   const docData = {
-    brandCode: updatedBrands[0] || normalizedBrandCode,
-    brandCodeNormalized: updatedBrands[0] || normalizedBrandCode,
+    brandCode: updatedBrands[0] || requestedBrandCodes[0],
+    brandCodeNormalized: updatedBrands[0] || requestedBrandCodes[0],
     brandCodes: updatedBrands,
     brandCodesNormalized: updatedBrands,
     workspaceId: params.workspaceId,
@@ -265,10 +292,21 @@ async function handleConnect(params) {
   await docRef.set(docData, { merge: true });
 
   if (!existingBrands.length) {
-    return `Connected this channel to brand ${normalizedBrandCode}.`;
+    if (newBrands.length === 1) {
+      return `Connected this channel to brand ${newBrands[0]}.`;
+    }
+
+    return `Connected this channel to brands ${formatBrandList(newBrands)}.`;
   }
 
-  return `Added brand ${normalizedBrandCode} to this channel. Connected brands: ${formatBrandList(updatedBrands)}.`;
+  const addedList = formatBrandList(newBrands);
+  const connectedList = formatBrandList(updatedBrands);
+
+  if (newBrands.length === 1) {
+    return `Added brand ${newBrands[0]} to this channel. Connected brands: ${connectedList}.`;
+  }
+
+  return `Added brands ${addedList} to this channel. Connected brands: ${connectedList}.`;
 }
 
 async function handleStatus(params) {
