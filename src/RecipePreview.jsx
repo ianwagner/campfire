@@ -103,11 +103,13 @@ const RecipePreview = forwardRef(({
   const [assetUsage, setAssetUsage] = useState({});
   const [refining, setRefining] = useState(false);
   const OPENAI_PROXY_URL = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/openaiProxy`;
-  const [showOptionLists, setShowOptionLists] = useState({});
   const [assetFilter, setAssetFilter] = useState('');
   const [showTagger, setShowTagger] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [isPlanning, setIsPlanning] = useState(false);
+  const [lastPlannedCount, setLastPlannedCount] = useState(0);
+  const [lastPlannedTotal, setLastPlannedTotal] = useState(null);
 
   const [briefNote, setBriefNote] = useState('');
   const [briefFiles, setBriefFiles] = useState([]);
@@ -850,15 +852,25 @@ const RecipePreview = forwardRef(({
       return;
     }
     const times = Number(generateCount) || 1;
-    for (let i = 0; i < times; i++) {
-      // eslint-disable-next-line no-await-in-loop
-      const res = await generateOnce(null, brandCode);
-      if (res) {
-        setResults((prev) => [
-          ...prev,
-          { recipeNo: prev.length + 1, ...res, type: selectedType },
-        ]);
+    const startingCount = results.length;
+    let created = 0;
+    setLastPlannedCount(times);
+    setIsPlanning(true);
+    try {
+      for (let i = 0; i < times; i++) {
+        // eslint-disable-next-line no-await-in-loop
+        const res = await generateOnce(null, brandCode);
+        if (res) {
+          created += 1;
+          setResults((prev) => [
+            ...prev,
+            { recipeNo: prev.length + 1, ...res, type: selectedType },
+          ]);
+        }
       }
+    } finally {
+      setIsPlanning(false);
+      setLastPlannedTotal(startingCount + created);
     }
   };
   const handleRefine = async () => {
@@ -1510,66 +1522,67 @@ const RecipePreview = forwardRef(({
     <div>
       {!showOnlyResults && (
         <form onSubmit={handleGenerate} className="space-y-2 max-w-[50rem]">
-        {step === 1 && (
-          <BriefStepSelect
-            types={types}
-            selectedType={selectedType}
-            setSelectedType={setSelectedType}
-            setStep={setStep}
-          />
-        )}
-        {step === 2 && (
-          <BriefStepForm
-            onBack={() => {
-              setStep(1);
-              setSelectedType('');
-              setResults([]);
-              setDirty(false);
-            }}
-            currentType={currentType}
-            onTitleChange={onTitleChange}
-            title={title}
-            brands={brands}
-            brandCode={brandCode}
-            setBrandCode={setBrandCode}
-            onBrandCodeChange={onBrandCodeChange}
-            hideBrandSelect={hideBrandSelect}
-            assetRows={assetRows}
-            filteredAssetRows={filteredAssetRows}
-            setShowTagger={setShowTagger}
-            assetFilter={assetFilter}
-            setAssetFilter={setAssetFilter}
-            showBriefExtras={showBriefExtras}
-            briefNote={briefNote}
-            handleBriefNoteChange={handleBriefNoteChange}
-            briefFiles={briefFiles}
-            briefFileInputRef={briefFileInputRef}
-            handleBriefFilesChange={handleBriefFilesChange}
-            displayedComponents={displayedComponents}
-            allInstances={allInstances}
-            selectedInstances={selectedInstances}
-            setSelectedInstances={setSelectedInstances}
-            showOptionLists={showOptionLists}
-            setShowOptionLists={setShowOptionLists}
-            showProductModal={showProductModal}
-            setShowProductModal={setShowProductModal}
-            showImportModal={showImportModal}
-            setShowImportModal={setShowImportModal}
-            brandProducts={brandProducts}
-            setBrandProducts={setBrandProducts}
-            formData={formData}
-            setFormData={setFormData}
-            writeFields={writeFields}
-            generateCount={generateCount}
-            setGenerateCount={setGenerateCount}
-            month={month}
-            setMonth={setMonth}
-            dueDate={dueDate}
-            setDueDate={setDueDate}
-            isAgency={isAgencyUser}
-          />
-        )}
-      </form>
+          {step === 1 && (
+            <BriefStepSelect
+              types={types}
+              selectedType={selectedType}
+              setSelectedType={setSelectedType}
+              setStep={setStep}
+            />
+          )}
+          {step === 2 && (
+            <BriefStepForm
+              onBack={() => {
+                setStep(1);
+                setSelectedType('');
+                setResults([]);
+                setDirty(false);
+              }}
+              currentType={currentType}
+              onTitleChange={onTitleChange}
+              title={title}
+              brands={brands}
+              brandCode={brandCode}
+              setBrandCode={setBrandCode}
+              onBrandCodeChange={onBrandCodeChange}
+              hideBrandSelect={hideBrandSelect}
+              assetRows={assetRows}
+              filteredAssetRows={filteredAssetRows}
+              setShowTagger={setShowTagger}
+              assetFilter={assetFilter}
+              setAssetFilter={setAssetFilter}
+              showBriefExtras={showBriefExtras}
+              briefNote={briefNote}
+              handleBriefNoteChange={handleBriefNoteChange}
+              briefFiles={briefFiles}
+              briefFileInputRef={briefFileInputRef}
+              handleBriefFilesChange={handleBriefFilesChange}
+              displayedComponents={displayedComponents}
+              allInstances={allInstances}
+              selectedInstances={selectedInstances}
+              setSelectedInstances={setSelectedInstances}
+              showProductModal={showProductModal}
+              setShowProductModal={setShowProductModal}
+              showImportModal={showImportModal}
+              setShowImportModal={setShowImportModal}
+              brandProducts={brandProducts}
+              setBrandProducts={setBrandProducts}
+              formData={formData}
+              setFormData={setFormData}
+              writeFields={writeFields}
+              generateCount={generateCount}
+              setGenerateCount={setGenerateCount}
+              month={month}
+              setMonth={setMonth}
+              dueDate={dueDate}
+              setDueDate={setDueDate}
+              isAgency={isAgencyUser}
+              isPlanning={isPlanning}
+              lastPlannedCount={lastPlannedCount}
+              lastPlannedTotal={lastPlannedTotal}
+            />
+          )}
+        </form>
       )}
       <div className="overflow-x-auto table-container mt-6">
         <PageToolbar
