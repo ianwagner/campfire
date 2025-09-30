@@ -162,6 +162,60 @@ function normalizeBrandCode(value) {
   return value.trim().toUpperCase();
 }
 
+function uniqueNormalizedBrands(values) {
+  const seen = new Set();
+  const result = [];
+
+  for (const value of values) {
+    if (typeof value !== "string") {
+      continue;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    const normalized = normalizeBrandCode(trimmed);
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  }
+
+  return result;
+}
+
+function getExistingBrandCodes(data) {
+  if (!data || typeof data !== "object") {
+    return [];
+  }
+
+  const candidates = [];
+
+  if (Array.isArray(data.brandCodesNormalized)) {
+    candidates.push(...data.brandCodesNormalized);
+  }
+
+  if (Array.isArray(data.brandCodes)) {
+    candidates.push(...data.brandCodes);
+  }
+
+  if (typeof data.brandCodeNormalized === "string") {
+    candidates.push(data.brandCodeNormalized);
+  }
+
+  if (typeof data.brandCode === "string") {
+    candidates.push(data.brandCode);
+  }
+
+  return uniqueNormalizedBrands(candidates);
+}
+
+function formatBrandList(brands) {
+  return brands.join(", ");
+}
+
 async function handleConnect(params) {
   const rawBrandCode = typeof params.args[0] === "string" ? params.args[0].trim() : "";
   if (!rawBrandCode) {
@@ -170,13 +224,29 @@ async function handleConnect(params) {
 
   const normalizedBrandCode = normalizeBrandCode(rawBrandCode);
   const channelId = params.channelId;
+  const docRef = db.collection("slackChannelMappings").doc(channelId);
+  const existingSnap = await docRef.get();
+  const existingData = existingSnap.exists ? existingSnap.data() : null;
+  const existingBrands = getExistingBrandCodes(existingData);
+
+  if (existingBrands.includes(normalizedBrandCode)) {
+    const connectedList = formatBrandList(existingBrands);
+    return connectedList
+      ? `This channel is already connected to brand ${normalizedBrandCode}. Connected brands: ${connectedList}.`
+      : `This channel is already connected to brand ${normalizedBrandCode}.`;
+  }
+
+  const updatedBrands = uniqueNormalizedBrands([
+    ...existingBrands,
+    normalizedBrandCode,
+  ]);
   const now = admin.firestore.FieldValue.serverTimestamp();
   const docData = {
-    brandCode: normalizedBrandCode,
-    brandCodeNormalized: normalizedBrandCode,
+    brandCode: updatedBrands[0] || normalizedBrandCode,
+    brandCodeNormalized: updatedBrands[0] || normalizedBrandCode,
+    brandCodes: updatedBrands,
+    brandCodesNormalized: updatedBrands,
     workspaceId: params.workspaceId,
-    connectedBy: params.userId,
-    connectedAt: now,
     updatedAt: now,
   };
 
@@ -184,9 +254,21 @@ async function handleConnect(params) {
     docData.channelName = params.channelName;
   }
 
-  await db.collection("slackChannelMappings").doc(channelId).set(docData, { merge: true });
+  if (!existingBrands.length) {
+    docData.connectedAt = now;
+    docData.connectedBy = params.userId;
+  } else {
+    docData.lastUpdatedAt = now;
+    docData.lastUpdatedBy = params.userId;
+  }
 
-  return `Connected this channel to brand ${normalizedBrandCode}.`;
+  await docRef.set(docData, { merge: true });
+
+  if (!existingBrands.length) {
+    return `Connected this channel to brand ${normalizedBrandCode}.`;
+  }
+
+  return `Added brand ${normalizedBrandCode} to this channel. Connected brands: ${formatBrandList(updatedBrands)}.`;
 }
 
 async function handleStatus(params) {
@@ -196,17 +278,68 @@ async function handleStatus(params) {
   }
 
   const data = snap.data();
-  const brand = data?.brandCode;
-  if (!brand) {
+  const brands = getExistingBrandCodes(data);
+  if (!brands.length) {
     return "not connected.";
   }
 
-  return `This channel is connected to brand ${brand}.`;
+  if (brands.length === 1) {
+    return `This channel is connected to brand ${brands[0]}.`;
+  }
+
+  return `This channel is connected to brands ${formatBrandList(brands)}.`;
 }
 
 async function handleDisconnect(params) {
-  await db.collection("slackChannelMappings").doc(params.channelId).delete();
-  return "Disconnected this channel from any brand.";
+  const rawBrandCode = typeof params.args[0] === "string" ? params.args[0].trim() : "";
+  const docRef = db.collection("slackChannelMappings").doc(params.channelId);
+
+  if (!rawBrandCode) {
+    await docRef.delete();
+    return "Disconnected this channel from any brand.";
+  }
+
+  const normalizedBrandCode = normalizeBrandCode(rawBrandCode);
+  const snap = await docRef.get();
+
+  if (!snap.exists) {
+    return "Channel is not connected.";
+  }
+
+  const data = snap.data();
+  const existingBrands = getExistingBrandCodes(data);
+
+  if (!existingBrands.includes(normalizedBrandCode)) {
+    const connectedList = formatBrandList(existingBrands);
+    if (connectedList) {
+      return `Channel is not connected to brand ${normalizedBrandCode}. Connected brands: ${connectedList}.`;
+    }
+
+    return `Channel is not connected to brand ${normalizedBrandCode}.`;
+  }
+
+  const updatedBrands = existingBrands.filter((code) => code !== normalizedBrandCode);
+
+  if (!updatedBrands.length) {
+    await docRef.delete();
+    return `Disconnected brand ${normalizedBrandCode}. This channel is no longer connected to any brands.`;
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  await docRef.set(
+    {
+      brandCode: updatedBrands[0],
+      brandCodeNormalized: updatedBrands[0],
+      brandCodes: updatedBrands,
+      brandCodesNormalized: updatedBrands,
+      updatedAt: now,
+      lastUpdatedAt: now,
+      lastUpdatedBy: params.userId,
+    },
+    { merge: true }
+  );
+
+  return `Disconnected brand ${normalizedBrandCode}. Remaining brands: ${formatBrandList(updatedBrands)}.`;
 }
 
 async function handleTest(params) {
@@ -216,9 +349,28 @@ async function handleTest(params) {
   }
 
   const data = snap.data();
-  const brand = data?.brandCode;
-  if (!brand) {
+  const brands = getExistingBrandCodes(data);
+  if (!brands.length) {
     return "Channel is not connected.";
+  }
+
+  const requestedBrandRaw = typeof params.args[0] === "string" ? params.args[0].trim() : "";
+  const requestedBrand = requestedBrandRaw ? normalizeBrandCode(requestedBrandRaw) : "";
+
+  let brand;
+
+  if (requestedBrand) {
+    if (!brands.includes(requestedBrand)) {
+      return brands.length
+        ? `Channel is not connected to brand ${requestedBrand}. Connected brands: ${formatBrandList(brands)}.`
+        : `Channel is not connected to brand ${requestedBrand}.`;
+    }
+
+    brand = requestedBrand;
+  } else if (brands.length === 1) {
+    brand = brands[0];
+  } else {
+    return `Channel is connected to multiple brands (${formatBrandList(brands)}). Please specify one: /campfire test BRANDCODE.`;
   }
 
   if (!SLACK_BOT_TOKEN) {
