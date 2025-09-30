@@ -123,7 +123,7 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
             {request.dueDate.toDate().toLocaleDateString()}
           </p>
         )}
-        {request.priority && (
+        {request.priority && request.type !== 'newBrand' && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Priority: {request.priority}</p>
         )}
         {request.designerId && role !== 'ops' && (
@@ -161,10 +161,10 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
         {request.type === 'newAIAssets' && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0"># Assets: {request.numAssets}</p>
         )}
-        {request.toneOfVoice && (
+        {request.toneOfVoice && request.type !== 'newBrand' && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Tone of Voice: {request.toneOfVoice}</p>
         )}
-        {request.offering && (
+        {request.offering && request.type !== 'newBrand' && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Offering: {request.offering}</p>
         )}
         {request.brandAssetsLink && (

@@ -419,7 +419,9 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       let contractEndDate = null;
       let contractLink = '';
 
-      if (form.type === 'newBrand') {
+      const isNewBrand = form.type === 'newBrand';
+
+      if (isNewBrand) {
         const brandName = (form.name || '').trim();
         if (!brandName) {
           setSaveError('Brand name is required.');
@@ -493,18 +495,17 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
         uploadLink: form.uploadLink,
         assetLinks,
         details: form.details,
-        priority: form.priority,
+        priority: isNewBrand ? '' : form.priority,
         name: form.name,
         agencyId: form.agencyId,
-        toneOfVoice: form.toneOfVoice,
-        offering: form.offering,
-        brandAssetsLink: form.type === 'newBrand' ? brandAssetsLink : '',
-        contractType: form.type === 'newBrand' ? contractType : '',
-        contractDeliverables:
-          form.type === 'newBrand' && contractDeliverables !== null ? contractDeliverables : null,
-        contractStartDate: form.type === 'newBrand' ? contractStartDate : null,
-        contractEndDate: form.type === 'newBrand' ? contractEndDate : null,
-        contractLink: form.type === 'newBrand' ? contractLink : '',
+        toneOfVoice: isNewBrand ? '' : form.toneOfVoice,
+        offering: isNewBrand ? '' : form.offering,
+        brandAssetsLink: isNewBrand ? brandAssetsLink : '',
+        contractType: isNewBrand ? contractType : '',
+        contractDeliverables: isNewBrand && contractDeliverables !== null ? contractDeliverables : null,
+        contractStartDate: isNewBrand ? contractStartDate : null,
+        contractEndDate: isNewBrand ? contractEndDate : null,
+        contractLink: isNewBrand ? contractLink : '',
         designerId: form.designerId || null,
         editorId: showEditorSelect
           ? form.editorId || null
@@ -1685,36 +1686,6 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       {a.name}
                     </option>
                   ))}
-                </select>
-              </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Tone of Voice</label>
-                <input
-                  type="text"
-                  value={form.toneOfVoice}
-                  onChange={(e) => setForm((f) => ({ ...f, toneOfVoice: e.target.value }))}
-                  className="w-full p-2 border rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Offering</label>
-                <input
-                  type="text"
-                  value={form.offering}
-                  onChange={(e) => setForm((f) => ({ ...f, offering: e.target.value }))}
-                  className="w-full p-2 border rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Priority</label>
-                <select
-                  value={form.priority}
-                  onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
                 </select>
               </div>
               <div className="pt-2">
