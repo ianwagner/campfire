@@ -540,13 +540,11 @@ export default function BriefStepForm({
             </div>
           ))}
           <div className="mt-6 border-t border-gray-200 pt-4 dark:border-gray-700">
-            <h3 className="mb-4 text-lg font-semibold">
-              Add to the plan with this combination
-            </h3>
+            <h3 className="mb-4 text-lg font-semibold">Add ads to your brief</h3>
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div className="w-full md:max-w-xs">
                 <label className="block mb-1 text-sm font-medium" htmlFor="ads-count-input">
-                  Number of ads
+                  How many ads?
                 </label>
                 <input
                   id="ads-count-input"
@@ -560,7 +558,8 @@ export default function BriefStepForm({
                   }}
                 />
                 <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                  Number of ads to create with this combination.
+                  We’ll use your selections above (product, audience, angle, market, funnel) to
+                  create this many ads.
                 </p>
               </div>
               <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-end w-full md:w-auto">
@@ -573,7 +572,7 @@ export default function BriefStepForm({
               </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Scroll down to edit plan.
+              Your ads will appear below — you can edit them once they’re added.
             </p>
           </div>
         </div>
