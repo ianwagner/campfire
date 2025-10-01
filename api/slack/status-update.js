@@ -227,19 +227,22 @@ function buildInternalMessage(status, context) {
   const reviewLink = context.reviewUrl
     ? `<${context.reviewUrl}|View details>`
     : "View details";
+  const adGroupLink = context.adGroupUrl
+    ? `<${context.adGroupUrl}|View details>`
+    : reviewLink;
 
   switch (status) {
     case "designed":
       return [
         brand,
         `Ad group: ${adGroup} has been designed by ${designer}!`,
-        reviewLink,
+        adGroupLink,
       ].join("\n");
     case "briefed":
       return [
         brand,
         `Ad group: ${adGroup} has been briefed by ${editor}!`,
-        reviewLink,
+        adGroupLink,
       ].join("\n");
     case "reviewed": {
       const header = [brand, editor, designer].join("  ");
@@ -249,7 +252,28 @@ function buildInternalMessage(status, context) {
         `Approved: ${approved}`,
         `Edit Requests: ${editRequests}`,
         `Rejections: ${rejections}`,
-        reviewLink,
+        adGroupLink,
+      ].join("\n");
+    }
+    case "blocked": {
+      const header = [brand, editor, designer].join("  ");
+      return [
+        header,
+        `Ad group: ${adGroup} is blocked!`,
+        adGroupLink,
+      ].join("\n");
+    }
+    case "overall-feedback": {
+      const header = [brand, editor, designer].join("  ");
+      const note =
+        typeof context.note === "string" && context.note.trim()
+          ? context.note.trim()
+          : "No additional note provided.";
+      return [
+        header,
+        `Overall feedback note received for ${adGroup}`,
+        note,
+        adGroupLink,
       ].join("\n");
     }
     default:
@@ -385,14 +409,21 @@ module.exports = async function handler(req, res) {
   const status = typeof payload.status === "string" ? payload.status.trim().toLowerCase() : "";
   const adGroupId = typeof payload.adGroupId === "string" ? payload.adGroupId.trim() : "";
   let adGroupName = typeof payload.adGroupName === "string" ? payload.adGroupName.trim() : "";
-  const adGroupUrl = typeof payload.url === "string" ? payload.url.trim() : "";
+  const reviewUrlRaw =
+    typeof payload.url === "string" ? payload.url.trim() : "";
+  const adGroupUrlRaw =
+    typeof payload.adGroupUrl === "string" ? payload.adGroupUrl.trim() : "";
+  const note = typeof payload.note === "string" ? payload.note.trim() : "";
 
   if (!normalizedBrandCode) {
     res.status(400).json({ error: "brandCode is required" });
     return;
   }
 
-  if (!status || !["designed", "briefed", "reviewed"].includes(status)) {
+  if (
+    !status ||
+    !["designed", "briefed", "reviewed", "blocked", "overall-feedback"].includes(status)
+  ) {
     res.status(400).json({ error: "Unsupported status" });
     return;
   }
@@ -450,7 +481,25 @@ module.exports = async function handler(req, res) {
     }
 
     const displayName = adGroupName || adGroupId || "this ad group";
-    const reviewUrl = adGroupUrl || "";
+    let reviewUrl = reviewUrlRaw || "";
+    let adGroupUrl = adGroupUrlRaw || "";
+
+    if (!adGroupUrl && reviewUrl && adGroupId) {
+      const replacePath = (value) =>
+        value.replace(/\/review\/(?:[^/?#]+)/i, `/ad-group/${adGroupId}`);
+
+      if (/^https?:\/\//i.test(reviewUrl)) {
+        try {
+          const parsed = new URL(reviewUrl);
+          parsed.pathname = replacePath(parsed.pathname);
+          adGroupUrl = parsed.toString();
+        } catch (error) {
+          adGroupUrl = replacePath(reviewUrl);
+        }
+      } else if (reviewUrl.startsWith("/")) {
+        adGroupUrl = replacePath(reviewUrl);
+      }
+    }
 
     const [designerName, editorName] = await Promise.all([
       getUserDisplayName(adGroupData?.designerId || ""),
@@ -496,6 +545,8 @@ module.exports = async function handler(req, res) {
         `Approved: ${approvedCount} | Edits requested: ${editRequestedCount} | Rejected: ${rejectedCount}`,
         reviewUrl ? `<${reviewUrl}|View details>` : "View details",
       ].join("\n");
+    } else if (status === "blocked" || status === "overall-feedback") {
+      externalText = null;
     } else {
       externalText = reviewUrl ? `<${reviewUrl}|${displayName}>` : displayName;
     }
@@ -529,6 +580,8 @@ module.exports = async function handler(req, res) {
       editRequestedCount,
       rejectedCount,
       reviewUrl,
+      adGroupUrl,
+      note,
     });
 
     const results = [];
