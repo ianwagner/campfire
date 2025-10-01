@@ -7,11 +7,13 @@ import aggregateRecipeStatusCounts from './utils/aggregateRecipeStatusCounts';
 import computeKanbanStatus from './utils/computeKanbanStatus';
 import AdGroupCard from './components/AdGroupCard.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
+import { normalizeReviewVersion } from './utils/reviewVersion';
 
 const EditorAdGroups = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
+  const [reviewFilter, setReviewFilter] = useState('2');
 
   const user = auth.currentUser;
 
@@ -97,12 +99,18 @@ const EditorAdGroups = () => {
   }, [user?.uid]);
 
   const term = filter.toLowerCase();
-  const displayGroups = groups.filter(
-    (g) =>
-      !term ||
-      g.name?.toLowerCase().includes(term) ||
-      g.brandCode?.toLowerCase().includes(term)
-  );
+  const displayGroups = groups
+    .filter(
+      (g) =>
+        !term ||
+        g.name?.toLowerCase().includes(term) ||
+        g.brandCode?.toLowerCase().includes(term)
+    )
+    .filter((g) => {
+      if (!reviewFilter) return true;
+      const value = normalizeReviewVersion(g.reviewVersion ?? g.reviewType ?? 1);
+      return value === normalizeReviewVersion(reviewFilter);
+    });
 
   return (
     <div className="min-h-screen p-4">
@@ -117,6 +125,19 @@ const EditorAdGroups = () => {
               onChange={(e) => setFilter(e.target.value)}
               className="p-1 border rounded"
             />
+          }
+          right={
+            <select
+              value={reviewFilter}
+              onChange={(e) => setReviewFilter(e.target.value)}
+              className="p-1 border rounded"
+              aria-label="Filter by review type"
+            >
+              <option value="">All review types</option>
+              <option value="2">Review 2.0</option>
+              <option value="3">Brief</option>
+              <option value="1">Legacy</option>
+            </select>
           }
         />
         {loading ? (

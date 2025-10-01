@@ -56,6 +56,8 @@ const AdGroupListView = ({
   onEditorFilterChange,
   monthFilter,
   onMonthFilterChange,
+  reviewFilter,
+  onReviewFilterChange,
   restrictGanttToDueDate = false,
   allowedViews = DEFAULT_VIEWS,
 }) => {
@@ -117,6 +119,10 @@ const AdGroupListView = ({
     }
   }, [view, normalizedViews, onViewChange]);
 
+  const normalizedReviewFilter = reviewFilter
+    ? normalizeReviewVersion(reviewFilter)
+    : '';
+
   const displayGroups = groups
     .filter(
       (g) =>
@@ -127,6 +133,11 @@ const AdGroupListView = ({
     .filter((g) => !designerFilter || g.designerId === designerFilter)
     .filter((g) => !editorFilter || g.editorId === editorFilter)
     .filter((g) => !monthFilter || g.month === monthFilter)
+    .filter((g) => {
+      if (!normalizedReviewFilter) return true;
+      const value = normalizeReviewVersion(g.reviewVersion ?? g.reviewType ?? 1);
+      return value === normalizedReviewFilter;
+    })
     .sort((a, b) => {
       switch (sortField) {
         case 'title':
@@ -207,6 +218,19 @@ const AdGroupListView = ({
                     {m}
                   </option>
                 ))}
+              </select>
+            )}
+            {onReviewFilterChange && (
+              <select
+                value={reviewFilter}
+                onChange={(e) => onReviewFilterChange(e.target.value)}
+                className="p-1 border rounded"
+                aria-label="Filter by review type"
+              >
+                <option value="">All review types</option>
+                <option value="2">Review 2.0</option>
+                <option value="3">Brief</option>
+                <option value="1">Legacy</option>
               </select>
             )}
             <select
