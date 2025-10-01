@@ -45,6 +45,11 @@ const findAspectInFilename = (filename) => {
   return '';
 };
 
+// Apply this class to any columns that display marketing copy so pasted text
+// retains its original spacing and alignment (including dynamically added
+// columns).
+const copyCellClass = 'copy-cell whitespace-pre-wrap break-words align-top';
+
 const baseColumnDefs = [
   { key: 'storeId', label: 'Store ID', width: 'auto' },
   { key: 'groupName', label: 'Ad Group', width: 'auto' },
@@ -63,9 +68,14 @@ const baseColumnDefs = [
   { key: 'angle', label: 'Angle', width: 'auto' },
   { key: 'audience', label: 'Audience', width: 'auto' },
   { key: 'status', label: 'Status', width: 'auto' },
-  { key: 'primary', label: 'Primary', width: 'auto' },
-  { key: 'headline', label: 'Headline', width: 'auto' },
-  { key: 'description', label: 'Description', width: 'auto' },
+  { key: 'primary', label: 'Primary', width: 'auto', cellClass: copyCellClass },
+  { key: 'headline', label: 'Headline', width: 'auto', cellClass: copyCellClass },
+  {
+    key: 'description',
+    label: 'Description',
+    width: 'auto',
+    cellClass: copyCellClass,
+  },
 ];
 
 const assetCols = [
