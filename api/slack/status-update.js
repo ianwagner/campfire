@@ -362,36 +362,6 @@ async function postSlackMessage(channel, payload) {
   return body;
 }
 
-function resolveSlackChannelId(doc) {
-  if (!doc || typeof doc.data !== "function") {
-    return "";
-  }
-
-  const data = doc.data() || {};
-  const candidates = [
-    data.channelId,
-    data.channel,
-    data.slackChannelId,
-    data.slackChannel,
-    doc.id,
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate !== "string") {
-      continue;
-    }
-
-    const trimmed = candidate.trim();
-    if (!trimmed) {
-      continue;
-    }
-
-    return trimmed;
-  }
-
-  return "";
-}
-
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method Not Allowed" });
@@ -606,8 +576,6 @@ module.exports = async function handler(req, res) {
 
     const results = [];
     for (const doc of docsById.values()) {
-      const channelId = resolveSlackChannelId(doc);
-
       try {
         const docData = doc.data() || {};
         const audience = normalizeAudience(docData.audience) || "external";
@@ -615,27 +583,18 @@ module.exports = async function handler(req, res) {
           audience === "internal" && internalMessage ? internalMessage : externalText;
         if (!messageText) {
           results.push({
-            channel: channelId || doc.id,
+            channel: doc.id,
             ok: false,
             error: "No message available for this status.",
           });
           continue;
         }
 
-        if (!channelId) {
-          results.push({
-            channel: doc.id,
-            ok: false,
-            error: "Slack channel ID is not configured for this mapping.",
-          });
-          continue;
-        }
-
-        const response = await postSlackMessage(channelId, { text: messageText });
-        results.push({ channel: channelId, ok: true, ts: response.ts });
+        const response = await postSlackMessage(doc.id, { text: messageText });
+        results.push({ channel: doc.id, ok: true, ts: response.ts });
       } catch (error) {
         console.error("Failed to post Slack message", error);
-        results.push({ channel: channelId || doc.id, ok: false, error: error.message });
+        results.push({ channel: doc.id, ok: false, error: error.message });
       }
     }
 
