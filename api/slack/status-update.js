@@ -221,54 +221,95 @@ function buildInternalMessage(status, context) {
     ? `<${context.adGroupUrl}|View details>`
     : reviewLink;
 
+  const sections = [];
+  const lines = [];
+  const addSection = (text) => {
+    if (typeof text !== "string") {
+      return;
+    }
+
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    sections.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: trimmed,
+      },
+    });
+    lines.push(trimmed);
+  };
+
+  const addDivider = () => {
+    sections.push({ type: "divider" });
+  };
+
+  const noteText =
+    typeof context.note === "string" && context.note.trim()
+      ? context.note.trim()
+      : "";
+
   switch (status) {
     case "designed":
-      return [
-        brand,
-        `Ad group: ${adGroup} has been designed by ${designer}!`,
-        adGroupLink,
-      ].join("\n");
+      addSection(brand);
+      addSection(`Ad group: ${adGroup} has been designed by ${designer}!`);
+      addSection(adGroupLink);
+      break;
     case "briefed":
-      return [
-        brand,
-        `Ad group: ${adGroup} has been briefed by ${editor}!`,
-        adGroupLink,
-      ].join("\n");
+      addSection(brand);
+      addSection(`Ad group: ${adGroup} has been briefed by ${editor}!`);
+      if (noteText) {
+        addDivider();
+        addSection(noteText);
+      }
+      addSection(adGroupLink);
+      break;
     case "reviewed": {
       const header = [brand, editor, designer].join("  ");
-      return [
-        header,
-        `Ad group: ${adGroup} has been reviewed!`,
-        `Approved: ${approved}`,
-        `Edit Requests: ${editRequests}`,
-        `Rejections: ${rejections}`,
-        adGroupLink,
-      ].join("\n");
+      addSection(header);
+      addSection(`Ad group: ${adGroup} has been reviewed!`);
+      addSection(`Approved: ${approved}`);
+      addSection(`Edit Requests: ${editRequests}`);
+      addSection(`Rejections: ${rejections}`);
+      addSection(adGroupLink);
+      break;
     }
     case "blocked": {
       const header = [brand, editor, designer].join("  ");
-      return [
-        header,
-        `Ad group: ${adGroup} is blocked!`,
-        adGroupLink,
-      ].join("\n");
+      addSection(header);
+      addSection(`Ad group: ${adGroup} is blocked!`);
+      if (noteText) {
+        addDivider();
+        addSection(noteText);
+      }
+      addSection(adGroupLink);
+      break;
     }
     case "overall-feedback": {
       const header = [brand, editor, designer].join("  ");
-      const note =
-        typeof context.note === "string" && context.note.trim()
-          ? context.note.trim()
-          : "No additional note provided.";
-      return [
-        header,
-        `Overall feedback note received for ${adGroup}`,
-        note,
-        adGroupLink,
-      ].join("\n");
+      const feedbackNote = noteText || "No additional note provided.";
+      addSection(header);
+      addSection(`Overall feedback note received for ${adGroup}`);
+      addDivider();
+      addSection(feedbackNote);
+      addSection(adGroupLink);
+      break;
     }
     default:
       return null;
   }
+
+  if (!lines.length) {
+    return null;
+  }
+
+  return {
+    text: lines.join("\n"),
+    blocks: sections,
+  };
 }
 
 async function getRecipeProductNames(adGroupId) {
@@ -517,18 +558,7 @@ module.exports = async function handler(req, res) {
       lines.push(reviewUrl ? `<${reviewUrl}|Review here>` : "Review here");
       externalText = lines.join("\n");
     } else if (status === "briefed") {
-      const fallbackEditor =
-        (adGroupData && typeof adGroupData.editorId === "string" && adGroupData.editorId.trim())
-          ? adGroupData.editorId.trim()
-          : "An editor";
-      const lines = [
-        `📝 Brief created for ${displayName}`,
-        editorName
-          ? `${editorName} just briefed this ad group.`
-          : `${fallbackEditor} just briefed this ad group.`,
-        reviewUrl ? `<${reviewUrl}|View details>` : "View details",
-      ];
-      externalText = lines.join("\n");
+      externalText = null;
     } else if (status === "reviewed") {
       externalText = [
         `📝 Review completed for ${displayName}`,
@@ -574,23 +604,27 @@ module.exports = async function handler(req, res) {
       note,
     });
 
+    const externalPayload = externalText ? { text: externalText } : null;
+
     const results = [];
     for (const doc of docsById.values()) {
       try {
         const docData = doc.data() || {};
         const audience = normalizeAudience(docData.audience) || "external";
-        const messageText =
-          audience === "internal" && internalMessage ? internalMessage : externalText;
-        if (!messageText) {
+        const payload =
+          audience === "internal" ? internalMessage : externalPayload;
+
+        if (!payload) {
           results.push({
             channel: doc.id,
-            ok: false,
-            error: "No message available for this status.",
+            ok: true,
+            skipped: true,
+            message: "No message available for this status.",
           });
           continue;
         }
 
-        const response = await postSlackMessage(doc.id, { text: messageText });
+        const response = await postSlackMessage(doc.id, payload);
         results.push({ channel: doc.id, ok: true, ts: response.ts });
       } catch (error) {
         console.error("Failed to post Slack message", error);
