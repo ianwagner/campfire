@@ -137,6 +137,126 @@ function collectStringValues(value, add) {
   }
 }
 
+const userNameCache = new Map();
+
+async function getUserDisplayName(userId) {
+  if (!userId) {
+    return "";
+  }
+
+  if (userNameCache.has(userId)) {
+    return userNameCache.get(userId);
+  }
+
+  try {
+    const snap = await db.collection("users").doc(userId).get();
+    if (snap.exists) {
+      const data = snap.data() || {};
+      const candidates = [
+        data.fullName,
+        data.displayName,
+        data.name,
+        data.email,
+      ];
+      const resolved = candidates.find(
+        (value) => typeof value === "string" && value.trim()
+      );
+      const finalValue = resolved ? resolved.trim() : snap.id;
+      userNameCache.set(userId, finalValue);
+      return finalValue;
+    }
+  } catch (error) {
+    console.error("Failed to load user name", userId, error);
+  }
+
+  userNameCache.set(userId, userId);
+  return userId;
+}
+
+function sanitizeInlineCodeValue(value) {
+  return String(value == null ? "" : value).replace(/`/g, "'");
+}
+
+function formatInlineCode(value, fallback) {
+  const hasValue = typeof value === "string" && value.trim();
+  const base = hasValue ? value.trim() : fallback;
+  const finalValue = base == null ? "" : String(base);
+  return `\`${sanitizeInlineCodeValue(finalValue)}\``;
+}
+
+function normalizeAudience(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === "internal" || normalized === "external"
+    ? normalized
+    : "";
+}
+
+function buildInternalMessage(status, context) {
+  const brand = formatInlineCode(
+    context.brandCode,
+    context.brandCode || "UNKNOWN"
+  );
+  const adGroup = formatInlineCode(
+    context.adGroupName,
+    context.adGroupName || "Ad Group"
+  );
+  const designer = formatInlineCode(
+    context.designerName,
+    context.designerName || "Unassigned"
+  );
+  const editor = formatInlineCode(
+    context.editorName,
+    context.editorName || "Unknown"
+  );
+  const approved = formatInlineCode(
+    String(Number(context.approvedCount) || 0),
+    "0"
+  );
+  const editRequests = formatInlineCode(
+    String(Number(context.editRequestedCount) || 0),
+    "0"
+  );
+  const rejections = formatInlineCode(
+    String(Number(context.rejectedCount) || 0),
+    "0"
+  );
+  const reviewLink = context.reviewUrl
+    ? `<${context.reviewUrl}|View details>`
+    : "View details";
+
+  switch (status) {
+    case "designed":
+      return [
+        brand,
+        `Ad group: ${adGroup} has been designed by ${designer}!`,
+        reviewLink,
+      ].join("\n");
+    case "briefed":
+      return [
+        brand,
+        `Ad group: ${adGroup} has been briefed by ${editor}!`,
+        reviewLink,
+      ].join("\n");
+    case "reviewed": {
+      const header = [brand, editor, designer].join("  ");
+      return [
+        header,
+        `Ad group: ${adGroup} has been reviewed!`,
+        `Approved: ${approved}`,
+        `Edit Requests: ${editRequests}`,
+        `Rejections: ${rejections}`,
+        reviewLink,
+      ].join("\n");
+    }
+    default:
+      return null;
+  }
+}
+
 async function getRecipeProductNames(adGroupId) {
   if (!adGroupId) {
     return [];
@@ -272,7 +392,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  if (!status || !["designed", "reviewed"].includes(status)) {
+  if (!status || !["designed", "briefed", "reviewed"].includes(status)) {
     res.status(400).json({ error: "Unsupported status" });
     return;
   }
@@ -332,7 +452,22 @@ module.exports = async function handler(req, res) {
     const displayName = adGroupName || adGroupId || "this ad group";
     const reviewUrl = adGroupUrl || "";
 
-    let text;
+    const [designerName, editorName] = await Promise.all([
+      getUserDisplayName(adGroupData?.designerId || ""),
+      getUserDisplayName(adGroupData?.editorId || ""),
+    ]);
+
+    let approvedCount = 0;
+    let editRequestedCount = 0;
+    let rejectedCount = 0;
+
+    if (adGroupData) {
+      approvedCount = toNumber(adGroupData.approvedCount);
+      editRequestedCount = toNumber(adGroupData.editCount);
+      rejectedCount = toNumber(adGroupData.rejectedCount);
+    }
+
+    let externalText;
 
     if (status === "designed") {
       const productNames = await getRecipeProductNames(adGroupId);
@@ -341,31 +476,78 @@ module.exports = async function handler(req, res) {
         lines.push(`Products in this batch: ${productNames.join(", ")}`);
       }
       lines.push(reviewUrl ? `<${reviewUrl}|Review here>` : "Review here");
-      text = lines.join("\n");
+      externalText = lines.join("\n");
+    } else if (status === "briefed") {
+      const fallbackEditor =
+        (adGroupData && typeof adGroupData.editorId === "string" && adGroupData.editorId.trim())
+          ? adGroupData.editorId.trim()
+          : "An editor";
+      const lines = [
+        `📝 Brief created for ${displayName}`,
+        editorName
+          ? `${editorName} just briefed this ad group.`
+          : `${fallbackEditor} just briefed this ad group.`,
+        reviewUrl ? `<${reviewUrl}|View details>` : "View details",
+      ];
+      externalText = lines.join("\n");
     } else if (status === "reviewed") {
-      let approvedCount = 0;
-      let editRequestedCount = 0;
-      let rejectedCount = 0;
-
-      if (adGroupData) {
-        approvedCount = toNumber(adGroupData.approvedCount);
-        editRequestedCount = toNumber(adGroupData.editCount);
-        rejectedCount = toNumber(adGroupData.rejectedCount);
-      }
-
-      text = [
+      externalText = [
         `📝 Review completed for ${displayName}`,
         `Approved: ${approvedCount} | Edits requested: ${editRequestedCount} | Rejected: ${rejectedCount}`,
         reviewUrl ? `<${reviewUrl}|View details>` : "View details",
       ].join("\n");
     } else {
-      text = reviewUrl ? `<${reviewUrl}|${displayName}>` : displayName;
+      externalText = reviewUrl ? `<${reviewUrl}|${displayName}>` : displayName;
     }
+
+    const brandCandidates = [];
+    if (adGroupData) {
+      brandCandidates.push(adGroupData.brandCode);
+      brandCandidates.push(adGroupData.brandCodeNormalized);
+      if (adGroupData.brand && typeof adGroupData.brand === "object") {
+        brandCandidates.push(adGroupData.brand.code);
+        brandCandidates.push(adGroupData.brand.codeId);
+      }
+    }
+    brandCandidates.push(rawBrandCode);
+    brandCandidates.push(normalizedBrandCode);
+
+    const resolvedBrandCodeRaw = brandCandidates.find(
+      (value) => typeof value === "string" && value.trim()
+    );
+
+    const brandCodeForMessage = resolvedBrandCodeRaw
+      ? normalizeBrandCode(resolvedBrandCodeRaw)
+      : normalizedBrandCode;
+
+    const internalMessage = buildInternalMessage(status, {
+      brandCode: brandCodeForMessage,
+      adGroupName: displayName,
+      designerName,
+      editorName,
+      approvedCount,
+      editRequestedCount,
+      rejectedCount,
+      reviewUrl,
+    });
 
     const results = [];
     for (const doc of docsById.values()) {
       try {
-        const response = await postSlackMessage(doc.id, { text });
+        const docData = doc.data() || {};
+        const audience = normalizeAudience(docData.audience) || "external";
+        const messageText =
+          audience === "internal" && internalMessage ? internalMessage : externalText;
+        if (!messageText) {
+          results.push({
+            channel: doc.id,
+            ok: false,
+            error: "No message available for this status.",
+          });
+          continue;
+        }
+
+        const response = await postSlackMessage(doc.id, { text: messageText });
         results.push({ channel: doc.id, ok: true, ts: response.ts });
       } catch (error) {
         console.error("Failed to post Slack message", error);

@@ -440,6 +440,60 @@ async function handleTest(params) {
   return `Posted a test message for brand ${brand}.`;
 }
 
+const VALID_AUDIENCES = new Set(["internal", "external"]);
+
+function normalizeAudience(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return VALID_AUDIENCES.has(normalized) ? normalized : "";
+}
+
+const ADMIN_WORKSPACE_ID = "T08QFEF5L7R";
+
+async function handleAudience(params) {
+  const docRef = db.collection("slackChannelMappings").doc(params.channelId);
+  const snap = await docRef.get();
+  const existingData = snap.exists ? snap.data() || {} : {};
+  const currentAudience = normalizeAudience(existingData.audience) || "external";
+
+  const requested = normalizeAudience(params.args?.[0] || "");
+
+  if (!requested) {
+    return `Current audience for this channel is ${currentAudience}. To update, use /campfire audience internal|external.`;
+  }
+
+  if (requested === currentAudience) {
+    return `Audience is already set to ${requested}.`;
+  }
+
+  if (requested === "internal" && params.workspaceId !== ADMIN_WORKSPACE_ID) {
+    return "Setting the audience to internal is admin only.";
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const update = {
+    audience: requested,
+    updatedAt: now,
+    lastUpdatedAt: now,
+    lastUpdatedBy: params.userId,
+  };
+
+  if (params.channelName) {
+    update.channelName = params.channelName;
+  }
+
+  if (params.workspaceId) {
+    update.workspaceId = params.workspaceId;
+  }
+
+  await docRef.set(update, { merge: true });
+
+  return `Audience updated to ${requested}.`;
+}
+
 async function dispatchCommand(command, params) {
   switch (command) {
     case "connect":
@@ -450,8 +504,10 @@ async function dispatchCommand(command, params) {
       return handleDisconnect(params);
     case "test":
       return handleTest(params);
+    case "audience":
+      return handleAudience(params);
     default:
-      return "Unknown command. Available commands: connect, status, disconnect, test.";
+      return "Unknown command. Available commands: connect, status, disconnect, test, audience.";
   }
 }
 
@@ -510,7 +566,7 @@ module.exports = async function handler(req, res) {
     if (!command) {
       sendEphemeral(
         res,
-        "Please provide a subcommand. Available commands: connect, status, disconnect, test."
+        "Please provide a subcommand. Available commands: connect, status, disconnect, test, audience."
       );
       return;
     }
