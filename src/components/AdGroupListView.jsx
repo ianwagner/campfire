@@ -77,9 +77,7 @@ const AdGroupListView = ({
     let hasAds = false;
 
     groups.forEach((group) => {
-      const normalized = normalizeReviewVersion(
-        group.reviewVersion ?? group.reviewType ?? 1,
-      );
+      const normalized = normalizeReviewVersion(group.reviewVersion ?? 1);
       if (normalized === '3') {
         hasBriefs = true;
       } else if (normalized === '1' || normalized === '2') {
@@ -161,9 +159,7 @@ const AdGroupListView = ({
       if (!shouldShowReviewToggle || reviewFilter === 'all') {
         return true;
       }
-      const normalized = normalizeReviewVersion(
-        g.reviewVersion ?? g.reviewType ?? 1,
-      );
+      const normalized = normalizeReviewVersion(g.reviewVersion ?? 1);
       if (reviewFilter === 'briefs') {
         return normalized === '3';
       }
@@ -351,8 +347,7 @@ const AdGroupListView = ({
                 <tbody>
                   {displayGroups.map((g) => {
                     const normalizedReviewVersion =
-                      reviewVersions[g.id] ??
-                      normalizeReviewVersion(g.reviewVersion ?? g.reviewType ?? 1);
+                      reviewVersions[g.id] ?? normalizeReviewVersion(g.reviewVersion ?? 1);
                     const hadOverride = reviewVersions[g.id] !== undefined;
 
                     return (

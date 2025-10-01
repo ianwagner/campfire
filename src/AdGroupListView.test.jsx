@@ -397,48 +397,6 @@ test('shows review type dropdown in kanban view when multiple review types are a
   expect(dropdown).toHaveValue('ads');
 });
 
-test('shows review type dropdown in kanban view when groups use reviewType field', () => {
-  render(
-    <MemoryRouter>
-      <AdGroupListView
-        groups={[
-          {
-            id: '1',
-            name: 'Brief Group',
-            brandCode: 'BR',
-            status: 'new',
-            month: 1,
-            reviewType: 'brief',
-          },
-          {
-            id: '2',
-            name: 'Ad Group',
-            brandCode: 'BR',
-            status: 'new',
-            month: 1,
-            reviewType: '2.0',
-          },
-        ]}
-        loading={false}
-        filter=""
-        onFilterChange={() => {}}
-        view="kanban"
-        onViewChange={() => {}}
-        showArchived={false}
-        onToggleArchived={() => {}}
-        onGallery={() => {}}
-        onCopy={() => {}}
-        onDownload={() => {}}
-        linkToDetail
-      />
-    </MemoryRouter>
-  );
-
-  const dropdown = screen.getByLabelText('Review type');
-  expect(dropdown).toBeInTheDocument();
-  expect(dropdown).toHaveValue('all');
-});
-
 test('hides review type dropdown in kanban view when only one review type is available', () => {
   render(
     <MemoryRouter>
