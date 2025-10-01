@@ -7,6 +7,7 @@ const {
   firebaseInitError,
   missingFirebaseEnvVars,
 } = require("./firebase");
+const { normalizeAudience: normalizeAudienceValue } = require("./audience");
 
 const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
@@ -440,26 +441,16 @@ async function handleTest(params) {
   return `Posted a test message for brand ${brand}.`;
 }
 
-const VALID_AUDIENCES = new Set(["internal", "external"]);
-
-function normalizeAudience(value) {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  const normalized = value.trim().toLowerCase();
-  return VALID_AUDIENCES.has(normalized) ? normalized : "";
-}
-
 const ADMIN_WORKSPACE_ID = "T08QFEF5L7R";
 
 async function handleAudience(params) {
   const docRef = db.collection("slackChannelMappings").doc(params.channelId);
   const snap = await docRef.get();
   const existingData = snap.exists ? snap.data() || {} : {};
-  const currentAudience = normalizeAudience(existingData.audience) || "external";
+  const currentAudience =
+    normalizeAudienceValue(existingData.audience) || "external";
 
-  const requested = normalizeAudience(params.args?.[0] || "");
+  const requested = normalizeAudienceValue(params.args?.[0] || "");
 
   if (!requested) {
     return `Current audience for this channel is ${currentAudience}. To update, use /campfire audience internal|external.`;
