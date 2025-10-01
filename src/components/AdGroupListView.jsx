@@ -64,31 +64,6 @@ const AdGroupListView = ({
   const [sortField, setSortField] = useState('title');
   const [reviewVersions, setReviewVersions] = useState({});
   const [updatingReview, setUpdatingReview] = useState(null);
-  const [reviewFilter, setReviewFilter] = useState('all');
-
-  const reviewTypeAvailability = useMemo(() => {
-    let hasBriefs = false;
-    let hasAds = false;
-
-    groups.forEach((group) => {
-      const normalized = normalizeReviewVersion(group.reviewVersion ?? 1);
-      if (normalized === '3') {
-        hasBriefs = true;
-      } else if (normalized === '1' || normalized === '2') {
-        hasAds = true;
-      }
-    });
-
-    return { hasBriefs, hasAds };
-  }, [groups]);
-
-  const shouldShowReviewToggle = reviewTypeAvailability.hasBriefs && reviewTypeAvailability.hasAds;
-
-  useEffect(() => {
-    if (!shouldShowReviewToggle && reviewFilter !== 'all') {
-      setReviewFilter('all');
-    }
-  }, [shouldShowReviewToggle, reviewFilter]);
 
   const handleReviewTypeChange = async (groupId, newValue, previousValue, hadOverride) => {
     const normalizedValue = normalizeReviewVersion(newValue);
@@ -149,19 +124,6 @@ const AdGroupListView = ({
         g.name?.toLowerCase().includes(term) ||
         g.brandCode?.toLowerCase().includes(term)
     )
-    .filter((g) => {
-      if (!shouldShowReviewToggle || reviewFilter === 'all') {
-        return true;
-      }
-      const normalized = normalizeReviewVersion(g.reviewVersion ?? 1);
-      if (reviewFilter === 'briefs') {
-        return normalized === '3';
-      }
-      if (reviewFilter === 'ads') {
-        return normalized === '1' || normalized === '2';
-      }
-      return true;
-    })
     .filter((g) => !designerFilter || g.designerId === designerFilter)
     .filter((g) => !editorFilter || g.editorId === editorFilter)
     .filter((g) => !monthFilter || g.month === monthFilter)
@@ -198,23 +160,6 @@ const AdGroupListView = ({
       <PageToolbar
         left={(
           <>
-            {shouldShowReviewToggle && (
-              <div className="flex items-center gap-1 mr-2" role="group" aria-label="Filter by review type">
-                {[{ key: 'briefs', label: 'Briefs' }, { key: 'ads', label: 'Ads' }, { key: 'all', label: 'All' }].map(
-                  ({ key, label }) => (
-                    <TabButton
-                      key={key}
-                      type="button"
-                      active={reviewFilter === key}
-                      onClick={() => setReviewFilter(key)}
-                      aria-pressed={reviewFilter === key}
-                    >
-                      {label}
-                    </TabButton>
-                  )
-                )}
-              </div>
-            )}
             <input
               type="text"
               placeholder="Filter"
