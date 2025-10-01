@@ -34,6 +34,12 @@ const statusOrder = {
 
 const DEFAULT_VIEWS = ['cards', 'table', 'kanban', 'gantt'];
 
+const REVIEW_FILTER_OPTIONS = [
+  { key: 'briefs', label: 'Briefs' },
+  { key: 'ads', label: 'Ads' },
+  { key: 'all', label: 'All' },
+];
+
 const AdGroupListView = ({
   groups = [],
   loading,
@@ -64,6 +70,31 @@ const AdGroupListView = ({
   const [sortField, setSortField] = useState('title');
   const [reviewVersions, setReviewVersions] = useState({});
   const [updatingReview, setUpdatingReview] = useState(null);
+  const [reviewFilter, setReviewFilter] = useState('all');
+
+  const reviewTypeAvailability = useMemo(() => {
+    let hasBriefs = false;
+    let hasAds = false;
+
+    groups.forEach((group) => {
+      const normalized = normalizeReviewVersion(group.reviewVersion ?? 1);
+      if (normalized === '3') {
+        hasBriefs = true;
+      } else if (normalized === '1' || normalized === '2') {
+        hasAds = true;
+      }
+    });
+
+    return { hasBriefs, hasAds };
+  }, [groups]);
+
+  const shouldShowReviewToggle = reviewTypeAvailability.hasBriefs && reviewTypeAvailability.hasAds;
+
+  useEffect(() => {
+    if (!shouldShowReviewToggle && reviewFilter !== 'all') {
+      setReviewFilter('all');
+    }
+  }, [shouldShowReviewToggle, reviewFilter]);
 
   const handleReviewTypeChange = async (groupId, newValue, previousValue, hadOverride) => {
     const normalizedValue = normalizeReviewVersion(newValue);
@@ -124,6 +155,19 @@ const AdGroupListView = ({
         g.name?.toLowerCase().includes(term) ||
         g.brandCode?.toLowerCase().includes(term)
     )
+    .filter((g) => {
+      if (!shouldShowReviewToggle || reviewFilter === 'all') {
+        return true;
+      }
+      const normalized = normalizeReviewVersion(g.reviewVersion ?? 1);
+      if (reviewFilter === 'briefs') {
+        return normalized === '3';
+      }
+      if (reviewFilter === 'ads') {
+        return normalized === '1' || normalized === '2';
+      }
+      return true;
+    })
     .filter((g) => !designerFilter || g.designerId === designerFilter)
     .filter((g) => !editorFilter || g.editorId === editorFilter)
     .filter((g) => !monthFilter || g.month === monthFilter)
@@ -160,6 +204,21 @@ const AdGroupListView = ({
       <PageToolbar
         left={(
           <>
+            {shouldShowReviewToggle && (
+              <div className="flex items-center gap-1 mr-2" role="group" aria-label="Filter by review type">
+                {REVIEW_FILTER_OPTIONS.map(({ key, label }) => (
+                  <TabButton
+                    key={key}
+                    type="button"
+                    active={reviewFilter === key}
+                    onClick={() => setReviewFilter(key)}
+                    aria-pressed={reviewFilter === key}
+                  >
+                    {label}
+                  </TabButton>
+                ))}
+              </div>
+            )}
             <input
               type="text"
               placeholder="Filter"
@@ -361,6 +420,25 @@ const AdGroupListView = ({
             </div>
           ) : view === 'kanban' ? (
             <div className="hidden sm:block overflow-x-auto mt-[0.8rem]">
+              {shouldShowReviewToggle && (
+                <div className="flex justify-end mb-3">
+                  <label htmlFor="kanban-review-filter" className="mr-2 text-sm font-medium">
+                    Review type
+                  </label>
+                  <select
+                    id="kanban-review-filter"
+                    className="border rounded p-1 text-sm"
+                    value={reviewFilter}
+                    onChange={(e) => setReviewFilter(e.target.value)}
+                  >
+                    {REVIEW_FILTER_OPTIONS.map(({ key, label }) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="min-w-max flex gap-4">
                 {[
                   { label: 'New', status: 'new' },
