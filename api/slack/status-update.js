@@ -6,6 +6,7 @@ const {
   firebaseInitError,
   missingFirebaseEnvVars,
 } = require("./firebase");
+const { normalizeAudience } = require("./audience");
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 
@@ -182,17 +183,6 @@ function formatInlineCode(value, fallback) {
   const base = hasValue ? value.trim() : fallback;
   const finalValue = base == null ? "" : String(base);
   return `\`${sanitizeInlineCodeValue(finalValue)}\``;
-}
-
-function normalizeAudience(value) {
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  const normalized = value.trim().toLowerCase();
-  return normalized === "internal" || normalized === "external"
-    ? normalized
-    : "";
 }
 
 function buildInternalMessage(status, context) {
