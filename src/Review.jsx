@@ -3631,9 +3631,11 @@ useEffect(() => {
                 <div
                   className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
                 >
-                  <div
-                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between ${statusBarPinned ? 'gap-3' : 'gap-4'}`}
-                  >
+                      <div
+                        className={`flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between ${
+                          statusBarPinned ? 'sm:gap-3' : ''
+                        }`}
+                      >
                     <div className={`flex-1 ${statusBarPinned ? 'sm:flex sm:items-center sm:gap-4' : ''}`}>
                       {adGroupDisplayName && !statusBarPinned && (
                         <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
@@ -3665,12 +3667,16 @@ useEffect(() => {
                         })}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2 sm:self-center">
+                    <div
+                      className={`flex w-full flex-col gap-2 items-stretch ${
+                        statusBarPinned ? 'sm:w-auto sm:self-center sm:items-end' : 'sm:w-auto sm:self-center sm:items-end'
+                      }`}
+                    >
                       {isGroupReviewed ? (
                         <span
-                          className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 ${
+                          className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 ${
                             statusBarPinned ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'
-                          }`}
+                          } w-full sm:w-auto`}
                         >
                           <FiCheckCircle
                             className={
@@ -3687,13 +3693,13 @@ useEffect(() => {
                           disabled={
                             finalizeProcessing || submitting || !groupId
                           }
-                          className={`btn-primary whitespace-nowrap font-semibold ${
+                          className={`btn-primary w-full whitespace-nowrap font-semibold ${
                             statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
                           } ${
                             finalizeProcessing || submitting || !groupId
                               ? 'opacity-60 cursor-not-allowed'
                               : ''
-                          }`}
+                          } sm:w-auto`}
                         >
                           finalize review
                         </button>
@@ -3858,49 +3864,292 @@ useEffect(() => {
                     }
                   };
 
+                  const handleOpenEditModal = (mode) => {
+                    setManualStatus((prev) => ({
+                      ...prev,
+                      [cardKey]: 'edit',
+                    }));
+                    setPendingResponseContext({
+                      ad,
+                      assets: statusAssets,
+                      index,
+                      key: cardKey,
+                      existingComment,
+                      existingCopy: existingCopyEdit,
+                    });
+                    openEditRequest(ad, index, {
+                      mode,
+                      initialComment: '',
+                      initialCopy: resolvedExistingCopy,
+                    });
+                  };
+
+                  const baseEditButtonClasses = isMobile
+                    ? 'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200'
+                    : 'inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200';
+
+                  const editButtonStateClass = isGroupReviewed
+                    ? 'opacity-60 cursor-not-allowed'
+                    : isMobile
+                    ? 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]'
+                    : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]';
+
+                  const editActionButtonClass = `${baseEditButtonClasses} ${editButtonStateClass}`;
+
+                  if (isMobile) {
+                    const assetCount = sortedAssets.length;
+                    const statusLabel = statusLabelMap[statusValue] || statusValue;
+
+                    return (
+                      <div
+                        key={cardKey}
+                        className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                      >
+                        <div className="flex flex-col gap-4 p-4">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                                {recipeLabel}
+                              </h3>
+                              {latestVersionNumber > 1 ? (
+                                hasMultipleVersions ? (
+                                  <InfoTooltip text="Toggle between versions" placement="bottom">
+                                    <button
+                                      type="button"
+                                      onClick={handleVersionBadgeClick}
+                                      className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                      aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                    >
+                                      V{displayVersionNumber || latestVersionNumber}
+                                    </button>
+                                  </InfoTooltip>
+                                ) : (
+                                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                    V{displayVersionNumber || latestVersionNumber}
+                                  </span>
+                                )
+                              ) : null}
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
+                              <span
+                                className="inline-block h-2.5 w-2.5 rounded-full"
+                                style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                              />
+                              <span className="font-medium">{statusLabel}</span>
+                            </div>
+                          </div>
+                          <div
+                            className={`flex w-full gap-3 overflow-x-auto pb-1 ${
+                              assetCount > 1 ? 'snap-x snap-mandatory' : ''
+                            }`}
+                          >
+                            {sortedAssets.map((asset, assetIdx) => {
+                              const assetUrl = asset.firebaseUrl || asset.adUrl || '';
+                              const assetAspect = getAssetAspect(asset);
+                              const assetCssAspect = getCssAspectRatioValue(assetAspect);
+                              const assetStyle = assetCssAspect
+                                ? { aspectRatio: assetCssAspect }
+                                : {};
+                              return (
+                                <div
+                                  key={
+                                    getAssetDocumentId(asset) || assetUrl || assetIdx
+                                  }
+                                  className={`relative w-full min-w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${
+                                    assetCount > 1 ? 'flex-shrink-0 snap-center' : ''
+                                  }`}
+                                >
+                                  <div className="relative w-full" style={assetStyle}>
+                                    {isVideoUrl(assetUrl) ? (
+                                      <VideoPlayer
+                                        src={assetUrl}
+                                        className="h-full w-full object-contain"
+                                        style={assetStyle}
+                                      />
+                                    ) : (
+                                      <OptimizedImage
+                                        pngUrl={assetUrl}
+                                        webpUrl={
+                                          assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
+                                        }
+                                        alt={asset.filename || 'Ad'}
+                                        cacheKey={assetUrl}
+                                        className="h-full w-full object-contain"
+                                        style={assetStyle}
+                                      />
+                                    )}
+                                  </div>
+                                  {assetCount > 1 && (
+                                    <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                                      {assetIdx + 1}/{assetCount}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="space-y-3">
+                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                              <label
+                                htmlFor={selectId}
+                                className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
+                              >
+                                Update status
+                              </label>
+                              <select
+                                id={selectId}
+                                aria-label="Status"
+                                className={`mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:focus:border-indigo-300 dark:focus:ring-indigo-500/40 ${
+                                  isGroupReviewed ? 'cursor-not-allowed opacity-60' : ''
+                                }`}
+                                value={statusValue}
+                                onChange={handleSelectChange}
+                                disabled={submitting || isGroupReviewed}
+                              >
+                                {statusOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            {showEditButton && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                                  onClick={() =>
+                                    setExpandedRequests((prev) => ({
+                                      ...prev,
+                                      [cardKey]: !prev[cardKey],
+                                    }))
+                                  }
+                                >
+                                  {isExpanded ? 'Hide edit request' : 'View edit request'}
+                                </button>
+                                {isExpanded && (
+                                  <div className="space-y-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3 text-sm text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                    <div className="flex flex-col gap-2">
+                                      <span
+                                        className="inline-flex"
+                                        title={
+                                          isGroupReviewed ? reviewedLockMessage : undefined
+                                        }
+                                      >
+                                        <button
+                                          type="button"
+                                          className={editActionButtonClass}
+                                          onClick={() => handleOpenEditModal('note')}
+                                          disabled={isGroupReviewed}
+                                          aria-disabled={isGroupReviewed}
+                                        >
+                                          <FiPlus className="h-4 w-4" aria-hidden="true" />
+                                          <span>Add note</span>
+                                        </button>
+                                      </span>
+                                      <span
+                                        className="inline-flex"
+                                        title={
+                                          isGroupReviewed ? reviewedLockMessage : undefined
+                                        }
+                                      >
+                                        <button
+                                          type="button"
+                                          className={editActionButtonClass}
+                                          onClick={() => handleOpenEditModal('copy')}
+                                          disabled={isGroupReviewed}
+                                          aria-disabled={isGroupReviewed}
+                                        >
+                                          <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                                          <span>Edit Copy</span>
+                                        </button>
+                                      </span>
+                                    </div>
+                                    {hasEditInfo?.comment && (
+                                      <div className="space-y-2">
+                                        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                          Notes
+                                        </h4>
+                                        {noteEntries.map((entry, noteIdx) => (
+                                          <div key={noteIdx} className="space-y-1">
+                                            <p className="whitespace-pre-wrap break-words leading-relaxed">
+                                              {entry.body}
+                                            </p>
+                                            {entry.meta && (
+                                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                {entry.meta}
+                                              </p>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {hasEditInfo?.copyEdit && (
+                                      <div className="space-y-1">
+                                        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                          Requested Copy
+                                        </h4>
+                                        <pre className="whitespace-pre-wrap break-words leading-relaxed">
+                                          {hasEditInfo.copyEdit}
+                                        </pre>
+                                      </div>
+                                    )}
+                                    {!hasEditInfo?.comment && !hasEditInfo?.copyEdit && (
+                                      <p className="text-sm text-gray-500 dark:text-gray-300">
+                                        No edit details provided.
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
                       key={cardKey}
                       className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
                       <div className="flex flex-col gap-4 p-4">
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
-                            {recipeLabel}
-                          </h3>
-                          {latestVersionNumber > 1 ? (
-                            hasMultipleVersions ? (
-                              <InfoTooltip text="Toggle between versions" placement="bottom">
-                                <button
-                                  type="button"
-                                  onClick={handleVersionBadgeClick}
-                                  className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
-                                  aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
-                                >
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                              {recipeLabel}
+                            </h3>
+                            {latestVersionNumber > 1 ? (
+                              hasMultipleVersions ? (
+                                <InfoTooltip text="Toggle between versions" placement="bottom">
+                                  <button
+                                    type="button"
+                                    onClick={handleVersionBadgeClick}
+                                    className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                    aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                  >
+                                    V{displayVersionNumber || latestVersionNumber}
+                                  </button>
+                                </InfoTooltip>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
                                   V{displayVersionNumber || latestVersionNumber}
-                                </button>
-                              </InfoTooltip>
-                            ) : (
-                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                                V{displayVersionNumber || latestVersionNumber}
-                              </span>
-                            )
-                          ) : null}
+                                </span>
+                              )
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
                         <div className="space-y-4">
                           <div
-                            className={`grid gap-3 items-start ${
+                            className={`grid items-start gap-3 ${
                               sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
                             }`}
                           >
                             {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
                               const assetAspect = getAssetAspect(asset);
-                              const assetCssAspect = getCssAspectRatioValue(
-                                assetAspect,
-                              );
+                              const assetCssAspect = getCssAspectRatioValue(assetAspect);
                               const assetStyle = assetCssAspect
                                 ? { aspectRatio: assetCssAspect }
                                 : {};
@@ -3988,30 +4237,8 @@ useEffect(() => {
                               >
                                 <button
                                   type="button"
-                                  className={`inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 ${
-                                    isGroupReviewed
-                                      ? 'opacity-60 cursor-not-allowed'
-                                      : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]'
-                                  }`}
-                                  onClick={() => {
-                                    setManualStatus((prev) => ({
-                                      ...prev,
-                                      [cardKey]: 'edit',
-                                    }));
-                                    setPendingResponseContext({
-                                      ad,
-                                      assets: statusAssets,
-                                      index,
-                                      key: cardKey,
-                                      existingComment,
-                                      existingCopy: existingCopyEdit,
-                                    });
-                                    openEditRequest(ad, index, {
-                                      mode: 'note',
-                                      initialComment: '',
-                                      initialCopy: resolvedExistingCopy,
-                                    });
-                                  }}
+                                  className={editActionButtonClass}
+                                  onClick={() => handleOpenEditModal('note')}
                                   disabled={isGroupReviewed}
                                   aria-disabled={isGroupReviewed}
                                 >
@@ -4025,30 +4252,8 @@ useEffect(() => {
                               >
                                 <button
                                   type="button"
-                                  className={`inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 ${
-                                    isGroupReviewed
-                                      ? 'opacity-60 cursor-not-allowed'
-                                      : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]'
-                                  }`}
-                                  onClick={() => {
-                                    setManualStatus((prev) => ({
-                                      ...prev,
-                                      [cardKey]: 'edit',
-                                    }));
-                                    setPendingResponseContext({
-                                      ad,
-                                      assets: statusAssets,
-                                      index,
-                                      key: cardKey,
-                                      existingComment,
-                                      existingCopy: existingCopyEdit,
-                                    });
-                                    openEditRequest(ad, index, {
-                                      mode: 'copy',
-                                      initialComment: '',
-                                      initialCopy: resolvedExistingCopy,
-                                    });
-                                  }}
+                                  className={editActionButtonClass}
+                                  onClick={() => handleOpenEditModal('copy')}
                                   disabled={isGroupReviewed}
                                   aria-disabled={isGroupReviewed}
                                 >
