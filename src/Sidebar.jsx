@@ -42,6 +42,7 @@ const pmTabs = [
 const opsTabs = [
   { label: 'Dashboard', path: '/pm/dashboard', icon: FiHome },
   { label: 'Tickets', path: '/pm/tickets', icon: FiList },
+  { label: 'Create', path: '/ops/create', icon: FiFolder },
   { label: 'Ad Groups', path: '/pm/ad-groups', icon: FiGrid },
   { label: 'Data', path: '/pm/data', icon: FiDatabase },
   { label: 'Contracts', path: '/ops/contracts', icon: FiFileText },
