@@ -576,7 +576,7 @@ const Review = forwardRef(
   }, [reviewAds.length]);
 
   useEffect(() => {
-    if (reviewVersion !== 2) {
+    if (reviewVersion !== 2 || isMobile) {
       setStatusBarPinned(false);
       setToolbarOffset(0);
       return;
@@ -659,10 +659,10 @@ const Review = forwardRef(
       }
       window.removeEventListener('resize', updateOffsets);
     };
-  }, [reviewVersion, reviewAds.length]);
+  }, [reviewVersion, reviewAds.length, isMobile]);
 
   useEffect(() => {
-    if (reviewVersion !== 2) {
+    if (reviewVersion !== 2 || isMobile) {
       setToolbarOffset(0);
       return undefined;
     }
@@ -721,7 +721,7 @@ const Review = forwardRef(
       }
       window.removeEventListener('resize', updateOffset);
     };
-  }, [reviewVersion]);
+  }, [reviewVersion, isMobile]);
 
   useEffect(() => {
     if (!actionsMenuOpen) {
@@ -3438,9 +3438,13 @@ useEffect(() => {
     );
   }
 
+  const mainContainerClasses = combineClasses(
+    'relative flex flex-col items-center justify-center space-y-4 min-h-screen',
+    reviewVersion === 2 && isMobile ? 'pb-32' : '',
+  );
 
   return (
-    <div className="relative flex flex-col items-center justify-center space-y-4 min-h-screen">
+    <div className={mainContainerClasses}>
       {showFinalizeModal && (
         <Modal>
           <div className="space-y-4">
@@ -3683,8 +3687,15 @@ useEffect(() => {
               />
               <div
                 ref={statusBarRef}
-                className="sticky z-20 mt-2"
-                style={{ top: toolbarOffset ? `${toolbarOffset}px` : 0 }}
+                className={combineClasses(
+                  'z-20 mt-2',
+                  reviewVersion === 2 && isMobile ? '' : 'sticky',
+                )}
+                style={
+                  reviewVersion === 2 && isMobile
+                    ? undefined
+                    : { top: toolbarOffset ? `${toolbarOffset}px` : 0 }
+                }
               >
                 <div
                   className={combineClasses(
@@ -3757,6 +3768,7 @@ useEffect(() => {
                       className={combineClasses(
                         statusBarPinned ? 'hidden sm:flex' : 'flex',
                         'w-full flex-col items-stretch gap-2 sm:w-auto sm:self-center sm:items-end',
+                        reviewVersion === 2 && isMobile ? 'hidden' : '',
                       )}
                     >
                       {renderFinalizeAction({ compact: statusBarPinned })}
@@ -4198,9 +4210,13 @@ useEffect(() => {
                         </div>
                         <div className="space-y-4">
                           <div
-                            className={`grid items-start gap-3 ${
-                              sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
-                            }`}
+                            className={combineClasses(
+                              'grid items-start gap-3',
+                              sortedAssets.length > 1 ? 'sm:grid-cols-2' : '',
+                              reviewVersion === 2 && isMobile
+                                ? 'grid-flow-col auto-cols-[minmax(0,_calc(100%/1.5))] snap-x snap-mandatory overflow-x-auto sm:grid-flow-row sm:auto-cols-auto sm:overflow-visible sm:[scroll-snap-type:none]'
+                                : '',
+                            )}
                           >
                             {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
@@ -4214,7 +4230,12 @@ useEffect(() => {
                                   key={
                                     getAssetDocumentId(asset) || assetUrl || assetIdx
                                   }
-                                  className="mx-auto w-full max-w-[712px] self-start overflow-hidden rounded-lg sm:mx-0"
+                                  className={combineClasses(
+                                    'self-start overflow-hidden rounded-lg',
+                                    reviewVersion === 2 && isMobile
+                                      ? 'w-full snap-start'
+                                      : 'mx-auto w-full max-w-[712px] sm:mx-0',
+                                  )}
                                 >
                                   <div className="relative w-full" style={assetStyle}>
                                     {isVideoUrl(assetUrl) ? (
@@ -4565,6 +4586,16 @@ useEffect(() => {
           onClose={() => setShowFeedbackModal(false)}
           submitting={feedbackSubmitting}
         />
+      )}
+      {reviewVersion === 2 && isMobile && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 px-4 pb-4 pt-3 shadow-[0_-12px_24px_-16px_rgba(15,23,42,0.35)] backdrop-blur dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]/95"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
+        >
+          <div className="mx-auto w-full max-w-[712px]">
+            {renderFinalizeAction({ compact: false, fullWidth: true })}
+          </div>
+        </div>
       )}
     </div>
   );
