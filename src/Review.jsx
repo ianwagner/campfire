@@ -2912,29 +2912,11 @@ useEffect(() => {
         user?.email ||
         user?.uid ||
         'unknown';
-      const now = new Date();
-      const monthNames = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      const month = monthNames[now.getMonth()] || String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const year = now.getFullYear();
-      let hours = now.getHours();
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const period = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12 || 12;
-      const timestamp = `${month} ${day}, ${year} ${hours}:${minutes} ${period}`;
+      const formatter = new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+      const timestamp = formatter.format(new Date());
       return `${trimmed}\n\n— ${name} · ${timestamp}`;
     };
     let finalComment = existingComment;
