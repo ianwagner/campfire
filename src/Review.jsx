@@ -576,9 +576,11 @@ const Review = forwardRef(
   }, [reviewAds.length]);
 
   useEffect(() => {
-    if (reviewVersion !== 2) {
+    if (reviewVersion !== 2 || isMobile) {
       setStatusBarPinned(false);
-      setToolbarOffset(0);
+      if (isMobile) {
+        setToolbarOffset(0);
+      }
       return;
     }
     if (typeof window === 'undefined' || typeof IntersectionObserver !== 'function') {
@@ -659,10 +661,10 @@ const Review = forwardRef(
       }
       window.removeEventListener('resize', updateOffsets);
     };
-  }, [reviewVersion, reviewAds.length]);
+  }, [reviewVersion, reviewAds.length, isMobile]);
 
   useEffect(() => {
-    if (reviewVersion !== 2) {
+    if (reviewVersion !== 2 || isMobile) {
       setToolbarOffset(0);
       return undefined;
     }
@@ -721,7 +723,7 @@ const Review = forwardRef(
       }
       window.removeEventListener('resize', updateOffset);
     };
-  }, [reviewVersion]);
+  }, [reviewVersion, isMobile]);
 
   useEffect(() => {
     if (!actionsMenuOpen) {
@@ -3589,11 +3591,6 @@ useEffect(() => {
             >
               <FiHome className="h-5 w-5" />
             </button>
-            {reviewVersion === 2 && statusBarPinned && (
-              <div className="flex flex-1 justify-center sm:hidden">
-                {renderFinalizeAction({ compact: true, fullWidth: false })}
-              </div>
-            )}
             <div className="relative ml-auto">
               <button
                 type="button"
@@ -3674,6 +3671,7 @@ useEffect(() => {
               className={combineClasses(
                 'relative w-full max-w-[712px] pt-2 sm:px-0',
                 statusBarPinned ? 'px-4' : 'px-2',
+                isMobile ? 'pb-24' : '',
               )}
             >
               <div
@@ -3683,8 +3681,12 @@ useEffect(() => {
               />
               <div
                 ref={statusBarRef}
-                className="sticky z-20 mt-2"
-                style={{ top: toolbarOffset ? `${toolbarOffset}px` : 0 }}
+                className="mt-2 sm:sticky sm:z-20"
+                style={
+                  isMobile
+                    ? undefined
+                    : { top: toolbarOffset ? `${toolbarOffset}px` : 0 }
+                }
               >
                 <div
                   className={combineClasses(
@@ -3753,14 +3755,16 @@ useEffect(() => {
                         })}
                       </div>
                     </div>
-                    <div
-                      className={combineClasses(
-                        statusBarPinned ? 'hidden sm:flex' : 'flex',
-                        'w-full flex-col items-stretch gap-2 sm:w-auto sm:self-center sm:items-end',
-                      )}
-                    >
-                      {renderFinalizeAction({ compact: statusBarPinned })}
-                    </div>
+                    {!isMobile && (
+                      <div
+                        className={combineClasses(
+                          statusBarPinned ? 'hidden sm:flex' : 'flex',
+                          'w-full flex-col items-stretch gap-2 sm:w-auto sm:self-center sm:items-end',
+                        )}
+                      >
+                        {renderFinalizeAction({ compact: statusBarPinned })}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -4019,7 +4023,10 @@ useEffect(() => {
                                     {isVideoUrl(assetUrl) ? (
                                       <VideoPlayer
                                         src={assetUrl}
-                                        className="h-full w-full object-contain"
+                                        className={combineClasses(
+                                          'h-full w-full object-contain',
+                                          isMobile ? 'scale-[0.9]' : '',
+                                        )}
                                         style={assetStyle}
                                       />
                                     ) : (
@@ -4030,7 +4037,10 @@ useEffect(() => {
                                         }
                                         alt={asset.filename || 'Ad'}
                                         cacheKey={assetUrl}
-                                        className="h-full w-full object-contain"
+                                        className={combineClasses(
+                                          'h-full w-full object-contain',
+                                          isMobile ? 'scale-[0.9]' : '',
+                                        )}
                                         style={assetStyle}
                                       />
                                     )}
@@ -4220,7 +4230,10 @@ useEffect(() => {
                                     {isVideoUrl(assetUrl) ? (
                                       <VideoPlayer
                                         src={assetUrl}
-                                        className="h-full w-full object-contain"
+                                        className={combineClasses(
+                                          'h-full w-full object-contain',
+                                          isMobile ? 'scale-[0.9]' : '',
+                                        )}
                                         style={assetStyle}
                                       />
                                     ) : (
@@ -4231,7 +4244,10 @@ useEffect(() => {
                                         }
                                         alt={asset.filename || 'Ad'}
                                         cacheKey={assetUrl}
-                                        className="h-full w-full object-contain"
+                                        className={combineClasses(
+                                          'h-full w-full object-contain',
+                                          isMobile ? 'scale-[0.9]' : '',
+                                        )}
                                         style={assetStyle}
                                       />
                                     )}
@@ -4514,6 +4530,17 @@ useEffect(() => {
           )}
         </div>
       </div>
+
+      {reviewVersion === 2 && isMobile && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-4 pt-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]/95"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}
+        >
+          <div className="mx-auto w-full max-w-[712px]">
+            {renderFinalizeAction({ compact: false, fullWidth: true })}
+          </div>
+        </div>
+      )}
 
       {showEditModal && (
         <EditRequestModal
