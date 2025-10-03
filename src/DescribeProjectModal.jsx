@@ -17,14 +17,7 @@ import useUserRole from './useUserRole';
 import DueDateMonthSelector from './components/DueDateMonthSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
 
-const DescribeProjectModal = ({
-  onClose,
-  brandCodes = [],
-  request = null,
-  resetStatus = false,
-  agencyIdOverride,
-  createdByOverride,
-}) => {
+const DescribeProjectModal = ({ onClose, brandCodes = [], request = null, resetStatus = false }) => {
   const [title, setTitle] = useState('');
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
   const [dueDate, setDueDate] = useState('');
@@ -33,10 +26,8 @@ const DescribeProjectModal = ({
   const [assetLinks, setAssetLinks] = useState(['']);
   const [details, setDetails] = useState('');
 
-  const { role, agencyId: userAgencyId } = useUserRole(auth.currentUser?.uid);
-  const effectiveAgencyId = agencyIdOverride ?? userAgencyId;
-  const createdBy = createdByOverride ?? auth.currentUser?.uid ?? null;
-  const isAgency = role === 'agency' || !!effectiveAgencyId;
+  const { role, agencyId } = useUserRole(auth.currentUser?.uid);
+  const isAgency = role === 'agency' || !!agencyId;
 
   useEffect(() => {
     if (request) {
@@ -107,7 +98,7 @@ const DescribeProjectModal = ({
             brandCode,
             status: 'processing',
             month: month || null,
-            ...(effectiveAgencyId ? { agencyId: effectiveAgencyId } : {}),
+            ...(agencyId ? { agencyId } : {}),
           });
         }
       } else {
@@ -117,9 +108,9 @@ const DescribeProjectModal = ({
           brandCode,
           status: 'processing',
           createdAt: serverTimestamp(),
-          userId: createdBy,
+          userId: auth.currentUser?.uid || null,
           month: month || null,
-          agencyId: effectiveAgencyId || null,
+          agencyId: agencyId || null,
         });
         projectId = projRef.id;
         await addDoc(collection(db, 'requests'), {
@@ -132,7 +123,7 @@ const DescribeProjectModal = ({
           details,
           status: 'new',
           createdAt: serverTimestamp(),
-          createdBy,
+          createdBy: auth.currentUser?.uid || null,
           projectId,
           month: month || null,
         });
