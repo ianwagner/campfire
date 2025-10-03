@@ -734,6 +734,22 @@ const App = () => {
               }
             />
             <Route
+              path="/ops/create"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole={["ops","admin"]}
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <ClientProjects brandCodes={brandCodes} />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
               path="/ops/projects"
               element={
                 user ? (
