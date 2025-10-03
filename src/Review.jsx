@@ -50,7 +50,7 @@ import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
-import FeedbackModal from './components/FeedbackModal.jsx';
+import HelpdeskModal from './components/HelpdeskModal.jsx';
 import Modal from './components/Modal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
@@ -68,6 +68,7 @@ import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
+import StatusBadge from './components/StatusBadge.jsx';
 
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
@@ -76,6 +77,40 @@ const normalizeKeyPart = (value) => {
 };
 
 const combineClasses = (...classes) => classes.filter(Boolean).join(' ');
+
+const toDateSafe = (value) => {
+  if (!value) return null;
+  if (typeof value.toDate === 'function') {
+    try {
+      return value.toDate();
+    } catch (err) {
+      return null;
+    }
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+};
+
+const formatRelativeTime = (value) => {
+  const date = toDateSafe(value);
+  if (!date) return '';
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 60 * 1000) return 'just now';
+  if (diffMs < 60 * 60 * 1000) {
+    const mins = Math.round(diffMs / (60 * 1000));
+    return `${mins}m ago`;
+  }
+  if (diffMs < 24 * 60 * 60 * 1000) {
+    const hours = Math.round(diffMs / (60 * 60 * 1000));
+    return `${hours}h ago`;
+  }
+  if (diffMs < 7 * 24 * 60 * 60 * 1000) {
+    const days = Math.round(diffMs / (24 * 60 * 60 * 1000));
+    return `${days}d ago`;
+  }
+  return date.toLocaleDateString();
+};
 
 const getAssetDocumentId = (asset) =>
   normalizeKeyPart(
@@ -411,9 +446,8 @@ const Review = forwardRef(
   const actionsMenuButtonRef = useRef(null);
   const [modalCopies, setModalCopies] = useState([]);
   const [reviewVersion, setReviewVersion] = useState(null);
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackComment, setFeedbackComment] = useState('');
-  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [showHelpdeskModal, setShowHelpdeskModal] = useState(false);
+  const [helpdeskTickets, setHelpdeskTickets] = useState([]);
   const [showFinalizeModal, setShowFinalizeModal] = useState(null);
   const [finalizeProcessing, setFinalizeProcessing] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -461,6 +495,20 @@ const Review = forwardRef(
     () => resolvedReviewerName || 'anonymous',
     [resolvedReviewerName],
   );
+
+  const helpdeskBrandCode = useMemo(() => {
+    const normalizedGroup = typeof groupBrandCode === 'string'
+      ? groupBrandCode.trim()
+      : '';
+    if (normalizedGroup) return normalizedGroup;
+    if (Array.isArray(brandCodes)) {
+      const found = brandCodes.find(
+        (code) => typeof code === 'string' && code.trim(),
+      );
+      if (found) return found.trim();
+    }
+    return '';
+  }, [groupBrandCode, brandCodes]);
 
   const canUpdateGroupDoc = !isPublicReviewer;
   const reviewerNameValue = resolvedReviewerName;
@@ -795,6 +843,14 @@ const Review = forwardRef(
     );
   }, [copyCards, modalCopies]);
 
+  const helpdeskSummaryTickets = useMemo(
+    () => helpdeskTickets.slice(0, 3),
+    [helpdeskTickets],
+  );
+
+  const openHelpdeskCount = helpdeskTickets.length;
+  const showHelpdeskSummary = openHelpdeskCount > 0 && Boolean(helpdeskBrandCode);
+
   const renderCopyModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-auto p-4">
       <div className="flex max-h-[90vh] w-full max-w-[50rem] flex-col rounded-xl bg-white p-4 shadow dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
@@ -829,23 +885,6 @@ const Review = forwardRef(
     </div>
   );
 
-  const submitFeedback = async () => {
-    if (!feedbackComment.trim() || !groupId) return;
-    try {
-      setFeedbackSubmitting(true);
-      await addDoc(collection(db, 'adGroups', groupId, 'feedback'), {
-        comment: feedbackComment.trim(),
-        updatedBy: reviewerName || user.email || 'anonymous',
-        updatedAt: serverTimestamp(),
-      });
-      setFeedbackComment('');
-      setShowFeedbackModal(false);
-    } catch (err) {
-      console.error('Failed to submit feedback', err);
-    } finally {
-      setFeedbackSubmitting(false);
-    }
-  };
   useDebugTrace('Review', {
     groupId,
     agencyId,
@@ -864,6 +903,47 @@ const Review = forwardRef(
       }
     };
   }, [agencyId, userRole]);
+
+  useEffect(() => {
+    if (!helpdeskBrandCode) {
+      setHelpdeskTickets([]);
+      return () => {};
+    }
+    const ticketsRef = collection(db, 'requests');
+    const helpdeskQuery = query(
+      ticketsRef,
+      where('type', '==', 'helpdesk'),
+      where('brandCode', '==', helpdeskBrandCode),
+    );
+    const unsubscribe = onSnapshot(
+      helpdeskQuery,
+      (snapshot) => {
+        const openTickets = snapshot.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .filter((ticket) => {
+            const status = String(ticket.status || 'new')
+              .trim()
+              .toLowerCase();
+            return status !== 'done';
+          })
+          .sort((a, b) => {
+            const aTime = toDateSafe(
+              a.lastMessageAt || a.updatedAt || a.createdAt,
+            )?.getTime() || 0;
+            const bTime = toDateSafe(
+              b.lastMessageAt || b.updatedAt || b.createdAt,
+            )?.getTime() || 0;
+            return bTime - aTime;
+          });
+        setHelpdeskTickets(openTickets);
+      },
+      (error) => {
+        console.error('Failed to load helpdesk tickets', error);
+        setHelpdeskTickets([]);
+      },
+    );
+    return () => unsubscribe();
+  }, [helpdeskBrandCode]);
 
   const releaseLock = useCallback(() => {
     if (!groupId || initialStatus === 'done') return;
@@ -2642,11 +2722,11 @@ useEffect(() => {
         }
       : null,
     {
-      key: 'feedback',
-      label: 'Leave overall feedback',
+      key: 'helpdesk',
+      label: 'Contact helpdesk',
       onSelect: () => {
         setActionsMenuOpen(false);
-        setShowFeedbackModal(true);
+        setShowHelpdeskModal(true);
       },
       Icon: FiMessageSquare,
     },
@@ -3475,13 +3555,13 @@ useEffect(() => {
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Note: This lets the design team know the review is complete. You'll still be able to download approved ads,
-                    but once finalized you won't be able to add new feedback or re-open the review.
+                    but once finalized you won't be able to open new helpdesk chats or re-open the review.
                   </p>
                 </>
               ) : (
                 <p className="text-sm text-gray-600 dark:text-gray-300">
                   Note: This lets the design team know the review is complete. You'll still be able to download approved ads, but
-                  once finalized you won't be able to add new feedback or re-open the review.
+                  once finalized you won't be able to open new helpdesk chats or re-open the review.
                 </p>
               )}
             </div>
@@ -3652,24 +3732,79 @@ useEffect(() => {
         )}
         <div className="flex w-full flex-col items-center">
           <div
-            className={`w-full px-4 pt-6 pb-4 sm:px-6 ${
-              reviewVersion === 3 ? 'max-w-5xl' : 'max-w-[712px]'
-            }`}
-          >
-            <div className="flex items-center justify-center">
-              {reviewLogoUrl && (
-                <OptimizedImage
-                  pngUrl={reviewLogoUrl}
-                  alt={reviewLogoAlt}
-                  loading="eager"
-                  cacheKey={reviewLogoUrl}
-                  onLoad={() => setLogoReady(true)}
-                  className="max-h-16 w-auto"
-                />
-              )}
-            </div>
+          className={`w-full px-4 pt-6 pb-4 sm:px-6 ${
+            reviewVersion === 3 ? 'max-w-5xl' : 'max-w-[712px]'
+          }`}
+        >
+          <div className="flex items-center justify-center">
+            {reviewLogoUrl && (
+              <OptimizedImage
+                pngUrl={reviewLogoUrl}
+                alt={reviewLogoAlt}
+                loading="eager"
+                cacheKey={reviewLogoUrl}
+                onLoad={() => setLogoReady(true)}
+                className="max-h-16 w-auto"
+              />
+            )}
           </div>
+          {showHelpdeskSummary && (
+            <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-2">
+                  <FiMessageSquare className="mt-1 h-5 w-5 text-[var(--accent-color)]" aria-hidden="true" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                      Open helpdesk tickets
+                    </h3>
+                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                      We’re working on {openHelpdeskCount}{' '}
+                      {openHelpdeskCount === 1 ? 'request' : 'requests'} for this brand.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-primary whitespace-nowrap px-4 py-2 text-sm"
+                  onClick={() => setShowHelpdeskModal(true)}
+                >
+                  Open helpdesk
+                </button>
+              </div>
+              <ul className="mt-4 space-y-3">
+                {helpdeskSummaryTickets.map((ticket) => {
+                  const updatedText = formatRelativeTime(
+                    ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt,
+                  );
+                  return (
+                    <li
+                      key={ticket.id}
+                      className="rounded-xl border border-gray-100 p-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                            {ticket.title || 'Helpdesk request'}
+                          </p>
+                          {ticket.lastMessagePreview && (
+                            <p className="mt-1 line-clamp-2 text-xs text-gray-600 dark:text-gray-300">
+                              {ticket.lastMessagePreview}
+                            </p>
+                          )}
+                        </div>
+                        <StatusBadge status={ticket.status || 'new'} />
+                      </div>
+                      <p className="mt-2 text-xs text-gray-400">
+                        Updated {updatedText || 'recently'}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </div>
+      </div>
         <div className="relative flex w-full justify-center px-2 sm:px-0">
           {reviewVersion === 3 ? (
             <div className="w-full max-w-5xl">
@@ -4602,13 +4737,14 @@ useEffect(() => {
       )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
       {showCopyModal && renderCopyModal()}
-      {showFeedbackModal && (
-        <FeedbackModal
-          comment={feedbackComment}
-          onCommentChange={setFeedbackComment}
-          onSubmit={submitFeedback}
-          onClose={() => setShowFeedbackModal(false)}
-          submitting={feedbackSubmitting}
+      {showHelpdeskModal && (
+        <HelpdeskModal
+          brandCode={helpdeskBrandCode}
+          groupId={groupId || ''}
+          reviewerName={resolvedReviewerName || reviewerIdentifier}
+          user={user}
+          tickets={helpdeskTickets}
+          onClose={() => setShowHelpdeskModal(false)}
         />
       )}
     </div>

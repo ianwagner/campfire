@@ -7,6 +7,7 @@ import {
   FiZap,
   FiImage,
   FiCalendar,
+  FiMessageSquare,
 } from 'react-icons/fi';
 import ScrollModal from './ScrollModal.jsx';
 import IconButton from './IconButton.jsx';
@@ -21,6 +22,7 @@ const typeIcons = {
   bug: FiAlertOctagon,
   feature: FiZap,
   newAIAssets: FiImage,
+  helpdesk: FiMessageSquare,
 };
 
 const typeColors = {
@@ -29,6 +31,7 @@ const typeColors = {
   bug: 'text-red-500',
   feature: 'text-purple-500',
   newAIAssets: 'text-orange-500',
+  helpdesk: 'text-cyan-600',
 };
 
 const typeLabels = {
@@ -37,6 +40,7 @@ const typeLabels = {
   bug: 'Bug',
   feature: 'Feature',
   newAIAssets: 'New AI Assets',
+  helpdesk: 'Helpdesk',
 };
 
 const RequestViewModal = ({ request, onClose, onEdit }) => {
@@ -131,6 +135,9 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
         )}
         {request.editorId && role !== 'ops' && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Editor: {request.editorId}</p>
+        )}
+        {request.assignee && (
+          <p className="text-black dark:text-[var(--dark-text)] mb-0">Assignee: {request.assignee}</p>
         )}
         {request.type === 'newAds' && (
           productRequests.length ? (
