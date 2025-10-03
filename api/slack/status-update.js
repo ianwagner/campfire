@@ -312,6 +312,89 @@ function buildInternalMessage(status, context) {
   };
 }
 
+function formatProductTags(names) {
+  if (!Array.isArray(names)) {
+    return [];
+  }
+
+  const tags = [];
+  const seen = new Set();
+
+  names.forEach((name) => {
+    if (typeof name !== "string") {
+      return;
+    }
+
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const normalized = trimmed
+      .replace(/\s+/g, "-")
+      .replace(/[^-a-zA-Z0-9_]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    const tagBody = normalized || trimmed.replace(/\s+/g, "-");
+    const tag = `#${tagBody}`;
+    const dedupeKey = tag.toLowerCase();
+
+    if (!seen.has(dedupeKey)) {
+      seen.add(dedupeKey);
+      tags.push(tag);
+    }
+  });
+
+  return tags;
+}
+
+function buildExternalMessage(status, context) {
+  const adGroup = formatInlineCode(
+    context.adGroupName,
+    context.adGroupName || "Ad Group"
+  );
+  const reviewLink = context.reviewUrl
+    ? `<${context.reviewUrl}|View details>`
+    : "View details";
+
+  switch (status) {
+    case "designed": {
+      const productTags = formatProductTags(context.productNames);
+      const lines = [`Ad group: ${adGroup} is ready for review.`];
+      if (productTags.length) {
+        lines.push(`Offers in this batch: ${productTags.join(" ")}`);
+      }
+      lines.push(reviewLink);
+      return lines.join("\n");
+    }
+    case "reviewed": {
+      const approved = formatInlineCode(
+        String(Number(context.approvedCount) || 0),
+        "0"
+      );
+      const editRequests = formatInlineCode(
+        String(Number(context.editRequestedCount) || 0),
+        "0"
+      );
+      const rejections = formatInlineCode(
+        String(Number(context.rejectedCount) || 0),
+        "0"
+      );
+
+      return [
+        `Review completed for ${adGroup}`,
+        `Approved: ${approved}`,
+        `Edit Requests: ${editRequests}`,
+        `Rejections: ${rejections}`,
+        reviewLink,
+      ].join("\n");
+    }
+    default:
+      return null;
+  }
+}
+
 async function getRecipeProductNames(adGroupId) {
   if (!adGroupId) {
     return [];
@@ -547,28 +630,9 @@ module.exports = async function handler(req, res) {
       rejectedCount = toNumber(adGroupData.rejectedCount);
     }
 
-    let externalText;
-
+    let productNames = [];
     if (status === "designed") {
-      const productNames = await getRecipeProductNames(adGroupId);
-      const lines = ["✅ Your ads are ready for review!", "", displayName];
-      if (productNames.length) {
-        lines.push(`Products in this batch: ${productNames.join(", ")}`);
-      }
-      lines.push(reviewUrl ? `<${reviewUrl}|Review here>` : "Review here");
-      externalText = lines.join("\n");
-    } else if (status === "briefed") {
-      externalText = null;
-    } else if (status === "reviewed") {
-      externalText = [
-        `📝 Review completed for ${displayName}`,
-        `Approved: ${approvedCount} | Edits requested: ${editRequestedCount} | Rejected: ${rejectedCount}`,
-        reviewUrl ? `<${reviewUrl}|View details>` : "View details",
-      ].join("\n");
-    } else if (status === "blocked" || status === "overall-feedback") {
-      externalText = null;
-    } else {
-      externalText = reviewUrl ? `<${reviewUrl}|${displayName}>` : displayName;
+      productNames = await getRecipeProductNames(adGroupId);
     }
 
     const brandCandidates = [];
@@ -602,6 +666,15 @@ module.exports = async function handler(req, res) {
       reviewUrl,
       adGroupUrl,
       note,
+    });
+
+    const externalText = buildExternalMessage(status, {
+      adGroupName: displayName,
+      approvedCount,
+      editRequestedCount,
+      rejectedCount,
+      reviewUrl,
+      productNames,
     });
 
     const externalPayload = externalText ? { text: externalText } : null;
