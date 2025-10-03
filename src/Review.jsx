@@ -75,6 +75,8 @@ const normalizeKeyPart = (value) => {
   return String(value);
 };
 
+const combineClasses = (...classes) => classes.filter(Boolean).join(' ');
+
 const getAssetDocumentId = (asset) =>
   normalizeKeyPart(
     asset?.assetId ||
@@ -3270,6 +3272,52 @@ useEffect(() => {
     setShowFinalizeModal(null);
   };
 
+  const renderFinalizeAction = ({
+    compact = false,
+    fullWidth = true,
+    className = '',
+  } = {}) => {
+    if (isGroupReviewed) {
+      return (
+        <span
+          className={combineClasses(
+            'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300',
+            compact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm',
+            fullWidth ? 'w-full' : '',
+            'sm:w-auto',
+            className,
+          )}
+        >
+          <FiCheckCircle
+            className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}
+            aria-hidden="true"
+          />
+          Reviewed
+        </span>
+      );
+    }
+
+    const disabled = finalizeProcessing || submitting || !groupId;
+
+    return (
+      <button
+        type="button"
+        onClick={openFinalizeModal}
+        disabled={disabled}
+        className={combineClasses(
+          'btn-primary whitespace-nowrap font-semibold',
+          compact ? 'px-3 py-1.5 text-xs' : 'text-sm',
+          fullWidth ? 'w-full' : '',
+          disabled ? 'opacity-60 cursor-not-allowed' : '',
+          'sm:w-auto',
+          className,
+        )}
+      >
+        finalize review
+      </button>
+    );
+  };
+
   if (
     reviewVersion === null ||
     !logoReady ||
@@ -3530,7 +3578,7 @@ useEffect(() => {
         {(reviewVersion === 2 || reviewVersion === 3) && (
           <div
             ref={toolbarRef}
-            className="sticky top-0 z-30 flex w-full justify-between px-4 py-3 sm:px-6"
+            className="sticky top-0 z-30 flex w-full items-center gap-2 px-4 py-3 sm:px-6"
             style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
           >
             <button
@@ -3541,7 +3589,12 @@ useEffect(() => {
             >
               <FiHome className="h-5 w-5" />
             </button>
-            <div className="relative">
+            {reviewVersion === 2 && statusBarPinned && (
+              <div className="flex flex-1 justify-center sm:hidden">
+                {renderFinalizeAction({ compact: true, fullWidth: false })}
+              </div>
+            )}
+            <div className="relative ml-auto">
               <button
                 type="button"
                 ref={actionsMenuButtonRef}
@@ -3617,7 +3670,12 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="relative w-full max-w-[712px] px-2 pt-2 sm:px-0">
+            <div
+              className={combineClasses(
+                'relative w-full max-w-[712px] pt-2 sm:px-0',
+                statusBarPinned ? 'px-4' : 'px-2',
+              )}
+            >
               <div
                 ref={statusBarSentinelRef}
                 aria-hidden="true"
@@ -3629,29 +3687,39 @@ useEffect(() => {
                 style={{ top: toolbarOffset ? `${toolbarOffset}px` : 0 }}
               >
                 <div
-                  className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${
+                  className={combineClasses(
+                    'rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]',
                     statusBarPinned
-                      ? 'px-3 py-2 sm:px-3 sm:py-2'
-                      : 'px-3 py-3 sm:px-4 sm:py-3'
-                  }`}
+                      ? 'px-2 py-1.5 sm:px-3 sm:py-2'
+                      : 'px-3 py-3 sm:px-4 sm:py-3',
+                  )}
                 >
-                      <div
-                        className={`flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between ${
-                          statusBarPinned ? 'sm:gap-3' : ''
-                        }`}
-                      >
-                    <div className={`flex-1 ${statusBarPinned ? 'sm:flex sm:items-center sm:gap-4' : ''}`}>
+                  <div
+                    className={combineClasses(
+                      'flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between',
+                      statusBarPinned ? 'sm:gap-3' : '',
+                    )}
+                  >
+                    <div
+                      className={combineClasses(
+                        'flex-1',
+                        statusBarPinned ? 'hidden sm:flex sm:items-center sm:gap-4' : '',
+                      )}
+                    >
                       {adGroupDisplayName && !statusBarPinned && (
                         <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                           {adGroupDisplayName}
                         </div>
                       )}
                       <div
-                        className={`grid grid-cols-4 ${
+                        className={combineClasses(
+                          statusBarPinned
+                            ? 'hidden sm:grid sm:grid-cols-4'
+                            : 'grid grid-cols-2 sm:grid-cols-4',
                           statusBarPinned
                             ? 'mt-0 gap-2 sm:gap-3'
-                            : 'mt-2 gap-2 sm:mt-3 sm:gap-4'
-                        }`}
+                            : 'mt-3 gap-4',
+                        )}
                       >
                         {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
                           const statusLabel = (statusLabelMap[statusKey] || statusKey).toLowerCase();
@@ -3686,42 +3754,12 @@ useEffect(() => {
                       </div>
                     </div>
                     <div
-                      className={`flex w-full flex-col gap-2 items-stretch ${
-                        statusBarPinned ? 'sm:w-auto sm:self-center sm:items-end' : 'sm:w-auto sm:self-center sm:items-end'
-                      }`}
-                    >
-                      {isGroupReviewed ? (
-                        <span
-                          className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 ${
-                            statusBarPinned ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'
-                          } w-full sm:w-auto`}
-                        >
-                          <FiCheckCircle
-                            className={
-                              statusBarPinned ? 'h-3.5 w-3.5' : 'h-4 w-4'
-                            }
-                            aria-hidden="true"
-                          />
-                          Reviewed
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={openFinalizeModal}
-                          disabled={
-                            finalizeProcessing || submitting || !groupId
-                          }
-                          className={`btn-primary w-full whitespace-nowrap font-semibold ${
-                            statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
-                          } ${
-                            finalizeProcessing || submitting || !groupId
-                              ? 'opacity-60 cursor-not-allowed'
-                              : ''
-                          } sm:w-auto`}
-                        >
-                          finalize review
-                        </button>
+                      className={combineClasses(
+                        statusBarPinned ? 'hidden sm:flex' : 'flex',
+                        'w-full flex-col items-stretch gap-2 sm:w-auto sm:self-center sm:items-end',
                       )}
+                    >
+                      {renderFinalizeAction({ compact: statusBarPinned })}
                     </div>
                   </div>
                 </div>
