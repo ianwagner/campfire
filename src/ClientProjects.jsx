@@ -39,11 +39,15 @@ const CreateProjectModal = ({
   onClose,
   brandCodes = [],
   allowedRecipeTypes = [],
+  agencyIdOverride,
+  uploadedByOverride,
 }) => {
   const [title, setTitle] = useState('');
   const [step, setStep] = useState(1);
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
-  const { agencyId } = useUserRole(auth.currentUser?.uid);
+  const { agencyId: userAgencyId } = useUserRole(auth.currentUser?.uid);
+  const effectiveAgencyId = agencyIdOverride ?? userAgencyId;
+  const uploadedBy = uploadedByOverride ?? auth.currentUser?.uid ?? null;
 
   const handleSave = async (
     recipes,
@@ -64,8 +68,8 @@ const CreateProjectModal = ({
         name: title.trim(),
         brandCode,
         status: 'new',
-        uploadedBy: auth.currentUser?.uid || null,
-        agencyId: agencyId || null,
+        uploadedBy,
+        agencyId: effectiveAgencyId || null,
         createdAt: serverTimestamp(),
         lastUpdated: serverTimestamp(),
         reviewedCount: 0,
@@ -182,12 +186,20 @@ const CreateProjectModal = ({
   );
 };
 
-const ClientProjects = ({ brandCodes = [] }) => {
+const ClientProjects = ({
+  brandCodes = [],
+  agencyIdOverride,
+  uploadedByOverride,
+  introTextOverride,
+  showUpgradeNotice = true,
+  showHero = true,
+}) => {
   const [modalStep, setModalStep] = useState(null); // null | 'brief' | 'describe'
   const navigate = useNavigate();
   const { settings } = useSiteSettings();
-  const { agencyId } = useUserRole(auth.currentUser?.uid);
-  const { agency } = useAgencyTheme(agencyId);
+  const { agencyId: userAgencyId } = useUserRole(auth.currentUser?.uid);
+  const effectiveAgencyId = agencyIdOverride ?? userAgencyId;
+  const { agency } = useAgencyTheme(effectiveAgencyId);
 
   const handleCreated = (proj) => {
     setModalStep(null);
@@ -197,14 +209,16 @@ const ClientProjects = ({ brandCodes = [] }) => {
   };
 
   const firstName = auth.currentUser?.displayName?.split(' ')[0];
-  const introText = firstName
-    ? `Hey ${firstName}, how would you like to start?`
-    : 'How would you like to start?';
+  const introText =
+    introTextOverride ||
+    (firstName
+      ? `Hey ${firstName}, how would you like to start?`
+      : 'How would you like to start?');
 
   return (
     <div className="min-h-screen p-4 flex flex-col items-center overflow-y-auto snap-y snap-mandatory scroll-smooth">
       <div className="w-full flex flex-col items-center">
-        {settings?.artworkUrl && (
+        {showHero && settings?.artworkUrl && (
           <section className="snap-start w-full">
             <div className="max-w-[60rem] w-full mx-auto mt-4 h-[25rem] overflow-hidden rounded-lg mb-6 flex items-center justify-center">
               <OptimizedImage
@@ -249,12 +263,14 @@ const ClientProjects = ({ brandCodes = [] }) => {
               );
             })()}
           </div>
-          <p className="mt-16 text-sm text-gray-600 dark:text-gray-300">
-            Projects have been upgraded - see them here:{' '}
-            <a className="text-blue-600 underline" href="/ad-groups">
-              Ad Groups
-            </a>
-          </p>
+          {showUpgradeNotice && (
+            <p className="mt-16 text-sm text-gray-600 dark:text-gray-300">
+              Projects have been upgraded - see them here:{' '}
+              <a className="text-blue-600 underline" href="/ad-groups">
+                Ad Groups
+              </a>
+            </p>
+          )}
         </section>
       </div>
       {modalStep === 'brief' && (
@@ -262,10 +278,17 @@ const ClientProjects = ({ brandCodes = [] }) => {
           onClose={handleCreated}
           brandCodes={brandCodes}
           allowedRecipeTypes={agency.allowedRecipeTypes || []}
+          agencyIdOverride={effectiveAgencyId}
+          uploadedByOverride={uploadedByOverride}
         />
       )}
       {modalStep === 'describe' && agency.enableDescribeProject !== false && (
-        <DescribeProjectModal onClose={handleCreated} brandCodes={brandCodes} />
+        <DescribeProjectModal
+          onClose={handleCreated}
+          brandCodes={brandCodes}
+          agencyIdOverride={effectiveAgencyId}
+          createdByOverride={uploadedByOverride}
+        />
       )}
     </div>
   );

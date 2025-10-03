@@ -17,7 +17,14 @@ import useUserRole from './useUserRole';
 import DueDateMonthSelector from './components/DueDateMonthSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
 
-const DescribeProjectModal = ({ onClose, brandCodes = [], request = null, resetStatus = false }) => {
+const DescribeProjectModal = ({
+  onClose,
+  brandCodes = [],
+  request = null,
+  resetStatus = false,
+  agencyIdOverride,
+  createdByOverride,
+}) => {
   const [title, setTitle] = useState('');
   const [brandCode, setBrandCode] = useState(brandCodes[0] || '');
   const [dueDate, setDueDate] = useState('');
@@ -26,8 +33,10 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null, resetS
   const [assetLinks, setAssetLinks] = useState(['']);
   const [details, setDetails] = useState('');
 
-  const { role, agencyId } = useUserRole(auth.currentUser?.uid);
-  const isAgency = role === 'agency' || !!agencyId;
+  const { role, agencyId: userAgencyId } = useUserRole(auth.currentUser?.uid);
+  const effectiveAgencyId = agencyIdOverride ?? userAgencyId;
+  const createdBy = createdByOverride ?? auth.currentUser?.uid ?? null;
+  const isAgency = role === 'agency' || !!effectiveAgencyId;
 
   useEffect(() => {
     if (request) {
@@ -98,7 +107,7 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null, resetS
             brandCode,
             status: 'processing',
             month: month || null,
-            ...(agencyId ? { agencyId } : {}),
+            ...(effectiveAgencyId ? { agencyId: effectiveAgencyId } : {}),
           });
         }
       } else {
@@ -108,9 +117,9 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null, resetS
           brandCode,
           status: 'processing',
           createdAt: serverTimestamp(),
-          userId: auth.currentUser?.uid || null,
+          userId: createdBy,
           month: month || null,
-          agencyId: agencyId || null,
+          agencyId: effectiveAgencyId || null,
         });
         projectId = projRef.id;
         await addDoc(collection(db, 'requests'), {
@@ -123,7 +132,7 @@ const DescribeProjectModal = ({ onClose, brandCodes = [], request = null, resetS
           details,
           status: 'new',
           createdAt: serverTimestamp(),
-          createdBy: auth.currentUser?.uid || null,
+          createdBy,
           projectId,
           month: month || null,
         });

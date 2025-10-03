@@ -68,6 +68,7 @@ import PmData from "./PmData";
 import OpsContracts from "./OpsContracts";
 import OpsBrandContracts from "./OpsBrandContracts";
 import OpsClientProjects from "./OpsClientProjects";
+import OpsCreate from "./OpsCreate";
 import useTheme from "./useTheme";
 import debugLog from "./utils/debugLog";
 import useSiteSettings from "./useSiteSettings";
@@ -727,6 +728,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <PmData />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/ops/create"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole={["ops","admin"]}
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <OpsCreate />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
