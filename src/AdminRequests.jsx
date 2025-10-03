@@ -49,6 +49,7 @@ const createEmptyForm = (overrides = {}) => ({
   contractLink: '',
   designerId: '',
   editorId: '',
+  assignee: '',
   infoNote: '',
   productRequests: [createDefaultProductRequest()],
   ...overrides,
@@ -345,6 +346,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       contractLink: req.contractLink || '',
       designerId: req.designerId || '',
       editorId: req.editorId || '',
+      assignee: req.assignee || '',
       infoNote: req.infoNote || '',
       productRequests,
     });
@@ -510,6 +512,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
         editorId: showEditorSelect
           ? form.editorId || null
           : filterEditorId || (isProjectManager ? form.editorId || null : auth.currentUser?.uid || form.editorId || null),
+        assignee: form.assignee ? form.assignee.trim() : null,
         infoNote: form.infoNote,
         productRequests: form.type === 'newAds' ? productRequests : [],
         status: editId ? (requests.find((r) => r.id === editId)?.status || 'new') : 'new',
@@ -1375,6 +1378,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
             <option value="newAds">New Ads</option>
             {!isOps && <option value="newAIAssets">New AI Assets</option>}
             <option value="newBrand">New Brand</option>
+            <option value="helpdesk">Helpdesk</option>
             <option value="bug">Bug</option>
             <option value="feature">Feature</option>
           </select>
@@ -1393,6 +1397,62 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
               ))}
             </select>
           </div>
+        )}
+        {form.type === 'helpdesk' && (
+          <>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Brand</label>
+              <input
+                type="text"
+                value={form.brandCode}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, brandCode: e.target.value.toUpperCase() }))
+                }
+                className="w-full p-2 border rounded uppercase"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Title</label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Details</label>
+              <textarea
+                value={form.details}
+                onChange={(e) => setForm((f) => ({ ...f, details: e.target.value }))}
+                onKeyDown={handleBulletList}
+                className="w-full p-2 border rounded"
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Priority</label>
+              <select
+                value={form.priority}
+                onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+                className="w-full p-2 border rounded"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Assignee</label>
+              <input
+                type="text"
+                value={form.assignee}
+                onChange={(e) => setForm((f) => ({ ...f, assignee: e.target.value }))}
+                className="w-full p-2 border rounded"
+                placeholder="Assign to..."
+              />
+            </div>
+          </>
         )}
         {form.type === 'newAds' && (
             <>

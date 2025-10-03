@@ -10,6 +10,7 @@ import {
   FiImage,
   FiMoreHorizontal,
   FiCalendar,
+  FiMessageSquare,
 } from 'react-icons/fi';
 import IconButton from './IconButton.jsx';
 import formatDetails from "../utils/formatDetails";
@@ -20,6 +21,7 @@ const typeIcons = {
   bug: FiAlertOctagon,
   feature: FiZap,
   newAIAssets: FiImage,
+  helpdesk: FiMessageSquare,
 };
 
 const typeColors = {
@@ -28,6 +30,7 @@ const typeColors = {
   bug: 'text-red-500',
   feature: 'text-purple-500',
   newAIAssets: 'text-orange-500',
+  helpdesk: 'text-cyan-600',
 };
 
 const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart, onView }) => {
