@@ -3629,7 +3629,11 @@ useEffect(() => {
                 style={{ top: toolbarOffset ? `${toolbarOffset}px` : 0 }}
               >
                 <div
-                  className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
+                  className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${
+                    statusBarPinned
+                      ? 'px-3 py-2 sm:px-3 sm:py-2'
+                      : 'px-3 py-3 sm:px-4 sm:py-3'
+                  }`}
                 >
                       <div
                         className={`flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between ${
@@ -3643,22 +3647,36 @@ useEffect(() => {
                         </div>
                       )}
                       <div
-                        className={`grid grid-cols-2 sm:grid-cols-4 ${statusBarPinned ? 'mt-0 gap-2 sm:gap-3' : 'mt-3 gap-4'}`}
+                        className={`grid grid-cols-4 ${
+                          statusBarPinned
+                            ? 'mt-0 gap-2 sm:gap-3'
+                            : 'mt-2 gap-2 sm:mt-3 sm:gap-4'
+                        }`}
                       >
                         {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
                           const statusLabel = (statusLabelMap[statusKey] || statusKey).toLowerCase();
                           return (
                             <div
                               key={statusKey}
-                              className={`flex flex-col items-center text-center ${statusBarPinned ? 'gap-0.5' : 'gap-1'}`}
+                              className={`flex flex-col items-center text-center ${
+                                statusBarPinned ? 'gap-0.5 sm:gap-0.5' : 'gap-0.5 sm:gap-1'
+                              }`}
                             >
                               <span
-                                className={`${statusBarPinned ? 'text-lg' : 'text-xl'} font-semibold text-gray-900 dark:text-[var(--dark-text)]`}
+                                className={`font-semibold text-gray-900 dark:text-[var(--dark-text)] ${
+                                  statusBarPinned
+                                    ? 'text-base sm:text-lg'
+                                    : 'text-lg sm:text-xl'
+                                }`}
                               >
                                 {reviewStatusCounts[statusKey] ?? 0}
                               </span>
                               <span
-                                className={`${statusBarPinned ? 'text-[11px]' : 'text-xs'} font-medium text-gray-500 dark:text-gray-300`}
+                                className={`font-medium text-gray-500 dark:text-gray-300 ${
+                                  statusBarPinned
+                                    ? 'text-[10px] sm:text-[11px]'
+                                    : 'text-[11px] sm:text-xs'
+                                }`}
                               >
                                 {statusLabel}
                               </span>
