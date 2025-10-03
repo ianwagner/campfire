@@ -107,6 +107,31 @@ function toNumber(value) {
   return 0;
 }
 
+function shouldCollectProductEntryKey(key) {
+  if (typeof key !== "string") {
+    return false;
+  }
+
+  const lower = key.toLowerCase();
+  if (!lower.includes("product")) {
+    return false;
+  }
+
+  const excludedTerms = [
+    "benefit",
+    "description",
+    "detail",
+    "reason",
+    "why",
+  ];
+
+  if (excludedTerms.some((term) => lower.includes(term))) {
+    return false;
+  }
+
+  return true;
+}
+
 function collectStringValues(value, add) {
   if (value === null || value === undefined) {
     return;
@@ -435,13 +460,13 @@ async function getRecipeProductNames(adGroupId) {
       directValues.forEach((value) => collectStringValues(value, addName));
 
       Object.entries(metadata).forEach(([key, value]) => {
-        if (typeof key === "string" && key.toLowerCase().includes("product")) {
+        if (shouldCollectProductEntryKey(key)) {
           collectStringValues(value, addName);
         }
       });
 
       Object.entries(components).forEach(([key, value]) => {
-        if (typeof key === "string" && key.toLowerCase().includes("product")) {
+        if (shouldCollectProductEntryKey(key)) {
           collectStringValues(value, addName);
         }
       });
