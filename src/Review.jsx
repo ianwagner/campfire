@@ -827,8 +827,10 @@ const Review = forwardRef(
     };
   }, [agencyId, userRole]);
 
+  const helpdeskUserId = userUid || '';
+
   useEffect(() => {
-    if (!helpdeskBrandCode) {
+    if (!helpdeskBrandCode || !helpdeskUserId) {
       setHelpdeskTickets([]);
       return () => {};
     }
@@ -837,6 +839,7 @@ const Review = forwardRef(
       ticketsRef,
       where('type', '==', 'helpdesk'),
       where('brandCode', '==', helpdeskBrandCode),
+      where('participants', 'array-contains', helpdeskUserId),
     );
     const unsubscribe = onSnapshot(
       helpdeskQuery,
@@ -866,7 +869,7 @@ const Review = forwardRef(
       },
     );
     return () => unsubscribe();
-  }, [helpdeskBrandCode]);
+  }, [helpdeskBrandCode, helpdeskUserId]);
 
   const releaseLock = useCallback(() => {
     if (!groupId || initialStatus === 'done') return;

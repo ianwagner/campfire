@@ -152,6 +152,7 @@ const HelpdeskModal = ({
           },
           assignee: null,
           messagesCount: 0,
+          participants: userId ? [userId] : [],
         });
         await addDoc(collection(db, 'requests', ticketDoc.id, 'messages'), {
           body: trimmed,
