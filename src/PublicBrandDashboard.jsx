@@ -9,7 +9,8 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { db } from "./firebase/config";
+import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
+import { auth, db } from "./firebase/config";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 import ReviewGroupCard from "./components/ReviewGroupCard.jsx";
 import ensurePublicDashboardSlug from "./utils/ensurePublicDashboardSlug.js";
@@ -57,6 +58,31 @@ const PublicBrandDashboard = () => {
   const [groupsError, setGroupsError] = useState("");
   const [groupsLoading, setGroupsLoading] = useState(true);
   const [showHelpdeskModal, setShowHelpdeskModal] = useState(false);
+  const [user, setUser] = useState(auth.currentUser || null);
+  const [signingIn, setSigningIn] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser || null);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (signingIn || user) {
+      return;
+    }
+
+    setSigningIn(true);
+    signInAnonymously(auth)
+      .catch((err) => {
+        console.error("Failed to sign in anonymously for public brand dashboard", err);
+      })
+      .finally(() => {
+        setSigningIn(false);
+      });
+  }, [user, signingIn]);
 
   useEffect(() => {
     let cancelled = false;
@@ -408,6 +434,7 @@ const PublicBrandDashboard = () => {
       {showHelpdeskModal && (
         <HelpdeskModal
           brandCode={brandCode}
+          user={user}
           onClose={() => setShowHelpdeskModal(false)}
           tickets={[]}
         />
