@@ -13,11 +13,15 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import CloseButton from './CloseButton.jsx';
+import NotificationDot from './NotificationDot.jsx';
 import {
   toDateSafe,
   formatRelativeTime,
   defaultTicketTitle,
   formatDisplayName,
+  helpdeskTicketHasUnread,
+  markHelpdeskTicketAsRead,
+  getHelpdeskLastSeen,
 } from '../utils/helpdesk';
 
 const HelpdeskModal = ({
@@ -27,6 +31,7 @@ const HelpdeskModal = ({
   user = null,
   tickets = [],
   onClose,
+  onTicketViewed,
 }) => {
   const [activeTicketId, setActiveTicketId] = useState(null);
   const [creatingNew, setCreatingNew] = useState(false);
@@ -37,6 +42,7 @@ const HelpdeskModal = ({
   const unsubscribeRef = useRef(null);
   const messageListRef = useRef(null);
   const textAreaRef = useRef(null);
+  const [readStateVersion, setReadStateVersion] = useState(0);
 
   const userId = user?.uid || 'anonymous';
   const authorName = formatDisplayName(
@@ -47,6 +53,15 @@ const HelpdeskModal = ({
     'inline-flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white font-semibold text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]';
   const primaryButtonClass =
     'inline-flex items-center justify-center gap-2 rounded-md border border-[var(--accent-color)] bg-[var(--accent-color)] font-semibold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[var(--dark-sidebar-bg)]';
+
+  const decoratedTickets = useMemo(
+    () =>
+      tickets.map((ticket) => ({
+        ...ticket,
+        hasUnreadMessages: helpdeskTicketHasUnread(ticket),
+      })),
+    [tickets, readStateVersion],
+  );
   const buildButtonClass = ({
     primary = false,
     small = false,
@@ -72,15 +87,15 @@ const HelpdeskModal = ({
   }, []);
 
   useEffect(() => {
-    if (tickets.length === 0) {
+    if (decoratedTickets.length === 0) {
       setCreatingNew(true);
       setActiveTicketId(null);
     } else if (!creatingNew) {
-      if (!activeTicketId || !tickets.some((t) => t.id === activeTicketId)) {
-        setActiveTicketId(tickets[0]?.id || null);
+      if (!activeTicketId || !decoratedTickets.some((t) => t.id === activeTicketId)) {
+        setActiveTicketId(decoratedTickets[0]?.id || null);
       }
     }
-  }, [tickets, activeTicketId, creatingNew]);
+  }, [decoratedTickets, activeTicketId, creatingNew]);
 
   useEffect(() => {
     if (!activeTicketId) {
@@ -123,9 +138,26 @@ const HelpdeskModal = ({
   }, [creatingNew]);
 
   const activeTicket = useMemo(
-    () => tickets.find((t) => t.id === activeTicketId) || null,
-    [tickets, activeTicketId],
+    () => decoratedTickets.find((t) => t.id === activeTicketId) || null,
+    [decoratedTickets, activeTicketId],
   );
+
+  useEffect(() => {
+    if (!activeTicket) return;
+    const lastActivity = toDateSafe(
+      activeTicket.lastMessageAt || activeTicket.updatedAt || activeTicket.createdAt,
+    );
+    const lastActivityTime = lastActivity ? lastActivity.getTime() : Date.now();
+    const lastSeen = getHelpdeskLastSeen(activeTicket.id);
+    if (lastSeen >= lastActivityTime) {
+      return;
+    }
+    markHelpdeskTicketAsRead(activeTicket.id, lastActivityTime);
+    setReadStateVersion((value) => value + 1);
+    if (typeof onTicketViewed === 'function') {
+      onTicketViewed(activeTicket.id);
+    }
+  }, [activeTicket, onTicketViewed]);
 
   const handleSendMessage = async () => {
     const trimmed = message.trim();
@@ -171,6 +203,11 @@ const HelpdeskModal = ({
         setMessage('');
         setCreatingNew(false);
         setActiveTicketId(ticketDoc.id);
+        markHelpdeskTicketAsRead(ticketDoc.id);
+        setReadStateVersion((value) => value + 1);
+        if (typeof onTicketViewed === 'function') {
+          onTicketViewed(ticketDoc.id);
+        }
       } else if (activeTicketId) {
         await addDoc(collection(db, 'requests', activeTicketId, 'messages'), {
           body: trimmed,
@@ -188,6 +225,11 @@ const HelpdeskModal = ({
           participants: arrayUnion(userId),
         });
         setMessage('');
+        markHelpdeskTicketAsRead(activeTicketId);
+        setReadStateVersion((value) => value + 1);
+        if (typeof onTicketViewed === 'function') {
+          onTicketViewed(activeTicketId);
+        }
       }
     } catch (err) {
       console.error('Failed to send helpdesk message', err);
@@ -357,10 +399,10 @@ const HelpdeskModal = ({
             type="button"
             className={buildButtonClass()}
             onClick={() => {
-              if (tickets.length) {
+              if (decoratedTickets.length) {
                 setCreatingNew(false);
                 setMessage('');
-                setActiveTicketId(tickets[0]?.id || null);
+                setActiveTicketId(decoratedTickets[0]?.id || null);
               } else {
                 onClose();
               }
@@ -409,17 +451,18 @@ const HelpdeskModal = ({
               </button>
             </div>
             <div className="mt-3 space-y-2">
-              {tickets.length === 0 ? (
+              {decoratedTickets.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-300">
                   No open tickets yet.
                 </p>
               ) : (
-                tickets.map((ticket) => {
+                decoratedTickets.map((ticket) => {
                   const isActive = ticket.id === activeTicketId && !creatingNew;
                   const lastAuthor = formatDisplayName(ticket.lastMessageAuthor);
                   const updatedLabel = formatRelativeTime(
                     ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt,
                   );
+                  const showUnreadDot = ticket.hasUnreadMessages && !isActive;
                   return (
                     <button
                       key={ticket.id}
@@ -437,9 +480,17 @@ const HelpdeskModal = ({
                       }`}
                     >
                       <div className="flex flex-col gap-1">
-                        <span className="font-semibold text-gray-800 dark:text-[var(--dark-text)]">
-                          {ticket.title || 'Helpdesk request'}
-                        </span>
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-semibold text-gray-800 dark:text-[var(--dark-text)]">
+                            {ticket.title || 'Helpdesk request'}
+                          </span>
+                          {showUnreadDot ? (
+                            <NotificationDot
+                              size="sm"
+                              srText="Unread helpdesk messages"
+                            />
+                          ) : null}
+                        </div>
                         {ticket.lastMessagePreview && (
                           <p className="line-clamp-2 text-xs text-gray-600 dark:text-gray-300">
                             {ticket.lastMessagePreview}

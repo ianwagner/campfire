@@ -53,9 +53,72 @@ export const formatDisplayName = (value) => {
   return cleaned.length > 0 ? cleaned.join(' ') : value;
 };
 
+const HELP_DESK_LAST_SEEN_PREFIX = 'helpdesk:lastSeen:';
+
+const getLocalStorageSafe = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage || null;
+  } catch (err) {
+    return null;
+  }
+};
+
+const getStorageKeyForTicket = (ticketId) => {
+  if (!ticketId) return '';
+  return `${HELP_DESK_LAST_SEEN_PREFIX}${ticketId}`;
+};
+
+export const getHelpdeskLastSeen = (ticketId) => {
+  if (!ticketId) return 0;
+  const storage = getLocalStorageSafe();
+  if (!storage) return 0;
+  try {
+    const raw = storage.getItem(getStorageKeyForTicket(ticketId));
+    if (!raw) return 0;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : 0;
+  } catch (err) {
+    return 0;
+  }
+};
+
+export const markHelpdeskTicketAsRead = (ticketId, timestamp = Date.now()) => {
+  if (!ticketId) return;
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
+  const normalized = Number(timestamp);
+  const safeValue = Number.isFinite(normalized) ? normalized : Date.now();
+  try {
+    storage.setItem(getStorageKeyForTicket(ticketId), String(safeValue));
+  } catch (err) {
+    // Ignore write errors (e.g., storage full or unavailable)
+  }
+};
+
+export const helpdeskTicketHasUnread = (ticket) => {
+  if (!ticket || !ticket.id) return false;
+  const lastActivity = toDateSafe(
+    ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt,
+  );
+  if (!lastActivity) return false;
+  const lastSeen = getHelpdeskLastSeen(ticket.id);
+  return lastSeen < lastActivity.getTime();
+};
+
+export const countUnreadHelpdeskTickets = (tickets = []) =>
+  tickets.reduce(
+    (count, ticket) => count + (helpdeskTicketHasUnread(ticket) ? 1 : 0),
+    0,
+  );
+
 export default {
   toDateSafe,
   formatRelativeTime,
   defaultTicketTitle,
   formatDisplayName,
+  getHelpdeskLastSeen,
+  markHelpdeskTicketAsRead,
+  helpdeskTicketHasUnread,
+  countUnreadHelpdeskTickets,
 };
