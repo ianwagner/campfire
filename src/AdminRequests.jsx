@@ -66,7 +66,12 @@ const createEmptyForm = (overrides = {}) => ({
   ...overrides,
 });
 
-const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true } = {}) => {
+const AdminRequests = ({
+  filterEditorId,
+  filterCreatorId,
+  allowedBrandCodes = null,
+  canAssignEditor = true,
+} = {}) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -97,7 +102,11 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const isOps = role === 'ops';
   const isProjectManager = role === 'project-manager';
   const showDesignerSelect = !isOps && !isProjectManager;
-  const showEditorSelect = canAssignEditor && !isOps && !isProjectManager;
+  const showEditorSelect =
+    canAssignEditor && !isOps && !isProjectManager && form.type !== 'helpdesk';
+  const brandFilterKey = Array.isArray(allowedBrandCodes)
+    ? allowedBrandCodes.join('|')
+    : 'ALL';
   const existingBrandCodes = useMemo(() => {
     const codes = new Set();
     brands.forEach((brand) => {
@@ -118,13 +127,49 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       setLoading(true);
       try {
         const base = collection(db, 'requests');
-        let q = base;
-        if (filterEditorId) q = query(q, where('editorId', '==', filterEditorId));
-        if (filterCreatorId) q = query(q, where('createdBy', '==', filterCreatorId));
-        const snap = await getDocs(q);
-        const list = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+        const constraints = [];
+        if (filterEditorId) constraints.push(where('editorId', '==', filterEditorId));
+        if (filterCreatorId) constraints.push(where('createdBy', '==', filterCreatorId));
+
+        const hasBrandFilter = Array.isArray(allowedBrandCodes);
+        const normalizedBrandCodes = hasBrandFilter
+          ? Array.from(
+              new Set(
+                allowedBrandCodes
+                  .filter((code) => typeof code === 'string' && code.trim().length > 0)
+                  .map((code) => code.trim().toUpperCase()),
+              ),
+            )
+          : [];
+
+        if (hasBrandFilter && normalizedBrandCodes.length === 0) {
+          setRequests([]);
+          return;
+        }
+
+        const queryPromises = [];
+        if (hasBrandFilter) {
+          for (let i = 0; i < normalizedBrandCodes.length; i += 10) {
+            const chunk = normalizedBrandCodes.slice(i, i + 10);
+            queryPromises.push(
+              getDocs(query(base, ...constraints, where('brandCode', 'in', chunk))),
+            );
+          }
+        } else {
+          const baseQuery = constraints.length ? query(base, ...constraints) : base;
+          queryPromises.push(getDocs(baseQuery));
+        }
+
+        const results = await Promise.all(queryPromises);
+        const mapped = new Map();
+        results.forEach((snap) => {
+          snap.docs.forEach((docSnap) => {
+            mapped.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
+          });
+        });
+        const list = Array.from(mapped.values()).sort(
+          (a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0),
+        );
         setRequests(list);
       } catch (err) {
         console.error('Failed to fetch requests', err);
@@ -210,7 +255,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     } else {
       setEditors([]);
     }
-  }, [filterEditorId, filterCreatorId, showDesignerSelect, showEditorSelect]);
+  }, [filterEditorId, filterCreatorId, brandFilterKey, showDesignerSelect, showEditorSelect]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -521,9 +566,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
         contractEndDate: isNewBrand ? contractEndDate : null,
         contractLink: isNewBrand ? contractLink : '',
         designerId: form.designerId || null,
-        editorId: showEditorSelect
-          ? form.editorId || null
-          : filterEditorId || (isProjectManager ? form.editorId || null : auth.currentUser?.uid || form.editorId || null),
+        editorId:
+          form.type === 'helpdesk'
+            ? null
+            : showEditorSelect
+              ? form.editorId || null
+              : filterEditorId ||
+                (isProjectManager
+                  ? form.editorId || null
+                  : auth.currentUser?.uid || form.editorId || null),
         assignee: form.assignee ? form.assignee.trim() : null,
         infoNote: form.infoNote,
         productRequests: form.type === 'newAds' ? productRequests : [],
@@ -629,6 +680,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     } catch (err) {
       console.error('Failed to update status', err);
     }
+  };
+
+  const handleNotesUpdate = (id, value) => {
+    setRequests((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, internalNotes: value } : r)),
+    );
+    setHelpdeskRequest((prev) =>
+      prev && prev.id === id ? { ...prev, internalNotes: value } : prev,
+    );
   };
 
   const handleDragStart = (id) => {
@@ -1972,6 +2032,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
         <HelpdeskThreadModal
           request={helpdeskRequest}
           onClose={() => setHelpdeskRequest(null)}
+          onUpdateNotes={handleNotesUpdate}
         />
       )}
     </div>
