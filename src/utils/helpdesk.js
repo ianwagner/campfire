@@ -39,8 +39,23 @@ export const defaultTicketTitle = (message) => {
   return firstLine.trim().slice(0, 80);
 };
 
+export const formatDisplayName = (value) => {
+  if (!value || typeof value !== 'string') return '';
+  if (!value.includes('@')) return value;
+
+  const namePart = value.split('@')[0];
+  const cleaned = namePart
+    .replace(/[._-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1));
+
+  return cleaned.length > 0 ? cleaned.join(' ') : value;
+};
+
 export default {
   toDateSafe,
   formatRelativeTime,
   defaultTicketTitle,
+  formatDisplayName,
 };
