@@ -3444,8 +3444,8 @@ useEffect(() => {
     <div className="relative flex flex-col items-center justify-center space-y-4 min-h-screen">
       {showFinalizeModal && (
         <Modal>
-          <div className="space-y-4">
-            <div className="space-y-3">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
                 Finalize review
               </h2>
@@ -3500,7 +3500,7 @@ useEffect(() => {
       )}
       {showStreakModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded-xl shadow max-w-sm space-y-4 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+          <div className="flex flex-col gap-4 bg-white p-4 rounded-xl shadow max-w-sm dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
             {!showNoteInput && !askContinue && (
               <>
                 <p className="mb-4 text-center text-lg font-medium">You’ve rejected 5 ads so far. Leave a note so we can regroup?</p>
@@ -3525,7 +3525,7 @@ useEffect(() => {
               </>
             )}
             {showNoteInput && !askContinue && (
-              <div className="flex flex-col space-y-2">
+              <div className="flex flex-col gap-2">
                 <textarea
                   value={clientNote}
                   onChange={(e) => setClientNote(e.target.value)}
