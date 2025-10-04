@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import {
   FiEdit2,
   FiFilePlus,
@@ -12,23 +12,9 @@ import {
 import ScrollModal from './ScrollModal.jsx';
 import IconButton from './IconButton.jsx';
 import CloseButton from './CloseButton.jsx';
-import Button from './Button.jsx';
 import formatDetails from '../utils/formatDetails';
-import {
-  addDoc,
-  arrayUnion,
-  collection,
-  doc,
-  increment,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-} from 'firebase/firestore';
-import { auth, db } from '../firebase/config';
+import { auth } from '../firebase/config';
 import useUserRole from '../useUserRole';
-import { formatRelativeTime, toDateSafe } from '../utils/helpdeskUtils.js';
 
 const typeIcons = {
   newAds: FiFilePlus,
@@ -106,81 +92,6 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
         : contractEnd
           ? `End: ${contractEnd}`
           : '';
-  const isHelpdesk = request.type === 'helpdesk';
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState('');
-  const messageListRef = useRef(null);
-  const authorId = user?.uid || 'anonymous';
-  const authorName =
-    user?.displayName ||
-    user?.email ||
-    (role ? `${role.charAt(0).toUpperCase()}${role.slice(1)}` : 'Reviewer');
-
-  useEffect(() => {
-    if (!isHelpdesk || !request.id) {
-      setMessages([]);
-      return () => {};
-    }
-    const messagesRef = collection(db, 'requests', request.id, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'asc'));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const list = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-        setMessages(list);
-        setTimeout(() => {
-          if (messageListRef.current) {
-            messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-          }
-        }, 0);
-      },
-      (err) => {
-        console.error('Failed to load helpdesk messages', err);
-        setMessages([]);
-      },
-    );
-    return () => unsubscribe();
-  }, [isHelpdesk, request?.id]);
-
-  useEffect(() => {
-    if (!isHelpdesk || messages.length === 0) return;
-    if (!messageListRef.current) return;
-    messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-  }, [isHelpdesk, messages]);
-
-  const handleSendMessage = async () => {
-    if (!isHelpdesk || !request.id) return;
-    const trimmed = newMessage.trim();
-    if (!trimmed || sending) return;
-    setSending(true);
-    setSendError('');
-    try {
-      await addDoc(collection(db, 'requests', request.id, 'messages'), {
-        body: trimmed,
-        authorId,
-        authorName,
-        createdAt: serverTimestamp(),
-        source: 'requests',
-      });
-      await updateDoc(doc(db, 'requests', request.id), {
-        lastMessageAt: serverTimestamp(),
-        lastMessagePreview: trimmed.slice(0, 200),
-        lastMessageAuthor: authorName,
-        updatedAt: serverTimestamp(),
-        messagesCount: increment(1),
-        participants: arrayUnion(authorId),
-      });
-      setNewMessage('');
-    } catch (err) {
-      console.error('Failed to send helpdesk message', err);
-      setSendError('Something went wrong. Please try again.');
-    } finally {
-      setSending(false);
-    }
-  };
-
   return (
     <ScrollModal
       sizeClass="max-w-none"
@@ -337,74 +248,6 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
             className="text-sm text-black dark:text-[var(--dark-text)]"
             dangerouslySetInnerHTML={{ __html: formatDetails(request.details) }}
           />
-        )}
-        {isHelpdesk && (
-          <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 shadow-sm dark:border-[var(--border-color-default)]">
-            <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-[var(--dark-text)]">Chat</h3>
-              {request.updatedAt && (
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Updated {formatRelativeTime(request.lastMessageAt || request.updatedAt)}
-                </p>
-              )}
-            </div>
-            <div
-              ref={messageListRef}
-              className="max-h-80 space-y-3 overflow-y-auto bg-white px-4 py-3 dark:bg-[var(--dark-sidebar-bg)]"
-            >
-              {messages.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-300">No messages yet.</p>
-              ) : (
-                messages.map((msg) => {
-                  const createdAt = toDateSafe(msg.createdAt);
-                  return (
-                    <div
-                      key={msg.id}
-                      className="rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
-                    >
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
-                          {msg.authorName || 'Reviewer'}
-                        </span>
-                        {createdAt && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {createdAt.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-200">{msg.body}</p>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-              <label htmlFor="helpdeskReply" className="sr-only">
-                Add a message
-              </label>
-              <textarea
-                id="helpdeskReply"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                rows={3}
-                placeholder="Type your reply..."
-                className="w-full resize-none rounded-lg border border-gray-300 p-3 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
-              />
-              {sendError && <p className="mt-2 text-sm text-red-600">{sendError}</p>}
-              <div className="mt-2 flex justify-end gap-2">
-                <Button variant="secondary" onClick={onClose}>
-                  Close
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handleSendMessage}
-                  disabled={sending || !newMessage.trim()}
-                >
-                  {sending ? 'Sending…' : 'Send'}
-                </Button>
-              </div>
-            </div>
-          </div>
         )}
       </div>
     </ScrollModal>
