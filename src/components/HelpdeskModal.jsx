@@ -279,53 +279,55 @@ const HelpdeskModal = ({
         </div>
         <div
           ref={messageListRef}
-          className="flex-1 overflow-y-auto bg-gray-50 px-4 py-3 dark:bg-[var(--dark-sidebar-hover)]"
+          className="flex-1 min-h-0 overflow-y-auto bg-gray-50 px-4 py-3 dark:bg-[var(--dark-sidebar-hover)]"
         >
           {messages.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-gray-300">
               <p>No messages yet.</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
-              {messages.map((msg) => {
-                const createdAt = toDateSafe(msg.createdAt);
-                const isFromCurrentUser = msg.authorId === userId;
-                const displayName = isFromCurrentUser
-                  ? 'You'
-                  : formatDisplayName(msg.authorName) || 'Campfire team';
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}
-                  >
+            <div className="flex min-h-full flex-col justify-end">
+              <div className="flex flex-col gap-4">
+                {messages.map((msg) => {
+                  const createdAt = toDateSafe(msg.createdAt);
+                  const isFromCurrentUser = msg.authorId === userId;
+                  const displayName = isFromCurrentUser
+                    ? 'You'
+                    : formatDisplayName(msg.authorName) || 'Campfire team';
+                  return (
                     <div
-                      className={`max-w-full rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${
-                        isFromCurrentUser
-                          ? 'bg-white text-gray-800 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]'
-                          : 'bg-[var(--accent-color-10)] text-gray-800 dark:bg-[var(--accent-color-10)] dark:text-[var(--dark-text)]'
-                      }`}
+                      key={msg.id}
+                      className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`flex flex-wrap items-baseline gap-2 ${
-                          isFromCurrentUser ? 'justify-end text-right' : 'justify-start text-left'
+                        className={`max-w-full rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${
+                          isFromCurrentUser
+                            ? 'bg-white text-gray-800 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]'
+                            : 'bg-[var(--accent-color-10)] text-gray-800 dark:bg-[var(--accent-color-10)] dark:text-[var(--dark-text)]'
                         }`}
                       >
-                        <span className="text-xs font-semibold text-gray-900 dark:text-[var(--dark-text)]">
-                          {displayName}
-                        </span>
-                        {createdAt && (
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {createdAt.toLocaleString()}
+                        <div
+                          className={`flex flex-wrap items-baseline gap-2 ${
+                            isFromCurrentUser ? 'justify-end text-right' : 'justify-start text-left'
+                          }`}
+                        >
+                          <span className="text-xs font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                            {displayName}
                           </span>
-                        )}
+                          {createdAt && (
+                            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                              {createdAt.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-2 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">
+                          {msg.body}
+                        </p>
                       </div>
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">
-                        {msg.body}
-                      </p>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -368,7 +370,7 @@ const HelpdeskModal = ({
   };
 
   const renderNewTicket = () => (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="border-b border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
         <h3 className="text-base font-semibold text-gray-900 dark:text-[var(--dark-text)]">
           Start a new chat
@@ -434,7 +436,7 @@ const HelpdeskModal = ({
           <h2 className="text-lg font-semibold">Helpdesk</h2>
           <CloseButton onClick={onClose} />
         </div>
-        <div className="flex flex-1 flex-col md:flex-row">
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           <aside className="w-full border-b border-gray-200 bg-gray-50 px-3 py-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] md:w-72 md:border-b-0 md:border-r">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-800 dark:text-[var(--dark-text)]">Open tickets</h3>
@@ -509,7 +511,7 @@ const HelpdeskModal = ({
               )}
             </div>
           </aside>
-          <div className="flex flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col">
             {creatingNew ? renderNewTicket() : renderMessageList()}
           </div>
         </div>
