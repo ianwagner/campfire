@@ -43,7 +43,7 @@ const typeLabels = {
   helpdesk: 'Helpdesk',
 };
 
-const RequestViewModal = ({ request, onClose, onEdit }) => {
+const RequestViewModal = ({ request, onClose, onEdit, onChat }) => {
   if (!request) return null;
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
@@ -103,6 +103,11 @@ const RequestViewModal = ({ request, onClose, onEdit }) => {
             <span className="text-black dark:text-[var(--dark-text)]">{title}</span>
           </div>
           <div className="flex items-center gap-2">
+            {request.type === 'helpdesk' && onChat && (
+              <IconButton onClick={() => onChat(request)} aria-label="Open chat">
+                <FiMessageSquare />
+              </IconButton>
+            )}
             <IconButton onClick={() => onEdit(request)} aria-label="Edit">
               <FiEdit2 />
             </IconButton>

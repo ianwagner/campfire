@@ -68,8 +68,7 @@ import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
-import StatusBadge from './components/StatusBadge.jsx';
-
+import { toDateSafe } from './utils/helpdesk';
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
@@ -77,40 +76,6 @@ const normalizeKeyPart = (value) => {
 };
 
 const combineClasses = (...classes) => classes.filter(Boolean).join(' ');
-
-const toDateSafe = (value) => {
-  if (!value) return null;
-  if (typeof value.toDate === 'function') {
-    try {
-      return value.toDate();
-    } catch (err) {
-      return null;
-    }
-  }
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date;
-};
-
-const formatRelativeTime = (value) => {
-  const date = toDateSafe(value);
-  if (!date) return '';
-  const diffMs = Date.now() - date.getTime();
-  if (diffMs < 60 * 1000) return 'just now';
-  if (diffMs < 60 * 60 * 1000) {
-    const mins = Math.round(diffMs / (60 * 1000));
-    return `${mins}m ago`;
-  }
-  if (diffMs < 24 * 60 * 60 * 1000) {
-    const hours = Math.round(diffMs / (60 * 60 * 1000));
-    return `${hours}h ago`;
-  }
-  if (diffMs < 7 * 24 * 60 * 60 * 1000) {
-    const days = Math.round(diffMs / (24 * 60 * 60 * 1000));
-    return `${days}d ago`;
-  }
-  return date.toLocaleDateString();
-};
 
 const getAssetDocumentId = (asset) =>
   normalizeKeyPart(
@@ -840,14 +805,6 @@ const Review = forwardRef(
       JSON.stringify(clean(copyCards)) !== JSON.stringify(clean(modalCopies))
     );
   }, [copyCards, modalCopies]);
-
-  const helpdeskSummaryTickets = useMemo(
-    () => helpdeskTickets.slice(0, 3),
-    [helpdeskTickets],
-  );
-
-  const openHelpdeskCount = helpdeskTickets.length;
-  const showHelpdeskSummary = openHelpdeskCount > 0 && Boolean(helpdeskBrandCode);
 
   const renderCopyModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-auto p-4">
@@ -3733,61 +3690,6 @@ useEffect(() => {
               />
             )}
           </div>
-          {showHelpdeskSummary && (
-            <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-2">
-                  <FiMessageSquare className="mt-1 h-5 w-5 text-[var(--accent-color)]" aria-hidden="true" />
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
-                      Open helpdesk tickets
-                    </h3>
-                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                      We’re working on {openHelpdeskCount}{' '}
-                      {openHelpdeskCount === 1 ? 'request' : 'requests'} for this brand.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn-primary whitespace-nowrap px-4 py-2 text-sm"
-                  onClick={() => setShowHelpdeskModal(true)}
-                >
-                  Open helpdesk
-                </button>
-              </div>
-              <ul className="mt-4 space-y-3">
-                {helpdeskSummaryTickets.map((ticket) => {
-                  const updatedText = formatRelativeTime(
-                    ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt,
-                  );
-                  return (
-                    <li
-                      key={ticket.id}
-                      className="rounded-xl border border-gray-100 p-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
-                            {ticket.title || 'Helpdesk request'}
-                          </p>
-                          {ticket.lastMessagePreview && (
-                            <p className="mt-1 line-clamp-2 text-xs text-gray-600 dark:text-gray-300">
-                              {ticket.lastMessagePreview}
-                            </p>
-                          )}
-                        </div>
-                        <StatusBadge status={ticket.status || 'new'} />
-                      </div>
-                      <p className="mt-2 text-xs text-gray-400">
-                        Updated {updatedText || 'recently'}
-                      </p>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
         </div>
       </div>
         <div className="relative flex w-full justify-center px-2 sm:px-0">
