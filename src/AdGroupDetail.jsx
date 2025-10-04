@@ -588,15 +588,28 @@ const AdGroupDetail = () => {
 
     tracker.previousStatus = currentStatus;
 
-    if (!["designed", "reviewed"].includes(currentStatus)) {
+    if (![
+      "briefed",
+      "designed",
+      "reviewed",
+      "blocked",
+    ].includes(currentStatus)) {
       return;
     }
+
+    const adGroupUrl = (() => {
+      if (typeof window === "undefined") return undefined;
+      const origin = window.location?.origin || "";
+      if (!origin || !id) return window.location?.href;
+      return `${origin.replace(/\/$/, "")}/ad-group/${id}`;
+    })();
 
     notifySlackStatusChange({
       brandCode: group.brandCode,
       adGroupId: id,
       adGroupName: group.name || "",
       status: currentStatus,
+      adGroupUrl,
     });
   }, [group?.status, group?.brandCode, group?.name, id]);
 

@@ -24,6 +24,7 @@ const PmAdGroups = () => {
   const [designerFilter, setDesignerFilter] = useState('');
   const [editorFilter, setEditorFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
+  const [reviewFilter, setReviewFilter] = useState('2');
 
   const user = auth.currentUser;
   const { agencyId, brandCodes: roleCodes, role } = useUserRole(user?.uid);
@@ -172,6 +173,8 @@ const PmAdGroups = () => {
         onEditorFilterChange={showStaffFilters ? setEditorFilter : undefined}
         monthFilter={monthFilter}
         onMonthFilterChange={setMonthFilter}
+        reviewFilter={reviewFilter}
+        onReviewFilterChange={setReviewFilter}
         linkToDetail
         restrictGanttToDueDate={restrictGanttToDueDate}
       />

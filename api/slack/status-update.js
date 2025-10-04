@@ -6,6 +6,7 @@ const {
   firebaseInitError,
   missingFirebaseEnvVars,
 } = require("./firebase");
+const { normalizeAudience } = require("./audience");
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 
@@ -106,6 +107,31 @@ function toNumber(value) {
   return 0;
 }
 
+function shouldCollectProductEntryKey(key) {
+  if (typeof key !== "string") {
+    return false;
+  }
+
+  const lower = key.toLowerCase();
+  if (!lower.includes("product")) {
+    return false;
+  }
+
+  const excludedTerms = [
+    "benefit",
+    "description",
+    "detail",
+    "reason",
+    "why",
+  ];
+
+  if (excludedTerms.some((term) => lower.includes(term))) {
+    return false;
+  }
+
+  return true;
+}
+
 function collectStringValues(value, add) {
   if (value === null || value === undefined) {
     return;
@@ -134,6 +160,263 @@ function collectStringValues(value, add) {
     if ("values" in value) {
       collectStringValues(value.values, add);
     }
+  }
+}
+
+const userNameCache = new Map();
+
+async function getUserDisplayName(userId) {
+  if (!userId) {
+    return "";
+  }
+
+  if (userNameCache.has(userId)) {
+    return userNameCache.get(userId);
+  }
+
+  try {
+    const snap = await db.collection("users").doc(userId).get();
+    if (snap.exists) {
+      const data = snap.data() || {};
+      const candidates = [
+        data.fullName,
+        data.displayName,
+        data.name,
+        data.email,
+      ];
+      const resolved = candidates.find(
+        (value) => typeof value === "string" && value.trim()
+      );
+      const finalValue = resolved ? resolved.trim() : snap.id;
+      userNameCache.set(userId, finalValue);
+      return finalValue;
+    }
+  } catch (error) {
+    console.error("Failed to load user name", userId, error);
+  }
+
+  userNameCache.set(userId, userId);
+  return userId;
+}
+
+function sanitizeInlineCodeValue(value) {
+  return String(value == null ? "" : value).replace(/`/g, "'");
+}
+
+function formatInlineCode(value, fallback) {
+  const hasValue = typeof value === "string" && value.trim();
+  const base = hasValue ? value.trim() : fallback;
+  const finalValue = base == null ? "" : String(base);
+  return `\`${sanitizeInlineCodeValue(finalValue)}\``;
+}
+
+function buildInternalMessage(status, context) {
+  const brand = formatInlineCode(
+    context.brandCode,
+    context.brandCode || "UNKNOWN"
+  );
+  const adGroup = formatInlineCode(
+    context.adGroupName,
+    context.adGroupName || "Ad Group"
+  );
+  const designer = formatInlineCode(
+    context.designerName,
+    context.designerName || "Unassigned"
+  );
+  const editor = formatInlineCode(
+    context.editorName,
+    context.editorName || "Unknown"
+  );
+  const approved = formatInlineCode(
+    String(Number(context.approvedCount) || 0),
+    "0"
+  );
+  const editRequests = formatInlineCode(
+    String(Number(context.editRequestedCount) || 0),
+    "0"
+  );
+  const rejections = formatInlineCode(
+    String(Number(context.rejectedCount) || 0),
+    "0"
+  );
+  const reviewLink = context.reviewUrl
+    ? `<${context.reviewUrl}|View details>`
+    : "View details";
+  const adGroupLink = context.adGroupUrl
+    ? `<${context.adGroupUrl}|View details>`
+    : reviewLink;
+
+  const sections = [];
+  const lines = [];
+  const addSection = (text) => {
+    if (typeof text !== "string") {
+      return;
+    }
+
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    sections.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: trimmed,
+      },
+    });
+    lines.push(trimmed);
+  };
+
+  const addDivider = () => {
+    sections.push({ type: "divider" });
+  };
+
+  const noteText =
+    typeof context.note === "string" && context.note.trim()
+      ? context.note.trim()
+      : "";
+
+  switch (status) {
+    case "designed":
+      addSection(brand);
+      addSection(`Ad group: ${adGroup} has been designed by ${designer}!`);
+      addSection(adGroupLink);
+      break;
+    case "briefed":
+      addSection(brand);
+      addSection(`Ad group: ${adGroup} has been briefed by ${editor}!`);
+      if (noteText) {
+        addDivider();
+        addSection(noteText);
+      }
+      addSection(adGroupLink);
+      break;
+    case "reviewed": {
+      const header = [brand, editor, designer].join("  ");
+      addSection(header);
+      addSection(`Ad group: ${adGroup} has been reviewed!`);
+      addSection(`Approved: ${approved}`);
+      addSection(`Edit Requests: ${editRequests}`);
+      addSection(`Rejections: ${rejections}`);
+      addSection(adGroupLink);
+      break;
+    }
+    case "blocked": {
+      const header = [brand, editor, designer].join("  ");
+      addSection(header);
+      addSection(`Ad group: ${adGroup} is blocked!`);
+      if (noteText) {
+        addDivider();
+        addSection(noteText);
+      }
+      addSection(adGroupLink);
+      break;
+    }
+    case "overall-feedback": {
+      const header = [brand, editor, designer].join("  ");
+      const feedbackNote = noteText || "No additional note provided.";
+      addSection(header);
+      addSection(`Overall feedback note received for ${adGroup}`);
+      addDivider();
+      addSection(feedbackNote);
+      addSection(adGroupLink);
+      break;
+    }
+    default:
+      return null;
+  }
+
+  if (!lines.length) {
+    return null;
+  }
+
+  return {
+    text: lines.join("\n"),
+    blocks: sections,
+  };
+}
+
+function formatProductTags(names) {
+  if (!Array.isArray(names)) {
+    return [];
+  }
+
+  const tags = [];
+  const seen = new Set();
+
+  names.forEach((name) => {
+    if (typeof name !== "string") {
+      return;
+    }
+
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const normalized = trimmed
+      .replace(/\s+/g, "-")
+      .replace(/[^-a-zA-Z0-9_]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    const tagBody = normalized || trimmed.replace(/\s+/g, "-");
+    const tag = `#${tagBody}`;
+    const dedupeKey = tag.toLowerCase();
+
+    if (!seen.has(dedupeKey)) {
+      seen.add(dedupeKey);
+      tags.push(tag);
+    }
+  });
+
+  return tags;
+}
+
+function buildExternalMessage(status, context) {
+  const adGroup = formatInlineCode(
+    context.adGroupName,
+    context.adGroupName || "Ad Group"
+  );
+  const reviewLink = context.reviewUrl
+    ? `<${context.reviewUrl}|View details>`
+    : "View details";
+
+  switch (status) {
+    case "designed": {
+      const productTags = formatProductTags(context.productNames);
+      const lines = [`Ad group: ${adGroup} is ready for review.`];
+      if (productTags.length) {
+        lines.push(`Offers in this batch: ${productTags.join(" ")}`);
+      }
+      lines.push(reviewLink);
+      return lines.join("\n");
+    }
+    case "reviewed": {
+      const approved = formatInlineCode(
+        String(Number(context.approvedCount) || 0),
+        "0"
+      );
+      const editRequests = formatInlineCode(
+        String(Number(context.editRequestedCount) || 0),
+        "0"
+      );
+      const rejections = formatInlineCode(
+        String(Number(context.rejectedCount) || 0),
+        "0"
+      );
+
+      return [
+        `Review completed for ${adGroup}`,
+        `Approved: ${approved}`,
+        `Edit Requests: ${editRequests}`,
+        `Rejections: ${rejections}`,
+        reviewLink,
+      ].join("\n");
+    }
+    default:
+      return null;
   }
 }
 
@@ -177,13 +460,13 @@ async function getRecipeProductNames(adGroupId) {
       directValues.forEach((value) => collectStringValues(value, addName));
 
       Object.entries(metadata).forEach(([key, value]) => {
-        if (typeof key === "string" && key.toLowerCase().includes("product")) {
+        if (shouldCollectProductEntryKey(key)) {
           collectStringValues(value, addName);
         }
       });
 
       Object.entries(components).forEach(([key, value]) => {
-        if (typeof key === "string" && key.toLowerCase().includes("product")) {
+        if (shouldCollectProductEntryKey(key)) {
           collectStringValues(value, addName);
         }
       });
@@ -265,14 +548,21 @@ module.exports = async function handler(req, res) {
   const status = typeof payload.status === "string" ? payload.status.trim().toLowerCase() : "";
   const adGroupId = typeof payload.adGroupId === "string" ? payload.adGroupId.trim() : "";
   let adGroupName = typeof payload.adGroupName === "string" ? payload.adGroupName.trim() : "";
-  const adGroupUrl = typeof payload.url === "string" ? payload.url.trim() : "";
+  const reviewUrlRaw =
+    typeof payload.url === "string" ? payload.url.trim() : "";
+  const adGroupUrlRaw =
+    typeof payload.adGroupUrl === "string" ? payload.adGroupUrl.trim() : "";
+  const note = typeof payload.note === "string" ? payload.note.trim() : "";
 
   if (!normalizedBrandCode) {
     res.status(400).json({ error: "brandCode is required" });
     return;
   }
 
-  if (!status || !["designed", "reviewed"].includes(status)) {
+  if (
+    !status ||
+    !["designed", "briefed", "reviewed", "blocked", "overall-feedback"].includes(status)
+  ) {
     res.status(400).json({ error: "Unsupported status" });
     return;
   }
@@ -330,42 +620,109 @@ module.exports = async function handler(req, res) {
     }
 
     const displayName = adGroupName || adGroupId || "this ad group";
-    const reviewUrl = adGroupUrl || "";
+    let reviewUrl = reviewUrlRaw || "";
+    let adGroupUrl = adGroupUrlRaw || "";
 
-    let text;
+    if (!adGroupUrl && reviewUrl && adGroupId) {
+      const replacePath = (value) =>
+        value.replace(/\/review\/(?:[^/?#]+)/i, `/ad-group/${adGroupId}`);
 
-    if (status === "designed") {
-      const productNames = await getRecipeProductNames(adGroupId);
-      const lines = ["✅ Your ads are ready for review!", "", displayName];
-      if (productNames.length) {
-        lines.push(`Products in this batch: ${productNames.join(", ")}`);
+      if (/^https?:\/\//i.test(reviewUrl)) {
+        try {
+          const parsed = new URL(reviewUrl);
+          parsed.pathname = replacePath(parsed.pathname);
+          adGroupUrl = parsed.toString();
+        } catch (error) {
+          adGroupUrl = replacePath(reviewUrl);
+        }
+      } else if (reviewUrl.startsWith("/")) {
+        adGroupUrl = replacePath(reviewUrl);
       }
-      lines.push(reviewUrl ? `<${reviewUrl}|Review here>` : "Review here");
-      text = lines.join("\n");
-    } else if (status === "reviewed") {
-      let approvedCount = 0;
-      let editRequestedCount = 0;
-      let rejectedCount = 0;
-
-      if (adGroupData) {
-        approvedCount = toNumber(adGroupData.approvedCount);
-        editRequestedCount = toNumber(adGroupData.editCount);
-        rejectedCount = toNumber(adGroupData.rejectedCount);
-      }
-
-      text = [
-        `📝 Review completed for ${displayName}`,
-        `Approved: ${approvedCount} | Edits requested: ${editRequestedCount} | Rejected: ${rejectedCount}`,
-        reviewUrl ? `<${reviewUrl}|View details>` : "View details",
-      ].join("\n");
-    } else {
-      text = reviewUrl ? `<${reviewUrl}|${displayName}>` : displayName;
     }
+
+    const [designerName, editorName] = await Promise.all([
+      getUserDisplayName(adGroupData?.designerId || ""),
+      getUserDisplayName(adGroupData?.editorId || ""),
+    ]);
+
+    let approvedCount = 0;
+    let editRequestedCount = 0;
+    let rejectedCount = 0;
+
+    if (adGroupData) {
+      approvedCount = toNumber(adGroupData.approvedCount);
+      editRequestedCount = toNumber(adGroupData.editCount);
+      rejectedCount = toNumber(adGroupData.rejectedCount);
+    }
+
+    let productNames = [];
+    if (status === "designed") {
+      productNames = await getRecipeProductNames(adGroupId);
+    }
+
+    const brandCandidates = [];
+    if (adGroupData) {
+      brandCandidates.push(adGroupData.brandCode);
+      brandCandidates.push(adGroupData.brandCodeNormalized);
+      if (adGroupData.brand && typeof adGroupData.brand === "object") {
+        brandCandidates.push(adGroupData.brand.code);
+        brandCandidates.push(adGroupData.brand.codeId);
+      }
+    }
+    brandCandidates.push(rawBrandCode);
+    brandCandidates.push(normalizedBrandCode);
+
+    const resolvedBrandCodeRaw = brandCandidates.find(
+      (value) => typeof value === "string" && value.trim()
+    );
+
+    const brandCodeForMessage = resolvedBrandCodeRaw
+      ? normalizeBrandCode(resolvedBrandCodeRaw)
+      : normalizedBrandCode;
+
+    const internalMessage = buildInternalMessage(status, {
+      brandCode: brandCodeForMessage,
+      adGroupName: displayName,
+      designerName,
+      editorName,
+      approvedCount,
+      editRequestedCount,
+      rejectedCount,
+      reviewUrl,
+      adGroupUrl,
+      note,
+    });
+
+    const externalText = buildExternalMessage(status, {
+      adGroupName: displayName,
+      approvedCount,
+      editRequestedCount,
+      rejectedCount,
+      reviewUrl,
+      productNames,
+    });
+
+    const externalPayload = externalText ? { text: externalText } : null;
 
     const results = [];
     for (const doc of docsById.values()) {
       try {
-        const response = await postSlackMessage(doc.id, { text });
+        const docData = doc.data() || {};
+        const audience = normalizeAudience(docData.audience) || "external";
+        const payload =
+          audience === "internal" ? internalMessage : externalPayload;
+
+        if (!payload) {
+          results.push({
+            channel: doc.id,
+            ok: true,
+            skipped: true,
+            message: "No message available for this status.",
+          });
+          continue;
+        }
+
+        const response = await postSlackMessage(doc.id, payload);
         results.push({ channel: doc.id, ok: true, ts: response.ts });
       } catch (error) {
         console.error("Failed to post Slack message", error);

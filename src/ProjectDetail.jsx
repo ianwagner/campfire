@@ -343,6 +343,13 @@ const ProjectDetail = () => {
       return window.location?.href;
     })();
 
+    const adGroupUrl = (() => {
+      if (typeof window === 'undefined') return undefined;
+      const origin = window.location?.origin || '';
+      if (!origin || !groupId) return window.location?.href;
+      return `${origin.replace(/\/$/, '')}/ad-group/${groupId}`;
+    })();
+
     const updateStatus = async () => {
       try {
         await updateDoc(doc(db, 'adGroups', groupId), { status: newStatus });
@@ -359,6 +366,7 @@ const ProjectDetail = () => {
         adGroupName,
         status: newStatus,
         url: detailUrl,
+        adGroupUrl,
       });
     };
 

@@ -50,12 +50,77 @@ const ensureReviewUrl = (adGroupId, providedUrl) => {
   return href || undefined;
 };
 
+const ensureAdGroupUrl = (adGroupId, providedUrl) => {
+  if (!adGroupId) {
+    return undefined;
+  }
+
+  const buildUrl = (origin) => {
+    if (!origin) return undefined;
+    return `${origin.replace(/\/$/, '')}/ad-group/${adGroupId}`;
+  };
+
+  if (typeof providedUrl === 'string' && providedUrl.trim()) {
+    const trimmed = providedUrl.trim();
+    if (/^https?:\/\//i.test(trimmed)) {
+      try {
+        const parsed = new URL(trimmed);
+        if (parsed.pathname.includes('/ad-group/')) {
+          return parsed.toString();
+        }
+        if (parsed.pathname.includes('/review/')) {
+          parsed.pathname = parsed.pathname.replace(/\/review\/(.+)$/i, `/ad-group/${adGroupId}`);
+          return parsed.toString();
+        }
+        return buildUrl(parsed.origin) || trimmed;
+      } catch (err) {
+        console.error('Failed to parse provided Slack ad group URL', err);
+      }
+    } else if (trimmed.startsWith('/')) {
+      if (trimmed.includes('/ad-group/')) {
+        if (typeof window !== 'undefined' && window.location?.origin) {
+          return `${window.location.origin}${trimmed}`;
+        }
+        return trimmed;
+      }
+      if (trimmed.includes('/review/')) {
+        const replaced = trimmed.replace(/\/review\/(.+)$/i, `/ad-group/${adGroupId}`);
+        if (typeof window !== 'undefined' && window.location?.origin) {
+          return `${window.location.origin}${replaced}`;
+        }
+        return replaced;
+      }
+      if (typeof window !== 'undefined' && window.location?.origin) {
+        return buildUrl(window.location.origin);
+      }
+      return `/ad-group/${adGroupId}`;
+    }
+  }
+
+  if (typeof window === 'undefined' || !window.location) {
+    return undefined;
+  }
+
+  const { origin = '', href = '' } = window.location;
+  if (origin) {
+    return buildUrl(origin) || href || undefined;
+  }
+
+  if (href.includes('/review/')) {
+    return href.replace(/\/review\/(.+)$/i, `/ad-group/${adGroupId}`);
+  }
+
+  return href || undefined;
+};
+
 const notifySlackStatusChange = async ({
   brandCode,
   adGroupId,
   adGroupName = '',
   status,
   url,
+  adGroupUrl,
+  note,
 } = {}) => {
   if (!brandCode || !adGroupId || !status) {
     return;
@@ -80,6 +145,15 @@ const notifySlackStatusChange = async ({
     const reviewUrl = ensureReviewUrl(adGroupId, url);
     if (reviewUrl) {
       payload.url = reviewUrl;
+    }
+
+    const resolvedAdGroupUrl = ensureAdGroupUrl(adGroupId, adGroupUrl || url);
+    if (resolvedAdGroupUrl) {
+      payload.adGroupUrl = resolvedAdGroupUrl;
+    }
+
+    if (typeof note === 'string' && note.trim()) {
+      payload.note = note.trim();
     }
 
     const response = await fetch('/api/slack/status-update', {

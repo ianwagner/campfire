@@ -220,12 +220,19 @@ const OpsClientProjects = () => {
         if (!origin) return window.location?.href;
         return `${origin.replace(/\/$/, '')}/review/${groupId}${search}`;
       })();
+      const adGroupUrl = (() => {
+        if (typeof window === 'undefined') return undefined;
+        const origin = window.location?.origin || '';
+        if (!origin || !groupId) return window.location?.href;
+        return `${origin.replace(/\/$/, '')}/ad-group/${groupId}`;
+      })();
       await notifySlackStatusChange({
         brandCode: project?.group?.brandCode || project?.brandCode || '',
         adGroupId: groupId,
         adGroupName: project?.group?.name || project?.title || '',
         status: newStatus,
         url: detailUrl,
+        adGroupUrl,
       });
       setProjects((prev) => ({
         ...prev,

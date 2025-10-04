@@ -811,6 +811,35 @@ const Review = forwardRef(
     </div>
   );
 
+  const submitFeedback = async () => {
+    if (!feedbackComment.trim() || !groupId) return;
+    try {
+      setFeedbackSubmitting(true);
+      const trimmedComment = feedbackComment.trim();
+      await addDoc(collection(db, 'adGroups', groupId, 'feedback'), {
+        comment: trimmedComment,
+        updatedBy: reviewerName || user.email || 'anonymous',
+        updatedAt: serverTimestamp(),
+      });
+      const { reviewUrl: feedbackReviewUrl, adGroupUrl: feedbackAdGroupUrl } =
+        buildDetailLinks();
+      await notifySlackStatusChange({
+        brandCode: groupBrandCode || brandCode || '',
+        adGroupId: groupId,
+        adGroupName: adGroupDisplayName,
+        status: 'overall-feedback',
+        url: feedbackReviewUrl,
+        adGroupUrl: feedbackAdGroupUrl,
+        note: trimmedComment,
+      });
+      setFeedbackComment('');
+      setShowFeedbackModal(false);
+    } catch (err) {
+      console.error('Failed to submit feedback', err);
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
   useDebugTrace('Review', {
     groupId,
     agencyId,
@@ -896,6 +925,23 @@ const Review = forwardRef(
       },
     ).catch(() => {});
   }, [groupId, initialStatus, performGroupUpdate]);
+
+  const buildDetailLinks = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return { reviewUrl: undefined, adGroupUrl: undefined };
+    }
+    const origin = window.location?.origin || '';
+    const search = window.location?.search || '';
+    const href = window.location?.href;
+    if (!origin || !groupId) {
+      return { reviewUrl: href, adGroupUrl: href };
+    }
+    const base = origin.replace(/\/$/, '');
+    return {
+      reviewUrl: `${base}/review/${groupId}${search}`,
+      adGroupUrl: `${base}/ad-group/${groupId}`,
+    };
+  }, [groupId]);
 
   const navigate = useNavigate();
   const handleExitReview = useCallback(() => {
@@ -3268,15 +3314,7 @@ useEffect(() => {
 
       await updateDoc(doc(db, 'adGroups', groupId), updateData);
 
-      const detailUrl = (() => {
-        if (typeof window === 'undefined') return undefined;
-        const origin = window.location?.origin || '';
-        const search = window.location?.search || '';
-        if (origin && groupId) {
-          return `${origin.replace(/\/$/, '')}/review/${groupId}${search}`;
-        }
-        return window.location?.href;
-      })();
+      const { reviewUrl: detailUrl, adGroupUrl } = buildDetailLinks();
 
       await notifySlackStatusChange({
         brandCode: groupBrandCode || brandCode || '',
@@ -3284,6 +3322,7 @@ useEffect(() => {
         adGroupName: adGroupDisplayName,
         status: 'reviewed',
         url: detailUrl,
+        adGroupUrl,
       });
 
       if (isPublicReviewer) {

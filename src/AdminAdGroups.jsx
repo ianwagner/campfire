@@ -38,6 +38,7 @@ import StatusBadge from './components/StatusBadge.jsx';
 import IconButton from './components/IconButton.jsx';
 import SortButton from './components/SortButton.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
+import { normalizeReviewVersion } from './utils/reviewVersion';
 import CreateButton from './components/CreateButton.jsx';
 import ScrollModal from './components/ScrollModal.jsx';
 import CloseButton from './components/CloseButton.jsx';
@@ -59,15 +60,16 @@ const AdminAdGroups = () => {
   const [renameName, setRenameName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [filter, setFilter] = useState('');
-    const [sortField, setSortField] = useState('status');
-    const [designers, setDesigners] = useState([]);
-    const [designerFilter, setDesignerFilter] = useState('');
-    const [editors, setEditors] = useState([]);
-    const [editorFilter, setEditorFilter] = useState('');
-    const [monthFilter, setMonthFilter] = useState('');
-    const [view, setView] = useState('kanban');
-    const [showGallery, setShowGallery] = useState(false);
-    const [galleryAds, setGalleryAds] = useState([]);
+  const [sortField, setSortField] = useState('status');
+  const [designers, setDesigners] = useState([]);
+  const [designerFilter, setDesignerFilter] = useState('');
+  const [editors, setEditors] = useState([]);
+  const [editorFilter, setEditorFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState('');
+  const [reviewFilter, setReviewFilter] = useState('2');
+  const [view, setView] = useState('kanban');
+  const [showGallery, setShowGallery] = useState(false);
+  const [galleryAds, setGalleryAds] = useState([]);
 
   const handleShare = async (id) => {
     let url = `${window.location.origin}/review/${id}`;
@@ -441,6 +443,9 @@ const AdminAdGroups = () => {
   ];
   const months = Array.from(new Set(groups.map((g) => g.month).filter(Boolean))).sort();
   const term = filter.toLowerCase();
+  const normalizedReviewFilter = reviewFilter
+    ? normalizeReviewVersion(reviewFilter)
+    : '';
   const displayGroups = groups
     .filter(
       (g) =>
@@ -451,6 +456,11 @@ const AdminAdGroups = () => {
     .filter((g) => !designerFilter || g.designerId === designerFilter)
     .filter((g) => !editorFilter || g.editorId === editorFilter)
     .filter((g) => !monthFilter || g.month === monthFilter)
+    .filter((g) => {
+      if (!normalizedReviewFilter) return true;
+      const value = normalizeReviewVersion(g.reviewVersion ?? g.reviewType ?? 1);
+      return value === normalizedReviewFilter;
+    })
     .sort((a, b) => {
       if (sortField === 'name') return (a.name || '').localeCompare(b.name || '');
       if (sortField === 'brand') return (a.brandCode || '').localeCompare(b.brandCode || '');
@@ -481,6 +491,17 @@ const AdminAdGroups = () => {
                 {months.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
+              </select>
+              <select
+                value={reviewFilter}
+                onChange={(e) => setReviewFilter(e.target.value)}
+                className="p-1 border rounded"
+                aria-label="Filter by review type"
+              >
+                <option value="">All review types</option>
+                <option value="2">Review 2.0</option>
+                <option value="3">Brief</option>
+                <option value="1">Legacy</option>
               </select>
               {view === 'kanban' ? (
                 <>
