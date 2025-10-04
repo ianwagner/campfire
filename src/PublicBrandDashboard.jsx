@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { FiMessageSquare } from "react-icons/fi";
 import { useParams } from "react-router-dom";
 import {
   collection,
@@ -11,8 +12,11 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase/config";
 import OptimizedImage from "./components/OptimizedImage.jsx";
+import MoreActionsMenu from "./components/MoreActionsMenu.jsx";
 import ReviewGroupCard from "./components/ReviewGroupCard.jsx";
+import HelpdeskModal from "./components/HelpdeskModal.jsx";
 import ensurePublicDashboardSlug from "./utils/ensurePublicDashboardSlug.js";
+import { toDateSafe } from "./utils/helpdesk";
 
 const statusBadgeLabels = {
   designed: "Ready for review",
@@ -53,6 +57,8 @@ const PublicBrandDashboard = () => {
   const [groups, setGroups] = useState([]);
   const [groupsError, setGroupsError] = useState("");
   const [groupsLoading, setGroupsLoading] = useState(true);
+  const [showHelpdeskModal, setShowHelpdeskModal] = useState(false);
+  const [helpdeskTickets, setHelpdeskTickets] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -291,6 +297,45 @@ const PublicBrandDashboard = () => {
     };
   }, [brand]);
 
+  useEffect(() => {
+    const brandCode = typeof brand?.code === "string" ? brand.code.trim() : "";
+    if (!brandCode) {
+      setHelpdeskTickets([]);
+      return undefined;
+    }
+
+    const ticketsRef = collection(db, "requests");
+    const helpdeskQuery = query(
+      ticketsRef,
+      where("type", "==", "helpdesk"),
+      where("brandCode", "==", brandCode)
+    );
+
+    const unsubscribe = onSnapshot(
+      helpdeskQuery,
+      (snapshot) => {
+        const openTickets = snapshot.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .filter((ticket) => {
+            const status = String(ticket.status || "new").trim().toLowerCase();
+            return status !== "done";
+          })
+          .sort((a, b) => {
+            const aTime = toDateSafe(a.lastMessageAt || a.updatedAt || a.createdAt)?.getTime() || 0;
+            const bTime = toDateSafe(b.lastMessageAt || b.updatedAt || b.createdAt)?.getTime() || 0;
+            return bTime - aTime;
+          });
+        setHelpdeskTickets(openTickets);
+      },
+      (error) => {
+        console.error("Failed to load helpdesk tickets", error);
+        setHelpdeskTickets([]);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [brand]);
+
   const brandLogo = useMemo(() => {
     if (!brand) return "";
     if (Array.isArray(brand.logos) && brand.logos.length > 0) {
@@ -310,6 +355,41 @@ const PublicBrandDashboard = () => {
     const cleaned = title.replace(/\bbrand\b/gi, "").trim();
     return cleaned || title;
   }, [title]);
+
+  const helpdeskViewerName = useMemo(() => {
+    if (!brand) {
+      return "Brand dashboard viewer";
+    }
+    const candidates = [
+      brand.publicContactName,
+      brand.contactName,
+      brand.name,
+    ];
+    const match = candidates.find(
+      (value) => typeof value === "string" && value.trim().length > 0
+    );
+    if (match) {
+      return match.trim();
+    }
+    if (typeof brand.code === "string" && brand.code.trim()) {
+      return brand.code.trim();
+    }
+    return "Brand dashboard viewer";
+  }, [brand]);
+
+  const menuActions = useMemo(() => {
+    if (!brand?.code) {
+      return [];
+    }
+    return [
+      {
+        key: "helpdesk",
+        label: "Contact helpdesk",
+        Icon: FiMessageSquare,
+        onSelect: () => setShowHelpdeskModal(true),
+      },
+    ];
+  }, [brand, setShowHelpdeskModal]);
 
   if (brandLoading) {
     return (
@@ -351,6 +431,14 @@ const PublicBrandDashboard = () => {
               <h1 className="text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">{sanitizedTitle}</h1>
             </div>
           </div>
+          <div className="flex items-center justify-center md:justify-end">
+            <MoreActionsMenu
+              actions={menuActions}
+              buttonAriaLabel="Open dashboard menu"
+              buttonClassName="btn-action flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+              menuClassName="w-56"
+            />
+          </div>
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl px-6 py-10">
@@ -376,6 +464,16 @@ const PublicBrandDashboard = () => {
           </div>
         )}
       </main>
+      {showHelpdeskModal && (
+        <HelpdeskModal
+          brandCode={brand?.code || ""}
+          groupId=""
+          reviewerName={helpdeskViewerName}
+          user={null}
+          tickets={helpdeskTickets}
+          onClose={() => setShowHelpdeskModal(false)}
+        />
+      )}
     </div>
   );
 };

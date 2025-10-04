@@ -18,7 +18,6 @@ import {
   FiEdit3,
   FiCheckCircle,
   FiHome,
-  FiMoreHorizontal,
   FiDownload,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
@@ -57,7 +56,7 @@ import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
 import diffWords from './utils/diffWords';
 import LoadingOverlay from "./LoadingOverlay";
-import ThemeToggle from './ThemeToggle.jsx';
+import MoreActionsMenu from './components/MoreActionsMenu.jsx';
 import debugLog from './utils/debugLog';
 import useDebugTrace from './utils/useDebugTrace';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
@@ -407,8 +406,6 @@ const Review = forwardRef(
   const [copyCards, setCopyCards] = useState([]);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
-  const actionsMenuRef = useRef(null);
-  const actionsMenuButtonRef = useRef(null);
   const [modalCopies, setModalCopies] = useState([]);
   const [reviewVersion, setReviewVersion] = useState(null);
   const [showHelpdeskModal, setShowHelpdeskModal] = useState(false);
@@ -735,35 +732,6 @@ const Review = forwardRef(
       window.removeEventListener('resize', updateOffset);
     };
   }, [reviewVersion]);
-
-  useEffect(() => {
-    if (!actionsMenuOpen) {
-      return undefined;
-    }
-    const handleDocumentClick = (event) => {
-      const target = event.target;
-      if (
-        (actionsMenuRef.current &&
-          actionsMenuRef.current.contains(target)) ||
-        (actionsMenuButtonRef.current &&
-          actionsMenuButtonRef.current.contains(target))
-      ) {
-        return;
-      }
-      setActionsMenuOpen(false);
-    };
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setActionsMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleDocumentClick);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleDocumentClick);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [actionsMenuOpen]);
 
   useEffect(() => {
     if (![2, 3].includes(reviewVersion) && actionsMenuOpen) {
@@ -2649,7 +2617,6 @@ useEffect(() => {
       key: 'copy',
       label: 'View platform copy',
       onSelect: () => {
-        setActionsMenuOpen(false);
         setShowCopyModal(true);
       },
       Icon: FiType,
@@ -2659,7 +2626,6 @@ useEffect(() => {
           key: 'download',
           label: 'Download brief (CSV)',
           onSelect: () => {
-            setActionsMenuOpen(false);
             handleDownloadBrief();
           },
           Icon: FiDownload,
@@ -2670,7 +2636,6 @@ useEffect(() => {
           key: 'gallery',
           label: 'View ad gallery',
           onSelect: () => {
-            setActionsMenuOpen(false);
             setShowGallery(true);
           },
           Icon: FiGrid,
@@ -2680,7 +2645,6 @@ useEffect(() => {
       key: 'helpdesk',
       label: 'Contact helpdesk',
       onSelect: () => {
-        setActionsMenuOpen(false);
         setShowHelpdeskModal(true);
       },
       Icon: FiMessageSquare,
@@ -3631,45 +3595,15 @@ useEffect(() => {
                 {renderFinalizeAction({ compact: true, fullWidth: false })}
               </div>
             )}
-            <div className="relative ml-auto">
-              <button
-                type="button"
-                ref={actionsMenuButtonRef}
-                aria-haspopup="true"
-                aria-expanded={actionsMenuOpen}
-                onClick={() => setActionsMenuOpen((open) => !open)}
-                className="btn-action flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
-                aria-label="Open review actions menu"
-              >
-                <FiMoreHorizontal className="h-5 w-5" />
-              </button>
-              {actionsMenuOpen && (
-                <div
-                  ref={actionsMenuRef}
-                  className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-md focus:outline-none dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
-                  role="menu"
-                >
-                  {reviewMenuActions.map(({ key, label, onSelect, Icon }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={onSelect}
-                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
-                      role="menuitem"
-                    >
-                      <Icon className="h-4 w-4" aria-hidden="true" />
-                      {label}
-                    </button>
-                  ))}
-                  <div className="mt-2 border-t border-gray-200 pt-2 dark:border-[var(--border-color-default)]">
-                    <ThemeToggle
-                      variant="menu"
-                      role="menuitem"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+            <MoreActionsMenu
+              className="ml-auto"
+              actions={reviewMenuActions}
+              open={actionsMenuOpen}
+              onOpenChange={setActionsMenuOpen}
+              buttonAriaLabel="Open review actions menu"
+              buttonClassName="btn-action flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+              menuClassName="w-56"
+            />
           </div>
         )}
         <div className="flex w-full flex-col items-center">
