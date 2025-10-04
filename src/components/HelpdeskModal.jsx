@@ -12,13 +12,12 @@ import {
   increment,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import Button from './Button.jsx';
 import CloseButton from './CloseButton.jsx';
-import StatusBadge from './StatusBadge.jsx';
 import {
   toDateSafe,
   formatRelativeTime,
   defaultTicketTitle,
+  formatDisplayName,
 } from '../utils/helpdesk';
 
 const HelpdeskModal = ({
@@ -40,7 +39,37 @@ const HelpdeskModal = ({
   const textAreaRef = useRef(null);
 
   const userId = user?.uid || 'anonymous';
-  const authorName = reviewerName || user?.displayName || user?.email || 'Reviewer';
+  const authorName = formatDisplayName(
+    reviewerName || user?.displayName || user?.email || 'Reviewer',
+  );
+
+  const baseButtonClass =
+    'inline-flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white font-semibold text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]';
+  const primaryButtonClass =
+    'inline-flex items-center justify-center gap-2 rounded-md border border-[var(--accent-color)] bg-[var(--accent-color)] font-semibold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[var(--dark-sidebar-bg)]';
+  const buildButtonClass = ({
+    primary = false,
+    small = false,
+    fullWidth = false,
+    disabled: isDisabled = false,
+  } = {}) => {
+    const base = primary ? primaryButtonClass : baseButtonClass;
+    const sizeClass = small ? 'px-3 py-1.5 text-xs' : 'px-3 py-2 text-sm';
+    const widthClass = fullWidth ? 'w-full' : '';
+    const disabledClass = isDisabled ? 'cursor-not-allowed opacity-60' : '';
+    return [base, sizeClass, widthClass, disabledClass].filter(Boolean).join(' ');
+  };
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const { body } = document;
+    if (!body) return undefined;
+    const previousOverflow = body.style.overflow;
+    body.style.overflow = 'hidden';
+    return () => {
+      body.style.overflow = previousOverflow;
+    };
+  }, []);
 
   useEffect(() => {
     if (tickets.length === 0) {
@@ -173,8 +202,9 @@ const HelpdeskModal = ({
       return (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-sm text-gray-500 dark:text-gray-300">
           <p>No open ticket selected.</p>
-          <Button
-            variant="primary"
+          <button
+            type="button"
+            className={buildButtonClass({ primary: true })}
             onClick={() => {
               setCreatingNew(true);
               setActiveTicketId(null);
@@ -182,52 +212,78 @@ const HelpdeskModal = ({
             }}
           >
             Start a new chat
-          </Button>
+          </button>
         </div>
       );
     }
+    const updatedTimestamp = formatRelativeTime(
+      activeTicket.lastMessageAt || activeTicket.updatedAt,
+    );
+
     return (
       <>
         <div className="border-b border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
           <h3 className="text-base font-semibold text-gray-900 dark:text-[var(--dark-text)]">
             {activeTicket.title || 'Helpdesk request'}
           </h3>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-            <StatusBadge status={activeTicket.status || 'new'} />
-            <span>Priority: {activeTicket.priority || 'normal'}</span>
-            {activeTicket.assignee && <span>Assigned to {activeTicket.assignee}</span>}
-            {activeTicket.lastMessageAt && (
-              <span>Updated {formatRelativeTime(activeTicket.lastMessageAt || activeTicket.updatedAt)}</span>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-300">
+            {activeTicket.priority && <span>Priority: {activeTicket.priority}</span>}
+            {activeTicket.assignee && (
+              <span>Assigned to {formatDisplayName(activeTicket.assignee)}</span>
             )}
+            {updatedTimestamp && <span>Updated {updatedTimestamp}</span>}
           </div>
         </div>
         <div
           ref={messageListRef}
-          className="flex-1 overflow-y-auto px-4 py-3 space-y-4 bg-gray-50 dark:bg-[var(--dark-sidebar-hover)]"
+          className="flex-1 overflow-y-auto bg-gray-50 px-4 py-3 dark:bg-[var(--dark-sidebar-hover)]"
         >
           {messages.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-300">No messages yet.</p>
+            <div className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-gray-300">
+              <p>No messages yet.</p>
+            </div>
           ) : (
-            messages.map((msg) => {
-              const createdAt = toDateSafe(msg.createdAt);
-              return (
-                <div key={msg.id} className="rounded-lg bg-white p-3 shadow-sm dark:bg-[var(--dark-sidebar-bg)]">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
-                      {msg.authorName || 'Reviewer'}
-                    </span>
-                    {createdAt && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {createdAt.toLocaleString()}
-                      </span>
-                    )}
+            <div className="flex flex-col gap-4">
+              {messages.map((msg) => {
+                const createdAt = toDateSafe(msg.createdAt);
+                const isFromCurrentUser = msg.authorId === userId;
+                const displayName = isFromCurrentUser
+                  ? 'You'
+                  : formatDisplayName(msg.authorName) || 'Campfire team';
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-full rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${
+                        isFromCurrentUser
+                          ? 'bg-white text-gray-800 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]'
+                          : 'bg-[var(--accent-color-10)] text-gray-800 dark:bg-[var(--accent-color-10)] dark:text-[var(--dark-text)]'
+                      }`}
+                    >
+                      <div
+                        className={`flex flex-wrap items-baseline gap-2 ${
+                          isFromCurrentUser ? 'justify-end text-right' : 'justify-start text-left'
+                        }`}
+                      >
+                        <span className="text-xs font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                          {displayName}
+                        </span>
+                        {createdAt && (
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                            {createdAt.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">
+                        {msg.body}
+                      </p>
+                    </div>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-200">
-                    {msg.body}
-                  </p>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
         </div>
         <div className="border-t border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
@@ -245,21 +301,23 @@ const HelpdeskModal = ({
           />
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
           <div className="mt-2 flex justify-end gap-2">
-            <Button
-              variant="secondary"
+            <button
+              type="button"
+              className={buildButtonClass()}
               onClick={() => {
                 onClose();
               }}
             >
               Close
-            </Button>
-            <Button
-              variant="primary"
+            </button>
+            <button
+              type="button"
+              className={buildButtonClass({ primary: true, disabled: sending || !message.trim() })}
               onClick={handleSendMessage}
               disabled={sending || !message.trim()}
             >
               {sending ? 'Sending…' : 'Send'}
-            </Button>
+            </button>
           </div>
         </div>
       </>
@@ -276,25 +334,28 @@ const HelpdeskModal = ({
           Let us know how we can help. A member of the team will follow up in this thread.
         </p>
       </div>
-      <div className="flex-1 space-y-3 bg-gray-50 px-4 py-3 dark:bg-[var(--dark-sidebar-hover)]">
-        <label htmlFor="newHelpdeskMessage" className="sr-only">
-          Describe your issue
-        </label>
-        <textarea
-          id="newHelpdeskMessage"
-          ref={textAreaRef}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={6}
-          placeholder="Describe what you need help with..."
-          className="h-full w-full resize-none rounded-lg border border-gray-300 p-3 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="flex-1 bg-gray-50 px-4 py-3 dark:bg-[var(--dark-sidebar-hover)]">
+        <div className="flex h-full flex-col gap-3">
+          <label htmlFor="newHelpdeskMessage" className="sr-only">
+            Describe your issue
+          </label>
+          <textarea
+            id="newHelpdeskMessage"
+            ref={textAreaRef}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={6}
+            placeholder="Describe what you need help with..."
+            className="h-full w-full resize-none rounded-lg border border-gray-300 p-3 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+          />
+          {error && <p className="text-sm text-red-600">{error}</p>}
+        </div>
       </div>
       <div className="border-t border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
         <div className="flex justify-end gap-2">
-          <Button
-            variant="secondary"
+          <button
+            type="button"
+            className={buildButtonClass()}
             onClick={() => {
               if (tickets.length) {
                 setCreatingNew(false);
@@ -306,14 +367,18 @@ const HelpdeskModal = ({
             }}
           >
             Cancel
-          </Button>
-          <Button
-            variant="primary"
+          </button>
+          <button
+            type="button"
+            className={buildButtonClass({
+              primary: true,
+              disabled: sending || !message.trim(),
+            })}
             onClick={handleSendMessage}
             disabled={sending || !message.trim()}
           >
             {sending ? 'Sending…' : 'Send'}
-          </Button>
+          </button>
         </div>
       </div>
     </div>
@@ -321,23 +386,18 @@ const HelpdeskModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
-      <div className="flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+      <div className="flex h-full w-full max-h-[750px] max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
-          <div>
-            <h2 className="text-lg font-semibold">Helpdesk</h2>
-            {brandCode && (
-              <p className="text-xs text-gray-500 dark:text-gray-300">Brand: {brandCode}</p>
-            )}
-          </div>
+          <h2 className="text-lg font-semibold">Helpdesk</h2>
           <CloseButton onClick={onClose} />
         </div>
         <div className="flex flex-1 flex-col md:flex-row">
           <aside className="w-full border-b border-gray-200 bg-gray-50 px-3 py-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] md:w-72 md:border-b-0 md:border-r">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-800 dark:text-[var(--dark-text)]">Open tickets</h3>
-              <Button
-                variant="secondary"
-                className="px-3 py-1 text-xs"
+              <button
+                type="button"
+                className={buildButtonClass({ small: true })}
                 onClick={() => {
                   setCreatingNew(true);
                   setActiveTicketId(null);
@@ -346,7 +406,7 @@ const HelpdeskModal = ({
                 }}
               >
                 New chat
-              </Button>
+              </button>
             </div>
             <div className="mt-3 space-y-2">
               {tickets.length === 0 ? (
@@ -356,6 +416,10 @@ const HelpdeskModal = ({
               ) : (
                 tickets.map((ticket) => {
                   const isActive = ticket.id === activeTicketId && !creatingNew;
+                  const lastAuthor = formatDisplayName(ticket.lastMessageAuthor);
+                  const updatedLabel = formatRelativeTime(
+                    ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt,
+                  );
                   return (
                     <button
                       key={ticket.id}
@@ -372,20 +436,21 @@ const HelpdeskModal = ({
                           : 'border-transparent bg-white/80 hover:bg-white dark:bg-[var(--dark-sidebar-bg)] dark:hover:bg-[var(--dark-sidebar-bg)]/80'
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-col gap-1">
                         <span className="font-semibold text-gray-800 dark:text-[var(--dark-text)]">
                           {ticket.title || 'Helpdesk request'}
                         </span>
-                        <StatusBadge status={ticket.status || 'new'} />
+                        {ticket.lastMessagePreview && (
+                          <p className="line-clamp-2 text-xs text-gray-600 dark:text-gray-300">
+                            {ticket.lastMessagePreview}
+                          </p>
+                        )}
+                        {updatedLabel && (
+                          <p className="text-xs text-gray-400 dark:text-gray-400">
+                            {lastAuthor ? `${lastAuthor} • ` : ''}Updated {updatedLabel}
+                          </p>
+                        )}
                       </div>
-                      {ticket.lastMessagePreview && (
-                        <p className="mt-1 line-clamp-2 text-xs text-gray-600 dark:text-gray-300">
-                          {ticket.lastMessagePreview}
-                        </p>
-                      )}
-                      <p className="mt-1 text-xs text-gray-400">
-                        Updated {formatRelativeTime(ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt)}
-                      </p>
                     </button>
                   );
                 })
