@@ -282,12 +282,71 @@ match /{path=**} {
     }
 
     match /requests/{docId} {
+      function isRequestCreator() {
+        return request.auth != null && resource.data.createdBy == request.auth.uid;
+      }
+
+      function isRequestParticipant() {
+        return request.auth != null &&
+          resource.data.participants != null &&
+          resource.data.participants.hasAny([request.auth.uid]);
+      }
+
+      function isHelpdeskMetaUpdate() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'lastMessageAt',
+          'lastMessagePreview',
+          'lastMessageAuthor',
+          'updatedAt',
+          'messagesCount',
+          'participants',
+        ]);
+      }
+
+      function isReviewHelpdeskRequest() {
+        return resource.data.type == 'helpdesk' &&
+          resource.data.metadata != null &&
+          resource.data.metadata.source == 'review';
+      }
+
       allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
 
-      allow read, update: if isAdmin() || isManager() || isEditor() ||
-        (request.auth != null && resource.data.createdBy == request.auth.uid);
+      allow read: if isAdmin() || isManager() || isEditor() || isRequestCreator() ||
+        isRequestParticipant() || (request.auth != null && isReviewHelpdeskRequest());
+
+      allow update: if isAdmin() || isManager() || isEditor() || isRequestCreator() ||
+        (isRequestParticipant() && isHelpdeskMetaUpdate()) ||
+        (request.auth != null && isReviewHelpdeskRequest() && isHelpdeskMetaUpdate());
 
       allow delete: if isAdmin() || isManager() || isEditor();
+
+      match /messages/{messageId} {
+        function parentRequest() {
+          return get(/databases/$(database)/documents/requests/$(docId)).data;
+        }
+
+        function isReviewHelpdeskParent() {
+          return parentRequest().type == 'helpdesk' &&
+            parentRequest().metadata != null &&
+            parentRequest().metadata.source == 'review';
+        }
+
+        function canCollaborateOnMessages() {
+          return request.auth != null && (
+            parentRequest().createdBy == request.auth.uid ||
+            (parentRequest().participants != null &&
+              parentRequest().participants.hasAny([request.auth.uid])) ||
+            isReviewHelpdeskParent()
+          );
+        }
+
+        function canAccessMessages() {
+          return isAdmin() || isManager() || isEditor() || canCollaborateOnMessages();
+        }
+
+        allow read: if canAccessMessages();
+        allow create: if canAccessMessages();
+      }
     }
 
     match /creditLogs/{logId} {

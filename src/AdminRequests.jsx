@@ -1,7 +1,17 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where, deleteField } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal } from 'react-icons/fi';
+import {
+  FiPlus,
+  FiList,
+  FiColumns,
+  FiArchive,
+  FiCalendar,
+  FiEdit2,
+  FiTrash,
+  FiMoreHorizontal,
+  FiMessageSquare,
+} from 'react-icons/fi';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
 import { db, auth, functions } from './firebase/config';
@@ -13,6 +23,7 @@ import ScrollModal from './components/ScrollModal.jsx';
 import TabButton from './components/TabButton.jsx';
 import RequestCard from './components/RequestCard.jsx';
 import RequestViewModal from './components/RequestViewModal.jsx';
+import HelpdeskThreadModal from './components/HelpdeskThreadModal.jsx';
 import Calendar from './components/Calendar.jsx';
 import useAgencies from './useAgencies';
 import formatDetails from './utils/formatDetails';
@@ -61,6 +72,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [viewRequest, setViewRequest] = useState(null);
+  const [helpdeskRequest, setHelpdeskRequest] = useState(null);
   const [form, setForm] = useState(createEmptyForm());
   const [brands, setBrands] = useState([]);
   const [aiArtStyle, setAiArtStyle] = useState('');
@@ -1066,6 +1078,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
+                          {req.type === 'helpdesk' && (
+                            <IconButton
+                              onClick={() => setHelpdeskRequest(req)}
+                              className="mr-2"
+                              aria-label="Open helpdesk chat"
+                            >
+                              <FiMessageSquare />
+                            </IconButton>
+                          )}
                           <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
                             <FiEdit2 />
                           </IconButton>
@@ -1123,6 +1144,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
+                          {req.type === 'helpdesk' && (
+                            <IconButton
+                              onClick={() => setHelpdeskRequest(req)}
+                              className="mr-2"
+                              aria-label="Open helpdesk chat"
+                            >
+                              <FiMessageSquare />
+                            </IconButton>
+                          )}
                           <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
                             <FiEdit2 />
                           </IconButton>
@@ -1180,6 +1210,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
+                          {req.type === 'helpdesk' && (
+                            <IconButton
+                              onClick={() => setHelpdeskRequest(req)}
+                              className="mr-2"
+                              aria-label="Open helpdesk chat"
+                            >
+                              <FiMessageSquare />
+                            </IconButton>
+                          )}
                           <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
                             <FiEdit2 />
                           </IconButton>
@@ -1237,6 +1276,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
+                          {req.type === 'helpdesk' && (
+                            <IconButton
+                              onClick={() => setHelpdeskRequest(req)}
+                              className="mr-2"
+                              aria-label="Open helpdesk chat"
+                            >
+                              <FiMessageSquare />
+                            </IconButton>
+                          )}
                           <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
                             <FiEdit2 />
                           </IconButton>
@@ -1292,6 +1340,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
+                          {req.type === 'helpdesk' && (
+                            <IconButton
+                              onClick={() => setHelpdeskRequest(req)}
+                              className="mr-2"
+                              aria-label="Open helpdesk chat"
+                            >
+                              <FiMessageSquare />
+                            </IconButton>
+                          )}
                           <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
                             <FiEdit2 />
                           </IconButton>
@@ -1341,6 +1398,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                           onDragStart={handleDragStart}
                           onCreateGroup={handleCreateGroup}
                           onView={openView}
+                          onChat={setHelpdeskRequest}
                         />
                     ))}
                   </>
@@ -1907,6 +1965,13 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           request={viewRequest}
           onClose={() => setViewRequest(null)}
           onEdit={startEdit}
+          onChat={setHelpdeskRequest}
+        />
+      )}
+      {helpdeskRequest && (
+        <HelpdeskThreadModal
+          request={helpdeskRequest}
+          onClose={() => setHelpdeskRequest(null)}
         />
       )}
     </div>
