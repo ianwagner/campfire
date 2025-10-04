@@ -2685,7 +2685,7 @@ useEffect(() => {
   }, [adGroupDisplayName, groupId]);
 
   const showCopyAction = copyCards.length > 0;
-  const showGalleryAction = reviewVersion !== 3 && ads.length > 0;
+  const showGalleryAction = reviewVersion === 1 && ads.length > 0;
   const canDownloadBrief = reviewVersion === 3 && recipes.length > 0;
   const reviewMenuActions = [
     showCopyAction && {
@@ -2708,7 +2708,7 @@ useEffect(() => {
           Icon: FiDownload,
         }
       : null,
-    reviewVersion !== 3 && showGalleryAction
+    showGalleryAction
       ? {
           key: 'gallery',
           label: 'View ad gallery',
