@@ -10,24 +10,32 @@ import {
   serverTimestamp,
   updateDoc,
   increment,
+  deleteField,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import CloseButton from './CloseButton.jsx';
 import StatusBadge from './StatusBadge.jsx';
 import { formatRelativeTime, toDateSafe, formatDisplayName } from '../utils/helpdesk';
+import useUserRole from '../useUserRole';
 
-const HelpdeskThreadModal = ({ request, onClose }) => {
+const HelpdeskThreadModal = ({ request, onClose, onUpdateNotes }) => {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const messageListRef = useRef(null);
+  const [notes, setNotes] = useState('');
+  const [notesStatus, setNotesStatus] = useState('idle');
+  const notesSaveTimeoutRef = useRef(null);
+  const lastSavedNotesRef = useRef('');
 
   const requestId = request?.id;
   const user = auth.currentUser;
   const userId = user?.uid || 'anonymous';
   const authorName =
     formatDisplayName(user?.displayName || user?.email) || 'Team member';
+  const { role } = useUserRole(user?.uid);
+  const canViewNotes = role === 'admin' || role === 'project-manager';
 
   const baseButtonClass =
     'inline-flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white font-semibold text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]';
@@ -56,6 +64,14 @@ const HelpdeskThreadModal = ({ request, onClose }) => {
       body.style.overflow = previousOverflow;
     };
   }, []);
+
+  useEffect(() => {
+    const initialNotes =
+      typeof request?.internalNotes === 'string' ? request.internalNotes : '';
+    setNotes(initialNotes);
+    lastSavedNotesRef.current = initialNotes;
+    setNotesStatus('idle');
+  }, [requestId, request?.internalNotes]);
 
   useEffect(() => {
     if (!requestId) {
@@ -87,6 +103,54 @@ const HelpdeskThreadModal = ({ request, onClose }) => {
 
     return () => unsubscribe();
   }, [requestId]);
+
+  useEffect(() => {
+    if (!canViewNotes || !requestId) return undefined;
+    if (notes === lastSavedNotesRef.current) return undefined;
+
+    setNotesStatus('saving');
+    let cancelled = false;
+
+    const timeoutId = setTimeout(async () => {
+      if (cancelled) return;
+      try {
+        const normalized = notes.trim() ? notes : '';
+        const update =
+          normalized.length > 0
+            ? { internalNotes: normalized }
+            : { internalNotes: deleteField() };
+        await updateDoc(doc(db, 'requests', requestId), update);
+        if (cancelled) return;
+        lastSavedNotesRef.current = normalized;
+        setNotesStatus('saved');
+        if (typeof onUpdateNotes === 'function') {
+          onUpdateNotes(requestId, normalized);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        console.error('Failed to save helpdesk notes', err);
+        setNotesStatus('error');
+      }
+    }, 600);
+
+    notesSaveTimeoutRef.current = timeoutId;
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      if (notesSaveTimeoutRef.current === timeoutId) {
+        notesSaveTimeoutRef.current = null;
+      }
+    };
+  }, [notes, canViewNotes, requestId, onUpdateNotes]);
+
+  useEffect(() => {
+    if (notesStatus !== 'saved') return undefined;
+    const timeoutId = setTimeout(() => {
+      setNotesStatus('idle');
+    }, 2000);
+    return () => clearTimeout(timeoutId);
+  }, [notesStatus]);
 
   if (!request) return null;
 
@@ -126,7 +190,7 @@ const HelpdeskThreadModal = ({ request, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
-      <div className="flex h-full w-full max-h-[750px] max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+      <div className="flex h-full w-full max-h-[750px] max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
           <div>
             <h2 className="text-lg font-semibold">Helpdesk ticket</h2>
@@ -159,84 +223,129 @@ const HelpdeskThreadModal = ({ request, onClose }) => {
             </p>
           )}
         </div>
-        <div
-          ref={messageListRef}
-          className="flex-1 overflow-y-auto bg-gray-50 px-4 py-3 dark:bg-[var(--dark-sidebar-hover)]"
-        >
-          {messages.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-gray-300">
-              <p>No messages yet.</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {messages.map((msg) => {
-                const createdAt = toDateSafe(msg.createdAt);
-                const isFromCurrentUser = msg.authorId === userId;
-                const displayName = isFromCurrentUser
-                  ? authorName || 'You'
-                  : formatDisplayName(msg.authorName) || 'Requester';
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-full rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${
-                        isFromCurrentUser
-                          ? 'bg-white text-gray-800 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]'
-                          : 'bg-[var(--accent-color-10)] text-gray-800 dark:bg-[var(--accent-color-10)] dark:text-[var(--dark-text)]'
-                      }`}
-                    >
+        <div className="flex flex-1 flex-col md:flex-row">
+          <div className="flex flex-1 flex-col">
+            <div
+              ref={messageListRef}
+              className="flex-1 min-h-0 overflow-y-auto bg-gray-50 px-4 py-3 dark:bg-[var(--dark-sidebar-hover)]"
+            >
+              {messages.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-gray-300">
+                  <p>No messages yet.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {messages.map((msg) => {
+                    const createdAt = toDateSafe(msg.createdAt);
+                    const isFromCurrentUser = msg.authorId === userId;
+                    const displayName = isFromCurrentUser
+                      ? authorName || 'You'
+                      : formatDisplayName(msg.authorName) || 'Requester';
+                    return (
                       <div
-                        className={`flex flex-wrap items-baseline gap-2 ${
-                          isFromCurrentUser ? 'justify-end text-right' : 'justify-start text-left'
-                        }`}
+                        key={msg.id}
+                        className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}
                       >
-                        <span className="text-xs font-semibold text-gray-900 dark:text-[var(--dark-text)]">
-                          {displayName}
-                        </span>
-                        {createdAt && (
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {createdAt.toLocaleString()}
-                          </span>
-                        )}
+                        <div
+                          className={`max-w-full rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${
+                            isFromCurrentUser
+                              ? 'bg-white text-gray-800 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]'
+                              : 'bg-[var(--accent-color-10)] text-gray-800 dark:bg-[var(--accent-color-10)] dark:text-[var(--dark-text)]'
+                          }`}
+                        >
+                          <div
+                            className={`flex flex-wrap items-baseline gap-2 ${
+                              isFromCurrentUser ? 'justify-end text-right' : 'justify-start text-left'
+                            }`}
+                          >
+                            <span className="text-xs font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                              {displayName}
+                            </span>
+                            {createdAt && (
+                              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                {createdAt.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-2 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">
+                            {msg.body}
+                          </p>
+                        </div>
                       </div>
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">
-                        {msg.body}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="border-t border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
+              <label htmlFor="requestHelpdeskMessage" className="sr-only">
+                Message
+              </label>
+              <textarea
+                id="requestHelpdeskMessage"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={3}
+                placeholder="Type your message..."
+                className="w-full resize-none rounded-lg border border-gray-300 p-3 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+              />
+              {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+              <div className="mt-2 flex justify-end gap-2">
+                <button type="button" className={buildButtonClass()} onClick={onClose}>
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className={buildButtonClass({ primary: true, disabled: sending || !message.trim() })}
+                  onClick={handleSendMessage}
+                  disabled={sending || !message.trim()}
+                >
+                  {sending ? 'Sending…' : 'Send'}
+                </button>
+              </div>
+            </div>
+          </div>
+          {canViewNotes && (
+            <div className="flex w-full flex-col border-t border-gray-200 bg-white dark:bg-[var(--dark-sidebar-bg)] md:w-80 md:flex-shrink-0 md:border-t-0 md:border-l dark:border-[var(--border-color-default)]">
+              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">Notes</h3>
+                {notesStatus !== 'idle' && (
+                  <span
+                    className={`text-xs ${
+                      notesStatus === 'error'
+                        ? 'text-red-600'
+                        : 'text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    {notesStatus === 'saving'
+                      ? 'Saving…'
+                      : notesStatus === 'saved'
+                        ? 'Saved'
+                        : notesStatus === 'error'
+                          ? 'Save failed'
+                          : ''}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 p-4">
+                <label htmlFor="requestInternalNotes" className="sr-only">
+                  Internal notes
+                </label>
+                <textarea
+                  id="requestInternalNotes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add internal notes for this request..."
+                  className="h-full min-h-[160px] w-full resize-none rounded-lg border border-gray-300 p-3 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                />
+                {notesStatus === 'error' && (
+                  <p className="mt-2 text-xs text-red-600">
+                    We couldn't save your notes. Changes may not be persisted.
+                  </p>
+                )}
+              </div>
             </div>
           )}
-        </div>
-        <div className="border-t border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
-          <label htmlFor="requestHelpdeskMessage" className="sr-only">
-            Message
-          </label>
-          <textarea
-            id="requestHelpdeskMessage"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={3}
-            placeholder="Type your message..."
-            className="w-full resize-none rounded-lg border border-gray-300 p-3 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
-          />
-          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-          <div className="mt-2 flex justify-end gap-2">
-            <button type="button" className={buildButtonClass()} onClick={onClose}>
-              Close
-            </button>
-            <button
-              type="button"
-              className={buildButtonClass({ primary: true, disabled: sending || !message.trim() })}
-              onClick={handleSendMessage}
-              disabled={sending || !message.trim()}
-            >
-              {sending ? 'Sending…' : 'Send'}
-            </button>
-          </div>
         </div>
       </div>
     </div>
