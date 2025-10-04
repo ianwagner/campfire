@@ -19,6 +19,7 @@ import {
   FiCheckCircle,
   FiHome,
   FiDownload,
+  FiMoreHorizontal,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -57,6 +58,7 @@ import parseAdFilename from './utils/parseAdFilename';
 import diffWords from './utils/diffWords';
 import LoadingOverlay from "./LoadingOverlay";
 import OverflowMenu from './components/OverflowMenu.jsx';
+import NotificationDot from './components/NotificationDot.jsx';
 import debugLog from './utils/debugLog';
 import useDebugTrace from './utils/useDebugTrace';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
@@ -67,7 +69,7 @@ import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
-import { toDateSafe } from './utils/helpdesk';
+import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
@@ -410,6 +412,7 @@ const Review = forwardRef(
   const [reviewVersion, setReviewVersion] = useState(null);
   const [showHelpdeskModal, setShowHelpdeskModal] = useState(false);
   const [helpdeskTickets, setHelpdeskTickets] = useState([]);
+  const [helpdeskReadVersion, setHelpdeskReadVersion] = useState(0);
   const [showFinalizeModal, setShowFinalizeModal] = useState(null);
   const [finalizeProcessing, setFinalizeProcessing] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -867,6 +870,12 @@ const Review = forwardRef(
     );
     return () => unsubscribe();
   }, [helpdeskBrandCode]);
+
+  const unreadHelpdeskCount = useMemo(
+    () => countUnreadHelpdeskTickets(helpdeskTickets),
+    [helpdeskTickets, helpdeskReadVersion],
+  );
+  const hasUnreadHelpdesk = unreadHelpdeskCount > 0;
 
   const releaseLock = useCallback(() => {
     if (!groupId || initialStatus === 'done') return;
@@ -2612,44 +2621,85 @@ useEffect(() => {
   const showCopyAction = copyCards.length > 0;
   const showGalleryAction = reviewVersion !== 3 && ads.length > 0;
   const canDownloadBrief = reviewVersion === 3 && recipes.length > 0;
-  const reviewMenuActions = [
-    showCopyAction && {
-      key: 'copy',
-      label: 'View platform copy',
-      onSelect: () => {
-        setShowCopyModal(true);
-      },
-      Icon: FiType,
-    },
-    reviewVersion === 3 && canDownloadBrief
-      ? {
-          key: 'download',
-          label: 'Download brief (CSV)',
-          onSelect: () => {
-            handleDownloadBrief();
-          },
-          Icon: FiDownload,
-        }
-      : null,
-    reviewVersion !== 3 && showGalleryAction
-      ? {
-          key: 'gallery',
-          label: 'View ad gallery',
-          onSelect: () => {
-            setShowGallery(true);
-          },
-          Icon: FiGrid,
-        }
-      : null,
-    {
+  const reviewMenuActions = useMemo(() => {
+    const actions = [];
+    if (showCopyAction) {
+      actions.push({
+        key: 'copy',
+        label: 'View platform copy',
+        onSelect: () => {
+          setShowCopyModal(true);
+        },
+        Icon: FiType,
+      });
+    }
+    if (reviewVersion === 3 && canDownloadBrief) {
+      actions.push({
+        key: 'download',
+        label: 'Download brief (CSV)',
+        onSelect: () => {
+          handleDownloadBrief();
+        },
+        Icon: FiDownload,
+      });
+    }
+    if (reviewVersion !== 3 && showGalleryAction) {
+      actions.push({
+        key: 'gallery',
+        label: 'View ad gallery',
+        onSelect: () => {
+          setShowGallery(true);
+        },
+        Icon: FiGrid,
+      });
+    }
+    actions.push({
       key: 'helpdesk',
-      label: 'Contact helpdesk',
+      label: (
+        <span className="flex w-full items-center justify-between">
+          <span>Contact helpdesk</span>
+          {hasUnreadHelpdesk ? (
+            <NotificationDot size="sm" srText="Unread helpdesk messages" />
+          ) : null}
+        </span>
+      ),
       onSelect: () => {
         setShowHelpdeskModal(true);
       },
       Icon: FiMessageSquare,
-    },
-  ].filter(Boolean);
+    });
+    return actions;
+  }, [
+    showCopyAction,
+    reviewVersion,
+    canDownloadBrief,
+    showGalleryAction,
+    setShowCopyModal,
+    handleDownloadBrief,
+    setShowGallery,
+    setShowHelpdeskModal,
+    hasUnreadHelpdesk,
+  ]);
+
+  const reviewMenuButtonIcon = useMemo(
+    () => (
+      <span className="relative inline-flex">
+        <FiMoreHorizontal className="h-5 w-5" />
+        {hasUnreadHelpdesk ? (
+          <NotificationDot
+            className="absolute -right-1 -top-1"
+            size="sm"
+            srText="Unread helpdesk messages"
+          />
+        ) : null}
+      </span>
+    ),
+    [hasUnreadHelpdesk],
+  );
+
+  const reviewMenuButtonAriaLabel = hasUnreadHelpdesk
+    ? 'Open review actions menu (unread helpdesk messages)'
+    : 'Open review actions menu';
 
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
@@ -3598,7 +3648,8 @@ useEffect(() => {
             <OverflowMenu
               ref={actionsMenuRef}
               actions={reviewMenuActions}
-              buttonAriaLabel="Open review actions menu"
+              buttonAriaLabel={reviewMenuButtonAriaLabel}
+              buttonIcon={reviewMenuButtonIcon}
               className="ml-auto"
             />
           </div>
@@ -4533,6 +4584,7 @@ useEffect(() => {
           user={user}
           tickets={helpdeskTickets}
           onClose={() => setShowHelpdeskModal(false)}
+          onTicketViewed={() => setHelpdeskReadVersion((value) => value + 1)}
         />
       )}
     </div>
