@@ -14,9 +14,11 @@ import { auth, db } from "./firebase/config";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 import ReviewGroupCard from "./components/ReviewGroupCard.jsx";
 import ensurePublicDashboardSlug from "./utils/ensurePublicDashboardSlug.js";
-import { FiMessageSquare } from "react-icons/fi";
+import { FiMessageSquare, FiMoreHorizontal } from "react-icons/fi";
 import OverflowMenu from "./components/OverflowMenu.jsx";
 import HelpdeskModal from "./components/HelpdeskModal.jsx";
+import NotificationDot from "./components/NotificationDot.jsx";
+import { toDateSafe, countUnreadHelpdeskTickets } from "./utils/helpdesk";
 
 const statusBadgeLabels = {
   designed: "Ready for review",
@@ -60,6 +62,8 @@ const PublicBrandDashboard = () => {
   const [showHelpdeskModal, setShowHelpdeskModal] = useState(false);
   const [user, setUser] = useState(auth.currentUser || null);
   const [signingIn, setSigningIn] = useState(false);
+  const [helpdeskTickets, setHelpdeskTickets] = useState([]);
+  const [helpdeskReadVersion, setHelpdeskReadVersion] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -321,6 +325,58 @@ const PublicBrandDashboard = () => {
     };
   }, [brand]);
 
+  const brandCode = brand?.code || "";
+  const helpdeskUserId = user?.uid || "";
+
+  useEffect(() => {
+    if (!brandCode || !helpdeskUserId) {
+      setHelpdeskTickets([]);
+      return undefined;
+    }
+
+    const ticketsRef = collection(db, "requests");
+    const helpdeskQuery = query(
+      ticketsRef,
+      where("type", "==", "helpdesk"),
+      where("brandCode", "==", brandCode),
+      where("participants", "array-contains", helpdeskUserId)
+    );
+
+    const unsubscribe = onSnapshot(
+      helpdeskQuery,
+      (snapshot) => {
+        const openTickets = snapshot.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .filter((ticket) => {
+            const status = String(ticket.status || "new")
+              .trim()
+              .toLowerCase();
+            return status !== "done";
+          })
+          .sort((a, b) => {
+            const aTime =
+              toDateSafe(a.lastMessageAt || a.updatedAt || a.createdAt)?.getTime() || 0;
+            const bTime =
+              toDateSafe(b.lastMessageAt || b.updatedAt || b.createdAt)?.getTime() || 0;
+            return bTime - aTime;
+          });
+        setHelpdeskTickets(openTickets);
+      },
+      (err) => {
+        console.error("Failed to load helpdesk tickets for public dashboard", err);
+        setHelpdeskTickets([]);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [brandCode, helpdeskUserId]);
+
+  const unreadHelpdeskCount = useMemo(
+    () => countUnreadHelpdeskTickets(helpdeskTickets),
+    [helpdeskTickets, helpdeskReadVersion]
+  );
+  const hasUnreadHelpdesk = unreadHelpdeskCount > 0;
+
   const brandLogo = useMemo(() => {
     if (!brand) return "";
     if (Array.isArray(brand.logos) && brand.logos.length > 0) {
@@ -345,16 +401,39 @@ const PublicBrandDashboard = () => {
     () => [
       {
         key: "helpdesk",
-        label: "Contact helpdesk",
+        label: (
+          <span className="flex w-full items-center justify-between">
+            <span>Contact helpdesk</span>
+            {hasUnreadHelpdesk ? (
+              <NotificationDot size="sm" srText="Unread helpdesk messages" />
+            ) : null}
+          </span>
+        ),
         onSelect: () => setShowHelpdeskModal(true),
         Icon: FiMessageSquare,
       },
     ],
-    [setShowHelpdeskModal],
+    [setShowHelpdeskModal, hasUnreadHelpdesk]
   );
+  const dashboardMenuButtonIcon = useMemo(
+    () => (
+      <span className="relative inline-flex">
+        <FiMoreHorizontal className="h-5 w-5" />
+        {hasUnreadHelpdesk ? (
+          <NotificationDot
+            className="absolute -right-1 -top-1"
+            size="sm"
+            srText="Unread helpdesk messages"
+          />
+        ) : null}
+      </span>
+    ),
+    [hasUnreadHelpdesk]
+  );
+  const dashboardMenuAriaLabel = hasUnreadHelpdesk
+    ? "Open public dashboard actions menu (unread helpdesk messages)"
+    : "Open public dashboard actions menu";
   const hasDashboardMenuActions = dashboardMenuActions.length > 0;
-
-  const brandCode = brand?.code || "";
 
   if (brandLoading) {
     return (
@@ -401,7 +480,8 @@ const PublicBrandDashboard = () => {
               <div className="flex w-full justify-end md:w-auto">
                 <OverflowMenu
                   actions={dashboardMenuActions}
-                  buttonAriaLabel="Open public dashboard actions menu"
+                  buttonAriaLabel={dashboardMenuAriaLabel}
+                  buttonIcon={dashboardMenuButtonIcon}
                 />
               </div>
             )}
@@ -436,7 +516,8 @@ const PublicBrandDashboard = () => {
           brandCode={brandCode}
           user={user}
           onClose={() => setShowHelpdeskModal(false)}
-          tickets={[]}
+          tickets={helpdeskTickets}
+          onTicketViewed={() => setHelpdeskReadVersion((value) => value + 1)}
         />
       )}
     </div>
