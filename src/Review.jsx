@@ -2708,7 +2708,7 @@ useEffect(() => {
           Icon: FiDownload,
         }
       : null,
-    showGalleryAction
+    reviewVersion !== 3 && showGalleryAction
       ? {
           key: 'gallery',
           label: 'View ad gallery',

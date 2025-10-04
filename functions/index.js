@@ -693,39 +693,6 @@ export const deleteProjectOnRequestDelete = onDocumentDeleted('requests/{request
   return null;
 });
 
-export const syncHelpdeskRequestMetadata = onDocumentCreated(
-  'requests/{requestId}/messages/{messageId}',
-  async (event) => {
-    const message = event.data?.data() || {};
-    const requestId = event.params.requestId;
-    if (!requestId) return null;
-
-    const requestRef = db.collection('requests').doc(requestId);
-    const updates = {
-      lastMessagePreview: (message.body || '').slice(0, 200),
-      lastMessageAuthor: message.authorName || null,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      messagesCount: admin.firestore.FieldValue.increment(1),
-    };
-
-    const messageTimestamp =
-      message.createdAt instanceof admin.firestore.Timestamp ? message.createdAt : null;
-    updates.lastMessageAt = messageTimestamp || admin.firestore.FieldValue.serverTimestamp();
-
-    if (message.authorId) {
-      updates.participants = admin.firestore.FieldValue.arrayUnion(message.authorId);
-    }
-
-    try {
-      await requestRef.set(updates, { merge: true });
-    } catch (err) {
-      console.error('Failed to sync helpdesk metadata', requestId, event.params.messageId, err);
-    }
-
-    return null;
-  },
-);
-
 export const archiveProjectOnGroupArchived = onDocumentUpdated('adGroups/{groupId}', async (event) => {
   const before = event.data.before.data() || {};
   const after = event.data.after.data() || {};
