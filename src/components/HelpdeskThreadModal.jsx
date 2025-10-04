@@ -15,7 +15,7 @@ import { auth, db } from '../firebase/config';
 import Button from './Button.jsx';
 import CloseButton from './CloseButton.jsx';
 import StatusBadge from './StatusBadge.jsx';
-import { formatRelativeTime, toDateSafe } from '../utils/helpdesk';
+import { formatRelativeTime, getFirstName, toDateSafe } from '../utils/helpdesk';
 
 const HelpdeskThreadModal = ({ request, onClose }) => {
   const [messages, setMessages] = useState([]);
@@ -138,21 +138,51 @@ const HelpdeskThreadModal = ({ request, onClose }) => {
           ) : (
             messages.map((msg) => {
               const createdAt = toDateSafe(msg.createdAt);
+              const isFromClient = msg.authorId === request?.createdBy;
+              const displayName = getFirstName(msg.authorName, isFromClient ? 'You' : 'Reviewer');
               return (
-                <div key={msg.id} className="rounded-lg bg-white p-3 shadow-sm dark:bg-[var(--dark-sidebar-bg)]">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
-                      {msg.authorName || 'Reviewer'}
-                    </span>
+                <div
+                  key={msg.id}
+                  className={`flex ${isFromClient ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`flex max-w-[85%] flex-col gap-2 ${
+                      isFromClient ? 'items-end text-right' : 'items-start text-left'
+                    }`}
+                  >
+                    <div
+                      className={`flex items-center gap-2 ${
+                        isFromClient ? 'justify-end' : 'justify-start'
+                      }`}
+                    >
+                      {!isFromClient && (
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/10 dark:bg-[var(--dark-sidebar-bg)] dark:ring-black/40">
+                          <img
+                            src="/icons/icon-192x192.png"
+                            alt="Campfire logo"
+                            className="h-6 w-6"
+                          />
+                        </span>
+                      )}
+                      <span className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                        {displayName}
+                      </span>
+                    </div>
+                    <div className="w-full rounded-2xl bg-[var(--accent-color-10)] p-3 shadow-sm">
+                      <p className="whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-100">
+                        {msg.body}
+                      </p>
+                    </div>
                     {createdAt && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                      <span
+                        className={`text-xs text-gray-600 dark:text-gray-400 ${
+                          isFromClient ? 'self-end' : 'self-start'
+                        }`}
+                      >
                         {createdAt.toLocaleString()}
                       </span>
                     )}
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-200">
-                    {msg.body}
-                  </p>
                 </div>
               );
             })
