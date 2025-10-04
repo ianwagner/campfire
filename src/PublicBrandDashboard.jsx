@@ -13,6 +13,9 @@ import { db } from "./firebase/config";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 import ReviewGroupCard from "./components/ReviewGroupCard.jsx";
 import ensurePublicDashboardSlug from "./utils/ensurePublicDashboardSlug.js";
+import { FiMessageSquare } from "react-icons/fi";
+import OverflowMenu from "./components/OverflowMenu.jsx";
+import HelpdeskModal from "./components/HelpdeskModal.jsx";
 
 const statusBadgeLabels = {
   designed: "Ready for review",
@@ -53,6 +56,7 @@ const PublicBrandDashboard = () => {
   const [groups, setGroups] = useState([]);
   const [groupsError, setGroupsError] = useState("");
   const [groupsLoading, setGroupsLoading] = useState(true);
+  const [showHelpdeskModal, setShowHelpdeskModal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -311,6 +315,21 @@ const PublicBrandDashboard = () => {
     return cleaned || title;
   }, [title]);
 
+  const dashboardMenuActions = useMemo(
+    () => [
+      {
+        key: "helpdesk",
+        label: "Contact helpdesk",
+        onSelect: () => setShowHelpdeskModal(true),
+        Icon: FiMessageSquare,
+      },
+    ],
+    [setShowHelpdeskModal],
+  );
+  const hasDashboardMenuActions = dashboardMenuActions.length > 0;
+
+  const brandCode = brand?.code || "";
+
   if (brandLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 text-gray-600 dark:bg-[var(--dark-bg)] dark:text-gray-300">
@@ -338,18 +357,28 @@ const PublicBrandDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[var(--dark-bg)]">
       <header className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-6 px-6 py-12 text-center md:flex-row md:items-center md:justify-between md:text-left">
-          <div className="flex flex-col items-center gap-4 md:flex-row md:items-center">
-            {brandLogo && (
-              <OptimizedImage
-                pngUrl={brandLogo}
-                alt={`${title} logo`}
-                className="h-24 w-24 rounded-2xl border border-gray-200 bg-white object-contain p-4 shadow dark:border-gray-600 dark:bg-white"
-              />
-            )}
-            <div>
-              <h1 className="text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">{sanitizedTitle}</h1>
+        <div className="mx-auto w-full max-w-6xl px-6 py-12">
+          <div className="flex w-full flex-col gap-6 text-center md:flex-row md:items-start md:justify-between md:text-left">
+            <div className="flex flex-col items-center gap-4 md:flex-row md:items-center">
+              {brandLogo && (
+                <OptimizedImage
+                  pngUrl={brandLogo}
+                  alt={`${title} logo`}
+                  className="h-24 w-24 rounded-2xl border border-gray-200 bg-white object-contain p-4 shadow dark:border-gray-600 dark:bg-white"
+                />
+              )}
+              <div>
+                <h1 className="text-3xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">{sanitizedTitle}</h1>
+              </div>
             </div>
+            {hasDashboardMenuActions && (
+              <div className="flex w-full justify-end md:w-auto">
+                <OverflowMenu
+                  actions={dashboardMenuActions}
+                  buttonAriaLabel="Open public dashboard actions menu"
+                />
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -376,6 +405,13 @@ const PublicBrandDashboard = () => {
           </div>
         )}
       </main>
+      {showHelpdeskModal && (
+        <HelpdeskModal
+          brandCode={brandCode}
+          onClose={() => setShowHelpdeskModal(false)}
+          tickets={[]}
+        />
+      )}
     </div>
   );
 };
