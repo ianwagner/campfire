@@ -39,8 +39,21 @@ export const defaultTicketTitle = (message) => {
   return firstLine.trim().slice(0, 80);
 };
 
+export const getFirstName = (name, fallback = '') => {
+  const value = typeof name === 'string' ? name.trim() : '';
+  if (!value) return fallback || 'Reviewer';
+  const atIndex = value.indexOf('@');
+  if (atIndex > 0) {
+    return value.slice(0, atIndex);
+  }
+  const [first = ''] = value.split(/\s+/);
+  if (first) return first;
+  return fallback || value || 'Reviewer';
+};
+
 export default {
   toDateSafe,
   formatRelativeTime,
   defaultTicketTitle,
+  getFirstName,
 };
