@@ -1556,7 +1556,7 @@ test('client approval does not change group status', async () => {
   ).toBe(false);
 });
 
-test('brief review collects feedback', async () => {
+test('brief review opens helpdesk ticket', async () => {
   const assetSnapshot = {
     docs: [],
   };
@@ -1569,6 +1569,9 @@ test('brief review collects feedback', async () => {
     return Promise.resolve({ docs: [] });
   });
   mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ name: 'Group 1', reviewVersion: 3 }) });
+  mockAddDoc
+    .mockImplementationOnce(() => Promise.resolve({ id: 'ticket123' }))
+    .mockImplementationOnce(() => Promise.resolve({}));
 
   render(<Review user={{ uid: 'u1' }} brandCodes={['BR1']} groupId="group1" />);
 
@@ -1577,12 +1580,26 @@ test('brief review collects feedback', async () => {
   expect(briefBtn).toBeEnabled();
   expect(screen.queryByText('Ad Gallery')).not.toBeInTheDocument();
   fireEvent.click(briefBtn);
-  const fbBtn = screen.getByLabelText('leave overall feedback');
-  fireEvent.click(fbBtn);
-  const textarea = await screen.findByPlaceholderText('leave overall feedback...');
-  fireEvent.change(textarea, { target: { value: 'Looks good' } });
-  fireEvent.click(screen.getByText('Submit'));
-  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
+  const actionsMenu = screen.getByLabelText('Open review actions menu');
+  fireEvent.click(actionsMenu);
+  const helpdeskBtn = await screen.findByRole('menuitem', { name: 'Contact helpdesk' });
+  fireEvent.click(helpdeskBtn);
+  const textarea = await screen.findByPlaceholderText('Describe what you need help with...');
+  fireEvent.change(textarea, { target: { value: 'Need some assistance' } });
+  fireEvent.click(screen.getByText('Send'));
+  await waitFor(() => expect(mockAddDoc).toHaveBeenCalledTimes(2));
+  expect(mockAddDoc.mock.calls[0][0]).toEqual(expect.arrayContaining(['requests']));
+  expect(mockAddDoc.mock.calls[1][0]).toEqual(
+    expect.arrayContaining(['requests', 'ticket123', 'messages']),
+  );
+  await waitFor(() =>
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      'requests/ticket123',
+      expect.objectContaining({
+        lastMessagePreview: expect.stringContaining('Need some assistance'),
+      }),
+    ),
+  );
 });
 
 test('brief review displays when no recipes', async () => {

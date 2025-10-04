@@ -10,6 +10,7 @@ import {
   FiImage,
   FiMoreHorizontal,
   FiCalendar,
+  FiMessageSquare,
 } from 'react-icons/fi';
 import IconButton from './IconButton.jsx';
 import formatDetails from "../utils/formatDetails";
@@ -20,6 +21,7 @@ const typeIcons = {
   bug: FiAlertOctagon,
   feature: FiZap,
   newAIAssets: FiImage,
+  helpdesk: FiMessageSquare,
 };
 
 const typeColors = {
@@ -28,9 +30,10 @@ const typeColors = {
   bug: 'text-red-500',
   feature: 'text-purple-500',
   newAIAssets: 'text-orange-500',
+  helpdesk: 'text-cyan-600',
 };
 
-const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart, onView }) => {
+const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart, onView, onChat }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -119,6 +122,17 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
               ref={menuRef}
               className="absolute right-0 top-6 z-10 bg-white dark:bg-[var(--dark-sidebar-bg)] border border-gray-300 dark:border-gray-600 rounded shadow text-sm"
             >
+              {request.type === 'helpdesk' && onChat && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onChat(request);
+                  }}
+                  className="block w-full text-left px-3 py-1 hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)] flex items-center gap-1"
+                >
+                  <FiMessageSquare /> Open chat
+                </button>
+              )}
               <button
                 onClick={() => {
                   setMenuOpen(false);

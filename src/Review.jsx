@@ -18,8 +18,8 @@ import {
   FiEdit3,
   FiCheckCircle,
   FiHome,
-  FiMoreHorizontal,
   FiDownload,
+  FiMoreHorizontal,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -50,14 +50,15 @@ import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
-import FeedbackModal from './components/FeedbackModal.jsx';
+import HelpdeskModal from './components/HelpdeskModal.jsx';
 import Modal from './components/Modal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
 import isVideoUrl from './utils/isVideoUrl';
 import parseAdFilename from './utils/parseAdFilename';
 import diffWords from './utils/diffWords';
 import LoadingOverlay from "./LoadingOverlay";
-import ThemeToggle from './ThemeToggle.jsx';
+import OverflowMenu from './components/OverflowMenu.jsx';
+import NotificationDot from './components/NotificationDot.jsx';
 import debugLog from './utils/debugLog';
 import useDebugTrace from './utils/useDebugTrace';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
@@ -68,12 +69,14 @@ import getVersion from './utils/getVersion';
 import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
-
+import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
   return String(value);
 };
+
+const combineClasses = (...classes) => classes.filter(Boolean).join(' ');
 
 const getAssetDocumentId = (asset) =>
   normalizeKeyPart(
@@ -404,14 +407,12 @@ const Review = forwardRef(
   const [showGallery, setShowGallery] = useState(false);
   const [copyCards, setCopyCards] = useState([]);
   const [showCopyModal, setShowCopyModal] = useState(false);
-  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const actionsMenuRef = useRef(null);
-  const actionsMenuButtonRef = useRef(null);
   const [modalCopies, setModalCopies] = useState([]);
   const [reviewVersion, setReviewVersion] = useState(null);
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackComment, setFeedbackComment] = useState('');
-  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [showHelpdeskModal, setShowHelpdeskModal] = useState(false);
+  const [helpdeskTickets, setHelpdeskTickets] = useState([]);
+  const [helpdeskReadVersion, setHelpdeskReadVersion] = useState(0);
   const [showFinalizeModal, setShowFinalizeModal] = useState(null);
   const [finalizeProcessing, setFinalizeProcessing] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -459,6 +460,20 @@ const Review = forwardRef(
     () => resolvedReviewerName || 'anonymous',
     [resolvedReviewerName],
   );
+
+  const helpdeskBrandCode = useMemo(() => {
+    const normalizedGroup = typeof groupBrandCode === 'string'
+      ? groupBrandCode.trim()
+      : '';
+    if (normalizedGroup) return normalizedGroup;
+    if (Array.isArray(brandCodes)) {
+      const found = brandCodes.find(
+        (code) => typeof code === 'string' && code.trim(),
+      );
+      if (found) return found.trim();
+    }
+    return '';
+  }, [groupBrandCode, brandCodes]);
 
   const canUpdateGroupDoc = !isPublicReviewer;
   const reviewerNameValue = resolvedReviewerName;
@@ -722,39 +737,10 @@ const Review = forwardRef(
   }, [reviewVersion]);
 
   useEffect(() => {
-    if (!actionsMenuOpen) {
-      return undefined;
+    if (![2, 3].includes(reviewVersion)) {
+      actionsMenuRef.current?.close?.();
     }
-    const handleDocumentClick = (event) => {
-      const target = event.target;
-      if (
-        (actionsMenuRef.current &&
-          actionsMenuRef.current.contains(target)) ||
-        (actionsMenuButtonRef.current &&
-          actionsMenuButtonRef.current.contains(target))
-      ) {
-        return;
-      }
-      setActionsMenuOpen(false);
-    };
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setActionsMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleDocumentClick);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleDocumentClick);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [actionsMenuOpen]);
-
-  useEffect(() => {
-    if (![2, 3].includes(reviewVersion) && actionsMenuOpen) {
-      setActionsMenuOpen(false);
-    }
-  }, [reviewVersion, actionsMenuOpen]);
+  }, [reviewVersion]);
 
 
 
@@ -872,6 +858,56 @@ const Review = forwardRef(
       }
     };
   }, [agencyId, userRole]);
+
+  const helpdeskUserId = userUid || '';
+
+  useEffect(() => {
+    if (!helpdeskBrandCode || !helpdeskUserId) {
+      setHelpdeskTickets([]);
+      return () => {};
+    }
+    const ticketsRef = collection(db, 'requests');
+    const helpdeskQuery = query(
+      ticketsRef,
+      where('type', '==', 'helpdesk'),
+      where('brandCode', '==', helpdeskBrandCode),
+      where('participants', 'array-contains', helpdeskUserId),
+    );
+    const unsubscribe = onSnapshot(
+      helpdeskQuery,
+      (snapshot) => {
+        const openTickets = snapshot.docs
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .filter((ticket) => {
+            const status = String(ticket.status || 'new')
+              .trim()
+              .toLowerCase();
+            return status !== 'done';
+          })
+          .sort((a, b) => {
+            const aTime = toDateSafe(
+              a.lastMessageAt || a.updatedAt || a.createdAt,
+            )?.getTime() || 0;
+            const bTime = toDateSafe(
+              b.lastMessageAt || b.updatedAt || b.createdAt,
+            )?.getTime() || 0;
+            return bTime - aTime;
+          });
+        setHelpdeskTickets(openTickets);
+      },
+      (error) => {
+        console.error('Failed to load helpdesk tickets', error);
+        setHelpdeskTickets([]);
+      },
+    );
+    return () => unsubscribe();
+  }, [helpdeskBrandCode, helpdeskUserId]);
+
+  const unreadHelpdeskCount = useMemo(
+    () => countUnreadHelpdeskTickets(helpdeskTickets),
+    [helpdeskTickets, helpdeskReadVersion],
+  );
+  const hasUnreadHelpdesk = unreadHelpdeskCount > 0;
 
   const releaseLock = useCallback(() => {
     if (!groupId || initialStatus === 'done') return;
@@ -2634,48 +2670,85 @@ useEffect(() => {
   const showCopyAction = copyCards.length > 0;
   const showGalleryAction = reviewVersion !== 3 && ads.length > 0;
   const canDownloadBrief = reviewVersion === 3 && recipes.length > 0;
-  const reviewMenuActions = [
-    showCopyAction && {
-      key: 'copy',
-      label: 'View platform copy',
+  const reviewMenuActions = useMemo(() => {
+    const actions = [];
+    if (showCopyAction) {
+      actions.push({
+        key: 'copy',
+        label: 'View platform copy',
+        onSelect: () => {
+          setShowCopyModal(true);
+        },
+        Icon: FiType,
+      });
+    }
+    if (reviewVersion === 3 && canDownloadBrief) {
+      actions.push({
+        key: 'download',
+        label: 'Download brief (CSV)',
+        onSelect: () => {
+          handleDownloadBrief();
+        },
+        Icon: FiDownload,
+      });
+    }
+    if (reviewVersion !== 3 && showGalleryAction) {
+      actions.push({
+        key: 'gallery',
+        label: 'View ad gallery',
+        onSelect: () => {
+          setShowGallery(true);
+        },
+        Icon: FiGrid,
+      });
+    }
+    actions.push({
+      key: 'helpdesk',
+      label: (
+        <span className="flex w-full items-center justify-between">
+          <span>Contact helpdesk</span>
+          {hasUnreadHelpdesk ? (
+            <NotificationDot size="sm" srText="Unread helpdesk messages" />
+          ) : null}
+        </span>
+      ),
       onSelect: () => {
-        setActionsMenuOpen(false);
-        setShowCopyModal(true);
-      },
-      Icon: FiType,
-    },
-    reviewVersion === 3 && canDownloadBrief
-      ? {
-          key: 'download',
-          label: 'Download brief (CSV)',
-          onSelect: () => {
-            setActionsMenuOpen(false);
-            handleDownloadBrief();
-          },
-          Icon: FiDownload,
-        }
-      : null,
-    reviewVersion !== 3 && showGalleryAction
-      ? {
-          key: 'gallery',
-          label: 'View ad gallery',
-          onSelect: () => {
-            setActionsMenuOpen(false);
-            setShowGallery(true);
-          },
-          Icon: FiGrid,
-        }
-      : null,
-    {
-      key: 'feedback',
-      label: 'Leave overall feedback',
-      onSelect: () => {
-        setActionsMenuOpen(false);
-        setShowFeedbackModal(true);
+        setShowHelpdeskModal(true);
       },
       Icon: FiMessageSquare,
-    },
-  ].filter(Boolean);
+    });
+    return actions;
+  }, [
+    showCopyAction,
+    reviewVersion,
+    canDownloadBrief,
+    showGalleryAction,
+    setShowCopyModal,
+    handleDownloadBrief,
+    setShowGallery,
+    setShowHelpdeskModal,
+    hasUnreadHelpdesk,
+  ]);
+
+  const reviewMenuButtonIcon = useMemo(
+    () => (
+      <span className="relative inline-flex">
+        <FiMoreHorizontal className="h-5 w-5" />
+        {hasUnreadHelpdesk ? (
+          <NotificationDot
+            className="absolute -right-1 -top-1"
+            size="sm"
+            srText="Unread helpdesk messages"
+          />
+        ) : null}
+      </span>
+    ),
+    [hasUnreadHelpdesk],
+  );
+
+  const reviewMenuButtonAriaLabel = hasUnreadHelpdesk
+    ? 'Open review actions menu (unread helpdesk messages)'
+    : 'Open review actions menu';
 
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
@@ -3292,6 +3365,52 @@ useEffect(() => {
     setShowFinalizeModal(null);
   };
 
+  const renderFinalizeAction = ({
+    compact = false,
+    fullWidth = true,
+    className = '',
+  } = {}) => {
+    if (isGroupReviewed) {
+      return (
+        <span
+          className={combineClasses(
+            'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300',
+            compact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm',
+            fullWidth ? 'w-full' : '',
+            'sm:w-auto',
+            className,
+          )}
+        >
+          <FiCheckCircle
+            className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}
+            aria-hidden="true"
+          />
+          Reviewed
+        </span>
+      );
+    }
+
+    const disabled = finalizeProcessing || submitting || !groupId;
+
+    return (
+      <button
+        type="button"
+        onClick={openFinalizeModal}
+        disabled={disabled}
+        className={combineClasses(
+          'btn-primary whitespace-nowrap font-semibold',
+          compact ? 'px-3 py-1.5 text-xs' : 'text-sm',
+          fullWidth ? 'w-full' : '',
+          disabled ? 'opacity-60 cursor-not-allowed' : '',
+          'sm:w-auto',
+          className,
+        )}
+      >
+        finalize review
+      </button>
+    );
+  };
+
   if (
     reviewVersion === null ||
     !logoReady ||
@@ -3417,8 +3536,8 @@ useEffect(() => {
     <div className="relative flex flex-col items-center justify-center space-y-4 min-h-screen">
       {showFinalizeModal && (
         <Modal>
-          <div className="space-y-4">
-            <div className="space-y-3">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-[var(--dark-text)]">
                 Finalize review
               </h2>
@@ -3429,13 +3548,13 @@ useEffect(() => {
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Note: This lets the design team know the review is complete. You'll still be able to download approved ads,
-                    but once finalized you won't be able to add new feedback or re-open the review.
+                    but once finalized you won't be able to open new helpdesk chats or re-open the review.
                   </p>
                 </>
               ) : (
                 <p className="text-sm text-gray-600 dark:text-gray-300">
                   Note: This lets the design team know the review is complete. You'll still be able to download approved ads, but
-                  once finalized you won't be able to add new feedback or re-open the review.
+                  once finalized you won't be able to open new helpdesk chats or re-open the review.
                 </p>
               )}
             </div>
@@ -3473,7 +3592,7 @@ useEffect(() => {
       )}
       {showStreakModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-4 rounded-xl shadow max-w-sm space-y-4 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+          <div className="flex flex-col gap-4 bg-white p-4 rounded-xl shadow max-w-sm dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
             {!showNoteInput && !askContinue && (
               <>
                 <p className="mb-4 text-center text-lg font-medium">You’ve rejected 5 ads so far. Leave a note so we can regroup?</p>
@@ -3498,7 +3617,7 @@ useEffect(() => {
               </>
             )}
             {showNoteInput && !askContinue && (
-              <div className="flex flex-col space-y-2">
+              <div className="flex flex-col gap-2">
                 <textarea
                   value={clientNote}
                   onChange={(e) => setClientNote(e.target.value)}
@@ -3552,7 +3671,7 @@ useEffect(() => {
         {(reviewVersion === 2 || reviewVersion === 3) && (
           <div
             ref={toolbarRef}
-            className="sticky top-0 z-30 flex w-full justify-between px-4 py-3 sm:px-6"
+            className="sticky top-0 z-30 flex w-full items-center gap-2 px-4 py-3 sm:px-6"
             style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
           >
             <button
@@ -3563,67 +3682,40 @@ useEffect(() => {
             >
               <FiHome className="h-5 w-5" />
             </button>
-            <div className="relative">
-              <button
-                type="button"
-                ref={actionsMenuButtonRef}
-                aria-haspopup="true"
-                aria-expanded={actionsMenuOpen}
-                onClick={() => setActionsMenuOpen((open) => !open)}
-                className="btn-action flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
-                aria-label="Open review actions menu"
-              >
-                <FiMoreHorizontal className="h-5 w-5" />
-              </button>
-              {actionsMenuOpen && (
-                <div
-                  ref={actionsMenuRef}
-                  className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-md focus:outline-none dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
-                  role="menu"
-                >
-                  {reviewMenuActions.map(({ key, label, onSelect, Icon }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={onSelect}
-                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
-                      role="menuitem"
-                    >
-                      <Icon className="h-4 w-4" aria-hidden="true" />
-                      {label}
-                    </button>
-                  ))}
-                  <div className="mt-2 border-t border-gray-200 pt-2 dark:border-[var(--border-color-default)]">
-                    <ThemeToggle
-                      variant="menu"
-                      role="menuitem"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+            {reviewVersion === 2 && statusBarPinned && (
+              <div className="flex flex-1 justify-center sm:hidden">
+                {renderFinalizeAction({ compact: true, fullWidth: false })}
+              </div>
+            )}
+            <OverflowMenu
+              ref={actionsMenuRef}
+              actions={reviewMenuActions}
+              buttonAriaLabel={reviewMenuButtonAriaLabel}
+              buttonIcon={reviewMenuButtonIcon}
+              className="ml-auto"
+            />
           </div>
         )}
         <div className="flex w-full flex-col items-center">
           <div
-            className={`w-full px-4 pt-6 pb-4 sm:px-6 ${
-              reviewVersion === 3 ? 'max-w-5xl' : 'max-w-[712px]'
-            }`}
-          >
-            <div className="flex items-center justify-center">
-              {reviewLogoUrl && (
-                <OptimizedImage
-                  pngUrl={reviewLogoUrl}
-                  alt={reviewLogoAlt}
-                  loading="eager"
-                  cacheKey={reviewLogoUrl}
-                  onLoad={() => setLogoReady(true)}
-                  className="max-h-16 w-auto"
-                />
-              )}
-            </div>
+          className={`w-full px-4 pt-6 pb-4 sm:px-6 ${
+            reviewVersion === 3 ? 'max-w-5xl' : 'max-w-[712px]'
+          }`}
+        >
+          <div className="flex items-center justify-center">
+            {reviewLogoUrl && (
+              <OptimizedImage
+                pngUrl={reviewLogoUrl}
+                alt={reviewLogoAlt}
+                loading="eager"
+                cacheKey={reviewLogoUrl}
+                onLoad={() => setLogoReady(true)}
+                className="max-h-16 w-auto"
+              />
+            )}
           </div>
         </div>
+      </div>
         <div className="relative flex w-full justify-center px-2 sm:px-0">
           {reviewVersion === 3 ? (
             <div className="w-full max-w-5xl">
@@ -3639,7 +3731,12 @@ useEffect(() => {
               />
             </div>
           ) : reviewVersion === 2 ? (
-            <div className="relative w-full max-w-[712px] px-2 pt-2 sm:px-0">
+            <div
+              className={combineClasses(
+                'relative w-full max-w-[712px] pt-2 sm:px-0',
+                statusBarPinned ? 'px-4' : 'px-2',
+              )}
+            >
               <div
                 ref={statusBarSentinelRef}
                 aria-hidden="true"
@@ -3651,34 +3748,64 @@ useEffect(() => {
                 style={{ top: toolbarOffset ? `${toolbarOffset}px` : 0 }}
               >
                 <div
-                  className={`rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${statusBarPinned ? 'px-3 py-2' : 'px-4 py-3'}`}
+                  className={combineClasses(
+                    'rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]',
+                    statusBarPinned
+                      ? 'px-2 py-1.5 sm:px-3 sm:py-2'
+                      : 'px-3 py-3 sm:px-4 sm:py-3',
+                  )}
                 >
                   <div
-                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between ${statusBarPinned ? 'gap-3' : 'gap-4'}`}
+                    className={combineClasses(
+                      'flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between',
+                      statusBarPinned ? 'sm:gap-3' : '',
+                    )}
                   >
-                    <div className={`flex-1 ${statusBarPinned ? 'sm:flex sm:items-center sm:gap-4' : ''}`}>
+                    <div
+                      className={combineClasses(
+                        'flex-1',
+                        statusBarPinned ? 'hidden sm:flex sm:items-center sm:gap-4' : '',
+                      )}
+                    >
                       {adGroupDisplayName && !statusBarPinned && (
                         <div className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                           {adGroupDisplayName}
                         </div>
                       )}
                       <div
-                        className={`grid grid-cols-2 sm:grid-cols-4 ${statusBarPinned ? 'mt-0 gap-2 sm:gap-3' : 'mt-3 gap-4'}`}
+                        className={combineClasses(
+                          statusBarPinned
+                            ? 'hidden sm:grid sm:grid-cols-4'
+                            : 'grid grid-cols-2 sm:grid-cols-4',
+                          statusBarPinned
+                            ? 'mt-0 gap-2 sm:gap-3'
+                            : 'mt-3 gap-4',
+                        )}
                       >
                         {['pending', 'approve', 'edit', 'reject'].map((statusKey) => {
                           const statusLabel = (statusLabelMap[statusKey] || statusKey).toLowerCase();
                           return (
                             <div
                               key={statusKey}
-                              className={`flex flex-col items-center text-center ${statusBarPinned ? 'gap-0.5' : 'gap-1'}`}
+                              className={`flex flex-col items-center text-center ${
+                                statusBarPinned ? 'gap-0.5 sm:gap-0.5' : 'gap-0.5 sm:gap-1'
+                              }`}
                             >
                               <span
-                                className={`${statusBarPinned ? 'text-lg' : 'text-xl'} font-semibold text-gray-900 dark:text-[var(--dark-text)]`}
+                                className={`font-semibold text-gray-900 dark:text-[var(--dark-text)] ${
+                                  statusBarPinned
+                                    ? 'text-base sm:text-lg'
+                                    : 'text-lg sm:text-xl'
+                                }`}
                               >
                                 {reviewStatusCounts[statusKey] ?? 0}
                               </span>
                               <span
-                                className={`${statusBarPinned ? 'text-[11px]' : 'text-xs'} font-medium text-gray-500 dark:text-gray-300`}
+                                className={`font-medium text-gray-500 dark:text-gray-300 ${
+                                  statusBarPinned
+                                    ? 'text-[10px] sm:text-[11px]'
+                                    : 'text-[11px] sm:text-xs'
+                                }`}
                               >
                                 {statusLabel}
                               </span>
@@ -3687,39 +3814,13 @@ useEffect(() => {
                         })}
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2 sm:self-center">
-                      {isGroupReviewed ? (
-                        <span
-                          className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-emerald-500/70 bg-emerald-50 font-semibold text-emerald-700 shadow-sm dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300 ${
-                            statusBarPinned ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'
-                          }`}
-                        >
-                          <FiCheckCircle
-                            className={
-                              statusBarPinned ? 'h-3.5 w-3.5' : 'h-4 w-4'
-                            }
-                            aria-hidden="true"
-                          />
-                          Reviewed
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={openFinalizeModal}
-                          disabled={
-                            finalizeProcessing || submitting || !groupId
-                          }
-                          className={`btn-primary whitespace-nowrap font-semibold ${
-                            statusBarPinned ? 'px-3 py-1.5 text-xs' : 'text-sm'
-                          } ${
-                            finalizeProcessing || submitting || !groupId
-                              ? 'opacity-60 cursor-not-allowed'
-                              : ''
-                          }`}
-                        >
-                          finalize review
-                        </button>
+                    <div
+                      className={combineClasses(
+                        statusBarPinned ? 'hidden sm:flex' : 'flex',
+                        'w-full flex-col items-stretch gap-2 sm:w-auto sm:self-center sm:items-end',
                       )}
+                    >
+                      {renderFinalizeAction({ compact: statusBarPinned })}
                     </div>
                   </div>
                 </div>
@@ -3880,49 +3981,292 @@ useEffect(() => {
                     }
                   };
 
+                  const handleOpenEditModal = (mode) => {
+                    setManualStatus((prev) => ({
+                      ...prev,
+                      [cardKey]: 'edit',
+                    }));
+                    setPendingResponseContext({
+                      ad,
+                      assets: statusAssets,
+                      index,
+                      key: cardKey,
+                      existingComment,
+                      existingCopy: existingCopyEdit,
+                    });
+                    openEditRequest(ad, index, {
+                      mode,
+                      initialComment: '',
+                      initialCopy: resolvedExistingCopy,
+                    });
+                  };
+
+                  const baseEditButtonClasses = isMobile
+                    ? 'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200'
+                    : 'inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200';
+
+                  const editButtonStateClass = isGroupReviewed
+                    ? 'opacity-60 cursor-not-allowed'
+                    : isMobile
+                    ? 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]'
+                    : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]';
+
+                  const editActionButtonClass = `${baseEditButtonClasses} ${editButtonStateClass}`;
+
+                  if (isMobile) {
+                    const assetCount = sortedAssets.length;
+                    const statusLabel = statusLabelMap[statusValue] || statusValue;
+
+                    return (
+                      <div
+                        key={cardKey}
+                        className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                      >
+                        <div className="flex flex-col gap-4 p-4">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <h3 className="text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                                {recipeLabel}
+                              </h3>
+                              {latestVersionNumber > 1 ? (
+                                hasMultipleVersions ? (
+                                  <InfoTooltip text="Toggle between versions" placement="bottom">
+                                    <button
+                                      type="button"
+                                      onClick={handleVersionBadgeClick}
+                                      className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                      aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                    >
+                                      V{displayVersionNumber || latestVersionNumber}
+                                    </button>
+                                  </InfoTooltip>
+                                ) : (
+                                  <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                    V{displayVersionNumber || latestVersionNumber}
+                                  </span>
+                                )
+                              ) : null}
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
+                              <span
+                                className="inline-block h-2.5 w-2.5 rounded-full"
+                                style={statusDotStyles[statusValue] || statusDotStyles.pending}
+                              />
+                              <span className="font-medium">{statusLabel}</span>
+                            </div>
+                          </div>
+                          <div
+                            className={`flex w-full gap-3 overflow-x-auto pb-1 ${
+                              assetCount > 1 ? 'snap-x snap-mandatory' : ''
+                            }`}
+                          >
+                            {sortedAssets.map((asset, assetIdx) => {
+                              const assetUrl = asset.firebaseUrl || asset.adUrl || '';
+                              const assetAspect = getAssetAspect(asset);
+                              const assetCssAspect = getCssAspectRatioValue(assetAspect);
+                              const assetStyle = assetCssAspect
+                                ? { aspectRatio: assetCssAspect }
+                                : {};
+                              return (
+                                <div
+                                  key={
+                                    getAssetDocumentId(asset) || assetUrl || assetIdx
+                                  }
+                                  className={`relative w-full min-w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${
+                                    assetCount > 1 ? 'flex-shrink-0 snap-center' : ''
+                                  }`}
+                                >
+                                  <div className="relative w-full" style={assetStyle}>
+                                    {isVideoUrl(assetUrl) ? (
+                                      <VideoPlayer
+                                        src={assetUrl}
+                                        className="h-full w-full object-contain"
+                                        style={assetStyle}
+                                      />
+                                    ) : (
+                                      <OptimizedImage
+                                        pngUrl={assetUrl}
+                                        webpUrl={
+                                          assetUrl ? assetUrl.replace(/\.png$/, '.webp') : undefined
+                                        }
+                                        alt={asset.filename || 'Ad'}
+                                        cacheKey={assetUrl}
+                                        className="h-full w-full object-contain"
+                                        style={assetStyle}
+                                      />
+                                    )}
+                                  </div>
+                                  {assetCount > 1 && (
+                                    <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                                      {assetIdx + 1}/{assetCount}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="space-y-3">
+                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                              <label
+                                htmlFor={selectId}
+                                className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300"
+                              >
+                                Update status
+                              </label>
+                              <select
+                                id={selectId}
+                                aria-label="Status"
+                                className={`mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:focus:border-indigo-300 dark:focus:ring-indigo-500/40 ${
+                                  isGroupReviewed ? 'cursor-not-allowed opacity-60' : ''
+                                }`}
+                                value={statusValue}
+                                onChange={handleSelectChange}
+                                disabled={submitting || isGroupReviewed}
+                              >
+                                {statusOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            {showEditButton && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                                  onClick={() =>
+                                    setExpandedRequests((prev) => ({
+                                      ...prev,
+                                      [cardKey]: !prev[cardKey],
+                                    }))
+                                  }
+                                >
+                                  {isExpanded ? 'Hide edit request' : 'View edit request'}
+                                </button>
+                                {isExpanded && (
+                                  <div className="space-y-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3 text-sm text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                                    <div className="flex flex-col gap-2">
+                                      <span
+                                        className="inline-flex"
+                                        title={
+                                          isGroupReviewed ? reviewedLockMessage : undefined
+                                        }
+                                      >
+                                        <button
+                                          type="button"
+                                          className={editActionButtonClass}
+                                          onClick={() => handleOpenEditModal('note')}
+                                          disabled={isGroupReviewed}
+                                          aria-disabled={isGroupReviewed}
+                                        >
+                                          <FiPlus className="h-4 w-4" aria-hidden="true" />
+                                          <span>Add note</span>
+                                        </button>
+                                      </span>
+                                      <span
+                                        className="inline-flex"
+                                        title={
+                                          isGroupReviewed ? reviewedLockMessage : undefined
+                                        }
+                                      >
+                                        <button
+                                          type="button"
+                                          className={editActionButtonClass}
+                                          onClick={() => handleOpenEditModal('copy')}
+                                          disabled={isGroupReviewed}
+                                          aria-disabled={isGroupReviewed}
+                                        >
+                                          <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                                          <span>Edit Copy</span>
+                                        </button>
+                                      </span>
+                                    </div>
+                                    {hasEditInfo?.comment && (
+                                      <div className="space-y-2">
+                                        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                          Notes
+                                        </h4>
+                                        {noteEntries.map((entry, noteIdx) => (
+                                          <div key={noteIdx} className="space-y-1">
+                                            <p className="whitespace-pre-wrap break-words leading-relaxed">
+                                              {entry.body}
+                                            </p>
+                                            {entry.meta && (
+                                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                {entry.meta}
+                                              </p>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {hasEditInfo?.copyEdit && (
+                                      <div className="space-y-1">
+                                        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                          Requested Copy
+                                        </h4>
+                                        <pre className="whitespace-pre-wrap break-words leading-relaxed">
+                                          {hasEditInfo.copyEdit}
+                                        </pre>
+                                      </div>
+                                    )}
+                                    {!hasEditInfo?.comment && !hasEditInfo?.copyEdit && (
+                                      <p className="text-sm text-gray-500 dark:text-gray-300">
+                                        No edit details provided.
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
                       key={cardKey}
                       className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                     >
                       <div className="flex flex-col gap-4 p-4">
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
-                            {recipeLabel}
-                          </h3>
-                          {latestVersionNumber > 1 ? (
-                            hasMultipleVersions ? (
-                              <InfoTooltip text="Toggle between versions" placement="bottom">
-                                <button
-                                  type="button"
-                                  onClick={handleVersionBadgeClick}
-                                  className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
-                                  aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
-                                >
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="mb-0 text-lg font-semibold leading-tight text-gray-900 dark:text-[var(--dark-text)]">
+                              {recipeLabel}
+                            </h3>
+                            {latestVersionNumber > 1 ? (
+                              hasMultipleVersions ? (
+                                <InfoTooltip text="Toggle between versions" placement="bottom">
+                                  <button
+                                    type="button"
+                                    onClick={handleVersionBadgeClick}
+                                    className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-bg)] dark:focus:ring-offset-gray-900"
+                                    aria-label={`Toggle version (currently V${displayVersionNumber || latestVersionNumber || ''})`}
+                                  >
+                                    V{displayVersionNumber || latestVersionNumber}
+                                  </button>
+                                </InfoTooltip>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
                                   V{displayVersionNumber || latestVersionNumber}
-                                </button>
-                              </InfoTooltip>
-                            ) : (
-                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
-                                V{displayVersionNumber || latestVersionNumber}
-                              </span>
-                            )
-                          ) : null}
+                                </span>
+                              )
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
                         <div className="space-y-4">
                           <div
-                            className={`grid gap-3 items-start ${
+                            className={`grid items-start gap-3 ${
                               sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
                             }`}
                           >
                             {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
                               const assetAspect = getAssetAspect(asset);
-                              const assetCssAspect = getCssAspectRatioValue(
-                                assetAspect,
-                              );
+                              const assetCssAspect = getCssAspectRatioValue(assetAspect);
                               const assetStyle = assetCssAspect
                                 ? { aspectRatio: assetCssAspect }
                                 : {};
@@ -4010,30 +4354,8 @@ useEffect(() => {
                               >
                                 <button
                                   type="button"
-                                  className={`inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 ${
-                                    isGroupReviewed
-                                      ? 'opacity-60 cursor-not-allowed'
-                                      : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]'
-                                  }`}
-                                  onClick={() => {
-                                    setManualStatus((prev) => ({
-                                      ...prev,
-                                      [cardKey]: 'edit',
-                                    }));
-                                    setPendingResponseContext({
-                                      ad,
-                                      assets: statusAssets,
-                                      index,
-                                      key: cardKey,
-                                      existingComment,
-                                      existingCopy: existingCopyEdit,
-                                    });
-                                    openEditRequest(ad, index, {
-                                      mode: 'note',
-                                      initialComment: '',
-                                      initialCopy: resolvedExistingCopy,
-                                    });
-                                  }}
+                                  className={editActionButtonClass}
+                                  onClick={() => handleOpenEditModal('note')}
                                   disabled={isGroupReviewed}
                                   aria-disabled={isGroupReviewed}
                                 >
@@ -4047,30 +4369,8 @@ useEffect(() => {
                               >
                                 <button
                                   type="button"
-                                  className={`inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200 ${
-                                    isGroupReviewed
-                                      ? 'opacity-60 cursor-not-allowed'
-                                      : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]'
-                                  }`}
-                                  onClick={() => {
-                                    setManualStatus((prev) => ({
-                                      ...prev,
-                                      [cardKey]: 'edit',
-                                    }));
-                                    setPendingResponseContext({
-                                      ad,
-                                      assets: statusAssets,
-                                      index,
-                                      key: cardKey,
-                                      existingComment,
-                                      existingCopy: existingCopyEdit,
-                                    });
-                                    openEditRequest(ad, index, {
-                                      mode: 'copy',
-                                      initialComment: '',
-                                      initialCopy: resolvedExistingCopy,
-                                    });
-                                  }}
+                                  className={editActionButtonClass}
+                                  onClick={() => handleOpenEditModal('copy')}
                                   disabled={isGroupReviewed}
                                   aria-disabled={isGroupReviewed}
                                 >
@@ -4318,13 +4618,15 @@ useEffect(() => {
       )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
       {showCopyModal && renderCopyModal()}
-      {showFeedbackModal && (
-        <FeedbackModal
-          comment={feedbackComment}
-          onCommentChange={setFeedbackComment}
-          onSubmit={submitFeedback}
-          onClose={() => setShowFeedbackModal(false)}
-          submitting={feedbackSubmitting}
+      {showHelpdeskModal && (
+        <HelpdeskModal
+          brandCode={helpdeskBrandCode}
+          groupId={groupId || ''}
+          reviewerName={resolvedReviewerName || reviewerIdentifier}
+          user={user}
+          tickets={helpdeskTickets}
+          onClose={() => setShowHelpdeskModal(false)}
+          onTicketViewed={() => setHelpdeskReadVersion((value) => value + 1)}
         />
       )}
     </div>

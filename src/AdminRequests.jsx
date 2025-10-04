@@ -1,7 +1,17 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, serverTimestamp, query, where, deleteField } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { FiPlus, FiList, FiColumns, FiArchive, FiCalendar, FiEdit2, FiTrash, FiMoreHorizontal } from 'react-icons/fi';
+import {
+  FiPlus,
+  FiList,
+  FiColumns,
+  FiArchive,
+  FiCalendar,
+  FiEdit2,
+  FiTrash,
+  FiMoreHorizontal,
+  FiMessageSquare,
+} from 'react-icons/fi';
 import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
 import { db, auth, functions } from './firebase/config';
@@ -13,6 +23,7 @@ import ScrollModal from './components/ScrollModal.jsx';
 import TabButton from './components/TabButton.jsx';
 import RequestCard from './components/RequestCard.jsx';
 import RequestViewModal from './components/RequestViewModal.jsx';
+import HelpdeskThreadModal from './components/HelpdeskThreadModal.jsx';
 import Calendar from './components/Calendar.jsx';
 import useAgencies from './useAgencies';
 import formatDetails from './utils/formatDetails';
@@ -49,6 +60,7 @@ const createEmptyForm = (overrides = {}) => ({
   contractLink: '',
   designerId: '',
   editorId: '',
+  assignee: '',
   infoNote: '',
   productRequests: [createDefaultProductRequest()],
   ...overrides,
@@ -60,6 +72,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [viewRequest, setViewRequest] = useState(null);
+  const [helpdeskRequest, setHelpdeskRequest] = useState(null);
   const [form, setForm] = useState(createEmptyForm());
   const [brands, setBrands] = useState([]);
   const [aiArtStyle, setAiArtStyle] = useState('');
@@ -345,6 +358,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       contractLink: req.contractLink || '',
       designerId: req.designerId || '',
       editorId: req.editorId || '',
+      assignee: req.assignee || '',
       infoNote: req.infoNote || '',
       productRequests,
     });
@@ -510,6 +524,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
         editorId: showEditorSelect
           ? form.editorId || null
           : filterEditorId || (isProjectManager ? form.editorId || null : auth.currentUser?.uid || form.editorId || null),
+        assignee: form.assignee ? form.assignee.trim() : null,
         infoNote: form.infoNote,
         productRequests: form.type === 'newAds' ? productRequests : [],
         status: editId ? (requests.find((r) => r.id === editId)?.status || 'new') : 'new',
@@ -1063,6 +1078,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
+                          {req.type === 'helpdesk' && (
+                            <IconButton
+                              onClick={() => setHelpdeskRequest(req)}
+                              className="mr-2"
+                              aria-label="Open helpdesk chat"
+                            >
+                              <FiMessageSquare />
+                            </IconButton>
+                          )}
                           <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
                             <FiEdit2 />
                           </IconButton>
@@ -1120,6 +1144,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
+                          {req.type === 'helpdesk' && (
+                            <IconButton
+                              onClick={() => setHelpdeskRequest(req)}
+                              className="mr-2"
+                              aria-label="Open helpdesk chat"
+                            >
+                              <FiMessageSquare />
+                            </IconButton>
+                          )}
                           <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
                             <FiEdit2 />
                           </IconButton>
@@ -1177,6 +1210,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
+                          {req.type === 'helpdesk' && (
+                            <IconButton
+                              onClick={() => setHelpdeskRequest(req)}
+                              className="mr-2"
+                              aria-label="Open helpdesk chat"
+                            >
+                              <FiMessageSquare />
+                            </IconButton>
+                          )}
                           <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
                             <FiEdit2 />
                           </IconButton>
@@ -1234,6 +1276,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
+                          {req.type === 'helpdesk' && (
+                            <IconButton
+                              onClick={() => setHelpdeskRequest(req)}
+                              className="mr-2"
+                              aria-label="Open helpdesk chat"
+                            >
+                              <FiMessageSquare />
+                            </IconButton>
+                          )}
                           <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
                             <FiEdit2 />
                           </IconButton>
@@ -1289,6 +1340,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                       </td>
                       <td className="text-center">
                         <div className="flex items-center justify-center">
+                          {req.type === 'helpdesk' && (
+                            <IconButton
+                              onClick={() => setHelpdeskRequest(req)}
+                              className="mr-2"
+                              aria-label="Open helpdesk chat"
+                            >
+                              <FiMessageSquare />
+                            </IconButton>
+                          )}
                           <IconButton onClick={() => startEdit(req)} className="mr-2" aria-label="Edit">
                             <FiEdit2 />
                           </IconButton>
@@ -1338,6 +1398,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                           onDragStart={handleDragStart}
                           onCreateGroup={handleCreateGroup}
                           onView={openView}
+                          onChat={setHelpdeskRequest}
                         />
                     ))}
                   </>
@@ -1375,6 +1436,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
             <option value="newAds">New Ads</option>
             {!isOps && <option value="newAIAssets">New AI Assets</option>}
             <option value="newBrand">New Brand</option>
+            <option value="helpdesk">Helpdesk</option>
             <option value="bug">Bug</option>
             <option value="feature">Feature</option>
           </select>
@@ -1393,6 +1455,62 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
               ))}
             </select>
           </div>
+        )}
+        {form.type === 'helpdesk' && (
+          <>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Brand</label>
+              <input
+                type="text"
+                value={form.brandCode}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, brandCode: e.target.value.toUpperCase() }))
+                }
+                className="w-full p-2 border rounded uppercase"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Title</label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Details</label>
+              <textarea
+                value={form.details}
+                onChange={(e) => setForm((f) => ({ ...f, details: e.target.value }))}
+                onKeyDown={handleBulletList}
+                className="w-full p-2 border rounded"
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Priority</label>
+              <select
+                value={form.priority}
+                onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+                className="w-full p-2 border rounded"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Assignee</label>
+              <input
+                type="text"
+                value={form.assignee}
+                onChange={(e) => setForm((f) => ({ ...f, assignee: e.target.value }))}
+                className="w-full p-2 border rounded"
+                placeholder="Assign to..."
+              />
+            </div>
+          </>
         )}
         {form.type === 'newAds' && (
             <>
@@ -1847,6 +1965,13 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           request={viewRequest}
           onClose={() => setViewRequest(null)}
           onEdit={startEdit}
+          onChat={setHelpdeskRequest}
+        />
+      )}
+      {helpdeskRequest && (
+        <HelpdeskThreadModal
+          request={helpdeskRequest}
+          onClose={() => setHelpdeskRequest(null)}
         />
       )}
     </div>

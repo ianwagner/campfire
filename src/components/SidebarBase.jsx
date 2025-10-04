@@ -31,6 +31,7 @@ const SidebarBase = ({
   const { settings } = useSiteSettings(applySiteAccent);
   const [logoReady, setLogoReady] = React.useState(false);
   const logoSrc = logoUrl || settings.logoUrl || DEFAULT_LOGO_URL;
+  const isCollapsed = collapsed && !open;
 
   React.useEffect(() => {
     if (LogoComponent) {
@@ -59,7 +60,7 @@ const SidebarBase = ({
       {tabs.map((tab) => {
         const ParentIcon = tab.icon;
         const currentPath = location.pathname + location.search;
-        if (tab.children && !collapsed) {
+        if (tab.children && !isCollapsed) {
           const activeChild = tab.children.some((c) => currentPath.startsWith(c.path));
           const isOpen = openGroups[tab.label] || activeChild;
           const parentClasses =
@@ -73,7 +74,7 @@ const SidebarBase = ({
                 <span className="flex items-center justify-start gap-1">
                   {ParentIcon && <ParentIcon className="text-lg shrink-0" aria-hidden="true" />}
                   <span
-                    className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}
+                    className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}
                   >
                     {tab.label}
                   </span>
@@ -100,7 +101,7 @@ const SidebarBase = ({
                         <span className="flex items-center justify-start gap-1">
                           {ChildIcon && <ChildIcon className="text-lg shrink-0" aria-hidden="true" />}
                           <span
-                            className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}
+                            className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}
                           >
                             {child.label}
                           </span>
@@ -115,12 +116,12 @@ const SidebarBase = ({
         }
 
         const isActive =
-          (tab.children && collapsed
+          (tab.children && isCollapsed
             ? tab.children.some((c) => currentPath.startsWith(c.path))
             : tab.path && currentPath.startsWith(tab.path));
 
         const classes =
-          (collapsed
+          (isCollapsed
             ? (isActive
                 ? 'text-accent font-medium border border-accent dark:border-accent bg-accent-10 '
                 : 'text-gray-700 dark:text-gray-200 hover:bg-accent-10 border border-transparent dark:!border-transparent ')
@@ -138,13 +139,13 @@ const SidebarBase = ({
             key={tab.label}
             onClick={() => handleClick(tab)}
             className={classes}
-            title={collapsed ? tab.label : undefined}
+            title={isCollapsed ? tab.label : undefined}
           >
-            <span className={`flex items-center ${collapsed ? 'justify-center' : 'justify-start gap-1'}`}>
+            <span className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start gap-1'}`}>
               {Icon && <Icon className="text-lg shrink-0" aria-hidden="true" />}
               <span
-                className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}
-                style={{ transitionDelay: collapsed ? '150ms' : '0ms' }}
+                className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}
+                style={{ transitionDelay: isCollapsed ? '150ms' : '0ms' }}
               >
                 {tab.label}
               </span>
@@ -260,7 +261,7 @@ const SidebarBase = ({
                   </div>
                 )}
                 {LogoComponent ? (
-                  <LogoComponent isOpen={!collapsed} />
+                  <LogoComponent isOpen={!isCollapsed} />
                 ) : (
                   <OptimizedImage
                     pngUrl={logoSrc}
@@ -280,11 +281,11 @@ const SidebarBase = ({
                 onClick={handleLogout}
                 className="text-gray-700 dark:text-gray-200 hover:bg-accent-10 w-full text-center font-bold px-3 py-[0.9rem] rounded-xl flex items-center justify-center focus:outline-none"
               >
-                <span className={`flex items-center ${collapsed ? 'justify-center' : 'justify-start gap-1'}`}>
+                <span className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start gap-1'}`}>
                   <FiLogOut className="text-lg shrink-0" aria-hidden="true" />
                   <span
-                    className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}
-                    style={{ transitionDelay: collapsed ? '150ms' : '0ms' }}
+                    className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}
+                    style={{ transitionDelay: isCollapsed ? '150ms' : '0ms' }}
                   >
                     Log Out
                   </span>
@@ -292,7 +293,7 @@ const SidebarBase = ({
               </button>
               <footer
                 className="text-xs text-gray-400 dark:text-gray-500 text-center whitespace-nowrap overflow-hidden transition-all duration-300"
-                style={{ maxWidth: collapsed ? '2.5rem' : '12rem' }}
+                style={{ maxWidth: isCollapsed ? '2.5rem' : '12rem' }}
               >
                 © 2025 Studio Tak. All rights reserved.
               </footer>
