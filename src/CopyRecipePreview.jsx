@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import TagInput from './components/TagInput.jsx';
-import { FiEdit2, FiTrash, FiCheck, FiLink } from 'react-icons/fi';
+import { FiEdit3, FiTrash2, FiSave, FiLink } from 'react-icons/fi';
 import RecipeTypeCard from './components/RecipeTypeCard.jsx';
 import selectRandomOption from './utils/selectRandomOption.js';
 
@@ -28,6 +28,27 @@ const CopyRecipePreview = ({
   const [formData, setFormData] = useState({});
 
   const isUrl = (str) => /^https?:\/\//i.test(str);
+
+  const renderDisplayValue = (value) => {
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    if (!trimmed) {
+      return <span className="text-gray-400">—</span>;
+    }
+    if (isUrl(trimmed)) {
+      return (
+        <a
+          href={trimmed}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200"
+        >
+          <FiLink className="h-4 w-4" aria-hidden="true" />
+          <span className="break-all">{trimmed}</span>
+        </a>
+      );
+    }
+    return <span className="break-words">{trimmed}</span>;
+  };
 
   const skipSync = useRef(false);
 
@@ -340,94 +361,98 @@ const CopyRecipePreview = ({
           </button>
         </div>
       )}
-      <div className="flex flex-wrap gap-4">
+      <div className="space-y-4">
         {copies.map((c) => (
           <div
             key={c.id}
-            className="rounded-lg border border-gray-300 dark:border-gray-600 shadow p-3 relative max-w-[350px] w-full dark:bg-[var(--dark-sidebar-hover)]"
+            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
           >
-            <button
-              type="button"
-              onClick={() =>
-                setCopies((arr) =>
-                  arr.map((x) =>
-                    x.id === c.id ? { ...x, editing: !x.editing } : x,
-                  ),
-                )
-              }
-              aria-label={c.editing ? 'Save' : 'Edit'}
-              className="absolute top-1 right-7 text-sm"
-            >
-              {c.editing ? <FiCheck /> : <FiEdit2 />}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(c.id)}
-              aria-label="Delete"
-              className="absolute top-1 right-1 text-sm"
-            >
-              <FiTrash />
-            </button>
-            <div>
-              <label className="block text-sm mb-1">Primary Text</label>
-              {c.editing ? (
-                <textarea
-                  className="w-full p-2 border rounded"
-                  rows="3"
-                  value={c.primary}
-                  onChange={(e) =>
-                    setCopies((arr) =>
-                      arr.map((x) =>
-                        x.id === c.id ? { ...x, primary: e.target.value } : x,
-                      ),
-                    )
-                  }
-                />
-              ) : (
-                <p className="p-2 whitespace-pre-wrap bg-gray-50 rounded dark:bg-[var(--dark-sidebar-bg)]">
-                  {isUrl(c.primary.trim()) ? (
-                    <a href={c.primary.trim()} target="_blank" rel="noreferrer">
-                      <FiLink />
-                    </a>
-                  ) : (
-                    c.primary
-                  )}
-                </p>
-              )}
+            <div className="flex flex-wrap items-center justify-end gap-2 pb-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setCopies((arr) =>
+                    arr.map((x) =>
+                      x.id === c.id ? { ...x, editing: !x.editing } : x,
+                    ),
+                  )
+                }
+                aria-label={
+                  c.editing ? 'Finish editing copy card' : 'Edit copy card'
+                }
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400 ${
+                  c.editing
+                    ? 'border-indigo-500 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]'
+                }`}
+              >
+                {c.editing ? (
+                  <FiSave className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                )}
+                <span>{c.editing ? 'Done' : 'Edit copy'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(c.id)}
+                aria-label="Delete copy card"
+                className="inline-flex items-center gap-2 rounded-full border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
+              >
+                <FiTrash2 className="h-4 w-4" aria-hidden="true" />
+                <span>Delete</span>
+              </button>
             </div>
-            <div>
-              <label className="block text-sm mb-1">Headline</label>
-              {c.editing ? (
-                <textarea
-                  className="w-full p-2 border rounded"
-                  rows="2"
-                  value={c.headline}
-                  onChange={(e) =>
-                    setCopies((arr) =>
-                      arr.map((x) =>
-                        x.id === c.id ? { ...x, headline: e.target.value } : x,
-                      ),
-                    )
-                  }
-                />
-              ) : (
-                <p className="p-2 whitespace-pre-wrap bg-gray-50 rounded dark:bg-[var(--dark-sidebar-bg)]">
-                  {isUrl(c.headline.trim()) ? (
-                    <a href={c.headline.trim()} target="_blank" rel="noreferrer">
-                      <FiLink />
-                    </a>
-                  ) : (
-                    c.headline
-                  )}
-                </p>
-              )}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                Primary Text
+                {c.editing ? (
+                  <textarea
+                    className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100"
+                    rows={3}
+                    value={c.primary}
+                    onChange={(e) =>
+                      setCopies((arr) =>
+                        arr.map((x) =>
+                          x.id === c.id ? { ...x, primary: e.target.value } : x,
+                        ),
+                      )
+                    }
+                  />
+                ) : (
+                  <p className="mt-1 min-h-[3.5rem] rounded-lg border border-gray-200 bg-gray-50 p-2 text-sm text-gray-800 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100">
+                    {renderDisplayValue(c.primary)}
+                  </p>
+                )}
+              </label>
+              <label className="flex flex-col text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                Headline
+                {c.editing ? (
+                  <textarea
+                    className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100"
+                    rows={3}
+                    value={c.headline}
+                    onChange={(e) =>
+                      setCopies((arr) =>
+                        arr.map((x) =>
+                          x.id === c.id ? { ...x, headline: e.target.value } : x,
+                        ),
+                      )
+                    }
+                  />
+                ) : (
+                  <p className="mt-1 min-h-[3.5rem] rounded-lg border border-gray-200 bg-gray-50 p-2 text-sm text-gray-800 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100">
+                    {renderDisplayValue(c.headline)}
+                  </p>
+                )}
+              </label>
             </div>
-            <div>
-              <label className="block text-sm mb-1">Description</label>
+            <label className="mt-3 flex flex-col text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
+              Description
               {c.editing ? (
                 <textarea
-                  className="w-full p-2 border rounded"
-                  rows="2"
+                  className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100"
+                  rows={2}
                   value={c.description}
                   onChange={(e) =>
                     setCopies((arr) =>
@@ -440,17 +465,11 @@ const CopyRecipePreview = ({
                   }
                 />
               ) : (
-                <p className="p-2 whitespace-pre-wrap bg-gray-50 rounded dark:bg-[var(--dark-sidebar-bg)]">
-                  {isUrl(c.description.trim()) ? (
-                    <a href={c.description.trim()} target="_blank" rel="noreferrer">
-                      <FiLink />
-                    </a>
-                  ) : (
-                    c.description
-                  )}
+                <p className="mt-1 min-h-[3rem] rounded-lg border border-gray-200 bg-gray-50 p-2 text-sm text-gray-800 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100">
+                  {renderDisplayValue(c.description)}
                 </p>
               )}
-            </div>
+            </label>
           </div>
         ))}
       </div>
