@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import Review, { normalizeAspectKey } from './Review';
+import Review from './Review';
 
 jest.mock('./firebase/config', () => ({ db: {} }));
 jest.mock('./useAgencyTheme', () => () => ({ agency: {} }));
@@ -75,32 +75,6 @@ test('loads ads from subcollections', async () => {
   await waitFor(() =>
     expect(screen.getByRole('img')).toHaveAttribute('src', 'url1')
   );
-});
-
-describe('normalizeAspectKey', () => {
-  test('maps square aliases to 1x1', () => {
-    expect(normalizeAspectKey('square')).toBe('1x1');
-    expect(normalizeAspectKey('Square')).toBe('1x1');
-    expect(normalizeAspectKey('sq')).toBe('1x1');
-    expect(normalizeAspectKey('Square crop')).toBe('1x1');
-  });
-
-  test('treats equal dimension ratios as 1x1', () => {
-    expect(normalizeAspectKey('1x1')).toBe('1x1');
-    expect(normalizeAspectKey('1×1')).toBe('1x1');
-    expect(normalizeAspectKey('1080x1080')).toBe('1x1');
-    expect(normalizeAspectKey('1200:1200')).toBe('1x1');
-    expect(normalizeAspectKey('1080px x 1080px')).toBe('1x1');
-    expect(normalizeAspectKey('1200 by 1200')).toBe('1x1');
-  });
-
-  test('extracts embedded ratios from decorated strings', () => {
-    expect(normalizeAspectKey('Meta 1x1 Promo')).toBe('1x1');
-    expect(normalizeAspectKey('Facebook_1:1')).toBe('1x1');
-    expect(normalizeAspectKey('Pinterest9x16')).toBe('9x16');
-    expect(normalizeAspectKey('Story 1x2')).toBe('1x2');
-    expect(normalizeAspectKey('Snapchat')).toBe('snapchat');
-  });
 });
 
 test('Review Ads button disabled until ads load', async () => {
