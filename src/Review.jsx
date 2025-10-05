@@ -4323,9 +4323,8 @@ useEffect(() => {
 
                   const editActionButtonClass = `${baseEditButtonClasses} ${editButtonStateClass}`;
 
-                  const assetCount = sortedAssets.length;
-
                   if (isMobile) {
+                    const assetCount = sortedAssets.length;
                     const statusLabel = statusLabelMap[statusValue] || statusValue;
 
                     return (
