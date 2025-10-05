@@ -352,6 +352,157 @@ const getReviewAspectPriority = (aspect) => {
   return idx === -1 ? REVIEW_V2_ASPECT_ORDER.length : idx;
 };
 
+const collectCopyStrings = (value) => {
+  if (!value) return [];
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectCopyStrings(item));
+  }
+  if (typeof value === 'object') {
+    if (value.text || value.value || value.content) {
+      return collectCopyStrings(value.text ?? value.value ?? value.content);
+    }
+    return Object.values(value).flatMap((item) => collectCopyStrings(item));
+  }
+  return [];
+};
+
+const normalizeCopyValue = (value) => {
+  const strings = collectCopyStrings(value);
+  if (strings.length === 0) return '';
+  return strings.join(' ').replace(/\s+/g, ' ').trim();
+};
+
+const coalesceCopyValue = (values) => {
+  for (const value of values) {
+    const normalized = normalizeCopyValue(value);
+    if (normalized) return normalized;
+  }
+  return '';
+};
+
+const extractCopyFromSource = (source) => {
+  if (!source) return null;
+  if (typeof source === 'string' || Array.isArray(source)) {
+    const primary = normalizeCopyValue(source);
+    return primary ? { primary, headline: '', description: '' } : null;
+  }
+  if (typeof source !== 'object') return null;
+
+  const primary = coalesceCopyValue([
+    source.primary,
+    source.primaryText,
+    source.primary_text,
+    source.primaryCopy,
+    source.primary_copy,
+    source.text,
+    source.body,
+    source.main,
+    source.message,
+  ]);
+  const headline = coalesceCopyValue([
+    source.headline,
+    source.headlineText,
+    source.headline_text,
+    source.headlineCopy,
+    source.headline_copy,
+    source.title,
+    source.heading,
+  ]);
+  const description = coalesceCopyValue([
+    source.description,
+    source.descriptionText,
+    source.description_text,
+    source.descriptionCopy,
+    source.description_copy,
+    source.secondary,
+    source.subheadline,
+    source.caption,
+    source.body2,
+    source.supporting,
+  ]);
+
+  if (primary || headline || description) {
+    return { primary, headline, description };
+  }
+
+  const [first, second, third] = collectCopyStrings(source);
+  if (!first && !second && !third) {
+    return null;
+  }
+  return {
+    primary: first || '',
+    headline: second || '',
+    description: third || '',
+  };
+};
+
+const getAssetPlatformCopy = (asset) => {
+  if (!asset || typeof asset !== 'object') return null;
+
+  const directPrimary = coalesceCopyValue([
+    asset.primary,
+    asset.primaryText,
+    asset.primary_text,
+    asset.primaryCopy,
+    asset.primary_copy,
+  ]);
+  const directHeadline = coalesceCopyValue([
+    asset.headline,
+    asset.headlineText,
+    asset.headline_text,
+    asset.headlineCopy,
+    asset.headline_copy,
+    asset.title,
+  ]);
+  const directDescription = coalesceCopyValue([
+    asset.description,
+    asset.descriptionText,
+    asset.description_text,
+    asset.descriptionCopy,
+    asset.description_copy,
+    asset.subtitle,
+  ]);
+
+  if (directPrimary || directHeadline || directDescription) {
+    return {
+      primary: directPrimary,
+      headline: directHeadline,
+      description: directDescription,
+    };
+  }
+
+  const sources = [
+    asset.platformCopy,
+    asset.platform_copy,
+    asset.platform?.copy,
+    asset.platform?.platformCopy,
+    asset.facebookCopy,
+    asset.facebook?.copy,
+    asset.metaCopy,
+    asset.meta?.copy,
+    asset.copy,
+    asset.copyData,
+    asset.adCopy,
+    asset.metadata?.platformCopy,
+    asset.metadata?.metaCopy,
+    asset.metadata?.copy,
+    asset.originalCopy,
+  ];
+
+  for (const source of sources) {
+    const copy = extractCopyFromSource(source);
+    if (copy && (copy.primary || copy.headline || copy.description)) {
+      return copy;
+    }
+  }
+
+  return null;
+};
+
 const compareRecipeCodes = (first, second) => {
   const a = normalizeKeyPart(first);
   const b = normalizeKeyPart(second);
@@ -4067,6 +4218,15 @@ useEffect(() => {
                               const assetStyle = assetCssAspect
                                 ? { aspectRatio: assetCssAspect }
                                 : {};
+                              const normalizedAspect = normalizeAspectKey(assetAspect);
+                              const platformCopy =
+                                normalizedAspect === '1x1'
+                                  ? getAssetPlatformCopy(asset)
+                                  : null;
+                              const showPrimaryCopy = !!platformCopy?.primary;
+                              const showLowerCopy = !!(
+                                platformCopy?.headline || platformCopy?.description
+                              );
                               return (
                                 <div
                                   key={
@@ -4076,7 +4236,18 @@ useEffect(() => {
                                     assetCount > 1 ? 'flex-shrink-0 snap-center' : ''
                                   }`}
                                 >
-                                  <div className="relative w-full" style={assetStyle}>
+                                  {showPrimaryCopy && (
+                                    <p className="px-3 pt-3 text-left text-sm font-medium text-gray-900 dark:text-[var(--dark-text)]">
+                                      {platformCopy.primary}
+                                    </p>
+                                  )}
+                                  <div
+                                    className={combineClasses(
+                                      'relative w-full',
+                                      showPrimaryCopy ? 'mt-2' : '',
+                                    )}
+                                    style={assetStyle}
+                                  >
                                     {isVideoUrl(assetUrl) ? (
                                       <VideoPlayer
                                         src={assetUrl}
@@ -4095,10 +4266,29 @@ useEffect(() => {
                                         style={assetStyle}
                                       />
                                     )}
+                                    {assetCount > 1 && (
+                                      <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                                        {assetIdx + 1}/{assetCount}
+                                      </div>
+                                    )}
                                   </div>
-                                  {assetCount > 1 && (
-                                    <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
-                                      {assetIdx + 1}/{assetCount}
+                                  {showLowerCopy && (
+                                    <div className="px-3 pb-3 pt-3 text-left">
+                                      {platformCopy.headline && (
+                                        <p className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                                          {platformCopy.headline}
+                                        </p>
+                                      )}
+                                      {platformCopy.description && (
+                                        <p
+                                          className={combineClasses(
+                                            platformCopy.headline ? 'mt-1' : '',
+                                            'text-sm text-gray-600 dark:text-gray-300',
+                                          )}
+                                        >
+                                          {platformCopy.description}
+                                        </p>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -4270,6 +4460,15 @@ useEffect(() => {
                               const assetStyle = assetCssAspect
                                 ? { aspectRatio: assetCssAspect }
                                 : {};
+                              const normalizedAspect = normalizeAspectKey(assetAspect);
+                              const platformCopy =
+                                normalizedAspect === '1x1'
+                                  ? getAssetPlatformCopy(asset)
+                                  : null;
+                              const showPrimaryCopy = !!platformCopy?.primary;
+                              const showLowerCopy = !!(
+                                platformCopy?.headline || platformCopy?.description
+                              );
                               return (
                                 <div
                                   key={
@@ -4277,7 +4476,18 @@ useEffect(() => {
                                   }
                                   className="mx-auto w-full max-w-[712px] self-start overflow-hidden rounded-lg sm:mx-0"
                                 >
-                                  <div className="relative w-full" style={assetStyle}>
+                                  {showPrimaryCopy && (
+                                    <p className="px-4 pt-4 text-left text-sm font-medium text-gray-900 dark:text-[var(--dark-text)]">
+                                      {platformCopy.primary}
+                                    </p>
+                                  )}
+                                  <div
+                                    className={combineClasses(
+                                      'relative w-full',
+                                      showPrimaryCopy ? 'mt-3' : '',
+                                    )}
+                                    style={assetStyle}
+                                  >
                                     {isVideoUrl(assetUrl) ? (
                                       <VideoPlayer
                                         src={assetUrl}
@@ -4296,7 +4506,31 @@ useEffect(() => {
                                         style={assetStyle}
                                       />
                                     )}
+                                    {assetCount > 1 && (
+                                      <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
+                                        {assetIdx + 1}/{assetCount}
+                                      </div>
+                                    )}
                                   </div>
+                                  {showLowerCopy && (
+                                    <div className="px-4 pb-4 pt-3 text-left">
+                                      {platformCopy.headline && (
+                                        <p className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                                          {platformCopy.headline}
+                                        </p>
+                                      )}
+                                      {platformCopy.description && (
+                                        <p
+                                          className={combineClasses(
+                                            platformCopy.headline ? 'mt-1' : '',
+                                            'text-sm text-gray-600 dark:text-gray-300',
+                                          )}
+                                        >
+                                          {platformCopy.description}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
