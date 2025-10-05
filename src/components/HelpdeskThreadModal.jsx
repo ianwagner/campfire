@@ -3,14 +3,17 @@ import {
   addDoc,
   arrayUnion,
   collection,
+  deleteField,
   doc,
+  getDocs,
+  increment,
+  limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   updateDoc,
-  increment,
-  deleteField,
+  where,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import CloseButton from './CloseButton.jsx';
@@ -28,8 +31,13 @@ const HelpdeskThreadModal = ({ request, onClose, onUpdateNotes }) => {
   const [notesStatus, setNotesStatus] = useState('idle');
   const notesSaveTimeoutRef = useRef(null);
   const lastSavedNotesRef = useRef('');
+  const [brandDocId, setBrandDocId] = useState(request?.brandDocumentId || null);
 
   const requestId = request?.id;
+  const brandCode =
+    typeof request?.brandCode === 'string'
+      ? request.brandCode.trim().toUpperCase()
+      : '';
   const user = auth.currentUser;
   const userId = user?.uid || 'anonymous';
   const authorName =
@@ -71,7 +79,8 @@ const HelpdeskThreadModal = ({ request, onClose, onUpdateNotes }) => {
     setNotes(initialNotes);
     lastSavedNotesRef.current = initialNotes;
     setNotesStatus('idle');
-  }, [requestId, request?.internalNotes]);
+    setBrandDocId(request?.brandDocumentId || null);
+  }, [requestId, request?.internalNotes, request?.brandDocumentId]);
 
   useEffect(() => {
     if (!requestId) {
@@ -105,7 +114,8 @@ const HelpdeskThreadModal = ({ request, onClose, onUpdateNotes }) => {
   }, [requestId]);
 
   useEffect(() => {
-    if (!canViewNotes || !requestId) return undefined;
+    if (!canViewNotes) return undefined;
+    if (!requestId && !brandCode) return undefined;
     if (notes === lastSavedNotesRef.current) return undefined;
 
     setNotesStatus('saving');
@@ -115,16 +125,68 @@ const HelpdeskThreadModal = ({ request, onClose, onUpdateNotes }) => {
       if (cancelled) return;
       try {
         const normalized = notes.trim() ? notes : '';
+        let targetScope = brandCode ? 'brand' : 'request';
+        let targetDocId = null;
+
+        if (targetScope === 'brand') {
+          targetDocId = brandDocId || request?.brandDocumentId || null;
+          if (!targetDocId && brandCode) {
+            try {
+              const brandSnap = await getDocs(
+                query(
+                  collection(db, 'brands'),
+                  where('code', '==', brandCode),
+                  limit(1),
+                ),
+              );
+              if (!brandSnap.empty) {
+                targetDocId = brandSnap.docs[0].id;
+                if (!cancelled) {
+                  setBrandDocId(targetDocId);
+                }
+              }
+            } catch (lookupErr) {
+              console.error('Failed to resolve brand for helpdesk notes', lookupErr);
+            }
+          }
+          if (!targetDocId && requestId) {
+            // Fall back to request-level notes if brand couldn't be resolved
+            targetScope = 'request';
+            targetDocId = requestId;
+          }
+        } else if (requestId) {
+          targetDocId = requestId;
+        }
+
+        if (!targetDocId) {
+          throw new Error('No document available for saving helpdesk notes');
+        }
+
+        const docRef =
+          targetScope === 'brand'
+            ? doc(db, 'brands', targetDocId)
+            : doc(db, 'requests', targetDocId);
+
         const update =
           normalized.length > 0
-            ? { internalNotes: normalized }
+            ? targetScope === 'brand'
+              ? { helpdeskNotes: normalized }
+              : { internalNotes: normalized }
+            : targetScope === 'brand'
+            ? { helpdeskNotes: deleteField() }
             : { internalNotes: deleteField() };
-        await updateDoc(doc(db, 'requests', requestId), update);
+
+        await updateDoc(docRef, update);
         if (cancelled) return;
         lastSavedNotesRef.current = normalized;
         setNotesStatus('saved');
         if (typeof onUpdateNotes === 'function') {
-          onUpdateNotes(requestId, normalized);
+          onUpdateNotes({
+            scope: targetScope,
+            code: targetScope === 'brand' ? brandCode : requestId,
+            value: normalized,
+            brandDocumentId: targetScope === 'brand' ? targetDocId : undefined,
+          });
         }
       } catch (err) {
         if (cancelled) return;
@@ -142,7 +204,15 @@ const HelpdeskThreadModal = ({ request, onClose, onUpdateNotes }) => {
         notesSaveTimeoutRef.current = null;
       }
     };
-  }, [notes, canViewNotes, requestId, onUpdateNotes]);
+  }, [
+    notes,
+    canViewNotes,
+    requestId,
+    brandCode,
+    brandDocId,
+    onUpdateNotes,
+    request?.brandDocumentId,
+  ]);
 
   useEffect(() => {
     if (notesStatus !== 'saved') return undefined;
@@ -335,7 +405,11 @@ const HelpdeskThreadModal = ({ request, onClose, onUpdateNotes }) => {
                   id="requestInternalNotes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Add internal notes for this request..."
+                  placeholder={
+                    brandCode
+                      ? 'Add internal notes for this brand...'
+                      : 'Add internal notes for this request...'
+                  }
                   className="h-full min-h-[160px] w-full resize-none rounded-lg border border-gray-300 p-3 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
                 />
                 {notesStatus === 'error' && (

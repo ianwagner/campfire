@@ -80,6 +80,7 @@ const AdminRequests = ({
   const [helpdeskRequest, setHelpdeskRequest] = useState(null);
   const [form, setForm] = useState(createEmptyForm());
   const [brands, setBrands] = useState([]);
+  const [brandNotes, setBrandNotes] = useState({});
   const [aiArtStyle, setAiArtStyle] = useState('');
   const [designers, setDesigners] = useState([]);
   const [editors, setEditors] = useState([]);
@@ -182,9 +183,12 @@ const AdminRequests = ({
     const fetchBrands = async () => {
       try {
         const snap = await getDocs(collection(db, 'brands'));
+        const notesMap = {};
         setBrands(
           snap.docs.map((d) => {
             const data = d.data();
+            const rawCode = typeof data.code === 'string' ? data.code.trim() : '';
+            const code = rawCode.toUpperCase();
             const products = Array.isArray(data.products)
               ? data.products
                   .map((p) => {
@@ -195,16 +199,25 @@ const AdminRequests = ({
                   })
                   .filter((name) => name && name.length)
               : [];
+            const helpdeskNotes =
+              typeof data.helpdeskNotes === 'string' ? data.helpdeskNotes : '';
+            if (code) {
+              notesMap[code] = helpdeskNotes;
+            }
             return {
-              code: data.code,
+              id: d.id,
+              code,
               aiArtStyle: data.aiArtStyle || '',
               products,
+              helpdeskNotes,
             };
           })
         );
+        setBrandNotes(notesMap);
       } catch (err) {
         console.error('Failed to fetch brands', err);
         setBrands([]);
+        setBrandNotes({});
       }
     };
 
@@ -258,6 +271,43 @@ const AdminRequests = ({
   }, [filterEditorId, filterCreatorId, brandFilterKey, showDesignerSelect, showEditorSelect]);
 
   useEffect(() => {
+    setRequests((prev) => {
+      let changed = false;
+      const updated = prev.map((req) => {
+        const normalized =
+          typeof req?.brandCode === 'string'
+            ? req.brandCode.trim().toUpperCase()
+            : '';
+        if (!normalized) return req;
+        const note = brandNotes[normalized] ?? '';
+        if (req.internalNotes === note) return req;
+        changed = true;
+        return { ...req, internalNotes: note };
+      });
+      return changed ? updated : prev;
+    });
+    setHelpdeskRequest((prev) => {
+      if (!prev) return prev;
+      const normalized =
+        typeof prev.brandCode === 'string'
+          ? prev.brandCode.trim().toUpperCase()
+          : '';
+      if (!normalized) return prev;
+      const note = brandNotes[normalized] ?? '';
+      const brandInfo = brands.find((brand) => brand.code === normalized);
+      const brandDocumentId = brandInfo?.id || prev.brandDocumentId || null;
+      if (prev.internalNotes === note && prev.brandDocumentId === brandDocumentId) {
+        return prev;
+      }
+      return {
+        ...prev,
+        internalNotes: note,
+        brandDocumentId,
+      };
+    });
+  }, [brandNotes, brands]);
+
+  useEffect(() => {
     const handleClick = (e) => {
       if (
         menuBtnRef.current?.contains(e.target) ||
@@ -307,6 +357,22 @@ const AdminRequests = ({
     setSaveError('');
     setSaving(false);
     setBrandCodeError('');
+  };
+
+  const openHelpdesk = (req) => {
+    if (!req) return;
+    const normalizedCode =
+      typeof req.brandCode === 'string' ? req.brandCode.trim().toUpperCase() : '';
+    const note = normalizedCode ? brandNotes[normalizedCode] ?? '' : '';
+    const brandInfo = normalizedCode
+      ? brands.find((brand) => brand.code === normalizedCode)
+      : null;
+    setHelpdeskRequest({
+      ...req,
+      brandCode: normalizedCode || req.brandCode || '',
+      internalNotes: note,
+      brandDocumentId: brandInfo?.id || req.brandDocumentId || null,
+    });
   };
 
   const openCreate = () => {
@@ -682,13 +748,64 @@ const AdminRequests = ({
     }
   };
 
-  const handleNotesUpdate = (id, value) => {
-    setRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, internalNotes: value } : r)),
-    );
-    setHelpdeskRequest((prev) =>
-      prev && prev.id === id ? { ...prev, internalNotes: value } : prev,
-    );
+  const handleNotesUpdate = ({ scope, code, value, brandDocumentId }) => {
+    if (!scope) return;
+    if (scope === 'brand') {
+      const normalized =
+        typeof code === 'string' ? code.trim().toUpperCase() : '';
+      if (!normalized) return;
+      setBrandNotes((prev) => {
+        if (prev[normalized] === value) return prev;
+        return { ...prev, [normalized]: value };
+      });
+      setBrands((prev) =>
+        prev.map((brand) => {
+          if (brand.code !== normalized) return brand;
+          const hasSameNotes = brand.helpdeskNotes === value;
+          const hasSameId = !brandDocumentId || brand.id === brandDocumentId;
+          if (hasSameNotes && hasSameId) return brand;
+          const next = { ...brand, helpdeskNotes: value };
+          if (brandDocumentId && brand.id !== brandDocumentId) {
+            next.id = brandDocumentId;
+          }
+          return next;
+        }),
+      );
+      setRequests((prev) =>
+        prev.map((req) => {
+          const reqCode =
+            typeof req.brandCode === 'string'
+              ? req.brandCode.trim().toUpperCase()
+              : '';
+          if (reqCode !== normalized) return req;
+          if (req.internalNotes === value) return req;
+          return { ...req, internalNotes: value };
+        }),
+      );
+      setHelpdeskRequest((prev) => {
+        if (!prev) return prev;
+        const prevCode =
+          typeof prev.brandCode === 'string'
+            ? prev.brandCode.trim().toUpperCase()
+            : '';
+        if (prevCode !== normalized) return prev;
+        if (prev.internalNotes === value && (!brandDocumentId || prev.brandDocumentId === brandDocumentId)) {
+          return prev;
+        }
+        const next = { ...prev, internalNotes: value };
+        if (brandDocumentId) {
+          next.brandDocumentId = brandDocumentId;
+        }
+        return next;
+      });
+    } else if (scope === 'request') {
+      setRequests((prev) =>
+        prev.map((r) => (r.id === code ? { ...r, internalNotes: value } : r)),
+      );
+      setHelpdeskRequest((prev) =>
+        prev && prev.id === code ? { ...prev, internalNotes: value } : prev,
+      );
+    }
   };
 
   const handleDragStart = (id) => {
@@ -1140,7 +1257,7 @@ const AdminRequests = ({
                         <div className="flex items-center justify-center">
                           {req.type === 'helpdesk' && (
                             <IconButton
-                              onClick={() => setHelpdeskRequest(req)}
+                              onClick={() => openHelpdesk(req)}
                               className="mr-2"
                               aria-label="Open helpdesk chat"
                             >
@@ -1206,7 +1323,7 @@ const AdminRequests = ({
                         <div className="flex items-center justify-center">
                           {req.type === 'helpdesk' && (
                             <IconButton
-                              onClick={() => setHelpdeskRequest(req)}
+                              onClick={() => openHelpdesk(req)}
                               className="mr-2"
                               aria-label="Open helpdesk chat"
                             >
@@ -1272,7 +1389,7 @@ const AdminRequests = ({
                         <div className="flex items-center justify-center">
                           {req.type === 'helpdesk' && (
                             <IconButton
-                              onClick={() => setHelpdeskRequest(req)}
+                              onClick={() => openHelpdesk(req)}
                               className="mr-2"
                               aria-label="Open helpdesk chat"
                             >
@@ -1338,7 +1455,7 @@ const AdminRequests = ({
                         <div className="flex items-center justify-center">
                           {req.type === 'helpdesk' && (
                             <IconButton
-                              onClick={() => setHelpdeskRequest(req)}
+                              onClick={() => openHelpdesk(req)}
                               className="mr-2"
                               aria-label="Open helpdesk chat"
                             >
@@ -1402,7 +1519,7 @@ const AdminRequests = ({
                         <div className="flex items-center justify-center">
                           {req.type === 'helpdesk' && (
                             <IconButton
-                              onClick={() => setHelpdeskRequest(req)}
+                              onClick={() => openHelpdesk(req)}
                               className="mr-2"
                               aria-label="Open helpdesk chat"
                             >
@@ -1458,7 +1575,7 @@ const AdminRequests = ({
                           onDragStart={handleDragStart}
                           onCreateGroup={handleCreateGroup}
                           onView={openView}
-                          onChat={setHelpdeskRequest}
+                          onChat={openHelpdesk}
                         />
                     ))}
                   </>
@@ -2025,7 +2142,7 @@ const AdminRequests = ({
           request={viewRequest}
           onClose={() => setViewRequest(null)}
           onEdit={startEdit}
-          onChat={setHelpdeskRequest}
+          onChat={openHelpdesk}
         />
       )}
       {helpdeskRequest && (
