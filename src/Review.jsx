@@ -100,6 +100,68 @@ const resolveRecipeProductName = (recipe) => {
   return '';
 };
 
+const extractCopyCardProductValue = (value) => {
+  if (!value) return '';
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const normalized = extractCopyCardProductValue(entry);
+      if (normalized) return normalized;
+    }
+    return '';
+  }
+  if (typeof value === 'object') {
+    const nestedCandidates = [
+      value.name,
+      value.title,
+      value.label,
+      value.value,
+      value.productName,
+    ];
+    for (const nested of nestedCandidates) {
+      const normalized = normalizeKeyPart(nested);
+      if (normalized) return normalized;
+    }
+    return '';
+  }
+  return normalizeKeyPart(value);
+};
+
+const resolveCopyCardProductName = (card) => {
+  if (!card) return '';
+  if (typeof card !== 'object') {
+    return extractCopyCardProductValue(card);
+  }
+
+  const candidates = [
+    card.product,
+    card.productName,
+    card.name,
+    card.title,
+    card.label,
+    card.meta?.product,
+    card.meta?.productName,
+    card.meta?.product?.name,
+    card.meta?.product?.title,
+    card.metadata?.product,
+    card.metadata?.productName,
+    card.metadata?.product?.name,
+    card.metadata?.product?.title,
+    card.details?.product,
+    card.details?.productName,
+    card.details?.product?.name,
+    card.details?.product?.title,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = extractCopyCardProductValue(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
+};
+
 const getAssetDocumentId = (asset) =>
   normalizeKeyPart(
     asset?.assetId ||
@@ -643,7 +705,8 @@ const Review = forwardRef(
   const copiesByProduct = useMemo(() => {
     const map = {};
     copyCards.forEach((card) => {
-      const key = normalizeProductKey(card.product);
+      const productName = resolveCopyCardProductName(card);
+      const key = normalizeProductKey(productName);
       if (!map[key]) {
         map[key] = [];
       }
@@ -3112,11 +3175,12 @@ useEffect(() => {
       );
       await Promise.all(
         list.map((c) => {
+          const resolvedProduct = resolveCopyCardProductName(c);
           const data = {
             primary: c.primary || '',
             headline: c.headline || '',
             description: c.description || '',
-            product: c.product || '',
+            product: resolvedProduct,
           };
           if (c.id) {
             return setDoc(
@@ -3140,11 +3204,14 @@ useEffect(() => {
   const saveInlineCopyCard = useCallback(
     async ({ id, primary = '', headline = '', description = '', product = '' }) => {
       if (!groupId) return null;
+      const resolvedProduct =
+        extractCopyCardProductValue(product) ||
+        resolveCopyCardProductName({ product });
       const payload = {
         primary: primary || '',
         headline: headline || '',
         description: description || '',
-        product: product || '',
+        product: resolvedProduct,
       };
       try {
         if (id) {
