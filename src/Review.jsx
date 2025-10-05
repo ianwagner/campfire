@@ -319,12 +319,41 @@ const BUFFER_COUNT = 3;
 const normalizeAspectKey = (value) => {
   const normalized = normalizeKeyPart(value);
   if (!normalized) return '';
+
   const compact = normalized.replace(/\s+/g, '');
-  const match = compact.match(/^([0-9.]+)(?:[:xX\/])([0-9.]+)$/);
-  if (match) {
-    return `${match[1]}x${match[2]}`.toLowerCase();
+  const cleaned = compact.replace(/×/g, 'x');
+  const lower = cleaned.toLowerCase();
+
+  if (lower.includes('square') || lower === 'sq') {
+    return '1x1';
   }
-  return compact.toLowerCase();
+
+  const match =
+    cleaned.match(/([0-9.]+)[^0-9.]*[:xX\/][^0-9.]*([0-9.]+)/) ||
+    cleaned.match(/([0-9.]+)[^0-9.]*by[^0-9.]*([0-9.]+)/i);
+  if (match) {
+    const [, firstRaw, secondRaw] = match;
+    const normalizedRatio = `${firstRaw}x${secondRaw}`.toLowerCase();
+
+    const firstNum = parseFloat(firstRaw);
+    const secondNum = parseFloat(secondRaw);
+    if (
+      Number.isFinite(firstNum) &&
+      Number.isFinite(secondNum) &&
+      secondNum !== 0 &&
+      Math.abs(firstNum / secondNum - 1) < 0.0001
+    ) {
+      return '1x1';
+    }
+
+    return normalizedRatio;
+  }
+
+  if (lower === '1x1') {
+    return '1x1';
+  }
+
+  return lower;
 };
 
 const getCssAspectRatioValue = (aspect) => {
@@ -4868,4 +4897,5 @@ useEffect(() => {
   );
 });
 
+export { normalizeAspectKey };
 export default Review;
