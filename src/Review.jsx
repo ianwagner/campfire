@@ -50,6 +50,7 @@ import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
+import ReviewCopyPanel from './components/ReviewCopyPanel.jsx';
 import HelpdeskModal from './components/HelpdeskModal.jsx';
 import Modal from './components/Modal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
@@ -77,6 +78,27 @@ const normalizeKeyPart = (value) => {
 };
 
 const combineClasses = (...classes) => classes.filter(Boolean).join(' ');
+
+const normalizeProductKey = (value) => normalizeKeyPart(value).toLowerCase();
+
+const resolveRecipeProductName = (recipe) => {
+  if (!recipe || typeof recipe !== 'object') return '';
+  const candidates = [
+    recipe.product?.name,
+    recipe.product,
+    recipe.components?.['product.name'],
+    recipe.components?.product?.name,
+    recipe.metadata?.product?.name,
+    recipe.metadata?.productName,
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeKeyPart(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return '';
+};
 
 const getAssetDocumentId = (asset) =>
   normalizeKeyPart(
@@ -617,6 +639,80 @@ const Review = forwardRef(
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
+
+  const copiesByProduct = useMemo(() => {
+    const map = {};
+    copyCards.forEach((card) => {
+      const key = normalizeProductKey(card.product);
+      if (!map[key]) {
+        map[key] = [];
+      }
+      map[key].push(card);
+    });
+    return map;
+  }, [copyCards]);
+
+  const recipeProductMapMemo = useMemo(() => {
+    const map = {};
+    const assign = (key, value) => {
+      const normalizedKey = normalizeProductKey(key);
+      if (!normalizedKey) return;
+      if (!map[normalizedKey]) {
+        map[normalizedKey] = value;
+      }
+    };
+    recipes.forEach((recipe) => {
+      const productName = resolveRecipeProductName(recipe);
+      if (!productName) return;
+      assign(recipe.id, productName);
+      assign(recipe.recipeCode, productName);
+      assign(recipe.recipeNo, productName);
+      assign(recipe.code, productName);
+      assign(recipe.components?.recipeCode, productName);
+    });
+    return map;
+  }, [recipes]);
+
+  const getProductNameForRecipe = useCallback(
+    (recipeCode) => {
+      const normalized = normalizeProductKey(recipeCode);
+      if (normalized && recipeProductMapMemo[normalized]) {
+        return recipeProductMapMemo[normalized];
+      }
+      if (!recipeCode) {
+        return '';
+      }
+      const fallback = recipes.find((recipe) => {
+        const keys = [
+          recipe.id,
+          recipe.recipeCode,
+          recipe.recipeNo,
+          recipe.code,
+          recipe.components?.recipeCode,
+        ];
+        return keys.some((key) => normalizeProductKey(key) === normalized);
+      });
+      if (fallback) {
+        return resolveRecipeProductName(fallback);
+      }
+      return '';
+    },
+    [recipeProductMapMemo, recipes],
+  );
+
+  const getCopyCardsForProduct = useCallback(
+    (productName) => {
+      const normalized = normalizeProductKey(productName);
+      if (normalized && copiesByProduct[normalized]) {
+        return copiesByProduct[normalized];
+      }
+      if (!normalized && copiesByProduct['']) {
+        return copiesByProduct[''];
+      }
+      return [];
+    },
+    [copiesByProduct],
+  );
 
   const resolvedReviewerName = useMemo(() => {
     if (typeof reviewerName === 'string' && reviewerName.trim()) {
@@ -1491,7 +1587,7 @@ useEffect(() => {
               status = rawStatus;
               rv = data.reviewVersion || 1;
               setGroupBrandCode(data.brandCode || '');
-              if (rv === 3) {
+              if (rv === 2 || rv === 3) {
                 try {
                   const rSnap = await getDocs(
                     collection(db, 'adGroups', groupId, 'recipes')
@@ -1503,10 +1599,14 @@ useEffect(() => {
                       ...d.data(),
                     }))
                   );
+                } catch (err) {
+                  console.error('Failed to fetch recipes for review', err);
+                  setRecipes([]);
                 } finally {
                   setRecipesLoaded(true);
                 }
               } else {
+                setRecipes([]);
                 setRecipesLoaded(true);
               }
               if (status === 'reviewed') status = 'done';
@@ -3033,6 +3133,62 @@ useEffect(() => {
     }
   };
 
+  const saveInlineCopyCard = useCallback(
+    async ({ id, primary = '', headline = '', description = '', product = '' }) => {
+      if (!groupId) return null;
+      const payload = {
+        primary: primary || '',
+        headline: headline || '',
+        description: description || '',
+        product: product || '',
+      };
+      try {
+        if (id) {
+          await setDoc(
+            doc(db, 'adGroups', groupId, 'copyCards', id),
+            payload,
+            { merge: true },
+          );
+          const updated = { id, ...payload };
+          setCopyCards((prev) =>
+            prev.map((card) => (card.id === id ? updated : card)),
+          );
+          setModalCopies((prev) =>
+            prev.map((card) => (card.id === id ? updated : card)),
+          );
+          return updated;
+        }
+        const docRef = await addDoc(
+          collection(db, 'adGroups', groupId, 'copyCards'),
+          payload,
+        );
+        const created = { id: docRef.id, ...payload };
+        setCopyCards((prev) => [...prev, created]);
+        setModalCopies((prev) => [...prev, created]);
+        return created;
+      } catch (err) {
+        console.error('Failed to save platform copy', err);
+        throw err;
+      }
+    },
+    [groupId],
+  );
+
+  const deleteInlineCopyCard = useCallback(
+    async (cardId) => {
+      if (!groupId || !cardId) return;
+      try {
+        await deleteDoc(doc(db, 'adGroups', groupId, 'copyCards', cardId));
+        setCopyCards((prev) => prev.filter((card) => card.id !== cardId));
+        setModalCopies((prev) => prev.filter((card) => card.id !== cardId));
+      } catch (err) {
+        console.error('Failed to delete platform copy', err);
+        throw err;
+      }
+    },
+    [groupId],
+  );
+
   const submitResponse = async (
     responseType,
     {
@@ -3578,7 +3734,7 @@ useEffect(() => {
     reviewVersion === null ||
     !logoReady ||
     (started && !firstAdLoaded) ||
-    (reviewVersion === 3 && !recipesLoaded)
+    ((reviewVersion === 2 || reviewVersion === 3) && !recipesLoaded)
   ) {
     return <LoadingOverlay />;
   }
@@ -4095,6 +4251,36 @@ useEffect(() => {
                     ad.recipeCode ||
                     parseAdFilename(ad.filename || '').recipeCode ||
                     'Ad Unit';
+                  const recipeCode =
+                    ad.recipeCode ||
+                    parseAdFilename(ad.filename || '').recipeCode ||
+                    '';
+                  const productName = getProductNameForRecipe(recipeCode);
+                  const productCopyCards = getCopyCardsForProduct(productName);
+                  const hasSquareAsset = sortedAssets.some(
+                    (asset) =>
+                      normalizeAspectKey(getAssetAspectRatio(asset)) === '1x1',
+                  );
+                  const showCopyPanel = hasSquareAsset;
+                  const showCopyMirror = showCopyPanel && productCopyCards.length > 0;
+                  const copyPanelTop = showCopyPanel ? (
+                    <ReviewCopyPanel
+                      productName={productName}
+                      copyCards={productCopyCards}
+                      onSave={saveInlineCopyCard}
+                      onDelete={deleteInlineCopyCard}
+                      disabled={isGroupReviewed}
+                      className="mb-4"
+                    />
+                  ) : null;
+                  const copyPanelBottom = showCopyMirror ? (
+                    <ReviewCopyPanel
+                      productName={productName}
+                      copyCards={productCopyCards}
+                      readOnly
+                      className="mt-4"
+                    />
+                  ) : null;
                   const selectId = `ad-status-${cardKey}`;
                   const handleSelectChange = async (event) => {
                     const value = event.target.value;
@@ -4214,6 +4400,7 @@ useEffect(() => {
                               <span className="font-medium">{statusLabel}</span>
                             </div>
                           </div>
+                          {copyPanelTop}
                           <div
                             className={`flex w-full gap-3 overflow-x-auto pb-1 ${
                               assetCount > 1 ? 'snap-x snap-mandatory' : ''
@@ -4264,6 +4451,7 @@ useEffect(() => {
                               );
                             })}
                           </div>
+                          {copyPanelBottom}
                           <div className="space-y-3">
                             <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
                               <label
@@ -4417,6 +4605,7 @@ useEffect(() => {
                           </div>
                         </div>
                         <div className="space-y-4">
+                          {copyPanelTop}
                           <div
                             className={`grid items-start gap-3 ${
                               sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
@@ -4460,6 +4649,7 @@ useEffect(() => {
                               );
                             })}
                           </div>
+                          {copyPanelBottom}
                         </div>
                         <div className="mt-2 flex flex-col gap-3 border-t border-gray-200 pt-3 dark:border-[var(--border-color-default)] sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3">
