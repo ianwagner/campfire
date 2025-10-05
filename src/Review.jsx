@@ -316,6 +316,184 @@ const isSafari =
 
 const BUFFER_COUNT = 3;
 
+const parseDimensionValue = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string') {
+    const match = value.match(/([0-9.]+)/);
+    if (!match) return null;
+    const parsed = parseFloat(match[1]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const extractDimensionsFromValue = (value) => {
+  if (!value) return null;
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const width = parseDimensionValue(value.width ?? value.w);
+    const height = parseDimensionValue(value.height ?? value.h);
+    if (width && height) {
+      return { width, height };
+    }
+  }
+
+  const asString = Array.isArray(value) ? value.join(' ') : String(value);
+  const match =
+    asString.match(/([0-9.]+)[^0-9.]*[:xX\\/][^0-9.]*([0-9.]+)/) ||
+    asString.match(/([0-9.]+)[^0-9.]*by[^0-9.]*([0-9.]+)/i);
+  if (!match) return null;
+  const [, firstRaw, secondRaw] = match;
+  const width = parseDimensionValue(firstRaw);
+  const height = parseDimensionValue(secondRaw);
+  if (width && height) {
+    return { width, height };
+  }
+  return null;
+};
+
+const extractAssetDimensions = (asset) => {
+  if (!asset || typeof asset !== 'object') return null;
+
+  const widthCandidates = [
+    asset.width,
+    asset.pixelWidth,
+    asset.widthPx,
+    asset.imageWidth,
+    asset.image_width,
+    asset.metadata?.width,
+    asset.metadata?.pixelWidth,
+    asset.metadata?.widthPx,
+    asset.metadata?.imageWidth,
+    asset.metadata?.image_width,
+    asset.metadata?.dimensions,
+    asset.meta?.width,
+    asset.meta?.pixelWidth,
+    asset.meta?.dimensions,
+    asset.platform?.width,
+    asset.platform?.pixelWidth,
+    asset.platform?.dimensions,
+  ];
+
+  const heightCandidates = [
+    asset.height,
+    asset.pixelHeight,
+    asset.heightPx,
+    asset.imageHeight,
+    asset.image_height,
+    asset.metadata?.height,
+    asset.metadata?.pixelHeight,
+    asset.metadata?.heightPx,
+    asset.metadata?.imageHeight,
+    asset.metadata?.image_height,
+    asset.metadata?.dimensions,
+    asset.meta?.height,
+    asset.meta?.pixelHeight,
+    asset.meta?.dimensions,
+    asset.platform?.height,
+    asset.platform?.pixelHeight,
+    asset.platform?.dimensions,
+  ];
+
+  let width = null;
+  for (const candidate of widthCandidates) {
+    if (!candidate) continue;
+    if (typeof candidate === 'object') {
+      const dims = extractDimensionsFromValue(candidate);
+      if (dims?.width && dims?.height) {
+        return dims;
+      }
+      const parsed = parseDimensionValue(candidate.width ?? candidate.w);
+      if (parsed) {
+        width = parsed;
+        break;
+      }
+      continue;
+    }
+    const parsed = parseDimensionValue(candidate);
+    if (parsed) {
+      width = parsed;
+      break;
+    }
+  }
+
+  let height = null;
+  for (const candidate of heightCandidates) {
+    if (!candidate) continue;
+    if (typeof candidate === 'object') {
+      const dims = extractDimensionsFromValue(candidate);
+      if (dims?.width && dims?.height) {
+        return dims;
+      }
+      const parsed = parseDimensionValue(candidate.height ?? candidate.h);
+      if (parsed) {
+        height = parsed;
+        break;
+      }
+      continue;
+    }
+    const parsed = parseDimensionValue(candidate);
+    if (parsed) {
+      height = parsed;
+      break;
+    }
+  }
+
+  if (width && height) {
+    return { width, height };
+  }
+
+  const dimensionCandidates = [
+    asset.dimensions,
+    asset.dimension,
+    asset.size,
+    asset.metadata?.dimensions,
+    asset.metadata?.size,
+    asset.meta?.dimensions,
+    asset.meta?.size,
+    asset.platform?.dimensions,
+    asset.platform?.size,
+  ];
+
+  for (const candidate of dimensionCandidates) {
+    const dims = extractDimensionsFromValue(candidate);
+    if (dims) {
+      return dims;
+    }
+  }
+
+  return null;
+};
+
+const getAssetAspectRatio = (asset) => {
+  if (!asset) return '';
+  const direct =
+    asset.aspectRatio || parseAdFilename(asset.filename || '').aspectRatio || '';
+  if (direct) return direct;
+
+  const dims = extractAssetDimensions(asset);
+  if (!dims) return '';
+
+  const { width, height } = dims;
+  if (!width || !height) return '';
+
+  const round = (value) => {
+    if (!Number.isFinite(value)) return null;
+    if (Math.abs(value - Math.round(value)) < 0.01) {
+      return Math.round(value);
+    }
+    return Math.round(value * 100) / 100;
+  };
+
+  const normalizedWidth = round(width);
+  const normalizedHeight = round(height);
+  if (!normalizedWidth || !normalizedHeight) return '';
+
+  return `${normalizedWidth}x${normalizedHeight}`;
+};
+
 const normalizeAspectKey = (value) => {
   const normalized = normalizeKeyPart(value);
   if (!normalized) return '';
@@ -1155,10 +1333,7 @@ const Review = forwardRef(
     const prefOrder = REVIEW_V2_ASPECT_ORDER;
     const getRecipe = (a) =>
       a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
-    const getAspect = (a) =>
-      normalizeAspectKey(
-        a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '',
-      );
+    const getAspect = (a) => normalizeAspectKey(getAssetAspectRatio(a));
     // Deduplicate by root id while keeping highest version of each asset
     const latestMap = {};
     list.forEach((a) => {
@@ -1400,7 +1575,7 @@ useEffect(() => {
     ads.forEach((a) => {
       const info = parseAdFilename(a.filename || '');
       const recipe = a.recipeCode || info.recipeCode || 'unknown';
-      const aspect = a.aspectRatio || info.aspectRatio || '';
+      const aspect = getAssetAspectRatio(a) || info.aspectRatio || '';
       const item = { ...a, recipeCode: recipe, aspectRatio: aspect };
       if (!map[recipe]) map[recipe] = [];
       map[recipe].push(item);
@@ -1691,11 +1866,9 @@ useEffect(() => {
           const rB = b.recipeCode || infoB.recipeCode || '';
           const recipeComparison = compareRecipeCodes(rA, rB);
           if (recipeComparison !== 0) return recipeComparison;
-          const aAsp = a.aspectRatio || infoA.aspectRatio || '';
-          const bAsp = b.aspectRatio || infoB.aspectRatio || '';
-          return (
-            getReviewAspectPriority(aAsp) - getReviewAspectPriority(bAsp)
-          );
+          const aAsp = getAssetAspectRatio(a) || infoA.aspectRatio || '';
+          const bAsp = getAssetAspectRatio(b) || infoB.aspectRatio || '';
+          return getReviewAspectPriority(aAsp) - getReviewAspectPriority(bAsp);
         });
 
         // determine latest version for each ad unit (recipe + group)
@@ -1923,11 +2096,9 @@ useEffect(() => {
     );
     groups.forEach((g) => {
       g.sort((a, b) => {
-        const aspA = a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
-        const aspB = b.aspectRatio || parseAdFilename(b.filename || '').aspectRatio || '';
-        return (
-          getReviewAspectPriority(aspA) - getReviewAspectPriority(aspB)
-        );
+        const aspA = getAssetAspectRatio(a);
+        const aspB = getAssetAspectRatio(b);
+        return getReviewAspectPriority(aspA) - getReviewAspectPriority(aspB);
       });
     });
     return groups;
@@ -1935,15 +2106,11 @@ useEffect(() => {
 
   const currentVersionAssets = versions[versionIndex] || [];
   const currentInfo = currentAd ? parseAdFilename(currentAd.filename || '') : {};
-  const currentAspectRaw =
-    currentAd?.aspectRatio || currentInfo.aspectRatio || '';
+  const currentAspectRaw = getAssetAspectRatio(currentAd) || currentInfo.aspectRatio || '';
   const normalizedCurrentAspect = normalizeAspectKey(currentAspectRaw);
   const displayAd =
     currentVersionAssets.find(
-      (a) =>
-        normalizeAspectKey(
-          a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '',
-        ) === normalizedCurrentAspect,
+      (a) => normalizeAspectKey(getAssetAspectRatio(a)) === normalizedCurrentAspect,
     ) || currentVersionAssets[0] || currentAd;
   const displayAssetId = getAssetDocumentId(displayAd);
   const displayParentId = getAssetParentId(displayAd);
@@ -2688,13 +2855,9 @@ useEffect(() => {
       const groups = Object.values(verMap)
         .map((group) => {
           const sorted = [...group].sort((a, b) => {
-            const aspectA =
-              a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
-            const aspectB =
-              b.aspectRatio || parseAdFilename(b.filename || '').aspectRatio || '';
-            return (
-              getReviewAspectPriority(aspectA) - getReviewAspectPriority(aspectB)
-            );
+            const aspectA = getAssetAspectRatio(a);
+            const aspectB = getAssetAspectRatio(b);
+            return getReviewAspectPriority(aspectA) - getReviewAspectPriority(aspectB);
           });
           const nonArchived = sorted.filter((asset) => asset.status !== 'archived');
           return nonArchived.length > 0 ? nonArchived : sorted;
@@ -4044,18 +4207,14 @@ useEffect(() => {
                     versionGroups[safeVersionIndex].length > 0
                       ? versionGroups[safeVersionIndex]
                       : fallbackAssets;
-                  const getAssetAspect = (asset) =>
-                    asset?.aspectRatio ||
-                    parseAdFilename(asset?.filename || '').aspectRatio ||
-                    '';
                   const sortedAssets = primaryAssets
                     .map((asset, originalIndex) => ({ asset, originalIndex }))
                     .sort((a, b) => {
                       const priorityA = getReviewAspectPriority(
-                        getAssetAspect(a.asset),
+                        getAssetAspectRatio(a.asset),
                       );
                       const priorityB = getReviewAspectPriority(
-                        getAssetAspect(b.asset),
+                        getAssetAspectRatio(b.asset),
                       );
                       if (priorityA !== priorityB) {
                         return priorityA - priorityB;
@@ -4243,7 +4402,7 @@ useEffect(() => {
                           >
                             {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
-                              const assetAspect = getAssetAspect(asset);
+                              const assetAspect = getAssetAspectRatio(asset);
                               const assetCssAspect = getCssAspectRatioValue(assetAspect);
                               const assetStyle = assetCssAspect
                                 ? { aspectRatio: assetCssAspect }
@@ -4485,7 +4644,7 @@ useEffect(() => {
                           >
                             {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
-                              const assetAspect = getAssetAspect(asset);
+                              const assetAspect = getAssetAspectRatio(asset);
                               const assetCssAspect = getCssAspectRatioValue(assetAspect);
                               const assetStyle = assetCssAspect
                                 ? { aspectRatio: assetCssAspect }
