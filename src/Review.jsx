@@ -703,10 +703,14 @@ const Review = forwardRef(
   const getCopyCardsForProduct = useCallback(
     (productName) => {
       const normalized = normalizeProductKey(productName);
-      if (normalized && copiesByProduct[normalized]) {
-        return copiesByProduct[normalized];
-      }
-      if (!normalized && copiesByProduct['']) {
+      if (normalized) {
+        if (copiesByProduct[normalized]) {
+          return copiesByProduct[normalized];
+        }
+        if (copiesByProduct['']) {
+          return copiesByProduct[''];
+        }
+      } else if (copiesByProduct['']) {
         return copiesByProduct[''];
       }
       return [];
