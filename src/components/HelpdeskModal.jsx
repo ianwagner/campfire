@@ -436,7 +436,7 @@ const HelpdeskModal = ({
           <CloseButton onClick={onClose} />
         </div>
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-          <aside className="w-full border-b border-gray-200 bg-gray-50 px-3 py-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] md:w-72 md:border-b-0 md:border-r">
+          <aside className="flex w-full flex-col border-b border-gray-200 bg-gray-50 px-3 py-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] md:w-72 md:flex-shrink-0 md:border-b-0 md:border-r">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-800 dark:text-[var(--dark-text)]">Open tickets</h3>
               <button
@@ -452,7 +452,7 @@ const HelpdeskModal = ({
                 New chat
               </button>
             </div>
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 flex-1 space-y-2 overflow-y-auto pr-1">
               {decoratedTickets.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-300">
                   No open tickets yet.
