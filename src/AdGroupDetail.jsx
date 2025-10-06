@@ -2090,9 +2090,52 @@ const AdGroupDetail = () => {
     }
   };
 
-  const saveCopyCards = async (list) => {
+  const saveCopyCards = async (list, options = {}) => {
     if (!Array.isArray(list) || list.length === 0) return;
+    const { append = false } = options;
+    const prepared = list
+      .map((c) => ({
+        id: c?.id || '',
+        primary: c?.primary || '',
+        headline: c?.headline || '',
+        description: c?.description || '',
+        product: c?.product || '',
+      }))
+      .filter(
+        (c) => c.primary || c.headline || c.description || c.product,
+      );
+    if (prepared.length === 0) return;
+    const buildPayload = (card) => ({
+      primary: card.primary,
+      headline: card.headline,
+      description: card.description,
+      product: card.product,
+    });
+
     try {
+      if (append) {
+        const existing = prepared.filter((c) => c.id);
+        const additions = prepared.filter((c) => !c.id);
+        const operations = [
+          ...existing.map((c) =>
+            setDoc(
+              doc(db, 'adGroups', id, 'copyCards', c.id),
+              buildPayload(c),
+              { merge: true },
+            ),
+          ),
+          ...additions.map((c) =>
+            addDoc(
+              collection(db, 'adGroups', id, 'copyCards'),
+              buildPayload(c),
+            ),
+          ),
+        ];
+        await Promise.all(operations);
+        setShowCopyModal(false);
+        return;
+      }
+
       if (showCopyModal && copyCards.length > 0) {
         const confirmReplace = window.confirm(
           'Replace existing saved copy with new generation?',
@@ -2101,25 +2144,24 @@ const AdGroupDetail = () => {
       }
 
       const existingIds = copyCards.map((c) => c.id);
-      const newIds = list.map((c) => c.id).filter(Boolean);
+      const newIds = prepared.map((c) => c.id).filter(Boolean);
       const deletions = existingIds.filter((id) => !newIds.includes(id));
       await Promise.all(
         deletions.map((cid) => deleteDoc(doc(db, 'adGroups', id, 'copyCards', cid))),
       );
       await Promise.all(
-        list.map((c) => {
-          const data = {
-            primary: c.primary || '',
-            headline: c.headline || '',
-            description: c.description || '',
-            product: c.product || '',
-          };
+        prepared.map((c) => {
           if (c.id) {
-            return setDoc(doc(db, 'adGroups', id, 'copyCards', c.id), data, {
-              merge: true,
-            });
+            return setDoc(
+              doc(db, 'adGroups', id, 'copyCards', c.id),
+              buildPayload(c),
+              { merge: true },
+            );
           }
-          return addDoc(collection(db, 'adGroups', id, 'copyCards'), data);
+          return addDoc(
+            collection(db, 'adGroups', id, 'copyCards'),
+            buildPayload(c),
+          );
         }),
       );
       if (deletions.length > 0) {
@@ -4500,7 +4542,7 @@ const AdGroupDetail = () => {
             <h2 className="text-lg font-semibold">Platform Copy</h2>
             <div className="flex gap-2">
               <button
-                onClick={() => saveCopyCards(modalCopies)}
+                onClick={() => saveCopyCards(modalCopies, { append: true })}
                 className={`btn-primary px-3 py-1 ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
                 disabled={!copyChanges}
               >
@@ -4514,7 +4556,7 @@ const AdGroupDetail = () => {
           </p>
           <div className="overflow-auto flex-1">
             <CopyRecipePreview
-              onSave={saveCopyCards}
+              onSave={(copies) => saveCopyCards(copies, { append: true })}
               brandCode={group?.brandCode}
               hideBrandSelect
               onCopiesChange={setModalCopies}
