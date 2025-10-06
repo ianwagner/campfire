@@ -4503,39 +4503,53 @@ useEffect(() => {
                       ? copyCardById[assignedCopyCardId]
                       : null;
                   const productCopyCards = getCopyCardsForProduct(productName);
-                  const candidateCopyCards = assignedCopyCard
-                    ? [
-                        assignedCopyCard,
-                        ...productCopyCards.filter(
-                          (card) => card && card.id !== assignedCopyCard.id,
-                        ),
-                      ]
-                    : productCopyCards;
+                  const hasCandidateCopyCards =
+                    !!assignedCopyCard || productCopyCards.length > 0;
                   const hasSquareAsset = sortedAssets.some((asset) =>
                     isSquareAspectRatio(getAssetAspectRatio(asset)),
                   );
-                  const showCopyMirror =
-                    hasSquareAsset && candidateCopyCards.length > 0;
+                  const showCopyMirror = hasSquareAsset && hasCandidateCopyCards;
+                  const normalizeInlineCopyCard = (card) => {
+                    if (!card) return null;
+                    const primary = normalizeCopyText(card.primary);
+                    const headline = normalizeCopyText(card.headline);
+                    const description = normalizeCopyText(card.description);
+                    return {
+                      id: card.id || '',
+                      product:
+                        resolveCopyCardProductName(card) || productName || '',
+                      primary,
+                      headline,
+                      description,
+                    };
+                  };
+                  const assignedInlineCopyCard = normalizeInlineCopyCard(
+                    assignedCopyCard,
+                  );
+                  const fallbackInlineCopyCard = (() => {
+                    for (const card of productCopyCards) {
+                      if (!card) continue;
+                      if (
+                        assignedInlineCopyCard &&
+                        card.id &&
+                        card.id === assignedInlineCopyCard.id
+                      ) {
+                        continue;
+                      }
+                      const normalized = normalizeInlineCopyCard(card);
+                      if (!normalized) continue;
+                      if (
+                        normalized.primary ||
+                        normalized.headline ||
+                        normalized.description
+                      ) {
+                        return normalized;
+                      }
+                    }
+                    return null;
+                  })();
                   const baseInlineCopyCard = showCopyMirror
-                    ? (() => {
-                        for (const card of candidateCopyCards) {
-                          if (!card) continue;
-                          const primary = normalizeCopyText(card.primary);
-                          const headline = normalizeCopyText(card.headline);
-                          const description = normalizeCopyText(card.description);
-                          if (primary || headline || description) {
-                            return {
-                              id: card.id || '',
-                              product:
-                                resolveCopyCardProductName(card) || productName || '',
-                              primary,
-                              headline,
-                              description,
-                            };
-                          }
-                        }
-                        return null;
-                      })()
+                    ? assignedInlineCopyCard || fallbackInlineCopyCard
                     : null;
                   const squareAssetIndex = sortedAssets.findIndex(
                     (asset) =>
@@ -4578,7 +4592,8 @@ useEffect(() => {
                   );
                   const shouldShowInlineCopySection =
                     shouldRenderInlineCopy &&
-                    (isEditingInlineCopy || inlineCopyHasContent);
+                    (isEditingInlineCopy || inlineCopyHasContent ||
+                      !!inlineCopyCard);
                   const normalizedInlineCopyValues = inlineCopyValues || {
                     primary: '',
                     headline: '',
