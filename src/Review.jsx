@@ -188,6 +188,42 @@ const normalizeRecipeCode = (value) => {
   return trimmed || (lower.includes('0') ? '0' : lower);
 };
 
+const getFirstNonEmptyString = (...values) => {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    if (Array.isArray(value)) {
+      const nested = getFirstNonEmptyString(...value);
+      if (nested) {
+        return nested;
+      }
+      continue;
+    }
+    const normalized = normalizeKeyPart(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return '';
+};
+
+const collectRecipeLookupKeys = (...values) => {
+  const seen = new Set();
+  const keys = [];
+  values.forEach((value) => {
+    if (value === null || value === undefined) return;
+    const candidates = Array.isArray(value) ? value : [value];
+    candidates.forEach((candidate) => {
+      const normalized = normalizeKeyPart(candidate);
+      if (!normalized || seen.has(normalized)) {
+        return;
+      }
+      seen.add(normalized);
+      keys.push(normalized);
+    });
+  });
+  return keys;
+};
+
 const getAssetDocumentId = (asset) =>
   normalizeKeyPart(
     asset?.assetId ||
@@ -808,27 +844,43 @@ const Review = forwardRef(
   }, [recipes]);
 
   const getProductNameForRecipe = useCallback(
-    (recipeCode) => {
-      const normalized = normalizeProductKey(recipeCode);
-      if (normalized && recipeProductMapMemo[normalized]) {
-        return recipeProductMapMemo[normalized];
-      }
-      if (!recipeCode) {
-        return '';
-      }
-      const fallback = recipes.find((recipe) => {
-        const keys = [
-          recipe.id,
-          recipe.recipeCode,
-          recipe.recipeNo,
-          recipe.code,
-          recipe.components?.recipeCode,
-        ];
-        return keys.some((key) => normalizeProductKey(key) === normalized);
+    (recipeKeyInput) => {
+      const keys = Array.isArray(recipeKeyInput)
+        ? recipeKeyInput
+        : [recipeKeyInput];
+      const normalizedKeys = [];
+      keys.forEach((key) => {
+        const normalized = normalizeProductKey(key);
+        if (normalized && !normalizedKeys.includes(normalized)) {
+          normalizedKeys.push(normalized);
+        }
       });
-      if (fallback) {
-        return resolveRecipeProductName(fallback);
+
+      for (const normalized of normalizedKeys) {
+        if (recipeProductMapMemo[normalized]) {
+          return recipeProductMapMemo[normalized];
+        }
       }
+
+      for (const normalized of normalizedKeys) {
+        const fallback = recipes.find((recipe) => {
+          const keysToCheck = [
+            recipe.id,
+            recipe.recipeCode,
+            recipe.recipeNo,
+            recipe.code,
+            recipe.components?.recipeCode,
+            recipe.metadata?.recipeCode,
+          ];
+          return keysToCheck.some(
+            (candidate) => normalizeProductKey(candidate) === normalized,
+          );
+        });
+        if (fallback) {
+          return resolveRecipeProductName(fallback);
+        }
+      }
+
       return '';
     },
     [recipeProductMapMemo, recipes],
@@ -4502,16 +4554,52 @@ useEffect(() => {
                     });
                   };
                   const isExpanded = !!expandedRequests[cardKey];
+                  const filenameInfo = parseAdFilename(ad.filename || '');
                   const recipeLabel =
-                    ad.recipeCode ||
-                    parseAdFilename(ad.filename || '').recipeCode ||
-                    'Ad Unit';
-                  const recipeCode =
-                    ad.recipeCode ||
-                    parseAdFilename(ad.filename || '').recipeCode ||
-                    '';
-                  const productName = getProductNameForRecipe(recipeCode);
-                  const normalizedRecipeKey = normalizeRecipeCode(recipeCode);
+                    ad.recipeCode || filenameInfo.recipeCode || 'Ad Unit';
+                  const recipeLookupCandidates = collectRecipeLookupKeys(
+                    ad.recipeId,
+                    ad.recipe?.id,
+                    ad.recipe?.recipeId,
+                    ad.recipe?.code,
+                    ad.recipe?.recipeCode,
+                    ad.recipe?.metadata?.recipeCode,
+                    ad.recipe?.components?.recipeCode,
+                    ad.recipeCode,
+                    filenameInfo.recipeCode,
+                  );
+                  const normalizedRecipeKey = recipeLookupCandidates.reduce(
+                    (acc, candidate) => {
+                      if (acc) return acc;
+                      const normalized = normalizeRecipeCode(candidate);
+                      return normalized || acc;
+                    },
+                    '',
+                  );
+                  const fallbackProductName = getFirstNonEmptyString(
+                    ad.productName,
+                    ad.product?.name,
+                    ad.product?.title,
+                    ad.metadata?.product,
+                    ad.metadata?.productName,
+                    ad.metadata?.product?.name,
+                    ad.metadata?.product?.title,
+                    ad.recipe?.productName,
+                    ad.recipe?.product?.name,
+                    ad.recipe?.product?.title,
+                    ad.recipe?.components?.product,
+                    ad.recipe?.components?.productName,
+                    ad.recipe?.components?.product?.name,
+                    ad.recipe?.components?.product?.title,
+                    ad.recipe?.components?.['product.name'],
+                    ad.recipe?.metadata?.product,
+                    ad.recipe?.metadata?.productName,
+                    ad.recipe?.metadata?.product?.name,
+                    ad.recipe?.metadata?.product?.title,
+                  );
+                  const productName =
+                    getProductNameForRecipe(recipeLookupCandidates) ||
+                    fallbackProductName;
                   const assignedCopyCardId =
                     normalizedRecipeKey && recipeCopyAssignments[normalizedRecipeKey]
                       ? recipeCopyAssignments[normalizedRecipeKey]
