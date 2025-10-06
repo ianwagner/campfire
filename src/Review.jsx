@@ -50,7 +50,6 @@ import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import RecipePreview from './RecipePreview.jsx';
-import ReviewCopyPanel from './components/ReviewCopyPanel.jsx';
 import HelpdeskModal from './components/HelpdeskModal.jsx';
 import Modal from './components/Modal.jsx';
 import InfoTooltip from './components/InfoTooltip.jsx';
@@ -4367,18 +4366,7 @@ useEffect(() => {
                   const hasSquareAsset = sortedAssets.some((asset) =>
                     isSquareAspectRatio(getAssetAspectRatio(asset)),
                   );
-                  const showCopyPanel = hasSquareAsset;
-                  const showCopyMirror = showCopyPanel && productCopyCards.length > 0;
-                  const copyPanelTop = showCopyPanel ? (
-                    <ReviewCopyPanel
-                      productName={productName}
-                      copyCards={productCopyCards}
-                      onSave={saveInlineCopyCard}
-                      onDelete={deleteInlineCopyCard}
-                      disabled={isGroupReviewed}
-                      className="mb-4"
-                    />
-                  ) : null;
+                  const showCopyMirror = hasSquareAsset && productCopyCards.length > 0;
                   const inlineCopyCard = showCopyMirror
                     ? (() => {
                         for (const card of productCopyCards) {
@@ -4520,7 +4508,6 @@ useEffect(() => {
                               <span className="font-medium">{statusLabel}</span>
                             </div>
                           </div>
-                          {copyPanelTop}
                           <div
                             className={`flex w-full gap-3 overflow-x-auto pb-1 ${
                               assetCount > 1 ? 'snap-x snap-mandatory' : ''
@@ -4591,18 +4578,24 @@ useEffect(() => {
                                       </div>
                                     ) : null}
                                     {assetNode}
-                                    {inlineCopyCard?.headline || inlineCopyCard?.description ? (
-                                      <div className="space-y-1 px-1">
-                                        {inlineCopyCard?.headline ? (
-                                          <p className="whitespace-pre-wrap break-words text-base font-semibold leading-snug text-gray-900 dark:text-[var(--dark-text)]">
-                                            {inlineCopyCard.headline}
-                                          </p>
-                                        ) : null}
-                                        {inlineCopyCard?.description ? (
-                                          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                                            {inlineCopyCard.description}
-                                          </p>
-                                        ) : null}
+                                    {inlineCopyCard?.headline ? (
+                                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                          Headline
+                                        </p>
+                                        <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-gray-900 dark:text-[var(--dark-text)]">
+                                          {inlineCopyCard.headline}
+                                        </p>
+                                      </div>
+                                    ) : null}
+                                    {inlineCopyCard?.description ? (
+                                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                          Description
+                                        </p>
+                                        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                                          {inlineCopyCard.description}
+                                        </p>
                                       </div>
                                     ) : null}
                                   </div>
@@ -4768,7 +4761,6 @@ useEffect(() => {
                           </div>
                         </div>
                         <div className="space-y-4">
-                          {copyPanelTop}
                           <div
                             className={`grid items-start gap-3 ${
                               sortedAssets.length > 1 ? 'sm:grid-cols-2' : ''
@@ -4829,18 +4821,24 @@ useEffect(() => {
                                       </div>
                                     ) : null}
                                     {assetNode}
-                                    {inlineCopyCard?.headline || inlineCopyCard?.description ? (
-                                      <div className="space-y-1">
-                                        {inlineCopyCard?.headline ? (
-                                          <p className="whitespace-pre-wrap break-words text-lg font-semibold leading-snug text-gray-900 dark:text-[var(--dark-text)]">
-                                            {inlineCopyCard.headline}
-                                          </p>
-                                        ) : null}
-                                        {inlineCopyCard?.description ? (
-                                          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                                            {inlineCopyCard.description}
-                                          </p>
-                                        ) : null}
+                                    {inlineCopyCard?.headline ? (
+                                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                          Headline
+                                        </p>
+                                        <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-gray-900 dark:text-[var(--dark-text)]">
+                                          {inlineCopyCard.headline}
+                                        </p>
+                                      </div>
+                                    ) : null}
+                                    {inlineCopyCard?.description ? (
+                                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                          Description
+                                        </p>
+                                        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                                          {inlineCopyCard.description}
+                                        </p>
                                       </div>
                                     ) : null}
                                   </div>
