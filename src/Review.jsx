@@ -4252,7 +4252,13 @@ useEffect(() => {
                   'sticky z-20',
                   statusBarPinned ? 'mt-0' : 'mt-2',
                 )}
-                style={{ top: toolbarOffset ? `${toolbarOffset}px` : 0 }}
+                style={{
+                  top: statusBarPinned
+                    ? 0
+                    : toolbarOffset
+                      ? `${toolbarOffset}px`
+                      : 0,
+                }}
               >
                 <div
                   className={combineClasses(
