@@ -214,7 +214,19 @@ const AdminDistribution = () => {
             aspect = aspect.replace(/_?V\d+$/i, '').replace(/s$/, '');
             if (!aspect) aspect = '9x16';
             const label = aspect;
-            const entry = { url, label, status: aData.status || '' };
+            const override = aData.platformCopyOverride || null;
+            const entry = {
+              url,
+              label,
+              status: aData.status || '',
+              copyOverride: override
+                ? {
+                    primary: override.primary || '',
+                    headline: override.headline || '',
+                    description: override.description || '',
+                  }
+                : null,
+            };
             if (!assetMap[recipe]) assetMap[recipe] = [];
             assetMap[recipe].push(entry);
             if (normalized !== recipe) {
@@ -244,11 +256,36 @@ const AdminDistribution = () => {
               rData.components?.product?.url ||
               rData.components?.['product.url'] ||
               '';
+            const recipeKey = String(recipeNo);
+            const candidateKeys = [
+              recipeKey,
+              String(rDoc.id || ''),
+              String(rData.recipeCode || ''),
+              String(rData.components?.recipeCode || ''),
+            ].filter(
+              (val) => val && val !== 'undefined' && val !== 'null',
+            );
+            const assetEntries =
+              candidateKeys.reduce((found, key) => {
+                if (found) return found;
+                const direct = assetMap[key];
+                if (direct && direct.length) return direct;
+                const normalizedKey = key.replace(/^0+/, '');
+                if (normalizedKey && assetMap[normalizedKey]?.length) {
+                  return assetMap[normalizedKey];
+                }
+                return null;
+              }, null) || [];
+            const overrideEntry =
+              assetEntries.find(
+                (asset) => asset.copyOverride && asset.label === '1x1',
+              ) || assetEntries.find((asset) => asset.copyOverride);
             const copyList = copiesByProduct[product] || [];
-            const copy =
+            const fallbackCopy =
               copyList.length > 0
                 ? copyList[Math.floor(Math.random() * copyList.length)]
                 : {};
+            const copy = overrideEntry?.copyOverride || fallbackCopy;
             const angle =
               rData.metadata?.angle ||
               rData.components?.angle ||
@@ -258,7 +295,7 @@ const AdminDistribution = () => {
             const assets =
               rData.status === 'archived' || rData.status === 'rejected'
                 ? []
-                : assetMap[String(recipeNo)] || [];
+                : assetEntries;
             const status = assets[0]?.status || rData.status || '';
             const row = {
               id: `${gDoc.id}_${rDoc.id}`,
