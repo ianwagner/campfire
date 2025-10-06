@@ -4581,7 +4581,9 @@ useEffect(() => {
                       }
                     : baseInlineCopyCard;
                   const shouldRenderInlineCopy =
-                    !!inlineCopyCard && squareAssetIndex !== -1;
+                    reviewVersion !== 2 &&
+                    !!inlineCopyCard &&
+                    squareAssetIndex !== -1;
                   const inlineCopyEditorState = inlineCopyDrafts[cardKey];
                   const isEditingInlineCopy = !!inlineCopyEditorState?.editing;
                   const inlineCopySaving = !!inlineCopyEditorState?.saving;
