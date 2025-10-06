@@ -4236,7 +4236,10 @@ useEffect(() => {
               />
               <div
                 ref={statusBarRef}
-                className="sticky z-20 mt-2"
+                className={combineClasses(
+                  'sticky z-20',
+                  statusBarPinned ? 'mt-0' : 'mt-2',
+                )}
                 style={{ top: toolbarOffset ? `${toolbarOffset}px` : 0 }}
               >
                 <div
