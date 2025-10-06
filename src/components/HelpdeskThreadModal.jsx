@@ -293,8 +293,8 @@ const HelpdeskThreadModal = ({ request, onClose, onUpdateNotes }) => {
             </p>
           )}
         </div>
-        <div className="flex flex-1 flex-col md:flex-row">
-          <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 min-h-0 flex-col md:flex-row">
+          <div className="flex flex-1 min-h-0 flex-col">
             <div
               ref={messageListRef}
               className="flex-1 min-h-0 overflow-y-auto bg-gray-50 px-4 py-3 dark:bg-[var(--dark-sidebar-hover)]"
@@ -304,46 +304,48 @@ const HelpdeskThreadModal = ({ request, onClose, onUpdateNotes }) => {
                   <p>No messages yet.</p>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3">
-                  {messages.map((msg) => {
-                    const createdAt = toDateSafe(msg.createdAt);
-                    const isFromCurrentUser = msg.authorId === userId;
-                    const displayName = isFromCurrentUser
-                      ? authorName || 'You'
-                      : formatDisplayName(msg.authorName) || 'Requester';
-                    return (
-                      <div
-                        key={msg.id}
-                        className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}
-                      >
+                <div className="flex min-h-full flex-col justify-end">
+                  <div className="flex flex-col gap-3">
+                    {messages.map((msg) => {
+                      const createdAt = toDateSafe(msg.createdAt);
+                      const isFromCurrentUser = msg.authorId === userId;
+                      const displayName = isFromCurrentUser
+                        ? authorName || 'You'
+                        : formatDisplayName(msg.authorName) || 'Requester';
+                      return (
                         <div
-                          className={`max-w-full rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${
-                            isFromCurrentUser
-                              ? 'bg-white text-gray-800 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]'
-                              : 'bg-[var(--accent-color-10)] text-gray-800 dark:bg-[var(--accent-color-10)] dark:text-[var(--dark-text)]'
-                          }`}
+                          key={msg.id}
+                          className={`flex ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`}
                         >
                           <div
-                            className={`flex flex-wrap items-baseline gap-2 ${
-                              isFromCurrentUser ? 'justify-end text-right' : 'justify-start text-left'
+                            className={`max-w-full rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${
+                              isFromCurrentUser
+                                ? 'bg-white text-gray-800 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]'
+                                : 'bg-[var(--accent-color-10)] text-gray-800 dark:bg-[var(--accent-color-10)] dark:text-[var(--dark-text)]'
                             }`}
                           >
-                            <span className="text-xs font-semibold text-gray-900 dark:text-[var(--dark-text)]">
-                              {displayName}
-                            </span>
-                            {createdAt && (
-                              <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                                {createdAt.toLocaleString()}
+                            <div
+                              className={`flex flex-wrap items-baseline gap-2 ${
+                                isFromCurrentUser ? 'justify-end text-right' : 'justify-start text-left'
+                              }`}
+                            >
+                              <span className="text-xs font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                                {displayName}
                               </span>
-                            )}
+                              {createdAt && (
+                                <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                                  {createdAt.toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-2 whitespace-pre-wrap break-words text-sm text-gray-800 dark:text-gray-200">
+                              {msg.body}
+                            </p>
                           </div>
-                          <p className="mt-2 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">
-                            {msg.body}
-                          </p>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

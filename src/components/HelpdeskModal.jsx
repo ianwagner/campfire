@@ -319,7 +319,7 @@ const HelpdeskModal = ({
                             </span>
                           )}
                         </div>
-                        <p className="mt-2 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">
+                        <p className="mt-2 whitespace-pre-wrap break-words text-sm text-gray-800 dark:text-gray-200">
                           {msg.body}
                         </p>
                       </div>
