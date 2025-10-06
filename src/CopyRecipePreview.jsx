@@ -496,7 +496,8 @@ const CopyRecipePreview = ({
               )}
             </label>
           </div>
-        ))}
+        );
+      })}
       </div>
       {showSave && onSave && copies.length > 0 && (
         <div className="mt-4 text-right">
