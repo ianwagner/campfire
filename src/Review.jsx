@@ -4535,18 +4535,12 @@ useEffect(() => {
                                 : {};
                               const assetKey =
                                 getAssetDocumentId(asset) || assetUrl || assetIdx;
-                              const hasInlineCopyContent =
-                                inlineCopyCard?.primary ||
-                                inlineCopyCard?.headline ||
-                                inlineCopyCard?.description;
                               const wrapperClasses = [
                                 'flex w-full flex-col',
                                 assetCount > 1
                                   ? 'min-w-full flex-shrink-0 snap-center'
                                   : '',
-                                shouldRenderInlineCopy &&
-                                assetIdx === squareAssetIndex &&
-                                hasInlineCopyContent
+                                shouldRenderInlineCopy && assetIdx === squareAssetIndex
                                   ? 'gap-3'
                                   : '',
                               ]
@@ -4583,46 +4577,34 @@ useEffect(() => {
                                   )}
                                 </div>
                               );
-                              if (
-                                shouldRenderInlineCopy &&
-                                assetIdx === squareAssetIndex &&
-                                hasInlineCopyContent
-                              ) {
+                              if (shouldRenderInlineCopy && assetIdx === squareAssetIndex) {
                                 return (
                                   <div key={assetKey} className={wrapperClasses}>
+                                    {inlineCopyCard?.primary ? (
+                                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                          Primary copy
+                                        </p>
+                                        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-900 dark:text-[var(--dark-text)]">
+                                          {inlineCopyCard.primary}
+                                        </p>
+                                      </div>
+                                    ) : null}
                                     {assetNode}
-                                    <div className="space-y-3">
-                                      {inlineCopyCard?.primary ? (
-                                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                                            Primary copy
-                                          </p>
-                                          <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-900 dark:text-[var(--dark-text)]">
-                                            {inlineCopyCard.primary}
-                                          </p>
-                                        </div>
-                                      ) : null}
-                                      {inlineCopyCard?.headline ? (
-                                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                                            Headline
-                                          </p>
-                                          <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-gray-900 dark:text-[var(--dark-text)]">
+                                    {inlineCopyCard?.headline || inlineCopyCard?.description ? (
+                                      <div className="space-y-1 px-1">
+                                        {inlineCopyCard?.headline ? (
+                                          <p className="whitespace-pre-wrap break-words text-base font-semibold leading-snug text-gray-900 dark:text-[var(--dark-text)]">
                                             {inlineCopyCard.headline}
                                           </p>
-                                        </div>
-                                      ) : null}
-                                      {inlineCopyCard?.description ? (
-                                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                                            Description
-                                          </p>
-                                          <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                                        ) : null}
+                                        {inlineCopyCard?.description ? (
+                                          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                                             {inlineCopyCard.description}
                                           </p>
-                                        </div>
-                                      ) : null}
-                                    </div>
+                                        ) : null}
+                                      </div>
+                                    ) : null}
                                   </div>
                                 );
                               }
