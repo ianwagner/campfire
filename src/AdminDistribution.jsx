@@ -7,6 +7,92 @@ import IconButton from './components/IconButton.jsx';
 import Button from './components/Button.jsx';
 import parseAdFilename from './utils/parseAdFilename';
 import copyCsvToClipboard from './utils/copyCsvToClipboard';
+import { getCopyLetter } from './utils/copyLetter';
+
+const normalizeKeyPart = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim();
+  return String(value);
+};
+
+const normalizeProductKey = (value) => {
+  const normalized = normalizeKeyPart(value).toLowerCase();
+  if (!normalized) {
+    return '';
+  }
+  const withoutLeadingZeros = normalized.replace(/^0+/, '');
+  if (withoutLeadingZeros) {
+    return withoutLeadingZeros;
+  }
+  return normalized.includes('0') ? '0' : normalized;
+};
+
+const normalizeLetterKey = (value) => {
+  const normalized = normalizeKeyPart(value);
+  return normalized ? normalized.toUpperCase() : '';
+};
+
+const extractCopyCardProductValue = (value) => {
+  if (!value) return '';
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const normalized = extractCopyCardProductValue(entry);
+      if (normalized) return normalized;
+    }
+    return '';
+  }
+  if (typeof value === 'object') {
+    const nestedCandidates = [
+      value.name,
+      value.title,
+      value.label,
+      value.value,
+      value.productName,
+    ];
+    for (const nested of nestedCandidates) {
+      const normalized = normalizeKeyPart(nested);
+      if (normalized) return normalized;
+    }
+    return '';
+  }
+  return normalizeKeyPart(value);
+};
+
+const resolveCopyCardProductName = (card) => {
+  if (!card) return '';
+  if (typeof card !== 'object') {
+    return extractCopyCardProductValue(card);
+  }
+
+  const candidates = [
+    card.product,
+    card.productName,
+    card.name,
+    card.title,
+    card.label,
+    card.meta?.product,
+    card.meta?.productName,
+    card.meta?.product?.name,
+    card.meta?.product?.title,
+    card.metadata?.product,
+    card.metadata?.productName,
+    card.metadata?.product?.name,
+    card.metadata?.product?.title,
+    card.details?.product,
+    card.details?.productName,
+    card.details?.product?.name,
+    card.details?.product?.title,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = extractCopyCardProductValue(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
+};
 
 const monthKey = (date) => date.toISOString().slice(0, 7);
 
@@ -35,6 +121,13 @@ const baseColumnDefs = [
     cellClass: 'text-center',
   },
   { key: 'product', label: 'Product', width: 'auto' },
+  {
+    key: 'copyLetter',
+    label: 'Copy Letter',
+    width: '6rem',
+    headerClass: 'text-center',
+    cellClass: 'text-center',
+  },
   { key: 'url', label: 'Url', width: 'auto' },
   { key: 'angle', label: 'Angle', width: 'auto' },
   { key: 'audience', label: 'Audience', width: 'auto' },
@@ -188,11 +281,38 @@ const AdminDistribution = () => {
             collection(db, 'adGroups', gDoc.id, 'copyCards'),
           );
           const copiesByProduct = {};
-          cSnap.docs.forEach((d) => {
-            const data = d.data();
-            const prodName = data.product || '';
-            if (!copiesByProduct[prodName]) copiesByProduct[prodName] = [];
-            copiesByProduct[prodName].push(data);
+          const copiesById = {};
+          const copiesByLetter = {};
+          const copyEntries = cSnap.docs.map((d, index) => {
+            const data = d.data() || {};
+            const letter = getCopyLetter(index);
+            const normalizedLetter = normalizeLetterKey(letter);
+            const resolvedProduct = resolveCopyCardProductName(data);
+            const normalizedProduct = normalizeProductKey(resolvedProduct);
+            const entry = {
+              id: d.id,
+              letter,
+              normalizedLetter,
+              product: resolvedProduct,
+              normalizedProduct,
+              primary: data.primary || '',
+              headline: data.headline || '',
+              description: data.description || '',
+            };
+            return entry;
+          });
+
+          copyEntries.forEach((entry) => {
+            const productKey = entry.normalizedProduct || '';
+            if (!copiesByProduct[productKey]) copiesByProduct[productKey] = [];
+            copiesByProduct[productKey].push(entry);
+            copiesById[entry.id] = entry;
+            if (entry.normalizedLetter) {
+              if (!copiesByLetter[entry.normalizedLetter]) {
+                copiesByLetter[entry.normalizedLetter] = [];
+              }
+              copiesByLetter[entry.normalizedLetter].push(entry);
+            }
           });
 
           const assetMap = {};
@@ -280,12 +400,63 @@ const AdminDistribution = () => {
               assetEntries.find(
                 (asset) => asset.copyOverride && asset.label === '1x1',
               ) || assetEntries.find((asset) => asset.copyOverride);
-            const copyList = copiesByProduct[product] || [];
-            const fallbackCopy =
-              copyList.length > 0
-                ? copyList[Math.floor(Math.random() * copyList.length)]
-                : {};
-            const copy = overrideEntry?.copyOverride || fallbackCopy;
+            const normalizedProductKey = normalizeProductKey(product);
+            const productCopies =
+              copiesByProduct[normalizedProductKey] ||
+              copiesByProduct[''] ||
+              [];
+            const storedCopyId = normalizeKeyPart(
+              rData.platformCopyCardId ||
+                rData.metadata?.platformCopyCardId ||
+                rData.components?.platformCopyCardId,
+            );
+            const storedLetterKey = normalizeLetterKey(
+              rData.platformCopyLetter ||
+                rData.metadata?.platformCopyLetter ||
+                rData.components?.platformCopyLetter,
+            );
+            const copyFromId = storedCopyId ? copiesById[storedCopyId] : null;
+            const copyFromLetter = storedLetterKey
+              ? productCopies.find(
+                  (entry) => entry.normalizedLetter === storedLetterKey,
+                ) ||
+                (copiesByLetter[storedLetterKey] || []).find(
+                  (entry) => entry.normalizedProduct === normalizedProductKey,
+                ) ||
+                (copiesByLetter[storedLetterKey] || [])[0] ||
+                null
+              : null;
+            const assignedCopyEntry =
+              copyFromId ||
+              copyFromLetter ||
+              productCopies[0] ||
+              (copiesByProduct[''] || [])[0] ||
+              null;
+            const copyBase = assignedCopyEntry
+              ? {
+                  primary: assignedCopyEntry.primary || '',
+                  headline: assignedCopyEntry.headline || '',
+                  description: assignedCopyEntry.description || '',
+                  letter: assignedCopyEntry.letter || '',
+                  product: assignedCopyEntry.product || '',
+                }
+              : {
+                  primary: '',
+                  headline: '',
+                  description: '',
+                  letter: '',
+                  product: '',
+                };
+            const copyOverrideValues = overrideEntry?.copyOverride;
+            const copy = copyOverrideValues
+              ? {
+                  ...copyBase,
+                  primary: copyOverrideValues.primary || copyBase.primary,
+                  headline: copyOverrideValues.headline || copyBase.headline,
+                  description:
+                    copyOverrideValues.description || copyBase.description,
+                }
+              : copyBase;
             const angle =
               rData.metadata?.angle ||
               rData.components?.angle ||
@@ -306,6 +477,7 @@ const AdminDistribution = () => {
               angle,
               audience,
               status,
+              copyLetter: copy.letter || '',
               primary: copy.primary || '',
               headline: copy.headline || '',
               description: copy.description || '',
