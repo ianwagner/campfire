@@ -4536,24 +4536,48 @@ useEffect(() => {
                     hasSquareAsset && candidateCopyCards.length > 0;
                   const baseInlineCopyCard = showCopyMirror
                     ? (() => {
-                        for (const card of candidateCopyCards) {
-                          if (!card) continue;
+                        const buildInlineCopyCard = (card, allowEmpty = false) => {
+                          if (!card) return null;
                           const primary = normalizeCopyText(card.primary);
                           const headline = normalizeCopyText(card.headline);
                           const description = normalizeCopyText(card.description);
-                          if (primary || headline || description) {
-                            return {
-                              id: card.id || '',
-                              product:
-                                card.resolvedProduct ||
-                                resolveCopyCardProductName(card) ||
-                                productName ||
-                                '',
-                              primary,
-                              headline,
-                              description,
-                              letter: card.letter || '',
-                            };
+                          if (!allowEmpty && !primary && !headline && !description) {
+                            return null;
+                          }
+                          return {
+                            id: card.id || '',
+                            product:
+                              card.resolvedProduct ||
+                              resolveCopyCardProductName(card) ||
+                              productName ||
+                              '',
+                            primary,
+                            headline,
+                            description,
+                            letter: card.letter || '',
+                          };
+                        };
+
+                        const assignedCard = buildInlineCopyCard(
+                          assignedCopyCard,
+                          true,
+                        );
+                        if (assignedCard) {
+                          return assignedCard;
+                        }
+
+                        for (const card of candidateCopyCards) {
+                          if (
+                            assignedCopyCard &&
+                            card &&
+                            assignedCopyCard.id &&
+                            card.id === assignedCopyCard.id
+                          ) {
+                            continue;
+                          }
+                          const normalizedCard = buildInlineCopyCard(card);
+                          if (normalizedCard) {
+                            return normalizedCard;
                           }
                         }
                         return null;
