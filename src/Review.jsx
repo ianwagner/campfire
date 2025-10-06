@@ -1088,13 +1088,18 @@ const Review = forwardRef(
         const { height } = toolbarEl.getBoundingClientRect();
         const computedStyle = window.getComputedStyle(toolbarEl);
         const paddingTop = Number.parseFloat(computedStyle?.paddingTop || '0') || 0;
+        const paddingBottom =
+          Number.parseFloat(computedStyle?.paddingBottom || '0') || 0;
         const rootFontSize = Number.parseFloat(
           window.getComputedStyle(document.documentElement)?.fontSize || '16',
         ) || 16;
         const basePaddingTop = 0.75 * rootFontSize;
         const safeAreaTop = Math.max(0, paddingTop - basePaddingTop);
         setToolbarOffset((prev) => {
-          const next = Math.max(0, Math.round(height - safeAreaTop));
+          const next = Math.max(
+            0,
+            Math.round(height - safeAreaTop - paddingBottom),
+          );
           return prev === next ? prev : next;
         });
       });
