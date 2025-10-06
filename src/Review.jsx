@@ -855,7 +855,9 @@ const Review = forwardRef(
   const recipeCopyAssignments = useMemo(() => {
     const map = {};
     recipes.forEach((recipe) => {
-      const assignedId = normalizeKeyPart(recipe.platformCopyCardId);
+      const assignedId = normalizeKeyPart(
+        recipe.platformCopyCardId ?? recipe.metadata?.platformCopyCardId,
+      );
       if (!assignedId) return;
       const candidates = [
         recipe.id,
