@@ -39,6 +39,7 @@ import {
   deleteDoc,
   onSnapshot,
   orderBy,
+  deleteField,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
@@ -706,6 +707,7 @@ const Review = forwardRef(
   const [showCopyModal, setShowCopyModal] = useState(false);
   const actionsMenuRef = useRef(null);
   const [modalCopies, setModalCopies] = useState([]);
+  const [inlineCopyDrafts, setInlineCopyDrafts] = useState({});
   const [reviewVersion, setReviewVersion] = useState(null);
   const [showHelpdeskModal, setShowHelpdeskModal] = useState(false);
   const [helpdeskTickets, setHelpdeskTickets] = useState([]);
@@ -3280,6 +3282,70 @@ useEffect(() => {
     [groupId],
   );
 
+  const saveInlineCopyOverride = useCallback(
+    async (asset, { primary = '', headline = '', description = '' } = {}) => {
+      if (!groupId || !asset) return null;
+      const assetDocId = getAssetDocumentId(asset);
+      if (!assetDocId) return null;
+      const targetGroupId = asset.adGroupId || groupId;
+      const payload = {
+        platformCopyOverride: {
+          primary: primary || '',
+          headline: headline || '',
+          description: description || '',
+        },
+      };
+      try {
+        await setDoc(
+          doc(db, 'adGroups', targetGroupId, 'assets', assetDocId),
+          payload,
+          { merge: true },
+        );
+        const applyOverride = (list) =>
+          list.map((item) =>
+            assetsReferToSameDoc(item, asset)
+              ? { ...item, ...payload }
+              : item,
+          );
+        setAds((prev) => applyOverride(prev));
+        setReviewAds((prev) => applyOverride(prev));
+        setAllAds((prev) => applyOverride(prev));
+        return payload.platformCopyOverride;
+      } catch (err) {
+        console.error('Failed to save ad-specific platform copy', err);
+        throw err;
+      }
+    },
+    [groupId],
+  );
+
+  const clearInlineCopyOverride = useCallback(
+    async (asset) => {
+      if (!groupId || !asset) return;
+      const assetDocId = getAssetDocumentId(asset);
+      if (!assetDocId) return;
+      const targetGroupId = asset.adGroupId || groupId;
+      try {
+        await updateDoc(
+          doc(db, 'adGroups', targetGroupId, 'assets', assetDocId),
+          { platformCopyOverride: deleteField() },
+        );
+      } catch (err) {
+        console.error('Failed to clear ad-specific platform copy', err);
+      }
+      const removeOverride = (list) =>
+        list.map((item) =>
+          assetsReferToSameDoc(item, asset)
+            ? { ...item, platformCopyOverride: undefined }
+            : item,
+        );
+      setAds((prev) => removeOverride(prev));
+      setReviewAds((prev) => removeOverride(prev));
+      setAllAds((prev) => removeOverride(prev));
+    },
+    [groupId],
+  );
+
   const deleteInlineCopyCard = useCallback(
     async (cardId) => {
       if (!groupId || !cardId) return;
@@ -4367,7 +4433,7 @@ useEffect(() => {
                     isSquareAspectRatio(getAssetAspectRatio(asset)),
                   );
                   const showCopyMirror = hasSquareAsset && productCopyCards.length > 0;
-                  const inlineCopyCard = showCopyMirror
+                  const baseInlineCopyCard = showCopyMirror
                     ? (() => {
                         for (const card of productCopyCards) {
                           if (!card) continue;
@@ -4375,21 +4441,295 @@ useEffect(() => {
                           const headline = normalizeCopyText(card.headline);
                           const description = normalizeCopyText(card.description);
                           if (primary || headline || description) {
-                            return { primary, headline, description };
+                            return {
+                              id: card.id || '',
+                              product:
+                                resolveCopyCardProductName(card) || productName || '',
+                              primary,
+                              headline,
+                              description,
+                            };
                           }
                         }
                         return null;
                       })()
                     : null;
-                  const squareAssetIndex = inlineCopyCard
-                    ? sortedAssets.findIndex(
-                        (asset) =>
-                          normalizeAspectKey(getAssetAspectRatio(asset)) === '1x1',
-                      )
-                    : -1;
+                  const squareAssetIndex = sortedAssets.findIndex(
+                    (asset) =>
+                      normalizeAspectKey(getAssetAspectRatio(asset)) === '1x1',
+                  );
+                  const squareAsset =
+                    squareAssetIndex >= 0 ? sortedAssets[squareAssetIndex] : null;
+                  const assetOverrideRaw = squareAsset?.platformCopyOverride || null;
+                  const assetOverride = assetOverrideRaw
+                    ? {
+                        primary: normalizeCopyText(assetOverrideRaw.primary),
+                        headline: normalizeCopyText(assetOverrideRaw.headline),
+                        description: normalizeCopyText(assetOverrideRaw.description),
+                      }
+                    : null;
+                  const inlineCopyCard = assetOverride
+                    ? {
+                        ...(baseInlineCopyCard || {
+                          id: '',
+                          product: productName || '',
+                        }),
+                        ...assetOverride,
+                      }
+                    : baseInlineCopyCard;
                   const shouldRenderInlineCopy =
                     !!inlineCopyCard && squareAssetIndex !== -1;
+                  const inlineCopyEditorState = inlineCopyDrafts[cardKey];
+                  const isEditingInlineCopy = !!inlineCopyEditorState?.editing;
+                  const inlineCopySaving = !!inlineCopyEditorState?.saving;
+                  const inlineCopyDraft =
+                    (isEditingInlineCopy && inlineCopyEditorState?.draft) ||
+                    inlineCopyCard;
+                  const inlineCopyMeta = inlineCopyEditorState?.meta || {};
+                  const inlineCopyValues = inlineCopyDraft || null;
+                  const inlineCopyHasContent = !!(
+                    inlineCopyValues &&
+                    (inlineCopyValues.primary ||
+                      inlineCopyValues.headline ||
+                      inlineCopyValues.description)
+                  );
+                  const shouldShowInlineCopySection =
+                    shouldRenderInlineCopy &&
+                    (isEditingInlineCopy || inlineCopyHasContent);
+                  const inlineCopyProductLabel = inlineCopyCard?.product || productName || '';
+                  const normalizedInlineCopyValues = inlineCopyValues || {
+                    primary: '',
+                    headline: '',
+                    description: '',
+                  };
+                  const inlineCopyHasChanges = isEditingInlineCopy
+                    ? normalizedInlineCopyValues.primary !==
+                        (inlineCopyCard?.primary || '') ||
+                      normalizedInlineCopyValues.headline !==
+                        (inlineCopyCard?.headline || '') ||
+                      normalizedInlineCopyValues.description !==
+                        (inlineCopyCard?.description || '')
+                    : false;
                   const selectId = `ad-status-${cardKey}`;
+                  const handleStartInlineCopyEdit = () => {
+                    if (isGroupReviewed) return;
+                    if (inlineCopyDrafts[cardKey]?.editing) return;
+                    const source = inlineCopyCard || baseInlineCopyCard;
+                    const initial = {
+                      id: source?.id || '',
+                      product: source?.product || productName || '',
+                      primary: source?.primary || '',
+                      headline: source?.headline || '',
+                      description: source?.description || '',
+                    };
+                    setInlineCopyDrafts((prev) => ({
+                      ...prev,
+                      [cardKey]: {
+                        editing: true,
+                        saving: false,
+                        draft: {
+                          primary: initial.primary,
+                          headline: initial.headline,
+                          description: initial.description,
+                        },
+                        meta: {
+                          id: initial.id,
+                          product: initial.product,
+                        },
+                      },
+                    }));
+                  };
+                  const handleInlineCopyDraftChange = (field, value) => {
+                    setInlineCopyDrafts((prev) => {
+                      const current = prev[cardKey];
+                      if (!current) return prev;
+                      return {
+                        ...prev,
+                        [cardKey]: {
+                          ...current,
+                          draft: {
+                            ...current.draft,
+                            [field]: value,
+                          },
+                        },
+                      };
+                    });
+                  };
+                  const handleCancelInlineCopyEdit = () => {
+                    setInlineCopyDrafts((prev) => {
+                      const next = { ...prev };
+                      delete next[cardKey];
+                      return next;
+                    });
+                  };
+                  const handleSaveInlineCopy = async () => {
+                    const currentState = inlineCopyDrafts[cardKey];
+                    if (!currentState) return;
+                    const fallbackState = {
+                      ...currentState,
+                      draft: { ...currentState.draft },
+                      meta: { ...currentState.meta },
+                      saving: false,
+                    };
+                    const draftValues = {
+                      primary: currentState.draft.primary || '',
+                      headline: currentState.draft.headline || '',
+                      description: currentState.draft.description || '',
+                    };
+                    setInlineCopyDrafts((prev) => ({
+                      ...prev,
+                      [cardKey]: { ...prev[cardKey], saving: true },
+                    }));
+                    const applyToAll = window.confirm(
+                      'This copy is automatically applied to all ads for the same product.\n\nClick "OK" to edit it for all ads, or "Cancel" to edit just this ad.',
+                    );
+                    try {
+                      if (applyToAll) {
+                        await saveInlineCopyCard({
+                          id: inlineCopyCard?.id || inlineCopyMeta.id || '',
+                          primary: draftValues.primary,
+                          headline: draftValues.headline,
+                          description: draftValues.description,
+                          product:
+                            inlineCopyCard?.product ||
+                            inlineCopyMeta.product ||
+                            productName ||
+                            '',
+                        });
+                        if (squareAsset) {
+                          await clearInlineCopyOverride(squareAsset);
+                        }
+                      } else if (squareAsset) {
+                        await saveInlineCopyOverride(squareAsset, draftValues);
+                      } else {
+                        console.warn(
+                          'No square asset available for ad-specific platform copy update',
+                        );
+                      }
+                      setInlineCopyDrafts((prev) => {
+                        const next = { ...prev };
+                        delete next[cardKey];
+                        return next;
+                      });
+                    } catch (err) {
+                      console.error('Failed to save inline platform copy', err);
+                      setInlineCopyDrafts((prev) => ({
+                        ...prev,
+                        [cardKey]: fallbackState,
+                      }));
+                    }
+                  };
+                  const inlineCopyBlock = shouldShowInlineCopySection ? (
+                    <div className="flex w-full flex-col gap-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                          Platform copy
+                          {inlineCopyProductLabel
+                            ? ` — ${inlineCopyProductLabel}`
+                            : ''}
+                        </p>
+                        {isEditingInlineCopy ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleCancelInlineCopyEdit}
+                              disabled={inlineCopySaving}
+                              className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSaveInlineCopy}
+                              disabled={!inlineCopyHasChanges || inlineCopySaving}
+                              className="inline-flex items-center gap-2 rounded-full border border-indigo-500 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
+                            >
+                              {inlineCopySaving ? 'Saving...' : 'Save'}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleStartInlineCopyEdit}
+                            disabled={isGroupReviewed || !inlineCopyCard}
+                            title={
+                              isGroupReviewed
+                                ? reviewedLockMessage
+                                : !inlineCopyCard
+                                ? 'No platform copy available to edit'
+                                : undefined
+                            }
+                            className="inline-flex items-center gap-2 rounded-full border border-indigo-500 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
+                          >
+                            <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                            Edit platform copy
+                          </button>
+                        )}
+                      </div>
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                          Primary copy
+                        </p>
+                        {isEditingInlineCopy ? (
+                          <textarea
+                            value={normalizedInlineCopyValues.primary}
+                            onChange={(event) =>
+                              handleInlineCopyDraftChange('primary', event.target.value)
+                            }
+                            rows={3}
+                            disabled={inlineCopySaving}
+                            className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                          />
+                        ) : (
+                          <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug text-gray-900 dark:text-[var(--dark-text)]">
+                            {normalizedInlineCopyValues.primary || '—'}
+                          </p>
+                        )}
+                      </div>
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                            Headline
+                          </p>
+                          {isEditingInlineCopy ? (
+                            <textarea
+                              value={normalizedInlineCopyValues.headline}
+                              onChange={(event) =>
+                                handleInlineCopyDraftChange('headline', event.target.value)
+                              }
+                              rows={2}
+                              disabled={inlineCopySaving}
+                              className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                            />
+                          ) : (
+                            <p className="mt-0.5 whitespace-pre-wrap break-words text-sm font-semibold leading-snug text-gray-900 dark:text-[var(--dark-text)]">
+                              {normalizedInlineCopyValues.headline || '—'}
+                            </p>
+                          )}
+                        </div>
+                        <div className="mt-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                            Description
+                          </p>
+                          {isEditingInlineCopy ? (
+                            <textarea
+                              value={normalizedInlineCopyValues.description}
+                              onChange={(event) =>
+                                handleInlineCopyDraftChange('description', event.target.value)
+                              }
+                              rows={2}
+                              disabled={inlineCopySaving}
+                              className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                            />
+                          ) : (
+                            <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug text-gray-600 dark:text-gray-300">
+                              {normalizedInlineCopyValues.description || '—'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null;
                   const handleSelectChange = async (event) => {
                     const value = event.target.value;
                     if (value === 'pending') {
@@ -4567,37 +4907,8 @@ useEffect(() => {
                               if (shouldRenderInlineCopy && assetIdx === squareAssetIndex) {
                                 return (
                                   <div key={assetKey} className={wrapperClasses}>
-                                    {inlineCopyCard?.primary ? (
-                                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                                          Primary copy
-                                        </p>
-                                        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-900 dark:text-[var(--dark-text)]">
-                                          {inlineCopyCard.primary}
-                                        </p>
-                                      </div>
-                                    ) : null}
+                                    {inlineCopyBlock}
                                     {assetNode}
-                                    {inlineCopyCard?.headline ? (
-                                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                                          Headline
-                                        </p>
-                                        <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-gray-900 dark:text-[var(--dark-text)]">
-                                          {inlineCopyCard.headline}
-                                        </p>
-                                      </div>
-                                    ) : null}
-                                    {inlineCopyCard?.description ? (
-                                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                                          Description
-                                        </p>
-                                        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                                          {inlineCopyCard.description}
-                                        </p>
-                                      </div>
-                                    ) : null}
                                   </div>
                                 );
                               }
@@ -4810,37 +5121,8 @@ useEffect(() => {
                               if (isSquareAsset) {
                                 return (
                                   <div key={assetKey} className={wrapperClasses}>
-                                    {inlineCopyCard?.primary ? (
-                                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                                          Primary copy
-                                        </p>
-                                        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-900 dark:text-[var(--dark-text)]">
-                                          {inlineCopyCard.primary}
-                                        </p>
-                                      </div>
-                                    ) : null}
+                                    {inlineCopyBlock}
                                     {assetNode}
-                                    {inlineCopyCard?.headline ? (
-                                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                                          Headline
-                                        </p>
-                                        <p className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-gray-900 dark:text-[var(--dark-text)]">
-                                          {inlineCopyCard.headline}
-                                        </p>
-                                      </div>
-                                    ) : null}
-                                    {inlineCopyCard?.description ? (
-                                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                                          Description
-                                        </p>
-                                        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                                          {inlineCopyCard.description}
-                                        </p>
-                                      </div>
-                                    ) : null}
                                   </div>
                                 );
                               }
