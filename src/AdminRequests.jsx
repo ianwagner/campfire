@@ -66,7 +66,12 @@ const createEmptyForm = (overrides = {}) => ({
   ...overrides,
 });
 
-const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true } = {}) => {
+const AdminRequests = ({
+  filterEditorId,
+  filterCreatorId,
+  allowedBrandCodes = null,
+  canAssignEditor = true,
+} = {}) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -75,6 +80,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const [helpdeskRequest, setHelpdeskRequest] = useState(null);
   const [form, setForm] = useState(createEmptyForm());
   const [brands, setBrands] = useState([]);
+  const [brandNotes, setBrandNotes] = useState({});
   const [aiArtStyle, setAiArtStyle] = useState('');
   const [designers, setDesigners] = useState([]);
   const [editors, setEditors] = useState([]);
@@ -97,7 +103,11 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
   const isOps = role === 'ops';
   const isProjectManager = role === 'project-manager';
   const showDesignerSelect = !isOps && !isProjectManager;
-  const showEditorSelect = canAssignEditor && !isOps && !isProjectManager;
+  const showEditorSelect =
+    canAssignEditor && !isOps && !isProjectManager && form.type !== 'helpdesk';
+  const brandFilterKey = Array.isArray(allowedBrandCodes)
+    ? allowedBrandCodes.join('|')
+    : 'ALL';
   const existingBrandCodes = useMemo(() => {
     const codes = new Set();
     brands.forEach((brand) => {
@@ -118,13 +128,49 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       setLoading(true);
       try {
         const base = collection(db, 'requests');
-        let q = base;
-        if (filterEditorId) q = query(q, where('editorId', '==', filterEditorId));
-        if (filterCreatorId) q = query(q, where('createdBy', '==', filterCreatorId));
-        const snap = await getDocs(q);
-        const list = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+        const constraints = [];
+        if (filterEditorId) constraints.push(where('editorId', '==', filterEditorId));
+        if (filterCreatorId) constraints.push(where('createdBy', '==', filterCreatorId));
+
+        const hasBrandFilter = Array.isArray(allowedBrandCodes);
+        const normalizedBrandCodes = hasBrandFilter
+          ? Array.from(
+              new Set(
+                allowedBrandCodes
+                  .filter((code) => typeof code === 'string' && code.trim().length > 0)
+                  .map((code) => code.trim().toUpperCase()),
+              ),
+            )
+          : [];
+
+        if (hasBrandFilter && normalizedBrandCodes.length === 0) {
+          setRequests([]);
+          return;
+        }
+
+        const queryPromises = [];
+        if (hasBrandFilter) {
+          for (let i = 0; i < normalizedBrandCodes.length; i += 10) {
+            const chunk = normalizedBrandCodes.slice(i, i + 10);
+            queryPromises.push(
+              getDocs(query(base, ...constraints, where('brandCode', 'in', chunk))),
+            );
+          }
+        } else {
+          const baseQuery = constraints.length ? query(base, ...constraints) : base;
+          queryPromises.push(getDocs(baseQuery));
+        }
+
+        const results = await Promise.all(queryPromises);
+        const mapped = new Map();
+        results.forEach((snap) => {
+          snap.docs.forEach((docSnap) => {
+            mapped.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
+          });
+        });
+        const list = Array.from(mapped.values()).sort(
+          (a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0),
+        );
         setRequests(list);
       } catch (err) {
         console.error('Failed to fetch requests', err);
@@ -137,9 +183,12 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     const fetchBrands = async () => {
       try {
         const snap = await getDocs(collection(db, 'brands'));
+        const notesMap = {};
         setBrands(
           snap.docs.map((d) => {
             const data = d.data();
+            const rawCode = typeof data.code === 'string' ? data.code.trim() : '';
+            const code = rawCode.toUpperCase();
             const products = Array.isArray(data.products)
               ? data.products
                   .map((p) => {
@@ -150,16 +199,25 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                   })
                   .filter((name) => name && name.length)
               : [];
+            const helpdeskNotes =
+              typeof data.helpdeskNotes === 'string' ? data.helpdeskNotes : '';
+            if (code) {
+              notesMap[code] = helpdeskNotes;
+            }
             return {
-              code: data.code,
+              id: d.id,
+              code,
               aiArtStyle: data.aiArtStyle || '',
               products,
+              helpdeskNotes,
             };
           })
         );
+        setBrandNotes(notesMap);
       } catch (err) {
         console.error('Failed to fetch brands', err);
         setBrands([]);
+        setBrandNotes({});
       }
     };
 
@@ -210,7 +268,44 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     } else {
       setEditors([]);
     }
-  }, [filterEditorId, filterCreatorId, showDesignerSelect, showEditorSelect]);
+  }, [filterEditorId, filterCreatorId, brandFilterKey, showDesignerSelect, showEditorSelect]);
+
+  useEffect(() => {
+    setRequests((prev) => {
+      let changed = false;
+      const updated = prev.map((req) => {
+        const normalized =
+          typeof req?.brandCode === 'string'
+            ? req.brandCode.trim().toUpperCase()
+            : '';
+        if (!normalized) return req;
+        const note = brandNotes[normalized] ?? '';
+        if (req.internalNotes === note) return req;
+        changed = true;
+        return { ...req, internalNotes: note };
+      });
+      return changed ? updated : prev;
+    });
+    setHelpdeskRequest((prev) => {
+      if (!prev) return prev;
+      const normalized =
+        typeof prev.brandCode === 'string'
+          ? prev.brandCode.trim().toUpperCase()
+          : '';
+      if (!normalized) return prev;
+      const note = brandNotes[normalized] ?? '';
+      const brandInfo = brands.find((brand) => brand.code === normalized);
+      const brandDocumentId = brandInfo?.id || prev.brandDocumentId || null;
+      if (prev.internalNotes === note && prev.brandDocumentId === brandDocumentId) {
+        return prev;
+      }
+      return {
+        ...prev,
+        internalNotes: note,
+        brandDocumentId,
+      };
+    });
+  }, [brandNotes, brands]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -262,6 +357,22 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
     setSaveError('');
     setSaving(false);
     setBrandCodeError('');
+  };
+
+  const openHelpdesk = (req) => {
+    if (!req) return;
+    const normalizedCode =
+      typeof req.brandCode === 'string' ? req.brandCode.trim().toUpperCase() : '';
+    const note = normalizedCode ? brandNotes[normalizedCode] ?? '' : '';
+    const brandInfo = normalizedCode
+      ? brands.find((brand) => brand.code === normalizedCode)
+      : null;
+    setHelpdeskRequest({
+      ...req,
+      brandCode: normalizedCode || req.brandCode || '',
+      internalNotes: note,
+      brandDocumentId: brandInfo?.id || req.brandDocumentId || null,
+    });
   };
 
   const openCreate = () => {
@@ -521,9 +632,15 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
         contractEndDate: isNewBrand ? contractEndDate : null,
         contractLink: isNewBrand ? contractLink : '',
         designerId: form.designerId || null,
-        editorId: showEditorSelect
-          ? form.editorId || null
-          : filterEditorId || (isProjectManager ? form.editorId || null : auth.currentUser?.uid || form.editorId || null),
+        editorId:
+          form.type === 'helpdesk'
+            ? null
+            : showEditorSelect
+              ? form.editorId || null
+              : filterEditorId ||
+                (isProjectManager
+                  ? form.editorId || null
+                  : auth.currentUser?.uid || form.editorId || null),
         assignee: form.assignee ? form.assignee.trim() : null,
         infoNote: form.infoNote,
         productRequests: form.type === 'newAds' ? productRequests : [],
@@ -628,6 +745,66 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
       }
     } catch (err) {
       console.error('Failed to update status', err);
+    }
+  };
+
+  const handleNotesUpdate = ({ scope, code, value, brandDocumentId }) => {
+    if (!scope) return;
+    if (scope === 'brand') {
+      const normalized =
+        typeof code === 'string' ? code.trim().toUpperCase() : '';
+      if (!normalized) return;
+      setBrandNotes((prev) => {
+        if (prev[normalized] === value) return prev;
+        return { ...prev, [normalized]: value };
+      });
+      setBrands((prev) =>
+        prev.map((brand) => {
+          if (brand.code !== normalized) return brand;
+          const hasSameNotes = brand.helpdeskNotes === value;
+          const hasSameId = !brandDocumentId || brand.id === brandDocumentId;
+          if (hasSameNotes && hasSameId) return brand;
+          const next = { ...brand, helpdeskNotes: value };
+          if (brandDocumentId && brand.id !== brandDocumentId) {
+            next.id = brandDocumentId;
+          }
+          return next;
+        }),
+      );
+      setRequests((prev) =>
+        prev.map((req) => {
+          const reqCode =
+            typeof req.brandCode === 'string'
+              ? req.brandCode.trim().toUpperCase()
+              : '';
+          if (reqCode !== normalized) return req;
+          if (req.internalNotes === value) return req;
+          return { ...req, internalNotes: value };
+        }),
+      );
+      setHelpdeskRequest((prev) => {
+        if (!prev) return prev;
+        const prevCode =
+          typeof prev.brandCode === 'string'
+            ? prev.brandCode.trim().toUpperCase()
+            : '';
+        if (prevCode !== normalized) return prev;
+        if (prev.internalNotes === value && (!brandDocumentId || prev.brandDocumentId === brandDocumentId)) {
+          return prev;
+        }
+        const next = { ...prev, internalNotes: value };
+        if (brandDocumentId) {
+          next.brandDocumentId = brandDocumentId;
+        }
+        return next;
+      });
+    } else if (scope === 'request') {
+      setRequests((prev) =>
+        prev.map((r) => (r.id === code ? { ...r, internalNotes: value } : r)),
+      );
+      setHelpdeskRequest((prev) =>
+        prev && prev.id === code ? { ...prev, internalNotes: value } : prev,
+      );
     }
   };
 
@@ -1080,7 +1257,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         <div className="flex items-center justify-center">
                           {req.type === 'helpdesk' && (
                             <IconButton
-                              onClick={() => setHelpdeskRequest(req)}
+                              onClick={() => openHelpdesk(req)}
                               className="mr-2"
                               aria-label="Open helpdesk chat"
                             >
@@ -1146,7 +1323,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         <div className="flex items-center justify-center">
                           {req.type === 'helpdesk' && (
                             <IconButton
-                              onClick={() => setHelpdeskRequest(req)}
+                              onClick={() => openHelpdesk(req)}
                               className="mr-2"
                               aria-label="Open helpdesk chat"
                             >
@@ -1212,7 +1389,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         <div className="flex items-center justify-center">
                           {req.type === 'helpdesk' && (
                             <IconButton
-                              onClick={() => setHelpdeskRequest(req)}
+                              onClick={() => openHelpdesk(req)}
                               className="mr-2"
                               aria-label="Open helpdesk chat"
                             >
@@ -1278,7 +1455,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         <div className="flex items-center justify-center">
                           {req.type === 'helpdesk' && (
                             <IconButton
-                              onClick={() => setHelpdeskRequest(req)}
+                              onClick={() => openHelpdesk(req)}
                               className="mr-2"
                               aria-label="Open helpdesk chat"
                             >
@@ -1342,7 +1519,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                         <div className="flex items-center justify-center">
                           {req.type === 'helpdesk' && (
                             <IconButton
-                              onClick={() => setHelpdeskRequest(req)}
+                              onClick={() => openHelpdesk(req)}
                               className="mr-2"
                               aria-label="Open helpdesk chat"
                             >
@@ -1398,7 +1575,7 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
                           onDragStart={handleDragStart}
                           onCreateGroup={handleCreateGroup}
                           onView={openView}
-                          onChat={setHelpdeskRequest}
+                          onChat={openHelpdesk}
                         />
                     ))}
                   </>
@@ -1965,13 +2142,14 @@ const AdminRequests = ({ filterEditorId, filterCreatorId, canAssignEditor = true
           request={viewRequest}
           onClose={() => setViewRequest(null)}
           onEdit={startEdit}
-          onChat={setHelpdeskRequest}
+          onChat={openHelpdesk}
         />
       )}
       {helpdeskRequest && (
         <HelpdeskThreadModal
           request={helpdeskRequest}
           onClose={() => setHelpdeskRequest(null)}
+          onUpdateNotes={handleNotesUpdate}
         />
       )}
     </div>

@@ -39,6 +39,7 @@ import {
   deleteDoc,
   onSnapshot,
   orderBy,
+  deleteField,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
@@ -77,6 +78,106 @@ const normalizeKeyPart = (value) => {
 };
 
 const combineClasses = (...classes) => classes.filter(Boolean).join(' ');
+
+const normalizeProductKey = (value) => {
+  const normalized = normalizeKeyPart(value).toLowerCase();
+  if (!normalized) {
+    return '';
+  }
+  const withoutLeadingZeros = normalized.replace(/^0+/, '');
+  if (withoutLeadingZeros) {
+    return withoutLeadingZeros;
+  }
+  // Preserve a single zero so numeric recipe codes like "0" still resolve.
+  return normalized.includes('0') ? '0' : normalized;
+};
+
+const resolveRecipeProductName = (recipe) => {
+  if (!recipe || typeof recipe !== 'object') return '';
+  const candidates = [
+    recipe.product?.name,
+    recipe.product,
+    recipe.components?.['product.name'],
+    recipe.components?.product?.name,
+    recipe.metadata?.product?.name,
+    recipe.metadata?.productName,
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeKeyPart(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return '';
+};
+
+const extractCopyCardProductValue = (value) => {
+  if (!value) return '';
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const normalized = extractCopyCardProductValue(entry);
+      if (normalized) return normalized;
+    }
+    return '';
+  }
+  if (typeof value === 'object') {
+    const nestedCandidates = [
+      value.name,
+      value.title,
+      value.label,
+      value.value,
+      value.productName,
+    ];
+    for (const nested of nestedCandidates) {
+      const normalized = normalizeKeyPart(nested);
+      if (normalized) return normalized;
+    }
+    return '';
+  }
+  return normalizeKeyPart(value);
+};
+
+const resolveCopyCardProductName = (card) => {
+  if (!card) return '';
+  if (typeof card !== 'object') {
+    return extractCopyCardProductValue(card);
+  }
+
+  const candidates = [
+    card.product,
+    card.productName,
+    card.name,
+    card.title,
+    card.label,
+    card.meta?.product,
+    card.meta?.productName,
+    card.meta?.product?.name,
+    card.meta?.product?.title,
+    card.metadata?.product,
+    card.metadata?.productName,
+    card.metadata?.product?.name,
+    card.metadata?.product?.title,
+    card.details?.product,
+    card.details?.productName,
+    card.details?.product?.name,
+    card.details?.product?.title,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = extractCopyCardProductValue(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
+};
+
+const normalizeCopyText = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim();
+  return String(value);
+};
 
 const getAssetDocumentId = (asset) =>
   normalizeKeyPart(
@@ -316,6 +417,184 @@ const isSafari =
 
 const BUFFER_COUNT = 3;
 
+const parseDimensionValue = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === 'string') {
+    const match = value.match(/([0-9.]+)/);
+    if (!match) return null;
+    const parsed = parseFloat(match[1]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const extractDimensionsFromValue = (value) => {
+  if (!value) return null;
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const width = parseDimensionValue(value.width ?? value.w);
+    const height = parseDimensionValue(value.height ?? value.h);
+    if (width && height) {
+      return { width, height };
+    }
+  }
+
+  const asString = Array.isArray(value) ? value.join(' ') : String(value);
+  const match =
+    asString.match(/([0-9.]+)[^0-9.]*[:xX\\/][^0-9.]*([0-9.]+)/) ||
+    asString.match(/([0-9.]+)[^0-9.]*by[^0-9.]*([0-9.]+)/i);
+  if (!match) return null;
+  const [, firstRaw, secondRaw] = match;
+  const width = parseDimensionValue(firstRaw);
+  const height = parseDimensionValue(secondRaw);
+  if (width && height) {
+    return { width, height };
+  }
+  return null;
+};
+
+const extractAssetDimensions = (asset) => {
+  if (!asset || typeof asset !== 'object') return null;
+
+  const widthCandidates = [
+    asset.width,
+    asset.pixelWidth,
+    asset.widthPx,
+    asset.imageWidth,
+    asset.image_width,
+    asset.metadata?.width,
+    asset.metadata?.pixelWidth,
+    asset.metadata?.widthPx,
+    asset.metadata?.imageWidth,
+    asset.metadata?.image_width,
+    asset.metadata?.dimensions,
+    asset.meta?.width,
+    asset.meta?.pixelWidth,
+    asset.meta?.dimensions,
+    asset.platform?.width,
+    asset.platform?.pixelWidth,
+    asset.platform?.dimensions,
+  ];
+
+  const heightCandidates = [
+    asset.height,
+    asset.pixelHeight,
+    asset.heightPx,
+    asset.imageHeight,
+    asset.image_height,
+    asset.metadata?.height,
+    asset.metadata?.pixelHeight,
+    asset.metadata?.heightPx,
+    asset.metadata?.imageHeight,
+    asset.metadata?.image_height,
+    asset.metadata?.dimensions,
+    asset.meta?.height,
+    asset.meta?.pixelHeight,
+    asset.meta?.dimensions,
+    asset.platform?.height,
+    asset.platform?.pixelHeight,
+    asset.platform?.dimensions,
+  ];
+
+  let width = null;
+  for (const candidate of widthCandidates) {
+    if (!candidate) continue;
+    if (typeof candidate === 'object') {
+      const dims = extractDimensionsFromValue(candidate);
+      if (dims?.width && dims?.height) {
+        return dims;
+      }
+      const parsed = parseDimensionValue(candidate.width ?? candidate.w);
+      if (parsed) {
+        width = parsed;
+        break;
+      }
+      continue;
+    }
+    const parsed = parseDimensionValue(candidate);
+    if (parsed) {
+      width = parsed;
+      break;
+    }
+  }
+
+  let height = null;
+  for (const candidate of heightCandidates) {
+    if (!candidate) continue;
+    if (typeof candidate === 'object') {
+      const dims = extractDimensionsFromValue(candidate);
+      if (dims?.width && dims?.height) {
+        return dims;
+      }
+      const parsed = parseDimensionValue(candidate.height ?? candidate.h);
+      if (parsed) {
+        height = parsed;
+        break;
+      }
+      continue;
+    }
+    const parsed = parseDimensionValue(candidate);
+    if (parsed) {
+      height = parsed;
+      break;
+    }
+  }
+
+  if (width && height) {
+    return { width, height };
+  }
+
+  const dimensionCandidates = [
+    asset.dimensions,
+    asset.dimension,
+    asset.size,
+    asset.metadata?.dimensions,
+    asset.metadata?.size,
+    asset.meta?.dimensions,
+    asset.meta?.size,
+    asset.platform?.dimensions,
+    asset.platform?.size,
+  ];
+
+  for (const candidate of dimensionCandidates) {
+    const dims = extractDimensionsFromValue(candidate);
+    if (dims) {
+      return dims;
+    }
+  }
+
+  return null;
+};
+
+const getAssetAspectRatio = (asset) => {
+  if (!asset) return '';
+  const direct =
+    asset.aspectRatio || parseAdFilename(asset.filename || '').aspectRatio || '';
+  if (direct) return direct;
+
+  const dims = extractAssetDimensions(asset);
+  if (!dims) return '';
+
+  const { width, height } = dims;
+  if (!width || !height) return '';
+
+  const round = (value) => {
+    if (!Number.isFinite(value)) return null;
+    if (Math.abs(value - Math.round(value)) < 0.01) {
+      return Math.round(value);
+    }
+    return Math.round(value * 100) / 100;
+  };
+
+  const normalizedWidth = round(width);
+  const normalizedHeight = round(height);
+  if (!normalizedWidth || !normalizedHeight) return '';
+
+  return `${normalizedWidth}x${normalizedHeight}`;
+};
+
 const normalizeAspectKey = (value) => {
   const normalized = normalizeKeyPart(value);
   if (!normalized) return '';
@@ -325,6 +604,25 @@ const normalizeAspectKey = (value) => {
     return `${match[1]}x${match[2]}`.toLowerCase();
   }
   return compact.toLowerCase();
+};
+
+const isSquareAspectRatio = (aspect) => {
+  const normalized = normalizeAspectKey(aspect);
+  if (!normalized) return false;
+  if (normalized === '1x1' || normalized === 'square') {
+    return true;
+  }
+  const match = normalized.match(/^([0-9.]+)x([0-9.]+)$/);
+  if (!match) {
+    return false;
+  }
+  const width = parseFloat(match[1]);
+  const height = parseFloat(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || height === 0) {
+    return false;
+  }
+  const ratio = width / height;
+  return Math.abs(ratio - 1) <= 0.02;
 };
 
 const getCssAspectRatioValue = (aspect) => {
@@ -409,6 +707,8 @@ const Review = forwardRef(
   const [showCopyModal, setShowCopyModal] = useState(false);
   const actionsMenuRef = useRef(null);
   const [modalCopies, setModalCopies] = useState([]);
+  const [inlineCopyDrafts, setInlineCopyDrafts] = useState({});
+  const [inlineCopyModalContext, setInlineCopyModalContext] = useState(null);
   const [reviewVersion, setReviewVersion] = useState(null);
   const [showHelpdeskModal, setShowHelpdeskModal] = useState(false);
   const [helpdeskTickets, setHelpdeskTickets] = useState([]);
@@ -439,6 +739,85 @@ const Review = forwardRef(
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
+
+  const copiesByProduct = useMemo(() => {
+    const map = {};
+    copyCards.forEach((card) => {
+      const productName = resolveCopyCardProductName(card);
+      const key = normalizeProductKey(productName);
+      if (!map[key]) {
+        map[key] = [];
+      }
+      map[key].push(card);
+    });
+    return map;
+  }, [copyCards]);
+
+  const recipeProductMapMemo = useMemo(() => {
+    const map = {};
+    const assign = (key, value) => {
+      const normalizedKey = normalizeProductKey(key);
+      if (!normalizedKey) return;
+      if (!map[normalizedKey]) {
+        map[normalizedKey] = value;
+      }
+    };
+    recipes.forEach((recipe) => {
+      const productName = resolveRecipeProductName(recipe);
+      if (!productName) return;
+      assign(recipe.id, productName);
+      assign(recipe.recipeCode, productName);
+      assign(recipe.recipeNo, productName);
+      assign(recipe.code, productName);
+      assign(recipe.components?.recipeCode, productName);
+    });
+    return map;
+  }, [recipes]);
+
+  const getProductNameForRecipe = useCallback(
+    (recipeCode) => {
+      const normalized = normalizeProductKey(recipeCode);
+      if (normalized && recipeProductMapMemo[normalized]) {
+        return recipeProductMapMemo[normalized];
+      }
+      if (!recipeCode) {
+        return '';
+      }
+      const fallback = recipes.find((recipe) => {
+        const keys = [
+          recipe.id,
+          recipe.recipeCode,
+          recipe.recipeNo,
+          recipe.code,
+          recipe.components?.recipeCode,
+        ];
+        return keys.some((key) => normalizeProductKey(key) === normalized);
+      });
+      if (fallback) {
+        return resolveRecipeProductName(fallback);
+      }
+      return '';
+    },
+    [recipeProductMapMemo, recipes],
+  );
+
+  const getCopyCardsForProduct = useCallback(
+    (productName) => {
+      const normalized = normalizeProductKey(productName);
+      if (normalized) {
+        if (copiesByProduct[normalized]) {
+          return copiesByProduct[normalized];
+        }
+        if (copiesByProduct['']) {
+          return copiesByProduct[''];
+        }
+      } else if (copiesByProduct['']) {
+        return copiesByProduct[''];
+      }
+      return [];
+    },
+    [copiesByProduct],
+  );
 
   const resolvedReviewerName = useMemo(() => {
     if (typeof reviewerName === 'string' && reviewerName.trim()) {
@@ -615,7 +994,10 @@ const Review = forwardRef(
     const computeOffsets = () => {
       const computedStyle = window.getComputedStyle(statusBarEl);
       const marginTop = Number.parseFloat(computedStyle?.marginTop || '0') || 0;
-      const pinOffset = -marginTop;
+      const safeToolbarOffset = Number.isFinite(toolbarOffset)
+        ? Math.max(0, toolbarOffset)
+        : 0;
+      const pinOffset = safeToolbarOffset - marginTop;
       const releaseOffset = Math.max(0, pinOffset + MIN_HYSTERESIS);
       return { pinOffset, releaseOffset };
     };
@@ -672,7 +1054,7 @@ const Review = forwardRef(
       }
       window.removeEventListener('resize', updateOffsets);
     };
-  }, [reviewVersion, reviewAds.length]);
+  }, [reviewVersion, reviewAds.length, toolbarOffset]);
 
   useEffect(() => {
     if (reviewVersion !== 2) {
@@ -707,8 +1089,20 @@ const Review = forwardRef(
       frame = raf(() => {
         frame = null;
         const { height } = toolbarEl.getBoundingClientRect();
+        const computedStyle = window.getComputedStyle(toolbarEl);
+        const paddingTop = Number.parseFloat(computedStyle?.paddingTop || '0') || 0;
+        const paddingBottom =
+          Number.parseFloat(computedStyle?.paddingBottom || '0') || 0;
+        const rootFontSize = Number.parseFloat(
+          window.getComputedStyle(document.documentElement)?.fontSize || '16',
+        ) || 16;
+        const basePaddingTop = 0.75 * rootFontSize;
+        const safeAreaTop = Math.max(0, paddingTop - basePaddingTop);
         setToolbarOffset((prev) => {
-          const next = Math.max(0, Math.round(height));
+          const next = Math.max(
+            0,
+            Math.round(height - safeAreaTop - paddingBottom),
+          );
           return prev === next ? prev : next;
         });
       });
@@ -975,10 +1369,7 @@ const Review = forwardRef(
     const prefOrder = REVIEW_V2_ASPECT_ORDER;
     const getRecipe = (a) =>
       a.recipeCode || parseAdFilename(a.filename || '').recipeCode || 'unknown';
-    const getAspect = (a) =>
-      normalizeAspectKey(
-        a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '',
-      );
+    const getAspect = (a) => normalizeAspectKey(getAssetAspectRatio(a));
     // Deduplicate by root id while keeping highest version of each asset
     const latestMap = {};
     list.forEach((a) => {
@@ -1220,7 +1611,7 @@ useEffect(() => {
     ads.forEach((a) => {
       const info = parseAdFilename(a.filename || '');
       const recipe = a.recipeCode || info.recipeCode || 'unknown';
-      const aspect = a.aspectRatio || info.aspectRatio || '';
+      const aspect = getAssetAspectRatio(a) || info.aspectRatio || '';
       const item = { ...a, recipeCode: recipe, aspectRatio: aspect };
       if (!map[recipe]) map[recipe] = [];
       map[recipe].push(item);
@@ -1316,7 +1707,7 @@ useEffect(() => {
               status = rawStatus;
               rv = data.reviewVersion || 1;
               setGroupBrandCode(data.brandCode || '');
-              if (rv === 3) {
+              if (rv === 2 || rv === 3) {
                 try {
                   const rSnap = await getDocs(
                     collection(db, 'adGroups', groupId, 'recipes')
@@ -1328,10 +1719,14 @@ useEffect(() => {
                       ...d.data(),
                     }))
                   );
+                } catch (err) {
+                  console.error('Failed to fetch recipes for review', err);
+                  setRecipes([]);
                 } finally {
                   setRecipesLoaded(true);
                 }
               } else {
+                setRecipes([]);
                 setRecipesLoaded(true);
               }
               if (status === 'reviewed') status = 'done';
@@ -1511,11 +1906,9 @@ useEffect(() => {
           const rB = b.recipeCode || infoB.recipeCode || '';
           const recipeComparison = compareRecipeCodes(rA, rB);
           if (recipeComparison !== 0) return recipeComparison;
-          const aAsp = a.aspectRatio || infoA.aspectRatio || '';
-          const bAsp = b.aspectRatio || infoB.aspectRatio || '';
-          return (
-            getReviewAspectPriority(aAsp) - getReviewAspectPriority(bAsp)
-          );
+          const aAsp = getAssetAspectRatio(a) || infoA.aspectRatio || '';
+          const bAsp = getAssetAspectRatio(b) || infoB.aspectRatio || '';
+          return getReviewAspectPriority(aAsp) - getReviewAspectPriority(bAsp);
         });
 
         // determine latest version for each ad unit (recipe + group)
@@ -1743,11 +2136,9 @@ useEffect(() => {
     );
     groups.forEach((g) => {
       g.sort((a, b) => {
-        const aspA = a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
-        const aspB = b.aspectRatio || parseAdFilename(b.filename || '').aspectRatio || '';
-        return (
-          getReviewAspectPriority(aspA) - getReviewAspectPriority(aspB)
-        );
+        const aspA = getAssetAspectRatio(a);
+        const aspB = getAssetAspectRatio(b);
+        return getReviewAspectPriority(aspA) - getReviewAspectPriority(aspB);
       });
     });
     return groups;
@@ -1755,15 +2146,11 @@ useEffect(() => {
 
   const currentVersionAssets = versions[versionIndex] || [];
   const currentInfo = currentAd ? parseAdFilename(currentAd.filename || '') : {};
-  const currentAspectRaw =
-    currentAd?.aspectRatio || currentInfo.aspectRatio || '';
+  const currentAspectRaw = getAssetAspectRatio(currentAd) || currentInfo.aspectRatio || '';
   const normalizedCurrentAspect = normalizeAspectKey(currentAspectRaw);
   const displayAd =
     currentVersionAssets.find(
-      (a) =>
-        normalizeAspectKey(
-          a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '',
-        ) === normalizedCurrentAspect,
+      (a) => normalizeAspectKey(getAssetAspectRatio(a)) === normalizedCurrentAspect,
     ) || currentVersionAssets[0] || currentAd;
   const displayAssetId = getAssetDocumentId(displayAd);
   const displayParentId = getAssetParentId(displayAd);
@@ -2508,13 +2895,9 @@ useEffect(() => {
       const groups = Object.values(verMap)
         .map((group) => {
           const sorted = [...group].sort((a, b) => {
-            const aspectA =
-              a.aspectRatio || parseAdFilename(a.filename || '').aspectRatio || '';
-            const aspectB =
-              b.aspectRatio || parseAdFilename(b.filename || '').aspectRatio || '';
-            return (
-              getReviewAspectPriority(aspectA) - getReviewAspectPriority(aspectB)
-            );
+            const aspectA = getAssetAspectRatio(a);
+            const aspectB = getAssetAspectRatio(b);
+            return getReviewAspectPriority(aspectA) - getReviewAspectPriority(aspectB);
           });
           const nonArchived = sorted.filter((asset) => asset.status !== 'archived');
           return nonArchived.length > 0 ? nonArchived : sorted;
@@ -2845,11 +3228,12 @@ useEffect(() => {
       );
       await Promise.all(
         list.map((c) => {
+          const resolvedProduct = resolveCopyCardProductName(c);
           const data = {
             primary: c.primary || '',
             headline: c.headline || '',
             description: c.description || '',
-            product: c.product || '',
+            product: resolvedProduct,
           };
           if (c.id) {
             return setDoc(
@@ -2869,6 +3253,129 @@ useEffect(() => {
       console.error('Failed to save copy cards', err);
     }
   };
+
+  const saveInlineCopyCard = useCallback(
+    async ({ id, primary = '', headline = '', description = '', product = '' }) => {
+      if (!groupId) return null;
+      const resolvedProduct =
+        extractCopyCardProductValue(product) ||
+        resolveCopyCardProductName({ product });
+      const payload = {
+        primary: primary || '',
+        headline: headline || '',
+        description: description || '',
+        product: resolvedProduct,
+      };
+      try {
+        if (id) {
+          await setDoc(
+            doc(db, 'adGroups', groupId, 'copyCards', id),
+            payload,
+            { merge: true },
+          );
+          const updated = { id, ...payload };
+          setCopyCards((prev) =>
+            prev.map((card) => (card.id === id ? updated : card)),
+          );
+          setModalCopies((prev) =>
+            prev.map((card) => (card.id === id ? updated : card)),
+          );
+          return updated;
+        }
+        const docRef = await addDoc(
+          collection(db, 'adGroups', groupId, 'copyCards'),
+          payload,
+        );
+        const created = { id: docRef.id, ...payload };
+        setCopyCards((prev) => [...prev, created]);
+        setModalCopies((prev) => [...prev, created]);
+        return created;
+      } catch (err) {
+        console.error('Failed to save platform copy', err);
+        throw err;
+      }
+    },
+    [groupId],
+  );
+
+  const saveInlineCopyOverride = useCallback(
+    async (asset, { primary = '', headline = '', description = '' } = {}) => {
+      if (!groupId || !asset) return null;
+      const assetDocId = getAssetDocumentId(asset);
+      if (!assetDocId) return null;
+      const targetGroupId = asset.adGroupId || groupId;
+      const payload = {
+        platformCopyOverride: {
+          primary: primary || '',
+          headline: headline || '',
+          description: description || '',
+        },
+      };
+      try {
+        await setDoc(
+          doc(db, 'adGroups', targetGroupId, 'assets', assetDocId),
+          payload,
+          { merge: true },
+        );
+        const applyOverride = (list) =>
+          list.map((item) =>
+            assetsReferToSameDoc(item, asset)
+              ? { ...item, ...payload }
+              : item,
+          );
+        setAds((prev) => applyOverride(prev));
+        setReviewAds((prev) => applyOverride(prev));
+        setAllAds((prev) => applyOverride(prev));
+        return payload.platformCopyOverride;
+      } catch (err) {
+        console.error('Failed to save ad-specific platform copy', err);
+        throw err;
+      }
+    },
+    [groupId],
+  );
+
+  const clearInlineCopyOverride = useCallback(
+    async (asset) => {
+      if (!groupId || !asset) return;
+      const assetDocId = getAssetDocumentId(asset);
+      if (!assetDocId) return;
+      const targetGroupId = asset.adGroupId || groupId;
+      try {
+        await updateDoc(
+          doc(db, 'adGroups', targetGroupId, 'assets', assetDocId),
+          { platformCopyOverride: deleteField() },
+        );
+      } catch (err) {
+        console.error('Failed to clear ad-specific platform copy', err);
+      }
+      const removeOverride = (list) =>
+        list.map((item) =>
+          assetsReferToSameDoc(item, asset)
+            ? { ...item, platformCopyOverride: undefined }
+            : item,
+        );
+      setAds((prev) => removeOverride(prev));
+      setReviewAds((prev) => removeOverride(prev));
+      setAllAds((prev) => removeOverride(prev));
+    },
+    [groupId],
+  );
+
+  const deleteInlineCopyCard = useCallback(
+    async (cardId) => {
+      if (!groupId || !cardId) return;
+      try {
+        await deleteDoc(doc(db, 'adGroups', groupId, 'copyCards', cardId));
+        setCopyCards((prev) => prev.filter((card) => card.id !== cardId));
+        setModalCopies((prev) => prev.filter((card) => card.id !== cardId));
+      } catch (err) {
+        console.error('Failed to delete platform copy', err);
+        throw err;
+      }
+    },
+    [groupId],
+  );
 
   const submitResponse = async (
     responseType,
@@ -3415,7 +3922,7 @@ useEffect(() => {
     reviewVersion === null ||
     !logoReady ||
     (started && !firstAdLoaded) ||
-    (reviewVersion === 3 && !recipesLoaded)
+    ((reviewVersion === 2 || reviewVersion === 3) && !recipesLoaded)
   ) {
     return <LoadingOverlay />;
   }
@@ -3558,10 +4065,10 @@ useEffect(() => {
                 </p>
               )}
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3">
               <button
                 type="button"
-                className="btn-secondary"
+                className="btn-secondary rounded-full px-5"
                 onClick={closeFinalizeModal}
                 disabled={finalizeProcessing}
               >
@@ -3570,7 +4077,7 @@ useEffect(() => {
               {showFinalizeModal === 'pending' ? (
                 <button
                   type="button"
-                  className="btn-primary"
+                  className="btn-primary rounded-full px-5"
                   onClick={() => handleFinalizeReview(true)}
                   disabled={finalizeProcessing}
                 >
@@ -3579,7 +4086,7 @@ useEffect(() => {
               ) : (
                 <button
                   type="button"
-                  className="btn-primary"
+                  className="btn-primary rounded-full px-5"
                   onClick={() => handleFinalizeReview(false)}
                   disabled={finalizeProcessing}
                 >
@@ -3744,8 +4251,17 @@ useEffect(() => {
               />
               <div
                 ref={statusBarRef}
-                className="sticky z-20 mt-2"
-                style={{ top: toolbarOffset ? `${toolbarOffset}px` : 0 }}
+                className={combineClasses(
+                  'sticky z-20',
+                  statusBarPinned ? 'mt-0' : 'mt-2',
+                )}
+                style={{
+                  top: statusBarPinned
+                    ? 0
+                    : toolbarOffset
+                      ? `${toolbarOffset}px`
+                      : 0,
+                }}
               >
                 <div
                   className={combineClasses(
@@ -3864,18 +4380,14 @@ useEffect(() => {
                     versionGroups[safeVersionIndex].length > 0
                       ? versionGroups[safeVersionIndex]
                       : fallbackAssets;
-                  const getAssetAspect = (asset) =>
-                    asset?.aspectRatio ||
-                    parseAdFilename(asset?.filename || '').aspectRatio ||
-                    '';
                   const sortedAssets = primaryAssets
                     .map((asset, originalIndex) => ({ asset, originalIndex }))
                     .sort((a, b) => {
                       const priorityA = getReviewAspectPriority(
-                        getAssetAspect(a.asset),
+                        getAssetAspectRatio(a.asset),
                       );
                       const priorityB = getReviewAspectPriority(
-                        getAssetAspect(b.asset),
+                        getAssetAspectRatio(b.asset),
                       );
                       if (priorityA !== priorityB) {
                         return priorityA - priorityB;
@@ -3936,7 +4448,340 @@ useEffect(() => {
                     ad.recipeCode ||
                     parseAdFilename(ad.filename || '').recipeCode ||
                     'Ad Unit';
+                  const recipeCode =
+                    ad.recipeCode ||
+                    parseAdFilename(ad.filename || '').recipeCode ||
+                    '';
+                  const productName = getProductNameForRecipe(recipeCode);
+                  const productCopyCards = getCopyCardsForProduct(productName);
+                  const hasSquareAsset = sortedAssets.some((asset) =>
+                    isSquareAspectRatio(getAssetAspectRatio(asset)),
+                  );
+                  const showCopyMirror = hasSquareAsset && productCopyCards.length > 0;
+                  const baseInlineCopyCard = showCopyMirror
+                    ? (() => {
+                        for (const card of productCopyCards) {
+                          if (!card) continue;
+                          const primary = normalizeCopyText(card.primary);
+                          const headline = normalizeCopyText(card.headline);
+                          const description = normalizeCopyText(card.description);
+                          if (primary || headline || description) {
+                            return {
+                              id: card.id || '',
+                              product:
+                                resolveCopyCardProductName(card) || productName || '',
+                              primary,
+                              headline,
+                              description,
+                            };
+                          }
+                        }
+                        return null;
+                      })()
+                    : null;
+                  const squareAssetIndex = sortedAssets.findIndex(
+                    (asset) =>
+                      normalizeAspectKey(getAssetAspectRatio(asset)) === '1x1',
+                  );
+                  const squareAsset =
+                    squareAssetIndex >= 0 ? sortedAssets[squareAssetIndex] : null;
+                  const assetOverrideRaw = squareAsset?.platformCopyOverride || null;
+                  const assetOverride = assetOverrideRaw
+                    ? {
+                        primary: normalizeCopyText(assetOverrideRaw.primary),
+                        headline: normalizeCopyText(assetOverrideRaw.headline),
+                        description: normalizeCopyText(assetOverrideRaw.description),
+                      }
+                    : null;
+                  const inlineCopyCard = assetOverride
+                    ? {
+                        ...(baseInlineCopyCard || {
+                          id: '',
+                          product: productName || '',
+                        }),
+                        ...assetOverride,
+                      }
+                    : baseInlineCopyCard;
+                  const shouldRenderInlineCopy =
+                    !!inlineCopyCard && squareAssetIndex !== -1;
+                  const inlineCopyEditorState = inlineCopyDrafts[cardKey];
+                  const isEditingInlineCopy = !!inlineCopyEditorState?.editing;
+                  const inlineCopySaving = !!inlineCopyEditorState?.saving;
+                  const inlineCopyDraft =
+                    (isEditingInlineCopy && inlineCopyEditorState?.draft) ||
+                    inlineCopyCard;
+                  const inlineCopyMeta = inlineCopyEditorState?.meta || {};
+                  const inlineCopyValues = inlineCopyDraft || null;
+                  const inlineCopyHasContent = !!(
+                    inlineCopyValues &&
+                    (inlineCopyValues.primary ||
+                      inlineCopyValues.headline ||
+                      inlineCopyValues.description)
+                  );
+                  const shouldShowInlineCopySection =
+                    shouldRenderInlineCopy &&
+                    (isEditingInlineCopy || inlineCopyHasContent);
+                  const normalizedInlineCopyValues = inlineCopyValues || {
+                    primary: '',
+                    headline: '',
+                    description: '',
+                  };
+                  const inlineCopyHasChanges = isEditingInlineCopy
+                    ? normalizedInlineCopyValues.primary !==
+                        (inlineCopyCard?.primary || '') ||
+                      normalizedInlineCopyValues.headline !==
+                        (inlineCopyCard?.headline || '') ||
+                      normalizedInlineCopyValues.description !==
+                        (inlineCopyCard?.description || '')
+                    : false;
                   const selectId = `ad-status-${cardKey}`;
+                  const handleStartInlineCopyEdit = () => {
+                    if (isGroupReviewed) return;
+                    if (inlineCopyDrafts[cardKey]?.editing) return;
+                    const source = inlineCopyCard || baseInlineCopyCard;
+                    const initial = {
+                      id: source?.id || '',
+                      product: source?.product || productName || '',
+                      primary: source?.primary || '',
+                      headline: source?.headline || '',
+                      description: source?.description || '',
+                    };
+                    setInlineCopyDrafts((prev) => ({
+                      ...prev,
+                      [cardKey]: {
+                        editing: true,
+                        saving: false,
+                        draft: {
+                          primary: initial.primary,
+                          headline: initial.headline,
+                          description: initial.description,
+                        },
+                        meta: {
+                          id: initial.id,
+                          product: initial.product,
+                        },
+                      },
+                    }));
+                  };
+                  const handleInlineCopyDraftChange = (field, value) => {
+                    setInlineCopyDrafts((prev) => {
+                      const current = prev[cardKey];
+                      if (!current) return prev;
+                      return {
+                        ...prev,
+                        [cardKey]: {
+                          ...current,
+                          draft: {
+                            ...current.draft,
+                            [field]: value,
+                          },
+                        },
+                      };
+                    });
+                  };
+                  const handleCancelInlineCopyEdit = () => {
+                    setInlineCopyDrafts((prev) => {
+                      const next = { ...prev };
+                      delete next[cardKey];
+                      return next;
+                    });
+                  };
+                  const handleSaveInlineCopy = async (mode) => {
+                    const currentState = inlineCopyDrafts[cardKey];
+                    if (!currentState) return;
+                    const applyToAll = mode === 'all';
+                    const applyToAdOnly = mode === 'single';
+                    if (!applyToAll && !applyToAdOnly) return;
+                    setInlineCopyModalContext(null);
+                    const fallbackState = {
+                      ...currentState,
+                      draft: { ...currentState.draft },
+                      meta: { ...currentState.meta },
+                      saving: false,
+                    };
+                    const draftValues = {
+                      primary: currentState.draft.primary || '',
+                      headline: currentState.draft.headline || '',
+                      description: currentState.draft.description || '',
+                    };
+                    setInlineCopyDrafts((prev) => ({
+                      ...prev,
+                      [cardKey]: { ...prev[cardKey], saving: true },
+                    }));
+                    try {
+                      if (applyToAll) {
+                        await saveInlineCopyCard({
+                          id: inlineCopyCard?.id || inlineCopyMeta.id || '',
+                          primary: draftValues.primary,
+                          headline: draftValues.headline,
+                          description: draftValues.description,
+                          product:
+                            inlineCopyCard?.product ||
+                            inlineCopyMeta.product ||
+                            productName ||
+                            '',
+                        });
+                        if (squareAsset) {
+                          await clearInlineCopyOverride(squareAsset);
+                        }
+                      } else if (applyToAdOnly) {
+                        if (squareAsset) {
+                          await saveInlineCopyOverride(squareAsset, draftValues);
+                        } else {
+                          console.warn(
+                            'No square asset available for ad-specific platform copy update',
+                          );
+                        }
+                      }
+                      setInlineCopyDrafts((prev) => {
+                        const next = { ...prev };
+                        delete next[cardKey];
+                        return next;
+                      });
+                    } catch (err) {
+                      console.error('Failed to save inline platform copy', err);
+                      setInlineCopyDrafts((prev) => ({
+                        ...prev,
+                        [cardKey]: fallbackState,
+                      }));
+                    }
+                  };
+                  const handleOpenInlineCopyModal = () => {
+                    if (!inlineCopyHasChanges || inlineCopySaving) return;
+                    setInlineCopyModalContext({
+                      onSelect: (mode) => handleSaveInlineCopy(mode),
+                    });
+                  };
+
+                  const baseEditButtonClasses = isMobile
+                    ? 'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200'
+                    : 'inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200';
+
+                  const editButtonStateClass = isGroupReviewed
+                    ? 'opacity-60 cursor-not-allowed'
+                    : isMobile
+                    ? 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]'
+                    : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]';
+
+                  const editActionButtonClass = `${baseEditButtonClasses} ${editButtonStateClass}`;
+
+                  const renderInlineCopyBlock = (assetElement) => {
+                    if (!shouldShowInlineCopySection) {
+                      return assetElement;
+                    }
+
+                    return (
+                      <div className="flex w-full flex-col gap-3">
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                          <p className="m-0 text-[8px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                            Primary copy
+                          </p>
+                          {isEditingInlineCopy ? (
+                            <textarea
+                              value={normalizedInlineCopyValues.primary}
+                              onChange={(event) =>
+                                handleInlineCopyDraftChange('primary', event.target.value)
+                              }
+                              rows={3}
+                              disabled={inlineCopySaving}
+                              className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                            />
+                          ) : (
+                            <p className="m-0 whitespace-pre-wrap break-words text-sm leading-snug text-gray-900 dark:text-[var(--dark-text)]">
+                              {normalizedInlineCopyValues.primary || '—'}
+                            </p>
+                          )}
+                        </div>
+                        {assetElement}
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                          <div>
+                            <p className="m-0 text-[8px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                              Headline
+                            </p>
+                            {isEditingInlineCopy ? (
+                              <textarea
+                                value={normalizedInlineCopyValues.headline}
+                                onChange={(event) =>
+                                  handleInlineCopyDraftChange('headline', event.target.value)
+                                }
+                              rows={2}
+                              disabled={inlineCopySaving}
+                              className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                            />
+                          ) : (
+                            <p className="m-0 whitespace-pre-wrap break-words text-sm font-semibold leading-snug text-gray-900 dark:text-[var(--dark-text)]">
+                              {normalizedInlineCopyValues.headline || '—'}
+                            </p>
+                          )}
+                          </div>
+                          <div className="mt-2">
+                            <p className="m-0 text-[8px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                              Description
+                            </p>
+                            {isEditingInlineCopy ? (
+                              <textarea
+                                value={normalizedInlineCopyValues.description}
+                                onChange={(event) =>
+                                  handleInlineCopyDraftChange('description', event.target.value)
+                                }
+                                rows={2}
+                                disabled={inlineCopySaving}
+                                className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                              />
+                            ) : (
+                              <p className="m-0 whitespace-pre-wrap break-words text-sm leading-snug text-gray-600 dark:text-gray-300">
+                                {normalizedInlineCopyValues.description || '—'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div
+                          className={`flex flex-wrap gap-2 ${
+                            isMobile ? 'w-full' : 'items-center justify-end'
+                          }`}
+                        >
+                          {isEditingInlineCopy ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={handleCancelInlineCopyEdit}
+                                disabled={inlineCopySaving}
+                                className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleOpenInlineCopyModal}
+                                disabled={!inlineCopyHasChanges || inlineCopySaving}
+                                className="inline-flex items-center gap-2 rounded-full border border-accent px-3 py-1.5 text-xs font-semibold text-accent transition hover:bg-[var(--accent-color-10)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--accent-color)] dark:text-[var(--accent-color)] dark:hover:bg-[var(--accent-color-10)]"
+                              >
+                                {inlineCopySaving ? 'Saving...' : 'Save'}
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleStartInlineCopyEdit}
+                              disabled={isGroupReviewed || !inlineCopyCard}
+                              title={
+                                isGroupReviewed
+                                  ? reviewedLockMessage
+                                  : !inlineCopyCard
+                                  ? 'No platform copy available to edit'
+                                  : undefined
+                              }
+                              className={`${editActionButtonClass} disabled:cursor-not-allowed disabled:opacity-60`}
+                              aria-disabled={isGroupReviewed || !inlineCopyCard}
+                            >
+                              <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                              <span>Edit platform copy</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  };
                   const handleSelectChange = async (event) => {
                     const value = event.target.value;
                     if (value === 'pending') {
@@ -4001,18 +4846,6 @@ useEffect(() => {
                     });
                   };
 
-                  const baseEditButtonClasses = isMobile
-                    ? 'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200'
-                    : 'inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200';
-
-                  const editButtonStateClass = isGroupReviewed
-                    ? 'opacity-60 cursor-not-allowed'
-                    : isMobile
-                    ? 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]'
-                    : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]';
-
-                  const editActionButtonClass = `${baseEditButtonClasses} ${editButtonStateClass}`;
-
                   if (isMobile) {
                     const assetCount = sortedAssets.length;
                     const statusLabel = statusLabelMap[statusValue] || statusValue;
@@ -4062,19 +4895,27 @@ useEffect(() => {
                           >
                             {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
-                              const assetAspect = getAssetAspect(asset);
+                              const assetAspect = getAssetAspectRatio(asset);
                               const assetCssAspect = getCssAspectRatioValue(assetAspect);
                               const assetStyle = assetCssAspect
                                 ? { aspectRatio: assetCssAspect }
                                 : {};
-                              return (
+                              const assetKey =
+                                getAssetDocumentId(asset) || assetUrl || assetIdx;
+                              const wrapperClasses = [
+                                'flex w-full flex-col',
+                                assetCount > 1
+                                  ? 'min-w-full flex-shrink-0 snap-center'
+                                  : '',
+                                shouldRenderInlineCopy && assetIdx === squareAssetIndex
+                                  ? 'gap-3'
+                                  : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' ');
+                              const assetNode = (
                                 <div
-                                  key={
-                                    getAssetDocumentId(asset) || assetUrl || assetIdx
-                                  }
-                                  className={`relative w-full min-w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${
-                                    assetCount > 1 ? 'flex-shrink-0 snap-center' : ''
-                                  }`}
+                                  className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
                                 >
                                   <div className="relative w-full" style={assetStyle}>
                                     {isVideoUrl(assetUrl) ? (
@@ -4103,6 +4944,18 @@ useEffect(() => {
                                   )}
                                 </div>
                               );
+                              if (shouldRenderInlineCopy && assetIdx === squareAssetIndex) {
+                                return (
+                                  <div key={assetKey} className={wrapperClasses}>
+                                    {renderInlineCopyBlock(assetNode)}
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div key={assetKey} className={wrapperClasses}>
+                                  {assetNode}
+                                </div>
+                              );
                             })}
                           </div>
                           <div className="space-y-3">
@@ -4116,7 +4969,7 @@ useEffect(() => {
                               <select
                                 id={selectId}
                                 aria-label="Status"
-                                className={`mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:focus:border-indigo-300 dark:focus:ring-indigo-500/40 ${
+                                className={`mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:focus:border-[var(--accent-color)] dark:focus:ring-[var(--accent-color)] ${
                                   isGroupReviewed ? 'cursor-not-allowed opacity-60' : ''
                                 }`}
                                 value={statusValue}
@@ -4265,18 +5118,23 @@ useEffect(() => {
                           >
                             {sortedAssets.map((asset, assetIdx) => {
                               const assetUrl = asset.firebaseUrl || asset.adUrl || '';
-                              const assetAspect = getAssetAspect(asset);
+                              const assetAspect = getAssetAspectRatio(asset);
                               const assetCssAspect = getCssAspectRatioValue(assetAspect);
                               const assetStyle = assetCssAspect
                                 ? { aspectRatio: assetCssAspect }
                                 : {};
-                              return (
-                                <div
-                                  key={
-                                    getAssetDocumentId(asset) || assetUrl || assetIdx
-                                  }
-                                  className="mx-auto w-full max-w-[712px] self-start overflow-hidden rounded-lg sm:mx-0"
-                                >
+                              const assetKey =
+                                getAssetDocumentId(asset) || assetUrl || assetIdx;
+                              const isSquareAsset = shouldRenderInlineCopy &&
+                                assetIdx === squareAssetIndex;
+                              const wrapperClasses = [
+                                'flex w-full flex-col self-start',
+                                isSquareAsset ? 'gap-3' : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' ');
+                              const assetNode = (
+                                <div className="mx-auto w-full max-w-[712px] overflow-hidden rounded-lg sm:mx-0">
                                   <div className="relative w-full" style={assetStyle}>
                                     {isVideoUrl(assetUrl) ? (
                                       <VideoPlayer
@@ -4297,6 +5155,18 @@ useEffect(() => {
                                       />
                                     )}
                                   </div>
+                                </div>
+                              );
+                              if (isSquareAsset) {
+                                return (
+                                  <div key={assetKey} className={wrapperClasses}>
+                                    {renderInlineCopyBlock(assetNode)}
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div key={assetKey} className={wrapperClasses}>
+                                  {assetNode}
                                 </div>
                               );
                             })}
@@ -4618,6 +5488,39 @@ useEffect(() => {
       )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
       {showCopyModal && renderCopyModal()}
+      {inlineCopyModalContext && (
+        <Modal sizeClass="max-w-md w-full">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+            Apply platform copy changes
+          </h3>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            This copy is automatically applied to all ads for the same product. Choose how you'd like to apply your updates.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setInlineCopyModalContext(null)}
+              className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => inlineCopyModalContext?.onSelect?.('all')}
+              className="inline-flex items-center justify-center rounded-md bg-[var(--accent-color)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:bg-[var(--accent-color)] dark:hover:bg-[var(--accent-color-10)]"
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => inlineCopyModalContext?.onSelect?.('single')}
+              className="inline-flex items-center justify-center rounded-md border border-accent px-4 py-2 text-sm font-semibold text-accent transition hover:bg-[var(--accent-color-10)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--accent-color)] dark:text-[var(--accent-color)] dark:hover:bg-[var(--accent-color-10)]"
+            >
+              Just this ad
+            </button>
+          </div>
+        </Modal>
+      )}
       {showHelpdeskModal && (
         <HelpdeskModal
           brandCode={helpdeskBrandCode}
