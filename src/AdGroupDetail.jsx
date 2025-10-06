@@ -488,6 +488,7 @@ const AdGroupDetail = () => {
             selected: docData.selected || false,
             brandCode: docData.brandCode || group?.brandCode || "",
             platformCopyCardId: docData.platformCopyCardId || "",
+            platformCopyLetter: docData.platformCopyLetter || "",
           };
         });
         setRecipesMeta(data);
@@ -813,6 +814,17 @@ const AdGroupDetail = () => {
     return map;
   }, [copyCardsWithMeta]);
 
+  const copyCardByLetter = useMemo(() => {
+    const map = {};
+    copyCardsWithMeta.forEach((card) => {
+      const letter = normalizeKeyPart(card.letter).toUpperCase();
+      if (letter && !map[letter]) {
+        map[letter] = card;
+      }
+    });
+    return map;
+  }, [copyCardsWithMeta]);
+
   const copyCardsByProduct = useMemo(() => {
     const map = {};
     copyCardsWithMeta.forEach((card) => {
@@ -883,11 +895,16 @@ const AdGroupDetail = () => {
         }
         const meta = getRecipeMetaByCode(group.recipeCode) || {};
         const storedId = normalizeKeyPart(meta.platformCopyCardId);
+        const storedLetter = normalizeKeyPart(meta.platformCopyLetter).toUpperCase();
+        const letterCard = storedLetter ? copyCardByLetter[storedLetter] : null;
+        const letterId = letterCard?.id || '';
         const prevId = normalizeKeyPart(prev[normalizedRecipe]);
         const available = (id) => id && copyCardById[id];
         let resolvedId = null;
         if (available(storedId)) {
           resolvedId = storedId;
+        } else if (available(letterId)) {
+          resolvedId = letterId;
         } else if (available(prevId)) {
           resolvedId = prevId;
         } else {
@@ -916,6 +933,7 @@ const AdGroupDetail = () => {
     recipeGroups,
     getRecipeMetaByCode,
     copyCardById,
+    copyCardByLetter,
     copyCardsByProduct,
     copyCardsWithMeta,
     getRecipeProductName,
@@ -926,6 +944,9 @@ const AdGroupDetail = () => {
       const normalizedRecipe = normalizeRecipeCode(recipeCode);
       if (!normalizedRecipe) return;
       const nextId = newCopyId || "";
+      const nextLetter = nextId
+        ? normalizeKeyPart(copyCardById[nextId]?.letter).toUpperCase()
+        : "";
       if ((copyAssignments[normalizedRecipe] || "") === nextId) {
         return;
       }
@@ -944,12 +965,13 @@ const AdGroupDetail = () => {
         if (nextId) {
           await setDoc(
             doc(db, "adGroups", id, "recipes", docId),
-            { platformCopyCardId: nextId },
+            { platformCopyCardId: nextId, platformCopyLetter: nextLetter },
             { merge: true },
           );
         } else {
           await updateDoc(doc(db, "adGroups", id, "recipes", docId), {
             platformCopyCardId: deleteField(),
+            platformCopyLetter: deleteField(),
           });
         }
         setRecipesMeta((prev) => {
@@ -957,10 +979,18 @@ const AdGroupDetail = () => {
           if (nextId) {
             return {
               ...prev,
-              [docId]: { ...existing, platformCopyCardId: nextId },
+              [docId]: {
+                ...existing,
+                platformCopyCardId: nextId,
+                platformCopyLetter: nextLetter,
+              },
             };
           }
-          const { platformCopyCardId: _removed, ...rest } = existing;
+          const {
+            platformCopyCardId: _removed,
+            platformCopyLetter: _removedLetter,
+            ...rest
+          } = existing;
           return { ...prev, [docId]: rest };
         });
       } catch (err) {
@@ -2182,6 +2212,7 @@ const AdGroupDetail = () => {
             Array.from(affectedDocIds).map((docId) =>
               updateDoc(doc(db, 'adGroups', id, 'recipes', docId), {
                 platformCopyCardId: deleteField(),
+                platformCopyLetter: deleteField(),
               }).catch((err) => {
                 console.error('Failed to clear copy alignment', err);
               }),
@@ -2199,7 +2230,11 @@ const AdGroupDetail = () => {
             const next = { ...prev };
             affectedDocIds.forEach((docId) => {
               if (next[docId]) {
-                const { platformCopyCardId: _removed, ...rest } = next[docId];
+                const {
+                  platformCopyCardId: _removed,
+                  platformCopyLetter: _removedLetter,
+                  ...rest
+                } = next[docId];
                 next[docId] = rest;
               }
             });
@@ -2813,14 +2848,21 @@ const AdGroupDetail = () => {
     const activeAds = g.assets.filter((a) => a.status !== "archived");
 
     const normalizedRecipe = normalizeRecipeCode(g.recipeCode);
+    const meta = getRecipeMetaByCode(g.recipeCode) || {};
     const storedAssignmentId = normalizedRecipe
       ? copyAssignments[normalizedRecipe]
       : "";
+    const storedLetter = normalizeKeyPart(meta.platformCopyLetter).toUpperCase();
     const resolvedCopyCard =
       (storedAssignmentId && copyCardById[storedAssignmentId]) ||
+      (storedLetter && copyCardByLetter[storedLetter]) ||
       (copyCardsWithMeta.length > 0 ? copyCardsWithMeta[0] : null);
-    const resolvedCopyId = resolvedCopyCard?.id || "";
-    const assignedLetter = resolvedCopyCard?.letter || "";
+    const resolvedCopyId =
+      (storedAssignmentId && copyCardById[storedAssignmentId]
+        ? storedAssignmentId
+        : resolvedCopyCard?.id) || "";
+    const assignedLetter =
+      resolvedCopyCard?.letter || storedLetter || "";
     const isSavingAssignment = !!copyAssignmentSaving[normalizedRecipe];
     const hasOverride = g.assets.some(
       (a) =>

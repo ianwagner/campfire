@@ -822,6 +822,17 @@ const Review = forwardRef(
     return map;
   }, [copyCardsWithMeta]);
 
+  const copyCardByLetter = useMemo(() => {
+    const map = {};
+    copyCardsWithMeta.forEach((card) => {
+      const letter = normalizeKeyPart(card.letter).toUpperCase();
+      if (letter && !map[letter]) {
+        map[letter] = card;
+      }
+    });
+    return map;
+  }, [copyCardsWithMeta]);
+
   const recipeProductMapMemo = useMemo(() => {
     const map = {};
     const assign = (key, value) => {
@@ -907,10 +918,24 @@ const Review = forwardRef(
   const recipeCopyAssignments = useMemo(() => {
     const map = {};
     recipes.forEach((recipe) => {
-      const assignedId = normalizeKeyPart(
+      const assignedIdRaw = normalizeKeyPart(
         recipe.platformCopyCardId ?? recipe.metadata?.platformCopyCardId,
       );
-      if (!assignedId) return;
+      const assignedLetterRaw = normalizeKeyPart(
+        recipe.platformCopyLetter ?? recipe.metadata?.platformCopyLetter,
+      ).toUpperCase();
+      let effectiveId = '';
+      if (assignedIdRaw && copyCardById[assignedIdRaw]) {
+        effectiveId = assignedIdRaw;
+      } else if (assignedLetterRaw) {
+        const letterCard = copyCardByLetter[assignedLetterRaw];
+        if (letterCard?.id) {
+          effectiveId = letterCard.id;
+        }
+      } else if (assignedIdRaw) {
+        effectiveId = assignedIdRaw;
+      }
+      if (!effectiveId) return;
       const candidates = [
         recipe.id,
         recipe.recipeCode,
@@ -922,12 +947,12 @@ const Review = forwardRef(
       candidates.forEach((candidate) => {
         const normalized = normalizeRecipeCode(candidate);
         if (normalized) {
-          map[normalized] = assignedId;
+          map[normalized] = effectiveId;
         }
       });
     });
     return map;
-  }, [recipes]);
+  }, [recipes, copyCardById, copyCardByLetter]);
 
   const resolvedReviewerName = useMemo(() => {
     if (typeof reviewerName === 'string' && reviewerName.trim()) {
