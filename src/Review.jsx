@@ -183,8 +183,9 @@ const normalizeCopyText = (value) => {
 const normalizeRecipeCode = (value) => {
   const normalized = normalizeKeyPart(value);
   if (!normalized) return '';
-  const trimmed = normalized.replace(/^0+/, '');
-  return trimmed || (normalized.includes('0') ? '0' : normalized);
+  const lower = normalized.toLowerCase();
+  const trimmed = lower.replace(/^0+/, '');
+  return trimmed || (lower.includes('0') ? '0' : lower);
 };
 
 const getAssetDocumentId = (asset) =>
