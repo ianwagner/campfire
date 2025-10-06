@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { FiEdit3, FiSave, FiTrash2 } from 'react-icons/fi';
 
@@ -40,11 +40,6 @@ const ReviewCopyPanel = ({
   }, [copyCards, readOnly]);
 
   const hasDrafts = readOnly ? copyCards.length > 0 : drafts.length > 0;
-
-  const displayName = useMemo(() => {
-    if (!productName) return 'Platform copy';
-    return `Platform copy — ${productName}`;
-  }, [productName]);
 
   const handleFieldChange = (localId, field, value) => {
     setDrafts((prev) =>
@@ -133,7 +128,7 @@ const ReviewCopyPanel = ({
       <div
         className={`rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 ${className}`}
       >
-        <p className="font-medium">{displayName}</p>
+        <p className="font-medium">Platform copy</p>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-300">
           No platform copy is saved for this product yet.
         </p>
@@ -156,7 +151,7 @@ const ReviewCopyPanel = ({
       className={`rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${className}`}
     >
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">{displayName}</p>
+        <p className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">Platform copy</p>
         {!readOnly && (
           <FiEdit3 className="h-4 w-4 text-gray-400" aria-hidden="true" />
         )}
