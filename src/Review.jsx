@@ -79,7 +79,18 @@ const normalizeKeyPart = (value) => {
 
 const combineClasses = (...classes) => classes.filter(Boolean).join(' ');
 
-const normalizeProductKey = (value) => normalizeKeyPart(value).toLowerCase();
+const normalizeProductKey = (value) => {
+  const normalized = normalizeKeyPart(value).toLowerCase();
+  if (!normalized) {
+    return '';
+  }
+  const withoutLeadingZeros = normalized.replace(/^0+/, '');
+  if (withoutLeadingZeros) {
+    return withoutLeadingZeros;
+  }
+  // Preserve a single zero so numeric recipe codes like "0" still resolve.
+  return normalized.includes('0') ? '0' : normalized;
+};
 
 const resolveRecipeProductName = (recipe) => {
   if (!recipe || typeof recipe !== 'object') return '';
