@@ -4649,7 +4649,7 @@ useEffect(() => {
                     return (
                       <div className="flex w-full flex-col gap-3">
                         <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                          <p className="m-0 text-[8px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
                             Primary copy
                           </p>
                           {isEditingInlineCopy ? (
@@ -4663,7 +4663,7 @@ useEffect(() => {
                               className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
                             />
                           ) : (
-                            <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug text-gray-900 dark:text-[var(--dark-text)]">
+                            <p className="m-0 whitespace-pre-wrap break-words text-sm leading-snug text-gray-900 dark:text-[var(--dark-text)]">
                               {normalizedInlineCopyValues.primary || '—'}
                             </p>
                           )}
@@ -4671,7 +4671,7 @@ useEffect(() => {
                         {assetElement}
                         <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
                           <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                            <p className="m-0 text-[8px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
                               Headline
                             </p>
                             {isEditingInlineCopy ? (
@@ -4680,18 +4680,18 @@ useEffect(() => {
                                 onChange={(event) =>
                                   handleInlineCopyDraftChange('headline', event.target.value)
                                 }
-                                rows={2}
-                                disabled={inlineCopySaving}
-                                className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
-                              />
-                            ) : (
-                              <p className="mt-0.5 whitespace-pre-wrap break-words text-sm font-semibold leading-snug text-gray-900 dark:text-[var(--dark-text)]">
-                                {normalizedInlineCopyValues.headline || '—'}
-                              </p>
-                            )}
+                              rows={2}
+                              disabled={inlineCopySaving}
+                              className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                            />
+                          ) : (
+                            <p className="m-0 whitespace-pre-wrap break-words text-sm font-semibold leading-snug text-gray-900 dark:text-[var(--dark-text)]">
+                              {normalizedInlineCopyValues.headline || '—'}
+                            </p>
+                          )}
                           </div>
                           <div className="mt-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                            <p className="m-0 text-[8px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
                               Description
                             </p>
                             {isEditingInlineCopy ? (
@@ -4705,7 +4705,7 @@ useEffect(() => {
                                 className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
                               />
                             ) : (
-                              <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug text-gray-600 dark:text-gray-300">
+                              <p className="m-0 whitespace-pre-wrap break-words text-sm leading-snug text-gray-600 dark:text-gray-300">
                                 {normalizedInlineCopyValues.description || '—'}
                               </p>
                             )}
