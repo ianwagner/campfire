@@ -708,6 +708,7 @@ const Review = forwardRef(
   const actionsMenuRef = useRef(null);
   const [modalCopies, setModalCopies] = useState([]);
   const [inlineCopyDrafts, setInlineCopyDrafts] = useState({});
+  const [inlineCopyModalContext, setInlineCopyModalContext] = useState(null);
   const [reviewVersion, setReviewVersion] = useState(null);
   const [showHelpdeskModal, setShowHelpdeskModal] = useState(false);
   const [helpdeskTickets, setHelpdeskTickets] = useState([]);
@@ -4496,7 +4497,6 @@ useEffect(() => {
                   const shouldShowInlineCopySection =
                     shouldRenderInlineCopy &&
                     (isEditingInlineCopy || inlineCopyHasContent);
-                  const inlineCopyProductLabel = inlineCopyCard?.product || productName || '';
                   const normalizedInlineCopyValues = inlineCopyValues || {
                     primary: '',
                     headline: '',
@@ -4562,9 +4562,13 @@ useEffect(() => {
                       return next;
                     });
                   };
-                  const handleSaveInlineCopy = async () => {
+                  const handleSaveInlineCopy = async (mode) => {
                     const currentState = inlineCopyDrafts[cardKey];
                     if (!currentState) return;
+                    const applyToAll = mode === 'all';
+                    const applyToAdOnly = mode === 'single';
+                    if (!applyToAll && !applyToAdOnly) return;
+                    setInlineCopyModalContext(null);
                     const fallbackState = {
                       ...currentState,
                       draft: { ...currentState.draft },
@@ -4580,9 +4584,6 @@ useEffect(() => {
                       ...prev,
                       [cardKey]: { ...prev[cardKey], saving: true },
                     }));
-                    const applyToAll = window.confirm(
-                      'This copy is automatically applied to all ads for the same product.\n\nClick "OK" to edit it for all ads, or "Cancel" to edit just this ad.',
-                    );
                     try {
                       if (applyToAll) {
                         await saveInlineCopyCard({
@@ -4599,12 +4600,14 @@ useEffect(() => {
                         if (squareAsset) {
                           await clearInlineCopyOverride(squareAsset);
                         }
-                      } else if (squareAsset) {
-                        await saveInlineCopyOverride(squareAsset, draftValues);
-                      } else {
-                        console.warn(
-                          'No square asset available for ad-specific platform copy update',
-                        );
+                      } else if (applyToAdOnly) {
+                        if (squareAsset) {
+                          await saveInlineCopyOverride(squareAsset, draftValues);
+                        } else {
+                          console.warn(
+                            'No square asset available for ad-specific platform copy update',
+                          );
+                        }
                       }
                       setInlineCopyDrafts((prev) => {
                         const next = { ...prev };
@@ -4619,53 +4622,17 @@ useEffect(() => {
                       }));
                     }
                   };
+                  const handleOpenInlineCopyModal = () => {
+                    if (!inlineCopyHasChanges || inlineCopySaving) return;
+                    setInlineCopyModalContext({
+                      onSelect: (mode) => handleSaveInlineCopy(mode),
+                    });
+                  };
                   const inlineCopyBlock = shouldShowInlineCopySection ? (
-                    <div className="flex w-full flex-col gap-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                          Platform copy
-                          {inlineCopyProductLabel
-                            ? ` — ${inlineCopyProductLabel}`
-                            : ''}
-                        </p>
-                        {isEditingInlineCopy ? (
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={handleCancelInlineCopyEdit}
-                              disabled={inlineCopySaving}
-                              className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleSaveInlineCopy}
-                              disabled={!inlineCopyHasChanges || inlineCopySaving}
-                              className="inline-flex items-center gap-2 rounded-full border border-indigo-500 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
-                            >
-                              {inlineCopySaving ? 'Saving...' : 'Save'}
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={handleStartInlineCopyEdit}
-                            disabled={isGroupReviewed || !inlineCopyCard}
-                            title={
-                              isGroupReviewed
-                                ? reviewedLockMessage
-                                : !inlineCopyCard
-                                ? 'No platform copy available to edit'
-                                : undefined
-                            }
-                            className="inline-flex items-center gap-2 rounded-full border border-indigo-500 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
-                          >
-                            <FiEdit3 className="h-4 w-4" aria-hidden="true" />
-                            Edit platform copy
-                          </button>
-                        )}
-                      </div>
+                    <div className="flex w-full flex-col gap-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                        Platform copy
+                      </p>
                       <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
                           Primary copy
@@ -4727,6 +4694,50 @@ useEffect(() => {
                             </p>
                           )}
                         </div>
+                      </div>
+                      <div
+                        className={`flex flex-wrap gap-2 ${
+                          isMobile ? 'w-full' : 'items-center justify-end'
+                        }`}
+                      >
+                        {isEditingInlineCopy ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleCancelInlineCopyEdit}
+                              disabled={inlineCopySaving}
+                              className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleOpenInlineCopyModal}
+                              disabled={!inlineCopyHasChanges || inlineCopySaving}
+                              className="inline-flex items-center gap-2 rounded-full border border-indigo-500 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
+                            >
+                              {inlineCopySaving ? 'Saving...' : 'Save'}
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleStartInlineCopyEdit}
+                            disabled={isGroupReviewed || !inlineCopyCard}
+                            title={
+                              isGroupReviewed
+                                ? reviewedLockMessage
+                                : !inlineCopyCard
+                                ? 'No platform copy available to edit'
+                                : undefined
+                            }
+                            className={`${editActionButtonClass} disabled:cursor-not-allowed disabled:opacity-60`}
+                            aria-disabled={isGroupReviewed || !inlineCopyCard}
+                          >
+                            <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                            <span>Edit platform copy</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ) : null;
@@ -4907,8 +4918,8 @@ useEffect(() => {
                               if (shouldRenderInlineCopy && assetIdx === squareAssetIndex) {
                                 return (
                                   <div key={assetKey} className={wrapperClasses}>
-                                    {inlineCopyBlock}
                                     {assetNode}
+                                    {inlineCopyBlock}
                                   </div>
                                 );
                               }
@@ -5450,6 +5461,39 @@ useEffect(() => {
       )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
       {showCopyModal && renderCopyModal()}
+      {inlineCopyModalContext && (
+        <Modal sizeClass="max-w-md w-full">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+            Apply platform copy changes
+          </h3>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            This copy is automatically applied to all ads for the same product. Choose how you'd like to apply your updates.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setInlineCopyModalContext(null)}
+              className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => inlineCopyModalContext?.onSelect?.('all')}
+              className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => inlineCopyModalContext?.onSelect?.('single')}
+              className="inline-flex items-center justify-center rounded-md border border-indigo-500 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
+            >
+              Just this ad
+            </button>
+          </div>
+        </Modal>
+      )}
       {showHelpdeskModal && (
         <HelpdeskModal
           brandCode={helpdeskBrandCode}
