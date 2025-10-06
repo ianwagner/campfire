@@ -788,6 +788,23 @@ const AdGroupDetail = () => {
     return groups;
   }, [assets]);
 
+  const overrideByRecipeCode = useMemo(() => {
+    const map = {};
+    recipeGroups.forEach((group) => {
+      const normalized = normalizeRecipeCode(group.recipeCode);
+      if (!normalized) return;
+      const hasOverride = group.assets.some((asset) => {
+        const override = asset.platformCopyOverride || {};
+        return (
+          override &&
+          (override.primary || override.headline || override.description)
+        );
+      });
+      map[normalized] = hasOverride;
+    });
+    return map;
+  }, [recipeGroups]);
+
   const copyCardsWithMeta = useMemo(
     () =>
       copyCards.map((card, index) => {
@@ -808,6 +825,16 @@ const AdGroupDetail = () => {
     copyCardsWithMeta.forEach((card) => {
       if (card.id) {
         map[card.id] = card;
+      }
+    });
+    return map;
+  }, [copyCardsWithMeta]);
+
+  const copyCardByLetter = useMemo(() => {
+    const map = {};
+    copyCardsWithMeta.forEach((card) => {
+      if (card.letter) {
+        map[card.letter] = card;
       }
     });
     return map;
@@ -883,13 +910,19 @@ const AdGroupDetail = () => {
         }
         const meta = getRecipeMetaByCode(group.recipeCode) || {};
         const storedId = normalizeKeyPart(meta.platformCopyCardId);
-        const prevId = normalizeKeyPart(prev[normalizedRecipe]);
-        const available = (id) => id && copyCardById[id];
-        let resolvedId = null;
-        if (available(storedId)) {
-          resolvedId = storedId;
-        } else if (available(prevId)) {
-          resolvedId = prevId;
+        const prevLetterRaw = prev[normalizedRecipe] || "";
+        const prevLetter = typeof prevLetterRaw === "string"
+          ? prevLetterRaw.trim().toUpperCase()
+          : String(prevLetterRaw || "").trim().toUpperCase();
+        const storedLetter = storedId && copyCardById[storedId]?.letter
+          ? copyCardById[storedId].letter
+          : "";
+        const available = (letter) => letter && copyCardByLetter[letter];
+        let resolvedLetter = "";
+        if (available(storedLetter)) {
+          resolvedLetter = storedLetter;
+        } else if (available(prevLetter)) {
+          resolvedLetter = prevLetter;
         } else {
           const productName = getRecipeProductName(group.recipeCode);
           const normalizedProduct = normalizeProductKey(productName);
@@ -898,11 +931,14 @@ const AdGroupDetail = () => {
             copyCardsByProduct[""] ||
             copyCardsWithMeta;
           if (pool && pool.length > 0) {
-            resolvedId = pool[0]?.id || null;
+            const fallback = pool.find((card) => available(card?.letter));
+            if (fallback) {
+              resolvedLetter = fallback.letter;
+            }
           }
         }
-        if (resolvedId) {
-          next[normalizedRecipe] = resolvedId;
+        if (resolvedLetter) {
+          next[normalizedRecipe] = resolvedLetter;
         }
       });
       const prevKeys = Object.keys(prev);
@@ -919,14 +955,18 @@ const AdGroupDetail = () => {
     copyCardsByProduct,
     copyCardsWithMeta,
     getRecipeProductName,
+    copyCardByLetter,
   ]);
 
   const handleCopyAssignmentChange = useCallback(
-    async (recipeCode, newCopyId) => {
+    async (recipeCode, newCopyLetter) => {
       const normalizedRecipe = normalizeRecipeCode(recipeCode);
       if (!normalizedRecipe) return;
-      const nextId = newCopyId || "";
-      if ((copyAssignments[normalizedRecipe] || "") === nextId) {
+      const nextLetter = (newCopyLetter || "")
+        .toString()
+        .trim()
+        .toUpperCase();
+      if ((copyAssignments[normalizedRecipe] || "") === nextLetter) {
         return;
       }
       const docId =
@@ -937,8 +977,14 @@ const AdGroupDetail = () => {
         console.warn("Unable to locate recipe for copy alignment", recipeCode);
         return;
       }
-      const previousId = copyAssignments[normalizedRecipe] || "";
-      setCopyAssignments((prev) => ({ ...prev, [normalizedRecipe]: nextId }));
+      if (nextLetter && !copyCardByLetter[nextLetter]) {
+        console.warn("Unable to locate platform copy letter", nextLetter);
+        return;
+      }
+      const nextCard = nextLetter ? copyCardByLetter[nextLetter] : null;
+      const nextId = nextCard?.id || "";
+      const previousLetter = copyAssignments[normalizedRecipe] || "";
+      setCopyAssignments((prev) => ({ ...prev, [normalizedRecipe]: nextLetter }));
       setCopyAssignmentSaving((prev) => ({ ...prev, [normalizedRecipe]: true }));
       try {
         if (nextId) {
@@ -967,7 +1013,7 @@ const AdGroupDetail = () => {
         console.error("Failed to update copy alignment", err);
         setCopyAssignments((prev) => ({
           ...prev,
-          [normalizedRecipe]: previousId,
+          [normalizedRecipe]: previousLetter,
         }));
       } finally {
         setCopyAssignmentSaving((prev) => {
@@ -982,6 +1028,7 @@ const AdGroupDetail = () => {
       id,
       recipeIdByCode,
       recipesMeta,
+      copyCardByLetter,
     ],
   );
 
@@ -993,16 +1040,46 @@ const AdGroupDetail = () => {
   const savedRecipes = useMemo(() => {
     const ids = Object.keys(recipesMeta);
     ids.sort((a, b) => Number(a) - Number(b));
-    return ids.map((id) => ({
-      recipeNo: Number(id),
-      components: recipesMeta[id].components || {},
-      copy: recipesMeta[id].copy || "",
-      assets: recipesMeta[id].assets || [],
-      type: recipesMeta[id].type || "",
-      selected: recipesMeta[id].selected || false,
-      brandCode: recipesMeta[id].brandCode || group?.brandCode || "",
-    }));
-  }, [recipesMeta]);
+    return ids.map((id) => {
+      const meta = recipesMeta[id] || {};
+      const recipeCodeCandidate =
+        meta.recipeCode ||
+        meta.code ||
+        meta.components?.recipeCode ||
+        meta.components?.code ||
+        id;
+      const normalizedRecipe = normalizeRecipeCode(recipeCodeCandidate);
+      const assignedLetter = normalizedRecipe
+        ? copyAssignments[normalizedRecipe] || ""
+        : "";
+      const assignedCard = assignedLetter
+        ? copyCardByLetter[assignedLetter] || null
+        : null;
+      const copySummary =
+        assignedCard?.resolvedProduct ||
+        getRecipeProductName(recipeCodeCandidate) ||
+        "";
+      return {
+        recipeNo: Number(id),
+        components: meta.components || {},
+        copy: meta.copy || "",
+        assets: meta.assets || [],
+        type: meta.type || "",
+        selected: meta.selected || false,
+        brandCode: meta.brandCode || group?.brandCode || "",
+        id,
+        recipeCode: recipeCodeCandidate,
+        platformCopyLetter: assignedLetter,
+        platformCopySummary: copySummary,
+      };
+    });
+  }, [
+    recipesMeta,
+    copyAssignments,
+    copyCardByLetter,
+    group?.brandCode,
+    getRecipeProductName,
+  ]);
 
 
   const recipeStatusSummary = useMemo(() => {
@@ -2165,8 +2242,11 @@ const AdGroupDetail = () => {
         }),
       );
       if (deletions.length > 0) {
-        const affectedEntries = Object.entries(copyAssignments).filter(([, assignedId]) =>
-          deletions.includes(assignedId),
+        const deletedLetters = deletions
+          .map((removedId) => copyCardById[removedId]?.letter)
+          .filter(Boolean);
+        const affectedEntries = Object.entries(copyAssignments).filter(([, assignedLetter]) =>
+          deletedLetters.includes(assignedLetter),
         );
         if (affectedEntries.length > 0) {
           const affectedDocIds = new Set();
@@ -2813,14 +2893,14 @@ const AdGroupDetail = () => {
     const activeAds = g.assets.filter((a) => a.status !== "archived");
 
     const normalizedRecipe = normalizeRecipeCode(g.recipeCode);
-    const storedAssignmentId = normalizedRecipe
-      ? copyAssignments[normalizedRecipe]
+    const storedAssignmentLetter = normalizedRecipe
+      ? copyAssignments[normalizedRecipe] || ""
       : "";
     const resolvedCopyCard =
-      (storedAssignmentId && copyCardById[storedAssignmentId]) ||
+      (storedAssignmentLetter && copyCardByLetter[storedAssignmentLetter]) ||
       (copyCardsWithMeta.length > 0 ? copyCardsWithMeta[0] : null);
-    const resolvedCopyId = resolvedCopyCard?.id || "";
-    const assignedLetter = resolvedCopyCard?.letter || "";
+    const assignedLetter = resolvedCopyCard?.letter || storedAssignmentLetter || "";
+    const selectValue = storedAssignmentLetter || assignedLetter;
     const isSavingAssignment = !!copyAssignmentSaving[normalizedRecipe];
     const hasOverride = g.assets.some(
       (a) =>
@@ -2930,7 +3010,7 @@ const AdGroupDetail = () => {
                   <span className="text-xs text-gray-400">Copy edited in review</span>
                 ) : copyCardsWithMeta.length > 0 ? (
                   <select
-                    value={resolvedCopyId}
+                    value={selectValue}
                     onChange={(event) =>
                       handleCopyAssignmentChange(g.recipeCode, event.target.value)
                     }
@@ -2939,7 +3019,7 @@ const AdGroupDetail = () => {
                     aria-label="Select platform copy"
                   >
                     {copyCardsWithMeta.map((card) => (
-                      <option key={card.id} value={card.id}>
+                      <option key={card.id || card.letter} value={card.letter}>
                         {card.letter} — {card.resolvedProduct || 'Generic'}
                       </option>
                     ))}
@@ -3877,6 +3957,112 @@ const AdGroupDetail = () => {
               externalOnly
               hideActions={isClientPortalUser}
             />
+          )}
+          {savedRecipes.length > 0 && (
+            <div className="mt-6">
+              <h4 className="font-medium mb-2">Platform Copy Alignment</h4>
+              {copyCardsWithMeta.length > 0 ? (
+                <Table columns={["25%", "75%"]} className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="px-2 py-1 text-left text-[0.75rem] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                        Recipe
+                      </th>
+                      <th className="px-2 py-1 text-left text-[0.75rem] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                        Platform Copy
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {savedRecipes.map((recipe) => {
+                      const displayRecipeCode =
+                        recipe.recipeCode ||
+                        recipe.components?.recipeCode ||
+                        (Number.isFinite(recipe.recipeNo)
+                          ? String(recipe.recipeNo)
+                          : recipe.id);
+                      const recipeLabel = displayRecipeCode
+                        ? `Recipe ${displayRecipeCode}`
+                        : "Recipe";
+                      const normalizedRecipe = normalizeRecipeCode(
+                        recipe.recipeCode || recipe.id || recipe.recipeNo,
+                      );
+                      const assignedLetter = normalizedRecipe
+                        ? copyAssignments[normalizedRecipe] || ""
+                        : "";
+                      const assignedCard = assignedLetter
+                        ? copyCardByLetter[assignedLetter] || null
+                        : null;
+                      const selectValue = assignedLetter || (assignedCard?.letter || (copyCardsWithMeta[0]?.letter || ""));
+                      const isSaving = normalizedRecipe
+                        ? !!copyAssignmentSaving[normalizedRecipe]
+                        : false;
+                      const hasOverride = normalizedRecipe
+                        ? !!overrideByRecipeCode[normalizedRecipe]
+                        : false;
+                      const copyDescription = isSaving
+                        ? "Saving..."
+                        : assignedCard?.resolvedProduct ||
+                          getRecipeProductName(recipe.recipeCode || recipe.id || recipe.recipeNo) ||
+                          (copyCardsWithMeta.length > 0 ? "Generic" : "No platform copy");
+                      return (
+                        <tr key={recipe.id || recipe.recipeNo} className="border-t last:border-b">
+                          <td className="px-2 py-2 align-middle font-semibold">
+                            {recipeLabel}
+                          </td>
+                          <td className="px-2 py-2 align-middle">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <span
+                                className={`${
+                                  hasOverride
+                                    ? "border-gray-300 bg-gray-100 text-gray-400"
+                                    : "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-400/60 dark:bg-indigo-500/10 dark:text-indigo-200"
+                                } inline-flex h-7 w-7 items-center justify-center rounded-full border text-sm font-semibold`}
+                              >
+                                {assignedLetter || "—"}
+                              </span>
+                              {hasOverride ? (
+                                <span className="text-xs text-gray-400">Copy edited in review</span>
+                              ) : copyCardsWithMeta.length > 0 ? (
+                                <select
+                                  value={selectValue}
+                                  onChange={(event) =>
+                                    handleCopyAssignmentChange(
+                                      recipe.recipeCode || recipe.id || recipe.recipeNo,
+                                      event.target.value,
+                                    )
+                                  }
+                                  disabled={isSaving}
+                                  className="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200"
+                                  aria-label={
+                                    displayRecipeCode
+                                      ? `Select platform copy for recipe ${displayRecipeCode}`
+                                      : "Select platform copy"
+                                  }
+                                >
+                                  {copyCardsWithMeta.map((card) => (
+                                    <option key={card.id || card.letter} value={card.letter}>
+                                      {card.letter} — {card.resolvedProduct || "Generic"}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className="text-xs text-gray-400">No platform copy</span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-300">
+                              {copyDescription}
+                            </p>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </Table>
+              ) : (
+                <p className="text-sm text-gray-500">No platform copy saved yet.</p>
+              )}
+            </div>
           )}
           {(["admin", "editor", "project-manager"].includes(userRole)) &&
             savedRecipes.length === 0 && (
