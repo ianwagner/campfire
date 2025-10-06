@@ -112,6 +112,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           let briefed = 0;
           let delivered = 0;
           let approved = 0;
+          let rejected = 0;
 
           try {
             let brandId = brand.id;
@@ -204,6 +205,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                 briefed += rSnap.data().count || 0;
                 const deliveredSet = new Set();
                 const approvedSet = new Set();
+                const rejectedSet = new Set();
                 aSnap.docs.forEach((a) => {
                   const data = a.data() || {};
                   const key = `${g.id}:${data.recipeCode || ''}`;
@@ -211,9 +213,13 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                   if (data.status === 'approved') {
                     approvedSet.add(key);
                   }
+                  if (data.status === 'rejected') {
+                    rejectedSet.add(key);
+                  }
                 });
                 delivered += deliveredSet.size;
                 approved += approvedSet.size;
+                rejected += rejectedSet.size;
               }
             }
 
@@ -221,7 +227,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               contracted === 0 &&
               briefed === 0 &&
               delivered === 0 &&
-              approved === 0
+              approved === 0 &&
+              rejected === 0
             ) {
               return null;
             }
@@ -234,8 +241,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               briefed,
               delivered,
               approved,
-              needed:
-                contracted > delivered ? contracted - delivered : 0,
+              rejected,
             };
           } catch (err) {
             console.error('Failed to compute counts', err);
@@ -247,7 +253,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               briefed: '?',
               delivered: '?',
               approved: '?',
-              needed: '?',
+              rejected: '?',
             };
           }
         };
@@ -259,6 +265,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
           let briefed = 0;
           let delivered = 0;
           let approved = 0;
+          let rejected = 0;
 
           for (const [m, v] of Object.entries(counts)) {
             if (m === month) {
@@ -266,17 +273,22 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               briefed += Number(v.briefed || 0);
               delivered += Number(v.delivered || 0);
               approved += Number(v.approved || 0);
+              rejected += Number(v.rejected || 0);
             }
           }
 
           if (
             data.code &&
-            (contracted === 0 || (briefed === 0 && delivered === 0 && approved === 0))
+            (contracted === 0 ||
+              (briefed === 0 &&
+                delivered === 0 &&
+                approved === 0 &&
+                rejected === 0))
           ) {
             return await computeCounts({ id: docSnap.id, code: data.code, name: data.name });
           }
 
-          if (contracted === 0) return null;
+          if (contracted === 0 && rejected === 0) return null;
 
           return {
             id: docSnap.id,
@@ -286,8 +298,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
             briefed,
             delivered,
             approved,
-            needed:
-              contracted > delivered ? contracted - delivered : 0,
+            rejected,
           };
         });
         const fallbackPromises = extraBrands.map((brand) => computeCounts(brand));
@@ -328,7 +339,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
               <th>Briefed</th>
               <th>Delivered</th>
               <th>Approved</th>
-              <th>Needed</th>
+              <th>Rejected</th>
             </tr>
           </thead>
             <tbody>
@@ -370,8 +381,8 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                         <FiCheck className="inline ml-1 text-approve" />
                       )}
                     </td>
-                    <td className="text-center" data-label="Needed">
-                      {r.needed}
+                    <td className="text-center text-reject" data-label="Rejected">
+                      {r.rejected}
                     </td>
                   </tr>
                 );
