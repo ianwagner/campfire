@@ -4629,23 +4629,23 @@ useEffect(() => {
                     });
                   };
 
-                  const baseEditButtonClasses = [
-                    'inline-flex items-center gap-2 rounded-full border border-accent bg-white font-semibold text-accent shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-accent dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--accent-color)] dark:hover:bg-[var(--dark-sidebar-hover)]',
-                    isMobile
-                      ? 'w-full justify-center px-3 py-2 text-sm'
-                      : 'px-3 py-1.5 text-xs',
-                  ]
-                    .filter(Boolean)
-                    .join(' ');
+                  const baseEditButtonClasses = isMobile
+                    ? 'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200'
+                    : 'inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200';
 
                   const editButtonStateClass = isGroupReviewed
                     ? 'opacity-60 cursor-not-allowed'
-                    : 'hover:bg-accent-10';
+                    : isMobile
+                    ? 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]'
+                    : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]';
 
                   const editActionButtonClass = `${baseEditButtonClasses} ${editButtonStateClass}`;
 
                   const inlineCopyBlock = shouldShowInlineCopySection ? (
                     <div className="flex w-full flex-col gap-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                        Platform copy
+                      </p>
                       <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
                           Primary copy
@@ -4658,7 +4658,7 @@ useEffect(() => {
                             }
                             rows={3}
                             disabled={inlineCopySaving}
-                            className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                            className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
                           />
                         ) : (
                           <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug text-gray-900 dark:text-[var(--dark-text)]">
@@ -4679,7 +4679,7 @@ useEffect(() => {
                               }
                               rows={2}
                               disabled={inlineCopySaving}
-                              className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                              className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
                             />
                           ) : (
                             <p className="mt-0.5 whitespace-pre-wrap break-words text-sm font-semibold leading-snug text-gray-900 dark:text-[var(--dark-text)]">
@@ -4699,7 +4699,7 @@ useEffect(() => {
                               }
                               rows={2}
                               disabled={inlineCopySaving}
-                              className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                              className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
                             />
                           ) : (
                             <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug text-gray-600 dark:text-gray-300">
@@ -4727,7 +4727,7 @@ useEffect(() => {
                               type="button"
                               onClick={handleOpenInlineCopyModal}
                               disabled={!inlineCopyHasChanges || inlineCopySaving}
-                              className="inline-flex items-center gap-2 rounded-full border border-accent bg-accent px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] disabled:cursor-not-allowed disabled:opacity-60 dark:border-accent"
+                              className="inline-flex items-center gap-2 rounded-full border border-indigo-500 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
                             >
                               {inlineCopySaving ? 'Saving...' : 'Save'}
                             </button>
@@ -5133,8 +5133,8 @@ useEffect(() => {
                               if (isSquareAsset) {
                                 return (
                                   <div key={assetKey} className={wrapperClasses}>
-                                    {assetNode}
                                     {inlineCopyBlock}
+                                    {assetNode}
                                   </div>
                                 );
                               }
@@ -5474,21 +5474,21 @@ useEffect(() => {
             <button
               type="button"
               onClick={() => setInlineCopyModalContext(null)}
-              className="inline-flex items-center justify-center rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+              className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={() => inlineCopyModalContext?.onSelect?.('all')}
-              className="inline-flex items-center justify-center rounded-full border border-accent bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)]"
+              className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
             >
               All
             </button>
             <button
               type="button"
               onClick={() => inlineCopyModalContext?.onSelect?.('single')}
-              className="inline-flex items-center justify-center rounded-full border border-accent bg-white px-4 py-2 text-sm font-semibold text-accent transition hover:bg-accent-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:bg-[var(--dark-sidebar-bg)]"
+              className="inline-flex items-center justify-center rounded-md border border-indigo-500 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
             >
               Just this ad
             </button>
