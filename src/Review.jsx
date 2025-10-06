@@ -4641,119 +4641,123 @@ useEffect(() => {
 
                   const editActionButtonClass = `${baseEditButtonClasses} ${editButtonStateClass}`;
 
-                  const inlineCopyBlock = shouldShowInlineCopySection ? (
-                    <div className="flex w-full flex-col gap-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                        Platform copy
-                      </p>
-                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                          Primary copy
-                        </p>
-                        {isEditingInlineCopy ? (
-                          <textarea
-                            value={normalizedInlineCopyValues.primary}
-                            onChange={(event) =>
-                              handleInlineCopyDraftChange('primary', event.target.value)
-                            }
-                            rows={3}
-                            disabled={inlineCopySaving}
-                            className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
-                          />
-                        ) : (
-                          <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug text-gray-900 dark:text-[var(--dark-text)]">
-                            {normalizedInlineCopyValues.primary || '—'}
-                          </p>
-                        )}
-                      </div>
-                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
-                        <div>
+                  const renderInlineCopyBlock = (assetElement) => {
+                    if (!shouldShowInlineCopySection) {
+                      return assetElement;
+                    }
+
+                    return (
+                      <div className="flex w-full flex-col gap-3">
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                            Headline
+                            Primary copy
                           </p>
                           {isEditingInlineCopy ? (
                             <textarea
-                              value={normalizedInlineCopyValues.headline}
+                              value={normalizedInlineCopyValues.primary}
                               onChange={(event) =>
-                                handleInlineCopyDraftChange('headline', event.target.value)
+                                handleInlineCopyDraftChange('primary', event.target.value)
                               }
-                              rows={2}
+                              rows={3}
                               disabled={inlineCopySaving}
                               className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
                             />
                           ) : (
-                            <p className="mt-0.5 whitespace-pre-wrap break-words text-sm font-semibold leading-snug text-gray-900 dark:text-[var(--dark-text)]">
-                              {normalizedInlineCopyValues.headline || '—'}
+                            <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug text-gray-900 dark:text-[var(--dark-text)]">
+                              {normalizedInlineCopyValues.primary || '—'}
                             </p>
                           )}
                         </div>
-                        <div className="mt-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                            Description
-                          </p>
+                        {assetElement}
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                              Headline
+                            </p>
+                            {isEditingInlineCopy ? (
+                              <textarea
+                                value={normalizedInlineCopyValues.headline}
+                                onChange={(event) =>
+                                  handleInlineCopyDraftChange('headline', event.target.value)
+                                }
+                                rows={2}
+                                disabled={inlineCopySaving}
+                                className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                              />
+                            ) : (
+                              <p className="mt-0.5 whitespace-pre-wrap break-words text-sm font-semibold leading-snug text-gray-900 dark:text-[var(--dark-text)]">
+                                {normalizedInlineCopyValues.headline || '—'}
+                              </p>
+                            )}
+                          </div>
+                          <div className="mt-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                              Description
+                            </p>
+                            {isEditingInlineCopy ? (
+                              <textarea
+                                value={normalizedInlineCopyValues.description}
+                                onChange={(event) =>
+                                  handleInlineCopyDraftChange('description', event.target.value)
+                                }
+                                rows={2}
+                                disabled={inlineCopySaving}
+                                className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                              />
+                            ) : (
+                              <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug text-gray-600 dark:text-gray-300">
+                                {normalizedInlineCopyValues.description || '—'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div
+                          className={`flex flex-wrap gap-2 ${
+                            isMobile ? 'w-full' : 'items-center justify-end'
+                          }`}
+                        >
                           {isEditingInlineCopy ? (
-                            <textarea
-                              value={normalizedInlineCopyValues.description}
-                              onChange={(event) =>
-                                handleInlineCopyDraftChange('description', event.target.value)
-                              }
-                              rows={2}
-                              disabled={inlineCopySaving}
-                              className="mt-0.5 w-full rounded-lg border border-gray-300 p-2 text-sm leading-snug focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
-                            />
+                            <>
+                              <button
+                                type="button"
+                                onClick={handleCancelInlineCopyEdit}
+                                disabled={inlineCopySaving}
+                                className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleOpenInlineCopyModal}
+                                disabled={!inlineCopyHasChanges || inlineCopySaving}
+                                className="inline-flex items-center gap-2 rounded-full border border-indigo-500 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
+                              >
+                                {inlineCopySaving ? 'Saving...' : 'Save'}
+                              </button>
+                            </>
                           ) : (
-                            <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-snug text-gray-600 dark:text-gray-300">
-                              {normalizedInlineCopyValues.description || '—'}
-                            </p>
+                            <button
+                              type="button"
+                              onClick={handleStartInlineCopyEdit}
+                              disabled={isGroupReviewed || !inlineCopyCard}
+                              title={
+                                isGroupReviewed
+                                  ? reviewedLockMessage
+                                  : !inlineCopyCard
+                                  ? 'No platform copy available to edit'
+                                  : undefined
+                              }
+                              className={`${editActionButtonClass} disabled:cursor-not-allowed disabled:opacity-60`}
+                              aria-disabled={isGroupReviewed || !inlineCopyCard}
+                            >
+                              <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                              <span>Edit platform copy</span>
+                            </button>
                           )}
                         </div>
                       </div>
-                      <div
-                        className={`flex flex-wrap gap-2 ${
-                          isMobile ? 'w-full' : 'items-center justify-end'
-                        }`}
-                      >
-                        {isEditingInlineCopy ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={handleCancelInlineCopyEdit}
-                              disabled={inlineCopySaving}
-                              className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleOpenInlineCopyModal}
-                              disabled={!inlineCopyHasChanges || inlineCopySaving}
-                              className="inline-flex items-center gap-2 rounded-full border border-indigo-500 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10"
-                            >
-                              {inlineCopySaving ? 'Saving...' : 'Save'}
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={handleStartInlineCopyEdit}
-                            disabled={isGroupReviewed || !inlineCopyCard}
-                            title={
-                              isGroupReviewed
-                                ? reviewedLockMessage
-                                : !inlineCopyCard
-                                ? 'No platform copy available to edit'
-                                : undefined
-                            }
-                            className={`${editActionButtonClass} disabled:cursor-not-allowed disabled:opacity-60`}
-                            aria-disabled={isGroupReviewed || !inlineCopyCard}
-                          >
-                            <FiEdit3 className="h-4 w-4" aria-hidden="true" />
-                            <span>Edit platform copy</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ) : null;
+                    );
+                  };
                   const handleSelectChange = async (event) => {
                     const value = event.target.value;
                     if (value === 'pending') {
@@ -4919,8 +4923,7 @@ useEffect(() => {
                               if (shouldRenderInlineCopy && assetIdx === squareAssetIndex) {
                                 return (
                                   <div key={assetKey} className={wrapperClasses}>
-                                    {assetNode}
-                                    {inlineCopyBlock}
+                                    {renderInlineCopyBlock(assetNode)}
                                   </div>
                                 );
                               }
@@ -5133,8 +5136,7 @@ useEffect(() => {
                               if (isSquareAsset) {
                                 return (
                                   <div key={assetKey} className={wrapperClasses}>
-                                    {inlineCopyBlock}
-                                    {assetNode}
+                                    {renderInlineCopyBlock(assetNode)}
                                   </div>
                                 );
                               }
