@@ -179,6 +179,13 @@ const normalizeCopyText = (value) => {
   return String(value);
 };
 
+const normalizeRecipeCode = (value) => {
+  const normalized = normalizeKeyPart(value);
+  if (!normalized) return '';
+  const trimmed = normalized.replace(/^0+/, '');
+  return trimmed || (normalized.includes('0') ? '0' : normalized);
+};
+
 const getAssetDocumentId = (asset) =>
   normalizeKeyPart(
     asset?.assetId ||
@@ -753,6 +760,16 @@ const Review = forwardRef(
     return map;
   }, [copyCards]);
 
+  const copyCardById = useMemo(() => {
+    const map = {};
+    copyCards.forEach((card) => {
+      if (card && card.id) {
+        map[card.id] = card;
+      }
+    });
+    return map;
+  }, [copyCards]);
+
   const recipeProductMapMemo = useMemo(() => {
     const map = {};
     const assign = (key, value) => {
@@ -818,6 +835,29 @@ const Review = forwardRef(
     },
     [copiesByProduct],
   );
+
+  const recipeCopyAssignments = useMemo(() => {
+    const map = {};
+    recipes.forEach((recipe) => {
+      const assignedId = normalizeKeyPart(recipe.platformCopyCardId);
+      if (!assignedId) return;
+      const candidates = [
+        recipe.id,
+        recipe.recipeCode,
+        recipe.recipeNo,
+        recipe.code,
+        recipe.components?.recipeCode,
+        recipe.metadata?.recipeCode,
+      ];
+      candidates.forEach((candidate) => {
+        const normalized = normalizeRecipeCode(candidate);
+        if (normalized) {
+          map[normalized] = assignedId;
+        }
+      });
+    });
+    return map;
+  }, [recipes]);
 
   const resolvedReviewerName = useMemo(() => {
     if (typeof reviewerName === 'string' && reviewerName.trim()) {
@@ -4453,14 +4493,32 @@ useEffect(() => {
                     parseAdFilename(ad.filename || '').recipeCode ||
                     '';
                   const productName = getProductNameForRecipe(recipeCode);
+                  const normalizedRecipeKey = normalizeRecipeCode(recipeCode);
+                  const assignedCopyCardId =
+                    normalizedRecipeKey && recipeCopyAssignments[normalizedRecipeKey]
+                      ? recipeCopyAssignments[normalizedRecipeKey]
+                      : null;
+                  const assignedCopyCard =
+                    assignedCopyCardId && copyCardById[assignedCopyCardId]
+                      ? copyCardById[assignedCopyCardId]
+                      : null;
                   const productCopyCards = getCopyCardsForProduct(productName);
+                  const candidateCopyCards = assignedCopyCard
+                    ? [
+                        assignedCopyCard,
+                        ...productCopyCards.filter(
+                          (card) => card && card.id !== assignedCopyCard.id,
+                        ),
+                      ]
+                    : productCopyCards;
                   const hasSquareAsset = sortedAssets.some((asset) =>
                     isSquareAspectRatio(getAssetAspectRatio(asset)),
                   );
-                  const showCopyMirror = hasSquareAsset && productCopyCards.length > 0;
+                  const showCopyMirror =
+                    hasSquareAsset && candidateCopyCards.length > 0;
                   const baseInlineCopyCard = showCopyMirror
                     ? (() => {
-                        for (const card of productCopyCards) {
+                        for (const card of candidateCopyCards) {
                           if (!card) continue;
                           const primary = normalizeCopyText(card.primary);
                           const headline = normalizeCopyText(card.headline);

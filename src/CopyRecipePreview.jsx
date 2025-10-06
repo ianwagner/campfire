@@ -3,6 +3,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import TagInput from './components/TagInput.jsx';
 import { FiEdit3, FiTrash2, FiSave, FiLink } from 'react-icons/fi';
+import { getCopyLetter } from './utils/copyLetter';
 import RecipeTypeCard from './components/RecipeTypeCard.jsx';
 import selectRandomOption from './utils/selectRandomOption.js';
 
@@ -362,47 +363,71 @@ const CopyRecipePreview = ({
         </div>
       )}
       <div className="space-y-4">
-        {copies.map((c) => (
-          <div
-            key={c.id}
-            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
-          >
-            <div className="flex flex-wrap items-center justify-end gap-2 pb-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setCopies((arr) =>
-                    arr.map((x) =>
-                      x.id === c.id ? { ...x, editing: !x.editing } : x,
-                    ),
-                  )
-                }
-                aria-label={
-                  c.editing ? 'Finish editing copy card' : 'Edit copy card'
-                }
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400 ${
-                  c.editing
-                    ? 'border-indigo-500 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10'
-                    : 'border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]'
-                }`}
-              >
-                {c.editing ? (
-                  <FiSave className="h-4 w-4" aria-hidden="true" />
-                ) : (
-                  <FiEdit3 className="h-4 w-4" aria-hidden="true" />
-                )}
-                <span>{c.editing ? 'Done' : 'Edit copy'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(c.id)}
-                aria-label="Delete copy card"
-                className="inline-flex items-center gap-2 rounded-full border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
-              >
-                <FiTrash2 className="h-4 w-4" aria-hidden="true" />
-                <span>Delete</span>
-              </button>
-            </div>
+        {copies.map((c, index) => {
+          const letter = getCopyLetter(index);
+          const productLabel =
+            typeof c.product === 'string' && c.product.trim()
+              ? c.product.trim()
+              : 'Generic';
+          return (
+            <div
+              key={c.id}
+              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
+                <div className="flex items-center gap-3">
+                  <span
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-sm font-semibold text-indigo-600 dark:border-indigo-400/60 dark:bg-indigo-500/10 dark:text-indigo-200"
+                    aria-hidden="true"
+                  >
+                    {letter || '—'}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                      Platform Copy
+                    </p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-[var(--dark-text)]">
+                      {productLabel}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCopies((arr) =>
+                        arr.map((x) =>
+                          x.id === c.id ? { ...x, editing: !x.editing } : x,
+                        ),
+                      )
+                    }
+                    aria-label={
+                      c.editing ? 'Finish editing copy card' : 'Edit copy card'
+                    }
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400 ${
+                      c.editing
+                        ? 'border-indigo-500 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-400 dark:text-indigo-300 dark:hover:bg-indigo-500/10'
+                        : 'border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]'
+                    }`}
+                  >
+                    {c.editing ? (
+                      <FiSave className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <FiEdit3 className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    <span>{c.editing ? 'Done' : 'Edit copy'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(c.id)}
+                    aria-label="Delete copy card"
+                    className="inline-flex items-center gap-2 rounded-full border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
+                  >
+                    <FiTrash2 className="h-4 w-4" aria-hidden="true" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="flex flex-col text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
                 Primary Text
