@@ -50,6 +50,7 @@ import GalleryModal from './components/GalleryModal.jsx';
 import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
+import { getCopyLetter } from './utils/copyLetter';
 import RecipePreview from './RecipePreview.jsx';
 import HelpdeskModal from './components/HelpdeskModal.jsx';
 import Modal from './components/Modal.jsx';
@@ -747,28 +748,42 @@ const Review = forwardRef(
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
 
+  const copyCardsWithMeta = useMemo(
+    () =>
+      copyCards.map((card, index) => {
+        const productName = resolveCopyCardProductName(card);
+        const normalizedProduct = normalizeProductKey(productName);
+        return {
+          ...card,
+          letter: getCopyLetter(index),
+          resolvedProduct: productName,
+          normalizedProduct,
+        };
+      }),
+    [copyCards],
+  );
+
   const copiesByProduct = useMemo(() => {
     const map = {};
-    copyCards.forEach((card) => {
-      const productName = resolveCopyCardProductName(card);
-      const key = normalizeProductKey(productName);
+    copyCardsWithMeta.forEach((card) => {
+      const key = card.normalizedProduct || '';
       if (!map[key]) {
         map[key] = [];
       }
       map[key].push(card);
     });
     return map;
-  }, [copyCards]);
+  }, [copyCardsWithMeta]);
 
   const copyCardById = useMemo(() => {
     const map = {};
-    copyCards.forEach((card) => {
+    copyCardsWithMeta.forEach((card) => {
       if (card && card.id) {
         map[card.id] = card;
       }
     });
     return map;
-  }, [copyCards]);
+  }, [copyCardsWithMeta]);
 
   const recipeProductMapMemo = useMemo(() => {
     const map = {};
@@ -4527,10 +4542,14 @@ useEffect(() => {
                             return {
                               id: card.id || '',
                               product:
-                                resolveCopyCardProductName(card) || productName || '',
+                                card.resolvedProduct ||
+                                resolveCopyCardProductName(card) ||
+                                productName ||
+                                '',
                               primary,
                               headline,
                               description,
+                              letter: card.letter || '',
                             };
                           }
                         }
@@ -4556,6 +4575,7 @@ useEffect(() => {
                         ...(baseInlineCopyCard || {
                           id: '',
                           product: productName || '',
+                          letter: '',
                         }),
                         ...assetOverride,
                       }
@@ -4728,8 +4748,36 @@ useEffect(() => {
                       return assetElement;
                     }
 
+                    const inlineCopyLetter = inlineCopyCard?.letter || '';
+                    const inlineCopyProductName = (() => {
+                      const source = inlineCopyCard?.product;
+                      if (typeof source === 'string' && source.trim()) {
+                        return source.trim();
+                      }
+                      if (typeof productName === 'string' && productName.trim()) {
+                        return productName.trim();
+                      }
+                      return 'Generic';
+                    })();
+
                     return (
                       <div className="flex w-full flex-col gap-3">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-sm font-semibold text-indigo-600 dark:border-indigo-400/60 dark:bg-indigo-500/10 dark:text-indigo-200"
+                            aria-hidden="true"
+                          >
+                            {inlineCopyLetter || '—'}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="m-0 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                              Platform Copy
+                            </p>
+                            <p className="m-0 text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                              {inlineCopyProductName}
+                            </p>
+                          </div>
+                        </div>
                         <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-left dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
                           <p className="m-0 text-[8px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
                             Primary copy
