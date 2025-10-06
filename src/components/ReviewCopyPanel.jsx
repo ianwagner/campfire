@@ -128,9 +128,8 @@ const ReviewCopyPanel = ({
       <div
         className={`rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200 ${className}`}
       >
-        <p className="font-medium">Platform copy</p>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-300">
-          No platform copy is saved for this product yet.
+          No copy is saved for this product yet.
         </p>
         {!readOnly && (
           <button
@@ -150,12 +149,6 @@ const ReviewCopyPanel = ({
     <div
       className={`rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${className}`}
     >
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">Platform copy</p>
-        {!readOnly && (
-          <FiEdit3 className="h-4 w-4 text-gray-400" aria-hidden="true" />
-        )}
-      </div>
       <div className="space-y-4">
         {(readOnly ? copyCards : drafts).map((card, index) => {
           const localId = readOnly ? card.id || `readonly-${index}` : card.localId;
