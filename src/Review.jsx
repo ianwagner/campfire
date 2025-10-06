@@ -728,12 +728,43 @@ const Review = forwardRef(
   const [expandedRequests, setExpandedRequests] = useState({});
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
+  const statusBarContainerRef = useRef(null);
   const statusBarSentinelRef = useRef(null);
   const statusBarRef = useRef(null);
   const toolbarRef = useRef(null);
   const recipePreviewRef = useRef(null);
   const [statusBarPinned, setStatusBarPinned] = useState(false);
+  const [statusBarLayout, setStatusBarLayout] = useState({
+    width: 0,
+    left: 0,
+    height: 0,
+  });
   const [toolbarOffset, setToolbarOffset] = useState(0);
+  const measureStatusBarLayout = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const container = statusBarContainerRef.current;
+    const bar = statusBarRef.current;
+    if (!container || !bar) {
+      return;
+    }
+    const containerRect = container.getBoundingClientRect();
+    const barRect = bar.getBoundingClientRect();
+    setStatusBarLayout((prev) => {
+      const next = {
+        width: containerRect.width,
+        left: containerRect.left,
+        height: barRect.height,
+      };
+      if (
+        prev.width !== next.width ||
+        prev.left !== next.left ||
+        prev.height !== next.height
+      ) {
+        return next;
+      }
+      return prev;
+    });
+  }, []);
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -971,19 +1002,23 @@ const Review = forwardRef(
     if (reviewVersion !== 2) {
       setStatusBarPinned(false);
       setToolbarOffset(0);
-      return;
+      return undefined;
     }
     if (typeof window === 'undefined' || typeof IntersectionObserver !== 'function') {
       setStatusBarPinned(false);
       setToolbarOffset(0);
-      return;
+      return undefined;
     }
+
     const sentinel = statusBarSentinelRef.current;
     const statusBarEl = statusBarRef.current;
-    if (!sentinel || !statusBarEl) {
+    const containerEl = statusBarContainerRef.current;
+
+    if (!sentinel || !statusBarEl || !containerEl) {
       setStatusBarPinned(false);
-      return;
+      return undefined;
     }
+
     // Add some hysteresis so the pinned state is stable even as the bar
     // changes height when it condenses. Use the sentinel's bottom edge, which
     // aligns with the top edge of the status bar, so we can pin exactly when
@@ -991,21 +1026,39 @@ const Review = forwardRef(
     // the bar's margin so we only pin once the visible portion touches the top
     // of the viewport.
     const MIN_HYSTERESIS = 8;
+
     const computeOffsets = () => {
       const computedStyle = window.getComputedStyle(statusBarEl);
       const marginTop = Number.parseFloat(computedStyle?.marginTop || '0') || 0;
-      const pinOffset = -marginTop;
-      const releaseOffset = Math.max(0, pinOffset + MIN_HYSTERESIS);
+      let safeAreaTop = 0;
+      const toolbarEl = toolbarRef.current;
+      if (toolbarEl) {
+        const toolbarStyle = window.getComputedStyle(toolbarEl);
+        const paddingTop = Number.parseFloat(toolbarStyle?.paddingTop || '0') || 0;
+        const rootFontSize = Number.parseFloat(
+          window.getComputedStyle(document.documentElement)?.fontSize || '16',
+        ) || 16;
+        const basePaddingTop = 0.75 * rootFontSize;
+        safeAreaTop = Math.max(0, paddingTop - basePaddingTop);
+      }
+      const pinOffset = Math.max(0, toolbarOffset + safeAreaTop - marginTop);
+      const releaseOffset = pinOffset + MIN_HYSTERESIS;
       return { pinOffset, releaseOffset };
     };
+
     let offsets = computeOffsets();
+    measureStatusBarLayout();
+
     const updateOffsets = () => {
       offsets = computeOffsets();
+      measureStatusBarLayout();
     };
+
     const observerThresholds = Array.from(
       { length: 101 },
       (_, index) => index / 100,
     );
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
@@ -1035,15 +1088,21 @@ const Review = forwardRef(
         threshold: observerThresholds,
       },
     );
+
     observer.observe(sentinel);
+
     const supportsResizeObserver = typeof ResizeObserver === 'function';
     const resizeObserver = supportsResizeObserver
       ? new ResizeObserver(updateOffsets)
       : null;
+
     if (resizeObserver) {
       resizeObserver.observe(statusBarEl);
+      resizeObserver.observe(containerEl);
     }
+
     window.addEventListener('resize', updateOffsets);
+
     return () => {
       observer.disconnect();
       if (resizeObserver) {
@@ -1051,7 +1110,14 @@ const Review = forwardRef(
       }
       window.removeEventListener('resize', updateOffsets);
     };
-  }, [reviewVersion, reviewAds.length]);
+  }, [measureStatusBarLayout, reviewVersion, toolbarOffset]);
+
+  useEffect(() => {
+    if (reviewVersion !== 2) {
+      return;
+    }
+    measureStatusBarLayout();
+  }, [measureStatusBarLayout, reviewVersion, statusBarPinned]);
 
   useEffect(() => {
     if (reviewVersion !== 2) {
@@ -4231,6 +4297,7 @@ useEffect(() => {
             </div>
           ) : reviewVersion === 2 ? (
             <div
+              ref={statusBarContainerRef}
               className={combineClasses(
                 'relative w-full max-w-[712px] pt-2 sm:px-0',
                 statusBarPinned ? 'px-4' : 'px-2',
@@ -4241,13 +4308,34 @@ useEffect(() => {
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-x-0 -top-6 h-6"
               />
+              {statusBarPinned && statusBarLayout.height > 0 ? (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none"
+                  style={{ height: `${statusBarLayout.height}px` }}
+                />
+              ) : null}
               <div
                 ref={statusBarRef}
                 className={combineClasses(
-                  'sticky z-20',
+                  'z-30 transition-transform duration-200',
                   statusBarPinned ? 'mt-0' : 'mt-2',
                 )}
-                style={{ top: toolbarOffset ? `${toolbarOffset}px` : 0 }}
+                style={{
+                  position: statusBarPinned ? 'fixed' : 'relative',
+                  top: statusBarPinned
+                    ? `calc(${Math.max(toolbarOffset, 0)}px + env(safe-area-inset-top, 0px))`
+                    : undefined,
+                  left:
+                    statusBarPinned && Number.isFinite(statusBarLayout.left)
+                      ? `${statusBarLayout.left}px`
+                      : undefined,
+                  width:
+                    statusBarPinned && statusBarLayout.width
+                      ? `${statusBarLayout.width}px`
+                      : undefined,
+                  transform: statusBarPinned ? 'translate3d(0, 0, 0)' : undefined,
+                }}
               >
                 <div
                   className={combineClasses(
