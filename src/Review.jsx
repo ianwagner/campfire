@@ -994,7 +994,10 @@ const Review = forwardRef(
     const computeOffsets = () => {
       const computedStyle = window.getComputedStyle(statusBarEl);
       const marginTop = Number.parseFloat(computedStyle?.marginTop || '0') || 0;
-      const pinOffset = -marginTop;
+      const safeToolbarOffset = Number.isFinite(toolbarOffset)
+        ? Math.max(0, toolbarOffset)
+        : 0;
+      const pinOffset = safeToolbarOffset - marginTop;
       const releaseOffset = Math.max(0, pinOffset + MIN_HYSTERESIS);
       return { pinOffset, releaseOffset };
     };
@@ -1051,7 +1054,7 @@ const Review = forwardRef(
       }
       window.removeEventListener('resize', updateOffsets);
     };
-  }, [reviewVersion, reviewAds.length]);
+  }, [reviewVersion, reviewAds.length, toolbarOffset]);
 
   useEffect(() => {
     if (reviewVersion !== 2) {
