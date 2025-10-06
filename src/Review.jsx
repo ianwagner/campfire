@@ -4628,6 +4628,19 @@ useEffect(() => {
                       onSelect: (mode) => handleSaveInlineCopy(mode),
                     });
                   };
+
+                  const baseEditButtonClasses = isMobile
+                    ? 'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200'
+                    : 'inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200';
+
+                  const editButtonStateClass = isGroupReviewed
+                    ? 'opacity-60 cursor-not-allowed'
+                    : isMobile
+                    ? 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]'
+                    : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]';
+
+                  const editActionButtonClass = `${baseEditButtonClasses} ${editButtonStateClass}`;
+
                   const inlineCopyBlock = shouldShowInlineCopySection ? (
                     <div className="flex w-full flex-col gap-3">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
@@ -4804,18 +4817,6 @@ useEffect(() => {
                       initialCopy: resolvedExistingCopy,
                     });
                   };
-
-                  const baseEditButtonClasses = isMobile
-                    ? 'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200'
-                    : 'inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-[var(--border-color-default)] dark:bg-transparent dark:text-gray-200';
-
-                  const editButtonStateClass = isGroupReviewed
-                    ? 'opacity-60 cursor-not-allowed'
-                    : isMobile
-                    ? 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-hover)]'
-                    : 'hover:bg-gray-100 dark:hover:bg-[var(--dark-sidebar-bg)]';
-
-                  const editActionButtonClass = `${baseEditButtonClasses} ${editButtonStateClass}`;
 
                   if (isMobile) {
                     const assetCount = sortedAssets.length;
