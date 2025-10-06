@@ -589,6 +589,25 @@ const normalizeAspectKey = (value) => {
   return compact.toLowerCase();
 };
 
+const isSquareAspectRatio = (aspect) => {
+  const normalized = normalizeAspectKey(aspect);
+  if (!normalized) return false;
+  if (normalized === '1x1' || normalized === 'square') {
+    return true;
+  }
+  const match = normalized.match(/^([0-9.]+)x([0-9.]+)$/);
+  if (!match) {
+    return false;
+  }
+  const width = parseFloat(match[1]);
+  const height = parseFloat(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || height === 0) {
+    return false;
+  }
+  const ratio = width / height;
+  return Math.abs(ratio - 1) <= 0.02;
+};
+
 const getCssAspectRatioValue = (aspect) => {
   const normalized = normalizeKeyPart(aspect);
   if (!normalized) return '';
@@ -4328,9 +4347,8 @@ useEffect(() => {
                     '';
                   const productName = getProductNameForRecipe(recipeCode);
                   const productCopyCards = getCopyCardsForProduct(productName);
-                  const hasSquareAsset = sortedAssets.some(
-                    (asset) =>
-                      normalizeAspectKey(getAssetAspectRatio(asset)) === '1x1',
+                  const hasSquareAsset = sortedAssets.some((asset) =>
+                    isSquareAspectRatio(getAssetAspectRatio(asset)),
                   );
                   const showCopyPanel = hasSquareAsset;
                   const showCopyMirror = showCopyPanel && productCopyCards.length > 0;
