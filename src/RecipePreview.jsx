@@ -1255,54 +1255,88 @@ const RecipePreview = forwardRef(({
     [currentType],
   );
   const columnMeta = useMemo(() => {
-    const cols = [];
-    const assetCols = [];
-    if (orderedComponents.length > 0) {
-      orderedComponents.forEach((c) => {
-        c.attributes?.forEach((a) => {
-          cols.push({ key: `${c.key}.${a.key}`, label: `${c.label} - ${a.label}`, inputType: a.inputType || 'text' });
+    const columnMap = new Map();
+    const addColumn = (key, label, inputType = 'text') => {
+      if (!key || columnMap.has(key)) return;
+      columnMap.set(key, { key, label, inputType });
+    };
+
+    const humanizeKey = (key) =>
+      key
+        .split('.')
+        .map((part) =>
+          part
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/[_-]+/g, ' ')
+            .trim()
+            .replace(/^\w/, (c) => c.toUpperCase()),
+        )
+        .join(' - ');
+
+    const appendFromComponents = (list) => {
+      const assetCols = [];
+      list.forEach((c) => {
+        c?.attributes?.forEach((a) => {
+          addColumn(`${c.key}.${a.key}`, `${c.label} - ${a.label}`, a.inputType || 'text');
           if (a.key === 'assetNo' || a.key === 'assetCount') {
             assetCols.push({ key: `${c.key}.assets`, label: `${c.label} Assets` });
           }
         });
       });
+      assetCols.forEach((c) => addColumn(c.key, c.label));
+    };
+
+    if (orderedComponents.length > 0) {
+      appendFromComponents(orderedComponents);
       writeFields.forEach((f) => {
-        cols.push({
-          key: f.key,
-          label: f.label,
-          inputType: f.inputType || 'text',
-        });
+        if (f.key) {
+          addColumn(f.key, f.label, f.inputType || 'text');
+        }
       });
-      assetCols.forEach((c) => cols.push(c));
-      cols.push({ key: 'review.name', label: 'Review - Name' });
-      cols.push({ key: 'review.body', label: 'Review - Body' });
-      cols.push({ key: 'review.title', label: 'Review - Title' });
-      cols.push({ key: 'review.rating', label: 'Review - Rating' });
-      cols.push({ key: 'review.product', label: 'Review - Product' });
-    } else if (initialResults && initialResults.length > 0) {
-      const keys = Array.from(
-        new Set(initialResults.flatMap((r) => Object.keys(r.components || {})))
-      );
-      keys.forEach((k) => {
-        cols.push({ key: k, label: k, inputType: 'text' });
-      });
+      addColumn('review.name', 'Review - Name');
+      addColumn('review.body', 'Review - Body');
+      addColumn('review.title', 'Review - Title');
+      addColumn('review.rating', 'Review - Rating');
+      addColumn('review.product', 'Review - Product');
     }
 
-    if (userRole === 'client' && currentType?.clientVisibleColumns && currentType.clientVisibleColumns.length > 0) {
-      const order = currentType.clientVisibleColumns;
-      cols.sort((a, b) => {
-        const ai = order.indexOf(a.key);
-        const bi = order.indexOf(b.key);
-        if (ai === -1 && bi === -1) return 0;
-        if (ai === -1) return 1;
-        if (bi === -1) return -1;
-        return ai - bi;
+    const initialRows = Array.isArray(initialResults) ? initialResults : [];
+    [...initialRows, ...results].forEach((row) => {
+      Object.keys(row?.components || {}).forEach((key) => {
+        if (!columnMap.has(key)) {
+          addColumn(key, humanizeKey(key));
+        }
       });
-    } else if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
-      const order = currentType.defaultColumns;
+    });
+
+    if (orderedComponents.length === 0 && columnMap.size === 0 && initialRows.length > 0) {
+      const keys = Array.from(
+        new Set(initialRows.flatMap((r) => Object.keys(r.components || {}))),
+      );
+      keys.forEach((k) => addColumn(k, humanizeKey(k)));
+    }
+
+    let cols = Array.from(columnMap.values());
+
+    const clientOrder =
+      userRole === 'client' && currentType?.clientVisibleColumns?.length
+        ? currentType.clientVisibleColumns
+        : null;
+    if (clientOrder) {
+      const allowed = new Set(clientOrder);
+      cols = cols.filter((col) => allowed.has(col.key));
+    }
+
+    const defaultOrder = clientOrder
+      ? clientOrder
+      : currentType?.defaultColumns && currentType.defaultColumns.length > 0
+      ? currentType.defaultColumns
+      : null;
+
+    if (defaultOrder) {
       cols.sort((a, b) => {
-        const ai = order.indexOf(a.key);
-        const bi = order.indexOf(b.key);
+        const ai = defaultOrder.indexOf(a.key);
+        const bi = defaultOrder.indexOf(b.key);
         if (ai === -1 && bi === -1) return 0;
         if (ai === -1) return 1;
         if (bi === -1) return -1;
@@ -1311,34 +1345,39 @@ const RecipePreview = forwardRef(({
     }
 
     return cols;
-  }, [orderedComponents, writeFields, initialResults, currentType, userRole]);
+  }, [orderedComponents, writeFields, initialResults, currentType, userRole, results]);
 
   useEffect(() => {
-    if (userRole === 'client' && !currentType?.clientVisibleColumns) return;
     setVisibleColumns((prev) => {
-      const updated = { ...prev };
-      const addKey = (key) => {
-        if (!(key in updated)) {
-          let show = false;
-          if (userRole === 'client' && currentType?.clientVisibleColumns && currentType.clientVisibleColumns.length > 0) {
-            show = currentType.clientVisibleColumns.includes(key);
-          } else if (currentType?.defaultColumns && currentType.defaultColumns.length > 0) {
-            show = currentType.defaultColumns.includes(key);
-          } else if (!showColumnButton) {
-            show = true;
-          }
-          updated[key] = show;
-        }
-      };
-      addKey('recipeNo');
-      columnMeta.forEach((c) => addKey(c.key));
-      addKey('copy');
-      Object.keys(updated).forEach((k) => {
-        if (!(columnMeta.some((c) => c.key === k) || k === 'recipeNo' || k === 'copy')) {
-          delete updated[k];
+      const availableKeys = ['recipeNo', ...columnMeta.map((c) => c.key), 'copy'];
+      const hasClientColumns =
+        userRole === 'client' && currentType?.clientVisibleColumns?.length > 0;
+      const defaultOrder = hasClientColumns
+        ? currentType.clientVisibleColumns
+        : currentType?.defaultColumns && currentType.defaultColumns.length > 0
+        ? currentType.defaultColumns
+        : [];
+      const defaultSet = new Set(defaultOrder);
+      if (!showColumnButton) {
+        availableKeys.forEach((key) => defaultSet.add(key));
+      }
+
+      const updated = {};
+      let changed = false;
+      availableKeys.forEach((key) => {
+        const prevValue = prev[key];
+        const nextValue = prevValue !== undefined ? prevValue : defaultSet.has(key);
+        updated[key] = nextValue;
+        if (nextValue !== prevValue) changed = true;
+      });
+
+      Object.keys(prev).forEach((key) => {
+        if (!availableKeys.includes(key)) {
+          changed = true;
         }
       });
-      return updated;
+
+      return changed ? updated : prev;
     });
     setColumnsReady(true);
   }, [columnMeta, currentType, showColumnButton, userRole]);
