@@ -1489,7 +1489,7 @@ const Review = forwardRef(
   }, []);
 
   useEffect(() => {
-    if (!allowPublicListeners || !groupId) {
+    if (!groupId) {
       setCopyCards([]);
       return undefined;
     }
@@ -1532,7 +1532,9 @@ const Review = forwardRef(
       pollTimer = setInterval(fetchOnce, 10000);
     };
 
-    if (!realtimeEnabled) {
+    const shouldUseRealtime = allowPublicListeners && realtimeEnabled;
+
+    if (!shouldUseRealtime) {
       startPolling();
     } else {
       try {
