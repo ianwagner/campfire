@@ -874,28 +874,35 @@ const Review = forwardRef(
   );
 
   const recipeCopyAssignments = useMemo(() => {
-    const map = {};
+    const assignments = {};
+    const priorities = {};
+    const register = (candidate, assignedId, priority) => {
+      if (!assignedId) return;
+      const normalized = normalizeRecipeCode(candidate);
+      if (!normalized) return;
+      const currentPriority = priorities[normalized];
+      if (currentPriority != null && currentPriority >= priority) {
+        return;
+      }
+      priorities[normalized] = priority;
+      assignments[normalized] = assignedId;
+    };
+
     recipes.forEach((recipe) => {
       const assignedId = normalizeKeyPart(recipe.platformCopyCardId);
       if (!assignedId) return;
-      const candidates = [
-        recipe.id,
-        recipe.recipeCode,
-        recipe.recipeNo,
-        recipe.code,
-        recipe.components?.recipeCode,
-        recipe.components?.code,
-        recipe.metadata?.recipeCode,
-        recipe.metadata?.code,
-      ];
-      candidates.forEach((candidate) => {
-        const normalized = normalizeRecipeCode(candidate);
-        if (normalized) {
-          map[normalized] = assignedId;
-        }
-      });
+      register(recipe.id, assignedId, 5);
+      register(recipe.recipeCode, assignedId, 5);
+      register(recipe.metadata?.recipeCode, assignedId, 4);
+      register(recipe.components?.recipeCode, assignedId, 4);
+      register(recipe.code, assignedId, 3);
+      register(recipe.metadata?.code, assignedId, 3);
+      register(recipe.components?.code, assignedId, 3);
+      register(recipe.metadata?.recipeNo, assignedId, 2);
+      register(recipe.recipeNo, assignedId, 1);
     });
-    return map;
+
+    return assignments;
   }, [recipes]);
 
   const resolvedReviewerName = useMemo(() => {
