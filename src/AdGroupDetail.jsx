@@ -60,6 +60,7 @@ import {
   arrayUnion,
   Timestamp,
   deleteField,
+  documentId,
 } from "firebase/firestore";
 import { deleteObject, ref } from "firebase/storage";
 import { auth, db, storage } from "./firebase/config";
@@ -78,6 +79,7 @@ import pickHeroAsset from "./utils/pickHeroAsset";
 import computeGroupStatus from "./utils/computeGroupStatus";
 import diffWords from "./utils/diffWords";
 import Modal from "./components/Modal.jsx";
+import sortCopyCards from "./utils/sortCopyCards";
 import IconButton from "./components/IconButton.jsx";
 import TabButton from "./components/TabButton.jsx";
 import Table from "./components/common/Table";
@@ -289,6 +291,20 @@ const AdGroupDetail = () => {
   const [copyAssignmentSaving, setCopyAssignmentSaving] = useState({});
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [modalCopies, setModalCopies] = useState([]);
+  const updateModalCopies = useCallback((next) => {
+    if (typeof next === "function") {
+      setModalCopies((prev) => {
+        const result = next(prev);
+        return sortCopyCards(Array.isArray(result) ? result : []);
+      });
+      return;
+    }
+    if (Array.isArray(next)) {
+      setModalCopies(sortCopyCards(next));
+      return;
+    }
+    setModalCopies([]);
+  }, []);
   const [showBrandAssets, setShowBrandAssets] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [feedback, setFeedback] = useState([]);
@@ -497,13 +513,12 @@ const AdGroupDetail = () => {
   }, [id]);
 
   useEffect(() => {
-    const unsub = onSnapshot(
-      collection(db, "adGroups", id, "copyCards"),
-      (snap) => {
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setCopyCards(list);
-      },
-    );
+    const collectionRef = collection(db, "adGroups", id, "copyCards");
+    const copyCardsQuery = query(collectionRef, orderBy(documentId()));
+    const unsub = onSnapshot(copyCardsQuery, (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setCopyCards(sortCopyCards(list));
+    });
     return () => unsub();
   }, [id]);
 
@@ -519,9 +534,9 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     if (showCopyModal) {
-      setModalCopies(copyCards);
+      updateModalCopies(copyCards);
     }
-  }, [showCopyModal]);
+  }, [showCopyModal, updateModalCopies]);
 
   useEffect(() => {
     const loadBrand = async () => {
@@ -4559,7 +4574,7 @@ const AdGroupDetail = () => {
               onSave={(copies) => saveCopyCards(copies, { append: true })}
               brandCode={group?.brandCode}
               hideBrandSelect
-              onCopiesChange={setModalCopies}
+              onCopiesChange={updateModalCopies}
             />
           </div>
         </Modal>
