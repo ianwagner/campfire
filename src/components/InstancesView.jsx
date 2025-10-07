@@ -59,11 +59,6 @@ const InstancesView = () => {
     if (!comp) return;
     try {
       const vals = { ...values };
-      Object.keys(vals).forEach((key) => {
-        if (vals[key] === undefined) {
-          delete vals[key];
-        }
-      });
       for (const a of comp.attributes || []) {
         if (a.inputType === 'image') {
           const val = values[a.key];
