@@ -4533,30 +4533,48 @@ useEffect(() => {
                   );
                   const showCopyMirror =
                     hasSquareAsset && candidateCopyCards.length > 0;
-                  const baseInlineCopyCard = showCopyMirror
-                    ? (() => {
-                        for (const card of candidateCopyCards) {
-                          if (!card) continue;
-                          const primary = normalizeCopyText(card.primary);
-                          const headline = normalizeCopyText(card.headline);
-                          const description = normalizeCopyText(card.description);
-                          if (primary || headline || description) {
-                            return {
-                              id: card.id || '',
-                              product:
-                                card.resolvedProduct ||
-                                resolveCopyCardProductName(card) ||
-                                productName ||
-                                '',
-                              primary,
-                              headline,
-                              description,
-                              letter: card.letter || '',
-                            };
+                  const mapInlineCopyCard = (card) => {
+                    if (!card) return null;
+                    const primary = normalizeCopyText(card.primary);
+                    const headline = normalizeCopyText(card.headline);
+                    const description = normalizeCopyText(card.description);
+                    return {
+                      id: card.id || '',
+                      product:
+                        card.resolvedProduct ||
+                        resolveCopyCardProductName(card) ||
+                        productName ||
+                        '',
+                      primary,
+                      headline,
+                      description,
+                      letter: card.letter || '',
+                    };
+                  };
+
+                  const assignedInlineCopyCard = mapInlineCopyCard(assignedCopyCard);
+
+                  const fallbackInlineCopyCard =
+                    showCopyMirror && !assignedInlineCopyCard
+                      ? (() => {
+                          for (const card of candidateCopyCards) {
+                            if (!card) continue;
+                            const mapped = mapInlineCopyCard(card);
+                            if (!mapped) continue;
+                            if (
+                              mapped.primary ||
+                              mapped.headline ||
+                              mapped.description
+                            ) {
+                              return mapped;
+                            }
                           }
-                        }
-                        return null;
-                      })()
+                          return null;
+                        })()
+                      : null;
+
+                  const baseInlineCopyCard = showCopyMirror
+                    ? assignedInlineCopyCard || fallbackInlineCopyCard
                     : null;
                   const squareAssetIndex = sortedAssets.findIndex(
                     (asset) =>
