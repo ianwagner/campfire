@@ -818,6 +818,9 @@ const Review = forwardRef(
       assign(recipe.recipeNo, productName);
       assign(recipe.code, productName);
       assign(recipe.components?.recipeCode, productName);
+      assign(recipe.components?.code, productName);
+      assign(recipe.metadata?.recipeCode, productName);
+      assign(recipe.metadata?.code, productName);
     });
     return map;
   }, [recipes]);
@@ -838,6 +841,9 @@ const Review = forwardRef(
           recipe.recipeNo,
           recipe.code,
           recipe.components?.recipeCode,
+          recipe.components?.code,
+          recipe.metadata?.recipeCode,
+          recipe.metadata?.code,
         ];
         return keys.some((key) => normalizeProductKey(key) === normalized);
       });
@@ -878,7 +884,9 @@ const Review = forwardRef(
         recipe.recipeNo,
         recipe.code,
         recipe.components?.recipeCode,
+        recipe.components?.code,
         recipe.metadata?.recipeCode,
+        recipe.metadata?.code,
       ];
       candidates.forEach((candidate) => {
         const normalized = normalizeRecipeCode(candidate);
