@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Install Campfire Slack App</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        margin: 0;
+        padding: 2rem;
+        background: #0b0d17;
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      main {
+        max-width: 480px;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+      }
+      a.install-link {
+        display: inline-block;
+        margin-top: 1.5rem;
+        background: #4a154b;
+        color: #fff;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      a.install-link:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 30px rgba(74, 21, 75, 0.4);
+      }
+      .error {
+        color: #ff9ca8;
+        margin-top: 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Install the Campfire Slack App</h1>
+      <p id="message">Preparing your installation link…</p>
+      <a id="installLink" class="install-link" href="#" hidden>Install on Slack</a>
+      <p id="error" class="error" hidden>
+        We couldn't generate an install link. Please try again later.
+      </p>
+    </main>
+    <script>
+      async function loadInstallLink() {
+        const messageEl = document.getElementById("message");
+        const linkEl = document.getElementById("installLink");
+        const errorEl = document.getElementById("error");
+
+        try {
+          const response = await fetch("/api/slack/oauth/install-link", {
+            headers: { "Accept": "application/json" },
+          });
+
+          if (!response.ok) {
+            throw new Error(`Unexpected response: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          if (!data.url) {
+            throw new Error("Install URL missing from response");
+          }
+
+          linkEl.href = data.url;
+          linkEl.hidden = false;
+          messageEl.textContent = "";
+        } catch (error) {
+          console.error("Failed to load Slack install link", error);
+          messageEl.textContent = "";
+          errorEl.hidden = false;
+        }
+      }
+
+      loadInstallLink();
+    </script>
+  </body>
+</html>
