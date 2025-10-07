@@ -40,6 +40,7 @@ import {
   onSnapshot,
   orderBy,
   deleteField,
+  documentId,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
@@ -51,6 +52,7 @@ import VersionModal from './components/VersionModal.jsx';
 import EditRequestModal from './components/EditRequestModal.jsx';
 import CopyRecipePreview from './CopyRecipePreview.jsx';
 import { getCopyLetter } from './utils/copyLetter';
+import sortCopyCards from './utils/sortCopyCards';
 import RecipePreview from './RecipePreview.jsx';
 import HelpdeskModal from './components/HelpdeskModal.jsx';
 import Modal from './components/Modal.jsx';
@@ -715,6 +717,20 @@ const Review = forwardRef(
   const [showCopyModal, setShowCopyModal] = useState(false);
   const actionsMenuRef = useRef(null);
   const [modalCopies, setModalCopies] = useState([]);
+  const updateModalCopies = useCallback((next) => {
+    if (typeof next === 'function') {
+      setModalCopies((prev) => {
+        const result = next(prev);
+        return sortCopyCards(Array.isArray(result) ? result : []);
+      });
+      return;
+    }
+    if (Array.isArray(next)) {
+      setModalCopies(sortCopyCards(next));
+      return;
+    }
+    setModalCopies([]);
+  }, []);
   const [inlineCopyDrafts, setInlineCopyDrafts] = useState({});
   const [inlineCopyModalContext, setInlineCopyModalContext] = useState(null);
   const [reviewVersion, setReviewVersion] = useState(null);
@@ -1253,7 +1269,7 @@ const Review = forwardRef(
             initialResults={copyCards}
             showOnlyResults
             hideBrandSelect
-            onCopiesChange={setModalCopies}
+            onCopiesChange={updateModalCopies}
           />
         </div>
       </div>
@@ -1500,16 +1516,17 @@ const Review = forwardRef(
     let unsubscribe = null;
     let pollTimer = null;
     const collectionRef = collection(db, 'adGroups', groupId, 'copyCards');
+    const collectionQuery = query(collectionRef, orderBy(documentId()));
 
     const applySnapshot = (snap) => {
       if (cancelled) return;
       const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setCopyCards(list);
+      setCopyCards(sortCopyCards(list));
     };
 
     const fetchOnce = async () => {
       try {
-        const snap = await getDocs(collectionRef);
+        const snap = await getDocs(collectionQuery);
         applySnapshot(snap);
       } catch (err) {
         if (!cancelled) {
@@ -1539,7 +1556,7 @@ const Review = forwardRef(
     } else {
       try {
         unsubscribe = onSnapshot(
-          collectionRef,
+          collectionQuery,
           (snap) => {
             applySnapshot(snap);
           },
@@ -1567,9 +1584,9 @@ const Review = forwardRef(
 
   useEffect(() => {
     if (showCopyModal) {
-      setModalCopies(copyCards);
+      updateModalCopies(copyCards);
     }
-  }, [showCopyModal]);
+  }, [showCopyModal, updateModalCopies]);
 
 useEffect(() => {
   if (!started || !groupId || initialStatus === 'done') return;
@@ -3332,9 +3349,9 @@ useEffect(() => {
           );
           const updated = { id, ...payload };
           setCopyCards((prev) =>
-            prev.map((card) => (card.id === id ? updated : card)),
+            sortCopyCards(prev.map((card) => (card.id === id ? updated : card))),
           );
-          setModalCopies((prev) =>
+          updateModalCopies((prev) =>
             prev.map((card) => (card.id === id ? updated : card)),
           );
           return updated;
@@ -3344,8 +3361,8 @@ useEffect(() => {
           payload,
         );
         const created = { id: docRef.id, ...payload };
-        setCopyCards((prev) => [...prev, created]);
-        setModalCopies((prev) => [...prev, created]);
+        setCopyCards((prev) => sortCopyCards([...prev, created]));
+        updateModalCopies((prev) => [...prev, created]);
         return created;
       } catch (err) {
         console.error('Failed to save platform copy', err);
@@ -3425,7 +3442,7 @@ useEffect(() => {
       try {
         await deleteDoc(doc(db, 'adGroups', groupId, 'copyCards', cardId));
         setCopyCards((prev) => prev.filter((card) => card.id !== cardId));
-        setModalCopies((prev) => prev.filter((card) => card.id !== cardId));
+        updateModalCopies((prev) => prev.filter((card) => card.id !== cardId));
       } catch (err) {
         console.error('Failed to delete platform copy', err);
         throw err;
