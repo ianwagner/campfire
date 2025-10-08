@@ -10,6 +10,44 @@ const { normalizeAudience } = require("./audience");
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 
+const workspaceAccessTokenCache = new Map();
+
+async function getWorkspaceAccessToken(workspaceId) {
+  const normalizedWorkspaceId = typeof workspaceId === "string" ? workspaceId.trim() : "";
+
+  if (!normalizedWorkspaceId) {
+    return null;
+  }
+
+  if (workspaceAccessTokenCache.has(normalizedWorkspaceId)) {
+    return workspaceAccessTokenCache.get(normalizedWorkspaceId);
+  }
+
+  try {
+    const snap = await db.collection("slackWorkspaces").doc(normalizedWorkspaceId).get();
+    if (!snap.exists) {
+      workspaceAccessTokenCache.set(normalizedWorkspaceId, null);
+      return null;
+    }
+
+    const data = snap.data() || {};
+    const accessToken =
+      typeof data.accessToken === "string" && data.accessToken.trim()
+        ? data.accessToken.trim()
+        : null;
+
+    workspaceAccessTokenCache.set(normalizedWorkspaceId, accessToken);
+    return accessToken;
+  } catch (error) {
+    console.error(
+      "Failed to load Slack workspace access token",
+      normalizedWorkspaceId,
+      error,
+    );
+    throw error;
+  }
+}
+
 function fetchWithFallback(url, options = {}) {
   if (typeof global.fetch === "function") {
     return global.fetch(url, options);
@@ -479,16 +517,16 @@ async function getRecipeProductNames(adGroupId) {
   }
 }
 
-async function postSlackMessage(channel, payload) {
-  if (!SLACK_BOT_TOKEN) {
-    throw new Error("SLACK_BOT_TOKEN is not configured");
+async function postSlackMessage(channel, payload, token) {
+  if (!token) {
+    throw new Error("Slack access token is not configured");
   }
 
   const response = await fetchWithFallback("https://slack.com/api/chat.postMessage", {
     method: "POST",
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      Authorization: `Bearer ${SLACK_BOT_TOKEN}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
       channel,
@@ -722,7 +760,31 @@ module.exports = async function handler(req, res) {
           continue;
         }
 
-        const response = await postSlackMessage(doc.id, payload);
+        let token;
+
+        if (audience === "internal") {
+          if (!SLACK_BOT_TOKEN) {
+            throw new Error("SLACK_BOT_TOKEN is not configured");
+          }
+          token = SLACK_BOT_TOKEN;
+        } else {
+          const workspaceId =
+            typeof docData.workspaceId === "string" ? docData.workspaceId.trim() : "";
+
+          if (!workspaceId) {
+            throw new Error("Slack workspace ID is not configured for this channel");
+          }
+
+          token = await getWorkspaceAccessToken(workspaceId);
+
+          if (!token) {
+            throw new Error(
+              `No Slack access token found for workspace ${workspaceId}. Please reinstall the Slack app.`,
+            );
+          }
+        }
+
+        const response = await postSlackMessage(doc.id, payload, token);
         results.push({ channel: doc.id, ok: true, ts: response.ts });
       } catch (error) {
         console.error("Failed to post Slack message", error);

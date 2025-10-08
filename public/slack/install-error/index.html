@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Campfire Slack Install Error</title>
+    <link rel="stylesheet" href="/assets/campfire-global.css" />
+    <script>
+      function describeError() {
+        const params = new URLSearchParams(window.location.search);
+        const reason = params.get("reason");
+        if (!reason) return "Campfire wasn't able to finish connecting to Slack.";
+
+        const messages = {
+          missing_state:
+            "Your Slack install session expired before it could finish. Start the installation again from your Campfire Slack settings.",
+          invalid_state: "We couldn't validate the installation attempt.",
+          state_validation_failed: "We couldn't validate the installation attempt.",
+          missing_code: "Slack did not provide an authorization code.",
+          configuration_error: "Slack credentials are not configured for this environment.",
+          oauth_failed: "Slack rejected the OAuth exchange.",
+          oauth_request_failed: "We couldn't reach Slack's API.",
+          invalid_response: "Slack returned an incomplete response.",
+          persistence_failed: "We couldn't save the installation in Firestore.",
+          server_error: "The server configuration prevented the installation.",
+          access_denied: "The request to install the app was denied.",
+        };
+
+        return messages[reason] || "Campfire wasn't able to finish connecting to Slack.";
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        const params = new URLSearchParams(window.location.search);
+        const reason = params.get("reason");
+        document.getElementById("error-detail").textContent = describeError();
+
+        if (reason) {
+          const reasonTag = document.getElementById("reason-code");
+          reasonTag.textContent = `Error code: ${reason.replace(/_/g, " ")}`;
+          reasonTag.hidden = false;
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <div class="page">
+      <main class="card">
+        <header>
+          <span class="badge">Campfire × Slack</span>
+          <h1>We couldn't connect Slack</h1>
+          <p id="error-detail" class="lead">
+            Campfire wasn't able to finish connecting to Slack.
+          </p>
+          <span id="reason-code" class="code-chip" hidden></span>
+        </header>
+
+        <section aria-labelledby="troubleshooting-heading">
+          <p id="troubleshooting-heading" class="section-title">What you can do</p>
+          <ul class="step-list">
+            <li>Refresh this page and start the installation again from your Campfire Slack settings.</li>
+            <li>If you manage multiple workspaces, double-check that you're signed into the correct Slack account.</li>
+            <li>Share the error details with your Campfire partner manager or email our support team so we can help.</li>
+          </ul>
+        </section>
+
+        <div class="actions">
+          <a class="btn btn-primary" href="/slack/install">Try installing again</a>
+          <a class="btn btn-secondary" href="https://campfire.studiotak.co/">Return to Campfire</a>
+          <a class="btn btn-outline" href="mailto:hello@studiotak.co">Email Campfire Support</a>
+        </div>
+
+        <p class="support-note">
+          Need help right now? Our team is on standby and can walk you through reconnecting Slack.
+        </p>
+      </main>
+    </div>
+  </body>
+</html>
