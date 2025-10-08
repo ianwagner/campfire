@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Campfire Slack Install Error</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #27111f 0%, #0b0510 55%, #030207 100%);
+        color: #f3f4f6;
+        padding: 1.5rem;
+      }
+      main {
+        width: min(560px, 100%);
+        padding: clamp(1.75rem, 3vw, 2.75rem);
+        border-radius: 20px;
+        backdrop-filter: blur(18px);
+        background: rgba(30, 12, 27, 0.78);
+        box-shadow: 0 32px 60px rgba(76, 29, 149, 0.3);
+        text-align: center;
+      }
+      h1 {
+        font-size: clamp(2rem, 4vw, 2.5rem);
+        margin-bottom: 0.5rem;
+      }
+      p {
+        line-height: 1.6;
+        margin: 0.75rem 0;
+        color: rgba(252, 231, 243, 0.92);
+      }
+      code {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.35rem 0.65rem;
+        border-radius: 8px;
+        background: rgba(244, 114, 182, 0.12);
+        color: #fda4af;
+        font-size: 0.85rem;
+      }
+      .actions {
+        margin-top: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      a.button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.85rem 1.5rem;
+        border-radius: 999px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      a.primary {
+        background: linear-gradient(135deg, #f472b6 0%, #ec4899 100%);
+        color: white;
+        box-shadow: 0 16px 40px rgba(236, 72, 153, 0.35);
+      }
+      a.primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 50px rgba(236, 72, 153, 0.45);
+      }
+      a.secondary {
+        background: rgba(244, 114, 182, 0.16);
+        color: rgba(252, 231, 243, 0.92);
+        border: 1px solid rgba(244, 114, 182, 0.35);
+      }
+      a.secondary:hover {
+        transform: translateY(-2px);
+        border-color: rgba(244, 114, 182, 0.6);
+      }
+      footer {
+        margin-top: 2rem;
+        font-size: 0.9rem;
+        color: rgba(252, 231, 243, 0.7);
+      }
+    </style>
+    <script>
+      function describeError() {
+        const params = new URLSearchParams(window.location.search);
+        const reason = params.get("reason");
+        if (!reason) return "The installation could not be completed.";
+
+        const messages = {
+          missing_state: "The request was missing required information.",
+          invalid_state: "We couldn't validate the installation attempt.",
+          state_validation_failed: "We couldn't validate the installation attempt.",
+          missing_code: "Slack did not provide an authorization code.",
+          configuration_error: "Slack credentials are not configured for this environment.",
+          oauth_failed: "Slack rejected the OAuth exchange.",
+          oauth_request_failed: "We couldn't reach Slack's API.",
+          invalid_response: "Slack returned an incomplete response.",
+          persistence_failed: "We couldn't save the installation in Firestore.",
+          server_error: "The server configuration prevented the installation.",
+          access_denied: "The request to install the app was denied.",
+        };
+
+        return messages[reason] || "The installation could not be completed.";
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("error-detail").textContent = describeError();
+        const params = new URLSearchParams(window.location.search);
+        const reason = params.get("reason");
+        if (reason) {
+          document.getElementById("reason-code").textContent = reason;
+          document.getElementById("reason-code").hidden = false;
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <main>
+      <h1>We couldn't finish installing the Slack app</h1>
+      <p id="error-detail">The installation could not be completed.</p>
+      <code id="reason-code" hidden></code>
+      <div class="actions">
+        <a class="button primary" href="/slack/install">Try installing again</a>
+        <a class="button secondary" href="mailto:support@campfire.so">Contact Campfire Support</a>
+      </div>
+      <footer>
+        If the issue persists, share the error code with your Campfire representative so we can help resolve the problem quickly.
+      </footer>
+    </main>
+  </body>
+</html>
