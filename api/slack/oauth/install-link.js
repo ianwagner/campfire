@@ -118,7 +118,6 @@ function buildAuthorizeUrl({
   scopes,
   state,
   userScope,
-  team,
 }) {
   const url = new URL("https://slack.com/oauth/v2/authorize");
   url.searchParams.set("client_id", clientId);
@@ -128,10 +127,6 @@ function buildAuthorizeUrl({
 
   if (userScope) {
     url.searchParams.set("user_scope", userScope);
-  }
-
-  if (team) {
-    url.searchParams.set("team", team);
   }
 
   return url.toString();
@@ -170,10 +165,6 @@ module.exports = async (req, res) => {
     resolveQueryParam(req, searchParams, "user_scope") ||
       resolveQueryParam(req, searchParams, "userScope")
   );
-  const team =
-    resolveQueryParam(req, searchParams, "team") ||
-    resolveQueryParam(req, searchParams, "team_id") ||
-    resolveQueryParam(req, searchParams, "teamId");
   const successRedirect = normalizeExternalRedirect(
     resolveQueryParam(req, searchParams, "success_redirect") ||
       resolveQueryParam(req, searchParams, "successRedirect") ||
@@ -204,10 +195,6 @@ module.exports = async (req, res) => {
       payload.userScope = userScope;
     }
 
-    if (team) {
-      payload.team = team;
-    }
-
     if (successRedirect) {
       payload.successRedirect = successRedirect;
     }
@@ -229,7 +216,6 @@ module.exports = async (req, res) => {
     scopes,
     state,
     userScope,
-    team,
   });
 
   res.setHeader("Cache-Control", "no-store");
