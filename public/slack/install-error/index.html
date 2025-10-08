@@ -12,7 +12,8 @@
         if (!reason) return "Campfire wasn't able to finish connecting to Slack.";
 
         const messages = {
-          missing_state: "The request was missing required information.",
+          missing_state:
+            "Your Slack install session expired before it could finish. Start the installation again from your Campfire Slack settings.",
           invalid_state: "We couldn't validate the installation attempt.",
           state_validation_failed: "We couldn't validate the installation attempt.",
           missing_code: "Slack did not provide an authorization code.",
@@ -35,7 +36,7 @@
 
         if (reason) {
           const reasonTag = document.getElementById("reason-code");
-          reasonTag.textContent = reason.replace(/_/g, " ");
+          reasonTag.textContent = `Error code: ${reason.replace(/_/g, " ")}`;
           reasonTag.hidden = false;
         }
       });
@@ -64,8 +65,8 @@
 
         <div class="actions">
           <a class="btn btn-primary" href="/slack/install">Try installing again</a>
-          <a class="btn btn-secondary" href="https://campfire.so/">Return to Campfire</a>
-          <a class="btn btn-outline" href="mailto:support@usecampfire.com">Email Campfire Support</a>
+          <a class="btn btn-secondary" href="https://campfire.studiotak.co/">Return to Campfire</a>
+          <a class="btn btn-outline" href="mailto:hello@studiotak.co">Email Campfire Support</a>
         </div>
 
         <p class="support-note">
