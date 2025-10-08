@@ -273,13 +273,19 @@ const ProjectDetail = () => {
 
   useEffect(() => {
     if (!groupId) return;
-    const unsub = onSnapshot(doc(db, 'adGroups', groupId), (snap) => {
-      const data = snap.data();
-      setProject((prev) =>
-        prev ? { ...prev, status: data?.status || prev.status } : prev
-      );
-      setGroup((prev) => (data ? { ...prev, ...data } : prev));
-    });
+    const unsub = onSnapshot(
+      doc(db, 'adGroups', groupId),
+      (snap) => {
+        const data = snap.data();
+        setProject((prev) =>
+          prev ? { ...prev, status: data?.status || prev.status } : prev
+        );
+        setGroup((prev) => (data ? { ...prev, ...data } : prev));
+      },
+      (error) => {
+        console.error('Failed to subscribe to ad group details', error);
+      },
+    );
     return () => {
       if (typeof unsub === 'function') unsub();
     };
@@ -291,7 +297,10 @@ const ProjectDetail = () => {
       collection(db, 'adGroups', groupId, 'assets'),
       (snap) => {
         setAssets(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      }
+      },
+      (error) => {
+        console.error('Failed to subscribe to ad group assets', error);
+      },
     );
     return () => {
       if (typeof unsub === 'function') unsub();
@@ -304,7 +313,10 @@ const ProjectDetail = () => {
       collection(db, 'adGroups', groupId, 'copyCards'),
       (snap) => {
         setCopyCards(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      }
+      },
+      (error) => {
+        console.error('Failed to subscribe to ad group copy cards', error);
+      },
     );
     return () => {
       if (typeof unsub === 'function') unsub();
