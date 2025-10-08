@@ -5,17 +5,135 @@ const {
   firebaseInitError,
   missingFirebaseEnvVars,
 } = require("../firebase");
+const {
+  getRequestSearchParams,
+  resolveQueryParam,
+} = require("./request-utils");
 
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID;
-const SLACK_REDIRECT_URI = process.env.SLACK_REDIRECT_URI;
+const SLACK_REDIRECT_URI_VALUES = (process.env.SLACK_REDIRECT_URI || "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+const SLACK_REDIRECT_URI = SLACK_REDIRECT_URI_VALUES[0];
 const SLACK_DEFAULT_SCOPES = process.env.SLACK_INSTALL_SCOPES || "commands,chat:write";
 
-function buildAuthorizeUrl({ clientId, redirectUri, scopes, state }) {
+function isAllowedRedirectUri(uri) {
+  if (!uri) {
+    return false;
+  }
+
+  return SLACK_REDIRECT_URI_VALUES.includes(uri);
+}
+
+function normalizeScopes(scopes) {
+  if (!scopes) {
+    return SLACK_DEFAULT_SCOPES;
+  }
+
+  if (typeof scopes !== "string") {
+    return SLACK_DEFAULT_SCOPES;
+  }
+
+  const parts = scopes
+    .split(/[\s,]+/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (!parts.length) {
+    return SLACK_DEFAULT_SCOPES;
+  }
+
+  return Array.from(new Set(parts)).join(",");
+}
+
+function normalizeUserScopes(userScope) {
+  if (!userScope || typeof userScope !== "string") {
+    return undefined;
+  }
+
+  const parts = userScope
+    .split(/[\s,]+/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (!parts.length) {
+    return undefined;
+  }
+
+  return Array.from(new Set(parts)).join(",");
+}
+
+const ALLOWED_REDIRECT_PROTOCOLS = new Set(["https:", "http:"]);
+
+function normalizeExternalRedirect(value) {
+  if (!value || typeof value !== "string") {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(value);
+    if (!ALLOWED_REDIRECT_PROTOCOLS.has(url.protocol)) {
+      console.error("Rejected Slack install redirect with unsupported protocol", {
+        value,
+      });
+      return undefined;
+    }
+
+    return url.toString();
+  } catch (error) {
+    console.error("Failed to parse Slack install redirect", {
+      value,
+      error: error?.message,
+    });
+    return undefined;
+  }
+}
+
+function resolveRedirectUri(req, searchParams) {
+  const redirectCandidates = [
+    "redirect_uri",
+    "redirectUri",
+  ];
+
+  for (const key of redirectCandidates) {
+    const value = resolveQueryParam(req, searchParams, key);
+    if (value && isAllowedRedirectUri(value)) {
+      return value;
+    }
+
+    if (value && !isAllowedRedirectUri(value)) {
+      console.error("Received disallowed Slack redirect URI request", {
+        redirectUri: value,
+      });
+    }
+  }
+
+  return SLACK_REDIRECT_URI;
+}
+
+function buildAuthorizeUrl({
+  clientId,
+  redirectUri,
+  scopes,
+  state,
+  userScope,
+  team,
+}) {
   const url = new URL("https://slack.com/oauth/v2/authorize");
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("scope", scopes);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("state", state);
+
+  if (userScope) {
+    url.searchParams.set("user_scope", userScope);
+  }
+
+  if (team) {
+    url.searchParams.set("team", team);
+  }
+
   return url.toString();
 }
 
@@ -45,14 +163,60 @@ module.exports = async (req, res) => {
     return;
   }
 
+  const searchParams = getRequestSearchParams(req);
+  const requestedScope = resolveQueryParam(req, searchParams, "scope");
+  const scopes = normalizeScopes(requestedScope);
+  const userScope = normalizeUserScopes(
+    resolveQueryParam(req, searchParams, "user_scope") ||
+      resolveQueryParam(req, searchParams, "userScope")
+  );
+  const team =
+    resolveQueryParam(req, searchParams, "team") ||
+    resolveQueryParam(req, searchParams, "team_id") ||
+    resolveQueryParam(req, searchParams, "teamId");
+  const successRedirect = normalizeExternalRedirect(
+    resolveQueryParam(req, searchParams, "success_redirect") ||
+      resolveQueryParam(req, searchParams, "successRedirect") ||
+      resolveQueryParam(req, searchParams, "redirect") ||
+      resolveQueryParam(req, searchParams, "continue") ||
+      resolveQueryParam(req, searchParams, "return_to") ||
+      resolveQueryParam(req, searchParams, "returnTo")
+  );
+  const errorRedirect = normalizeExternalRedirect(
+    resolveQueryParam(req, searchParams, "error_redirect") ||
+      resolveQueryParam(req, searchParams, "errorRedirect")
+  );
+  const redirectUri = resolveRedirectUri(req, searchParams);
   const state = randomBytes(16).toString("hex");
 
   try {
-    await db.collection("slackOauthStates").doc(state).set({
+    const payload = {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      redirectUri: SLACK_REDIRECT_URI,
+      redirectUri,
       used: false,
-    });
+    };
+
+    if (scopes && scopes !== SLACK_DEFAULT_SCOPES) {
+      payload.scopes = scopes;
+    }
+
+    if (userScope) {
+      payload.userScope = userScope;
+    }
+
+    if (team) {
+      payload.team = team;
+    }
+
+    if (successRedirect) {
+      payload.successRedirect = successRedirect;
+    }
+
+    if (errorRedirect) {
+      payload.errorRedirect = errorRedirect;
+    }
+
+    await db.collection("slackOauthStates").doc(state).set(payload);
   } catch (error) {
     console.error("Failed to store Slack OAuth state", error);
     res.status(500).json({ error: "Failed to prepare OAuth state" });
@@ -61,9 +225,11 @@ module.exports = async (req, res) => {
 
   const authorizeUrl = buildAuthorizeUrl({
     clientId: SLACK_CLIENT_ID,
-    redirectUri: SLACK_REDIRECT_URI,
-    scopes: SLACK_DEFAULT_SCOPES,
+    redirectUri,
+    scopes,
     state,
+    userScope,
+    team,
   });
 
   res.setHeader("Cache-Control", "no-store");
