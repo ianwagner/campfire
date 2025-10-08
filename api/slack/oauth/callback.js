@@ -80,6 +80,41 @@ function redirect(res, location) {
   res.end();
 }
 
+function getRequestSearchParams(req) {
+  try {
+    const protoHeader = req.headers["x-forwarded-proto"] || "https";
+    const protocol = Array.isArray(protoHeader)
+      ? protoHeader[0]
+      : protoHeader.split(",")[0];
+    const host = req.headers.host || "localhost";
+    return new URL(req.url || "", `${protocol}://${host}`).searchParams;
+  } catch (parseError) {
+    console.error("Failed to parse request URL", parseError);
+    return new URLSearchParams();
+  }
+}
+
+function resolveQueryParam(req, searchParams, key) {
+  if (searchParams.has(key)) {
+    const value = searchParams.get(key);
+    if (value && value !== "undefined" && value !== "null") {
+      return value;
+    }
+    return undefined;
+  }
+
+  const fallback = req.query?.[key];
+  if (Array.isArray(fallback)) {
+    return fallback.find((item) => item && item !== "undefined" && item !== "null");
+  }
+
+  if (typeof fallback === "string" && fallback && fallback !== "undefined" && fallback !== "null") {
+    return fallback;
+  }
+
+  return undefined;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -87,7 +122,15 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const { code, state, error, error_description: errorDescription } = req.query;
+  const searchParams = getRequestSearchParams(req);
+  const code = resolveQueryParam(req, searchParams, "code");
+  const state = resolveQueryParam(req, searchParams, "state");
+  const error = resolveQueryParam(req, searchParams, "error");
+  const errorDescription = resolveQueryParam(
+    req,
+    searchParams,
+    "error_description"
+  );
 
   if (error) {
     console.error("Slack OAuth callback error", {

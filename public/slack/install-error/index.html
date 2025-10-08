@@ -15,39 +15,53 @@
         align-items: center;
         justify-content: center;
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: radial-gradient(circle at top, #27111f 0%, #0b0510 55%, #030207 100%);
-        color: #f3f4f6;
-        padding: 1.5rem;
+        background: #0b0d17;
+        color: #f8fafc;
+        padding: 2rem;
       }
       main {
-        width: min(560px, 100%);
-        padding: clamp(1.75rem, 3vw, 2.75rem);
-        border-radius: 20px;
-        backdrop-filter: blur(18px);
-        background: rgba(30, 12, 27, 0.78);
-        box-shadow: 0 32px 60px rgba(76, 29, 149, 0.3);
+        width: min(520px, 100%);
         text-align: center;
+        background: rgba(15, 23, 42, 0.78);
+        border-radius: 16px;
+        padding: clamp(1.75rem, 4vw, 2.75rem);
+        box-shadow: 0 24px 60px rgba(2, 6, 23, 0.45);
+        border: 1px solid rgba(148, 163, 184, 0.18);
       }
       h1 {
-        font-size: clamp(2rem, 4vw, 2.5rem);
-        margin-bottom: 0.5rem;
+        font-size: clamp(1.9rem, 4vw, 2.4rem);
+        margin-bottom: 0.75rem;
       }
       p {
         line-height: 1.6;
         margin: 0.75rem 0;
-        color: rgba(252, 231, 243, 0.92);
+        color: rgba(226, 232, 240, 0.9);
+      }
+      ul {
+        padding: 0;
+        margin: 1rem 0 0;
+        list-style: none;
+      }
+      li {
+        margin: 0.5rem 0;
+        color: rgba(203, 213, 225, 0.9);
+      }
+      li a {
+        color: inherit;
+        text-decoration: underline;
+        text-decoration-color: rgba(148, 163, 184, 0.6);
       }
       code {
         display: inline-block;
-        margin-top: 0.5rem;
+        margin-top: 0.75rem;
         padding: 0.35rem 0.65rem;
-        border-radius: 8px;
-        background: rgba(244, 114, 182, 0.12);
-        color: #fda4af;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.12);
+        color: #93c5fd;
         font-size: 0.85rem;
       }
       .actions {
-        margin-top: 2rem;
+        margin-top: 1.75rem;
         display: flex;
         flex-direction: column;
         gap: 0.75rem;
@@ -58,33 +72,33 @@
         justify-content: center;
         gap: 0.5rem;
         padding: 0.85rem 1.5rem;
-        border-radius: 999px;
+        border-radius: 10px;
         font-weight: 600;
         text-decoration: none;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
       }
       a.primary {
-        background: linear-gradient(135deg, #f472b6 0%, #ec4899 100%);
-        color: white;
-        box-shadow: 0 16px 40px rgba(236, 72, 153, 0.35);
+        background: #4a154b;
+        color: #ffffff;
+        box-shadow: 0 12px 30px rgba(74, 21, 75, 0.4);
       }
       a.primary:hover {
         transform: translateY(-2px);
-        box-shadow: 0 20px 50px rgba(236, 72, 153, 0.45);
+        box-shadow: 0 16px 36px rgba(74, 21, 75, 0.45);
       }
       a.secondary {
-        background: rgba(244, 114, 182, 0.16);
-        color: rgba(252, 231, 243, 0.92);
-        border: 1px solid rgba(244, 114, 182, 0.35);
+        background: rgba(148, 163, 184, 0.16);
+        color: rgba(226, 232, 240, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.35);
       }
       a.secondary:hover {
         transform: translateY(-2px);
-        border-color: rgba(244, 114, 182, 0.6);
+        border-color: rgba(148, 163, 184, 0.6);
       }
       footer {
         margin-top: 2rem;
-        font-size: 0.9rem;
-        color: rgba(252, 231, 243, 0.7);
+        font-size: 0.85rem;
+        color: rgba(148, 163, 184, 0.75);
       }
     </style>
     <script>
@@ -126,12 +140,19 @@
       <h1>We couldn't finish installing the Slack app</h1>
       <p id="error-detail">The installation could not be completed.</p>
       <code id="reason-code" hidden></code>
+      <ul>
+        <li>Refresh this page and try installing again.</li>
+        <li>
+          If the issue persists, share the error code with your Campfire contact or
+          <a href="mailto:support@campfire.so">email support@campfire.so</a>.
+        </li>
+      </ul>
       <div class="actions">
         <a class="button primary" href="/slack/install">Try installing again</a>
         <a class="button secondary" href="mailto:support@campfire.so">Contact Campfire Support</a>
       </div>
       <footer>
-        If the issue persists, share the error code with your Campfire representative so we can help resolve the problem quickly.
+        We're standing by to help you connect Campfire and Slack.
       </footer>
     </main>
   </body>
