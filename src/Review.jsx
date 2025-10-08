@@ -74,10 +74,35 @@ import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
+
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
   return String(value);
+};
+
+const normalizeReviewAssetData = (raw, overrides = {}) => {
+  const combined = { ...raw, ...overrides };
+  const info = parseAdFilename(combined.filename || '');
+
+  const status = normalizeKeyPart(combined.status).toLowerCase() || 'pending';
+  const recipeCode =
+    normalizeKeyPart(combined.recipeCode) || normalizeKeyPart(info.recipeCode);
+  const recipeProductCode =
+    normalizeKeyPart(combined.recipeProductCode) ||
+    normalizeKeyPart(combined.productCode);
+  const adUrl = normalizeKeyPart(combined.adUrl);
+  const firebaseUrl = normalizeKeyPart(combined.firebaseUrl);
+
+  return {
+    ...combined,
+    status,
+    recipeCode,
+    recipeProductCode,
+    adUrl,
+    firebaseUrl,
+    version: combined.version ?? info.version ?? 1,
+  };
 };
 
 const combineClasses = (...classes) => classes.filter(Boolean).join(' ');
@@ -1780,6 +1805,12 @@ useEffect(() => {
     if (!allowPublicListeners) {
       return;
     }
+
+    let cancelled = false;
+    let realtimeUnsubscribe = null;
+    let pollTimer = null;
+    let pollInFlight = false;
+
     const fetchAds = async () => {
       debugLog('Loading ads', { groupId, brandCodes });
       try {
@@ -1789,6 +1820,7 @@ useEffect(() => {
         let rv = 1;
         if (groupId) {
             const groupSnap = await getDoc(doc(db, 'adGroups', groupId));
+            if (cancelled) return;
             if (groupSnap.exists()) {
               const data = groupSnap.data();
               const rawStatus = data.status || 'pending';
@@ -1826,22 +1858,18 @@ useEffect(() => {
             const assetsSnap = await getDocs(
               collection(db, 'adGroups', groupId, 'assets')
             );
-              list = assetsSnap.docs
-                .map((assetDoc) => {
-                  const data = assetDoc.data();
-                  const info = parseAdFilename(data.filename || '');
-                  return {
-                    ...data,
-                    version: data.version ?? info.version ?? 1,
-                    assetId: assetDoc.id,
-                    adGroupId: groupId,
-                    groupName: groupSnap.data().name,
-                    firebaseUrl: data.firebaseUrl,
-                    ...(groupSnap.data().brandCode
-                      ? { brandCode: groupSnap.data().brandCode }
-                      : {}),
-                  };
-                });
+            if (cancelled) return;
+              const groupName = data.name || '';
+              const brandCode = data.brandCode || '';
+              list = assetsSnap.docs.map((assetDoc) =>
+                normalizeReviewAssetData({
+                  assetId: assetDoc.id,
+                  ...assetDoc.data(),
+                  adGroupId: groupId,
+                  groupName,
+                  brandCode,
+                })
+              );
           } else {
             setGroupStatus(null);
           }
@@ -1894,25 +1922,30 @@ useEffect(() => {
             });
 
             const groupCache = {};
-            list = await Promise.all(
-              docs.map(async (d) => {
-                const data = d.data();
-                const adGroupId = data.adGroupId || d.ref.parent.parent.id;
-                if (!groupCache[adGroupId]) {
-                  const gSnap = await getDoc(doc(db, 'adGroups', adGroupId));
-                  groupCache[adGroupId] = gSnap.exists() ? gSnap.data().name : '';
-                }
-                const info = parseAdFilename(data.filename || '');
-                return {
-                  ...data,
-                  version: data.version ?? info.version ?? 1,
-                  assetId: d.id,
-                  adGroupId,
-                  groupName: groupCache[adGroupId],
-                  firebaseUrl: data.firebaseUrl,
-                };
-              })
-            );
+            list = (
+              await Promise.all(
+                docs.map(async (d) => {
+                  const data = d.data();
+                  const adGroupId = data.adGroupId || d.ref.parent.parent.id;
+                  if (!groupCache[adGroupId]) {
+                    const gSnap = await getDoc(doc(db, 'adGroups', adGroupId));
+                    if (cancelled) {
+                      return null;
+                    }
+                    groupCache[adGroupId] = gSnap.exists() ? gSnap.data().name : '';
+                  }
+                  return normalizeReviewAssetData({
+                    assetId: d.id,
+                    ...data,
+                    adGroupId,
+                    groupName: groupCache[adGroupId],
+                  });
+                })
+              )
+            ).filter(Boolean);
+            if (cancelled) {
+              return;
+            }
           }
         }
         // if we only received the latest revision, fetch older versions
@@ -1941,51 +1974,52 @@ useEffect(() => {
                   ),
                 ),
               ]);
+              if (cancelled) {
+                return [];
+              }
               const extras = [];
               if (parentSnap.exists()) {
-                const data = parentSnap.data();
-                const info = parseAdFilename(data.filename || '');
-                extras.push({
-                  ...data,
-                  version: data.version ?? info.version ?? 1,
-                  assetId: rootId,
-                  adGroupId: groupId,
-                  groupName,
-                  firebaseUrl: data.firebaseUrl,
-                });
+                extras.push(
+                  normalizeReviewAssetData({
+                    assetId: rootId,
+                    ...parentSnap.data(),
+                    adGroupId: groupId,
+                    groupName,
+                  }),
+                );
               }
               siblingSnap.docs.forEach((d) => {
-                const data = d.data();
-                const dedupeTarget = { assetId: d.id, ...data };
+                const normalizedSibling = normalizeReviewAssetData({
+                  assetId: d.id,
+                  ...d.data(),
+                  adGroupId: groupId,
+                  groupName,
+                });
                 const relatedRefs = [
                   d.id,
-                  data.parentAdId,
-                  data.parentId,
-                  data.rootAdId,
-                  data.rootAssetId,
-                  data.assetFamilyId,
-                  data.recipeAssetId,
+                  normalizedSibling.parentAdId,
+                  normalizedSibling.parentId,
+                  normalizedSibling.rootAdId,
+                  normalizedSibling.rootAssetId,
+                  normalizedSibling.assetFamilyId,
+                  normalizedSibling.recipeAssetId,
                 ];
                 const alreadyIncluded = list.some((a) => {
-                  if (assetsReferToSameDoc(a, dedupeTarget)) return true;
+                  if (assetsReferToSameDoc(a, normalizedSibling)) return true;
                   return relatedRefs.some((ref) => assetMatchesReference(a, ref));
                 });
                 if (!alreadyIncluded) {
-                  const info = parseAdFilename(data.filename || '');
-                  extras.push({
-                    ...data,
-                    version: data.version ?? info.version ?? 1,
-                    assetId: d.id,
-                    adGroupId: groupId,
-                    groupName,
-                    firebaseUrl: data.firebaseUrl,
-                  });
+                  extras.push(normalizedSibling);
                 }
               });
               return extras;
             }),
           );
           list = [...list, ...extraLists.flat()];
+        }
+
+        if (cancelled) {
+          return;
         }
 
         list.sort((a, b) => {
@@ -2022,8 +2056,8 @@ useEffect(() => {
           const root =
             getAssetUnitId(a) ||
             getAssetParentId(a) ||
-            getAssetDocumentId(a) ||
-            stripVersion(a.filename);
+            stripVersion(a.filename) ||
+            getAssetDocumentId(a);
           if (!root) return;
           if (!versionMap[root] || getVersion(versionMap[root]) < getVersion(a)) {
             versionMap[root] = a;
@@ -2149,21 +2183,96 @@ useEffect(() => {
           target.length === 0 && nonPending.length === 0 && hasPendingAds
         );
       } catch (err) {
-        console.error('Failed to load ads', err);
+        if (!cancelled) {
+          console.error('Failed to load ads', err);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     if (!user?.uid || (!groupId && brandCodes.length === 0)) {
-      setAds([]);
-      setReviewAds([]);
-      setLoading(false);
+      if (!cancelled) {
+        setAds([]);
+        setReviewAds([]);
+        setLoading(false);
+      }
       return;
     }
 
-    fetchAds();
-  }, [allowPublicListeners, user, brandCodes, groupId]);
+    const startPolling = () => {
+      if (pollTimer) return;
+      const run = () => {
+        if (pollInFlight || cancelled) {
+          return;
+        }
+        pollInFlight = true;
+        fetchAds().finally(() => {
+          pollInFlight = false;
+        });
+      };
+      run();
+      pollTimer = setInterval(run, 15000);
+    };
+
+    if (groupId && realtimeEnabled) {
+      const assetsRef = collection(db, 'adGroups', groupId, 'assets');
+      try {
+        realtimeUnsubscribe = onSnapshot(
+          assetsRef,
+          () => {
+            fetchAds();
+          },
+          (error) => {
+            console.error('Failed to subscribe to ad group assets', error);
+            if (!cancelled) {
+              if (realtimeUnsubscribe) {
+                try {
+                  realtimeUnsubscribe();
+                } catch (cleanupErr) {
+                  console.warn('Failed to clean up ad group asset listener', cleanupErr);
+                }
+                realtimeUnsubscribe = null;
+              }
+              startPolling();
+            }
+          },
+        );
+      } catch (err) {
+        console.error('Realtime asset listener setup failed', err);
+        startPolling();
+      }
+      fetchAds();
+    } else if (groupId) {
+      startPolling();
+    } else {
+      fetchAds();
+    }
+
+    return () => {
+      cancelled = true;
+      if (realtimeUnsubscribe) {
+        try {
+          realtimeUnsubscribe();
+        } catch (err) {
+          console.warn('Failed to clean up asset listener', err);
+        }
+      }
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
+    };
+  }, [
+    allowPublicListeners,
+    user,
+    brandCodes,
+    groupId,
+    realtimeEnabled,
+    buildHeroList,
+    getLatestAds,
+  ]);
 
   // ensure first ad and agency logo are loaded before removing overlay
   useEffect(() => {
