@@ -227,33 +227,34 @@ module.exports = async (req, res) => {
     return;
   }
 
-  if (!state) {
-    console.error("Slack OAuth callback missing state parameter");
-    redirect(res, "/slack/install-error?reason=missing_state");
-    return;
-  }
-
   let stateData = null;
 
-  try {
-    const stateRef = db.collection("slackOauthStates").doc(state);
-    const stateSnap = await stateRef.get();
+  if (!state) {
+    console.warn(
+      "Slack OAuth callback missing state parameter; proceeding with fallback handling"
+    );
+    stateData = {};
+  } else {
+    try {
+      const stateRef = db.collection("slackOauthStates").doc(state);
+      const stateSnap = await stateRef.get();
 
-    if (!stateSnap.exists) {
-      console.error("Slack OAuth callback received invalid state", { state });
-      redirect(res, "/slack/install-error?reason=invalid_state");
+      if (!stateSnap.exists) {
+        console.error("Slack OAuth callback received invalid state", { state });
+        redirect(res, "/slack/install-error?reason=invalid_state");
+        return;
+      }
+
+      stateData = stateSnap.data() || {};
+
+      await stateRef.delete().catch((deleteError) => {
+        console.error("Failed to delete Slack OAuth state", deleteError);
+      });
+    } catch (stateError) {
+      console.error("Error validating Slack OAuth state", stateError);
+      redirect(res, "/slack/install-error?reason=state_validation_failed");
       return;
     }
-
-    stateData = stateSnap.data() || {};
-
-    await stateRef.delete().catch((deleteError) => {
-      console.error("Failed to delete Slack OAuth state", deleteError);
-    });
-  } catch (stateError) {
-    console.error("Error validating Slack OAuth state", stateError);
-    redirect(res, "/slack/install-error?reason=state_validation_failed");
-    return;
   }
 
   if (!code) {
