@@ -62,7 +62,10 @@
         const errorEl = document.getElementById("error");
 
         try {
-          const response = await fetch("/api/slack/oauth/install-link", {
+          const queryString = window.location.search || "";
+          const endpoint = `/api/slack/oauth/install-link${queryString}`;
+
+          const response = await fetch(endpoint, {
             headers: { "Accept": "application/json" },
           });
 

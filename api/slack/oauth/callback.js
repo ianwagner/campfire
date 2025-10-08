@@ -6,10 +6,95 @@ const {
   firebaseInitError,
   missingFirebaseEnvVars,
 } = require("../firebase");
+const {
+  getRequestSearchParams,
+  resolveQueryParam,
+} = require("./request-utils");
 
 const SLACK_CLIENT_ID = process.env.SLACK_CLIENT_ID;
 const SLACK_CLIENT_SECRET = process.env.SLACK_CLIENT_SECRET;
-const SLACK_REDIRECT_URI = process.env.SLACK_REDIRECT_URI;
+const SLACK_REDIRECT_URI_VALUES = (process.env.SLACK_REDIRECT_URI || "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+const SLACK_REDIRECT_URI = SLACK_REDIRECT_URI_VALUES[0];
+
+function isAllowedRedirectUri(uri) {
+  if (!uri) {
+    return false;
+  }
+
+  return SLACK_REDIRECT_URI_VALUES.includes(uri);
+}
+
+function selectRedirectUriForExchange(stateData) {
+  if (stateData && typeof stateData.redirectUri === "string") {
+    const candidate = stateData.redirectUri.trim();
+    if (candidate && isAllowedRedirectUri(candidate)) {
+      return candidate;
+    }
+
+    if (candidate && !isAllowedRedirectUri(candidate)) {
+      console.error("Slack OAuth state contained unapproved redirect URI", {
+        redirectUri: candidate,
+      });
+    }
+  }
+
+  return SLACK_REDIRECT_URI;
+}
+
+function buildErrorRedirectLocation(reason, stateData) {
+  const fallback = `/slack/install-error?reason=${encodeURIComponent(reason)}`;
+  const target = stateData?.errorRedirect;
+
+  if (!target) {
+    return fallback;
+  }
+
+  try {
+    const url = new URL(target);
+    if (reason && !url.searchParams.has("reason")) {
+      url.searchParams.set("reason", reason);
+    }
+    return url.toString();
+  } catch (error) {
+    console.error("Invalid error redirect in Slack OAuth state", {
+      errorRedirect: target,
+      error: error?.message,
+    });
+    return fallback;
+  }
+}
+
+function buildSuccessRedirectLocation(teamId, teamName, stateData) {
+  const fallback = `/slack/installed?team=${encodeURIComponent(teamId)}`;
+  const target = stateData?.successRedirect;
+
+  if (!target) {
+    return fallback;
+  }
+
+  try {
+    const url = new URL(target);
+
+    if (teamId && !url.searchParams.has("team")) {
+      url.searchParams.set("team", teamId);
+    }
+
+    if (teamName && !url.searchParams.has("team_name")) {
+      url.searchParams.set("team_name", teamName);
+    }
+
+    return url.toString();
+  } catch (error) {
+    console.error("Invalid success redirect in Slack OAuth state", {
+      successRedirect: target,
+      error: error?.message,
+    });
+    return fallback;
+  }
+}
 
 function fetchWithFallback(url, options = {}) {
   if (typeof global.fetch === "function") {
@@ -80,114 +165,6 @@ function redirect(res, location) {
   res.end();
 }
 
-function getRequestSearchParams(req) {
-  const combinedSearchParams = new URLSearchParams();
-
-  const appendParams = (params) => {
-    if (!params) {
-      return;
-    }
-
-    for (const [key, value] of params.entries()) {
-      if (typeof value === "string" && value.length) {
-        if (!combinedSearchParams.has(key)) {
-          combinedSearchParams.append(key, value);
-        }
-      }
-    }
-  };
-
-  const protoHeader = req.headers?.["x-forwarded-proto"] || "https";
-  const protocol = Array.isArray(protoHeader)
-    ? protoHeader[0]
-    : protoHeader.split(",")[0];
-  const host =
-    req.headers?.host ||
-    (Array.isArray(req.headers?.["x-forwarded-host"])
-      ? req.headers["x-forwarded-host"][0]
-      : req.headers?.["x-forwarded-host"]) ||
-    "localhost";
-  const baseUrl = `${protocol}://${host}`;
-
-  const candidateUrls = [];
-
-  const pushHeaderValue = (value) => {
-    if (!value) return;
-    if (Array.isArray(value)) {
-      value.forEach((item) => {
-        if (item) candidateUrls.push(item);
-      });
-    } else {
-      candidateUrls.push(value);
-    }
-  };
-
-  if (typeof req.url === "string") {
-    candidateUrls.push(req.url);
-  }
-
-  if (typeof req.originalUrl === "string") {
-    candidateUrls.push(req.originalUrl);
-  }
-
-  pushHeaderValue(req.headers?.["x-vercel-forwarded-url"]);
-  pushHeaderValue(req.headers?.["x-forwarded-url"]);
-  pushHeaderValue(req.headers?.["x-forwarded-uri"]);
-  pushHeaderValue(req.headers?.["x-original-url"]);
-
-  for (const candidate of candidateUrls) {
-    try {
-      const parsedUrl = new URL(candidate, baseUrl);
-      appendParams(parsedUrl.searchParams);
-    } catch (parseError) {
-      console.error("Failed to parse request URL candidate", {
-        candidate,
-        error: parseError?.message,
-      });
-    }
-  }
-
-  if (req.query && typeof req.query === "object") {
-    for (const [key, value] of Object.entries(req.query)) {
-      if (Array.isArray(value)) {
-        const firstValid = value.find(
-          (item) => typeof item === "string" && item.length
-        );
-        if (firstValid && !combinedSearchParams.has(key)) {
-          combinedSearchParams.append(key, firstValid);
-        }
-      } else if (typeof value === "string" && value.length) {
-        if (!combinedSearchParams.has(key)) {
-          combinedSearchParams.append(key, value);
-        }
-      }
-    }
-  }
-
-  return combinedSearchParams;
-}
-
-function resolveQueryParam(req, searchParams, key) {
-  if (searchParams.has(key)) {
-    const value = searchParams.get(key);
-    if (value && value !== "undefined" && value !== "null") {
-      return value;
-    }
-    return undefined;
-  }
-
-  const fallback = req.query?.[key];
-  if (Array.isArray(fallback)) {
-    return fallback.find((item) => item && item !== "undefined" && item !== "null");
-  }
-
-  if (typeof fallback === "string" && fallback && fallback !== "undefined" && fallback !== "null") {
-    return fallback;
-  }
-
-  return undefined;
-}
-
 module.exports = async (req, res) => {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -211,12 +188,30 @@ module.exports = async (req, res) => {
       error_description: errorDescription,
       state,
     });
-    redirect(
-      res,
-      `/slack/install-error?reason=${encodeURIComponent(error)}${
-        state ? `&state=${encodeURIComponent(state)}` : ""
-      }`
-    );
+    if (state && db) {
+      try {
+        const stateRef = db.collection("slackOauthStates").doc(state);
+        const stateSnap = await stateRef.get();
+
+        if (stateSnap.exists) {
+          const stateData = stateSnap.data() || {};
+          await stateRef.delete().catch((deleteError) => {
+            console.error("Failed to delete Slack OAuth state after error", deleteError);
+          });
+
+          const location = buildErrorRedirectLocation(error, stateData);
+          redirect(res, location);
+          return;
+        }
+      } catch (stateError) {
+        console.error("Unable to resolve Slack OAuth error redirect", stateError);
+      }
+    }
+
+    const fallbackLocation = `/slack/install-error?reason=${encodeURIComponent(
+      error
+    )}`;
+    redirect(res, fallbackLocation);
     return;
   }
 
@@ -238,6 +233,8 @@ module.exports = async (req, res) => {
     return;
   }
 
+  let stateData = null;
+
   try {
     const stateRef = db.collection("slackOauthStates").doc(state);
     const stateSnap = await stateRef.get();
@@ -247,6 +244,8 @@ module.exports = async (req, res) => {
       redirect(res, "/slack/install-error?reason=invalid_state");
       return;
     }
+
+    stateData = stateSnap.data() || {};
 
     await stateRef.delete().catch((deleteError) => {
       console.error("Failed to delete Slack OAuth state", deleteError);
@@ -259,7 +258,8 @@ module.exports = async (req, res) => {
 
   if (!code) {
     console.error("Slack OAuth callback missing authorization code", { state });
-    redirect(res, "/slack/install-error?reason=missing_code");
+    const location = buildErrorRedirectLocation("missing_code", stateData);
+    redirect(res, location);
     return;
   }
 
@@ -270,11 +270,16 @@ module.exports = async (req, res) => {
 
   if (missingSlackEnv.length) {
     console.error("Missing Slack OAuth environment variables", missingSlackEnv);
-    redirect(res, "/slack/install-error?reason=configuration_error");
+    const location = buildErrorRedirectLocation(
+      "configuration_error",
+      stateData
+    );
+    redirect(res, location);
     return;
   }
 
   let oauthResponse;
+  const redirectUriForExchange = selectRedirectUriForExchange(stateData);
 
   try {
     const response = await fetchWithFallback("https://slack.com/api/oauth.v2.access", {
@@ -285,7 +290,7 @@ module.exports = async (req, res) => {
       body: new URLSearchParams({
         client_id: SLACK_CLIENT_ID,
         client_secret: SLACK_CLIENT_SECRET,
-        redirect_uri: SLACK_REDIRECT_URI,
+        redirect_uri: redirectUriForExchange,
         code,
       }).toString(),
     });
@@ -298,12 +303,17 @@ module.exports = async (req, res) => {
         statusText: response.statusText,
         body: oauthResponse,
       });
-      redirect(res, "/slack/install-error?reason=oauth_failed");
+      const location = buildErrorRedirectLocation("oauth_failed", stateData);
+      redirect(res, location);
       return;
     }
   } catch (exchangeError) {
     console.error("Slack OAuth exchange error", exchangeError);
-    redirect(res, "/slack/install-error?reason=oauth_request_failed");
+    const location = buildErrorRedirectLocation(
+      "oauth_request_failed",
+      stateData
+    );
+    redirect(res, location);
     return;
   }
 
@@ -318,7 +328,8 @@ module.exports = async (req, res) => {
 
   if (!teamId || !accessToken) {
     console.error("Slack OAuth response missing required fields", oauthResponse);
-    redirect(res, "/slack/install-error?reason=invalid_response");
+    const location = buildErrorRedirectLocation("invalid_response", stateData);
+    redirect(res, location);
     return;
   }
 
@@ -340,12 +351,15 @@ module.exports = async (req, res) => {
     );
   } catch (persistError) {
     console.error("Failed to persist Slack workspace installation", persistError);
-    redirect(res, "/slack/install-error?reason=persistence_failed");
+    const location = buildErrorRedirectLocation("persistence_failed", stateData);
+    redirect(res, location);
     return;
   }
 
-  redirect(
-    res,
-    `/slack/installed?team=${encodeURIComponent(teamId)}`
+  const successLocation = buildSuccessRedirectLocation(
+    teamId,
+    teamName,
+    stateData
   );
+  redirect(res, successLocation);
 };
