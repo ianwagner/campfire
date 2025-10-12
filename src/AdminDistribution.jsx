@@ -25,14 +25,6 @@ const formatLabel = (s) =>
     .replace(/[_.-]+/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
-const normalizeKeyPart = (value) => {
-  if (value == null) return '';
-  if (typeof value === 'string') return value.trim();
-  return String(value || '').trim();
-};
-
-const normalizeProductKey = (value) => normalizeKeyPart(value).toLowerCase();
-
 const baseColumnDefs = [
   { key: 'groupName', label: 'Ad Group', width: 'auto' },
   {
@@ -196,22 +188,11 @@ const AdminDistribution = () => {
             collection(db, 'adGroups', gDoc.id, 'copyCards'),
           );
           const copiesByProduct = {};
-          const copyCardsById = {};
           cSnap.docs.forEach((d) => {
             const data = d.data();
             const prodName = data.product || '';
-            const normalizedProduct = normalizeProductKey(prodName);
-            const entry = {
-              id: d.id,
-              product: prodName,
-              primary: data.primary || '',
-              headline: data.headline || '',
-              description: data.description || '',
-            };
-            copyCardsById[d.id] = entry;
-            const bucket = normalizedProduct || '';
-            if (!copiesByProduct[bucket]) copiesByProduct[bucket] = [];
-            copiesByProduct[bucket].push(entry);
+            if (!copiesByProduct[prodName]) copiesByProduct[prodName] = [];
+            copiesByProduct[prodName].push(data);
           });
 
           const assetMap = {};
@@ -299,46 +280,12 @@ const AdminDistribution = () => {
               assetEntries.find(
                 (asset) => asset.copyOverride && asset.label === '1x1',
               ) || assetEntries.find((asset) => asset.copyOverride);
-            const normalizedProduct = normalizeProductKey(product);
-            const assignedCopyCardId = normalizeKeyPart(
-              rData.platformCopyCardId ||
-                rData.components?.platformCopyCardId ||
-                rData.metadata?.platformCopyCardId,
-            );
-            const allCopyOptions = [
-              ...(copiesByProduct[normalizedProduct] || []),
-              ...(normalizedProduct !== '' && copiesByProduct['']
-                ? copiesByProduct['']
-                : []),
-            ];
-            const assignedCopy =
-              assignedCopyCardId && copyCardsById[assignedCopyCardId]
-                ? copyCardsById[assignedCopyCardId]
-                : null;
+            const copyList = copiesByProduct[product] || [];
             const fallbackCopy =
-              assignedCopy ||
-              allCopyOptions.find(
-                (card) => card.primary || card.headline || card.description,
-              ) ||
-              allCopyOptions[0] ||
-              {};
-            const overrideCopy = overrideEntry?.copyOverride || null;
-            const copy = {
-              primary: fallbackCopy.primary || '',
-              headline: fallbackCopy.headline || '',
-              description: fallbackCopy.description || '',
-            };
-            if (overrideCopy) {
-              if (overrideCopy.primary != null) {
-                copy.primary = overrideCopy.primary;
-              }
-              if (overrideCopy.headline != null) {
-                copy.headline = overrideCopy.headline;
-              }
-              if (overrideCopy.description != null) {
-                copy.description = overrideCopy.description;
-              }
-            }
+              copyList.length > 0
+                ? copyList[Math.floor(Math.random() * copyList.length)]
+                : {};
+            const copy = overrideEntry?.copyOverride || fallbackCopy;
             const angle =
               rData.metadata?.angle ||
               rData.components?.angle ||
