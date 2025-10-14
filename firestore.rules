@@ -39,6 +39,40 @@ match /assets/{assetId} {
       return request.auth != null && userData() != null && userData().role == 'client';
     }
 
+    function isAgencyRole() {
+      return request.auth != null && userData() != null && userData().role == 'agency';
+    }
+
+    function userAgencyId() {
+      return userData() != null && userData().agencyId != null ? userData().agencyId : null;
+    }
+
+    function userBrandCodes() {
+      return userData() != null && userData().brandCodes != null ? userData().brandCodes : [];
+    }
+
+    function briefAgencyFromId(docId) {
+      return docId.split('_')[0];
+    }
+
+    function submissionBrandFromId(docId) {
+      return docId.split('_')[0];
+    }
+
+    function getBrandDoc(brandId) {
+      return get(/databases/$(database)/documents/brands/$(brandId));
+    }
+
+    function brandBelongsToUser(brandId) {
+      let brand = getBrandDoc(brandId);
+      return brand != null && brand.data != null && userBrandCodes().hasAny([brand.data.code]);
+    }
+
+    function brandAgencyId(brandId) {
+      let brand = getBrandDoc(brandId);
+      return brand != null && brand.data != null ? brand.data.agencyId : null;
+    }
+
     function userData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -132,6 +166,67 @@ match /assets/{assetId} {
         );
       allow delete: if isAdmin();
       allow create: if isAdmin();
+    }
+
+    match /briefs/{docId} {
+      allow read: if isAdmin() ||
+        isManager() ||
+        (isAgencyRole() && userAgencyId() != null && (
+          (resource != null && resource.data != null && resource.data.agencyId == userAgencyId()) ||
+          briefAgencyFromId(docId) == userAgencyId()
+        )) ||
+        (isClient() && userAgencyId() != null && (
+          (resource != null && resource.data != null && resource.data.agencyId == userAgencyId()) ||
+          briefAgencyFromId(docId) == userAgencyId()
+        ));
+
+      allow write: if isAdmin() || (
+        isAgencyRole() && userAgencyId() != null && (
+          (request.resource.data.agencyId != null && request.resource.data.agencyId == userAgencyId()) ||
+          (resource != null && resource.data != null && resource.data.agencyId == userAgencyId()) ||
+          briefAgencyFromId(docId) == userAgencyId()
+        )
+      );
+    }
+
+    match /briefSubmissions/{docId} {
+      allow read: if isAdmin() ||
+        isManager() ||
+        (isAgencyRole() && userAgencyId() != null && resource.data.agencyId == userAgencyId()) ||
+        (isClient() && brandBelongsToUser(submissionBrandFromId(docId)));
+
+      allow create: if isClient() &&
+        brandBelongsToUser(submissionBrandFromId(docId)) &&
+        request.resource.data.brandId == submissionBrandFromId(docId) &&
+        request.resource.data.agencyId == brandAgencyId(submissionBrandFromId(docId)) &&
+        request.resource.data.status == 'submitted' &&
+        request.resource.data.submittedBy != null &&
+        request.resource.data.submittedBy.uid == request.auth.uid;
+
+      allow update: if isAdmin() ||
+        (isAgencyRole() && userAgencyId() != null && resource.data.agencyId == userAgencyId()) ||
+        (
+          isClient() &&
+          brandBelongsToUser(submissionBrandFromId(docId)) &&
+          resource.data.canEditUntilTs != null &&
+          request.time <= resource.data.canEditUntilTs &&
+          request.resource.data.brandId == resource.data.brandId &&
+          request.resource.data.agencyId == resource.data.agencyId &&
+          request.resource.data.period == resource.data.period &&
+          request.resource.data.submittedAt == resource.data.submittedAt &&
+          request.resource.data.canEditUntil == resource.data.canEditUntil &&
+          request.resource.data.canEditUntilTs == resource.data.canEditUntilTs &&
+          request.resource.data.submittedBy == resource.data.submittedBy &&
+          request.resource.data.status in ['submitted', 'updated'] &&
+          request.resource.data.updatedBy != null &&
+          request.resource.data.updatedBy.uid == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'payload',
+            'status',
+            'updatedAt',
+            'updatedBy'
+          ])
+        );
     }
 
     match /brands/{brandId}/assets/{assetId} {

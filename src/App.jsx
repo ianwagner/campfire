@@ -80,6 +80,7 @@ import AdminClaimDebug from "./AdminClaimDebug";
 import AdminDistribution from "./AdminDistribution";
 import AdminCapacityPlanner from "./AdminCapacityPlanner";
 import MiniGame from "./MiniGame.jsx";
+import BriefPage from "./BriefPage.jsx";
 
 const ThemeWatcher = () => {
   useTheme();
@@ -189,7 +190,12 @@ const App = () => {
       <RequireMfa user={user} role={role}>
         <div className="min-h-screen flex">
           {signedIn && (
-            <RoleSidebar role={role} isAdmin={isAdmin} agencyId={agencyId} />
+            <RoleSidebar
+              role={role}
+              isAdmin={isAdmin}
+              agencyId={agencyId}
+              brandCodes={brandCodes}
+            />
           )}
           <div
             className={`flex flex-col flex-grow box-border min-w-0 max-w-full transition-[padding-left] duration-300 ${
@@ -329,6 +335,38 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <ClientProjects brandCodes={brandCodes} />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/brief"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <BriefPage brandCodes={brandCodes} agencyId={agencyId} />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/brief/:period"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="client"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <BriefPage brandCodes={brandCodes} agencyId={agencyId} />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

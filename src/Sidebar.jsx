@@ -2,6 +2,13 @@ import React from 'react';
 import SidebarBase from './components/SidebarBase';
 import Logo from './components/Logo.jsx';
 import useAgencyTheme from './useAgencyTheme';
+import useBrandsByCode from './useBrandsByCode.js';
+import useMonthlyBrief from './useMonthlyBrief.js';
+import {
+  MONTHLY_BRIEF_BADGE_TONE_CLASSES,
+  MONTHLY_BRIEF_MENU_LABEL,
+  getMonthlyBriefBadge,
+} from './monthlyBriefCopy.js';
 import {
   FiHome,
   FiEdit,
@@ -15,7 +22,7 @@ import {
 } from 'react-icons/fi';
 import { FiFolder } from 'react-icons/fi';
 
-const defaultTabs = [
+const clientBaseTabs = [
   { label: 'Dashboard', path: '/dashboard/client', icon: FiHome },
   { label: 'Create', path: '/projects', icon: FiFolder },
   { label: 'Ad Groups', path: '/ad-groups', icon: FiGrid },
@@ -62,12 +69,29 @@ const editorTabs = [
   { label: 'Account Settings', path: '/account-settings', icon: FiUser },
 ];
 
-const Sidebar = ({ agencyId, role }) => {
+const Sidebar = ({ agencyId, role, brandCodes = [] }) => {
   const isManager = role === 'manager';
   const isEditor = role === 'editor';
   const isPm = role === 'project-manager';
   const isOps = role === 'ops';
+  const isClient = role === 'client';
+  const shouldShowBriefTab = isClient;
   const { agency } = useAgencyTheme(isManager || isEditor ? null : agencyId);
+  const { brands } = useBrandsByCode(shouldShowBriefTab ? brandCodes : []);
+  const primaryBrand = shouldShowBriefTab && brands.length > 0 ? brands[0] : null;
+  const resolvedAgencyId = shouldShowBriefTab && primaryBrand
+    ? primaryBrand.agencyId || agencyId || null
+    : null;
+  const { period: briefPeriod, state: briefState } = useMonthlyBrief(
+    resolvedAgencyId,
+    shouldShowBriefTab && primaryBrand ? primaryBrand.id || null : null,
+    undefined
+  );
+  const briefBadge = shouldShowBriefTab ? getMonthlyBriefBadge(briefState) : null;
+  const briefBadgeClasses = briefBadge
+    ? MONTHLY_BRIEF_BADGE_TONE_CLASSES[briefBadge.tone] || MONTHLY_BRIEF_BADGE_TONE_CLASSES.muted
+    : null;
+  const briefTabPath = briefPeriod ? `/brief/${briefPeriod}` : '/brief';
   const showAnimatedLogo = isManager || isEditor || !agencyId;
   const [collapsed, setCollapsed] = React.useState(false);
   React.useEffect(() => {
@@ -83,6 +107,23 @@ const Sidebar = ({ agencyId, role }) => {
       root.style.setProperty('--sidebar-width', '250px');
     };
   }, [collapsed]);
+  const clientTabs = React.useMemo(() => {
+    if (!shouldShowBriefTab) return clientBaseTabs;
+    const list = [...clientBaseTabs];
+    const briefTab = {
+      label: MONTHLY_BRIEF_MENU_LABEL,
+      path: briefTabPath,
+      icon: FiEdit,
+      badge: briefBadge && briefBadgeClasses
+        ? { label: briefBadge.label, toneClass: briefBadgeClasses }
+        : briefBadge
+          ? { label: briefBadge.label, toneClass: MONTHLY_BRIEF_BADGE_TONE_CLASSES.muted }
+          : null,
+    };
+    list.splice(2, 0, briefTab);
+    return list;
+  }, [briefBadge, briefBadgeClasses, briefTabPath, shouldShowBriefTab]);
+
   const tabs = isManager
     ? managerTabs
     : isEditor
@@ -91,7 +132,7 @@ const Sidebar = ({ agencyId, role }) => {
         ? opsTabs
         : isPm
           ? pmTabs
-          : defaultTabs;
+          : clientTabs;
 
   return (
     <SidebarBase
