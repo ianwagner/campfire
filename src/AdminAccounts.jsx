@@ -70,6 +70,13 @@ const AdminAccounts = () => {
 
   const cancelEdit = () => setEditId(null);
 
+  const handleAddAllBrandCodes = () => {
+    setForm((f) => ({
+      ...f,
+      brandCodes: Array.from(new Set(brands.filter(Boolean))),
+    }));
+  };
+
   const handleSave = async (id) => {
     debugLog('Saving account', id);
     const codes = form.brandCodes.filter(Boolean);
@@ -236,12 +243,19 @@ const AdminAccounts = () => {
                   </td>
                   <td>
                     {editId === acct.id ? (
-                      <TagInput
-                        value={form.brandCodes}
-                        onChange={(codes) => setForm((f) => ({ ...f, brandCodes: codes }))}
-                        suggestions={brands}
-                        id={`brand-${acct.id}`}
-                      />
+                      <div className="flex flex-col gap-2">
+                        <TagInput
+                          value={form.brandCodes}
+                          onChange={(codes) => setForm((f) => ({ ...f, brandCodes: codes }))}
+                          suggestions={brands}
+                          id={`brand-${acct.id}`}
+                        />
+                        <div>
+                          <Button type="button" variant="action" onClick={handleAddAllBrandCodes}>
+                            Add All Brand Codes
+                          </Button>
+                        </div>
+                      </div>
                     ) : Array.isArray(acct.brandCodes) ? (
                       acct.brandCodes.join(', ')
                     ) : (

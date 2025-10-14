@@ -19,6 +19,14 @@ const formatMonth = (m) => {
   });
 };
 
+const normalizeKeyPart = (value) => {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  return String(value || '').trim();
+};
+
+const normalizeProductKey = (value) => normalizeKeyPart(value).toLowerCase();
+
 const normalizeAspectRatio = (value) => {
   if (value == null) return '';
   const str = String(value).trim().toLowerCase();
@@ -353,11 +361,26 @@ const ClientData = ({ brandCodes = [] }) => {
           const aSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'assets'));
           const cSnap = await getDocs(collection(db, 'adGroups', gDoc.id, 'copyCards'));
           const copiesByProduct = {};
+          const copyCardsById = {};
           cSnap.docs.forEach((d) => {
             const data = d.data();
             const prodName = data.product || '';
-            if (!copiesByProduct[prodName]) copiesByProduct[prodName] = [];
-            copiesByProduct[prodName].push(data);
+            const normalizedProduct = normalizeProductKey(prodName);
+            const entry = {
+              id: d.id,
+              product: prodName,
+              primary: data.primary || '',
+              headline: data.headline || '',
+              description: data.description || '',
+            };
+            const normalizedId = normalizeKeyPart(d.id);
+            copyCardsById[d.id] = entry;
+            if (normalizedId && normalizedId !== d.id) {
+              copyCardsById[normalizedId] = entry;
+            }
+            const bucket = normalizedProduct || '';
+            if (!copiesByProduct[bucket]) copiesByProduct[bucket] = [];
+            copiesByProduct[bucket].push(entry);
           });
 
           const assetMap = {};
@@ -386,7 +409,19 @@ const ClientData = ({ brandCodes = [] }) => {
               return;
             }
             const label = aspect;
-            const entry = { url, label, status: aData.status || '' };
+            const override = aData.platformCopyOverride || null;
+            const entry = {
+              url,
+              label,
+              status: aData.status || '',
+              copyOverride: override
+                ? {
+                    primary: override.primary || '',
+                    headline: override.headline || '',
+                    description: override.description || '',
+                  }
+                : null,
+            };
             if (!assetMap[recipe]) assetMap[recipe] = [];
             assetMap[recipe].push(entry);
             if (normalized !== recipe) {
@@ -426,11 +461,70 @@ const ClientData = ({ brandCodes = [] }) => {
                 gData,
               );
             }
-            const copyList = copiesByProduct[product] || [];
-            const copy =
-              copyList.length > 0
-                ? copyList[Math.floor(Math.random() * copyList.length)]
-                : {};
+            const recipeKey = String(recipeNo);
+            const candidateKeys = [
+              recipeKey,
+              String(rDoc.id || ''),
+              String(rData.recipeCode || ''),
+              String(rData.components?.recipeCode || ''),
+            ].filter(
+              (val) => val && val !== 'undefined' && val !== 'null',
+            );
+            const assetEntries =
+              candidateKeys.reduce((found, key) => {
+                if (found) return found;
+                const direct = assetMap[key];
+                if (direct && direct.length) return direct;
+                const normalizedKey = key.replace(/^0+/, '');
+                if (normalizedKey && assetMap[normalizedKey]?.length) {
+                  return assetMap[normalizedKey];
+                }
+                return null;
+              }, null) || [];
+            const overrideEntry =
+              assetEntries.find(
+                (asset) => asset.copyOverride && asset.label === '1x1',
+              ) || assetEntries.find((asset) => asset.copyOverride);
+            const normalizedProduct = normalizeProductKey(product);
+            const assignedCopyCardId = normalizeKeyPart(
+              rData.platformCopyCardId ||
+                rData.components?.platformCopyCardId ||
+                rData.metadata?.platformCopyCardId,
+            );
+            const allCopyOptions = [
+              ...(copiesByProduct[normalizedProduct] || []),
+              ...(normalizedProduct !== '' && copiesByProduct['']
+                ? copiesByProduct['']
+                : []),
+            ];
+            const assignedCopy =
+              assignedCopyCardId && copyCardsById[assignedCopyCardId]
+                ? copyCardsById[assignedCopyCardId]
+                : null;
+            const fallbackCopy =
+              assignedCopy ||
+              allCopyOptions.find(
+                (card) => card.primary || card.headline || card.description,
+              ) ||
+              allCopyOptions[0] ||
+              {};
+            const overrideCopy = overrideEntry?.copyOverride || null;
+            const copy = {
+              primary: fallbackCopy.primary || '',
+              headline: fallbackCopy.headline || '',
+              description: fallbackCopy.description || '',
+            };
+            if (overrideCopy) {
+              if (overrideCopy.primary != null) {
+                copy.primary = overrideCopy.primary;
+              }
+              if (overrideCopy.headline != null) {
+                copy.headline = overrideCopy.headline;
+              }
+              if (overrideCopy.description != null) {
+                copy.description = overrideCopy.description;
+              }
+            }
             const angle =
               rData.metadata?.angle ||
               rData.components?.angle ||
@@ -469,12 +563,10 @@ const ClientData = ({ brandCodes = [] }) => {
             const headline = rData.metadata?.headline || copy.headline || '';
             const description =
               rData.metadata?.description || copy.description || '';
-            const recipeKey = String(recipeNo);
-            const normalizedRecipeKey = recipeKey.replace(/^0+/, '') || recipeKey;
             const assets =
               rData.status === 'archived' || rData.status === 'rejected'
                 ? []
-                : assetMap[recipeKey] || assetMap[normalizedRecipeKey] || [];
+                : assetEntries;
             const status = assets[0]?.status || rData.status || '';
             const row = {
               id: `${gDoc.id}|${rDoc.id}`,
