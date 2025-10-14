@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import {
   doc,
   getDoc,
@@ -12,13 +12,6 @@ import { db } from "./firebase/config";
 import Review from "./Review";
 import LoadingOverlay from "./LoadingOverlay";
 import ensurePublicDashboardSlug from "./utils/ensurePublicDashboardSlug.js";
-import useMonthlyBrief from "./useMonthlyBrief.js";
-import {
-  getMonthlyBriefBadge,
-  MONTHLY_BRIEF_BADGE_TONE_CLASSES,
-  MONTHLY_BRIEF_MENU_LABEL,
-} from "./monthlyBriefCopy.js";
-import { FiEdit3 } from "react-icons/fi";
 
 const ReviewPage = ({
   userRole = null,
@@ -33,7 +26,6 @@ const ReviewPage = ({
   const [tempName, setTempName] = useState("");
   const [agencyId, setAgencyId] = useState(null);
   const [brandDashboardSlug, setBrandDashboardSlug] = useState("");
-  const [brandId, setBrandId] = useState(null);
   const [groupPassword, setGroupPassword] = useState(null);
   const [visibility, setVisibility] = useState(null);
   const [requireAuth, setRequireAuth] = useState(false);
@@ -60,7 +52,6 @@ const ReviewPage = ({
   useEffect(() => {
     if (!groupId) {
       setAgencyId(null);
-      setBrandId(null);
       return undefined;
     }
     let cancelled = false;
@@ -71,7 +62,6 @@ const ReviewPage = ({
           if (!cancelled) {
             setAgencyId(null);
             setBrandDashboardSlug("");
-            setBrandId(null);
           }
           return;
         }
@@ -99,19 +89,16 @@ const ReviewPage = ({
           if (!cancelled) {
             setAgencyId(brandData.agencyId || null);
             setBrandDashboardSlug((slug || brandData.code || "").trim());
-            setBrandId(brandDoc.id);
           }
         } else if (!cancelled) {
           setAgencyId(null);
           setBrandDashboardSlug("");
-          setBrandId(null);
         }
       } catch (err) {
         console.error("Failed to fetch agency", err);
         if (!cancelled) {
           setAgencyId(null);
           setBrandDashboardSlug("");
-          setBrandId(null);
         }
       }
     };
@@ -274,40 +261,9 @@ const ReviewPage = ({
   const userObj = user?.isAnonymous
     ? { uid: user.uid || "public", email: "public@campfire" }
     : user;
-  const shouldShowBriefChip = userRole === "client" && brandId && agencyId;
-  const { period: reviewBriefPeriod, state: reviewBriefState } = useMonthlyBrief(
-    shouldShowBriefChip ? agencyId : null,
-    shouldShowBriefChip ? brandId : null,
-    undefined
-  );
-  const reviewBriefBadge = shouldShowBriefChip ? getMonthlyBriefBadge(reviewBriefState) : null;
-  const reviewBriefTone = reviewBriefBadge
-    ? MONTHLY_BRIEF_BADGE_TONE_CLASSES[reviewBriefBadge.tone] || MONTHLY_BRIEF_BADGE_TONE_CLASSES.muted
-    : null;
 
   return (
     <div className="min-h-screen relative">
-      {shouldShowBriefChip && reviewBriefBadge && (
-        <Link
-          to={`/brief/${reviewBriefPeriod}`}
-          className="absolute top-6 right-6 z-30"
-          aria-label={`${MONTHLY_BRIEF_MENU_LABEL} — ${reviewBriefBadge.label}`}
-        >
-          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-slate-900/80 shadow-md backdrop-blur">
-            <FiEdit3 className="text-sm text-gray-700 dark:text-gray-200" aria-hidden="true" />
-            <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-              {MONTHLY_BRIEF_MENU_LABEL}
-            </span>
-            <span
-              className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${
-                reviewBriefTone || 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
-              }`}
-            >
-              {reviewBriefBadge.label}
-            </span>
-          </span>
-        </Link>
-      )}
       <Review
         ref={reviewRef}
         user={userObj}

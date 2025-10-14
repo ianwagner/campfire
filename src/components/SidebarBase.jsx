@@ -115,8 +115,6 @@ const SidebarBase = ({
           );
         }
 
-        const badge = tab.badge || null;
-        const badgeClassName = badge?.toneClass || '';
         const isActive =
           (tab.children && isCollapsed
             ? tab.children.some((c) => currentPath.startsWith(c.path))
@@ -141,37 +139,16 @@ const SidebarBase = ({
             key={tab.label}
             onClick={() => handleClick(tab)}
             className={classes}
-            title={isCollapsed ? `${tab.label}${badge ? ` — ${badge.label}` : ''}` : undefined}
+            title={isCollapsed ? tab.label : undefined}
           >
-            <span
-              className={`flex items-center ${
-                isCollapsed ? 'justify-center' : 'justify-between gap-2 w-full'
-              }`}
-            >
+            <span className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start gap-1'}`}>
+              {Icon && <Icon className="text-lg shrink-0" aria-hidden="true" />}
               <span
-                className={`flex items-center ${
-                  isCollapsed ? 'justify-center' : 'justify-start gap-1 flex-1 min-w-0'
-                }`}
+                className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'}`}
+                style={{ transitionDelay: isCollapsed ? '150ms' : '0ms' }}
               >
-                {Icon && <Icon className="text-lg shrink-0" aria-hidden="true" />}
-                <span
-                  className={`overflow-hidden transition-all duration-300 whitespace-nowrap ${
-                    isCollapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-[8rem] ml-1'
-                  }`}
-                  style={{ transitionDelay: isCollapsed ? '150ms' : '0ms' }}
-                >
-                  {tab.label}
-                </span>
+                {tab.label}
               </span>
-              {!isCollapsed && badge && (
-                <span
-                  className={`px-2 py-0.5 text-xs font-semibold rounded-full whitespace-nowrap ${
-                    badgeClassName || 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
-                  }`}
-                >
-                  {badge.label}
-                </span>
-              )}
             </span>
           </button>
         );
