@@ -1286,8 +1286,8 @@ const RecipePreview = forwardRef(({
       assetCols.forEach((c) => addColumn(c.key, c.label));
     };
 
-    if (orderedComponents.length > 0) {
-      appendFromComponents(orderedComponents);
+    if (displayedComponents.length > 0) {
+      appendFromComponents(displayedComponents);
       writeFields.forEach((f) => {
         if (f.key) {
           addColumn(f.key, f.label, f.inputType || 'text');
@@ -1318,10 +1318,9 @@ const RecipePreview = forwardRef(({
 
     let cols = Array.from(columnMap.values());
 
-    const clientOrder =
-      userRole === 'client' && currentType?.clientVisibleColumns?.length
-        ? currentType.clientVisibleColumns
-        : null;
+    const useClientColumns =
+      (userRole === 'client' || externalOnly) && currentType?.clientVisibleColumns?.length;
+    const clientOrder = useClientColumns ? currentType.clientVisibleColumns : null;
     if (clientOrder) {
       const allowed = new Set(clientOrder);
       cols = cols.filter((col) => allowed.has(col.key));
@@ -1345,13 +1344,13 @@ const RecipePreview = forwardRef(({
     }
 
     return cols;
-  }, [orderedComponents, writeFields, initialResults, currentType, userRole, results]);
+  }, [displayedComponents, writeFields, initialResults, currentType, userRole, results, externalOnly]);
 
   useEffect(() => {
     setVisibleColumns((prev) => {
       const availableKeys = ['recipeNo', ...columnMeta.map((c) => c.key), 'copy'];
       const hasClientColumns =
-        userRole === 'client' && currentType?.clientVisibleColumns?.length > 0;
+        (userRole === 'client' || externalOnly) && currentType?.clientVisibleColumns?.length > 0;
       const defaultOrder = hasClientColumns
         ? currentType.clientVisibleColumns
         : currentType?.defaultColumns && currentType.defaultColumns.length > 0
