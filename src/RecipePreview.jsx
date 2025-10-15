@@ -1332,7 +1332,7 @@ const RecipePreview = forwardRef(({
     const useClientColumns =
       (userRole === 'client' || externalOnly) && currentType?.clientVisibleColumns?.length;
     const clientOrder = useClientColumns ? currentType.clientVisibleColumns : null;
-    if (clientOrder) {
+    if (clientOrder && !showColumnButton) {
       const allowed = new Set(clientOrder);
       cols = cols.filter((col) => allowed.has(col.key));
     }
@@ -1355,7 +1355,16 @@ const RecipePreview = forwardRef(({
     }
 
     return cols;
-  }, [displayedComponents, writeFields, initialResults, currentType, userRole, results, externalOnly]);
+  }, [
+    displayedComponents,
+    writeFields,
+    initialResults,
+    currentType,
+    userRole,
+    results,
+    externalOnly,
+    showColumnButton,
+  ]);
 
   useEffect(() => {
     setVisibleColumns((prev) => {
