@@ -386,8 +386,8 @@ const RecipePreview = forwardRef(({
   useEffect(() => {
     if (initialResults && Array.isArray(initialResults)) {
       const mapped = initialResults.map((r, idx) => ({
-        recipeNo: r?.recipeNo ?? r?.metadata?.recipeNo ?? r?.recipeNumber ?? idx + 1,
         ...r,
+        recipeNo: r?.recipeNo ?? r?.metadata?.recipeNo ?? r?.recipeNumber ?? idx + 1,
       }));
       // Deep clone to avoid mutating the original reference when editing.
       const cloned = JSON.parse(JSON.stringify(mapped));
