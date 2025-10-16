@@ -59,7 +59,6 @@ const createEmptyForm = (overrides = {}) => ({
   contractEndDate: '',
   contractLink: '',
   designerId: '',
-  editorId: '',
   assignee: '',
   infoNote: '',
   productRequests: [createDefaultProductRequest()],
@@ -70,7 +69,6 @@ const AdminRequests = ({
   filterEditorId,
   filterCreatorId,
   allowedBrandCodes = null,
-  canAssignEditor = true,
 } = {}) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -83,7 +81,6 @@ const AdminRequests = ({
   const [brandNotes, setBrandNotes] = useState({});
   const [aiArtStyle, setAiArtStyle] = useState('');
   const [designers, setDesigners] = useState([]);
-  const [editors, setEditors] = useState([]);
   const [view, setView] = useState('kanban');
   const [dragId, setDragId] = useState(null);
   const [filter, setFilter] = useState('');
@@ -103,8 +100,6 @@ const AdminRequests = ({
   const isOps = role === 'ops';
   const isProjectManager = role === 'project-manager';
   const showDesignerSelect = !isOps && !isProjectManager;
-  const showEditorSelect =
-    canAssignEditor && !isOps && !isProjectManager && form.type !== 'helpdesk';
   const brandFilterKey = Array.isArray(allowedBrandCodes)
     ? allowedBrandCodes.join('|')
     : 'ALL';
@@ -131,8 +126,10 @@ const AdminRequests = ({
         const constraints = [];
         if (filterEditorId) constraints.push(where('editorId', '==', filterEditorId));
         if (filterCreatorId) constraints.push(where('createdBy', '==', filterCreatorId));
+        if (isOps && userAgencyId) constraints.push(where('agencyId', '==', userAgencyId));
 
-        const hasBrandFilter = Array.isArray(allowedBrandCodes);
+        const hasBrandFilter =
+          Array.isArray(allowedBrandCodes) && !(isOps && userAgencyId);
         const normalizedBrandCodes = hasBrandFilter
           ? Array.from(
               new Set(
@@ -237,25 +234,6 @@ const AdminRequests = ({
       }
     };
 
-    const fetchEditors = async () => {
-      try {
-        const q = query(
-          collection(db, 'users'),
-          where('role', 'in', ['editor', 'project-manager'])
-        );
-        const snap = await getDocs(q);
-        setEditors(
-          snap.docs.map((d) => ({
-            id: d.id,
-            name: d.data().fullName || d.data().email || d.id,
-          }))
-        );
-      } catch (err) {
-        console.error('Failed to fetch editors', err);
-        setEditors([]);
-      }
-    };
-
     fetchData();
     fetchBrands();
     if (showDesignerSelect) {
@@ -263,12 +241,14 @@ const AdminRequests = ({
     } else {
       setDesigners([]);
     }
-    if (showEditorSelect) {
-      fetchEditors();
-    } else {
-      setEditors([]);
-    }
-  }, [filterEditorId, filterCreatorId, brandFilterKey, showDesignerSelect, showEditorSelect]);
+  }, [
+    filterEditorId,
+    filterCreatorId,
+    brandFilterKey,
+    showDesignerSelect,
+    isOps,
+    userAgencyId,
+  ]);
 
   useEffect(() => {
     setRequests((prev) => {
@@ -378,12 +358,6 @@ const AdminRequests = ({
   const openCreate = () => {
     resetForm();
     setAiArtStyle('');
-    if (!showEditorSelect) {
-      setForm((f) => ({
-        ...f,
-        editorId: filterEditorId || (isProjectManager ? '' : auth.currentUser?.uid || ''),
-      }));
-    }
     setShowModal(true);
   };
 
@@ -468,7 +442,6 @@ const AdminRequests = ({
       contractEndDate: formatDateInputValue(req.contractEndDate),
       contractLink: req.contractLink || '',
       designerId: req.designerId || '',
-      editorId: req.editorId || '',
       assignee: req.assignee || '',
       infoNote: req.infoNote || '',
       productRequests,
@@ -622,7 +595,7 @@ const AdminRequests = ({
         details: form.details,
         priority: isNewBrand ? '' : form.priority,
         name: form.name,
-        agencyId: form.agencyId,
+        agencyId: form.agencyId || null,
         toneOfVoice: isNewBrand ? '' : form.toneOfVoice,
         offering: isNewBrand ? '' : form.offering,
         brandAssetsLink: isNewBrand ? brandAssetsLink : '',
@@ -632,15 +605,6 @@ const AdminRequests = ({
         contractEndDate: isNewBrand ? contractEndDate : null,
         contractLink: isNewBrand ? contractLink : '',
         designerId: form.designerId || null,
-        editorId:
-          form.type === 'helpdesk'
-            ? null
-            : showEditorSelect
-              ? form.editorId || null
-              : filterEditorId ||
-                (isProjectManager
-                  ? form.editorId || null
-                  : auth.currentUser?.uid || form.editorId || null),
         assignee: form.assignee ? form.assignee.trim() : null,
         infoNote: form.infoNote,
         productRequests: form.type === 'newAds' ? productRequests : [],
@@ -1618,21 +1582,6 @@ const AdminRequests = ({
             <option value="feature">Feature</option>
           </select>
         </div>
-        {showEditorSelect && (
-          <div>
-            <label className="block mb-1 text-sm font-medium">Editor</label>
-            <select
-              value={form.editorId}
-              onChange={(e) => setForm((f) => ({ ...f, editorId: e.target.value }))}
-              className="w-full p-2 border rounded"
-            >
-              <option value="">Select editor</option>
-              {editors.map((e) => (
-                <option key={e.id} value={e.id}>{e.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
         {form.type === 'helpdesk' && (
           <>
             <div>
@@ -1645,6 +1594,21 @@ const AdminRequests = ({
                 }
                 className="w-full p-2 border rounded uppercase"
               />
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Agency</label>
+              <select
+                value={form.agencyId}
+                onChange={(e) => setForm((f) => ({ ...f, agencyId: e.target.value }))}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">Select agency</option>
+                {agencies.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block mb-1 text-sm font-medium">Title</label>
@@ -2078,31 +2042,46 @@ const AdminRequests = ({
         )}
 
           {(form.type === 'bug' || form.type === 'feature') && (
-            <>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Title</label>
-                <input
-                  type="text"
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  className="w-full p-2 border rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Description</label>
-                <textarea
-                  value={form.details}
-                  onChange={(e) => setForm((f) => ({ ...f, details: e.target.value }))}
-                  onKeyDown={handleBulletList}
-                  className="w-full p-2 border rounded"
-                  rows={3}
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-sm font-medium">Priority</label>
-                <select
-                  value={form.priority}
-                  onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
+          <>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Title</label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Description</label>
+              <textarea
+                value={form.details}
+                onChange={(e) => setForm((f) => ({ ...f, details: e.target.value }))}
+                onKeyDown={handleBulletList}
+                className="w-full p-2 border rounded"
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Agency</label>
+              <select
+                value={form.agencyId}
+                onChange={(e) => setForm((f) => ({ ...f, agencyId: e.target.value }))}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">Select agency</option>
+                {agencies.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">Priority</label>
+              <select
+                value={form.priority}
+                onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
                   className="w-full p-2 border rounded"
                 >
                   <option value="low">Low</option>

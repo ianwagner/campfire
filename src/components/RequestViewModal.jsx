@@ -138,9 +138,6 @@ const RequestViewModal = ({ request, onClose, onEdit, onChat }) => {
         {request.designerId && role !== 'ops' && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Designer: {request.designerId}</p>
         )}
-        {request.editorId && role !== 'ops' && (
-          <p className="text-black dark:text-[var(--dark-text)] mb-0">Editor: {request.editorId}</p>
-        )}
         {request.assignee && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Assignee: {request.assignee}</p>
         )}

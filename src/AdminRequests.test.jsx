@@ -4,7 +4,11 @@ import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import AdminRequests from './AdminRequests';
 
-jest.mock('./useAgencies', () => () => ({ agencies: [] }));
+const mockUseAgencies = jest.fn(() => ({ agencies: [] }));
+jest.mock('./useAgencies', () => ({
+  __esModule: true,
+  default: () => mockUseAgencies(),
+}));
 const mockUseUserRole = jest.fn(() => ({ role: 'admin' }));
 jest.mock('./useUserRole', () => ({
   __esModule: true,
@@ -62,6 +66,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockUseUserRole.mockReturnValue({ role: 'admin' });
+  mockUseAgencies.mockReturnValue({ agencies: [] });
 });
 
 afterEach(() => {
@@ -167,34 +172,6 @@ test.skip('shows tooltip when asset link cannot be accessed', async () => {
       )
     ).toBeInTheDocument()
   );
-});
-
-test('includes project managers in editor list', async () => {
-  mockGetDocs.mockResolvedValue({ docs: [] });
-  mockGetDocs
-    .mockResolvedValueOnce({ docs: [] })
-    .mockResolvedValueOnce({
-      docs: [
-        {
-          id: 'b1',
-          data: () => ({ code: 'BR1', products: [{ name: 'Widget' }] }),
-        },
-      ],
-    })
-    .mockResolvedValueOnce({ docs: [] })
-    .mockResolvedValueOnce({
-      docs: [
-        { id: 'e1', data: () => ({ fullName: 'Editor One' }) },
-        { id: 'pm1', data: () => ({ fullName: 'PM One' }) },
-      ],
-    });
-  render(
-    <MemoryRouter>
-      <AdminRequests />
-    </MemoryRouter>
-  );
-  fireEvent.click(screen.getByLabelText('Add Ticket'));
-  await waitFor(() => expect(screen.getByText('PM One')).toBeInTheDocument());
 });
 
 test('project manager cannot assign designer or editor when creating new ads ticket', async () => {
@@ -359,3 +336,85 @@ test('changing status from need info to ready leaves project status unchanged', 
   expect(mockUpdateDoc.mock.calls[0][1]).toEqual({ status: 'ready' });
   expect(mockUpdateDoc.mock.calls[1][1]).toEqual({ infoNote: undefined });
 });
+test('shows agency select when helpdesk type is chosen', async () => {
+  mockGetDocs.mockResolvedValue({ docs: [] });
+  mockUseAgencies.mockReturnValue({
+    agencies: [
+      { id: 'a1', name: 'Agency One' },
+      { id: 'a2', name: 'Agency Two' },
+    ],
+  });
+
+  render(
+    <MemoryRouter>
+      <AdminRequests />
+    </MemoryRouter>
+  );
+
+  fireEvent.click(screen.getByLabelText('Add Ticket'));
+  const typeSelect = await screen.findByLabelText('Type');
+  fireEvent.change(typeSelect, { target: { value: 'helpdesk' } });
+
+  expect(await screen.findByLabelText('Agency')).toBeInTheDocument();
+  expect(screen.getByText('Agency One')).toBeInTheDocument();
+});
+
+test('shows agency select when bug ticket is selected', async () => {
+  mockGetDocs.mockResolvedValue({ docs: [] });
+  mockUseAgencies.mockReturnValue({
+    agencies: [{ id: 'a1', name: 'Agency One' }],
+  });
+
+  render(
+    <MemoryRouter>
+      <AdminRequests />
+    </MemoryRouter>
+  );
+
+  fireEvent.click(screen.getByLabelText('Add Ticket'));
+  const typeSelect = await screen.findByLabelText('Type');
+  fireEvent.change(typeSelect, { target: { value: 'bug' } });
+
+  expect(await screen.findByLabelText('Agency')).toBeInTheDocument();
+});
+
+test('saving helpdesk ticket stores selected agency', async () => {
+  mockGetDocs.mockResolvedValue({ docs: [] });
+  mockUseAgencies.mockReturnValue({
+    agencies: [{ id: 'a1', name: 'Agency One' }],
+  });
+
+  render(
+    <MemoryRouter>
+      <AdminRequests />
+    </MemoryRouter>
+  );
+
+  fireEvent.click(screen.getByLabelText('Add Ticket'));
+  const typeSelect = await screen.findByLabelText('Type');
+  fireEvent.change(typeSelect, { target: { value: 'helpdesk' } });
+  const agencySelect = await screen.findByLabelText('Agency');
+  fireEvent.change(agencySelect, { target: { value: 'a1' } });
+  const titleInput = screen.getByLabelText('Title');
+  fireEvent.change(titleInput, { target: { value: 'Need help' } });
+
+  fireEvent.click(screen.getByText('Save'));
+
+  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
+  expect(mockAddDoc.mock.calls[0][1].agencyId).toBe('a1');
+});
+
+test('ops users only load tickets for their agency', async () => {
+  mockUseUserRole.mockReturnValue({ role: 'ops', agencyId: 'agency-1' });
+  mockGetDocs.mockResolvedValue({ docs: [] });
+
+  render(
+    <MemoryRouter>
+      <AdminRequests />
+    </MemoryRouter>
+  );
+
+  await waitFor(() => expect(mockWhere).toHaveBeenCalled());
+  expect(mockWhere).toHaveBeenCalledWith('agencyId', '==', 'agency-1');
+});
+
