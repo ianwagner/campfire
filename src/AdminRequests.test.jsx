@@ -378,11 +378,50 @@ test('shows agency select when bug ticket is selected', async () => {
   expect(await screen.findByLabelText('Agency')).toBeInTheDocument();
 });
 
-test('saving helpdesk ticket stores selected agency', async () => {
-  mockGetDocs.mockResolvedValue({ docs: [] });
+test('saving helpdesk ticket uses brand agency automatically', async () => {
   mockUseAgencies.mockReturnValue({
     agencies: [{ id: 'a1', name: 'Agency One' }],
   });
+  mockGetDocs
+    .mockResolvedValueOnce({ docs: [] })
+    .mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'b1',
+          data: () => ({ code: 'BR1', products: [], agencyId: 'a1' }),
+        },
+      ],
+    })
+    .mockResolvedValue({ docs: [] });
+
+  render(
+    <MemoryRouter>
+      <AdminRequests />
+    </MemoryRouter>
+  );
+
+  fireEvent.click(screen.getByLabelText('Add Ticket'));
+  const typeSelect = await screen.findByLabelText('Type');
+  fireEvent.change(typeSelect, { target: { value: 'helpdesk' } });
+  const brandInput = await screen.findByLabelText('Brand');
+  fireEvent.change(brandInput, { target: { value: 'br1' } });
+  const agencySelect = await screen.findByLabelText('Agency');
+  await waitFor(() => expect(agencySelect.value).toBe('a1'));
+  const titleInput = screen.getByLabelText('Title');
+  fireEvent.change(titleInput, { target: { value: 'Need help' } });
+
+  fireEvent.click(screen.getByText('Save'));
+
+  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
+  expect(mockAddDoc.mock.calls[0][1].agencyId).toBe('a1');
+});
+
+test('ops users cannot change agency selection', async () => {
+  mockUseUserRole.mockReturnValue({ role: 'ops', agencyId: 'agency-1' });
+  mockUseAgencies.mockReturnValue({
+    agencies: [{ id: 'agency-1', name: 'Agency One' }],
+  });
+  mockGetDocs.mockResolvedValue({ docs: [] });
 
   render(
     <MemoryRouter>
@@ -394,14 +433,8 @@ test('saving helpdesk ticket stores selected agency', async () => {
   const typeSelect = await screen.findByLabelText('Type');
   fireEvent.change(typeSelect, { target: { value: 'helpdesk' } });
   const agencySelect = await screen.findByLabelText('Agency');
-  fireEvent.change(agencySelect, { target: { value: 'a1' } });
-  const titleInput = screen.getByLabelText('Title');
-  fireEvent.change(titleInput, { target: { value: 'Need help' } });
-
-  fireEvent.click(screen.getByText('Save'));
-
-  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
-  expect(mockAddDoc.mock.calls[0][1].agencyId).toBe('a1');
+  await waitFor(() => expect(agencySelect.value).toBe('agency-1'));
+  expect(agencySelect).toBeDisabled();
 });
 
 test('ops users only load tickets for their agency', async () => {

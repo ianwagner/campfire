@@ -84,4 +84,20 @@ test('shows created text when status done', () => {
   expect(screen.getByText('Ad Group Created')).toBeInTheDocument();
 });
 
+test('displays provided agency name', () => {
+  const req = { id: '1', status: 'new', agencyId: 'a1' };
+  render(
+    <RequestCard
+      request={req}
+      agencyName="Agency One"
+      onEdit={noop}
+      onDelete={noop}
+      onArchive={noop}
+      onCreateGroup={noop}
+      onDragStart={noop}
+    />
+  );
+  expect(screen.getByText('Agency: Agency One')).toBeInTheDocument();
+});
+
 
