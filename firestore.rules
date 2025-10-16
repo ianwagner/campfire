@@ -43,6 +43,14 @@ match /assets/{assetId} {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function hasBrandAccess(brandCode) {
+      return request.auth != null &&
+        userData() != null &&
+        userData().brandCodes != null &&
+        brandCode is string &&
+        userData().brandCodes.hasAny([brandCode]);
+    }
+
     function isPublicReviewer() {
       return request.auth == null ||
              request.auth.token.firebase.sign_in_provider == 'anonymous';
@@ -123,6 +131,8 @@ match /assets/{assetId} {
     match /brands/{brandId} {
       allow read: if true;
       allow update: if isAdmin() || isManager() || isEditor() ||
+        (hasBrandAccess(resource.data.code) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['helpdeskNotes'])) ||
         (isClient() &&
          userData().brandCodes != null &&
          userData().brandCodes.hasAny([resource.data.code]) &&
