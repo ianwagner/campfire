@@ -1802,11 +1802,15 @@ useEffect(() => {
                     collection(db, 'adGroups', groupId, 'recipes')
                   );
                   setRecipes(
-                    rSnap.docs.map((d, idx) => ({
-                      recipeNo: idx + 1,
-                      id: d.id,
-                      ...d.data(),
-                    }))
+                    rSnap.docs.map((d) => {
+                      const data = d.data();
+                      return {
+                        id: d.id,
+                        ...data,
+                        recipeNo:
+                          data?.recipeNo ?? data?.metadata?.recipeNo ?? data?.recipeNumber ?? null,
+                      };
+                    })
                   );
                 } catch (err) {
                   console.error('Failed to fetch recipes for review', err);
