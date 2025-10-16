@@ -33,6 +33,15 @@ const typeColors = {
   helpdesk: 'text-cyan-600',
 };
 
+const typeLabels = {
+  newAds: 'New Ads',
+  newBrand: 'New Brand',
+  bug: 'Bug',
+  feature: 'Feature',
+  newAIAssets: 'New AI Assets',
+  helpdesk: 'Helpdesk',
+};
+
 const RequestCard = ({
   request,
   agencyName,
@@ -54,6 +63,7 @@ const RequestCard = ({
   const menuBtnRef = useRef(null);
   const Icon = typeIcons[request.type];
   const color = typeColors[request.type] || 'text-gray-600 dark:text-gray-300';
+  const typeLabel = typeLabels[request.type];
   const productRequests = Array.isArray(request.productRequests)
     ? request.productRequests.filter((p) => p && (p.productName || p.name))
     : [];
@@ -117,8 +127,15 @@ const RequestCard = ({
     >
       <div className="relative space-y-1">
         <div className="flex items-start justify-between">
-          {Icon && (
-            <div className={`text-lg ${color}`}>{React.createElement(Icon)}</div>
+          {(Icon || typeLabel) && (
+            <div className="flex items-center gap-2">
+              {Icon && (
+                <div className={`text-lg ${color}`}>{React.createElement(Icon)}</div>
+              )}
+              {typeLabel && (
+                <span className={`text-xs font-semibold ${color}`}>{typeLabel}</span>
+              )}
+            </div>
           )}
           <IconButton
             ref={menuBtnRef}
