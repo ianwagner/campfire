@@ -230,7 +230,7 @@
   .table-container {
     max-width: 100%;
   }
-  .ad-table {
+  .cmf-table {
     width: 100%;
     max-width: 100%;
     border-collapse: collapse;
@@ -238,34 +238,34 @@
     font-size: var(--font-size-base);
   }
   @media (max-width: 640px) {
-    .ad-table {
+    .cmf-table {
       max-width: 97rem;
     }
   }
-    .ad-table th,
-    .ad-table td {
+    .cmf-table th,
+    .cmf-table td {
       padding: var(--space-xs) var(--space-sm);
       text-align: left;
     }
 
     /* Keep table cells constrained by default but allow dropdowns in relative cells */
-    .ad-table td {
+    .cmf-table td {
       overflow: hidden;
     }
 
-    .ad-table td.relative {
+    .cmf-table td.relative {
       overflow: visible;
     }
 
-  .ad-table th {
+  .cmf-table th {
     white-space: nowrap;
     text-overflow: ellipsis;
   }
 
   /* Ensure form controls don't resize table cells when editing */
-  .ad-table td input,
-  .ad-table td select,
-  .ad-table td textarea {
+  .cmf-table td input,
+  .cmf-table td select,
+  .cmf-table td textarea {
     width: 100%;
     height: 100%;
     box-sizing: border-box;
@@ -273,46 +273,46 @@
     padding: 0;
   }
 
-  .ad-table td:not(:last-child):not(.copy-cell) {
+  .cmf-table td:not(:last-child):not(.copy-cell) {
     white-space: normal;
     overflow-wrap: anywhere;
   }
 
-  .ad-table th:last-child,
-  .ad-table td:last-child {
+  .cmf-table th:last-child,
+  .cmf-table td:last-child {
     white-space: normal;
     /* Allow action columns to size based on provided action buttons */
     width: var(--actions-col-width, auto);
   }
 
-  .ad-table td:last-child > div {
+  .cmf-table td:last-child > div {
     flex-wrap: wrap;
   }
 
   @media (max-width: 1000px) {
-    .ad-table td:last-child > div {
+    .cmf-table td:last-child > div {
       flex-direction: column;
       align-items: flex-start;
     }
   }
 
-  .ad-table td.copy-cell {
+  .cmf-table td.copy-cell {
     white-space: pre-wrap;
     word-break: break-word;
   }
-  .ad-table tbody tr:nth-child(odd) {
+  .cmf-table tbody tr:nth-child(odd) {
     background-color: #ffffff;
   }
-  .ad-table tbody tr:nth-child(even) {
+  .cmf-table tbody tr:nth-child(even) {
     background-color: var(--table-row-alt-bg);
   }
-  html.dark .ad-table tbody tr:nth-child(odd) {
+  html.dark .cmf-table tbody tr:nth-child(odd) {
     background-color: var(--dark-sidebar-bg);
   }
-  html.dark .ad-table tbody tr:nth-child(even) {
+  html.dark .cmf-table tbody tr:nth-child(even) {
     background-color: var(--dark-sidebar-hover);
   }
-    .ad-table thead {
+    .cmf-table thead {
       background-color: var(--table-head-bg);
     }
 
@@ -348,26 +348,26 @@
         margin-right: var(--space-sm);
       }
     }
-  .ad-table tbody tr.alt-row {
+  .cmf-table tbody tr.alt-row {
     background-color: var(--table-row-alt-bg);
   }
-  html.dark .ad-table tbody tr.alt-row {
+  html.dark .cmf-table tbody tr.alt-row {
     background-color: var(--dark-sidebar-hover);
   }
-  .ad-table tbody tr:hover {
+  .cmf-table tbody tr:hover {
     background-color: var(--accent-color-10);
   }
-  html.dark .ad-table tbody tr:hover {
+  html.dark .cmf-table tbody tr:hover {
     background-color: var(--accent-color-10);
   }
   .recipe-row {
     font-size: 12px;
     position: relative;
   }
-  .ad-table tbody tr.designer-selected {
+  .cmf-table tbody tr.designer-selected {
     background-color: var(--accent-color-10);
   }
-  html.dark .ad-table tbody tr.designer-selected {
+  html.dark .cmf-table tbody tr.designer-selected {
     background-color: var(--accent-color-10);
   }
   .asset-row {
