@@ -35,7 +35,6 @@ const Calendar = forwardRef(
     if (role === 'ops') return;
     const ids = new Set();
     requests.forEach((r) => {
-      if (r.editorId) ids.add(r.editorId);
       if (r.designerId) ids.add(r.designerId);
     });
     ids.forEach((id) => {
@@ -159,7 +158,6 @@ const Calendar = forwardRef(
                         <div className="min-w-0">
                           <div className="font-semibold truncate">{t.title || 'Ticket'}</div>
                           {t.brandCode && <div className="truncate">{t.brandCode}</div>}
-                          {t.editorId && role !== 'ops' && <div className="truncate">{names[t.editorId] || t.editorId}</div>}
                           {t.designerId && role !== 'ops' && <div className="truncate">{names[t.designerId] || t.designerId}</div>}
                         </div>
                       </div>
