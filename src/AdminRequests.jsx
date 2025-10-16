@@ -100,6 +100,20 @@ const AdminRequests = ({
   const isOps = role === 'ops';
   const isProjectManager = role === 'project-manager';
   const showDesignerSelect = !isOps && !isProjectManager;
+  const agencyMap = useMemo(() => {
+    const map = {};
+    agencies.forEach((agency) => {
+      if (!agency || !agency.id) return;
+      const rawName = typeof agency.name === 'string' ? agency.name.trim() : '';
+      map[agency.id] = rawName || agency.id;
+    });
+    return map;
+  }, [agencies]);
+  const getAgencyName = (agencyId) => {
+    if (!agencyId) return '';
+    return agencyMap[agencyId] || agencyId;
+  };
+  const lockAgencySelection = isOps && !!userAgencyId;
   const brandFilterKey = Array.isArray(allowedBrandCodes)
     ? allowedBrandCodes.join('|')
     : 'ALL';
@@ -207,6 +221,7 @@ const AdminRequests = ({
               aiArtStyle: data.aiArtStyle || '',
               products,
               helpdeskNotes,
+              agencyId: typeof data.agencyId === 'string' ? data.agencyId : '',
             };
           })
         );
@@ -318,6 +333,52 @@ const AdminRequests = ({
     });
   }, [form.type, form.agencyId, userAgencyId]);
 
+  useEffect(() => {
+    if (form.type !== 'helpdesk') return;
+    const normalized =
+      typeof form.brandCode === 'string' ? form.brandCode.trim().toUpperCase() : '';
+    if (!normalized) return;
+    const brand = brands.find((b) => b.code === normalized);
+    const brandAgencyId = brand?.agencyId || '';
+    if (!brandAgencyId) return;
+    setForm((prev) => {
+      if (prev.type !== 'helpdesk') return prev;
+      const prevNormalized =
+        typeof prev.brandCode === 'string' ? prev.brandCode.trim().toUpperCase() : '';
+      if (prevNormalized !== normalized) return prev;
+      if (prev.agencyId === brandAgencyId) return prev;
+      return { ...prev, agencyId: brandAgencyId };
+    });
+  }, [form.type, form.brandCode, brands]);
+
+  useEffect(() => {
+    setRequests((prev) => {
+      if (!prev.length) return prev;
+      let changed = false;
+      const updated = prev.map((req) => {
+        const name = getAgencyName(req.agencyId);
+        const current = req.agencyName || '';
+        if (current === name) return req;
+        if (!current && !name) return req;
+        changed = true;
+        return { ...req, agencyName: name };
+      });
+      return changed ? updated : prev;
+    });
+    setHelpdeskRequest((prev) => {
+      if (!prev) return prev;
+      const name = getAgencyName(prev.agencyId);
+      if ((prev.agencyName || '') === name) return prev;
+      return { ...prev, agencyName: name };
+    });
+    setViewRequest((prev) => {
+      if (!prev) return prev;
+      const name = getAgencyName(prev.agencyId);
+      if ((prev.agencyName || '') === name) return prev;
+      return { ...prev, agencyName: name };
+    });
+  }, [agencies]);
+
   const getBrandProducts = (code) => {
     const brand = brands.find((br) => br.code === code);
     return Array.isArray(brand?.products) ? brand.products : [];
@@ -352,6 +413,7 @@ const AdminRequests = ({
       brandCode: normalizedCode || req.brandCode || '',
       internalNotes: note,
       brandDocumentId: brandInfo?.id || req.brandDocumentId || null,
+      agencyName: getAgencyName(req.agencyId),
     });
   };
 
@@ -1533,6 +1595,7 @@ const AdminRequests = ({
                         <RequestCard
                           key={req.id}
                           request={req}
+                          agencyName={getAgencyName(req.agencyId)}
                           onEdit={startEdit}
                           onDelete={handleDelete}
                           onArchive={handleArchive}
@@ -1601,6 +1664,7 @@ const AdminRequests = ({
                 value={form.agencyId}
                 onChange={(e) => setForm((f) => ({ ...f, agencyId: e.target.value }))}
                 className="w-full p-2 border rounded"
+                disabled={lockAgencySelection}
               >
                 <option value="">Select agency</option>
                 {agencies.map((a) => (
@@ -1609,6 +1673,11 @@ const AdminRequests = ({
                   </option>
                 ))}
               </select>
+              {lockAgencySelection && (
+                <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
+                  Agency is locked to your organization.
+                </p>
+              )}
             </div>
             <div>
               <label className="block mb-1 text-sm font-medium">Title</label>
@@ -1933,11 +2002,12 @@ const AdminRequests = ({
                 )}
               </div>
               <div>
-                <label className="block mb-1 text-sm font-medium">Agency ID</label>
+                <label className="block mb-1 text-sm font-medium">Agency</label>
                 <select
                   value={form.agencyId}
                   onChange={(e) => setForm((f) => ({ ...f, agencyId: e.target.value }))}
                   className="w-full p-2 border rounded"
+                  disabled={lockAgencySelection}
                 >
                   <option value="">Select agency</option>
                   {agencies.map((a) => (
@@ -1946,6 +2016,11 @@ const AdminRequests = ({
                     </option>
                   ))}
                 </select>
+                {lockAgencySelection && (
+                  <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
+                    Agency is locked to your organization.
+                  </p>
+                )}
               </div>
               <div className="pt-2">
                 <h3 className="text-sm font-semibold text-black dark:text-[var(--dark-text)] mb-2">
@@ -2068,6 +2143,7 @@ const AdminRequests = ({
                 value={form.agencyId}
                 onChange={(e) => setForm((f) => ({ ...f, agencyId: e.target.value }))}
                 className="w-full p-2 border rounded"
+                disabled={lockAgencySelection}
               >
                 <option value="">Select agency</option>
                 {agencies.map((a) => (
@@ -2076,6 +2152,11 @@ const AdminRequests = ({
                   </option>
                 ))}
               </select>
+              {lockAgencySelection && (
+                <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
+                  Agency is locked to your organization.
+                </p>
+              )}
             </div>
             <div>
               <label className="block mb-1 text-sm font-medium">Priority</label>
@@ -2119,6 +2200,7 @@ const AdminRequests = ({
       {viewRequest && (
         <RequestViewModal
           request={viewRequest}
+          agencyName={getAgencyName(viewRequest.agencyId)}
           onClose={() => setViewRequest(null)}
           onEdit={startEdit}
           onChat={openHelpdesk}

@@ -33,7 +33,17 @@ const typeColors = {
   helpdesk: 'text-cyan-600',
 };
 
-const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart, onView, onChat }) => {
+const RequestCard = ({
+  request,
+  agencyName,
+  onEdit,
+  onDelete,
+  onArchive,
+  onCreateGroup,
+  onDragStart,
+  onView,
+  onChat,
+}) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -57,6 +67,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
     Number.isNaN(normalizedNumAds) || normalizedNumAds <= 0
       ? fallbackAds || request.numAds || 0
       : normalizedNumAds;
+  const displayAgency = agencyName || request.agencyName || request.agencyId;
 
   const handleClick = (e) => {
     if (
@@ -173,9 +184,9 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
             {request.brandCode}
           </p>
         )}
-        {request.agencyId && (
+        {displayAgency && (
           <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
-            Agency: {request.agencyId}
+            Agency: {displayAgency}
           </p>
         )}
         {request.dueDate && (
