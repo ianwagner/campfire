@@ -245,7 +245,7 @@ import { safeUpdateDoc } from './src/utils/safeUpdateDoc';
 
 Admin screens share a simple `Table` component located at
 `src/components/common/Table.jsx`. Wrap your headers and rows with `<Table>`
-so they receive the standard scrolling container and `ad-table` classes:
+so they receive the standard scrolling container and `cmf-table` classes:
 
 ```jsx
 import Table from './components/common/Table';
