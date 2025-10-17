@@ -4542,8 +4542,8 @@ useEffect(() => {
                       {renderFinalizeAction({ compact: statusBarPinned })}
                     </div>
                   </div>
-                </div>
                 </SurfaceCard>
+              </div>
               <div className="mt-6 space-y-6">
                 {reviewAds.length === 0 ? (
                   <SurfaceCard
