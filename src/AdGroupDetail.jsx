@@ -250,6 +250,8 @@ const AdGroupDetail = () => {
   const [group, setGroup] = useState(null);
   const [brandName, setBrandName] = useState("");
   const [brandGuidelines, setBrandGuidelines] = useState("");
+  const [brandId, setBrandId] = useState("");
+  const [brandNotes, setBrandNotes] = useState([]);
   const [brandHasAgency, setBrandHasAgency] = useState(false);
   const [assets, setAssets] = useState([]);
   const [briefAssets, setBriefAssets] = useState([]);
@@ -548,24 +550,65 @@ const AdGroupDetail = () => {
         );
         const snap = await getDocs(q);
         if (!snap.empty) {
-          const data = snap.docs[0].data();
+          const brandDoc = snap.docs[0];
+          const data = brandDoc.data();
           setBrandName(data.name || group.brandCode);
           setBrandGuidelines(data.guidelinesUrl || "");
           setBrandHasAgency(Boolean(data.agencyId));
+          setBrandId(brandDoc.id);
         } else {
           setBrandName(group.brandCode);
           setBrandGuidelines("");
           setBrandHasAgency(false);
+          setBrandId("");
         }
       } catch (err) {
         console.error("Failed to fetch brand name", err);
         setBrandName(group.brandCode);
         setBrandGuidelines("");
         setBrandHasAgency(false);
+        setBrandId("");
       }
     };
     loadBrand();
   }, [group?.brandCode]);
+
+  useEffect(() => {
+    if (!brandId) {
+      setBrandNotes([]);
+      return undefined;
+    }
+
+    const notesQuery = query(
+      collection(db, "brands", brandId, "notes"),
+      orderBy("createdAt", "desc"),
+    );
+
+    const normalizeTimestamp = (value) => {
+      if (!value) return null;
+      if (value instanceof Date) return value;
+      if (typeof value.toDate === "function") return value.toDate();
+      return null;
+    };
+
+    const unsubscribe = onSnapshot(notesQuery, (snap) => {
+      const items = snap.docs.map((docSnap) => {
+        const data = docSnap.data() || {};
+        const createdAt = normalizeTimestamp(data.createdAt);
+        const updatedAt = normalizeTimestamp(data.updatedAt);
+        return {
+          id: docSnap.id,
+          title: data.title || "",
+          body: data.body || data.text || data.note || "",
+          createdAt,
+          updatedAt,
+        };
+      });
+      setBrandNotes(items);
+    });
+
+    return () => unsubscribe();
+  }, [brandId]);
 
   useEffect(() => {
     if (!(isAdmin || (isManager && !isEditor))) {
@@ -4627,6 +4670,7 @@ const AdGroupDetail = () => {
               <BrandAssetsLayout
                 brandCode={group?.brandCode}
                 guidelinesUrl={brandGuidelines}
+                brandNotes={brandNotes}
               />
             )
         :
