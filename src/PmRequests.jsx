@@ -23,9 +23,7 @@ const PmRequests = () => {
     );
   }
 
-  return (
-    <AdminRequests allowedBrandCodes={normalizedCodes} canAssignEditor={false} />
-  );
+  return <AdminRequests allowedBrandCodes={normalizedCodes} />;
 };
 
 export default PmRequests;

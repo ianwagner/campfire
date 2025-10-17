@@ -33,7 +33,26 @@ const typeColors = {
   helpdesk: 'text-cyan-600',
 };
 
-const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDragStart, onView, onChat }) => {
+const typeLabels = {
+  newAds: 'New Ads',
+  newBrand: 'New Brand',
+  bug: 'Bug',
+  feature: 'Feature',
+  newAIAssets: 'New AI Assets',
+  helpdesk: 'Helpdesk',
+};
+
+const RequestCard = ({
+  request,
+  agencyName,
+  onEdit,
+  onDelete,
+  onArchive,
+  onCreateGroup,
+  onDragStart,
+  onView,
+  onChat,
+}) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -44,6 +63,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
   const menuBtnRef = useRef(null);
   const Icon = typeIcons[request.type];
   const color = typeColors[request.type] || 'text-gray-600 dark:text-gray-300';
+  const typeLabel = typeLabels[request.type];
   const productRequests = Array.isArray(request.productRequests)
     ? request.productRequests.filter((p) => p && (p.productName || p.name))
     : [];
@@ -57,6 +77,7 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
     Number.isNaN(normalizedNumAds) || normalizedNumAds <= 0
       ? fallbackAds || request.numAds || 0
       : normalizedNumAds;
+  const displayAgency = agencyName || request.agencyName || request.agencyId;
 
   const handleClick = (e) => {
     if (
@@ -106,8 +127,15 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
     >
       <div className="relative space-y-1">
         <div className="flex items-start justify-between">
-          {Icon && (
-            <div className={`text-lg ${color}`}>{React.createElement(Icon)}</div>
+          {(Icon || typeLabel) && (
+            <div className="flex items-center gap-2">
+              {Icon && (
+                <div className={`text-lg ${color}`}>{React.createElement(Icon)}</div>
+              )}
+              {typeLabel && (
+                <span className={`text-xs font-semibold ${color}`}>{typeLabel}</span>
+              )}
+            </div>
           )}
           <IconButton
             ref={menuBtnRef}
@@ -171,6 +199,11 @@ const RequestCard = ({ request, onEdit, onDelete, onArchive, onCreateGroup, onDr
         {request.brandCode && (
           <p className="font-bold text-[14px] text-black dark:text-[var(--dark-text)] mb-0">
             {request.brandCode}
+          </p>
+        )}
+        {displayAgency && (
+          <p className="text-[12px] text-black dark:text-[var(--dark-text)] mb-0">
+            Agency: {displayAgency}
           </p>
         )}
         {request.dueDate && (

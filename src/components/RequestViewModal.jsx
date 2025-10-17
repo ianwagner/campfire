@@ -43,7 +43,7 @@ const typeLabels = {
   helpdesk: 'Helpdesk',
 };
 
-const RequestViewModal = ({ request, onClose, onEdit, onChat }) => {
+const RequestViewModal = ({ request, agencyName, onClose, onEdit, onChat }) => {
   if (!request) return null;
   const user = auth.currentUser;
   const { role } = useUserRole(user?.uid);
@@ -58,6 +58,7 @@ const RequestViewModal = ({ request, onClose, onEdit, onChat }) => {
     if (Number.isNaN(qty) || qty <= 0) return sum;
     return sum + qty;
   }, 0);
+  const displayAgency = agencyName || request.agencyName || request.agencyId;
   const normalizedNumAds = Number(request.numAds);
   const totalAds =
     Number.isNaN(normalizedNumAds) || normalizedNumAds <= 0
@@ -123,8 +124,8 @@ const RequestViewModal = ({ request, onClose, onEdit, onChat }) => {
         {request.name && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Brand Name: {request.name}</p>
         )}
-        {request.agencyId && (
-          <p className="text-black dark:text-[var(--dark-text)] mb-0">Agency: {request.agencyId}</p>
+        {displayAgency && (
+          <p className="text-black dark:text-[var(--dark-text)] mb-0">Agency: {displayAgency}</p>
         )}
         {request.dueDate && (
           <p className="flex items-center gap-1 text-black dark:text-[var(--dark-text)] mb-0">
@@ -137,9 +138,6 @@ const RequestViewModal = ({ request, onClose, onEdit, onChat }) => {
         )}
         {request.designerId && role !== 'ops' && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Designer: {request.designerId}</p>
-        )}
-        {request.editorId && role !== 'ops' && (
-          <p className="text-black dark:text-[var(--dark-text)] mb-0">Editor: {request.editorId}</p>
         )}
         {request.assignee && (
           <p className="text-black dark:text-[var(--dark-text)] mb-0">Assignee: {request.assignee}</p>

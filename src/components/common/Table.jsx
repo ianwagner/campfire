@@ -55,7 +55,7 @@ const Table = ({ children, className = '', columns = [], actionsWidthOverride = 
     >
       <table
         ref={tableRef}
-        className={`ad-table w-full table-fixed text-sm ${className}`.trim()}
+        className={`cmf-table w-full table-fixed text-sm ${className}`.trim()}
         style={actionsWidth ? { '--actions-col-width': actionsWidth } : undefined}
       >
         {columns.length > 0 && (

@@ -4,9 +4,7 @@ import AdminRequests from './AdminRequests';
 
 const EditorRequests = () => {
   const user = auth.currentUser;
-  return (
-    <AdminRequests filterEditorId={user?.uid} canAssignEditor={false} />
-  );
+  return <AdminRequests filterEditorId={user?.uid} />;
 };
 
 export default EditorRequests;

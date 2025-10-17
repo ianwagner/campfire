@@ -35,12 +35,27 @@ match /assets/{assetId} {
       return request.auth != null && userData() != null && userData().role == 'editor';
     }
 
+    function isOps() {
+      return request.auth != null && (
+        request.auth.token.ops == true ||
+        (userData() != null && userData().role == 'ops')
+      );
+    }
+
     function isClient() {
       return request.auth != null && userData() != null && userData().role == 'client';
     }
 
     function userData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasBrandAccess(brandCode) {
+      return request.auth != null &&
+        userData() != null &&
+        userData().brandCodes != null &&
+        brandCode is string &&
+        userData().brandCodes.hasAny([brandCode]);
     }
 
     function isPublicReviewer() {
@@ -123,6 +138,8 @@ match /assets/{assetId} {
     match /brands/{brandId} {
       allow read: if true;
       allow update: if isAdmin() || isManager() || isEditor() ||
+        (hasBrandAccess(resource.data.code) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['helpdeskNotes'])) ||
         (isClient() &&
          userData().brandCodes != null &&
          userData().brandCodes.hasAny([resource.data.code]) &&
@@ -132,6 +149,10 @@ match /assets/{assetId} {
         );
       allow delete: if isAdmin();
       allow create: if isAdmin();
+    }
+
+    match /brands/{brandId}/notes/{noteId} {
+      allow read, write: if isAdmin() || isManager() || isEditor() || isOps();
     }
 
     match /brands/{brandId}/assets/{assetId} {

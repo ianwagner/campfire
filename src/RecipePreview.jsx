@@ -385,7 +385,10 @@ const RecipePreview = forwardRef(({
 
   useEffect(() => {
     if (initialResults && Array.isArray(initialResults)) {
-      const mapped = initialResults.map((r, idx) => ({ recipeNo: idx + 1, ...r }));
+      const mapped = initialResults.map((r, idx) => ({
+        ...r,
+        recipeNo: r?.recipeNo ?? r?.metadata?.recipeNo ?? r?.recipeNumber ?? idx + 1,
+      }));
       // Deep clone to avoid mutating the original reference when editing.
       const cloned = JSON.parse(JSON.stringify(mapped));
       setResults(cloned);
@@ -1236,6 +1239,17 @@ const RecipePreview = forwardRef(({
     () => Object.fromEntries(components.map((c) => [c.key, c])),
     [components],
   );
+  const componentAttributeMap = useMemo(() => {
+    const map = new Map();
+    components.forEach((component) => {
+      if (!component?.key || !Array.isArray(component.attributes)) return;
+      component.attributes.forEach((attr) => {
+        if (!attr?.key) return;
+        map.set(`${component.key}.${attr.key}`, attr);
+      });
+    });
+    return map;
+  }, [components]);
   const orderedComponents = useMemo(
     () =>
       currentType?.components?.length
@@ -1286,8 +1300,8 @@ const RecipePreview = forwardRef(({
       assetCols.forEach((c) => addColumn(c.key, c.label));
     };
 
-    if (orderedComponents.length > 0) {
-      appendFromComponents(orderedComponents);
+    if (displayedComponents.length > 0) {
+      appendFromComponents(displayedComponents);
       writeFields.forEach((f) => {
         if (f.key) {
           addColumn(f.key, f.label, f.inputType || 'text');
@@ -1318,11 +1332,10 @@ const RecipePreview = forwardRef(({
 
     let cols = Array.from(columnMap.values());
 
-    const clientOrder =
-      userRole === 'client' && currentType?.clientVisibleColumns?.length
-        ? currentType.clientVisibleColumns
-        : null;
-    if (clientOrder) {
+    const useClientColumns =
+      (userRole === 'client' || externalOnly) && currentType?.clientVisibleColumns?.length;
+    const clientOrder = useClientColumns ? currentType.clientVisibleColumns : null;
+    if (clientOrder && !showColumnButton) {
       const allowed = new Set(clientOrder);
       cols = cols.filter((col) => allowed.has(col.key));
     }
@@ -1345,13 +1358,22 @@ const RecipePreview = forwardRef(({
     }
 
     return cols;
-  }, [orderedComponents, writeFields, initialResults, currentType, userRole, results]);
+  }, [
+    displayedComponents,
+    writeFields,
+    initialResults,
+    currentType,
+    userRole,
+    results,
+    externalOnly,
+    showColumnButton,
+  ]);
 
   useEffect(() => {
     setVisibleColumns((prev) => {
       const availableKeys = ['recipeNo', ...columnMeta.map((c) => c.key), 'copy'];
       const hasClientColumns =
-        userRole === 'client' && currentType?.clientVisibleColumns?.length > 0;
+        (userRole === 'client' || externalOnly) && currentType?.clientVisibleColumns?.length > 0;
       const defaultOrder = hasClientColumns
         ? currentType.clientVisibleColumns
         : currentType?.defaultColumns && currentType.defaultColumns.length > 0
@@ -1381,6 +1403,27 @@ const RecipePreview = forwardRef(({
     });
     setColumnsReady(true);
   }, [columnMeta, currentType, showColumnButton, userRole]);
+  const imageColumnKeys = useMemo(() => {
+    const keys = new Set();
+    columnMeta.forEach((col) => {
+      if (!col?.key) return;
+      if (col.inputType === 'image') {
+        keys.add(col.key);
+        return;
+      }
+      const attr = componentAttributeMap.get(col.key);
+      if (!attr) return;
+      const possibleTypes = [attr.inputType, attr.type, attr.fieldType, attr.componentType];
+      if (possibleTypes.some((type) => typeof type === 'string' && type.toLowerCase().includes('image'))) {
+        keys.add(col.key);
+        return;
+      }
+      if (typeof attr.format === 'string' && attr.format.toLowerCase().includes('image')) {
+        keys.add(col.key);
+      }
+    });
+    return keys;
+  }, [columnMeta, componentAttributeMap]);
 
   const colWidths = useMemo(() => {
     const widths = [];
@@ -1746,16 +1789,15 @@ const RecipePreview = forwardRef(({
                     #
                   </th>
                 )}
-                {columnMeta.map(
-                  (col) =>
-                    visibleColumns[col.key] && (
-                      <th
-                        key={col.key}
-                        className="px-2 py-1 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300 whitespace-pre-wrap break-words"
-                      >
-                        {col.label}
-                      </th>
-                    )
+                {columnMeta.map((col) =>
+                  visibleColumns[col.key] ? (
+                    <th
+                      key={col.key}
+                      className="px-2 py-1 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300 whitespace-pre-wrap break-words"
+                    >
+                      {col.label}
+                    </th>
+                  ) : null,
                 )}
                 {visibleColumns['copy'] && (
                   <th className="px-2 py-1 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
@@ -1775,121 +1817,120 @@ const RecipePreview = forwardRef(({
                   {visibleColumns['recipeNo'] && (
                     <td className="text-center align-middle font-bold">{r.recipeNo}</td>
                   )}
-                  {columnMeta.map(
-                    (col) =>
-                      visibleColumns[col.key] && (
-                        <td
-                          key={col.key}
-                          className={`align-middle ${
-                            col.key === 'product.name'
-                              ? 'max-w-[20ch] truncate'
-                              : ''
-                          } ${
-                            col.key.toLowerCase().includes('url')
-                              ? 'w-[50px] max-w-[50px] text-center'
-                              : ''
-                          }`}
-                          style={
-                            col.key.endsWith('.assets')
-                              ? { overflow: 'visible' }
-                              : undefined
-                          }
-                        >
-                          {col.key.endsWith('.assets') ? (
-                            renderAssetList(
-                              editing === idx
-                                ? editComponents[col.key] || []
-                                : r.components[col.key] || [],
-                              idx,
-                              col.key,
-                            )
-                          ) : editing === idx ? (
-                            col.key.includes('.') ? (
-                              <select
-                                className="p-1 border rounded mb-1"
-                                value={findInstanceId(col.key.split('.')[0], editComponents)}
-                                onChange={(e) =>
-                                  handleChangeInstance(col.key.split('.')[0], e.target.value)
-                                }
-                              >
-                                <option value="">Select...</option>
-                                {allInstances
-                                  .filter(
-                                    (i) =>
-                                      i.componentKey === col.key.split('.')[0] &&
-                                      (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
-                                  )
-                                  .map((inst) => (
-                                    <option key={inst.id} value={inst.id}>
-                                      {inst.name}
-                                    </option>
-                                  ))}
-                              </select>
-                            ) : col.inputType === 'textarea' ? (
-                              <textarea
-                                className="p-1 border rounded mb-1 w-full"
-                                value={editComponents[col.key] || ''}
-                                onChange={(e) =>
-                                  setEditComponents({
-                                    ...editComponents,
-                                    [col.key]: e.target.value,
-                                  })
-                                }
-                              />
-                            ) : col.inputType === 'list' ? (
-                              <TagInput
-                                id={`edit-${col.key}`}
-                                value={Array.isArray(editComponents[col.key])
-                                  ? editComponents[col.key]
-                                  : typeof editComponents[col.key] === 'string'
-                                  ? editComponents[col.key]
-                                      .split(',')
-                                      .map((s) => s.trim())
-                                      .filter(Boolean)
-                                  : []}
-                                onChange={(arr) =>
-                                  setEditComponents({
-                                    ...editComponents,
-                                    [col.key]: arr,
-                                  })
-                                }
-                              />
-                            ) : (
-                              <input
-                                className="p-1 border rounded mb-1 w-full"
-                                type={col.inputType || 'text'}
-                                value={editComponents[col.key] || ''}
-                                onChange={(e) =>
-                                  setEditComponents({
-                                    ...editComponents,
-                                    [col.key]: e.target.value,
-                                  })
-                                }
-                              />
-                            )
-                          ) : col.inputType === 'image' ? (
-                            r.components[col.key] ? (
-                              <img
-                                src={r.components[col.key]}
-                                alt={col.label}
-                                className="max-w-[125px] w-auto h-auto"
-                              />
-                            ) : null
-                          ) : isUrl(r.components[col.key]?.toString().trim()) ? (
-                            <a
-                              href={r.components[col.key]}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-accent"
+                  {columnMeta.map((col) => {
+                    if (!visibleColumns[col.key]) return null;
+                    const isImageColumn = imageColumnKeys.has(col.key);
+                    return (
+                      <td
+                        key={col.key}
+                        className={`align-middle ${
+                          col.key === 'product.name'
+                            ? 'max-w-[20ch] truncate'
+                            : ''
+                        } ${
+                          col.key.toLowerCase().includes('url')
+                            ? 'w-[50px] max-w-[50px] text-center'
+                            : ''
+                        }`}
+                        style={
+                          col.key.endsWith('.assets') ? { overflow: 'visible' } : undefined
+                        }
+                      >
+                        {col.key.endsWith('.assets') ? (
+                          renderAssetList(
+                            editing === idx
+                              ? editComponents[col.key] || []
+                              : r.components[col.key] || [],
+                            idx,
+                            col.key,
+                          )
+                        ) : editing === idx ? (
+                          col.key.includes('.') ? (
+                            <select
+                              className="p-1 border rounded mb-1"
+                              value={findInstanceId(col.key.split('.')[0], editComponents)}
+                              onChange={(e) =>
+                                handleChangeInstance(col.key.split('.')[0], e.target.value)
+                              }
                             >
-                              <FiLink />
-                            </a>
+                              <option value="">Select...</option>
+                              {allInstances
+                                .filter(
+                                  (i) =>
+                                    i.componentKey === col.key.split('.')[0] &&
+                                    (!i.relationships?.brandCode || i.relationships.brandCode === brandCode),
+                                )
+                                .map((inst) => (
+                                  <option key={inst.id} value={inst.id}>
+                                    {inst.name}
+                                  </option>
+                                ))}
+                            </select>
+                          ) : col.inputType === 'textarea' ? (
+                            <textarea
+                              className="p-1 border rounded mb-1 w-full"
+                              value={editComponents[col.key] || ''}
+                              onChange={(e) =>
+                                setEditComponents({
+                                  ...editComponents,
+                                  [col.key]: e.target.value,
+                                })
+                              }
+                            />
+                          ) : col.inputType === 'list' ? (
+                            <TagInput
+                              id={`edit-${col.key}`}
+                              value={Array.isArray(editComponents[col.key])
+                                ? editComponents[col.key]
+                                : typeof editComponents[col.key] === 'string'
+                                ? editComponents[col.key]
+                                    .split(',')
+                                    .map((s) => s.trim())
+                                    .filter(Boolean)
+                                : []}
+                              onChange={(arr) =>
+                                setEditComponents({
+                                  ...editComponents,
+                                  [col.key]: arr,
+                                })
+                              }
+                            />
                           ) : (
-                            r.components[col.key]
-                          )}
-                        </td>
-                      )
-                   )}
+                            <input
+                              className="p-1 border rounded mb-1 w-full"
+                              type={col.inputType || 'text'}
+                              value={editComponents[col.key] || ''}
+                              onChange={(e) =>
+                                setEditComponents({
+                                  ...editComponents,
+                                  [col.key]: e.target.value,
+                                })
+                              }
+                            />
+                          )
+                        ) : isImageColumn ? (
+                          r.components[col.key] ? (
+                            <img
+                              src={r.components[col.key]}
+                              alt={col.label}
+                              className="max-w-[125px] w-auto h-auto"
+                            />
+                          ) : null
+                        ) : isUrl(r.components[col.key]?.toString().trim()) ? (
+                          <a
+                            href={r.components[col.key]}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-accent"
+                          >
+                            <FiLink />
+                          </a>
+                        ) : (
+                          r.components[col.key]
+                        )}
+                      </td>
+                    );
+                  })}
                   {visibleColumns['copy'] && (
                     <td className="whitespace-pre-wrap break-words align-middle copy-cell">
                       {editing === idx ? (
