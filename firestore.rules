@@ -35,6 +35,13 @@ match /assets/{assetId} {
       return request.auth != null && userData() != null && userData().role == 'editor';
     }
 
+    function isOps() {
+      return request.auth != null && (
+        request.auth.token.ops == true ||
+        (userData() != null && userData().role == 'ops')
+      );
+    }
+
     function isClient() {
       return request.auth != null && userData() != null && userData().role == 'client';
     }
@@ -142,6 +149,10 @@ match /assets/{assetId} {
         );
       allow delete: if isAdmin();
       allow create: if isAdmin();
+    }
+
+    match /brands/{brandId}/notes/{noteId} {
+      allow read, write: if isAdmin() || isManager() || isEditor() || isOps();
     }
 
     match /brands/{brandId}/assets/{assetId} {
