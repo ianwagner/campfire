@@ -39,18 +39,19 @@ const buildSafeFileName = (base, extension) => {
 const buildLogoRecord = (entry, index) => {
   if (!entry) return null;
   if (typeof entry === 'string') {
-    const name = extractFileName(entry, `Logo ${index + 1}`);
     const format = extractFileExtension(entry);
     const extension = (format || '').toLowerCase();
-    const downloadFileName = buildSafeFileName(name.replace(/\.[^.]+$/, ''), extension);
+    const displayName = `Logo ${index + 1}`;
+    const downloadFileName = buildSafeFileName(displayName.replace(/\.[^.]+$/, ''), extension);
     return {
       id: `logo-${index}`,
       url: entry,
-      name,
-      variant: name.replace(/\.[^.]+$/, ''),
+      name: displayName,
+      variant: '',
       format,
       downloadUrl: entry,
       description: '',
+      displayName,
       downloadFileName,
     };
   }
@@ -58,11 +59,12 @@ const buildLogoRecord = (entry, index) => {
     const url = entry.url || entry.href || entry.downloadUrl || '';
     if (!url) return null;
     const name = entry.name || extractFileName(url, `Logo ${index + 1}`);
-    const variant = entry.variant || entry.label || name.replace(/\.[^.]+$/, '');
+    const variant = entry.variant || entry.label || '';
     const format = (entry.format || extractFileExtension(url)).toUpperCase();
     const description = entry.description || entry.notes || '';
+    const displayName = description || variant || `Logo ${index + 1}`;
     const downloadFileName = buildSafeFileName(
-      description || variant || name.replace(/\.[^.]+$/, ''),
+      displayName || name.replace(/\.[^.]+$/, ''),
       (format || '').toLowerCase(),
     );
     return {
@@ -73,6 +75,7 @@ const buildLogoRecord = (entry, index) => {
       format,
       downloadUrl: entry.downloadUrl || url,
       description,
+      displayName,
       downloadFileName,
     };
   }
@@ -116,6 +119,27 @@ const normalizeColors = (raw) => {
     .filter((color) => Boolean(color?.hex));
 };
 
+const getPrimaryFamily = (family = '') => {
+  if (!family) return '';
+  return family
+    .split(',')[0]
+    .replace(/^['"]|['"]$/g, '')
+    .trim();
+};
+
+const formatCssValue = (value, defaultUnit = '') => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'number') {
+    return defaultUnit ? `${value}${defaultUnit}` : `${value}`;
+  }
+  const trimmed = `${value}`.trim();
+  if (!trimmed) return '';
+  if (/^[+-]?\d+(\.\d+)?$/.test(trimmed)) {
+    return defaultUnit ? `${trimmed}${defaultUnit}` : trimmed;
+  }
+  return trimmed;
+};
+
 const buildFontRecord = (entry, index) => {
   if (!entry || typeof entry !== 'object') return null;
   const type = entry.type || 'custom';
@@ -138,9 +162,65 @@ const buildFontRecord = (entry, index) => {
       )}&display=swap');`
     : '');
   const format = extractFileExtension(downloadUrl || rawValue || '') || '';
+  const displayName = entry.displayName || entry.label || entry.role || name;
   const downloadFileName = downloadUrl
-    ? buildSafeFileName(name, format.toLowerCase())
-    : buildSafeFileName(name, '');
+    ? buildSafeFileName(displayName, format.toLowerCase())
+    : buildSafeFileName(displayName, '');
+  const usageSource =
+    (Array.isArray(entry.usage) ? entry.usage[0] : null) || entry.usage || entry.preview || entry.styles || {};
+  const previewFamily = usageSource.fontFamily || entry.previewFamily || '';
+  const fontSizeValue = usageSource.fontSize || entry.fontSize || '';
+  const lineHeightValue =
+    usageSource.lineHeight || usageSource.leading || entry.lineHeight || entry.leading || '';
+  const letterSpacingValue =
+    usageSource.letterSpacing || usageSource.tracking || entry.letterSpacing || entry.tracking || entry.kerning || '';
+  const fontWeightValue = usageSource.fontWeight || entry.fontWeight || '';
+  const fontStyleValue = usageSource.fontStyle || entry.fontStyle || '';
+  const textTransformValue = usageSource.textTransform || entry.textTransform || '';
+  const textDecorationValue = usageSource.textDecoration || entry.textDecoration || '';
+  const previewStyles = {};
+  const previewMetrics = [];
+
+  const resolvedFontSize = formatCssValue(fontSizeValue, 'px');
+  const resolvedLineHeight = formatCssValue(lineHeightValue);
+  const resolvedLetterSpacing = formatCssValue(letterSpacingValue, 'px');
+
+  const applyStyle = (prop, value) => {
+    if (value !== null && value !== undefined && value !== '') {
+      previewStyles[prop] = value;
+    }
+  };
+
+  applyStyle('fontFamily', previewFamily || family);
+  applyStyle('fontSize', resolvedFontSize);
+  applyStyle('lineHeight', resolvedLineHeight);
+  applyStyle('letterSpacing', resolvedLetterSpacing);
+  applyStyle('fontWeight', fontWeightValue);
+  applyStyle('fontStyle', fontStyleValue);
+  applyStyle('textTransform', textTransformValue);
+  applyStyle('textDecoration', textDecorationValue);
+
+  if (resolvedFontSize) {
+    previewMetrics.push({ label: 'Size', value: resolvedFontSize });
+  }
+  if (resolvedLineHeight) {
+    previewMetrics.push({ label: 'Line height', value: resolvedLineHeight });
+  }
+  if (resolvedLetterSpacing) {
+    previewMetrics.push({ label: 'Kerning', value: resolvedLetterSpacing });
+  }
+  if (fontWeightValue) {
+    previewMetrics.push({ label: 'Weight', value: `${fontWeightValue}` });
+  }
+
+  const stylesheetUrl =
+    entry.stylesheetUrl ||
+    (type === 'google' && rawValue
+      ? `https://fonts.googleapis.com/css2?family=${encodeURIComponent(
+          rawValue.replace(/\s+/g, '+'),
+        )}&display=swap`
+      : '');
+
   return {
     id: entry.id || `font-${index}`,
     name,
@@ -154,7 +234,12 @@ const buildFontRecord = (entry, index) => {
     role: entry.role || '',
     rules: entry.rules || '',
     format,
+    displayName,
     downloadFileName,
+    previewStyles,
+    previewMetrics,
+    stylesheetUrl,
+    primaryFamily: getPrimaryFamily(previewFamily || family),
   };
 };
 
@@ -230,6 +315,10 @@ export const useBrandAssets = (brandCode) => {
   const colors = useMemo(() => normalizeColors(brand?.palette), [brand?.palette]);
   const fonts = useMemo(() => normalizeFonts(brand?.fonts), [brand?.fonts]);
   const profileNotes = useMemo(() => normalizeProfileNotes(brand?.notes), [brand?.notes]);
+  const brandNotes = useMemo(
+    () => (Array.isArray(brand?.brandNotes) ? brand.brandNotes : []),
+    [brand?.brandNotes],
+  );
   const guidelinesUrl = brand?.guidelinesUrl || '';
   const brandName = brand?.name || '';
 
@@ -242,6 +331,7 @@ export const useBrandAssets = (brandCode) => {
     colors,
     fonts,
     profileNotes,
+    brandNotes,
     rawBrand: brand,
   };
 };

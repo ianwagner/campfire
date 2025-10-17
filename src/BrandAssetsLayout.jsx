@@ -95,6 +95,9 @@ const copyToClipboard = async (value = '') => {
   }
 };
 
+const loadedGoogleFonts = new Set();
+const loadedCustomFonts = new Set();
+
 const BrandAssetsLayout = ({
   brandCode,
   guidelinesUrl = '',
@@ -109,6 +112,7 @@ const BrandAssetsLayout = ({
     colors,
     fonts,
     profileNotes,
+    brandNotes: storedBrandNotes,
   } = useBrandAssets(brandCode);
 
   const resolvedGuidelinesUrl = guidelinesUrl || brandGuidelinesUrl;
@@ -122,18 +126,20 @@ const BrandAssetsLayout = ({
     [profileNotes],
   );
 
-  const firestoreNotes = useMemo(
-    () => normalizeBrandNotes(brandNotes),
-    [brandNotes],
+  const firestoreNotes = useMemo(() => normalizeBrandNotes(brandNotes), [brandNotes]);
+  const brandProfileNotes = useMemo(
+    () => normalizeBrandNotes(storedBrandNotes),
+    [storedBrandNotes],
   );
 
   const combinedNotes = useMemo(() => {
     const seen = new Map();
     const merged = [];
     firestoreNotes.forEach((note) => addNoteIfUnique(merged, seen, note));
+    brandProfileNotes.forEach((note) => addNoteIfUnique(merged, seen, note));
     internalNotes.forEach((note) => addNoteIfUnique(merged, seen, note));
     return merged;
-  }, [firestoreNotes, internalNotes]);
+  }, [brandProfileNotes, firestoreNotes, internalNotes]);
 
   const noteTags = useMemo(() => {
     const tagSet = new Set();
@@ -147,12 +153,10 @@ const BrandAssetsLayout = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('all');
   const [copiedColorId, setCopiedColorId] = useState('');
-  const [copiedFontId, setCopiedFontId] = useState('');
 
   const contentRef = useRef(null);
   const sectionRefs = useRef({});
   const colorCopyTimeout = useRef(null);
-  const fontCopyTimeout = useRef(null);
 
   const resolvedHeight = useMemo(() => {
     if (!height || height === 'auto') return undefined;
@@ -162,7 +166,6 @@ const BrandAssetsLayout = ({
   useEffect(
     () => () => {
       if (colorCopyTimeout.current) clearTimeout(colorCopyTimeout.current);
-      if (fontCopyTimeout.current) clearTimeout(fontCopyTimeout.current);
     },
     [],
   );
@@ -219,14 +222,6 @@ const BrandAssetsLayout = ({
     colorCopyTimeout.current = setTimeout(() => setCopiedColorId(''), 2000);
   };
 
-  const handleCopyFontCss = async (font) => {
-    const success = await copyToClipboard(font.cssSnippet);
-    if (!success) return;
-    if (fontCopyTimeout.current) clearTimeout(fontCopyTimeout.current);
-    setCopiedFontId(font.id);
-    fontCopyTimeout.current = setTimeout(() => setCopiedFontId(''), 2000);
-  };
-
   const triggerDownload = (url, filename) => {
     if (!url) return;
     const link = document.createElement('a');
@@ -243,13 +238,51 @@ const BrandAssetsLayout = ({
   const handleDownloadLogo = (logo) => {
     const filename =
       logo.downloadFileName ||
-      buildFileName(logo.description || logo.variant || logo.name, logo.format);
+      buildFileName(logo.description || logo.variant || logo.displayName || logo.name, logo.format);
     triggerDownload(logo.downloadUrl || logo.url, filename);
   };
 
   const handleDownloadAllLogos = () => {
     logos.forEach((logo) => handleDownloadLogo(logo));
   };
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    fonts.forEach((font) => {
+      if (font.stylesheetUrl) {
+        if (!loadedGoogleFonts.has(font.stylesheetUrl)) {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = font.stylesheetUrl;
+          link.dataset.brandFont = font.id;
+          document.head.appendChild(link);
+          loadedGoogleFonts.add(font.stylesheetUrl);
+        }
+      } else if (font.type === 'custom' && font.downloadUrl && font.primaryFamily) {
+        if (!loadedCustomFonts.has(font.primaryFamily) && 'fonts' in document && typeof FontFace !== 'undefined') {
+          try {
+            const fontFace = new FontFace(font.primaryFamily, `url(${font.downloadUrl})`, {
+              weight: font.previewStyles.fontWeight || 'normal',
+              style: font.previewStyles.fontStyle || 'normal',
+              display: 'swap',
+            });
+            fontFace
+              .load()
+              .then((loadedFace) => {
+                document.fonts.add(loadedFace);
+                loadedCustomFonts.add(font.primaryFamily);
+              })
+              .catch((err) => {
+                console.error('Failed to load custom font', err);
+              });
+          } catch (err) {
+            console.error('Failed to instantiate custom font', err);
+          }
+        }
+      }
+    });
+    return undefined;
+  }, [fonts]);
 
   const filteredNotes = useMemo(() => {
     const trimmedSearch = searchTerm.trim().toLowerCase();
@@ -354,9 +387,9 @@ const BrandAssetsLayout = ({
                       <OptimizedImage pngUrl={logo.url} alt={logo.description || logo.name || 'Logo'} className="max-h-20 w-auto" />
                     </div>
                     <div className="flex flex-col gap-1">
-                      {(logo.description || logo.variant || logo.name) && (
+                      {(logo.description || logo.variant || logo.displayName || logo.name) && (
                         <p className="text-sm text-gray-700 dark:text-gray-200">
-                          {logo.description || logo.variant || logo.name}
+                          {logo.description || logo.variant || logo.displayName || logo.name}
                         </p>
                       )}
                       {logo.description && logo.variant ? (
@@ -440,10 +473,10 @@ const BrandAssetsLayout = ({
           >
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Typography</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-300">
-                Review the brand type system and copy ready-to-use CSS.
-              </p>
-            </div>
+                <p className="text-sm text-gray-500 dark:text-gray-300">
+                  Review the brand type system with real usage guidance.
+                </p>
+              </div>
             {fonts.length > 0 ? (
               <div className="flex flex-col gap-4">
                 {fonts.map((font) => (
@@ -454,7 +487,7 @@ const BrandAssetsLayout = ({
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex flex-col gap-2">
                         <div>
-                          <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">{font.name}</h4>
+                          <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">{font.displayName || font.name}</h4>
                           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                             <span className="rounded-full bg-gray-200 px-2 py-0.5 font-medium uppercase tracking-wide text-gray-600 dark:bg-gray-700 dark:text-gray-100">
                               {font.type === 'google' ? 'Google Font' : 'Custom Font'}
@@ -464,7 +497,7 @@ const BrandAssetsLayout = ({
                                 {font.role}
                               </span>
                             ) : null}
-                            {font.type === 'google' && font.rawValue ? (
+                            {font.type === 'google' && font.rawValue && !/^https?:/i.test(font.rawValue) ? (
                               <span className="font-mono text-[11px] text-gray-500 dark:text-gray-400">{font.rawValue}</span>
                             ) : null}
                             {font.format ? (
@@ -475,17 +508,19 @@ const BrandAssetsLayout = ({
                         {font.rules ? (
                           <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-pre-line">{font.rules}</p>
                         ) : null}
+                        {font.previewMetrics.length > 0 ? (
+                          <dl className="grid grid-cols-2 gap-2 text-[11px] text-gray-500 dark:text-gray-400 sm:grid-cols-3">
+                            {font.previewMetrics.map((metric) => (
+                              <div key={`${font.id}-${metric.label}`} className="flex flex-col rounded-lg bg-white px-3 py-2 shadow-sm dark:bg-[var(--dark-sidebar-hover)]">
+                                <dt className="font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{metric.label}</dt>
+                                <dd className="font-medium text-gray-700 dark:text-gray-200">{metric.value}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        ) : null}
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleCopyFontCss(font)}
-                          className="inline-flex items-center gap-2 rounded-full bg-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
-                        >
-                          <FiCopy size={14} />
-                          {copiedFontId === font.id ? 'CSS Copied' : 'Copy CSS'}
-                        </button>
-                        {font.downloadUrl ? (
+                      {font.downloadUrl ? (
+                        <div className="flex flex-wrap gap-2">
                           <a
                             href={font.downloadUrl}
                             target="_blank"
@@ -496,18 +531,24 @@ const BrandAssetsLayout = ({
                             <FiDownload size={14} />
                             Download Font
                           </a>
-                        ) : null}
-                      </div>
+                        </div>
+                      ) : null}
                     </div>
                     <p
                       className="rounded-lg bg-white px-4 py-3 text-sm text-gray-700 shadow-inner dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100"
-                      style={{ fontFamily: font.family }}
+                      style={{
+                        fontFamily: font.previewStyles.fontFamily || font.family,
+                        ...(font.previewStyles.fontWeight ? { fontWeight: font.previewStyles.fontWeight } : {}),
+                        ...(font.previewStyles.fontStyle ? { fontStyle: font.previewStyles.fontStyle } : {}),
+                        ...(font.previewStyles.fontSize ? { fontSize: font.previewStyles.fontSize } : {}),
+                        ...(font.previewStyles.lineHeight ? { lineHeight: font.previewStyles.lineHeight } : {}),
+                        ...(font.previewStyles.letterSpacing ? { letterSpacing: font.previewStyles.letterSpacing } : {}),
+                        ...(font.previewStyles.textTransform ? { textTransform: font.previewStyles.textTransform } : {}),
+                        ...(font.previewStyles.textDecoration ? { textDecoration: font.previewStyles.textDecoration } : {}),
+                      }}
                     >
                       {font.example}
                     </p>
-                    <code className="block rounded-lg bg-black/5 px-4 py-2 text-xs text-gray-700 dark:bg-white/5 dark:text-gray-200">
-                      {font.cssSnippet}
-                    </code>
                   </article>
                 ))}
               </div>
