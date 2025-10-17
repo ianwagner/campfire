@@ -811,6 +811,13 @@ html.dark .full-screen-spinner {
   overflow: hidden;
 }
 
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* simple fade-in effect for page transitions */
 .page-transition {
   opacity: 0;
