@@ -1,6 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "./firebase/config";
+import React, { useMemo } from "react";
 import OptimizedImage from "./components/OptimizedImage.jsx";
 import Modal from "./components/Modal.jsx";
 import CloseButton from "./components/CloseButton.jsx";
@@ -11,6 +9,7 @@ import {
   resourceSectionSubtitleClass,
   resourceSectionTitleClass,
 } from "./components/common/resourcePanelStyles.js";
+import { useBrandAssets } from "./useBrandAssets.js";
 
 const BrandAssets = ({
   brandCode,
@@ -21,23 +20,15 @@ const BrandAssets = ({
   height = "auto",
   inlineClassName = "",
 }) => {
-  const [brand, setBrand] = useState(null);
-
-  useEffect(() => {
-    const load = async () => {
-      if (!brandCode) return;
-      try {
-        const q = query(collection(db, "brands"), where("code", "==", brandCode));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          setBrand({ id: snap.docs[0].id, ...snap.docs[0].data() });
-        }
-      } catch (err) {
-        console.error("Failed to load brand", err);
-      }
-    };
-    load();
-  }, [brandCode]);
+  const {
+    loading,
+    guidelinesUrl: brandGuidelinesUrl,
+    logos,
+    colors,
+    fonts,
+    profileNotes,
+    rawBrand,
+  } = useBrandAssets(brandCode);
 
   const resolvedHeight = useMemo(() => {
     if (typeof height === "number") {
@@ -46,43 +37,18 @@ const BrandAssets = ({
     return height;
   }, [height]);
 
-  const logos = useMemo(() => {
-    if (!Array.isArray(brand?.logos)) return [];
-    return brand.logos.filter((url) => typeof url === "string" && url.trim());
-  }, [brand]);
-
-  const palette = useMemo(() => {
-    if (!Array.isArray(brand?.palette)) return [];
-    return brand.palette.filter((color) => typeof color === "string" && color.trim());
-  }, [brand]);
-
-  const fonts = useMemo(() => {
-    if (!Array.isArray(brand?.fonts)) return [];
-    return brand.fonts.filter((font) => {
-      if (!font || typeof font !== "object") return false;
-      return typeof font.value === "string" && font.value.trim();
-    });
-  }, [brand]);
-
+  const guidelinesUrl = hideGuidelines ? "" : brandGuidelinesUrl;
   const notes = useMemo(() => {
-    if (hideNotes || !Array.isArray(brand?.notes)) return [];
-    return brand.notes
-      .filter((entry) => typeof entry === "string" && entry.trim())
-      .map((entry, index) => ({ id: index, text: entry.trim() }));
-  }, [brand, hideNotes]);
-
-  if (!brand) return null;
-
-  const guidelinesUrl = !hideGuidelines && typeof brand.guidelinesUrl === "string"
-    ? brand.guidelinesUrl
-    : "";
+    if (hideNotes) return [];
+    return profileNotes;
+  }, [hideNotes, profileNotes]);
 
   const hasLogos = logos.length > 0;
-  const hasPalette = palette.length > 0;
+  const hasColors = colors.length > 0;
   const hasFonts = fonts.length > 0;
   const hasNotes = notes.length > 0;
   const hasGuidelines = Boolean(guidelinesUrl);
-  const hasAnyContent = hasLogos || hasPalette || hasFonts || hasNotes || hasGuidelines;
+  const hasAnyContent = hasLogos || hasColors || hasFonts || hasNotes || hasGuidelines;
 
   const header = (
     <div className={resourcePanelHeaderClass}>
@@ -108,12 +74,18 @@ const BrandAssets = ({
           </span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {logos.map((url, idx) => (
+          {logos.map((logo) => (
             <div
-              key={idx}
-              className="flex items-center justify-center rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
+              key={logo.id}
+              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
             >
-              <OptimizedImage pngUrl={url} alt="logo" className="max-h-16 w-auto" />
+              <OptimizedImage pngUrl={logo.url} alt={logo.name || "logo"} className="max-h-16 w-auto" />
+              <div className="text-center">
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-200">{logo.variant || logo.name}</p>
+                {logo.format ? (
+                  <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{logo.format}</p>
+                ) : null}
+              </div>
             </div>
           ))}
         </div>
@@ -121,21 +93,27 @@ const BrandAssets = ({
     );
   }
 
-  if (hasPalette) {
+  if (hasColors) {
     sections.push(
       <section key="palette" className="space-y-3">
         <h4 className={resourceSectionTitleClass}>Color palette</h4>
         <div className="grid gap-3 sm:grid-cols-2">
-          {palette.map((color, idx) => (
+          {colors.map((color) => (
             <div
-              key={idx}
+              key={color.id}
               className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200"
             >
               <span
                 className="h-10 w-10 rounded-lg border border-gray-200 shadow-inner dark:border-[var(--border-color-default)]"
-                style={{ backgroundColor: color }}
+                style={{ backgroundColor: color.hex }}
               />
-              <span className="font-mono text-sm">{color}</span>
+              <div>
+                <p className="font-semibold">{color.name}</p>
+                <p className="font-mono text-xs">{color.hex}</p>
+                {color.usage ? (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-300">{color.usage}</p>
+                ) : null}
+              </div>
             </div>
           ))}
         </div>
@@ -149,13 +127,12 @@ const BrandAssets = ({
         <h4 className={resourceSectionTitleClass}>Typefaces</h4>
         <ul className="space-y-2">
           {fonts.map((font, idx) => {
-            const { type, value, name } = font;
-            const displayName = name && name.trim() ? name.trim() : `Typeface ${idx + 1}`;
-            const fontTypeLabel = type === "google" ? "Google Font" : "Custom Font";
-            const isGoogleFont = type === "google";
+            const displayName = font.name || `Typeface ${idx + 1}`;
+            const fontTypeLabel = font.type === "google" ? "Google Font" : "Custom Font";
+            const isGoogleFont = font.type === "google";
             return (
               <li
-                key={`${displayName}-${idx}`}
+                key={font.id}
                 className="flex flex-col rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
               >
                 <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">{displayName}</span>
@@ -164,18 +141,21 @@ const BrandAssets = ({
                     {fontTypeLabel}
                   </span>
                   {isGoogleFont ? (
-                    <span className="font-mono text-[11px] text-gray-500 dark:text-gray-400">{value}</span>
-                  ) : (
+                    <span className="font-mono text-[11px] text-gray-500 dark:text-gray-400">{font.rawValue}</span>
+                  ) : font.downloadUrl ? (
                     <a
-                      href={value}
+                      href={font.downloadUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-[var(--accent-color)] hover:underline"
                     >
                       Download file
                     </a>
-                  )}
+                  ) : null}
                 </div>
+                <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 shadow-inner dark:bg-gray-800 dark:text-gray-200" style={{ fontFamily: font.family }}>
+                  {font.example}
+                </p>
               </li>
             );
           })}
@@ -194,7 +174,7 @@ const BrandAssets = ({
               key={note.id}
               className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200"
             >
-              <p className="whitespace-pre-wrap">{note.text}</p>
+              <p className="whitespace-pre-wrap">{note.body}</p>
             </article>
           ))}
         </div>
@@ -232,6 +212,10 @@ const BrandAssets = ({
     <div className={resourcePanelBodyClass}>
       {hasAnyContent ? (
         <div className="space-y-6">{sections}</div>
+      ) : loading && !rawBrand ? (
+        <div className="flex items-center justify-center py-12 text-sm text-gray-500 dark:text-gray-300">
+          Loading brand assets...
+        </div>
       ) : (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-12 text-center text-sm text-gray-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300">
           <svg
@@ -242,16 +226,8 @@ const BrandAssets = ({
             stroke="currentColor"
             strokeWidth="1.5"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9 17v-6a2 2 0 012-2h6"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13 7h4a2 2 0 012 2v9a2 2 0 01-2 2H7a2 2 0 01-2-2v-8"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-6a2 2 0 012-2h6" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h4a2 2 0 012 2v9a2 2 0 01-2 2H7a2 2 0 01-2-2v-8" />
           </svg>
           <p className="text-sm font-medium text-gray-600 dark:text-gray-200">No brand assets yet.</p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
