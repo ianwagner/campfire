@@ -14,6 +14,7 @@ import {
 import { db } from '../firebase/config';
 import CloseButton from './CloseButton.jsx';
 import NotificationDot from './NotificationDot.jsx';
+import Button from './Button.jsx';
 import {
   toDateSafe,
   formatRelativeTime,
@@ -49,11 +50,6 @@ const HelpdeskModal = ({
     reviewerName || user?.displayName || user?.email || 'Reviewer',
   );
 
-  const baseButtonClass =
-    'inline-flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white font-semibold text-gray-700 shadow-sm transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]';
-  const primaryButtonClass =
-    'inline-flex items-center justify-center gap-2 rounded-md border border-[var(--accent-color)] bg-[var(--accent-color)] font-semibold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[var(--dark-sidebar-bg)]';
-
   const decoratedTickets = useMemo(
     () =>
       tickets.map((ticket) => ({
@@ -62,19 +58,6 @@ const HelpdeskModal = ({
       })),
     [tickets, readStateVersion],
   );
-  const buildButtonClass = ({
-    primary = false,
-    small = false,
-    fullWidth = false,
-    disabled: isDisabled = false,
-  } = {}) => {
-    const base = primary ? primaryButtonClass : baseButtonClass;
-    const sizeClass = small ? 'px-3 py-1.5 text-xs' : 'px-3 py-2 text-sm';
-    const widthClass = fullWidth ? 'w-full' : '';
-    const disabledClass = isDisabled ? 'cursor-not-allowed opacity-60' : '';
-    return [base, sizeClass, widthClass, disabledClass].filter(Boolean).join(' ');
-  };
-
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
     const { body } = document;
@@ -245,9 +228,9 @@ const HelpdeskModal = ({
       return (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-sm text-gray-500 dark:text-gray-300">
           <p>No open ticket selected.</p>
-          <button
+          <Button
             type="button"
-            className={buildButtonClass({ primary: true })}
+            variant="accent"
             onClick={() => {
               setCreatingNew(true);
               setActiveTicketId(null);
@@ -255,7 +238,7 @@ const HelpdeskModal = ({
             }}
           >
             Start a new chat
-          </button>
+          </Button>
         </div>
       );
     }
@@ -345,23 +328,23 @@ const HelpdeskModal = ({
           />
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
           <div className="mt-2 flex justify-end gap-2">
-            <button
+            <Button
               type="button"
-              className={buildButtonClass()}
+              variant="neutral"
               onClick={() => {
                 onClose();
               }}
             >
               Close
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className={buildButtonClass({ primary: true, disabled: sending || !message.trim() })}
+              variant="accent"
               onClick={handleSendMessage}
               disabled={sending || !message.trim()}
             >
               {sending ? 'Sending…' : 'Send'}
-            </button>
+            </Button>
           </div>
         </div>
       </>
@@ -397,9 +380,9 @@ const HelpdeskModal = ({
       </div>
       <div className="border-t border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
         <div className="flex justify-end gap-2">
-          <button
+          <Button
             type="button"
-            className={buildButtonClass()}
+            variant="neutral"
             onClick={() => {
               if (decoratedTickets.length) {
                 setCreatingNew(false);
@@ -411,18 +394,15 @@ const HelpdeskModal = ({
             }}
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className={buildButtonClass({
-              primary: true,
-              disabled: sending || !message.trim(),
-            })}
+            variant="accent"
             onClick={handleSendMessage}
             disabled={sending || !message.trim()}
           >
             {sending ? 'Sending…' : 'Send'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -439,9 +419,10 @@ const HelpdeskModal = ({
           <aside className="flex w-full flex-col border-b border-gray-200 bg-gray-50 px-3 py-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] md:w-72 md:flex-shrink-0 md:border-b-0 md:border-r">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-800 dark:text-[var(--dark-text)]">Open tickets</h3>
-              <button
+              <Button
                 type="button"
-                className={buildButtonClass({ small: true })}
+                variant="neutral"
+                size="sm"
                 onClick={() => {
                   setCreatingNew(true);
                   setActiveTicketId(null);
@@ -450,7 +431,7 @@ const HelpdeskModal = ({
                 }}
               >
                 New chat
-              </button>
+              </Button>
             </div>
             <div className="mt-3 flex-1 space-y-2 overflow-y-auto pr-1">
               {decoratedTickets.length === 0 ? (
