@@ -9,8 +9,38 @@ import FormField from './components/FormField.jsx';
 import useAgencies from './useAgencies';
 import useSubscriptionPlans from './useSubscriptionPlans';
 
-const emptyLogo = { url: '', file: null };
-const emptyFont = { type: 'google', value: '', name: '', file: null };
+const emptyLogo = { url: '', file: null, description: '' };
+const emptyFont = {
+  type: 'google',
+  value: '',
+  name: '',
+  file: null,
+  role: '',
+  rules: '',
+};
+
+const normalizeLogo = (entry = null) => {
+  if (!entry) return { ...emptyLogo };
+  if (typeof entry === 'string') {
+    return { url: entry, file: null, description: '' };
+  }
+  return {
+    url: entry.url || '',
+    file: null,
+    description: entry.description || '',
+  };
+};
+
+const normalizeFont = (entry = null) => ({
+  type: entry?.type || 'google',
+  value: entry?.value || '',
+  name: entry?.name || entry?.value || '',
+  file: null,
+  role: entry?.role || '',
+  rules: entry?.rules || '',
+});
+
+const FONT_ROLE_OPTIONS = ['Heading', 'Subheading', 'Body', 'CTA', 'Misc.'];
 
 const driveIdRegex = /^[\w-]{10,}$/;
 const isValidDriveId = (id) => driveIdRegex.test(id);
@@ -52,7 +82,7 @@ const AdminBrandDetail = () => {
           setGuidelines({ url: data.guidelinesUrl || '', file: null });
           setLogos(
             Array.isArray(data.logos) && data.logos.length
-              ? data.logos.map((u) => ({ url: u, file: null }))
+              ? data.logos.map((entry) => normalizeLogo(entry))
               : [{ ...emptyLogo }]
           );
           setPalette(
@@ -62,12 +92,7 @@ const AdminBrandDetail = () => {
           );
           setFonts(
             Array.isArray(data.fonts) && data.fonts.length
-              ? data.fonts.map((f) => ({
-                  type: f.type || 'google',
-                  value: f.value || '',
-                  name: f.name || '',
-                  file: null,
-                }))
+              ? data.fonts.map((f) => normalizeFont(f))
               : [{ ...emptyFont }]
           );
           setNotes(Array.isArray(data.notes) && data.notes.length ? data.notes : ['']);
@@ -93,9 +118,19 @@ const AdminBrandDetail = () => {
   const updateLogoFile = (idx, file) => {
     setLogos((prev) =>
       prev.map((l, i) =>
-        i === idx ? { url: file ? URL.createObjectURL(file) : l.url, file } : l
+        i === idx
+          ? {
+              ...l,
+              url: file ? URL.createObjectURL(file) : l.url,
+              file,
+            }
+          : l
       )
     );
+  };
+
+  const updateLogoDescription = (idx, description) => {
+    setLogos((prev) => prev.map((l, i) => (i === idx ? { ...l, description } : l)));
   };
 
   const updateFont = (idx, changes) => {
@@ -111,7 +146,9 @@ const AdminBrandDetail = () => {
         setLogos(updated.length ? updated : [{ ...emptyLogo }]);
         if (id) {
           await updateDoc(doc(db, 'brands', id), {
-            logos: updated.filter((l) => l.url).map((l) => l.url),
+            logos: updated
+              .filter((l) => l.url)
+              .map((l) => ({ url: l.url, description: (l.description || '').trim() })),
           });
         }
       } catch (err) {
@@ -136,10 +173,22 @@ const AdminBrandDetail = () => {
         const fontData = updated
           .map((f) => {
             if (f.type === 'custom' && f.value) {
-              return { type: 'custom', value: f.value, name: f.name || '' };
+              return {
+                type: 'custom',
+                value: f.value,
+                name: (f.name || '').trim(),
+                role: f.role || '',
+                rules: f.rules || '',
+              };
             }
             if (f.type === 'google' && f.value) {
-              return { type: 'google', value: f.value };
+              return {
+                type: 'google',
+                value: f.value,
+                name: (f.name || f.value || '').trim(),
+                role: f.role || '',
+                rules: f.rules || '',
+              };
             }
             return null;
           })
@@ -172,13 +221,17 @@ const AdminBrandDetail = () => {
           'guidelines'
         );
       }
-      const logoUrls = [];
+      const logoEntries = [];
       for (const l of logos) {
+        let url = l.url;
         if (l.file) {
-          const url = await uploadBrandAsset(l.file, brandCode, 'logos');
-          logoUrls.push(url);
-        } else if (l.url) {
-          logoUrls.push(l.url);
+          url = await uploadBrandAsset(l.file, brandCode, 'logos');
+        }
+        if (url) {
+          logoEntries.push({
+            url,
+            description: (l.description || '').trim(),
+          });
         }
       }
       const fontData = [];
@@ -189,10 +242,22 @@ const AdminBrandDetail = () => {
             url = await uploadBrandAsset(f.file, brandCode, 'fonts');
           }
           if (url) {
-            fontData.push({ type: 'custom', value: url, name: f.name || '' });
+            fontData.push({
+              type: 'custom',
+              value: url,
+              name: (f.name || '').trim(),
+              role: f.role || '',
+              rules: f.rules || '',
+            });
           }
         } else if (f.type === 'google' && f.value) {
-          fontData.push({ type: 'google', value: f.value });
+          fontData.push({
+            type: 'google',
+            value: f.value,
+            name: (f.name || f.value || '').trim(),
+            role: f.role || '',
+            rules: f.rules || '',
+          });
         }
       }
       await updateDoc(doc(db, 'brands', id), {
@@ -203,7 +268,7 @@ const AdminBrandDetail = () => {
         offering: offering.trim(),
         driveFolderId: driveFolderId.trim(),
         guidelinesUrl,
-        logos: logoUrls,
+        logos: logoEntries,
         palette,
         fonts: fontData,
         notes,
@@ -211,8 +276,8 @@ const AdminBrandDetail = () => {
         credits,
       });
       setGuidelines({ url: guidelinesUrl, file: null });
-      setLogos(logoUrls.map((u) => ({ url: u, file: null })));
-      setFonts(fontData.map((f) => ({ ...f, file: null })));
+      setLogos(logoEntries.length ? logoEntries.map((entry) => ({ ...entry, file: null })) : [{ ...emptyLogo }]);
+      setFonts(fontData.length ? fontData.map((f) => normalizeFont(f)) : [{ ...emptyFont }]);
       setMessage('Brand updated');
     } catch (err) {
       console.error('Failed to update brand', err);
@@ -323,6 +388,13 @@ const AdminBrandDetail = () => {
                 </button>
               </div>
               {logo.url && <img src={logo.url} alt="logo" className="mt-1 h-16 w-auto" />}
+              <input
+                type="text"
+                value={logo.description}
+                onChange={(e) => updateLogoDescription(idx, e.target.value)}
+                className="mt-2 w-full p-2 border rounded"
+                placeholder="Describe how to use this logo"
+              />
             </div>
           ))}
           <button
@@ -378,7 +450,7 @@ const AdminBrandDetail = () => {
                   type="text"
                   value={font.value}
                   placeholder="Font Name"
-                  onChange={(e) => updateFont(idx, { value: e.target.value })}
+                  onChange={(e) => updateFont(idx, { value: e.target.value, name: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
               ) : (
@@ -414,6 +486,39 @@ const AdminBrandDetail = () => {
                   Current file
                 </a>
               )}
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-600" htmlFor={`admin-font-role-${idx}`}>
+                    Usage
+                  </label>
+                  <select
+                    id={`admin-font-role-${idx}`}
+                    value={font.role}
+                    onChange={(e) => updateFont(idx, { role: e.target.value })}
+                    className="w-full p-2 border rounded"
+                  >
+                    <option value="">Select usage</option>
+                    {FONT_ROLE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1 sm:col-span-2">
+                  <label className="text-xs font-medium text-gray-600" htmlFor={`admin-font-rules-${idx}`}>
+                    Usage rules
+                  </label>
+                  <textarea
+                    id={`admin-font-rules-${idx}`}
+                    value={font.rules}
+                    onChange={(e) => updateFont(idx, { rules: e.target.value })}
+                    className="w-full rounded border p-2"
+                    rows={2}
+                    placeholder="Kerning, leading, line height, etc."
+                  />
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => handleDeleteFont(idx)}

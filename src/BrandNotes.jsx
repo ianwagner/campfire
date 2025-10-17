@@ -14,12 +14,13 @@ import { db } from './firebase/config';
 import PageWrapper from './components/PageWrapper.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
 import Button from './components/Button.jsx';
+import TagInput from './components/TagInput.jsx';
 
 const BrandNotes = ({ brandId }) => {
   const [notes, setNotes] = useState([]);
   const [filter, setFilter] = useState('');
   const [selectedId, setSelectedId] = useState(null);
-  const [form, setForm] = useState({ title: '', body: '' });
+  const [form, setForm] = useState({ title: '', body: '', tags: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -44,6 +45,7 @@ const BrandNotes = ({ brandId }) => {
             body: data.body || data.text || data.note || '',
             createdAt: created,
             updatedAt: updated,
+            tags: Array.isArray(data.tags) ? data.tags : [],
           };
         });
         setNotes(items);
@@ -59,12 +61,12 @@ const BrandNotes = ({ brandId }) => {
   useEffect(() => {
     if (!selectedId) return;
     if (selectedId === 'new') {
-      setForm({ title: '', body: '' });
+      setForm({ title: '', body: '', tags: [] });
       return;
     }
     const match = notes.find((n) => n.id === selectedId);
     if (match) {
-      setForm({ title: match.title, body: match.body });
+      setForm({ title: match.title, body: match.body, tags: Array.isArray(match.tags) ? match.tags : [] });
     } else {
       setSelectedId(null);
     }
@@ -74,7 +76,9 @@ const BrandNotes = ({ brandId }) => {
     if (!filter) return notes;
     const term = filter.toLowerCase();
     return notes.filter((n) =>
-      `${n.title} ${stripHtml(n.body)}`.toLowerCase().includes(term)
+      `${n.title} ${stripHtml(n.body)} ${(n.tags || []).join(' ')}`
+        .toLowerCase()
+        .includes(term)
     );
   }, [notes, filter]);
 
@@ -82,6 +86,18 @@ const BrandNotes = ({ brandId }) => {
     () => (selectedId && selectedId !== 'new' ? notes.find((n) => n.id === selectedId) : null),
     [notes, selectedId]
   );
+
+  const allTags = useMemo(() => {
+    const tagSet = new Set();
+    notes.forEach((note) => {
+      (note.tags || []).forEach((tag) => {
+        if (typeof tag === 'string' && tag.trim()) {
+          tagSet.add(tag.trim());
+        }
+      });
+    });
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
+  }, [notes]);
 
   const handleSelect = (id) => {
     setError('');
@@ -91,7 +107,7 @@ const BrandNotes = ({ brandId }) => {
   const handleCreateNew = () => {
     setError('');
     setSelectedId('new');
-    setForm({ title: '', body: '' });
+    setForm({ title: '', body: '', tags: [] });
   };
 
   const handleChangeTitle = (e) => {
@@ -102,14 +118,22 @@ const BrandNotes = ({ brandId }) => {
     setForm((prev) => ({ ...prev, body: value }));
   };
 
+  const handleChangeTags = (tags) => {
+    setForm((prev) => ({ ...prev, tags }));
+  };
+
   const handleSave = async (event) => {
     event.preventDefault();
     if (!brandId) return;
     setIsSaving(true);
     setError('');
+    const tags = Array.isArray(form.tags)
+      ? form.tags.map((tag) => (typeof tag === 'string' ? tag.trim() : '')).filter(Boolean)
+      : [];
     const payload = {
       title: form.title.trim(),
       body: form.body,
+      tags,
       updatedAt: serverTimestamp(),
     };
     try {
@@ -123,23 +147,24 @@ const BrandNotes = ({ brandId }) => {
           id: docRef.id,
           title: payload.title,
           body: payload.body,
+          tags: payload.tags,
           createdAt: now,
           updatedAt: now,
         };
         setNotes((prev) => [newNote, ...prev]);
         setSelectedId(docRef.id);
-        setForm({ title: payload.title, body: payload.body });
+        setForm({ title: payload.title, body: payload.body, tags: payload.tags });
       } else {
         await updateDoc(doc(db, 'brands', brandId, 'notes', selectedId), payload);
         const now = new Date();
         setNotes((prev) =>
           prev.map((note) =>
             note.id === selectedId
-              ? { ...note, title: payload.title, body: payload.body, updatedAt: now }
+              ? { ...note, title: payload.title, body: payload.body, tags: payload.tags, updatedAt: now }
               : note
           )
         );
-        setForm({ title: payload.title, body: payload.body });
+        setForm({ title: payload.title, body: payload.body, tags: payload.tags });
       }
     } catch (err) {
       console.error('Failed to save note', err);
@@ -161,7 +186,7 @@ const BrandNotes = ({ brandId }) => {
       await deleteDoc(doc(db, 'brands', brandId, 'notes', selectedId));
       setNotes((prev) => prev.filter((note) => note.id !== selectedId));
       setSelectedId(null);
-      setForm({ title: '', body: '' });
+      setForm({ title: '', body: '', tags: [] });
     } catch (err) {
       console.error('Failed to delete note', err);
       setError('Unable to delete note. Please try again.');
@@ -297,6 +322,18 @@ const BrandNotes = ({ brandId }) => {
                           <p className="mt-1 line-clamp-3 text-xs text-gray-600 dark:text-gray-300">
                             {truncate(stripHtml(note.body), 160)}
                           </p>
+                          {note.tags && note.tags.length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {note.tags.map((tag) => (
+                                <span
+                                  key={`${note.id}-${tag}`}
+                                  className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:bg-gray-800/70 dark:text-gray-300"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                         {note.updatedAt && (
                           <span className="text-[11px] text-gray-400 dark:text-gray-400">
@@ -349,6 +386,21 @@ const BrandNotes = ({ brandId }) => {
                   onChange={handleChangeTitle}
                   placeholder="Note title"
                 />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium" htmlFor="brand-note-tags">
+                  Tags
+                </label>
+                <TagInput
+                  id="brand-note-tags"
+                  value={form.tags}
+                  onChange={handleChangeTags}
+                  suggestions={allTags}
+                  addOnBlur
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Press Enter or comma to add each tag.
+                </p>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium">Body</label>

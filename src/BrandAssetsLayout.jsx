@@ -241,7 +241,9 @@ const BrandAssetsLayout = ({
   };
 
   const handleDownloadLogo = (logo) => {
-    const filename = buildFileName(logo.variant || logo.name, logo.format);
+    const filename =
+      logo.downloadFileName ||
+      buildFileName(logo.description || logo.variant || logo.name, logo.format);
     triggerDownload(logo.downloadUrl || logo.url, filename);
   };
 
@@ -261,10 +263,19 @@ const BrandAssetsLayout = ({
     });
   }, [combinedNotes, searchTerm, selectedTag]);
 
+  const contentClasses = [
+    'gm-brand-assets__content flex-1 space-y-6 px-4 py-6 scroll-smooth lg:px-8',
+  ];
+  if (resolvedHeight) {
+    contentClasses.push('overflow-y-auto');
+  } else {
+    contentClasses.push('overflow-visible');
+  }
+
   return (
-    <div className="gm-brand-assets flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+    <div className="gm-brand-assets flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
       <div className="flex flex-col lg:flex-row">
-        <nav className="gm-brand-assets__nav border-b border-gray-200 bg-white dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] lg:min-w-[14rem] lg:border-b-0 lg:border-r">
+        <nav className="gm-brand-assets__nav border-b border-gray-200 bg-white dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] lg:min-w-[14rem] lg:border-b-0 lg:border-r lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
           <div className="flex overflow-x-auto px-4 py-3 text-sm font-medium text-gray-600 lg:flex-col lg:gap-1 lg:overflow-visible">
             {SECTION_ORDER.map((sectionId) => {
               const label =
@@ -297,7 +308,7 @@ const BrandAssetsLayout = ({
         </nav>
         <div
           ref={contentRef}
-          className="gm-brand-assets__content flex-1 space-y-6 overflow-y-auto px-4 py-6 scroll-smooth lg:px-8"
+          className={contentClasses.join(' ')}
           style={resolvedHeight ? { maxHeight: resolvedHeight } : undefined}
         >
           <header className="gm-brand-assets__intro space-y-2">
@@ -340,15 +351,20 @@ const BrandAssetsLayout = ({
                     className="gm-brand-assets__logo-card flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 transition-shadow hover:shadow-md dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]"
                   >
                     <div className="flex items-center justify-center rounded-lg bg-white p-4 dark:bg-[var(--dark-sidebar-hover)]">
-                      <OptimizedImage pngUrl={logo.url} alt={logo.name || 'Logo'} className="max-h-20 w-auto" />
+                      <OptimizedImage pngUrl={logo.url} alt={logo.description || logo.name || 'Logo'} className="max-h-20 w-auto" />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                        {logo.variant || logo.name}
-                      </h4>
-                      <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        {logo.format || 'ASSET'}
-                      </p>
+                      {(logo.description || logo.variant || logo.name) && (
+                        <p className="text-sm text-gray-700 dark:text-gray-200">
+                          {logo.description || logo.variant || logo.name}
+                        </p>
+                      )}
+                      {logo.description && logo.variant ? (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{logo.variant}</p>
+                      ) : null}
+                      {logo.format ? (
+                        <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{logo.format}</p>
+                      ) : null}
                     </div>
                     <button
                       type="button"
@@ -435,12 +451,30 @@ const BrandAssetsLayout = ({
                     key={font.id}
                     className="gm-brand-assets__type-card flex flex-col gap-4 rounded-xl border border-gray-200 bg-gray-50 p-5 transition-shadow hover:shadow-md dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]"
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">{font.name}</h4>
-                        <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          {font.type === 'google' ? 'Google Font' : 'Custom Font'}
-                        </p>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex flex-col gap-2">
+                        <div>
+                          <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">{font.name}</h4>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <span className="rounded-full bg-gray-200 px-2 py-0.5 font-medium uppercase tracking-wide text-gray-600 dark:bg-gray-700 dark:text-gray-100">
+                              {font.type === 'google' ? 'Google Font' : 'Custom Font'}
+                            </span>
+                            {font.role ? (
+                              <span className="rounded-full bg-[var(--accent-color-10)] px-2 py-0.5 font-medium uppercase tracking-wide text-[var(--accent-color)] dark:bg-[var(--accent-color-20)] dark:text-[var(--accent-color)]">
+                                {font.role}
+                              </span>
+                            ) : null}
+                            {font.type === 'google' && font.rawValue ? (
+                              <span className="font-mono text-[11px] text-gray-500 dark:text-gray-400">{font.rawValue}</span>
+                            ) : null}
+                            {font.format ? (
+                              <span className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{font.format}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                        {font.rules ? (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 whitespace-pre-line">{font.rules}</p>
+                        ) : null}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -456,6 +490,7 @@ const BrandAssetsLayout = ({
                             href={font.downloadUrl}
                             target="_blank"
                             rel="noopener noreferrer"
+                            download={font.downloadFileName || undefined}
                             className="inline-flex items-center gap-2 rounded-full bg-[var(--accent-color)] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:brightness-95"
                           >
                             <FiDownload size={14} />
@@ -512,7 +547,7 @@ const BrandAssetsLayout = ({
                 <iframe
                   title="Brand Guidelines"
                   src={resolvedGuidelinesUrl}
-                  className="h-[28rem] w-full border-0"
+                  className="h-[36rem] w-full border-0"
                   loading="lazy"
                 />
               </div>

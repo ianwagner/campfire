@@ -18,6 +18,7 @@ import { FiMessageSquare, FiMoreHorizontal } from "react-icons/fi";
 import OverflowMenu from "./components/OverflowMenu.jsx";
 import HelpdeskModal from "./components/HelpdeskModal.jsx";
 import NotificationDot from "./components/NotificationDot.jsx";
+import getPrimaryLogoUrl from "./utils/getPrimaryLogoUrl.js";
 import { toDateSafe, countUnreadHelpdeskTickets } from "./utils/helpdesk";
 
 const statusBadgeLabels = {
@@ -160,7 +161,7 @@ const PublicBrandDashboard = () => {
     let cancelled = false;
     setGroupsLoading(true);
     setGroupsError("");
-    const brandLogo = Array.isArray(brand.logos) && brand.logos.length > 0 ? brand.logos[0] : brand.logoUrl || "";
+    const initialBrandLogo = getPrimaryLogoUrl(brand.logos) || brand.logoUrl || "";
     const q = query(
       collection(db, "adGroups"),
       where("brandCode", "==", brand.code),
@@ -268,7 +269,7 @@ const PublicBrandDashboard = () => {
                   totalAds,
                   updatedAt,
                   createdAt,
-                  brandLogo,
+                  brandLogo: initialBrandLogo,
                   showLogo,
                   status: data.status || "",
                   statusLabel,
@@ -379,10 +380,8 @@ const PublicBrandDashboard = () => {
 
   const brandLogo = useMemo(() => {
     if (!brand) return "";
-    if (Array.isArray(brand.logos) && brand.logos.length > 0) {
-      return brand.logos[0];
-    }
-    return brand.logoUrl || "";
+    const primaryLogo = getPrimaryLogoUrl(brand.logos);
+    return primaryLogo || brand.logoUrl || "";
   }, [brand]);
 
   useEffect(() => {
