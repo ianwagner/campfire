@@ -9,7 +9,6 @@ import {
   FiUser,
   FiList,
   FiGrid,
-  FiFileText,
   FiDatabase,
   FiZap,
 } from 'react-icons/fi';
@@ -49,7 +48,7 @@ const opsTabs = [
   { label: 'Tickets', path: '/pm/tickets', icon: FiList },
   { label: 'Ad Groups', path: '/pm/ad-groups', icon: FiGrid },
   { label: 'Data', path: '/pm/data', icon: FiDatabase },
-  { label: 'Contracts', path: '/ops/contracts', icon: FiFileText },
+  { label: 'Brands', path: '/ops/brands', icon: FiBriefcase },
   { label: 'Mini-Game', path: '/mini-game', icon: FiZap },
   { label: 'Account Settings', path: '/account-settings', icon: FiUser },
 ];
