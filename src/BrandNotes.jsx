@@ -13,6 +13,7 @@ import {
 import { db } from './firebase/config';
 import PageWrapper from './components/PageWrapper.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
+import Button from './components/Button.jsx';
 
 const BrandNotes = ({ brandId }) => {
   const [notes, setNotes] = useState([]);
@@ -207,11 +208,7 @@ const BrandNotes = ({ brandId }) => {
                 onChange={(e) => setFilter(e.target.value)}
               />
             </div>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--accent-color)] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-opacity-40"
-              onClick={handleCreateNew}
-            >
+            <Button type="button" variant="accentPill" onClick={handleCreateNew}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-4 w-4"
@@ -223,7 +220,7 @@ const BrandNotes = ({ brandId }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
               New note
-            </button>
+            </Button>
           </div>
         }
       />
@@ -259,10 +256,12 @@ const BrandNotes = ({ brandId }) => {
                     ? 'Try a different search term or clear the filter.'
                     : 'Create your first note to share brand context with the team.'}
                 </p>
-                <button
+                <Button
                   type="button"
+                  variant="accentPillOutline"
+                  size="sm"
+                  className="mt-2"
                   onClick={handleCreateNew}
-                  className="mt-2 inline-flex items-center gap-2 rounded-full border border-[var(--accent-color)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--accent-color)] transition hover:bg-[var(--accent-color-10)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-opacity-30 dark:border-[var(--accent-color)] dark:bg-transparent dark:text-[var(--accent-color)]"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -275,7 +274,7 @@ const BrandNotes = ({ brandId }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                   </svg>
                   Add note
-                </button>
+                </Button>
               </div>
             ) : (
               <ul className="flex flex-col gap-2">
@@ -369,13 +368,9 @@ const BrandNotes = ({ brandId }) => {
                       Delete
                     </button>
                   )}
-                  <button
-                    type="submit"
-                    disabled={isSaving}
-                    className="rounded bg-[var(--accent-color)] px-4 py-2 text-sm font-medium text-white hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
+                  <Button type="submit" variant="accent" size="lg" disabled={isSaving}>
                     {isSaving ? 'Saving…' : 'Save note'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </form>
