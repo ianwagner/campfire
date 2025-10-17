@@ -79,9 +79,16 @@ const BrandAssets = ({
               key={logo.id}
               className="flex flex-col items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
             >
-              <OptimizedImage pngUrl={logo.url} alt={logo.name || "logo"} className="max-h-16 w-auto" />
+              <OptimizedImage pngUrl={logo.url} alt={logo.description || logo.name || "logo"} className="max-h-16 w-auto" />
               <div className="text-center">
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-200">{logo.variant || logo.name}</p>
+                {(logo.description || logo.variant || logo.name) && (
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-200">
+                    {logo.description || logo.variant || logo.name}
+                  </p>
+                )}
+                {logo.description && logo.variant ? (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">{logo.variant}</p>
+                ) : null}
                 {logo.format ? (
                   <p className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{logo.format}</p>
                 ) : null}
@@ -140,19 +147,32 @@ const BrandAssets = ({
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium uppercase tracking-wide text-gray-600 dark:bg-gray-800/70 dark:text-gray-300">
                     {fontTypeLabel}
                   </span>
-                  {isGoogleFont ? (
+                  {font.role ? (
+                    <span className="rounded-full bg-[var(--accent-color-10)] px-2 py-0.5 font-medium uppercase tracking-wide text-[var(--accent-color)] dark:bg-[var(--accent-color-20)] dark:text-[var(--accent-color)]">
+                      {font.role}
+                    </span>
+                  ) : null}
+                  {isGoogleFont && font.rawValue ? (
                     <span className="font-mono text-[11px] text-gray-500 dark:text-gray-400">{font.rawValue}</span>
-                  ) : font.downloadUrl ? (
+                  ) : null}
+                  {!isGoogleFont && font.format ? (
+                    <span className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{font.format}</span>
+                  ) : null}
+                  {!isGoogleFont && font.downloadUrl ? (
                     <a
                       href={font.downloadUrl}
                       target="_blank"
                       rel="noopener noreferrer"
+                      download={font.downloadFileName || undefined}
                       className="font-medium text-[var(--accent-color)] hover:underline"
                     >
                       Download file
                     </a>
                   ) : null}
                 </div>
+                {font.rules ? (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 whitespace-pre-line">{font.rules}</p>
+                ) : null}
                 <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 shadow-inner dark:bg-gray-800 dark:text-gray-200" style={{ fontFamily: font.family }}>
                   {font.example}
                 </p>
@@ -199,7 +219,7 @@ const BrandAssets = ({
             <iframe
               src={guidelinesUrl}
               title="Brand Guidelines"
-              className="h-72 w-full border-0"
+              className="h-[36rem] w-full border-0"
               loading="lazy"
             />
           </div>

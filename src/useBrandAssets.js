@@ -30,17 +30,28 @@ const extractFileName = (url = '', fallback = '') => {
   return fallback;
 };
 
+const buildSafeFileName = (base, extension) => {
+  const safeBase = String(base || 'asset').replace(/[^a-z0-9-_]+/gi, '_');
+  const safeExt = extension ? String(extension).replace(/^\./, '').toLowerCase() : '';
+  return `${safeBase}${safeExt ? `.${safeExt}` : ''}`;
+};
+
 const buildLogoRecord = (entry, index) => {
   if (!entry) return null;
   if (typeof entry === 'string') {
     const name = extractFileName(entry, `Logo ${index + 1}`);
+    const format = extractFileExtension(entry);
+    const extension = (format || '').toLowerCase();
+    const downloadFileName = buildSafeFileName(name.replace(/\.[^.]+$/, ''), extension);
     return {
       id: `logo-${index}`,
       url: entry,
       name,
       variant: name.replace(/\.[^.]+$/, ''),
-      format: extractFileExtension(entry),
+      format,
       downloadUrl: entry,
+      description: '',
+      downloadFileName,
     };
   }
   if (typeof entry === 'object') {
@@ -48,13 +59,21 @@ const buildLogoRecord = (entry, index) => {
     if (!url) return null;
     const name = entry.name || extractFileName(url, `Logo ${index + 1}`);
     const variant = entry.variant || entry.label || name.replace(/\.[^.]+$/, '');
+    const format = (entry.format || extractFileExtension(url)).toUpperCase();
+    const description = entry.description || entry.notes || '';
+    const downloadFileName = buildSafeFileName(
+      description || variant || name.replace(/\.[^.]+$/, ''),
+      (format || '').toLowerCase(),
+    );
     return {
       id: entry.id || `logo-${index}`,
       url,
       name,
       variant,
-      format: (entry.format || extractFileExtension(url)).toUpperCase(),
+      format,
       downloadUrl: entry.downloadUrl || url,
+      description,
+      downloadFileName,
     };
   }
   return null;
@@ -118,6 +137,10 @@ const buildFontRecord = (entry, index) => {
         rawValue.replace(/\s+/g, '+'),
       )}&display=swap');`
     : '');
+  const format = extractFileExtension(downloadUrl || rawValue || '') || '';
+  const downloadFileName = downloadUrl
+    ? buildSafeFileName(name, format.toLowerCase())
+    : buildSafeFileName(name, '');
   return {
     id: entry.id || `font-${index}`,
     name,
@@ -128,6 +151,10 @@ const buildFontRecord = (entry, index) => {
     downloadUrl,
     family,
     example: entry.previewText || entry.sample || 'The quick brown fox jumps over the lazy dog.',
+    role: entry.role || '',
+    rules: entry.rules || '',
+    format,
+    downloadFileName,
   };
 };
 

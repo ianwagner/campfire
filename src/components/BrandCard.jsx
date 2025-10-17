@@ -1,9 +1,10 @@
 import React from 'react';
 import OptimizedImage from './OptimizedImage.jsx';
 import useSubscriptionPlans from '../useSubscriptionPlans';
+import getPrimaryLogoUrl from '../utils/getPrimaryLogoUrl.js';
 
 const BrandCard = ({ brand }) => {
-  const logo = Array.isArray(brand.logos) && brand.logos.length > 0 ? brand.logos[0] : null;
+  const logo = getPrimaryLogoUrl(brand.logos) || brand.logoUrl || null;
   const { plans } = useSubscriptionPlans();
   const planName = plans.find((p) => p.id === brand.subscriptionPlanId)?.name || 'No Plan';
   return (
