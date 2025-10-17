@@ -310,6 +310,7 @@ const AdGroupDetail = () => {
   const [showBrandAssets, setShowBrandAssets] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [feedback, setFeedback] = useState([]);
+  const [responses, setResponses] = useState([]);
   const [tab, setTab] = useState("stats");
   const [blockerText, setBlockerText] = useState("");
   const [editingNotes, setEditingNotes] = useState(false);
@@ -378,30 +379,44 @@ const AdGroupDetail = () => {
     return () => unsub();
   }, [id]);
 
-  const renderCopyEditDiff = (recipeCode, edit, origOverride) => {
-    const orig = origOverride ?? (recipesMeta[recipeCode]?.copy || "");
-    if (!edit || edit === orig) return null;
-    const diff = diffWords(orig, edit);
-    return diff.map((p, i) => {
-      const text = p.text ?? p.value ?? "";
-      const type = p.type ?? "same";
-      const space = i < diff.length - 1 ? " " : "";
-      if (type === "same") return text + space;
-      if (type === "removed")
+  useEffect(() => {
+    if (!id) return;
+    const unsub = onSnapshot(
+      collection(db, 'adGroups', id, 'responses'),
+      (snap) => {
+        setResponses(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
+    );
+    return () => unsub();
+  }, [id]);
+
+  const renderCopyEditDiff = useCallback(
+    (recipeCode, edit, origOverride) => {
+      const orig = origOverride ?? (recipesMeta[recipeCode]?.copy || "");
+      if (!edit || edit === orig) return null;
+      const diff = diffWords(orig, edit);
+      return diff.map((p, i) => {
+        const text = p.text ?? p.value ?? "";
+        const type = p.type ?? "same";
+        const space = i < diff.length - 1 ? " " : "";
+        if (type === "same") return text + space;
+        if (type === "removed")
+          return (
+            <span key={i} className="text-red-600 line-through">
+              {text}
+              {space}
+            </span>
+          );
         return (
-          <span key={i} className="text-red-600 line-through">
+          <span key={i} className="text-green-600 italic">
             {text}
             {space}
           </span>
         );
-      return (
-        <span key={i} className="text-green-600 italic">
-          {text}
-          {space}
-        </span>
-      );
-    });
-  };
+      });
+    },
+    [recipesMeta],
+  );
 
   const backPath = useMemo(() => {
     let base = "/";
@@ -457,7 +472,221 @@ const AdGroupDetail = () => {
     );
   }, [copyCards, modalCopies]);
 
+  const feedbackItems = useMemo(() => {
+    const toDateSafe = (value) => {
+      if (!value) return null;
+      if (value instanceof Date) return value;
+      if (typeof value.toDate === "function") {
+        try {
+          return value.toDate();
+        } catch (err) {
+          return null;
+        }
+      }
+      if (typeof value === "number") return new Date(value);
+      if (typeof value === "string") {
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      }
+      return null;
+    };
+
+    const normalizeUrl = (url) => {
+      if (!url || typeof url !== "string") return "";
+      const [base] = url.split("?");
+      return base;
+    };
+
+    const assetByUrl = new Map();
+    assets.forEach((asset) => {
+      [asset.firebaseUrl, asset.cdnUrl, asset.adUrl].forEach((url) => {
+        const key = normalizeUrl(url);
+        if (key) assetByUrl.set(key, asset);
+      });
+    });
+
+    const items = [];
+
+    feedback.forEach((entry) => {
+      const comment = entry.comment || "";
+      const copyEdit = entry.copyEdit || "";
+      if (!comment && !copyEdit) return;
+      items.push({
+        id: `general-${entry.id}`,
+        type: "general",
+        title: "General feedback",
+        subtitle: comment ? comment.slice(0, 140) : "",
+        comment,
+        copyEdit,
+        copyEditDiff: null,
+        updatedAt: toDateSafe(entry.updatedAt || entry.createdAt),
+        updatedBy: entry.updatedBy || "",
+        adStatus: "",
+        assetId: "",
+        adUrl: "",
+        recipeCode: "",
+        isArchived: false,
+      });
+    });
+
+    responses.forEach((resp) => {
+      const respType = (resp.response || "").toLowerCase();
+      if (respType !== "edit") return;
+      const comment = resp.comment || "";
+      const copyEdit = resp.copyEdit || "";
+      if (!comment && !copyEdit) return;
+
+      const normalizedUrl = normalizeUrl(resp.adUrl);
+      const matchedAsset =
+        (normalizedUrl && assetByUrl.get(normalizedUrl)) ||
+        (resp.adUrl && assetByUrl.get(resp.adUrl)) ||
+        null;
+
+      const filename = matchedAsset?.filename || matchedAsset?.name || "";
+      const parsed = matchedAsset?.filename
+        ? parseAdFilename(matchedAsset.filename)
+        : {};
+      const recipeCode =
+        parsed.recipeCode ||
+        matchedAsset?.recipeCode ||
+        "";
+      const aspect = parsed.aspectRatio
+        ? String(parsed.aspectRatio).toUpperCase()
+        : "";
+      const version = parsed.version ? `V${parsed.version}` : "";
+      const status = matchedAsset?.status || "";
+
+      const subtitleParts = [];
+      if (recipeCode) subtitleParts.push(`Recipe ${recipeCode}`);
+      if (aspect) subtitleParts.push(aspect);
+      if (version) subtitleParts.push(version);
+      if (status) subtitleParts.push(status.replace(/_/g, " "));
+
+      const metaKey = recipeCode ? String(recipeCode) : "";
+      const lowerKey = metaKey.toLowerCase();
+      const recipeMeta =
+        (metaKey && recipesMeta[metaKey]) ||
+        (lowerKey && recipesMeta[lowerKey]) ||
+        null;
+      const origCopy =
+        recipeMeta?.copy ||
+        recipeMeta?.latestCopy ||
+        matchedAsset?.origCopy ||
+        "";
+
+      const diff =
+        copyEdit && (origCopy || recipeMeta)
+          ? renderCopyEditDiff(recipeCode, copyEdit, origCopy)
+          : null;
+
+      items.push({
+        id: `edit-${resp.id}`,
+        type: "edit",
+        title: filename || resp.groupName || "Ad feedback",
+        subtitle: subtitleParts.join(" • "),
+        comment,
+        copyEdit: diff ? "" : copyEdit,
+        copyEditDiff: diff,
+        updatedAt: toDateSafe(resp.timestamp || resp.updatedAt || resp.createdAt),
+        updatedBy:
+          resp.reviewerName ||
+          resp.userEmail ||
+          resp.userId ||
+          "",
+        adStatus: status,
+        assetId: matchedAsset?.id || "",
+        adUrl:
+          matchedAsset?.firebaseUrl ||
+          matchedAsset?.cdnUrl ||
+          resp.adUrl ||
+          "",
+        recipeCode: recipeCode || "",
+        isArchived: status === "archived",
+      });
+    });
+
+    const seenAssetIds = new Set(
+      items.map((item) => item.assetId).filter(Boolean),
+    );
+
+    assets.forEach((asset) => {
+      const hasFeedback = seenAssetIds.has(asset.id);
+      const hasComment = asset.comment || asset.copyEdit;
+      if (hasFeedback || !hasComment) return;
+
+      const filename = asset.filename || asset.name || "";
+      const parsed = asset.filename ? parseAdFilename(asset.filename) : {};
+      const recipeCode =
+        parsed.recipeCode ||
+        asset.recipeCode ||
+        "";
+      const aspect = parsed.aspectRatio
+        ? String(parsed.aspectRatio).toUpperCase()
+        : "";
+      const version = parsed.version ? `V${parsed.version}` : "";
+      const status = asset.status || "";
+
+      const subtitleParts = [];
+      if (recipeCode) subtitleParts.push(`Recipe ${recipeCode}`);
+      if (aspect) subtitleParts.push(aspect);
+      if (version) subtitleParts.push(version);
+      if (status) subtitleParts.push(status.replace(/_/g, " "));
+
+      const metaKey = recipeCode ? String(recipeCode) : "";
+      const lowerKey = metaKey.toLowerCase();
+      const recipeMeta =
+        (metaKey && recipesMeta[metaKey]) ||
+        (lowerKey && recipesMeta[lowerKey]) ||
+        null;
+      const origCopy =
+        recipeMeta?.copy ||
+        recipeMeta?.latestCopy ||
+        "";
+
+      const diff =
+        asset.copyEdit && (origCopy || recipeMeta)
+          ? renderCopyEditDiff(recipeCode, asset.copyEdit, origCopy)
+          : null;
+
+      items.push({
+        id: `asset-${asset.id}`,
+        type: "edit",
+        title: filename || "Ad feedback",
+        subtitle: subtitleParts.join(" • "),
+        comment: asset.comment || "",
+        copyEdit: diff ? "" : asset.copyEdit || "",
+        copyEditDiff: diff,
+        updatedAt: toDateSafe(asset.lastUpdatedAt || asset.updatedAt),
+        updatedBy: asset.lastUpdatedBy || "",
+        adStatus: status,
+        assetId: asset.id,
+        adUrl: asset.firebaseUrl || asset.cdnUrl || "",
+        recipeCode: recipeCode || "",
+        isArchived: status === "archived",
+      });
+    });
+
+    items.sort((a, b) => {
+      const aTime = a.updatedAt?.getTime?.() || 0;
+      const bTime = b.updatedAt?.getTime?.() || 0;
+      return bTime - aTime;
+    });
+
+    return items;
+  }, [feedback, responses, assets, recipesMeta, renderCopyEditDiff]);
+
   const summarize = (list) => summarizeByRecipe(list);
+
+  const openFeedbackAsset = useCallback(
+    (assetId) => {
+      if (!assetId) return;
+      const match = assets.find((asset) => asset.id === assetId);
+      if (match) {
+        setPreviewAsset(match);
+      }
+    },
+    [assets],
+  );
 
   useEffect(() => {
     const load = async () => {
@@ -3971,7 +4200,7 @@ const AdGroupDetail = () => {
       {(isAdmin || isEditor || isDesigner || isManager || isClientPortalUser) &&
         tab === 'feedback' && (
         <div className="my-4">
-          <FeedbackPanel entries={feedback} />
+          <FeedbackPanel entries={feedbackItems} onOpenAsset={openFeedbackAsset} />
         </div>
       )}
 
