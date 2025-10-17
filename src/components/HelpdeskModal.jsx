@@ -433,7 +433,7 @@ const HelpdeskModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
       <SurfaceCard
         as="div"
-        className="flex h-full w-full max-h-[750px] max-w-4xl flex-col overflow-hidden shadow-xl dark:text-[var(--dark-text)]"
+        className="flex h-full w-full max-h-[750px] max-w-4xl flex-col overflow-hidden border-0 shadow-xl dark:text-[var(--dark-text)]"
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
           <h2 className="text-lg font-semibold">Helpdesk</h2>

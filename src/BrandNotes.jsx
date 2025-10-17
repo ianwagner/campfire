@@ -229,7 +229,7 @@ const BrandNotes = ({ brandId }) => {
         }
       />
       <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
-        <SurfaceCard as="aside" className="flex flex-col">
+        <SurfaceCard as="aside" className="flex flex-col dark:border-gray-700">
           <div className="border-b border-gray-100 px-5 py-4 text-xs font-medium uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
             {filter ? `Filtered notes (${filteredNotes.length})` : `All notes (${notes.length})`}
           </div>

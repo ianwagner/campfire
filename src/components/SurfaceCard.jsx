@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 
 const VARIANT_CLASSNAMES = {
   default: 'border-gray-200',
-  dashed: 'border-dashed border-gray-300',
+  dashed: 'border-dashed border-gray-300 dark:border-gray-700',
   muted: 'border-gray-200 bg-gray-50 dark:bg-[var(--dark-sidebar-hover)]',
 };
 
