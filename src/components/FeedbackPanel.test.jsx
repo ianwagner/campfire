@@ -55,3 +55,23 @@ test('invokes onOpenAsset when the view ad button is clicked', () => {
   expect(handleOpen).toHaveBeenCalledWith('asset-1');
 });
 
+test('renders scope selector when options are provided', () => {
+  const handleScope = jest.fn();
+  render(
+    <FeedbackPanel
+      entries={sampleEntries}
+      scopeOptions={[
+        { value: 'current', label: 'This group' },
+        { value: 'all', label: 'All groups' },
+      ]}
+      selectedScope="current"
+      onScopeChange={handleScope}
+    />,
+  );
+
+  const scopeSelect = screen.getByLabelText('Showing');
+  fireEvent.change(scopeSelect, { target: { value: 'all' } });
+
+  expect(handleScope).toHaveBeenCalledWith('all');
+});
+
