@@ -201,7 +201,7 @@ const BrandNotes = ({ brandId }) => {
               </span>
               <input
                 type="text"
-                className="w-56 rounded-full border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-700 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                className="w-56 rounded-full border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-700 shadow-sm transition focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-opacity-25 dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
                 placeholder="Search notes..."
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
@@ -209,7 +209,7 @@ const BrandNotes = ({ brandId }) => {
             </div>
             <button
               type="button"
-              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--accent-color)] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-opacity-40"
               onClick={handleCreateNew}
             >
               <svg
@@ -262,7 +262,7 @@ const BrandNotes = ({ brandId }) => {
                 <button
                   type="button"
                   onClick={handleCreateNew}
-                  className="mt-2 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-600 transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-transparent"
+                  className="mt-2 inline-flex items-center gap-2 rounded-full border border-[var(--accent-color)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--accent-color)] transition hover:bg-[var(--accent-color-10)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-opacity-30 dark:border-[var(--accent-color)] dark:bg-transparent dark:text-[var(--accent-color)]"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -284,15 +284,15 @@ const BrandNotes = ({ brandId }) => {
                     <button
                       type="button"
                       onClick={() => handleSelect(note.id)}
-                      className={`group w-full rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                      className={`group w-full rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-opacity-40 ${
                         selectedId === note.id
-                          ? 'border-blue-300 bg-blue-50 text-blue-900 shadow-sm dark:border-blue-500/60 dark:bg-blue-500/10 dark:text-blue-100'
-                          : 'border-transparent bg-gray-50 hover:border-blue-200 hover:bg-white dark:bg-gray-800/40 dark:text-[var(--dark-text)]'
+                          ? 'border-[var(--accent-color)] bg-[var(--accent-color-10)] text-[var(--accent-color)] shadow-sm dark:border-[var(--accent-color)] dark:bg-[var(--accent-color-10)] dark:text-[var(--accent-color)]'
+                          : 'border-transparent bg-gray-50 hover:border-[var(--accent-color)] hover:bg-[var(--accent-color-10)] dark:bg-gray-800/40 dark:text-[var(--dark-text)] dark:hover:bg-[var(--accent-color-10)]'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <h3 className="text-sm font-semibold leading-5 group-hover:text-blue-700 dark:group-hover:text-blue-200">
+                          <h3 className="text-sm font-semibold leading-5 group-hover:text-[var(--accent-color)] dark:group-hover:text-[var(--accent-color)]">
                             {note.title || 'Untitled note'}
                           </h3>
                           <p className="mt-1 line-clamp-3 text-xs text-gray-600 dark:text-gray-300">
@@ -345,7 +345,7 @@ const BrandNotes = ({ brandId }) => {
                 <input
                   id="brand-note-title"
                   type="text"
-                  className="w-full rounded border border-gray-200 bg-white p-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                  className="w-full rounded border border-gray-200 bg-white p-2 text-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:ring-opacity-25 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
                   value={form.title}
                   onChange={handleChangeTitle}
                   placeholder="Note title"
@@ -372,7 +372,7 @@ const BrandNotes = ({ brandId }) => {
                   <button
                     type="submit"
                     disabled={isSaving}
-                    className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded bg-[var(--accent-color)] px-4 py-2 text-sm font-medium text-white hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSaving ? 'Saving…' : 'Save note'}
                   </button>
@@ -516,7 +516,7 @@ const RichTextEditor = ({ value, onChange, disabled }) => {
       </div>
       <div
         ref={editorRef}
-        className="min-h-[220px] rounded border border-gray-200 bg-white p-3 text-sm leading-6 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+        className="min-h-[220px] rounded border border-gray-200 bg-white p-3 text-sm leading-6 focus-within:border-[var(--accent-color)] focus-within:ring-2 focus-within:ring-[var(--accent-color)] focus-within:ring-opacity-25 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
         contentEditable={!disabled}
         suppressContentEditableWarning
         onInput={handleInput}
@@ -532,7 +532,7 @@ const ToolbarButton = ({ onClick, children, disabled }) => (
     type="button"
     onClick={disabled ? undefined : onClick}
     disabled={disabled}
-    className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+    className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] focus-visible:ring-opacity-40 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
   >
     {children}
   </button>
