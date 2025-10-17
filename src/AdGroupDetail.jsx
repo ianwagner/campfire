@@ -90,6 +90,9 @@ import FeedbackPanel from "./components/FeedbackPanel.jsx";
 import detectMissingRatios from "./utils/detectMissingRatios";
 import notifySlackStatusChange from "./utils/notifySlackStatusChange";
 import { getCopyLetter } from "./utils/copyLetter";
+import buildFeedbackEntries, {
+  buildFeedbackEntriesForGroup,
+} from "./utils/buildFeedbackEntries";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -135,6 +138,43 @@ const ExpandableText = ({ value, maxLength = 40, isLink = false }) => {
     </span>
   );
 };
+
+const createRenderCopyEditDiff = (meta = {}) =>
+  (recipeCode, edit, origOverride) => {
+    const metaKey = recipeCode ? String(recipeCode) : "";
+    const normalizedKey = metaKey.toLowerCase();
+    const recipeMeta =
+      (metaKey && meta[metaKey]) ||
+      (normalizedKey && meta[normalizedKey]) ||
+      null;
+    const baseCopy =
+      origOverride ??
+      recipeMeta?.copy ??
+      recipeMeta?.latestCopy ??
+      "";
+    if (!edit || edit === baseCopy) return null;
+    const diff = diffWords(baseCopy, edit);
+    return diff.map((p, i) => {
+      const text = p.text ?? p.value ?? "";
+      const type =
+        p.type ?? (p.added ? "added" : p.removed ? "removed" : "same");
+      const space = i < diff.length - 1 ? " " : "";
+      if (type === "removed")
+        return (
+          <span key={i} className="text-red-600 line-through">
+            {text}
+            {space}
+          </span>
+        );
+      if (type === "same") return text + space;
+      return (
+        <span key={i} className="text-green-600 italic">
+          {text}
+          {space}
+        </span>
+      );
+    });
+  };
 
 const normalizeId = (value) =>
   String(value ?? "")
@@ -311,6 +351,9 @@ const AdGroupDetail = () => {
   const [showGallery, setShowGallery] = useState(false);
   const [feedback, setFeedback] = useState([]);
   const [responses, setResponses] = useState([]);
+  const [feedbackScope, setFeedbackScope] = useState("current");
+  const [allFeedbackEntries, setAllFeedbackEntries] = useState([]);
+  const [allFeedbackLoading, setAllFeedbackLoading] = useState(false);
   const [tab, setTab] = useState("stats");
   const [blockerText, setBlockerText] = useState("");
   const [editingNotes, setEditingNotes] = useState(false);
@@ -325,6 +368,16 @@ const AdGroupDetail = () => {
   const [menuRecipe, setMenuRecipe] = useState(null);
   const [inspectRecipe, setInspectRecipe] = useState(null);
   const menuRef = useRef(null);
+  const allFeedbackLoadedRef = useRef(false);
+  const [feedbackSummary, setFeedbackSummary] = useState("");
+  const [feedbackSummaryUpdatedAt, setFeedbackSummaryUpdatedAt] = useState(null);
+  const [updatingFeedbackSummary, setUpdatingFeedbackSummary] = useState(false);
+  const [feedbackSummaryError, setFeedbackSummaryError] = useState("");
+  const OPENAI_PROXY_URL = useMemo(
+    () =>
+      `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/openaiProxy`,
+    [],
+  );
   let hasApprovedV2 = false;
   const countsRef = useRef(null);
   const slackStatusRef = useRef({
@@ -390,31 +443,45 @@ const AdGroupDetail = () => {
     return () => unsub();
   }, [id]);
 
-  const renderCopyEditDiff = useCallback(
-    (recipeCode, edit, origOverride) => {
-      const orig = origOverride ?? (recipesMeta[recipeCode]?.copy || "");
-      if (!edit || edit === orig) return null;
-      const diff = diffWords(orig, edit);
-      return diff.map((p, i) => {
-        const text = p.text ?? p.value ?? "";
-        const type = p.type ?? "same";
-        const space = i < diff.length - 1 ? " " : "";
-        if (type === "same") return text + space;
-        if (type === "removed")
-          return (
-            <span key={i} className="text-red-600 line-through">
-              {text}
-              {space}
-            </span>
-          );
-        return (
-          <span key={i} className="text-green-600 italic">
-            {text}
-            {space}
-          </span>
-        );
-      });
-    },
+  useEffect(() => {
+    if (!group) {
+      setFeedbackSummary('');
+      setFeedbackSummaryUpdatedAt(null);
+      return;
+    }
+    const summary =
+      typeof group.feedbackSummary === 'string' ? group.feedbackSummary : '';
+    setFeedbackSummary(summary);
+    const updatedAtValue = group.feedbackSummaryUpdatedAt;
+    if (updatedAtValue?.toDate) {
+      try {
+        setFeedbackSummaryUpdatedAt(updatedAtValue.toDate());
+      } catch (err) {
+        console.error('Failed to parse feedback summary timestamp', err);
+        setFeedbackSummaryUpdatedAt(null);
+      }
+      return;
+    }
+    if (updatedAtValue instanceof Date) {
+      setFeedbackSummaryUpdatedAt(updatedAtValue);
+      return;
+    }
+    if (typeof updatedAtValue === 'number') {
+      setFeedbackSummaryUpdatedAt(new Date(updatedAtValue));
+      return;
+    }
+    if (typeof updatedAtValue === 'string') {
+      const parsed = new Date(updatedAtValue);
+      setFeedbackSummaryUpdatedAt(
+        Number.isNaN(parsed.getTime()) ? null : parsed,
+      );
+      return;
+    }
+    setFeedbackSummaryUpdatedAt(null);
+  }, [group]);
+
+  const renderCopyEditDiff = useMemo(
+    () => createRenderCopyEditDiff(recipesMeta),
     [recipesMeta],
   );
 
@@ -472,208 +539,309 @@ const AdGroupDetail = () => {
     );
   }, [copyCards, modalCopies]);
 
-  const feedbackItems = useMemo(() => {
-    const toDateSafe = (value) => {
-      if (!value) return null;
-      if (value instanceof Date) return value;
-      if (typeof value.toDate === "function") {
-        try {
-          return value.toDate();
-        } catch (err) {
-          return null;
+  const feedbackItems = useMemo(
+    () =>
+      buildFeedbackEntriesForGroup({
+        groupId: id,
+        groupName: group?.name || '',
+        feedback,
+        responses,
+        assets,
+        recipesMeta,
+        renderCopyEditDiff,
+      }),
+    [
+      id,
+      group?.name,
+      feedback,
+      responses,
+      assets,
+      recipesMeta,
+      renderCopyEditDiff,
+    ],
+  );
+
+  const canShowAllGroups = Boolean(group?.brandCode);
+  const displayedFeedbackEntries =
+    feedbackScope === 'all' ? allFeedbackEntries : feedbackItems;
+  const isFeedbackLoading =
+    feedbackScope === 'all' ? allFeedbackLoading : false;
+  const feedbackScopeOptions = canShowAllGroups
+    ? [
+        { value: 'current', label: 'This group' },
+        { value: 'all', label: 'All groups' },
+      ]
+    : [{ value: 'current', label: 'This group' }];
+
+  const formatFeedbackForSummary = useCallback(() => {
+    if (!feedbackItems.length) return 'No feedback available.';
+    return feedbackItems
+      .map((entry) => {
+        const headerParts = [];
+        if (entry.groupName) headerParts.push(`Group: ${entry.groupName}`);
+        if (entry.recipeCode) headerParts.push(`Recipe ${entry.recipeCode}`);
+        const header = headerParts.length
+          ? headerParts.join(' • ')
+          : entry.title || 'Feedback';
+        const lines = [];
+        if (Array.isArray(entry.commentList) && entry.commentList.length) {
+          entry.commentList.forEach((item) => {
+            if (!item?.text) return;
+            lines.push(
+              `- Comment${item.assetLabel ? ` (${item.assetLabel})` : ''}: ${item.text}`,
+            );
+          });
+        } else if (entry.comment) {
+          lines.push(`- ${entry.comment}`);
         }
+        if (Array.isArray(entry.copyEditList) && entry.copyEditList.length) {
+          entry.copyEditList.forEach((item) => {
+            if (!item?.text) return;
+            lines.push(
+              `- Copy edit${item.assetLabel ? ` (${item.assetLabel})` : ''}: ${item.text}`,
+            );
+          });
+        } else if (entry.copyEdit) {
+          lines.push(`- Copy edit: ${entry.copyEdit}`);
+        }
+        return lines.length ? `${header}\n${lines.join('\n')}` : '';
+      })
+      .filter(Boolean)
+      .join('\n\n');
+  }, [feedbackItems]);
+
+  const handleUpdateSummary = useCallback(async () => {
+    if (updatingFeedbackSummary) return;
+    setFeedbackSummaryError('');
+    if (!feedbackItems.length) {
+      const emptySummary = 'No client feedback available yet.';
+      setFeedbackSummary(emptySummary);
+      const now = new Date();
+      setFeedbackSummaryUpdatedAt(now);
+      setUpdatingFeedbackSummary(true);
+      try {
+        await updateDoc(doc(db, 'adGroups', id), {
+          feedbackSummary: emptySummary,
+          feedbackSummaryUpdatedAt: serverTimestamp(),
+        });
+        setGroup((prev) =>
+          prev
+            ? {
+                ...prev,
+                feedbackSummary: emptySummary,
+                feedbackSummaryUpdatedAt: now,
+              }
+            : prev,
+        );
+      } catch (err) {
+        console.error('Failed to save empty feedback summary', err);
+        setFeedbackSummaryError('Failed to save summary. Please try again.');
+      } finally {
+        setUpdatingFeedbackSummary(false);
       }
-      if (typeof value === "number") return new Date(value);
-      if (typeof value === "string") {
-        const parsed = new Date(value);
-        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      return;
+    }
+
+    setUpdatingFeedbackSummary(true);
+    try {
+      const feedbackDigest = formatFeedbackForSummary();
+      const existingSummary = feedbackSummary?.trim() || '';
+      const prompt =
+        `You are a marketing project assistant who maintains concise feedback summaries for creative work.\n` +
+        `Here is the current summary for ad group "${group?.name || id}":\n` +
+        `${existingSummary || '(no summary yet)'}\n\n` +
+        `Here are the latest client feedback notes that need to be reflected: \n${feedbackDigest}\n\n` +
+        'Update the summary so it accurately reflects the feedback above. Preserve helpful context from the existing summary—make only the minimal additions or edits needed instead of rewriting from scratch. ' +
+        'Return a polished Markdown summary limited to short bullet points (and optional brief follow-up sentences). Respond with the updated summary only.';
+
+      const response = await fetch(OPENAI_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'You summarize client feedback for marketing creative teams.' },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.4,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`OpenAI proxy request failed with ${response.status}`);
       }
-      return null;
+      const data = await response.json();
+      const raw = data.choices?.[0]?.message?.content?.trim();
+      if (!raw) {
+        throw new Error('No summary returned from model');
+      }
+      await updateDoc(doc(db, 'adGroups', id), {
+        feedbackSummary: raw,
+        feedbackSummaryUpdatedAt: serverTimestamp(),
+      });
+      const now = new Date();
+      setFeedbackSummary(raw);
+      setFeedbackSummaryUpdatedAt(now);
+      setGroup((prev) =>
+        prev
+          ? { ...prev, feedbackSummary: raw, feedbackSummaryUpdatedAt: now }
+          : prev,
+      );
+    } catch (err) {
+      console.error('Failed to update feedback summary', err);
+      setFeedbackSummaryError('Failed to update summary. Please try again.');
+    } finally {
+      setUpdatingFeedbackSummary(false);
+    }
+  }, [
+    OPENAI_PROXY_URL,
+    feedbackItems,
+    feedbackSummary,
+    formatFeedbackForSummary,
+    group?.name,
+    id,
+    updatingFeedbackSummary,
+  ]);
+
+  const loadAllFeedbackForBrand = useCallback(
+    async (signal) => {
+      if (!group?.brandCode) {
+        if (!signal?.aborted) {
+          setAllFeedbackEntries([]);
+          setAllFeedbackLoading(false);
+        }
+        return;
+      }
+      setAllFeedbackLoading(true);
+      try {
+        const groupsSnap = await getDocs(
+          query(
+            collection(db, 'adGroups'),
+            where('brandCode', '==', group.brandCode),
+          ),
+        );
+        if (signal?.aborted) return;
+        const groupDocs = groupsSnap.docs.map((docSnap) => ({
+          id: docSnap.id,
+          name: docSnap.data()?.name || '',
+        }));
+        const payloads = await Promise.all(
+          groupDocs.map(async (g) => {
+            try {
+              const [feedbackSnap, responsesSnap, assetsSnap, recipesSnap] =
+                await Promise.all([
+                  getDocs(collection(db, 'adGroups', g.id, 'feedback')),
+                  getDocs(collection(db, 'adGroups', g.id, 'responses')),
+                  getDocs(collection(db, 'adGroups', g.id, 'assets')),
+                  getDocs(collection(db, 'adGroups', g.id, 'recipes')),
+                ]);
+              if (signal?.aborted) {
+                return {
+                  groupId: g.id,
+                  groupName: g.name,
+                  feedback: [],
+                  responses: [],
+                  assets: [],
+                  recipesMeta: {},
+                };
+              }
+              const feedbackList = feedbackSnap.docs.map((d) => ({
+                id: d.id,
+                ...d.data(),
+              }));
+              const responsesList = responsesSnap.docs.map((d) => ({
+                id: d.id,
+                ...d.data(),
+              }));
+              const assetsList = assetsSnap.docs.map((d) => ({
+                id: d.id,
+                ...d.data(),
+              }));
+              const recipesMeta = {};
+              recipesSnap.docs.forEach((d) => {
+                const docData = d.data() || {};
+                const meta = docData.metadata || {};
+                recipesMeta[d.id] = {
+                  id: d.id,
+                  ...meta,
+                  copy: docData.copy || '',
+                  latestCopy: docData.latestCopy || '',
+                };
+              });
+              return {
+                groupId: g.id,
+                groupName: g.name,
+                feedback: feedbackList,
+                responses: responsesList,
+                assets: assetsList,
+                recipesMeta,
+                renderCopyEditDiff: createRenderCopyEditDiff(recipesMeta),
+              };
+            } catch (err) {
+              console.error('Failed to load feedback for group', g.id, err);
+              return {
+                groupId: g.id,
+                groupName: g.name,
+                feedback: [],
+                responses: [],
+                assets: [],
+                recipesMeta: {},
+              };
+            }
+          }),
+        );
+        if (signal?.aborted) return;
+        const combined = buildFeedbackEntries(payloads);
+        const uniqueMap = new Map();
+        combined.forEach((entry) => {
+          if (!entry || !entry.id) return;
+          if (!uniqueMap.has(entry.id)) {
+            uniqueMap.set(entry.id, entry);
+            return;
+          }
+          const prev = uniqueMap.get(entry.id);
+          const prevTime = prev.updatedAt?.getTime?.() || 0;
+          const nextTime = entry.updatedAt?.getTime?.() || 0;
+          if (nextTime > prevTime) {
+            uniqueMap.set(entry.id, entry);
+          }
+        });
+        const list = Array.from(uniqueMap.values());
+        list.sort(
+          (a, b) =>
+            (b.updatedAt?.getTime?.() || 0) - (a.updatedAt?.getTime?.() || 0),
+        );
+        setAllFeedbackEntries(list);
+      } catch (err) {
+        console.error('Failed to load cross-group feedback', err);
+        if (!signal?.aborted) setAllFeedbackEntries([]);
+      } finally {
+        if (!signal?.aborted) setAllFeedbackLoading(false);
+      }
+    },
+    [group?.brandCode],
+  );
+
+  useEffect(() => {
+    allFeedbackLoadedRef.current = false;
+  }, [group?.brandCode, feedback.length, responses.length]);
+
+  useEffect(() => {
+    if (!canShowAllGroups && feedbackScope === 'all') {
+      setFeedbackScope('current');
+    }
+  }, [canShowAllGroups, feedbackScope]);
+
+  useEffect(() => {
+    if (feedbackScope !== 'all') return;
+    const controller = new AbortController();
+    if (!allFeedbackLoadedRef.current) {
+      allFeedbackLoadedRef.current = true;
+      loadAllFeedbackForBrand(controller.signal);
+    }
+    return () => {
+      controller.abort();
     };
-
-    const normalizeUrl = (url) => {
-      if (!url || typeof url !== "string") return "";
-      const [base] = url.split("?");
-      return base;
-    };
-
-    const assetByUrl = new Map();
-    assets.forEach((asset) => {
-      [asset.firebaseUrl, asset.cdnUrl, asset.adUrl].forEach((url) => {
-        const key = normalizeUrl(url);
-        if (key) assetByUrl.set(key, asset);
-      });
-    });
-
-    const items = [];
-
-    feedback.forEach((entry) => {
-      const comment = entry.comment || "";
-      const copyEdit = entry.copyEdit || "";
-      if (!comment && !copyEdit) return;
-      items.push({
-        id: `general-${entry.id}`,
-        type: "general",
-        title: "General feedback",
-        subtitle: comment ? comment.slice(0, 140) : "",
-        comment,
-        copyEdit,
-        copyEditDiff: null,
-        updatedAt: toDateSafe(entry.updatedAt || entry.createdAt),
-        updatedBy: entry.updatedBy || "",
-        adStatus: "",
-        assetId: "",
-        adUrl: "",
-        recipeCode: "",
-        isArchived: false,
-      });
-    });
-
-    responses.forEach((resp) => {
-      const respType = (resp.response || "").toLowerCase();
-      if (respType !== "edit") return;
-      const comment = resp.comment || "";
-      const copyEdit = resp.copyEdit || "";
-      if (!comment && !copyEdit) return;
-
-      const normalizedUrl = normalizeUrl(resp.adUrl);
-      const matchedAsset =
-        (normalizedUrl && assetByUrl.get(normalizedUrl)) ||
-        (resp.adUrl && assetByUrl.get(resp.adUrl)) ||
-        null;
-
-      const filename = matchedAsset?.filename || matchedAsset?.name || "";
-      const parsed = matchedAsset?.filename
-        ? parseAdFilename(matchedAsset.filename)
-        : {};
-      const recipeCode =
-        parsed.recipeCode ||
-        matchedAsset?.recipeCode ||
-        "";
-      const aspect = parsed.aspectRatio
-        ? String(parsed.aspectRatio).toUpperCase()
-        : "";
-      const version = parsed.version ? `V${parsed.version}` : "";
-      const status = matchedAsset?.status || "";
-
-      const subtitleParts = [];
-      if (recipeCode) subtitleParts.push(`Recipe ${recipeCode}`);
-      if (aspect) subtitleParts.push(aspect);
-      if (version) subtitleParts.push(version);
-      if (status) subtitleParts.push(status.replace(/_/g, " "));
-
-      const metaKey = recipeCode ? String(recipeCode) : "";
-      const lowerKey = metaKey.toLowerCase();
-      const recipeMeta =
-        (metaKey && recipesMeta[metaKey]) ||
-        (lowerKey && recipesMeta[lowerKey]) ||
-        null;
-      const origCopy =
-        recipeMeta?.copy ||
-        recipeMeta?.latestCopy ||
-        matchedAsset?.origCopy ||
-        "";
-
-      const diff =
-        copyEdit && (origCopy || recipeMeta)
-          ? renderCopyEditDiff(recipeCode, copyEdit, origCopy)
-          : null;
-
-      items.push({
-        id: `edit-${resp.id}`,
-        type: "edit",
-        title: filename || resp.groupName || "Ad feedback",
-        subtitle: subtitleParts.join(" • "),
-        comment,
-        copyEdit: diff ? "" : copyEdit,
-        copyEditDiff: diff,
-        updatedAt: toDateSafe(resp.timestamp || resp.updatedAt || resp.createdAt),
-        updatedBy:
-          resp.reviewerName ||
-          resp.userEmail ||
-          resp.userId ||
-          "",
-        adStatus: status,
-        assetId: matchedAsset?.id || "",
-        adUrl:
-          matchedAsset?.firebaseUrl ||
-          matchedAsset?.cdnUrl ||
-          resp.adUrl ||
-          "",
-        recipeCode: recipeCode || "",
-        isArchived: status === "archived",
-      });
-    });
-
-    const seenAssetIds = new Set(
-      items.map((item) => item.assetId).filter(Boolean),
-    );
-
-    assets.forEach((asset) => {
-      const hasFeedback = seenAssetIds.has(asset.id);
-      const hasComment = asset.comment || asset.copyEdit;
-      if (hasFeedback || !hasComment) return;
-
-      const filename = asset.filename || asset.name || "";
-      const parsed = asset.filename ? parseAdFilename(asset.filename) : {};
-      const recipeCode =
-        parsed.recipeCode ||
-        asset.recipeCode ||
-        "";
-      const aspect = parsed.aspectRatio
-        ? String(parsed.aspectRatio).toUpperCase()
-        : "";
-      const version = parsed.version ? `V${parsed.version}` : "";
-      const status = asset.status || "";
-
-      const subtitleParts = [];
-      if (recipeCode) subtitleParts.push(`Recipe ${recipeCode}`);
-      if (aspect) subtitleParts.push(aspect);
-      if (version) subtitleParts.push(version);
-      if (status) subtitleParts.push(status.replace(/_/g, " "));
-
-      const metaKey = recipeCode ? String(recipeCode) : "";
-      const lowerKey = metaKey.toLowerCase();
-      const recipeMeta =
-        (metaKey && recipesMeta[metaKey]) ||
-        (lowerKey && recipesMeta[lowerKey]) ||
-        null;
-      const origCopy =
-        recipeMeta?.copy ||
-        recipeMeta?.latestCopy ||
-        "";
-
-      const diff =
-        asset.copyEdit && (origCopy || recipeMeta)
-          ? renderCopyEditDiff(recipeCode, asset.copyEdit, origCopy)
-          : null;
-
-      items.push({
-        id: `asset-${asset.id}`,
-        type: "edit",
-        title: filename || "Ad feedback",
-        subtitle: subtitleParts.join(" • "),
-        comment: asset.comment || "",
-        copyEdit: diff ? "" : asset.copyEdit || "",
-        copyEditDiff: diff,
-        updatedAt: toDateSafe(asset.lastUpdatedAt || asset.updatedAt),
-        updatedBy: asset.lastUpdatedBy || "",
-        adStatus: status,
-        assetId: asset.id,
-        adUrl: asset.firebaseUrl || asset.cdnUrl || "",
-        recipeCode: recipeCode || "",
-        isArchived: status === "archived",
-      });
-    });
-
-    items.sort((a, b) => {
-      const aTime = a.updatedAt?.getTime?.() || 0;
-      const bTime = b.updatedAt?.getTime?.() || 0;
-      return bTime - aTime;
-    });
-
-    return items;
-  }, [feedback, responses, assets, recipesMeta, renderCopyEditDiff]);
+  }, [feedbackScope, loadAllFeedbackForBrand]);
 
   const summarize = (list) => summarizeByRecipe(list);
 
@@ -4199,8 +4367,51 @@ const AdGroupDetail = () => {
 
       {(isAdmin || isEditor || isDesigner || isManager || isClientPortalUser) &&
         tab === 'feedback' && (
-        <div className="my-4">
-          <FeedbackPanel entries={feedbackItems} onOpenAsset={openFeedbackAsset} />
+        <div className="my-4 space-y-4">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]">
+            <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Feedback summary
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {feedbackSummaryUpdatedAt
+                    ? `Updated ${feedbackSummaryUpdatedAt.toLocaleString()}`
+                    : 'Generate a snapshot summary of client feedback.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleUpdateSummary}
+                disabled={updatingFeedbackSummary}
+              >
+                {updatingFeedbackSummary ? 'Updating…' : 'Update summary'}
+              </button>
+            </div>
+            <div className="px-5 pb-5">
+              {feedbackSummary ? (
+                <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-700 dark:text-gray-200">
+                  {feedbackSummary}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-300">
+                  No summary yet. Click “Update summary” to generate one.
+                </p>
+              )}
+              {feedbackSummaryError ? (
+                <p className="mt-3 text-sm text-red-600">{feedbackSummaryError}</p>
+              ) : null}
+            </div>
+          </div>
+          <FeedbackPanel
+            entries={displayedFeedbackEntries}
+            onOpenAsset={openFeedbackAsset}
+            scopeOptions={feedbackScopeOptions}
+            selectedScope={feedbackScope}
+            onScopeChange={setFeedbackScope}
+            loading={isFeedbackLoading}
+          />
         </div>
       )}
 

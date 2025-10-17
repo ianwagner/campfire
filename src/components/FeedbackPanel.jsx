@@ -1,32 +1,44 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import StatusBadge from './StatusBadge.jsx';
 
-const FeedbackPanel = ({ entries = [], className = '', onOpenAsset }) => {
+const toDateValue = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === 'function') {
+    try {
+      return value.toDate();
+    } catch (err) {
+      return null;
+    }
+  }
+  if (typeof value === 'number') return new Date(value);
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+};
+
+const FeedbackPanel = ({
+  entries = [],
+  className = '',
+  onOpenAsset,
+  scopeOptions = [],
+  selectedScope,
+  onScopeChange,
+  loading = false,
+}) => {
   const [filter, setFilter] = useState('');
   const [selectedId, setSelectedId] = useState(null);
 
   const normalizedEntries = useMemo(
     () =>
-      entries.map((entry) => {
-        const toDate = (value) => {
-          if (!value) return null;
-          if (value instanceof Date) return value;
-          if (typeof value.toDate === 'function') {
-            try {
-              return value.toDate();
-            } catch (_) {
-              return null;
-            }
-          }
-          if (typeof value === 'number') return new Date(value);
-          if (typeof value === 'string') {
-            const parsed = new Date(value);
-            return Number.isNaN(parsed.getTime()) ? null : parsed;
-          }
-          return null;
-        };
-        return { ...entry, updatedAt: toDate(entry.updatedAt) };
-      }),
+      entries.map((entry) => ({
+        ...entry,
+        updatedAt: toDateValue(entry.updatedAt),
+        commentList: Array.isArray(entry.commentList) ? entry.commentList : [],
+        copyEditList: Array.isArray(entry.copyEditList) ? entry.copyEditList : [],
+      })),
     [entries],
   );
 
@@ -41,6 +53,9 @@ const FeedbackPanel = ({ entries = [], className = '', onOpenAsset }) => {
         entry.copyEdit,
         entry.updatedBy,
         entry.type,
+        entry.groupName,
+        ...entry.commentList.map((item) => item?.text || ''),
+        ...entry.copyEditList.map((item) => item?.text || ''),
       ]
         .filter(Boolean)
         .join(' ')
@@ -69,7 +84,7 @@ const FeedbackPanel = ({ entries = [], className = '', onOpenAsset }) => {
     if (!value) return '';
     try {
       return value.toLocaleDateString();
-    } catch (_) {
+    } catch (err) {
       return '';
     }
   };
@@ -81,23 +96,48 @@ const FeedbackPanel = ({ entries = [], className = '', onOpenAsset }) => {
         dateStyle: 'medium',
         timeStyle: 'short',
       });
-    } catch (_) {
+    } catch (err) {
       return value.toString();
     }
   };
+
+  const activeScope = selectedScope ?? scopeOptions?.[0]?.value ?? '';
+  const scopeEnabled =
+    Array.isArray(scopeOptions) && scopeOptions.length > 1 && typeof onScopeChange === 'function';
+  const headerDescription = loading
+    ? 'Loading feedback…'
+    : normalizedEntries.length === 0
+    ? 'No feedback yet'
+    : `${normalizedEntries.length} feedback ${
+        normalizedEntries.length === 1 ? 'entry' : 'entries'
+      }`;
 
   return (
     <div className={className}>
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]">
         <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Feedback</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {normalizedEntries.length === 0
-              ? 'No feedback yet'
-              : `${normalizedEntries.length} feedback ${
-                  normalizedEntries.length === 1 ? 'entry' : 'entries'
-                }`}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Feedback</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{headerDescription}</p>
+            </div>
+            {scopeEnabled ? (
+              <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-300">
+                Showing
+                <select
+                  className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200"
+                  value={activeScope}
+                  onChange={(event) => onScopeChange(event.target.value)}
+                >
+                  {scopeOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
         </div>
         <div className="grid gap-0 lg:grid-cols-[320px,1fr]">
           <aside className="border-b border-gray-100 px-5 py-4 dark:border-gray-700 lg:border-b-0 lg:border-r">
@@ -126,7 +166,11 @@ const FeedbackPanel = ({ entries = [], className = '', onOpenAsset }) => {
                 onChange={(event) => setFilter(event.target.value)}
               />
             </div>
-            {filteredEntries.length === 0 ? (
+            {loading && filteredEntries.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800/40 dark:text-gray-300">
+                Loading feedback…
+              </div>
+            ) : filteredEntries.length === 0 ? (
               <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800/40 dark:text-gray-300">
                 {filter
                   ? 'No feedback matches your search.'
@@ -163,9 +207,7 @@ const FeedbackPanel = ({ entries = [], className = '', onOpenAsset }) => {
                               {entry.title || 'Feedback'}
                             </h4>
                             {entry.subtitle ? (
-                              <p className="mt-1 text-xs text-gray-500 dark:text-gray-300">
-                                {entry.subtitle}
-                              </p>
+                              <p className="mt-1 text-xs text-gray-500 dark:text-gray-300">{entry.subtitle}</p>
                             ) : null}
                           </div>
                           {entry.updatedAt ? (
@@ -205,14 +247,13 @@ const FeedbackPanel = ({ entries = [], className = '', onOpenAsset }) => {
                     {selectedEntry.updatedBy
                       ? `Shared by ${selectedEntry.updatedBy}`
                       : 'Shared anonymously'}
-                    {selectedEntry.updatedAt
-                      ? ` on ${formatDateTime(selectedEntry.updatedAt)}`
-                      : ''}
+                    {selectedEntry.updatedAt ? ` on ${formatDateTime(selectedEntry.updatedAt)}` : ''}
                   </p>
+                  {selectedEntry.groupName ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{selectedEntry.groupName}</p>
+                  ) : null}
                   {selectedEntry.subtitle ? (
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      {selectedEntry.subtitle}
-                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{selectedEntry.subtitle}</p>
                   ) : null}
                   {selectedEntry.adStatus ? (
                     <div className="mt-2">
@@ -220,38 +261,115 @@ const FeedbackPanel = ({ entries = [], className = '', onOpenAsset }) => {
                     </div>
                   ) : null}
                 </div>
-                {selectedEntry.comment ? (
+
+                {selectedEntry.commentList.length ? (
                   <div>
-                    <h5 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      Comment
-                    </h5>
+                    <h5 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Comments</h5>
+                    <div className="mt-2 space-y-3">
+                      {selectedEntry.commentList.map((item) => (
+                        <div
+                          key={item.id}
+                          className="rounded-lg border border-gray-100 bg-white px-3 py-2 text-sm shadow-sm dark:border-gray-700 dark:bg-transparent"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <span>{item.assetLabel || 'Comment'}</span>
+                            {item.updatedAt ? <span>{formatDateTime(toDateValue(item.updatedAt))}</span> : null}
+                          </div>
+                          <p className="mt-1 whitespace-pre-wrap text-gray-700 dark:text-gray-200">{item.text}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            {item.updatedBy ? <span>From {item.updatedBy}</span> : null}
+                            {onOpenAsset && item.assetId ? (
+                              <button
+                                type="button"
+                                className="btn-tertiary px-2 py-1 text-xs"
+                                onClick={() => onOpenAsset(item.assetId)}
+                              >
+                                View ad
+                              </button>
+                            ) : item.adUrl ? (
+                              <a
+                                href={item.adUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[var(--accent-color)] underline"
+                              >
+                                Open asset
+                              </a>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : selectedEntry.comment ? (
+                  <div>
+                    <h5 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Comment</h5>
                     <p className="mt-1 whitespace-pre-line text-sm text-gray-700 dark:text-gray-200">
                       {selectedEntry.comment}
                     </p>
                   </div>
                 ) : null}
-                {selectedEntry.copyEditDiff ? (
+
+                {selectedEntry.copyEditList.length ? (
                   <div>
-                    <h5 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      Copy edit
-                    </h5>
+                    <h5 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Copy edits</h5>
+                    <div className="mt-2 space-y-3">
+                      {selectedEntry.copyEditList.map((item) => (
+                        <div
+                          key={item.id}
+                          className="rounded-lg border border-gray-100 bg-white px-3 py-2 text-sm shadow-sm dark:border-gray-700 dark:bg-transparent"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <span>{item.assetLabel || 'Copy edit'}</span>
+                            {item.updatedAt ? <span>{formatDateTime(toDateValue(item.updatedAt))}</span> : null}
+                          </div>
+                          <div className="mt-1 whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-200">
+                            {item.diff || item.text}
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            {item.updatedBy ? <span>From {item.updatedBy}</span> : null}
+                            {onOpenAsset && item.assetId ? (
+                              <button
+                                type="button"
+                                className="btn-tertiary px-2 py-1 text-xs"
+                                onClick={() => onOpenAsset(item.assetId)}
+                              >
+                                View ad
+                              </button>
+                            ) : item.adUrl ? (
+                              <a
+                                href={item.adUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[var(--accent-color)] underline"
+                              >
+                                Open asset
+                              </a>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : selectedEntry.copyEditDiff ? (
+                  <div>
+                    <h5 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Copy edit</h5>
                     <p className="mt-1 whitespace-pre-line text-sm text-gray-700 dark:text-gray-200">
                       {selectedEntry.copyEditDiff}
                     </p>
                   </div>
                 ) : selectedEntry.copyEdit ? (
                   <div>
-                    <h5 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                      Copy edit
-                    </h5>
+                    <h5 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Copy edit</h5>
                     <p className="mt-1 whitespace-pre-line text-sm italic text-gray-700 dark:text-gray-200">
                       {selectedEntry.copyEdit}
                     </p>
                   </div>
                 ) : null}
+
                 {selectedEntry.adUrl ? (
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Asset link:{' '}
+                    Asset link{' '}
                     <a
                       href={selectedEntry.adUrl}
                       target="_blank"
@@ -262,6 +380,7 @@ const FeedbackPanel = ({ entries = [], className = '', onOpenAsset }) => {
                     </a>
                   </div>
                 ) : null}
+
                 {onOpenAsset && selectedEntry.assetId ? (
                   <div>
                     <button
@@ -283,4 +402,3 @@ const FeedbackPanel = ({ entries = [], className = '', onOpenAsset }) => {
 };
 
 export default FeedbackPanel;
-
