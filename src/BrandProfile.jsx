@@ -26,7 +26,7 @@ import BrandContracts from './BrandContracts.jsx';
 import BrandAIArtStyle from './BrandAIArtStyle.jsx';
 import BrandNotes from './BrandNotes.jsx';
 
-const BrandProfile = ({ brandId: propId = null }) => {
+const BrandProfile = ({ brandId: propId = null, backPath = '/brand-profile' }) => {
   const { id } = useParams();
   const brandId = propId || id || null;
   const user = auth.currentUser;
@@ -113,7 +113,7 @@ const BrandProfile = ({ brandId: propId = null }) => {
     <div className="min-h-screen p-4">
       <div className="flex items-center mb-2">
         {id && (
-          <Link to="/brand-profile" className="btn-arrow mr-2" aria-label="Back">
+          <Link to={backPath} className="btn-arrow mr-2" aria-label="Back">
             &lt;
           </Link>
         )}

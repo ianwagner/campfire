@@ -58,13 +58,13 @@ const OpsContracts = () => {
 
   return (
     <div className="min-h-screen p-4">
-      <h1 className="text-2xl mb-4">Contracts</h1>
+      <h1 className="text-2xl mb-4">Brands</h1>
       {loading ? (
         <p>Loading...</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {brands.map((b) => (
-            <a key={b.id} href={`/ops/contracts/${b.id}`}>
+            <a key={b.id} href={`/ops/brands/${b.id}`}>
               <BrandCard brand={b} />
             </a>
           ))}
