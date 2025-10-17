@@ -63,6 +63,7 @@ import diffWords from './utils/diffWords';
 import LoadingOverlay from "./LoadingOverlay";
 import OverflowMenu from './components/OverflowMenu.jsx';
 import NotificationDot from './components/NotificationDot.jsx';
+import SurfaceCard from './components/SurfaceCard.jsx';
 import debugLog from './utils/debugLog';
 import useDebugTrace from './utils/useDebugTrace';
 import { DEFAULT_ACCENT_COLOR } from './themeColors';
@@ -4465,9 +4466,9 @@ useEffect(() => {
                       : 0,
                 }}
               >
-                <div
+                <SurfaceCard
                   className={combineClasses(
-                    'rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]',
+                    'transition-all duration-200',
                     statusBarPinned
                       ? 'px-2 py-1.5 sm:px-3 sm:py-2'
                       : 'px-3 py-3 sm:px-4 sm:py-3',
@@ -4542,12 +4543,15 @@ useEffect(() => {
                     </div>
                   </div>
                 </div>
-              </div>
+                </SurfaceCard>
               <div className="mt-6 space-y-6">
                 {reviewAds.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-gray-300 dark:border-[var(--border-color-default)] bg-white dark:bg-[var(--dark-sidebar-bg)] p-8 text-center text-gray-500 dark:text-gray-300">
+                  <SurfaceCard
+                    variant="dashed"
+                    className="p-8 text-center text-gray-500 dark:text-gray-300"
+                  >
                     No ads to review yet.
-                  </div>
+                  </SurfaceCard>
                 ) : (
                   reviewAds.map((ad, index) => {
                   const {
@@ -5094,10 +5098,7 @@ useEffect(() => {
                     const statusLabel = statusLabelMap[statusValue] || statusValue;
 
                     return (
-                      <div
-                        key={cardKey}
-                        className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
-                      >
+                      <SurfaceCard key={cardKey} className="w-full overflow-hidden">
                         <div className="flex flex-col gap-4 p-4">
                           <div className="flex flex-col gap-2">
                             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -5318,15 +5319,12 @@ useEffect(() => {
                             )}
                           </div>
                         </div>
-                      </div>
+                      </SurfaceCard>
                     );
                   }
 
                   return (
-                    <div
-                      key={cardKey}
-                      className="mx-auto w-full max-w-[712px] rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
-                    >
+                    <SurfaceCard key={cardKey} className="mx-auto w-full max-w-[712px]">
                       <div className="flex flex-col gap-4 p-4">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex flex-wrap items-center gap-2">
@@ -5529,7 +5527,7 @@ useEffect(() => {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </SurfaceCard>
                   );
                 })
               )}

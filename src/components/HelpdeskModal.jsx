@@ -14,6 +14,7 @@ import {
 import { db } from '../firebase/config';
 import CloseButton from './CloseButton.jsx';
 import NotificationDot from './NotificationDot.jsx';
+import SurfaceCard from './SurfaceCard.jsx';
 import {
   toDateSafe,
   formatRelativeTime,
@@ -430,7 +431,10 @@ const HelpdeskModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
-      <div className="flex h-full w-full max-h-[750px] max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]">
+      <SurfaceCard
+        as="div"
+        className="flex h-full w-full max-h-[750px] max-w-4xl flex-col overflow-hidden shadow-xl dark:text-[var(--dark-text)]"
+      >
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-[var(--border-color-default)]">
           <h2 className="text-lg font-semibold">Helpdesk</h2>
           <CloseButton onClick={onClose} />
@@ -514,7 +518,7 @@ const HelpdeskModal = ({
             {creatingNew ? renderNewTicket() : renderMessageList()}
           </div>
         </div>
-      </div>
+      </SurfaceCard>
     </div>
   );
 };

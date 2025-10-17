@@ -13,6 +13,7 @@ import {
 import { db } from './firebase/config';
 import PageWrapper from './components/PageWrapper.jsx';
 import PageToolbar from './components/PageToolbar.jsx';
+import SurfaceCard from './components/SurfaceCard.jsx';
 
 const BrandNotes = ({ brandId }) => {
   const [notes, setNotes] = useState([]);
@@ -228,7 +229,7 @@ const BrandNotes = ({ brandId }) => {
         }
       />
       <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
-        <aside className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]">
+        <SurfaceCard as="aside" className="flex flex-col">
           <div className="border-b border-gray-100 px-5 py-4 text-xs font-medium uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
             {filter ? `Filtered notes (${filteredNotes.length})` : `All notes (${notes.length})`}
           </div>
@@ -311,7 +312,7 @@ const BrandNotes = ({ brandId }) => {
               </ul>
             )}
           </div>
-        </aside>
+        </SurfaceCard>
         <section className="flex flex-col gap-4">
           {error && (
             <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -319,7 +320,10 @@ const BrandNotes = ({ brandId }) => {
             </div>
           )}
           {!selectedId ? (
-            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-sm text-gray-600 shadow-sm dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-300">
+            <SurfaceCard
+              variant="dashed"
+              className="flex flex-col items-center gap-3 p-8 text-sm text-gray-600 dark:text-gray-300"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-10 w-10 text-gray-300"
@@ -335,9 +339,9 @@ const BrandNotes = ({ brandId }) => {
                 />
               </svg>
               Select a note from the list or create a new one to start editing.
-            </div>
+            </SurfaceCard>
           ) : (
-            <form onSubmit={handleSave} className="flex flex-col gap-4">
+            <SurfaceCard as="form" onSubmit={handleSave} className="flex flex-col gap-4 p-6">
               <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium" htmlFor="brand-note-title">
                   Title
@@ -378,7 +382,7 @@ const BrandNotes = ({ brandId }) => {
                   </button>
                 </div>
               </div>
-            </form>
+            </SurfaceCard>
           )}
         </section>
       </div>
