@@ -77,6 +77,11 @@ const BrandNotes = ({ brandId }) => {
     );
   }, [notes, filter]);
 
+  const selectedNote = useMemo(
+    () => (selectedId && selectedId !== 'new' ? notes.find((n) => n.id === selectedId) : null),
+    [notes, selectedId]
+  );
+
   const handleSelect = (id) => {
     setError('');
     setSelectedId(id);
@@ -165,60 +170,147 @@ const BrandNotes = ({ brandId }) => {
   return (
     <PageWrapper>
       <PageToolbar
+        left={
+          <div className="flex flex-col gap-0.5">
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Brand notes</h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {notes.length === 0
+                ? 'Capture important details for your team.'
+                : `${notes.length} ${notes.length === 1 ? 'note saved' : 'notes saved'}`}
+            </p>
+          </div>
+        }
         right={
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              className="p-2 border rounded w-48"
-              placeholder="Search notes..."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21 21l-4.35-4.35m1.35-4.65a6 6 0 11-12 0 6 6 0 0112 0z"
+                  />
+                </svg>
+              </span>
+              <input
+                type="text"
+                className="w-56 rounded-full border border-gray-200 bg-white py-2 pl-9 pr-4 text-sm text-gray-700 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
+                placeholder="Search notes..."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+            </div>
             <button
               type="button"
-              className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
+              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               onClick={handleCreateNew}
             >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
               New note
             </button>
           </div>
         }
       />
       <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
-        <aside className="flex flex-col gap-3">
-          {isLoading ? (
-            <p className="text-sm text-gray-500">Loading notes…</p>
-          ) : filteredNotes.length === 0 ? (
-            <p className="text-sm text-gray-500">No notes found.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {filteredNotes.map((note) => (
-                <li key={note.id}>
-                  <button
-                    type="button"
-                    onClick={() => handleSelect(note.id)}
-                    className={`w-full text-left border rounded p-3 bg-white dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)] hover:border-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                      selectedId === note.id ? 'border-blue-500 shadow-sm' : 'border-gray-200'
-                    }`}
+        <aside className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]">
+          <div className="border-b border-gray-100 px-5 py-4 text-xs font-medium uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
+            {filter ? `Filtered notes (${filteredNotes.length})` : `All notes (${notes.length})`}
+          </div>
+          <div className="flex-1 overflow-y-auto px-3 py-3">
+            {isLoading ? (
+              <p className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:bg-gray-800/60 dark:text-gray-300">
+                Loading notes…
+              </p>
+            ) : filteredNotes.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800/40 dark:text-gray-300">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-8 w-8 text-gray-300"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 16h8M8 12h8m-6 8h4a4 4 0 004-4V8a2 2 0 00-2-2h-3.586a1 1 0 01-.707-.293l-1.414-1.414A1 1 0 0011.586 4H8a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                <p className="font-medium">{filter ? 'No matching notes' : 'No notes yet'}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {filter
+                    ? 'Try a different search term or clear the filter.'
+                    : 'Create your first note to share brand context with the team.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCreateNew}
+                  className="mt-2 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-600 transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:bg-transparent"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-medium text-sm truncate">
-                        {note.title || 'Untitled note'}
-                      </h3>
-                      {note.updatedAt && (
-                        <span className="text-[11px] text-gray-500">
-                          {note.updatedAt.toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 max-h-16 overflow-hidden text-xs text-gray-600 dark:text-gray-300">
-                      {truncate(stripHtml(note.body), 200)}
-                    </p>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add note
+                </button>
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {filteredNotes.map((note) => (
+                  <li key={note.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleSelect(note.id)}
+                      className={`group w-full rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                        selectedId === note.id
+                          ? 'border-blue-300 bg-blue-50 text-blue-900 shadow-sm dark:border-blue-500/60 dark:bg-blue-500/10 dark:text-blue-100'
+                          : 'border-transparent bg-gray-50 hover:border-blue-200 hover:bg-white dark:bg-gray-800/40 dark:text-[var(--dark-text)]'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <h3 className="text-sm font-semibold leading-5 group-hover:text-blue-700 dark:group-hover:text-blue-200">
+                            {note.title || 'Untitled note'}
+                          </h3>
+                          <p className="mt-1 line-clamp-3 text-xs text-gray-600 dark:text-gray-300">
+                            {truncate(stripHtml(note.body), 160)}
+                          </p>
+                        </div>
+                        {note.updatedAt && (
+                          <span className="text-[11px] text-gray-400 dark:text-gray-400">
+                            {note.updatedAt.toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </aside>
         <section className="flex flex-col gap-4">
           {error && (
@@ -227,7 +319,21 @@ const BrandNotes = ({ brandId }) => {
             </div>
           )}
           {!selectedId ? (
-            <div className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-600 dark:text-gray-300">
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-sm text-gray-600 shadow-sm dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-300">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-10 w-10 text-gray-300"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12h6m-3-3v6m-7 4h14a2 2 0 002-2V7a2 2 0 00-.586-1.414l-3-3A2 2 0 0015.586 2H7a2 2 0 00-2 2v16a2 2 0 002 2z"
+                />
+              </svg>
               Select a note from the list or create a new one to start editing.
             </div>
           ) : (
@@ -251,14 +357,7 @@ const BrandNotes = ({ brandId }) => {
               </div>
               <div className="flex items-center justify-between">
                 <div className="text-xs text-gray-500">
-                  {selectedId !== 'new' && (
-                    <>
-                      {displayTimestamp(
-                        notes.find((n) => n.id === selectedId)?.updatedAt,
-                        'Last updated'
-                      )}
-                    </>
-                  )}
+                  {selectedNote && displayTimestamp(selectedNote.updatedAt, 'Last updated')}
                 </div>
                 <div className="flex items-center gap-2">
                   {selectedId !== 'new' && (
