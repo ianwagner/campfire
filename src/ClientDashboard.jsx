@@ -3,6 +3,7 @@ import ReviewGroupCard from './components/ReviewGroupCard.jsx';
 import summarizeByRecipe from './utils/summarizeByRecipe.js';
 import summarizeAdUnits from './utils/summarizeAdUnits.js';
 import { db } from './firebase/config';
+import getPrimaryLogoUrl from './utils/getPrimaryLogoUrl.js';
 import {
   collection,
   getDocs,
@@ -55,7 +56,8 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
         const logos = {};
         snap.docs.forEach((d) => {
           const data = d.data();
-          logos[data.code] = data.logos?.[0] || data.logoUrl || '';
+          const primaryLogo = getPrimaryLogoUrl(data.logos);
+          logos[data.code] = primaryLogo || data.logoUrl || '';
         });
         setBrandLogos(logos);
       } catch (err) {
@@ -133,8 +135,8 @@ const ClientDashboard = ({ user, brandCodes = [] }) => {
                   )
                 );
                 const brandData = brandSnap.docs[0]?.data();
-                group.brandLogo =
-                  brandData?.logos?.[0] || brandData?.logoUrl || '';
+                const fallbackLogo = getPrimaryLogoUrl(brandData?.logos);
+                group.brandLogo = fallbackLogo || brandData?.logoUrl || '';
               } catch (err) {
                 console.error('Failed to load brand logo', err);
               }
