@@ -104,18 +104,88 @@ const finalizeRecipeEntry = (entry) => {
     return String(value).trim().toLowerCase();
   };
 
-  const dedupeList = (list, getKey) => {
+  const aggregateTimelineItems = (list, getKey) => {
     if (!Array.isArray(list)) return [];
-    const seen = new Set();
-    const deduped = [];
-    list.forEach((item) => {
-      if (!item || typeof item !== 'object') return;
-      const key = getKey(item);
-      if (key && seen.has(key)) return;
-      if (key) seen.add(key);
-      deduped.push(item);
+    const aggregated = [];
+    const keyed = new Map();
+
+    list.forEach((rawItem) => {
+      if (!rawItem || typeof rawItem !== 'object') return;
+      const key = getKey(rawItem);
+      const normalizedItem = {
+        ...rawItem,
+        text: typeof rawItem.text === 'string' ? rawItem.text.trim() : rawItem.text || '',
+        assetLabel:
+          typeof rawItem.assetLabel === 'string' ? rawItem.assetLabel.trim() : rawItem.assetLabel || '',
+        assetId: rawItem.assetId || '',
+        updatedBy: rawItem.updatedBy || '',
+        status: rawItem.status || '',
+      };
+
+      if (normalizedItem.updatedAt && !(normalizedItem.updatedAt instanceof Date)) {
+        try {
+          normalizedItem.updatedAt = new Date(normalizedItem.updatedAt);
+        } catch (err) {
+          normalizedItem.updatedAt = null;
+        }
+      }
+
+      if (!key) {
+        aggregated.push(normalizedItem);
+        return;
+      }
+
+      if (!keyed.has(key)) {
+        normalizedItem._assetLabelSet = new Set(
+          normalizedItem.assetLabel ? [normalizedItem.assetLabel] : [],
+        );
+        normalizedItem._assetIdSet = new Set(
+          normalizedItem.assetId ? [normalizedItem.assetId] : [],
+        );
+        keyed.set(key, normalizedItem);
+        return;
+      }
+
+      const existing = keyed.get(key);
+      if (normalizedItem.assetLabel) {
+        existing._assetLabelSet.add(normalizedItem.assetLabel);
+      }
+      if (normalizedItem.assetId) {
+        existing._assetIdSet.add(normalizedItem.assetId);
+      }
+
+      const existingTime = existing.updatedAt instanceof Date ? existing.updatedAt.getTime() : 0;
+      const nextTime =
+        normalizedItem.updatedAt instanceof Date ? normalizedItem.updatedAt.getTime() : 0;
+      if (nextTime > existingTime) {
+        existing.updatedAt = normalizedItem.updatedAt;
+        existing.updatedBy = normalizedItem.updatedBy || existing.updatedBy || '';
+        existing.status = normalizedItem.status || existing.status || '';
+        existing.adUrl = normalizedItem.adUrl || existing.adUrl || '';
+      }
     });
-    return deduped;
+
+    const merged = [...keyed.values(), ...aggregated].map((item) => {
+      if (item._assetLabelSet || item._assetIdSet) {
+        const labels = item._assetLabelSet
+          ? Array.from(item._assetLabelSet).filter(Boolean)
+          : [];
+        const ids = item._assetIdSet ? Array.from(item._assetIdSet).filter(Boolean) : [];
+        const labelValue = labels.length ? labels.join(', ') : item.assetLabel;
+        const idValue = ids.length ? ids.join(', ') : item.assetId;
+        const cleaned = {
+          ...item,
+          assetLabel: labelValue,
+          assetId: idValue,
+        };
+        delete cleaned._assetLabelSet;
+        delete cleaned._assetIdSet;
+        return cleaned;
+      }
+      return item;
+    });
+
+    return merged;
   };
 
   const sortByDateDesc = (list) =>
@@ -136,18 +206,10 @@ const finalizeRecipeEntry = (entry) => {
   entry.subtitle = subtitleParts.join(' • ');
 
   const normalizedComments = sortByDateDesc(
-    dedupeList(entry.commentList, (item) =>
-      [normalizeKey(item?.text || ''), normalizeKey(item?.assetLabel || ''), normalizeKey(item?.assetId || '')].join('|'),
-    ),
+    aggregateTimelineItems(entry.commentList, (item) => normalizeKey(item?.text || '')),
   );
   const normalizedCopyEdits = sortByDateDesc(
-    dedupeList(entry.copyEditList, (item) =>
-      [
-        normalizeKey(item?.text || ''),
-        normalizeKey(item?.assetLabel || ''),
-        normalizeKey(item?.assetId || ''),
-      ].join('|'),
-    ),
+    aggregateTimelineItems(entry.copyEditList, (item) => normalizeKey(item?.text || '')),
   );
 
   entry.commentList = normalizedComments;
