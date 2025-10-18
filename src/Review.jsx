@@ -20,6 +20,8 @@ import {
   FiHome,
   FiDownload,
   FiMoreHorizontal,
+  FiAlertCircle,
+  FiX,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -41,6 +43,7 @@ import {
   orderBy,
   deleteField,
   documentId,
+  limit,
 } from 'firebase/firestore';
 import { db } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
@@ -74,6 +77,39 @@ import stripVersion from './utils/stripVersion';
 import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
+
+const resolveEnvValue = (key, fallback = '') => {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    const value = import.meta.env[key];
+    if (value !== undefined) {
+      return value;
+    }
+  }
+  return fallback;
+};
+
+const DEFAULT_EXPORT_TARGET_ENV = (() => {
+  const raw = `${resolveEnvValue('VITE_EXPORT_TARGET_ENV', resolveEnvValue('MODE', ''))}`
+    .trim()
+    .toLowerCase();
+
+  if (raw.startsWith('prod')) {
+    return 'prod';
+  }
+
+  if (raw.startsWith('stage')) {
+    return 'staging';
+  }
+
+  return 'staging';
+})();
+
+const DEFAULT_EXPORT_TARGET_INTEGRATION = (() => {
+  const raw = `${resolveEnvValue('VITE_EXPORT_TARGET_INTEGRATION', 'compass')}`
+    .trim()
+    .toLowerCase();
+  return raw || 'compass';
+})();
 
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
@@ -205,6 +241,95 @@ const normalizeCopyText = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
   return String(value);
+};
+
+const normalizeDisplayString = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim();
+  return String(value).trim();
+};
+
+const simplifyPartnerLabel = (label, key) => {
+  const normalizedLabel = normalizeDisplayString(label);
+  const normalizedKey = normalizeKeyPart(key);
+
+  if (normalizedLabel) {
+    if (/ad\s*log/i.test(normalizedLabel)) {
+      return 'AdLog';
+    }
+    return normalizedLabel;
+  }
+
+  if (normalizedKey) {
+    if (normalizedKey === 'compass' || normalizedKey === 'adlog') {
+      return 'AdLog';
+    }
+    return normalizedKey
+      .split(/[-_\s]+/)
+      .filter(Boolean)
+      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+      .join(' ');
+  }
+
+  return 'Partner';
+};
+
+const getMillis = (value) => {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') {
+    return value.toMillis();
+  }
+  const date = new Date(value);
+  const time = date.getTime();
+  return Number.isFinite(time) ? time : 0;
+};
+
+const getAdReviewLabel = (ad) => {
+  if (!ad) return 'Ad Unit';
+  const info = parseAdFilename(ad.filename || '');
+  return (
+    normalizeDisplayString(ad.recipeCode) ||
+    normalizeDisplayString(info.recipeCode) ||
+    normalizeDisplayString(ad.name) ||
+    'Ad Unit'
+  );
+};
+
+const getSyncStatePriority = (state) => {
+  switch (state) {
+    case 'error':
+      return 3;
+    case 'received':
+    case 'duplicate':
+      return 2;
+    case 'sent':
+      return 1;
+    default:
+      return 0;
+  }
+};
+
+const SYNC_BADGE_STYLES = {
+  sent: {
+    container:
+      'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-700/60 dark:bg-indigo-500/10 dark:text-indigo-200',
+    dot: 'bg-indigo-400 dark:bg-indigo-300',
+  },
+  received: {
+    container:
+      'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/60 dark:bg-emerald-500/10 dark:text-emerald-200',
+    dot: 'bg-emerald-500 dark:bg-emerald-300',
+  },
+  duplicate: {
+    container:
+      'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-500/10 dark:text-amber-200',
+    dot: 'bg-amber-500 dark:bg-amber-300',
+  },
+  error: {
+    container:
+      'border-red-200 bg-red-50 text-red-700 dark:border-red-700/60 dark:bg-red-500/10 dark:text-red-200',
+    dot: 'bg-red-500 dark:bg-red-300',
+  },
 };
 
 const normalizeRecipeCode = (value) => {
@@ -777,6 +902,8 @@ const Review = forwardRef(
   const [expandedRequests, setExpandedRequests] = useState({});
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
+  const [adSyncStatus, setAdSyncStatus] = useState({});
+  const [syncToasts, setSyncToasts] = useState([]);
   const statusBarSentinelRef = useRef(null);
   const statusBarRef = useRef(null);
   const toolbarRef = useRef(null);
@@ -788,6 +915,17 @@ const Review = forwardRef(
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
+  const toastTimersRef = useRef(new Map());
+  const toastHistoryRef = useRef(new Set());
+  const adSyncMetaRef = useRef({});
+  const initialSyncLoadedRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      toastTimersRef.current.forEach((timer) => clearTimeout(timer));
+      toastTimersRef.current.clear();
+    };
+  }, []);
 
   const copyCardsWithMeta = useMemo(
     () =>
@@ -3233,6 +3371,338 @@ useEffect(() => {
     return counts;
   }, [reviewAds, buildStatusMeta]);
 
+  const adSyncMetaByDocId = useMemo(() => {
+    const map = {};
+    reviewAds.forEach((ad, index) => {
+      if (!ad) return;
+      const { statusAssets } = buildStatusMeta(ad, index);
+      const label = getAdReviewLabel(ad);
+      const adName = normalizeDisplayString(ad?.name || ad?.title);
+      statusAssets.forEach((asset) => {
+        const docId = getAssetDocumentId(asset);
+        if (!docId || map[docId]) return;
+        map[docId] = {
+          label,
+          adName,
+          recipeCode: normalizeDisplayString(ad?.recipeCode),
+        };
+      });
+    });
+    return map;
+  }, [reviewAds, buildStatusMeta]);
+
+  useEffect(() => {
+    adSyncMetaRef.current = adSyncMetaByDocId;
+  }, [adSyncMetaByDocId]);
+
+  useEffect(() => {
+    initialSyncLoadedRef.current = false;
+  }, [groupId, allowPublicListeners]);
+
+  const removeToast = useCallback((id) => {
+    setSyncToasts((prev) => prev.filter((toast) => toast.id !== id));
+    const timer = toastTimersRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      toastTimersRef.current.delete(id);
+    }
+  }, []);
+
+  const enqueueToast = useCallback(
+    ({ type = 'info', title, description = '', duration = 6000 }) => {
+      if (!title) return;
+      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setSyncToasts((prev) => [...prev, { id, type, title, description }]);
+      const timer = setTimeout(() => {
+        removeToast(id);
+      }, duration);
+      toastTimersRef.current.set(id, timer);
+    },
+    [removeToast],
+  );
+
+  const resolveSyncStatusForAssets = useCallback(
+    (assets = []) => {
+      if (!Array.isArray(assets) || assets.length === 0) {
+        return null;
+      }
+      const entries = [];
+      assets.forEach((asset) => {
+        const docId = getAssetDocumentId(asset);
+        if (!docId) return;
+        const entry = adSyncStatus[docId];
+        if (entry) {
+          entries.push({ ...entry, docId });
+        }
+      });
+      if (entries.length === 0) {
+        return null;
+      }
+      entries.sort((a, b) => {
+        const priorityDiff =
+          getSyncStatePriority(b.state) - getSyncStatePriority(a.state);
+        if (priorityDiff !== 0) {
+          return priorityDiff;
+        }
+        return (b.jobTimestamp || 0) - (a.jobTimestamp || 0);
+      });
+      return entries[0];
+    },
+    [adSyncStatus],
+  );
+
+  const renderSyncStatusBadge = useCallback(
+    (assets, { size = 'regular' } = {}) => {
+      const info = resolveSyncStatusForAssets(assets);
+      if (!info) {
+        return null;
+      }
+      const state = info.state;
+      const styles = SYNC_BADGE_STYLES[state] || SYNC_BADGE_STYLES.sent;
+      if (!styles) {
+        return null;
+      }
+
+      const partnerName = info.partnerName || 'Partner';
+      let text = '';
+      if (state === 'received') {
+        text = `Received by ${partnerName}`;
+      } else if (state === 'duplicate') {
+        text = `Already received by ${partnerName}`;
+      } else if (state === 'error') {
+        text = 'Error';
+      } else if (state === 'sent') {
+        text = `Sent to ${partnerName}`;
+      } else {
+        return null;
+      }
+
+      const fontSizeClass = size === 'compact' ? 'text-[11px]' : 'text-xs';
+      const paddingClass = size === 'compact' ? 'px-2 py-0.5' : 'px-2.5 py-0.5';
+      const title = info.message
+        ? state === 'error'
+          ? `${partnerName} error: ${info.message}`
+          : `${partnerName}: ${info.message}`
+        : undefined;
+
+      return (
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full border font-medium ${fontSizeClass} ${paddingClass} ${styles.container}`}
+          title={title}
+        >
+          <span className={`h-2 w-2 rounded-full ${styles.dot}`} />
+          <span>{text}</span>
+        </span>
+      );
+    },
+    [resolveSyncStatusForAssets],
+  );
+
+  useEffect(() => {
+    if (!allowPublicListeners || !groupId) {
+      setAdSyncStatus((prev) => (Object.keys(prev).length > 0 ? {} : prev));
+      return undefined;
+    }
+
+    const jobsRef = query(
+      collection(db, 'exportJobs'),
+      where('adGroupId', '==', groupId),
+      orderBy('createdAt', 'desc'),
+      limit(20),
+    );
+
+    const unsubscribe = onSnapshot(
+      jobsRef,
+      (snapshot) => {
+        const isInitialLoad = !initialSyncLoadedRef.current;
+        initialSyncLoadedRef.current = true;
+        const aggregated = {};
+
+        const triggerToastForEntry = (adId, entry, { skip } = {}) => {
+          if (skip) {
+            return;
+          }
+          const state = entry.state;
+          if (!['received', 'duplicate', 'error'].includes(state)) {
+            return;
+          }
+          const toastKey = `${entry.jobId}:${adId}:${state}`;
+          if (toastHistoryRef.current.has(toastKey)) {
+            return;
+          }
+          toastHistoryRef.current.add(toastKey);
+
+          const meta = adSyncMetaRef.current[adId] || {};
+          const adLabel = normalizeDisplayString(meta.label || meta.adName) || 'This ad';
+          const partnerName = entry.partnerName || 'Partner';
+          const description = entry.message || '';
+
+          if (state === 'error') {
+            enqueueToast({
+              type: 'error',
+              title: `${adLabel} failed at ${partnerName}`,
+              description: description || 'Partner reported an error.',
+            });
+            return;
+          }
+
+          if (state === 'duplicate') {
+            enqueueToast({
+              type: 'success',
+              title: `${adLabel} already received by ${partnerName}`,
+              description: description || 'Partner marked the export as a duplicate.',
+            });
+            return;
+          }
+
+          enqueueToast({
+            type: 'success',
+            title: `${adLabel} received by ${partnerName}`,
+            description: description || 'Partner acknowledged the export.',
+          });
+        };
+
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          const jobId = docSnap.id;
+          const integrationKey =
+            normalizeKeyPart(
+              data.integration?.key ||
+                data.integrationKey ||
+                data.targetIntegration ||
+                data.partnerKey ||
+                data.partner ||
+                data.destination,
+            ) || '';
+          const partnerName = simplifyPartnerLabel(
+            data.integration?.label || data.integrationLabel,
+            integrationKey || data.targetIntegration,
+          );
+          const syncStatusMap = data.syncStatus || {};
+          const jobStatus = normalizeKeyPart(data.status);
+          const timestampCandidates = [
+            data.completedAt,
+            data.updatedAt,
+            data.startedAt,
+            data.requestedAt,
+            data.createdAt,
+          ];
+          let jobTimestamp = 0;
+          timestampCandidates.forEach((candidate) => {
+            const ms = getMillis(candidate);
+            if (ms > jobTimestamp) {
+              jobTimestamp = ms;
+            }
+          });
+          if (!jobTimestamp) {
+            jobTimestamp = getMillis(docSnap.updateTime) || getMillis(docSnap.createTime);
+          }
+
+          const approvedIds = Array.isArray(data.approvedAdIds)
+            ? data.approvedAdIds
+            : [];
+          const fallbackIds = Array.isArray(data.adIds) ? data.adIds : [];
+          const embeddedIds = Array.isArray(data.ads)
+            ? data.ads
+                .map((item) => (typeof item === 'string' ? item : item?.id))
+                .filter(Boolean)
+            : [];
+          const combinedIds = [...approvedIds, ...fallbackIds, ...embeddedIds];
+
+          combinedIds.forEach((rawId) => {
+            const adId = normalizeKeyPart(rawId);
+            if (!adId) return;
+            const rawEntry = syncStatusMap[rawId] || syncStatusMap[adId] || {};
+            let state = normalizeKeyPart(rawEntry.state);
+            let message = normalizeDisplayString(rawEntry.message);
+            if (!state) {
+              if (jobStatus === 'pending' || jobStatus === 'processing') {
+                state = 'sent';
+              } else if (jobStatus === 'failed') {
+                state = 'error';
+                if (!message) {
+                  message = normalizeDisplayString(data.summary?.message) || 'Export failed';
+                }
+              }
+            }
+            if (!state) {
+              return;
+            }
+            const normalizedState = state.toLowerCase();
+            const entry = {
+              state: normalizedState,
+              message,
+              jobId,
+              jobTimestamp,
+              partnerName,
+            };
+            const existing = aggregated[adId];
+            if (!existing || (existing.jobTimestamp || 0) <= jobTimestamp) {
+              aggregated[adId] = entry;
+            }
+          });
+        });
+
+        const aggregatedEntries = Object.entries(aggregated);
+
+        setAdSyncStatus((prev) => {
+          if (snapshot.empty) {
+            if (Object.keys(prev).length === 0) {
+              return prev;
+            }
+            return {};
+          }
+
+          const next = {};
+          let shouldUpdate = false;
+
+          aggregatedEntries.forEach(([adId, entry]) => {
+            next[adId] = entry;
+            const prevEntry = prev[adId];
+            const stateChanged =
+              !prevEntry || prevEntry.jobId !== entry.jobId || prevEntry.state !== entry.state;
+            if (
+              stateChanged ||
+              prevEntry?.message !== entry.message ||
+              prevEntry?.partnerName !== entry.partnerName ||
+              prevEntry?.jobTimestamp !== entry.jobTimestamp
+            ) {
+              shouldUpdate = true;
+            }
+            if (stateChanged) {
+              triggerToastForEntry(adId, entry, { skip: isInitialLoad });
+            }
+          });
+
+          const prevKeys = Object.keys(prev);
+          if (!shouldUpdate) {
+            if (prevKeys.length !== aggregatedEntries.length) {
+              shouldUpdate = true;
+            } else {
+              for (const key of prevKeys) {
+                if (!next[key]) {
+                  shouldUpdate = true;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (!shouldUpdate) {
+            return prev;
+          }
+
+          return next;
+        });
+      },
+      (error) => {
+        console.error('Failed to subscribe to export job status', error);
+      },
+    );
+
+    return () => unsubscribe();
+  }, [allowPublicListeners, groupId, enqueueToast]);
+
   const handleDownloadBrief = useCallback(() => {
     if (
       !recipePreviewRef.current ||
@@ -3334,6 +3804,66 @@ useEffect(() => {
   const reviewMenuButtonAriaLabel = hasUnreadHelpdesk
     ? 'Open review actions menu (unread helpdesk messages)'
     : 'Open review actions menu';
+
+  const toastVariantStyles = {
+    success: {
+      container:
+        'border-emerald-200 bg-white/95 text-emerald-900 shadow-lg backdrop-blur dark:border-emerald-500/40 dark:bg-slate-900/90 dark:text-emerald-200',
+      iconBg: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-200',
+      Icon: FiCheckCircle,
+    },
+    error: {
+      container:
+        'border-red-200 bg-white/95 text-red-900 shadow-lg backdrop-blur dark:border-red-500/40 dark:bg-slate-900/90 dark:text-red-200',
+      iconBg: 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-200',
+      Icon: FiAlertCircle,
+    },
+    info: {
+      container:
+        'border-indigo-200 bg-white/95 text-indigo-900 shadow-lg backdrop-blur dark:border-indigo-500/40 dark:bg-slate-900/90 dark:text-indigo-200',
+      iconBg: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-200',
+      Icon: FiCheckCircle,
+    },
+  };
+
+  const toastElements = (
+    <div className="pointer-events-none fixed top-4 right-4 z-[1100] flex w-full max-w-xs flex-col gap-3 sm:max-w-sm">
+      {syncToasts.map((toast) => {
+        const variant = toastVariantStyles[toast.type] || toastVariantStyles.info;
+        const Icon = variant.Icon;
+        return (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto overflow-hidden rounded-xl border ${variant.container}`}
+            role="status"
+            aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+          >
+            <div className="flex items-start gap-3 p-4">
+              <span
+                className={`mt-0.5 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${variant.iconBg}`}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">{toast.title}</p>
+                {toast.description ? (
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{toast.description}</p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => removeToast(toast.id)}
+                className="inline-flex flex-shrink-0 items-center rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-gray-300 dark:hover:bg-white/10"
+                aria-label="Dismiss notification"
+              >
+                <FiX className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
@@ -3986,10 +4516,23 @@ useEffect(() => {
 
   const approveAllPending = async () => {
     const pendingEntries = [];
+    const pendingDocIds = new Set();
+
+    const collectDocIds = (assets, fallbackAd) => {
+      const candidates = Array.isArray(assets) && assets.length > 0 ? assets : fallbackAd ? [fallbackAd] : [];
+      candidates.forEach((asset) => {
+        const docId = getAssetDocumentId(asset);
+        if (docId) {
+          pendingDocIds.add(docId);
+        }
+      });
+    };
+
     reviewAds.forEach((ad, index) => {
       const { statusValue, statusAssets } = buildStatusMeta(ad, index);
       if (statusValue === 'pending') {
         pendingEntries.push({ ad, assets: statusAssets, index });
+        collectDocIds(statusAssets, ad);
       }
     });
 
@@ -4001,6 +4544,8 @@ useEffect(() => {
         skipAdvance: true,
       });
     }
+
+    return Array.from(pendingDocIds);
   };
 
   const handleFinalizeReview = async (approvePending = false) => {
@@ -4011,9 +4556,74 @@ useEffect(() => {
 
     setFinalizeProcessing(true);
     try {
+      let autoApprovedDocIds = [];
       if (approvePending) {
-        await approveAllPending();
+        autoApprovedDocIds = await approveAllPending();
       }
+
+      const approvedDocIdSet = new Set(autoApprovedDocIds.filter(Boolean));
+      const appendDocId = (asset) => {
+        if (!asset) return;
+        const docId = getAssetDocumentId(asset);
+        if (docId) {
+          approvedDocIdSet.add(docId);
+        }
+      };
+
+      reviewAds.forEach((ad, index) => {
+        const { statusValue, statusAssets } = buildStatusMeta(ad, index);
+        if (statusValue === 'approve') {
+          if (Array.isArray(statusAssets) && statusAssets.length > 0) {
+            statusAssets.forEach(appendDocId);
+          } else {
+            appendDocId(ad);
+          }
+        }
+      });
+
+      const approvedAdIds = Array.from(approvedDocIdSet);
+      const { reviewUrl: detailUrl, adGroupUrl } = buildDetailLinks();
+
+      const timestamp = serverTimestamp();
+      const jobBrandCode = normalizeKeyPart(groupBrandCode || brandCode || '');
+      const jobGroupDesc =
+        normalizeKeyPart(adGroupDisplayName || '') ||
+        normalizeKeyPart(groupId ? `Ad Group ${groupId}` : '');
+
+      const jobMetadata = {
+        source: 'review-finalize',
+        totalAds: reviewAds.length,
+      };
+      if (detailUrl) {
+        jobMetadata.reviewUrl = detailUrl;
+      }
+      if (adGroupUrl) {
+        jobMetadata.adGroupUrl = adGroupUrl;
+      }
+
+      const exportJobPayload = {
+        adGroupId: groupId,
+        adGroupName: adGroupDisplayName || '',
+        brandCode: jobBrandCode,
+        groupDesc: jobGroupDesc,
+        adIds: approvedAdIds,
+        approvedAdIds,
+        targetEnv: DEFAULT_EXPORT_TARGET_ENV,
+        targetIntegration: DEFAULT_EXPORT_TARGET_INTEGRATION,
+        integrationKey: DEFAULT_EXPORT_TARGET_INTEGRATION,
+        status: 'pending',
+        triggeredBy: reviewerIdentifier || '',
+        createdBy: reviewerIdentifier || '',
+        createdAt: timestamp,
+        requestedAt: timestamp,
+        metadata: jobMetadata,
+        counts: {
+          approved: approvedAdIds.length,
+          total: reviewAds.length,
+        },
+      };
+
+      await addDoc(collection(db, 'exportJobs'), exportJobPayload);
 
       const updateData = {
         status: 'reviewed',
@@ -4023,10 +4633,8 @@ useEffect(() => {
 
       await updateDoc(doc(db, 'adGroups', groupId), updateData);
 
-      const { reviewUrl: detailUrl, adGroupUrl } = buildDetailLinks();
-
       await notifySlackStatusChange({
-        brandCode: groupBrandCode || brandCode || '',
+        brandCode: jobBrandCode || '',
         adGroupId: groupId,
         adGroupName: adGroupDisplayName,
         status: 'reviewed',
@@ -4126,13 +4734,20 @@ useEffect(() => {
     (started && !firstAdLoaded) ||
     ((reviewVersion === 2 || reviewVersion === 3) && !recipesLoaded)
   ) {
-    return <LoadingOverlay />;
+    return (
+      <>
+        {toastElements}
+        <LoadingOverlay />
+      </>
+    );
   }
 
 
   if (!started && reviewVersion !== 2) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+      <>
+        {toastElements}
+        <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
         {timedOut && (
           <p className="text-red-600">Review timed out due to inactivity.</p>
         )}
@@ -4202,27 +4817,36 @@ useEffect(() => {
         </div>
         {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
         {showCopyModal && renderCopyModal()}
-      </div>
+        </div>
+      </>
     );
   }
 
   if (reviewVersion === 3 && (!recipes || recipes.length === 0)) {
     return (
-      <div className="text-center mt-10">No briefs assigned to your account.</div>
+      <>
+        {toastElements}
+        <div className="text-center mt-10">No briefs assigned to your account.</div>
+      </>
     );
   }
 
   if (reviewVersion !== 3 && (!ads || ads.length === 0)) {
     return (
-      <div className="text-center mt-10">
-        {hasPending ? 'ads are pending' : 'No ads assigned to your account.'}
-      </div>
+      <>
+        {toastElements}
+        <div className="text-center mt-10">
+          {hasPending ? 'ads are pending' : 'No ads assigned to your account.'}
+        </div>
+      </>
     );
   }
 
   if (pendingOnly) {
     return (
-      <div className="flex flex-col items-center justify-center space-y-4 text-center min-h-screen">
+      <>
+        {toastElements}
+        <div className="flex flex-col items-center justify-center space-y-4 text-center min-h-screen">
           {reviewLogoUrl && (
             <OptimizedImage
               pngUrl={reviewLogoUrl}
@@ -4236,13 +4860,15 @@ useEffect(() => {
         <h1 className="text-2xl font-bold">Ads Pending Review</h1>
         <p className="text-lg">We'll notify you when your ads are ready.</p>
         {showCopyModal && renderCopyModal()}
-      </div>
+        </div>
+      </>
     );
   }
 
 
   return (
     <div className="relative flex flex-col items-center justify-center space-y-4 min-h-screen">
+      {toastElements}
       {showFinalizeModal && (
         <Modal>
           <div className="flex flex-col gap-4">
@@ -5092,6 +5718,9 @@ useEffect(() => {
                   if (isMobile) {
                     const assetCount = sortedAssets.length;
                     const statusLabel = statusLabelMap[statusValue] || statusValue;
+                    const syncStatusBadge = renderSyncStatusBadge(statusAssets, {
+                      size: 'compact',
+                    });
 
                     return (
                       <div
@@ -5129,6 +5758,7 @@ useEffect(() => {
                                 style={statusDotStyles[statusValue] || statusDotStyles.pending}
                               />
                               <span className="font-medium">{statusLabel}</span>
+                              {syncStatusBadge}
                             </div>
                           </div>
                           <div
@@ -5322,6 +5952,8 @@ useEffect(() => {
                     );
                   }
 
+                  const desktopSyncStatusBadge = renderSyncStatusBadge(statusAssets);
+
                   return (
                     <div
                       key={cardKey}
@@ -5442,6 +6074,7 @@ useEffect(() => {
                                 ))}
                               </select>
                             </div>
+                            {desktopSyncStatusBadge}
                           </div>
                           {showEditButton && (
                             <button
