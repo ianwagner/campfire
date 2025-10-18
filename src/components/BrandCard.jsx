@@ -1,14 +1,13 @@
 import React from 'react';
 import OptimizedImage from './OptimizedImage.jsx';
-import useSubscriptionPlans from '../useSubscriptionPlans';
 import getPrimaryLogoUrl from '../utils/getPrimaryLogoUrl.js';
 
 const BrandCard = ({ brand }) => {
   const logo = getPrimaryLogoUrl(brand.logos) || brand.logoUrl || null;
-  const { plans } = useSubscriptionPlans();
-  const planName = plans.find((p) => p.id === brand.subscriptionPlanId)?.name || 'No Plan';
+  const name = brand.name || brand.displayName || brand.code;
+
   return (
-    <div className="border rounded shadow bg-white dark:bg-[var(--dark-sidebar-bg)] overflow-hidden text-center">
+    <div className="border rounded shadow bg-white dark:bg-[var(--dark-sidebar-bg)] overflow-hidden">
       {logo && (
         <OptimizedImage
           pngUrl={logo}
@@ -16,19 +15,12 @@ const BrandCard = ({ brand }) => {
           className="w-full h-32 object-contain border-b border-gray-200 dark:border-gray-600 p-4 bg-white dark:bg-white"
         />
       )}
-        <p className="p-2 font-medium text-gray-700 dark:text-gray-300 mb-0">{brand.code}</p>
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          {planName}
+      <div className="p-4 text-center">
+        <p className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-1">{name}</p>
+        <p className="text-sm uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-0">
+          {brand.code}
         </p>
-        <p
-          className={`pb-2 text-sm ${
-            brand.credits < 0
-              ? 'text-red-600 dark:text-red-400'
-              : 'text-gray-600 dark:text-gray-300'
-          }`}
-        >
-          {brand.credits} credits
-        </p>
+      </div>
     </div>
   );
 };
