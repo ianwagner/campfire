@@ -3371,6 +3371,31 @@ useEffect(() => {
     return counts;
   }, [reviewAds, buildStatusMeta]);
 
+  const canFinalizeReview = useMemo(() => {
+    if (isGroupReviewed) {
+      return false;
+    }
+    if (!groupId) {
+      return false;
+    }
+    if (!Array.isArray(reviewAds) || reviewAds.length === 0) {
+      return false;
+    }
+    if (initialStatus === 'done') {
+      return false;
+    }
+    if (isPublicReviewer) {
+      return false;
+    }
+    return true;
+  }, [
+    groupId,
+    initialStatus,
+    isGroupReviewed,
+    isPublicReviewer,
+    reviewAds,
+  ]);
+
   const adSyncMetaByDocId = useMemo(() => {
     const map = {};
     reviewAds.forEach((ad, index) => {
@@ -4701,7 +4726,7 @@ useEffect(() => {
   };
 
   const openFinalizeModal = () => {
-    if (finalizeProcessing || !groupId) return;
+    if (finalizeProcessing || !groupId || !canFinalizeReview) return;
     const pendingCount = reviewStatusCounts?.pending ?? 0;
     setShowFinalizeModal(pendingCount > 0 ? 'pending' : 'confirm');
   };
@@ -4734,6 +4759,10 @@ useEffect(() => {
           Reviewed
         </span>
       );
+    }
+
+    if (!canFinalizeReview) {
+      return null;
     }
 
     const disabled = finalizeProcessing || submitting || !groupId;
