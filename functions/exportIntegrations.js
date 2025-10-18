@@ -37,6 +37,78 @@ export function resolveAssetUrl(adData = {}) {
   return '';
 }
 
+function looksLikeFolderPath(pathname = '') {
+  if (!pathname) return true;
+  const trimmed = pathname.replace(/\/+$/, '');
+  if (!trimmed) return true;
+  return false;
+}
+
+function hasFileLikeSegment(pathname = '', searchParams = new URLSearchParams()) {
+  const trimmed = pathname.replace(/\/+$/, '');
+  const segments = trimmed.split('/').filter(Boolean);
+  if (segments.length === 0) {
+    return ['alt', 'token', 'download', 'media', 'id'].some((key) => searchParams.has(key));
+  }
+
+  const lastSegment = segments[segments.length - 1];
+  if (lastSegment.includes('.')) {
+    return true;
+  }
+
+  return ['alt', 'token', 'download', 'media', 'id'].some((key) => searchParams.has(key));
+}
+
+function isDisallowedDriveUrl(url) {
+  const host = url.hostname.toLowerCase();
+  if (!host.includes('drive.google.com')) {
+    return false;
+  }
+  const pathname = url.pathname.toLowerCase();
+  if (pathname.includes('/folders/')) {
+    return true;
+  }
+  if (pathname.endsWith('/folderview')) {
+    return true;
+  }
+  if (pathname.includes('/file/d/')) {
+    const exportParam = (url.searchParams.get('export') || '').toLowerCase();
+    if (exportParam !== 'download') {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function validateAssetUrl(value) {
+  const normalized = normalizeString(value);
+  if (!normalized) {
+    return { valid: false, reason: 'Missing asset URL', url: '' };
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(normalized);
+  } catch (err) {
+    return { valid: false, reason: 'Invalid asset URL.', url: normalized };
+  }
+
+  const protocol = parsed.protocol.toLowerCase();
+  if (!['http:', 'https:'].includes(protocol)) {
+    return { valid: false, reason: 'Invalid asset URL.', url: normalized };
+  }
+
+  if (isDisallowedDriveUrl(parsed)) {
+    return { valid: false, reason: 'Invalid asset URL.', url: normalized };
+  }
+
+  if (!hasFileLikeSegment(parsed.pathname, parsed.searchParams) || looksLikeFolderPath(parsed.pathname)) {
+    return { valid: false, reason: 'Invalid asset URL.', url: normalized };
+  }
+
+  return { valid: true, reason: '', url: normalized };
+}
+
 const compassIntegration = {
   key: 'compass',
   label: 'Compass AdLog',
@@ -125,20 +197,14 @@ const compassIntegration = {
       errors.push('Missing brandCode');
     }
 
-    const urlToValidate = normalizeString(assetUrl) || resolveAssetUrl(adData);
-    if (!urlToValidate) {
-      errors.push('Missing assetUrl');
-    } else {
-      try {
-        new URL(urlToValidate);
-      } catch (err) {
-        errors.push('Invalid assetUrl');
-      }
+    const { valid, reason, url } = validateAssetUrl(assetUrl || resolveAssetUrl(adData));
+    if (!valid) {
+      errors.push(reason);
     }
 
     return {
       errors,
-      assetUrl: urlToValidate,
+      assetUrl: url,
     };
   },
   aliases: ['adlog'],

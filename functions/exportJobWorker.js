@@ -1,6 +1,6 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import admin from 'firebase-admin';
-import { getIntegration, resolveAssetUrl } from './exportIntegrations.js';
+import { getIntegration, resolveAssetUrl, validateAssetUrl } from './exportIntegrations.js';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -239,13 +239,10 @@ export const processExportJob = onDocumentCreated('exportJobs/{jobId}', async (e
           }
         }
 
-        if (!assetUrl) {
-          validationErrors.push('Missing assetUrl');
-        } else {
-          try {
-            new URL(assetUrl);
-          } catch (err) {
-            validationErrors.push('Invalid assetUrl');
+        const { valid: assetUrlValid, reason: assetUrlError, url: normalizedAssetUrl } = validateAssetUrl(assetUrl);
+        if (!assetUrlValid) {
+          if (assetUrlError && !validationErrors.includes(assetUrlError)) {
+            validationErrors.push(assetUrlError);
           }
         }
 
@@ -253,7 +250,10 @@ export const processExportJob = onDocumentCreated('exportJobs/{jobId}', async (e
         for (const field of requiredFields) {
           const value = field === 'assetUrl' ? assetUrl : resolveRequiredFieldValue(field, adData, jobData);
           if (!normalizeString(value)) {
-            validationErrors.push(`Missing ${field}`);
+            const missingMessage = field === 'assetUrl' ? 'Missing asset URL' : `Missing ${field}`;
+            if (!validationErrors.includes(missingMessage)) {
+              validationErrors.push(missingMessage);
+            }
           }
         }
 
@@ -261,6 +261,7 @@ export const processExportJob = onDocumentCreated('exportJobs/{jobId}', async (e
           state = 'error';
           message = validationErrors.join('; ');
         } else {
+          assetUrl = normalizedAssetUrl || assetUrl;
           payload = integration.buildPayload
             ? await integration.buildPayload({ adData, jobData, jobId, assetUrl, integration })
             : null;
