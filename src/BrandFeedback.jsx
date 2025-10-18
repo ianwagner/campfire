@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  addDoc,
   collection,
   doc,
   getDoc,
@@ -72,6 +73,22 @@ const flattenRichText = (value) => {
   return '';
 };
 
+const escapeHtml = (value) =>
+  String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const toHtmlParagraphs = (value) =>
+  String(value || '')
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `<p>${escapeHtml(line)}</p>`)
+    .join('');
+
 const toDateValue = (value) => {
   if (!value) return null;
   if (value instanceof Date) return value;
@@ -97,12 +114,25 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
   const [summaryUpdatedAt, setSummaryUpdatedAt] = useState(null);
   const [updatingSummary, setUpdatingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState('');
+  const [noteSuggestion, setNoteSuggestion] = useState(null);
+  const [noteSuggestionLoading, setNoteSuggestionLoading] = useState(false);
+  const [savingSuggestedNote, setSavingSuggestedNote] = useState(false);
+  const [noteSuggestionError, setNoteSuggestionError] = useState('');
+  const [noteSuggestionMessage, setNoteSuggestionMessage] = useState('');
 
   const OPENAI_PROXY_URL = useMemo(
     () =>
       `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/openaiProxy`,
     [],
   );
+
+  useEffect(() => {
+    setNoteSuggestion(null);
+    setNoteSuggestionError('');
+    setNoteSuggestionMessage('');
+    setNoteSuggestionLoading(false);
+    setSavingSuggestedNote(false);
+  }, [brandId]);
 
   useEffect(() => {
     if (!brandId) {
@@ -315,9 +345,132 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
       .join('\n\n');
   }, [entries]);
 
+  const generateNoteSuggestion = useCallback(
+    async (summaryText, digestText) => {
+      if (!summaryText) {
+        setNoteSuggestion(null);
+        setNoteSuggestionLoading(false);
+        return;
+      }
+      setNoteSuggestion(null);
+      setNoteSuggestionMessage('');
+      setNoteSuggestionError('');
+      setNoteSuggestionLoading(true);
+      try {
+        const brandLabel = brandName || brandCode || 'this brand';
+        const notePrompt =
+          `You are a marketing project assistant creating an internal brand note for ${brandLabel}.\n` +
+          'Use the client feedback summary and raw details below to capture durable guardrails, preferences, or next steps the creative team should remember.\n' +
+          'Focus on insights that will stay relevant and be helpful to future teammates. Provide a concise title and 2-4 bullet points or short paragraphs.\n' +
+          'Respond with strict JSON in the shape {"title": string, "bodyHtml": string}. The bodyHtml must be sanitized HTML using <p>, <ul>, <ol>, and <li> tags only. Do not include markdown fences or commentary.\n' +
+          '\nClient feedback summary:\n' +
+          `${summaryText}\n\n` +
+          'Raw feedback details:\n' +
+          `${digestText || '(not provided)'}`;
+
+        const response = await fetch(OPENAI_PROXY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: 'You write brand notes for marketing creative teams.' },
+              { role: 'user', content: notePrompt },
+            ],
+            temperature: 0.3,
+          }),
+        });
+        if (!response.ok) {
+          throw new Error(`OpenAI proxy request failed with ${response.status}`);
+        }
+        const data = await response.json();
+        const rawContent = data?.choices?.[0]?.message?.content?.trim() || '';
+        const parseJson = (value) => {
+          if (!value) return null;
+          try {
+            return JSON.parse(value);
+          } catch (err) {
+            const match = value.match(/\{[\s\S]*\}/);
+            if (match) {
+              try {
+                return JSON.parse(match[0]);
+              } catch (innerErr) {
+                return null;
+              }
+            }
+            return null;
+          }
+        };
+        const parsed = parseJson(rawContent);
+        if (!parsed || typeof parsed !== 'object') {
+          throw new Error('Invalid note suggestion format');
+        }
+        const title = typeof parsed.title === 'string' ? parsed.title.trim() : '';
+        let bodyHtml = '';
+        if (typeof parsed.bodyHtml === 'string' && parsed.bodyHtml.trim()) {
+          bodyHtml = parsed.bodyHtml.trim();
+        } else if (typeof parsed.body === 'string' && parsed.body.trim()) {
+          bodyHtml = parsed.body.trim();
+        }
+        if (!bodyHtml) {
+          bodyHtml = toHtmlParagraphs(summaryText);
+        } else if (!/<(p|ul|ol|li|br)\b/i.test(bodyHtml)) {
+          bodyHtml = toHtmlParagraphs(bodyHtml);
+        }
+        setNoteSuggestion({
+          title: title || 'Client feedback update',
+          bodyHtml,
+        });
+      } catch (err) {
+        console.error('Failed to generate brand note suggestion', err);
+        setNoteSuggestionError('Unable to recommend a brand note right now. Try updating the summary again later.');
+      } finally {
+        setNoteSuggestionLoading(false);
+      }
+    },
+    [OPENAI_PROXY_URL, brandCode, brandName],
+  );
+
+  const handleSaveSuggestedNote = useCallback(async () => {
+    if (!noteSuggestion) return;
+    if (!brandId) {
+      setNoteSuggestionError('Cannot save note without a brand ID.');
+      return;
+    }
+    setSavingSuggestedNote(true);
+    setNoteSuggestionError('');
+    setNoteSuggestionMessage('');
+    try {
+      const payload = {
+        title: noteSuggestion.title?.trim() || 'Client feedback update',
+        body: noteSuggestion.bodyHtml?.trim() || toHtmlParagraphs(summary || ''),
+        tags: ['client feedback'],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+      await addDoc(collection(db, 'brands', brandId, 'notes'), payload);
+      setNoteSuggestion(null);
+      setNoteSuggestionMessage('Note saved to brand notes.');
+    } catch (err) {
+      console.error('Failed to save recommended brand note', err);
+      setNoteSuggestionError('Failed to save the recommended note. Please try again.');
+    } finally {
+      setSavingSuggestedNote(false);
+    }
+  }, [brandId, noteSuggestion, summary]);
+
+  const handleDismissSuggestedNote = useCallback(() => {
+    setNoteSuggestion(null);
+    setNoteSuggestionError('');
+  }, []);
+
   const handleUpdateSummary = useCallback(async () => {
     if (updatingSummary) return;
     setSummaryError('');
+    setNoteSuggestion(null);
+    setNoteSuggestionError('');
+    setNoteSuggestionMessage('');
+    setNoteSuggestionLoading(false);
     if (!entries.length) {
       const emptySummary = 'No client feedback available yet.';
       setSummary(emptySummary);
@@ -378,6 +531,7 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
       const now = new Date();
       setSummary(raw);
       setSummaryUpdatedAt(now);
+      generateNoteSuggestion(raw, feedbackDigest);
     } catch (err) {
       console.error('Failed to update brand feedback summary', err);
       setSummaryError('Failed to update summary. Please try again.');
@@ -391,6 +545,7 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
     brandName,
     entries,
     formatFeedbackForSummary,
+    generateNoteSuggestion,
     summary,
     updatingSummary,
   ]);
@@ -440,6 +595,62 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
               No summary yet. Click “Update summary” to generate one.
             </p>
           )}
+          {noteSuggestionMessage ? (
+            <p className="mt-4 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+              {noteSuggestionMessage}
+            </p>
+          ) : null}
+          {noteSuggestionLoading ? (
+            <div className="mt-4 rounded-xl border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-300">
+              Preparing a recommended brand note from the latest summary…
+            </div>
+          ) : null}
+          {noteSuggestion ? (
+            <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 shadow-sm dark:border-gray-700 dark:bg-[var(--dark-sidebar)] dark:text-gray-200">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Recommended brand note
+                  </p>
+                  {noteSuggestion.title ? (
+                    <h3 className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
+                      {noteSuggestion.title}
+                    </h3>
+                  ) : null}
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button
+                    type="button"
+                    variant="accent"
+                    size="sm"
+                    onClick={handleSaveSuggestedNote}
+                    disabled={savingSuggestedNote || !brandId}
+                  >
+                    {savingSuggestedNote ? 'Saving…' : 'Save'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="neutral"
+                    size="sm"
+                    onClick={handleDismissSuggestedNote}
+                    disabled={savingSuggestedNote}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+              <div
+                className="prose prose-sm max-w-none text-gray-700 dark:text-gray-200 dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: noteSuggestion.bodyHtml }}
+              />
+              {noteSuggestionError ? (
+                <p className="text-sm text-red-600">{noteSuggestionError}</p>
+              ) : null}
+            </div>
+          ) : null}
+          {!noteSuggestion && noteSuggestionError && !noteSuggestionLoading ? (
+            <p className="mt-4 text-sm text-red-600">{noteSuggestionError}</p>
+          ) : null}
           {summaryError ? (
             <p className="mt-3 text-sm text-red-600">{summaryError}</p>
           ) : null}
