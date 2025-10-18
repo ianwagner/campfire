@@ -783,6 +783,9 @@ const Review = forwardRef(
   const recipePreviewRef = useRef(null);
   const [statusBarPinned, setStatusBarPinned] = useState(false);
   const [toolbarOffset, setToolbarOffset] = useState(0);
+  const safeToolbarOffset = Number.isFinite(toolbarOffset)
+    ? Math.max(0, toolbarOffset)
+    : 0;
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -4458,11 +4461,7 @@ useEffect(() => {
                   statusBarPinned ? 'mt-0' : 'mt-2',
                 )}
                 style={{
-                  top: statusBarPinned
-                    ? 0
-                    : toolbarOffset
-                      ? `${toolbarOffset}px`
-                      : 0,
+                  top: safeToolbarOffset,
                 }}
               >
                 <div
