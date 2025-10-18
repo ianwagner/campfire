@@ -33,6 +33,7 @@ function uniqueStringArray(values) {
 function resolveIntegrationKey(jobData = {}) {
   return (
     normalizeString(jobData.integrationKey) ||
+    normalizeString(jobData.targetIntegration) ||
     normalizeString(jobData.partnerKey) ||
     normalizeString(jobData.partner) ||
     normalizeString(jobData.destination)

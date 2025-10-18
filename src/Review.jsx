@@ -75,6 +75,39 @@ import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
 
+const resolveEnvValue = (key, fallback = '') => {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    const value = import.meta.env[key];
+    if (value !== undefined) {
+      return value;
+    }
+  }
+  return fallback;
+};
+
+const DEFAULT_EXPORT_TARGET_ENV = (() => {
+  const raw = `${resolveEnvValue('VITE_EXPORT_TARGET_ENV', resolveEnvValue('MODE', ''))}`
+    .trim()
+    .toLowerCase();
+
+  if (raw.startsWith('prod')) {
+    return 'prod';
+  }
+
+  if (raw.startsWith('stage')) {
+    return 'staging';
+  }
+
+  return 'staging';
+})();
+
+const DEFAULT_EXPORT_TARGET_INTEGRATION = (() => {
+  const raw = `${resolveEnvValue('VITE_EXPORT_TARGET_INTEGRATION', 'compass')}`
+    .trim()
+    .toLowerCase();
+  return raw || 'compass';
+})();
+
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
@@ -3986,10 +4019,23 @@ useEffect(() => {
 
   const approveAllPending = async () => {
     const pendingEntries = [];
+    const pendingDocIds = new Set();
+
+    const collectDocIds = (assets, fallbackAd) => {
+      const candidates = Array.isArray(assets) && assets.length > 0 ? assets : fallbackAd ? [fallbackAd] : [];
+      candidates.forEach((asset) => {
+        const docId = getAssetDocumentId(asset);
+        if (docId) {
+          pendingDocIds.add(docId);
+        }
+      });
+    };
+
     reviewAds.forEach((ad, index) => {
       const { statusValue, statusAssets } = buildStatusMeta(ad, index);
       if (statusValue === 'pending') {
         pendingEntries.push({ ad, assets: statusAssets, index });
+        collectDocIds(statusAssets, ad);
       }
     });
 
@@ -4001,6 +4047,8 @@ useEffect(() => {
         skipAdvance: true,
       });
     }
+
+    return Array.from(pendingDocIds);
   };
 
   const handleFinalizeReview = async (approvePending = false) => {
@@ -4011,9 +4059,74 @@ useEffect(() => {
 
     setFinalizeProcessing(true);
     try {
+      let autoApprovedDocIds = [];
       if (approvePending) {
-        await approveAllPending();
+        autoApprovedDocIds = await approveAllPending();
       }
+
+      const approvedDocIdSet = new Set(autoApprovedDocIds.filter(Boolean));
+      const appendDocId = (asset) => {
+        if (!asset) return;
+        const docId = getAssetDocumentId(asset);
+        if (docId) {
+          approvedDocIdSet.add(docId);
+        }
+      };
+
+      reviewAds.forEach((ad, index) => {
+        const { statusValue, statusAssets } = buildStatusMeta(ad, index);
+        if (statusValue === 'approve') {
+          if (Array.isArray(statusAssets) && statusAssets.length > 0) {
+            statusAssets.forEach(appendDocId);
+          } else {
+            appendDocId(ad);
+          }
+        }
+      });
+
+      const approvedAdIds = Array.from(approvedDocIdSet);
+      const { reviewUrl: detailUrl, adGroupUrl } = buildDetailLinks();
+
+      const timestamp = serverTimestamp();
+      const jobBrandCode = normalizeKeyPart(groupBrandCode || brandCode || '');
+      const jobGroupDesc =
+        normalizeKeyPart(adGroupDisplayName || '') ||
+        normalizeKeyPart(groupId ? `Ad Group ${groupId}` : '');
+
+      const jobMetadata = {
+        source: 'review-finalize',
+        totalAds: reviewAds.length,
+      };
+      if (detailUrl) {
+        jobMetadata.reviewUrl = detailUrl;
+      }
+      if (adGroupUrl) {
+        jobMetadata.adGroupUrl = adGroupUrl;
+      }
+
+      const exportJobPayload = {
+        adGroupId: groupId,
+        adGroupName: adGroupDisplayName || '',
+        brandCode: jobBrandCode,
+        groupDesc: jobGroupDesc,
+        adIds: approvedAdIds,
+        approvedAdIds,
+        targetEnv: DEFAULT_EXPORT_TARGET_ENV,
+        targetIntegration: DEFAULT_EXPORT_TARGET_INTEGRATION,
+        integrationKey: DEFAULT_EXPORT_TARGET_INTEGRATION,
+        status: 'pending',
+        triggeredBy: reviewerIdentifier || '',
+        createdBy: reviewerIdentifier || '',
+        createdAt: timestamp,
+        requestedAt: timestamp,
+        metadata: jobMetadata,
+        counts: {
+          approved: approvedAdIds.length,
+          total: reviewAds.length,
+        },
+      };
+
+      await addDoc(collection(db, 'exportJobs'), exportJobPayload);
 
       const updateData = {
         status: 'reviewed',
@@ -4023,10 +4136,8 @@ useEffect(() => {
 
       await updateDoc(doc(db, 'adGroups', groupId), updateData);
 
-      const { reviewUrl: detailUrl, adGroupUrl } = buildDetailLinks();
-
       await notifySlackStatusChange({
-        brandCode: groupBrandCode || brandCode || '',
+        brandCode: jobBrandCode || '',
         adGroupId: groupId,
         adGroupName: adGroupDisplayName,
         status: 'reviewed',
