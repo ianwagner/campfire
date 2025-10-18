@@ -81,6 +81,7 @@ import diffWords from "./utils/diffWords";
 import Modal from "./components/Modal.jsx";
 import sortCopyCards from "./utils/sortCopyCards";
 import IconButton from "./components/IconButton.jsx";
+import Button from "./components/Button.jsx";
 import TabButton from "./components/TabButton.jsx";
 import Table from "./components/common/Table";
 import stripVersion from "./utils/stripVersion";
@@ -90,6 +91,9 @@ import FeedbackPanel from "./components/FeedbackPanel.jsx";
 import detectMissingRatios from "./utils/detectMissingRatios";
 import notifySlackStatusChange from "./utils/notifySlackStatusChange";
 import { getCopyLetter } from "./utils/copyLetter";
+import buildFeedbackEntries, {
+  buildFeedbackEntriesForGroup,
+} from "./utils/buildFeedbackEntries";
 
 const fileExt = (name) => {
   const idx = name.lastIndexOf(".");
@@ -135,6 +139,241 @@ const ExpandableText = ({ value, maxLength = 40, isLink = false }) => {
     </span>
   );
 };
+
+const createRenderCopyEditDiff = (meta = {}) =>
+  (recipeCode, edit, origOverride) => {
+    const metaKey = recipeCode ? String(recipeCode) : "";
+    const normalizedKey = metaKey.toLowerCase();
+    const recipeMeta =
+      (metaKey && meta[metaKey]) ||
+      (normalizedKey && meta[normalizedKey]) ||
+      null;
+    const baseCopy =
+      origOverride ??
+      recipeMeta?.copy ??
+      recipeMeta?.latestCopy ??
+      "";
+    if (!edit || edit === baseCopy) return null;
+    const diff = diffWords(baseCopy, edit);
+    return diff.map((p, i) => {
+      const text = p.text ?? p.value ?? "";
+      const type =
+        p.type ?? (p.added ? "added" : p.removed ? "removed" : "same");
+      const space = i < diff.length - 1 ? " " : "";
+      if (type === "removed")
+        return (
+          <span key={i} className="text-red-600 line-through">
+            {text}
+            {space}
+          </span>
+        );
+      if (type === "same") return text + space;
+      return (
+        <span key={i} className="text-green-600 italic">
+          {text}
+          {space}
+        </span>
+      );
+    });
+  };
+
+const flattenRichText = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((child) => flattenRichText(child)).join('');
+  }
+  if (React.isValidElement(value)) {
+    return flattenRichText(value.props?.children);
+  }
+  if (value && typeof value === 'object' && 'props' in value) {
+    return flattenRichText(value.props.children);
+  }
+  return '';
+};
+
+const summaryInlineTokenPattern = /\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^\)]+\)/;
+
+const renderInlineSummarySegments = (text, keyPrefix = 'segment') => {
+  if (!text) return [];
+  const nodes = [];
+  let remaining = text;
+  let index = 0;
+  while (remaining.length > 0) {
+    const matchIndex = remaining.search(summaryInlineTokenPattern);
+    if (matchIndex === -1) {
+      nodes.push(
+        <React.Fragment key={`${keyPrefix}-${index}`}>{remaining}</React.Fragment>,
+      );
+      break;
+    }
+    if (matchIndex > 0) {
+      const plain = remaining.slice(0, matchIndex);
+      nodes.push(
+        <React.Fragment key={`${keyPrefix}-${index}`}>{plain}</React.Fragment>,
+      );
+      index += 1;
+      remaining = remaining.slice(matchIndex);
+      continue;
+    }
+    const match = remaining.match(summaryInlineTokenPattern);
+    if (!match) break;
+    const token = match[0];
+    const nextIndex = index + 1;
+    if (token.startsWith('**')) {
+      const content = token.slice(2, -2);
+      nodes.push(
+        <strong key={`${keyPrefix}-${index}`}>{renderInlineSummarySegments(content, `${keyPrefix}-${index}-strong`)}</strong>,
+      );
+    } else if (token.startsWith('*')) {
+      const content = token.slice(1, -1);
+      nodes.push(
+        <em key={`${keyPrefix}-${index}`}>{renderInlineSummarySegments(content, `${keyPrefix}-${index}-em`)}</em>,
+      );
+    } else if (token.startsWith('`')) {
+      nodes.push(
+        <code
+          key={`${keyPrefix}-${index}`}
+          className="rounded bg-gray-100 px-1 py-0.5 font-mono text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-100"
+        >
+          {token.slice(1, -1)}
+        </code>,
+      );
+    } else if (token.startsWith('[')) {
+      const [, label, url] = token.match(/\[([^\]]+)\]\(([^)]+)\)/) || [];
+      const safeLabel = label || url || '';
+      nodes.push(
+        <a
+          key={`${keyPrefix}-${index}`}
+          href={url || '#'}
+          target="_blank"
+          rel="noreferrer"
+          className="text-[var(--accent-color)] underline"
+        >
+          {renderInlineSummarySegments(safeLabel, `${keyPrefix}-${index}-link`)}
+        </a>,
+      );
+    }
+    index = nextIndex;
+    remaining = remaining.slice(token.length);
+  }
+  return nodes;
+};
+
+const parseSummaryMarkdown = (raw = '') => {
+  const text = typeof raw === 'string' ? raw : String(raw || '');
+  if (!text.trim()) return [];
+  const lines = text.split(/\r?\n/);
+  const blocks = [];
+  let currentList = null;
+  const flushList = () => {
+    if (currentList) {
+      blocks.push(currentList);
+      currentList = null;
+    }
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList();
+      return;
+    }
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      flushList();
+      blocks.push({ type: 'heading', level: headingMatch[1].length, content: headingMatch[2].trim() });
+      return;
+    }
+    const quoteMatch = trimmed.match(/^>\s?(.*)$/);
+    if (quoteMatch) {
+      flushList();
+      blocks.push({ type: 'quote', content: quoteMatch[1].trim() });
+      return;
+    }
+    const dividerMatch = trimmed.replace(/\s+/g, '').match(/^([-*_])\1{2,}$/);
+    if (dividerMatch) {
+      flushList();
+      blocks.push({ type: 'divider' });
+      return;
+    }
+    const orderedMatch = trimmed.match(/^(\d+)[\.)]\s+(.*)$/);
+    if (orderedMatch) {
+      if (!currentList || currentList.kind !== 'ordered') {
+        flushList();
+        currentList = { type: 'list', kind: 'ordered', items: [] };
+      }
+      currentList.items.push(orderedMatch[2].trim());
+      return;
+    }
+    const bulletMatch = trimmed.match(/^([-*+])\s+(.*)$/);
+    if (bulletMatch) {
+      if (!currentList || currentList.kind !== 'bullet') {
+        flushList();
+        currentList = { type: 'list', kind: 'bullet', items: [] };
+      }
+      currentList.items.push(bulletMatch[2].trim());
+      return;
+    }
+    flushList();
+    blocks.push({ type: 'paragraph', content: trimmed });
+  });
+
+  flushList();
+  return blocks;
+};
+
+const renderSummaryBlocks = (blocks = []) =>
+  blocks.map((block, index) => {
+    if (!block) return null;
+    if (block.type === 'heading') {
+      const HeadingTag = block.level <= 2 ? 'h4' : 'h5';
+      return (
+        <HeadingTag
+          key={`summary-heading-${index}`}
+          className="text-sm font-semibold text-gray-900 dark:text-gray-100"
+        >
+          {renderInlineSummarySegments(block.content, `summary-heading-${index}`)}
+        </HeadingTag>
+      );
+    }
+    if (block.type === 'list') {
+      const ListTag = block.kind === 'ordered' ? 'ol' : 'ul';
+      return (
+        <ListTag
+          key={`summary-list-${index}`}
+          className={`${block.kind === 'ordered' ? 'list-decimal' : 'list-disc'} ml-5 space-y-1 text-sm text-gray-700 dark:text-gray-200`}
+        >
+          {(block.items || []).map((item, itemIndex) => (
+            <li key={`summary-list-${index}-${itemIndex}`}>
+              {renderInlineSummarySegments(item, `summary-list-${index}-${itemIndex}`)}
+            </li>
+          ))}
+        </ListTag>
+      );
+    }
+    if (block.type === 'quote') {
+      return (
+        <blockquote
+          key={`summary-quote-${index}`}
+          className="border-l-2 border-gray-200 pl-4 italic text-gray-600 dark:border-gray-700 dark:text-gray-300"
+        >
+          {renderInlineSummarySegments(block.content, `summary-quote-${index}`)}
+        </blockquote>
+      );
+    }
+    if (block.type === 'divider') {
+      return <hr key={`summary-divider-${index}`} className="border-gray-200 dark:border-gray-700" />;
+    }
+    return (
+      <p key={`summary-paragraph-${index}`} className="text-sm text-gray-700 dark:text-gray-200">
+        {renderInlineSummarySegments(block.content, `summary-paragraph-${index}`)}
+      </p>
+    );
+  }).filter(Boolean);
 
 const normalizeId = (value) =>
   String(value ?? "")
@@ -310,6 +549,10 @@ const AdGroupDetail = () => {
   const [showBrandAssets, setShowBrandAssets] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [feedback, setFeedback] = useState([]);
+  const [responses, setResponses] = useState([]);
+  const [feedbackScope, setFeedbackScope] = useState("current");
+  const [allFeedbackEntries, setAllFeedbackEntries] = useState([]);
+  const [allFeedbackLoading, setAllFeedbackLoading] = useState(false);
   const [tab, setTab] = useState("stats");
   const [blockerText, setBlockerText] = useState("");
   const [editingNotes, setEditingNotes] = useState(false);
@@ -324,6 +567,17 @@ const AdGroupDetail = () => {
   const [menuRecipe, setMenuRecipe] = useState(null);
   const [inspectRecipe, setInspectRecipe] = useState(null);
   const menuRef = useRef(null);
+  const allFeedbackLoadedRef = useRef(false);
+  const autoSummaryTriggeredRef = useRef(false);
+  const [feedbackSummary, setFeedbackSummary] = useState("");
+  const [feedbackSummaryUpdatedAt, setFeedbackSummaryUpdatedAt] = useState(null);
+  const [updatingFeedbackSummary, setUpdatingFeedbackSummary] = useState(false);
+  const [feedbackSummaryError, setFeedbackSummaryError] = useState("");
+  const OPENAI_PROXY_URL = useMemo(
+    () =>
+      `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/openaiProxy`,
+    [],
+  );
   let hasApprovedV2 = false;
   const countsRef = useRef(null);
   const slackStatusRef = useRef({
@@ -378,30 +632,58 @@ const AdGroupDetail = () => {
     return () => unsub();
   }, [id]);
 
-  const renderCopyEditDiff = (recipeCode, edit, origOverride) => {
-    const orig = origOverride ?? (recipesMeta[recipeCode]?.copy || "");
-    if (!edit || edit === orig) return null;
-    const diff = diffWords(orig, edit);
-    return diff.map((p, i) => {
-      const text = p.text ?? p.value ?? "";
-      const type = p.type ?? "same";
-      const space = i < diff.length - 1 ? " " : "";
-      if (type === "same") return text + space;
-      if (type === "removed")
-        return (
-          <span key={i} className="text-red-600 line-through">
-            {text}
-            {space}
-          </span>
-        );
-      return (
-        <span key={i} className="text-green-600 italic">
-          {text}
-          {space}
-        </span>
+  useEffect(() => {
+    if (!id) return;
+    const unsub = onSnapshot(
+      collection(db, 'adGroups', id, 'responses'),
+      (snap) => {
+        setResponses(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
+    );
+    return () => unsub();
+  }, [id]);
+
+  useEffect(() => {
+    if (!group) {
+      setFeedbackSummary('');
+      setFeedbackSummaryUpdatedAt(null);
+      return;
+    }
+    const summary =
+      typeof group.feedbackSummary === 'string' ? group.feedbackSummary : '';
+    setFeedbackSummary(summary);
+    const updatedAtValue = group.feedbackSummaryUpdatedAt;
+    if (updatedAtValue?.toDate) {
+      try {
+        setFeedbackSummaryUpdatedAt(updatedAtValue.toDate());
+      } catch (err) {
+        console.error('Failed to parse feedback summary timestamp', err);
+        setFeedbackSummaryUpdatedAt(null);
+      }
+      return;
+    }
+    if (updatedAtValue instanceof Date) {
+      setFeedbackSummaryUpdatedAt(updatedAtValue);
+      return;
+    }
+    if (typeof updatedAtValue === 'number') {
+      setFeedbackSummaryUpdatedAt(new Date(updatedAtValue));
+      return;
+    }
+    if (typeof updatedAtValue === 'string') {
+      const parsed = new Date(updatedAtValue);
+      setFeedbackSummaryUpdatedAt(
+        Number.isNaN(parsed.getTime()) ? null : parsed,
       );
-    });
-  };
+      return;
+    }
+    setFeedbackSummaryUpdatedAt(null);
+  }, [group]);
+
+  const renderCopyEditDiff = useMemo(
+    () => createRenderCopyEditDiff(recipesMeta),
+    [recipesMeta],
+  );
 
   const backPath = useMemo(() => {
     let base = "/";
@@ -457,7 +739,419 @@ const AdGroupDetail = () => {
     );
   }, [copyCards, modalCopies]);
 
+  const feedbackItems = useMemo(
+    () =>
+      buildFeedbackEntriesForGroup({
+        groupId: id,
+        groupName: group?.name || '',
+        feedback,
+        responses,
+        assets,
+        recipesMeta,
+        renderCopyEditDiff,
+      }),
+    [
+      id,
+      group?.name,
+      feedback,
+      responses,
+      assets,
+      recipesMeta,
+      renderCopyEditDiff,
+    ],
+  );
+
+  const canShowAllGroups = Boolean(group?.brandCode);
+  const displayedFeedbackEntries =
+    feedbackScope === 'all' ? allFeedbackEntries : feedbackItems;
+  const isFeedbackLoading =
+    feedbackScope === 'all' ? allFeedbackLoading : false;
+  const feedbackScopeOptions = canShowAllGroups
+    ? [
+        { value: 'current', label: 'This group' },
+        { value: 'all', label: 'All groups' },
+      ]
+    : [{ value: 'current', label: 'This group' }];
+
+  const summaryBlocks = useMemo(
+    () => (feedbackSummary ? parseSummaryMarkdown(feedbackSummary) : []),
+    [feedbackSummary],
+  );
+
+  const renderedSummary = useMemo(() => {
+    if (!feedbackSummary) return [];
+    const blocks = summaryBlocks.length
+      ? summaryBlocks
+      : [{ type: 'paragraph', content: feedbackSummary }];
+    return renderSummaryBlocks(blocks);
+  }, [feedbackSummary, summaryBlocks]);
+
+  const formatFeedbackForSummary = useCallback(() => {
+    if (!feedbackItems.length) return 'No client feedback available yet.';
+    const formatTimestamp = (value) => {
+      if (!value || !(value instanceof Date)) return '';
+      try {
+        return value.toLocaleString(undefined, { month: 'short', day: 'numeric' });
+      } catch (err) {
+        return '';
+      }
+    };
+    const cleanText = (value) => {
+      if (!value) return '';
+      if (typeof value === 'string') return value.trim();
+      return flattenRichText(value).trim();
+    };
+    const sanitizeLine = (value) => (value ? value.replace(/\s+/g, ' ').trim() : '');
+
+    return feedbackItems
+      .map((entry, entryIndex) => {
+        const headerParts = [];
+        if (entry.groupName) headerParts.push(`Group: ${entry.groupName}`);
+        if (entry.recipeCode) headerParts.push(`Recipe: ${entry.recipeCode}`);
+        if (entry.subtitle) headerParts.push(`Details: ${sanitizeLine(entry.subtitle)}`);
+        if (entry.adStatus) {
+          headerParts.push(`Status: ${entry.adStatus.replace(/_/g, ' ')}`);
+        }
+        const commentCount = Array.isArray(entry.commentList)
+          ? entry.commentList.length
+          : 0;
+        const copyEditCount = Array.isArray(entry.copyEditList)
+          ? entry.copyEditList.length
+          : 0;
+        if (commentCount) {
+          headerParts.push(`${commentCount} comment${commentCount === 1 ? '' : 's'}`);
+        }
+        if (copyEditCount) {
+          headerParts.push(`${copyEditCount} copy edit${copyEditCount === 1 ? '' : 's'}`);
+        }
+        const headerLabel = headerParts.length
+          ? headerParts.join(' | ')
+          : entry.title || `Entry ${entryIndex + 1}`;
+        const lines = [`Entry ${entryIndex + 1}: ${headerLabel}`];
+
+        const commentItems = Array.isArray(entry.commentList)
+          ? entry.commentList
+          : [];
+        commentItems.forEach((item) => {
+          if (!item?.text) return;
+          const detailParts = [];
+          if (item.assetLabel) detailParts.push(item.assetLabel);
+          if (item.updatedBy) detailParts.push(`by ${item.updatedBy}`);
+          const timestamp = formatTimestamp(item.updatedAt);
+          if (timestamp) detailParts.push(timestamp);
+          if (item.status) {
+            detailParts.push(`status: ${item.status.replace(/_/g, ' ')}`);
+          }
+          const detailString = detailParts.length ? ` (${detailParts.join(' • ')})` : '';
+          lines.push(`  - Comment${detailString}: ${sanitizeLine(item.text)}`);
+        });
+        if (!commentItems.length && entry.comment) {
+          lines.push(`  - Comment: ${sanitizeLine(entry.comment)}`);
+        }
+
+        const copyItems = Array.isArray(entry.copyEditList)
+          ? entry.copyEditList
+          : [];
+        copyItems.forEach((item) => {
+          const detailParts = [];
+          if (item.assetLabel) detailParts.push(item.assetLabel);
+          if (item.updatedBy) detailParts.push(`by ${item.updatedBy}`);
+          const timestamp = formatTimestamp(item.updatedAt);
+          if (timestamp) detailParts.push(timestamp);
+          if (item.status) {
+            detailParts.push(`status: ${item.status.replace(/_/g, ' ')}`);
+          }
+          const detailString = detailParts.length ? ` (${detailParts.join(' • ')})` : '';
+          const copyText = sanitizeLine(cleanText(item.text) || cleanText(item.diff));
+          if (copyText) {
+            lines.push(`  - Copy edit${detailString}: ${copyText}`);
+          } else {
+            lines.push(
+              `  - Copy edit${detailString}: Updated copy provided via diff.`,
+            );
+          }
+        });
+        if (!copyItems.length && entry.copyEdit) {
+          lines.push(`  - Copy edit: ${sanitizeLine(entry.copyEdit)}`);
+        }
+
+        return lines.join('\n');
+      })
+      .filter(Boolean)
+      .join('\n\n');
+  }, [feedbackItems]);
+
+  const handleUpdateSummary = useCallback(async () => {
+    if (updatingFeedbackSummary) return;
+    setFeedbackSummaryError('');
+    if (!feedbackItems.length) {
+      const emptySummary = 'No client feedback available yet.';
+      setFeedbackSummary(emptySummary);
+      const now = new Date();
+      setFeedbackSummaryUpdatedAt(now);
+      setUpdatingFeedbackSummary(true);
+      try {
+        await updateDoc(doc(db, 'adGroups', id), {
+          feedbackSummary: emptySummary,
+          feedbackSummaryUpdatedAt: serverTimestamp(),
+        });
+        setGroup((prev) =>
+          prev
+            ? {
+                ...prev,
+                feedbackSummary: emptySummary,
+                feedbackSummaryUpdatedAt: now,
+              }
+            : prev,
+        );
+      } catch (err) {
+        console.error('Failed to save empty feedback summary', err);
+        setFeedbackSummaryError('Failed to save summary. Please try again.');
+      } finally {
+        setUpdatingFeedbackSummary(false);
+      }
+      return;
+    }
+
+    setUpdatingFeedbackSummary(true);
+    try {
+      const feedbackDigest = formatFeedbackForSummary();
+      const existingSummary = feedbackSummary?.trim() || '';
+      const prompt =
+        `You are a marketing project assistant who maintains concise feedback summaries for creative work.\n` +
+        `Here is the current summary for ad group "${group?.name || id}":\n` +
+        `${existingSummary || '(no summary yet)'}\n\n` +
+        `Here are the latest client feedback notes that need to be reflected: \n${feedbackDigest}\n\n` +
+        'Update the summary so it accurately reflects the feedback above. Preserve helpful context from the existing summary—make only the minimal additions or edits needed instead of rewriting from scratch. ' +
+        'Return a polished Markdown summary limited to short bullet points (and optional brief follow-up sentences). Respond with the updated summary only.';
+
+      const response = await fetch(OPENAI_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'You summarize client feedback for marketing creative teams.' },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.4,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`OpenAI proxy request failed with ${response.status}`);
+      }
+      const data = await response.json();
+      const raw = data.choices?.[0]?.message?.content?.trim();
+      if (!raw) {
+        throw new Error('No summary returned from model');
+      }
+      await updateDoc(doc(db, 'adGroups', id), {
+        feedbackSummary: raw,
+        feedbackSummaryUpdatedAt: serverTimestamp(),
+      });
+      const now = new Date();
+      setFeedbackSummary(raw);
+      setFeedbackSummaryUpdatedAt(now);
+      setGroup((prev) =>
+        prev
+          ? { ...prev, feedbackSummary: raw, feedbackSummaryUpdatedAt: now }
+          : prev,
+      );
+    } catch (err) {
+      console.error('Failed to update feedback summary', err);
+      setFeedbackSummaryError('Failed to update summary. Please try again.');
+    } finally {
+      setUpdatingFeedbackSummary(false);
+    }
+  }, [
+    OPENAI_PROXY_URL,
+    feedbackItems,
+    feedbackSummary,
+    formatFeedbackForSummary,
+    group?.name,
+    id,
+    updatingFeedbackSummary,
+  ]);
+
+  useEffect(() => {
+    autoSummaryTriggeredRef.current = false;
+  }, [id]);
+
+  useEffect(() => {
+    if (autoSummaryTriggeredRef.current) return;
+    if (!group) return;
+    const hasExistingSummary =
+      Boolean(group.feedbackSummaryUpdatedAt) ||
+      Boolean((group.feedbackSummary || '').trim()) ||
+      Boolean(feedbackSummaryUpdatedAt) ||
+      Boolean((feedbackSummary || '').trim());
+    if (hasExistingSummary) return;
+    if (!feedbackItems.length) return;
+    if (updatingFeedbackSummary) return;
+    autoSummaryTriggeredRef.current = true;
+    void handleUpdateSummary();
+  }, [
+    feedbackItems.length,
+    feedbackSummary,
+    feedbackSummaryUpdatedAt,
+    group,
+    handleUpdateSummary,
+    updatingFeedbackSummary,
+  ]);
+
+  const loadAllFeedbackForBrand = useCallback(
+    async (signal) => {
+      if (!group?.brandCode) {
+        if (!signal?.aborted) {
+          setAllFeedbackEntries([]);
+          setAllFeedbackLoading(false);
+        }
+        return;
+      }
+      setAllFeedbackLoading(true);
+      try {
+        const groupsSnap = await getDocs(
+          query(
+            collection(db, 'adGroups'),
+            where('brandCode', '==', group.brandCode),
+          ),
+        );
+        if (signal?.aborted) return;
+        const groupDocs = groupsSnap.docs.map((docSnap) => ({
+          id: docSnap.id,
+          name: docSnap.data()?.name || '',
+        }));
+        const payloads = await Promise.all(
+          groupDocs.map(async (g) => {
+            try {
+              const [feedbackSnap, responsesSnap, assetsSnap, recipesSnap] =
+                await Promise.all([
+                  getDocs(collection(db, 'adGroups', g.id, 'feedback')),
+                  getDocs(collection(db, 'adGroups', g.id, 'responses')),
+                  getDocs(collection(db, 'adGroups', g.id, 'assets')),
+                  getDocs(collection(db, 'adGroups', g.id, 'recipes')),
+                ]);
+              if (signal?.aborted) {
+                return {
+                  groupId: g.id,
+                  groupName: g.name,
+                  feedback: [],
+                  responses: [],
+                  assets: [],
+                  recipesMeta: {},
+                };
+              }
+              const feedbackList = feedbackSnap.docs.map((d) => ({
+                id: d.id,
+                ...d.data(),
+              }));
+              const responsesList = responsesSnap.docs.map((d) => ({
+                id: d.id,
+                ...d.data(),
+              }));
+              const assetsList = assetsSnap.docs.map((d) => ({
+                id: d.id,
+                ...d.data(),
+              }));
+              const recipesMeta = {};
+              recipesSnap.docs.forEach((d) => {
+                const docData = d.data() || {};
+                const meta = docData.metadata || {};
+                recipesMeta[d.id] = {
+                  id: d.id,
+                  ...meta,
+                  copy: docData.copy || '',
+                  latestCopy: docData.latestCopy || '',
+                };
+              });
+              return {
+                groupId: g.id,
+                groupName: g.name,
+                feedback: feedbackList,
+                responses: responsesList,
+                assets: assetsList,
+                recipesMeta,
+                renderCopyEditDiff: createRenderCopyEditDiff(recipesMeta),
+              };
+            } catch (err) {
+              console.error('Failed to load feedback for group', g.id, err);
+              return {
+                groupId: g.id,
+                groupName: g.name,
+                feedback: [],
+                responses: [],
+                assets: [],
+                recipesMeta: {},
+              };
+            }
+          }),
+        );
+        if (signal?.aborted) return;
+        const combined = buildFeedbackEntries(payloads);
+        const uniqueMap = new Map();
+        combined.forEach((entry) => {
+          if (!entry || !entry.id) return;
+          if (!uniqueMap.has(entry.id)) {
+            uniqueMap.set(entry.id, entry);
+            return;
+          }
+          const prev = uniqueMap.get(entry.id);
+          const prevTime = prev.updatedAt?.getTime?.() || 0;
+          const nextTime = entry.updatedAt?.getTime?.() || 0;
+          if (nextTime > prevTime) {
+            uniqueMap.set(entry.id, entry);
+          }
+        });
+        const list = Array.from(uniqueMap.values());
+        list.sort(
+          (a, b) =>
+            (b.updatedAt?.getTime?.() || 0) - (a.updatedAt?.getTime?.() || 0),
+        );
+        setAllFeedbackEntries(list);
+      } catch (err) {
+        console.error('Failed to load cross-group feedback', err);
+        if (!signal?.aborted) setAllFeedbackEntries([]);
+      } finally {
+        if (!signal?.aborted) setAllFeedbackLoading(false);
+      }
+    },
+    [group?.brandCode],
+  );
+
+  useEffect(() => {
+    allFeedbackLoadedRef.current = false;
+  }, [group?.brandCode, feedback.length, responses.length]);
+
+  useEffect(() => {
+    if (!canShowAllGroups && feedbackScope === 'all') {
+      setFeedbackScope('current');
+    }
+  }, [canShowAllGroups, feedbackScope]);
+
+  useEffect(() => {
+    if (feedbackScope !== 'all') return;
+    const controller = new AbortController();
+    if (!allFeedbackLoadedRef.current) {
+      allFeedbackLoadedRef.current = true;
+      loadAllFeedbackForBrand(controller.signal);
+    }
+    return () => {
+      controller.abort();
+    };
+  }, [feedbackScope, loadAllFeedbackForBrand]);
+
   const summarize = (list) => summarizeByRecipe(list);
+
+  const openFeedbackAsset = useCallback(
+    (assetId) => {
+      if (!assetId) return;
+      const match = assets.find((asset) => asset.id === assetId);
+      if (match) {
+        setPreviewAsset(match);
+      }
+    },
+    [assets],
+  );
 
   useEffect(() => {
     const load = async () => {
@@ -3970,8 +4664,52 @@ const AdGroupDetail = () => {
 
       {(isAdmin || isEditor || isDesigner || isManager || isClientPortalUser) &&
         tab === 'feedback' && (
-        <div className="my-4">
-          <FeedbackPanel entries={feedback} />
+        <div className="my-4 space-y-4">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-[var(--dark-sidebar-bg)]">
+            <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Feedback summary
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {feedbackSummaryUpdatedAt
+                    ? `Updated ${feedbackSummaryUpdatedAt.toLocaleString()}`
+                    : 'Generate a snapshot summary of client feedback.'}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="accent"
+                size="sm"
+                onClick={handleUpdateSummary}
+                disabled={updatingFeedbackSummary}
+              >
+                {updatingFeedbackSummary ? 'Updating…' : 'Update summary'}
+              </Button>
+            </div>
+            <div className="px-5 pb-5">
+              {feedbackSummary ? (
+                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-200">
+                  {renderedSummary}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-300">
+                  No summary yet. Click “Update summary” to generate one.
+                </p>
+              )}
+              {feedbackSummaryError ? (
+                <p className="mt-3 text-sm text-red-600">{feedbackSummaryError}</p>
+              ) : null}
+            </div>
+          </div>
+          <FeedbackPanel
+            entries={displayedFeedbackEntries}
+            onOpenAsset={openFeedbackAsset}
+            scopeOptions={feedbackScopeOptions}
+            selectedScope={feedbackScope}
+            onScopeChange={setFeedbackScope}
+            loading={isFeedbackLoading}
+          />
         </div>
       )}
 
