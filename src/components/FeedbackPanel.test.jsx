@@ -30,7 +30,7 @@ const sampleEntries = [
 test('renders feedback entries and shows details for the selected item', () => {
   render(<FeedbackPanel entries={sampleEntries} />);
 
-  expect(screen.getByText('Ad A')).toBeInTheDocument();
+  expect(screen.getByText('Ad A Recipe #101')).toBeInTheDocument();
   expect(screen.getByText('Please tweak the headline.')).toBeInTheDocument();
   expect(screen.getByText('Fresh headline copy')).toBeInTheDocument();
 });
@@ -73,5 +73,36 @@ test('renders scope selector when options are provided', () => {
   fireEvent.change(scopeSelect, { target: { value: 'all' } });
 
   expect(handleScope).toHaveBeenCalledWith('all');
+});
+
+test('deduplicates repeated comments for the same asset', () => {
+  const duplicateEntries = [
+    {
+      id: 'dup-1',
+      type: 'recipe',
+      title: 'Recipe 202',
+      recipeCode: '202',
+      groupName: 'Launch Campaign',
+      commentList: [
+        {
+          id: 'a',
+          text: 'Please adjust the CTA.',
+          assetLabel: 'Ad A',
+          updatedAt: new Date('2024-01-20T10:00:00Z'),
+        },
+        {
+          id: 'b',
+          text: 'Please adjust the CTA.',
+          assetLabel: 'Ad A',
+          updatedAt: new Date('2024-01-21T10:00:00Z'),
+        },
+      ],
+    },
+  ];
+
+  render(<FeedbackPanel entries={duplicateEntries} />);
+
+  const commentNodes = screen.getAllByText('Please adjust the CTA.');
+  expect(commentNodes).toHaveLength(1);
 });
 

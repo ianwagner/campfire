@@ -97,6 +97,34 @@ const pushDetail = (entry, detail) => {
 };
 
 const finalizeRecipeEntry = (entry) => {
+  const normalizeKey = (value) => {
+    if (value === null || value === undefined) return '';
+    if (value instanceof Date) return value.getTime().toString();
+    if (typeof value === 'string') return value.trim().toLowerCase();
+    return String(value).trim().toLowerCase();
+  };
+
+  const dedupeList = (list, getKey) => {
+    if (!Array.isArray(list)) return [];
+    const seen = new Set();
+    const deduped = [];
+    list.forEach((item) => {
+      if (!item || typeof item !== 'object') return;
+      const key = getKey(item);
+      if (key && seen.has(key)) return;
+      if (key) seen.add(key);
+      deduped.push(item);
+    });
+    return deduped;
+  };
+
+  const sortByDateDesc = (list) =>
+    list.slice().sort((a, b) => {
+      const aTime = a?.updatedAt?.getTime?.() || 0;
+      const bTime = b?.updatedAt?.getTime?.() || 0;
+      return bTime - aTime;
+    });
+
   const statusString = Array.from(entry.statuses).filter(Boolean);
   const assetSummary = Array.from(entry.assetLabels).filter(Boolean);
   const subtitleParts = [];
@@ -106,7 +134,26 @@ const finalizeRecipeEntry = (entry) => {
   if (assetSummary.length === 1) subtitleParts.push(assetSummary[0]);
   if (assetSummary.length > 1) subtitleParts.push(`${assetSummary.length} assets`);
   entry.subtitle = subtitleParts.join(' • ');
-  entry.comment = entry.commentList
+
+  const normalizedComments = sortByDateDesc(
+    dedupeList(entry.commentList, (item) =>
+      [normalizeKey(item?.text || ''), normalizeKey(item?.assetLabel || ''), normalizeKey(item?.assetId || '')].join('|'),
+    ),
+  );
+  const normalizedCopyEdits = sortByDateDesc(
+    dedupeList(entry.copyEditList, (item) =>
+      [
+        normalizeKey(item?.text || ''),
+        normalizeKey(item?.assetLabel || ''),
+        normalizeKey(item?.assetId || ''),
+      ].join('|'),
+    ),
+  );
+
+  entry.commentList = normalizedComments;
+  entry.copyEditList = normalizedCopyEdits;
+
+  entry.comment = normalizedComments
     .map((item) => {
       if (!item.text) return '';
       const prefix = item.assetLabel ? `${item.assetLabel}: ` : '';
@@ -114,7 +161,7 @@ const finalizeRecipeEntry = (entry) => {
     })
     .filter(Boolean)
     .join('\n\n');
-  entry.copyEdit = entry.copyEditList
+  entry.copyEdit = normalizedCopyEdits
     .map((item) => {
       if (!item.text) return '';
       const prefix = item.assetLabel ? `${item.assetLabel}: ` : '';
