@@ -89,6 +89,26 @@ const toHtmlParagraphs = (value) =>
     .map((line) => `<p>${escapeHtml(line)}</p>`)
     .join('');
 
+const createFallbackNotes = (summaryText) => {
+  const sentences = String(summaryText || '')
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  if (!sentences.length) return [];
+  return sentences.map((sentence, index) => {
+    const cleaned = sentence.replace(/\s+/g, ' ').replace(/\s*[.!?]\s*$/, '');
+    const focus = cleaned.length > 90 ? `${cleaned.slice(0, 87)}…` : cleaned;
+    const title = focus.length > 60 ? `${focus.slice(0, 57)}…` : focus;
+    return {
+      id: `fallback-${index}`,
+      focus: focus || 'Key takeaway',
+      title: title || 'Client feedback update',
+      bodyHtml: toHtmlParagraphs(sentence),
+    };
+  });
+};
+
 const toDateValue = (value) => {
   if (!value) return null;
   if (value instanceof Date) return value;
@@ -114,9 +134,9 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
   const [summaryUpdatedAt, setSummaryUpdatedAt] = useState(null);
   const [updatingSummary, setUpdatingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState('');
-  const [noteSuggestion, setNoteSuggestion] = useState(null);
+  const [noteSuggestions, setNoteSuggestions] = useState([]);
   const [noteSuggestionLoading, setNoteSuggestionLoading] = useState(false);
-  const [savingSuggestedNote, setSavingSuggestedNote] = useState(false);
+  const [savingSuggestedNoteId, setSavingSuggestedNoteId] = useState(null);
   const [noteSuggestionError, setNoteSuggestionError] = useState('');
   const [noteSuggestionMessage, setNoteSuggestionMessage] = useState('');
 
@@ -127,11 +147,11 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
   );
 
   useEffect(() => {
-    setNoteSuggestion(null);
+    setNoteSuggestions([]);
     setNoteSuggestionError('');
     setNoteSuggestionMessage('');
     setNoteSuggestionLoading(false);
-    setSavingSuggestedNote(false);
+    setSavingSuggestedNoteId(null);
   }, [brandId]);
 
   useEffect(() => {
@@ -345,14 +365,14 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
       .join('\n\n');
   }, [entries]);
 
-  const generateNoteSuggestion = useCallback(
+  const generateNoteSuggestions = useCallback(
     async (summaryText, digestText) => {
       if (!summaryText) {
-        setNoteSuggestion(null);
+        setNoteSuggestions([]);
         setNoteSuggestionLoading(false);
         return;
       }
-      setNoteSuggestion(null);
+      setNoteSuggestions([]);
       setNoteSuggestionMessage('');
       setNoteSuggestionError('');
       setNoteSuggestionLoading(true);
@@ -361,8 +381,8 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
         const notePrompt =
           `You are a marketing project assistant creating an internal brand note for ${brandLabel}.\n` +
           'Use the client feedback summary and raw details below to capture durable guardrails, preferences, or next steps the creative team should remember.\n' +
-          'Focus on insights that will stay relevant and be helpful to future teammates. Provide a concise title and 2-4 bullet points or short paragraphs.\n' +
-          'Respond with strict JSON in the shape {"title": string, "bodyHtml": string}. The bodyHtml must be sanitized HTML using <p>, <ul>, <ol>, and <li> tags only. Do not include markdown fences or commentary.\n' +
+          'Break the guidance into 2-4 separate notes. Each note must highlight a single primary focus (for example, a decision, guardrail, or next step) and include supporting context.\n' +
+          'Respond with strict JSON in the shape {"notes": [{"focus": string, "title": string, "bodyHtml": string}]}. The bodyHtml must be sanitized HTML using <p>, <ul>, <ol>, and <li> tags only. Do not include markdown fences or commentary.\n' +
           '\nClient feedback summary:\n' +
           `${summaryText}\n\n` +
           'Raw feedback details:\n' +
@@ -402,25 +422,55 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
           }
         };
         const parsed = parseJson(rawContent);
-        if (!parsed || typeof parsed !== 'object') {
+        if (!parsed || (typeof parsed !== 'object' && !Array.isArray(parsed))) {
           throw new Error('Invalid note suggestion format');
         }
-        const title = typeof parsed.title === 'string' ? parsed.title.trim() : '';
-        let bodyHtml = '';
-        if (typeof parsed.bodyHtml === 'string' && parsed.bodyHtml.trim()) {
-          bodyHtml = parsed.bodyHtml.trim();
-        } else if (typeof parsed.body === 'string' && parsed.body.trim()) {
-          bodyHtml = parsed.body.trim();
+        const parsedNotes = Array.isArray(parsed) ? parsed : Array.isArray(parsed.notes) ? parsed.notes : [];
+        const normalizedNotes = parsedNotes
+          .slice(0, 4)
+          .map((item) => (item && typeof item === 'object' ? item : null))
+          .filter(Boolean)
+          .map((item, index) => {
+            const focus = typeof item.focus === 'string' ? item.focus.trim() : '';
+            const title = typeof item.title === 'string' ? item.title.trim() : '';
+            let bodyHtml = '';
+            if (typeof item.bodyHtml === 'string' && item.bodyHtml.trim()) {
+              bodyHtml = item.bodyHtml.trim();
+            } else if (typeof item.body === 'string' && item.body.trim()) {
+              bodyHtml = item.body.trim();
+            }
+            if (!bodyHtml) {
+              bodyHtml = toHtmlParagraphs(summaryText);
+            } else if (!/<(p|ul|ol|li|br)\b/i.test(bodyHtml)) {
+              bodyHtml = toHtmlParagraphs(bodyHtml);
+            }
+            const derivedTitle = title || (focus ? `Focus: ${focus}` : 'Client feedback update');
+            return {
+              id: `${index}-${derivedTitle}`,
+              focus: focus || 'Key takeaway',
+              title: derivedTitle,
+              bodyHtml,
+            };
+          });
+        const fallbackNotes = createFallbackNotes(summaryText);
+        let finalNotes = normalizedNotes;
+        if (!finalNotes.length && fallbackNotes.length) {
+          finalNotes = fallbackNotes;
+        } else if (fallbackNotes.length) {
+          const minimumTargets = Math.min(2, fallbackNotes.length);
+          if (finalNotes.length < minimumTargets) {
+            const existingKeys = new Set(finalNotes.map((note) => note.title));
+            const supplemental = fallbackNotes
+              .filter((note) => !existingKeys.has(note.title))
+              .slice(0, Math.max(0, 4 - finalNotes.length));
+            finalNotes = [...finalNotes, ...supplemental];
+          }
         }
-        if (!bodyHtml) {
-          bodyHtml = toHtmlParagraphs(summaryText);
-        } else if (!/<(p|ul|ol|li|br)\b/i.test(bodyHtml)) {
-          bodyHtml = toHtmlParagraphs(bodyHtml);
+        finalNotes = finalNotes.slice(0, 4);
+        if (!finalNotes.length) {
+          throw new Error('No note suggestions returned');
         }
-        setNoteSuggestion({
-          title: title || 'Client feedback update',
-          bodyHtml,
-        });
+        setNoteSuggestions(finalNotes);
       } catch (err) {
         console.error('Failed to generate brand note suggestion', err);
         setNoteSuggestionError('Unable to recommend a brand note right now. Try updating the summary again later.');
@@ -431,43 +481,47 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
     [OPENAI_PROXY_URL, brandCode, brandName],
   );
 
-  const handleSaveSuggestedNote = useCallback(async () => {
-    if (!noteSuggestion) return;
-    if (!brandId) {
-      setNoteSuggestionError('Cannot save note without a brand ID.');
-      return;
-    }
-    setSavingSuggestedNote(true);
-    setNoteSuggestionError('');
-    setNoteSuggestionMessage('');
-    try {
-      const payload = {
-        title: noteSuggestion.title?.trim() || 'Client feedback update',
-        body: noteSuggestion.bodyHtml?.trim() || toHtmlParagraphs(summary || ''),
-        tags: ['client feedback'],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-      await addDoc(collection(db, 'brands', brandId, 'notes'), payload);
-      setNoteSuggestion(null);
-      setNoteSuggestionMessage('Note saved to brand notes.');
-    } catch (err) {
-      console.error('Failed to save recommended brand note', err);
-      setNoteSuggestionError('Failed to save the recommended note. Please try again.');
-    } finally {
-      setSavingSuggestedNote(false);
-    }
-  }, [brandId, noteSuggestion, summary]);
+  const handleSaveSuggestedNote = useCallback(
+    async (note) => {
+      if (!note) return;
+      if (!brandId) {
+        setNoteSuggestionError('Cannot save note without a brand ID.');
+        return;
+      }
+      const noteId = note.id || note.title || 'note';
+      setSavingSuggestedNoteId(noteId);
+      setNoteSuggestionError('');
+      setNoteSuggestionMessage('');
+      try {
+        const payload = {
+          title: note.title?.trim() || 'Client feedback update',
+          body: note.bodyHtml?.trim() || toHtmlParagraphs(summary || ''),
+          tags: ['client feedback'],
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        await addDoc(collection(db, 'brands', brandId, 'notes'), payload);
+        setNoteSuggestions((prev) => prev.filter((item) => item.id !== noteId));
+        setNoteSuggestionMessage('Note saved to brand notes.');
+      } catch (err) {
+        console.error('Failed to save recommended brand note', err);
+        setNoteSuggestionError('Failed to save the recommended note. Please try again.');
+      } finally {
+        setSavingSuggestedNoteId(null);
+      }
+    },
+    [brandId, summary],
+  );
 
-  const handleDismissSuggestedNote = useCallback(() => {
-    setNoteSuggestion(null);
+  const handleDismissSuggestedNote = useCallback((noteId) => {
+    setNoteSuggestions((prev) => prev.filter((item) => item.id !== noteId));
     setNoteSuggestionError('');
   }, []);
 
   const handleUpdateSummary = useCallback(async () => {
     if (updatingSummary) return;
     setSummaryError('');
-    setNoteSuggestion(null);
+    setNoteSuggestions([]);
     setNoteSuggestionError('');
     setNoteSuggestionMessage('');
     setNoteSuggestionLoading(false);
@@ -531,7 +585,7 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
       const now = new Date();
       setSummary(raw);
       setSummaryUpdatedAt(now);
-      generateNoteSuggestion(raw, feedbackDigest);
+      generateNoteSuggestions(raw, feedbackDigest);
     } catch (err) {
       console.error('Failed to update brand feedback summary', err);
       setSummaryError('Failed to update summary. Please try again.');
@@ -545,7 +599,7 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
     brandName,
     entries,
     formatFeedbackForSummary,
-    generateNoteSuggestion,
+    generateNoteSuggestions,
     summary,
     updatingSummary,
   ]);
@@ -602,53 +656,63 @@ const BrandFeedback = ({ brandId, brandCode, brandName }) => {
           ) : null}
           {noteSuggestionLoading ? (
             <div className="mt-4 rounded-xl border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-300">
-              Preparing a recommended brand note from the latest summary…
+              Preparing recommended brand notes from the latest summary…
             </div>
           ) : null}
-          {noteSuggestion ? (
-            <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 shadow-sm dark:border-gray-700 dark:bg-[var(--dark-sidebar)] dark:text-gray-200">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex-1">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    Recommended brand note
-                  </p>
-                  {noteSuggestion.title ? (
-                    <h3 className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
-                      {noteSuggestion.title}
-                    </h3>
-                  ) : null}
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Button
-                    type="button"
-                    variant="accent"
-                    size="sm"
-                    onClick={handleSaveSuggestedNote}
-                    disabled={savingSuggestedNote || !brandId}
-                  >
-                    {savingSuggestedNote ? 'Saving…' : 'Save'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="neutral"
-                    size="sm"
-                    onClick={handleDismissSuggestedNote}
-                    disabled={savingSuggestedNote}
-                  >
-                    Dismiss
-                  </Button>
-                </div>
+          {noteSuggestions.length ? (
+            <div className="mt-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Recommended brand notes
+              </p>
+              <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                {noteSuggestions.map((note) => {
+                  const resolvedId = note.id || note.title || 'note';
+                  const isSaving = savingSuggestedNoteId === resolvedId;
+                  return (
+                    <div
+                      key={resolvedId}
+                      className="flex h-full flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 shadow-sm dark:border-gray-700 dark:bg-[var(--dark-sidebar)] dark:text-gray-200"
+                    >
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Primary focus
+                        </p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{note.focus}</p>
+                        {note.title ? (
+                          <h3 className="mt-2 text-base font-semibold text-gray-900 dark:text-gray-100">{note.title}</h3>
+                        ) : null}
+                      </div>
+                      <div
+                        className="prose prose-sm max-w-none flex-1 text-gray-700 dark:text-gray-200 dark:prose-invert"
+                        dangerouslySetInnerHTML={{ __html: note.bodyHtml }}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="accent"
+                          size="sm"
+                          onClick={() => handleSaveSuggestedNote(note)}
+                          disabled={(Boolean(savingSuggestedNoteId) && !isSaving) || !brandId}
+                        >
+                          {isSaving ? 'Saving…' : 'Save'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="neutral"
+                          size="sm"
+                          onClick={() => handleDismissSuggestedNote(resolvedId)}
+                          disabled={Boolean(savingSuggestedNoteId)}
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div
-                className="prose prose-sm max-w-none text-gray-700 dark:text-gray-200 dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: noteSuggestion.bodyHtml }}
-              />
-              {noteSuggestionError ? (
-                <p className="text-sm text-red-600">{noteSuggestionError}</p>
-              ) : null}
             </div>
           ) : null}
-          {!noteSuggestion && noteSuggestionError && !noteSuggestionLoading ? (
+          {!noteSuggestions.length && noteSuggestionError && !noteSuggestionLoading ? (
             <p className="mt-4 text-sm text-red-600">{noteSuggestionError}</p>
           ) : null}
           {summaryError ? (
