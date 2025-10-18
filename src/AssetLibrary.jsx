@@ -8,14 +8,13 @@ import {
   FiList,
   FiGrid,
   FiDownload,
+  FiSearch,
 } from 'react-icons/fi';
 import Table from './components/common/Table';
 import IconButton from './components/IconButton.jsx';
 import SaveButton from './components/SaveButton.jsx';
 import LoadingIconButton from './components/LoadingIconButton.jsx';
-import TabButton from './components/TabButton.jsx';
 import SortButton from './components/SortButton.jsx';
-import PageToolbar from './components/PageToolbar.jsx';
 import HoverPreview from './components/HoverPreview.jsx';
 import TaggerModal from './TaggerModal.jsx';
 import { httpsCallable } from 'firebase/functions';
@@ -23,7 +22,7 @@ import { functions } from './firebase/config';
 import { collection, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/config';
 
-import syncAssetLibrary from "./utils/syncAssetLibrary";
+import syncAssetLibrary from './utils/syncAssetLibrary';
 import useUnsavedChanges from './useUnsavedChanges.js';
 
 const emptyAsset = {
@@ -377,343 +376,463 @@ const AssetLibrary = ({ brandCode = '' }) => {
   const visible = filtered.slice(startIdx, startIdx + rowsPerPage);
   const canShowMore = startIdx + rowsPerPage < Math.min(filtered.length, (page + 1) * PAGE_SIZE);
 
+  const selectedCount = useMemo(
+    () => Object.values(selected).filter(Boolean).length,
+    [selected],
+  );
+
+  const { totalAssets, visibleAssets, assetsWithThumbs } = useMemo(() => {
+    const withThumbs = assets.filter((a) => a.thumbnailUrl).length;
+    return {
+      totalAssets: assets.length,
+      visibleAssets: filtered.length,
+      assetsWithThumbs: withThumbs,
+    };
+  }, [assets, filtered]);
+
+  const hasFilter = filter.trim().length > 0;
+  const hasSelection = selectedCount > 0;
+
   useUnsavedChanges(dirty, saveAssets);
 
   return (
-    <div>
-      <PageToolbar
-        left={(
-          <>
-            <input
-              type="text"
-              placeholder="Filter"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="p-1 border rounded"
-            />
-            <SortButton
-              value={sortField}
-              onChange={setSortField}
-              options={[
-                { value: 'createdAt', label: 'Date Added' },
-                { value: 'name', label: 'Name' },
-                { value: 'type', label: 'Type' },
-                { value: 'product', label: 'Product' },
-                { value: 'campaign', label: 'Folder Name' },
-              ]}
-            />
-            <div className="border-l h-6 mx-2" />
-            <TabButton active={view === 'list'} onClick={() => setView('list')} aria-label="List view">
-              <FiList />
-            </TabButton>
-            <TabButton active={view === 'gallery'} onClick={() => setView('gallery')} aria-label="Gallery view">
-              <FiGrid />
-            </TabButton>
-          </>
-        )}
-        right={(
-          <div className="flex flex-wrap gap-2 items-center relative">
-            <span className="relative group">
-              <SaveButton onClick={saveAssets} canSave={dirty} loading={saving} />
-              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                Save
-              </div>
+    <div className="space-y-6">
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-3">
+            <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[var(--accent-color-10)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--accent-color)]">
+              Asset Hub
             </span>
-          <div className="border-l h-6 mx-2" />
-          <span className="relative group">
-            <IconButton
-              onClick={() => setShowTagger(true)}
-              aria-label="Add Drive Folder"
-              className="text-xl"
-            >
-              <FiFolderPlus />
-            </IconButton>
-            <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-              Add Drive Folder
+            <div className="space-y-2">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Brand Asset Library</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-300">
+                Keep every production-ready asset aligned with your brand guardrails. Generate thumbnails, auto-tag files, and
+                organise them by product or campaign from a single workspace.
+              </p>
             </div>
-          </span>
-          <div className="border-l h-6 mx-2" />
-          <span className="relative group">
-            <LoadingIconButton
-              onClick={createMissingThumbnails}
-              aria-label="Create Missing Thumbnails"
-              disabled={loading}
-              loading={thumbMissingLoading}
-              icon={FiImage}
-              className="text-xl"
-            />
-            <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-              Thumbnails
+            {hasSelection ? (
+              <span className="inline-flex items-center gap-2 rounded-full bg-[var(--accent-color-10)] px-3 py-1 text-xs font-medium text-[var(--accent-color)]">
+                {selectedCount} asset{selectedCount === 1 ? '' : 's'} selected
+              </span>
+            ) : null}
+          </div>
+          <dl className="grid w-full gap-3 text-sm sm:grid-cols-3 lg:w-auto">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-gray-700 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total assets</dt>
+              <dd className="text-xl font-semibold text-gray-900 dark:text-gray-100">{totalAssets}</dd>
             </div>
-          </span>
-            <span className="relative group">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-gray-700 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Visible now</dt>
+              <dd className="text-xl font-semibold text-gray-900 dark:text-gray-100">{visibleAssets}</dd>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-gray-700 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Thumbnails ready</dt>
+              <dd className="text-xl font-semibold text-gray-900 dark:text-gray-100">{assetsWithThumbs}</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+        <div className="border-b border-gray-200 bg-gray-50 px-4 py-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
+              <div className="relative w-full md:w-72">
+                <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="search"
+                  placeholder="Search assets, products, or campaigns..."
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  className="w-full rounded-full border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-100"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Sort</span>
+                <SortButton
+                  value={sortField}
+                  onChange={setSortField}
+                  options={[
+                    { value: 'createdAt', label: 'Date Added' },
+                    { value: 'name', label: 'Name' },
+                    { value: 'type', label: 'Type' },
+                    { value: 'product', label: 'Product' },
+                    { value: 'campaign', label: 'Folder Name' },
+                  ]}
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <div className="flex items-center gap-1 rounded-full border border-gray-200 bg-white p-1 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                <button
+                  type="button"
+                  onClick={() => setView('list')}
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] ${
+                    view === 'list'
+                      ? 'bg-[var(--accent-color)] text-white shadow'
+                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                  }`}
+                  aria-label="List view"
+                >
+                  <FiList />
+                  <span className="hidden sm:inline">List</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView('gallery')}
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] ${
+                    view === 'gallery'
+                      ? 'bg-[var(--accent-color)] text-white shadow'
+                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                  }`}
+                  aria-label="Gallery view"
+                >
+                  <FiGrid />
+                  <span className="hidden sm:inline">Gallery</span>
+                </button>
+              </div>
+              <SaveButton onClick={saveAssets} canSave={dirty} loading={saving} />
+              <IconButton
+                onClick={() => setShowTagger(true)}
+                aria-label="Add Drive Folder"
+                className="!rounded-full !px-3 !py-1.5 !text-sm font-medium text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+              >
+                <FiFolderPlus className="text-base" />
+                <span className="hidden xl:inline">Add Drive Folder</span>
+              </IconButton>
+              <LoadingIconButton
+                onClick={createMissingThumbnails}
+                aria-label="Create Missing Thumbnails"
+                disabled={loading}
+                loading={thumbMissingLoading}
+                icon={FiImage}
+                className="!rounded-full !px-3 !py-1.5 !text-sm font-medium text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+              >
+                <span className="hidden xl:inline">Thumbnails</span>
+              </LoadingIconButton>
               <LoadingIconButton
                 onClick={tagMissing}
                 aria-label="Tag Missing"
                 disabled={loading}
                 loading={tagMissingLoading}
                 icon={FiTag}
-                className="text-xl"
-              />
-              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                Auto Tag
-              </div>
-            </span>
+                className="!rounded-full !px-3 !py-1.5 !text-sm font-medium text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+              >
+                <span className="hidden xl:inline">Auto Tag</span>
+              </LoadingIconButton>
+            </div>
           </div>
-        )}
-      />
-      {view === 'list' ? (
-        <>
-        {Object.keys(selected).some((k) => selected[k]) && (
-          <div className="mb-2 flex flex-wrap gap-2 items-end">
-            <span className="relative group">
-              <IconButton onClick={deleteSelected} aria-label="Delete Selected" className="btn-delete text-xl">
-                <FiTrash />
-              </IconButton>
-              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                Delete
-              </div>
-            </span>
-            <span className="relative group">
-              <LoadingIconButton
-                onClick={createThumbnails}
-                aria-label="Create Thumbnails"
-                disabled={loading}
-                loading={thumbSelectedLoading}
-                icon={FiImage}
-                className="text-xl"
-              />
-              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                Thumbnails
-              </div>
-            </span>
-            <span className="relative group">
-              <LoadingIconButton
-                onClick={tagSelected}
-                aria-label="Tag Selected"
-                disabled={loading}
-                loading={tagSelectedLoading}
-                icon={FiTag}
-                className="text-xl"
-              />
-              <div className="absolute left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap bg-white border rounded text-xs p-1 shadow hidden group-hover:block dark:bg-[var(--dark-sidebar-bg)]">
-                Auto Tag
-              </div>
-            </span>
-          <input
-            className="p-1 border rounded"
-            placeholder="Type"
-            value={bulkValues.type}
-            onChange={(e) => setBulkValues({ ...bulkValues, type: e.target.value })}
-          />
-          <select
-            className="p-1 border rounded"
-            value={bulkValues.product}
-            onChange={(e) => setBulkValues({ ...bulkValues, product: e.target.value })}
-          >
-            <option value="">Product</option>
-            {products.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-          <input
-            className="p-1 border rounded"
-            placeholder="Folder Name"
-            value={bulkValues.campaign}
-            onChange={(e) => setBulkValues({ ...bulkValues, campaign: e.target.value })}
-          />
-          <button type="button" className="btn-secondary" onClick={bulkEdit}>
-            Apply To Selected
-          </button>
         </div>
-        )}
-        <Table>
-          <thead>
-            <tr>
-              <th></th>
-              <th>Name</th>
-              <th>URL</th>
-              <th>Thumbnail</th>
-              <th>Type</th>
-              <th>Description</th>
-              <th>Product</th>
-              <th>Folder Name</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((a, idx) => (
-              <tr key={a.id}>
-                <td className="text-center">
-                  <input
-                    type="checkbox"
-                    checked={selected[a.id] || false}
-                    onChange={(e) => handleCheckChange(e, startIdx + idx, a.id)}
-                  />
-                </td>
-                <td title={a.name}>{a.name.length > 10 ? `${a.name.slice(0, 10)}...` : a.name}</td>
-                <td className="text-center">
-                  {a.url && (
+
+        <div className="space-y-6 px-4 py-6 sm:px-6">
+          {hasSelection ? (
+            <div className="flex flex-col gap-4 rounded-2xl border border-[var(--accent-color)]/50 bg-[var(--accent-color-10)]/70 p-4 shadow-sm dark:border-[var(--accent-color)]/40 dark:bg-[var(--accent-color-20)]/30">
+              <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-[var(--accent-color)]">
+                <span>Bulk edit selected assets</span>
+              </div>
+              <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+                <button
+                  type="button"
+                  onClick={deleteSelected}
+                  className="inline-flex items-center gap-2 rounded-full bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
+                >
+                  <FiTrash /> Delete Selected
+                </button>
+                <button
+                  type="button"
+                  onClick={createThumbnails}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 rounded-full bg-gray-900/90 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {thumbSelectedLoading ? (
+                    <div className="loading-ring" style={{ width: '1em', height: '1em', borderWidth: '2px' }} />
+                  ) : (
+                    <FiImage />
+                  )}
+                  Generate Thumbnails
+                </button>
+                <button
+                  type="button"
+                  onClick={tagSelected}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 rounded-full bg-gray-900/90 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-black focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {tagSelectedLoading ? (
+                    <div className="loading-ring" style={{ width: '1em', height: '1em', borderWidth: '2px' }} />
+                  ) : (
+                    <FiTag />
+                  )}
+                  Auto Tag Selected
+                </button>
+                <div className="flex flex-1 flex-col gap-3 rounded-2xl bg-white/70 p-3 shadow-inner backdrop-blur dark:bg-[var(--dark-sidebar)]/70">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <input
+                      className="w-full rounded-full border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-100"
+                      placeholder="Type"
+                      value={bulkValues.type}
+                      onChange={(e) => setBulkValues({ ...bulkValues, type: e.target.value })}
+                    />
+                    <select
+                      className="w-full rounded-full border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-100"
+                      value={bulkValues.product}
+                      onChange={(e) => setBulkValues({ ...bulkValues, product: e.target.value })}
+                    >
+                      <option value="">Product</option>
+                      {products.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className="w-full rounded-full border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-100"
+                      placeholder="Folder Name"
+                      value={bulkValues.campaign}
+                      onChange={(e) => setBulkValues({ ...bulkValues, campaign: e.target.value })}
+                    />
                     <button
                       type="button"
-                      onClick={() => window.open(a.url, '_blank')}
-                      className="p-2 text-xl rounded inline-flex items-center justify-center hover:bg-[var(--accent-color-10)] text-accent"
-                      aria-label="Open link"
+                      onClick={bulkEdit}
+                      className="inline-flex items-center justify-center rounded-full bg-[var(--accent-color)] px-3 py-2 text-sm font-semibold text-white transition-colors hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)]/50"
                     >
-                      <FiLink />
+                      Apply to Selected
                     </button>
-                  )}
-                </td>
-                <td className="text-center" style={{ overflow: 'visible' }}>
-                  {a.thumbnailUrl && (
-                    <HoverPreview
-                      preview={
-                        <img
-                          src={a.thumbnailUrl}
-                          alt="preview"
-                          className="object-contain max-h-[25rem] w-auto"
-                        />
-                      }
-                    >
-                      <button
-                        type="button"
-                        onClick={() => window.open(a.thumbnailUrl, '_blank')}
-                        className="p-2 text-xl rounded inline-flex items-center justify-center bg-[var(--accent-color-10)] text-accent"
-                        aria-label="Preview image"
-                      >
-                        <FiImage />
-                      </button>
-                    </HoverPreview>
-                  )}
-                </td>
-                <td>
-                  <input
-                    className="w-full p-1 border rounded"
-                    value={a.type}
-                    onMouseDown={handleInputDown('type', a.type)}
-                    onMouseOver={handleInputOver(a.id)}
-                    onChange={(e) => updateRow(a.id, 'type', e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    className="w-full p-1 border rounded"
-                    value={a.description}
-                    onMouseDown={handleInputDown('description', a.description)}
-                    onMouseOver={handleInputOver(a.id)}
-                    onChange={(e) => updateRow(a.id, 'description', e.target.value)}
-                  />
-                </td>
-                <td>
-                  <select
-                    className="w-full p-1 border rounded"
-                    value={a.product}
-                    onMouseDown={handleInputDown('product', a.product)}
-                    onMouseOver={handleInputOver(a.id)}
-                    onChange={(e) => updateRow(a.id, 'product', e.target.value)}
-                  >
-                    <option value="">None</option>
-                    {products.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <input
-                    className="w-full p-1 border rounded"
-                    value={a.campaign}
-                    onMouseDown={handleInputDown('campaign', a.campaign)}
-                    onMouseOver={handleInputOver(a.id)}
-                    onChange={(e) => updateRow(a.id, 'campaign', e.target.value)}
-                  />
-                </td>
-                <td className="text-center">
-                  <button
-                    type="button"
-                    onClick={() => deleteRow(a.id)}
-                    aria-label="Delete"
-                    className="btn-delete"
-                  >
-                    <FiTrash />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-        <div className="flex items-center justify-between mt-2">
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            className="btn-secondary px-2 py-1"
-            disabled={page === 0}
-          >
-            &lt;
-          </button>
-          <span className="text-sm">
-            {page + 1} / {totalPages}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-            className="btn-secondary px-2 py-1"
-            disabled={page >= totalPages - 1}
-          >
-            &gt;
-          </button>
-        </div>
-        {canShowMore && (
-          <div className="mt-2 text-center">
-            <button
-              type="button"
-              onClick={() =>
-                setRowsPerPage((s) => Math.min(s + PAGE_SIZE, filtered.length - startIdx))
-              }
-              className="btn-secondary px-3 py-1"
-            >
-              Show 25 More
-            </button>
-          </div>
-        )}
-        </>
-      ) : (
-        <div className="asset-gallery mt-4" ref={galleryRef}>
-          {filtered.map((a) => (
-            <div key={a.id} className="asset-gallery-item group">
-              {(a.thumbnailUrl || a.url) && (
-                <img
-                  src={a.thumbnailUrl || a.url}
-                  alt={a.name}
-                  className="w-full h-auto object-contain"
-                  onLoad={updateSpans}
-                />
-              )}
-              <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex flex-col items-center justify-center gap-1 text-white text-xs">
-                {a.url && (
-                  <a href={a.url} download className="btn-secondary px-1 py-0.5 flex items-center gap-1">
-                    <FiDownload /> <span>Download</span>
-                  </a>
-                )}
-                {a.url && (
-                  <button type="button" onClick={() => window.open(a.url, '_blank')} className="btn-secondary px-1 py-0.5 flex items-center gap-1">
-                    <FiLink /> <span>Link</span>
-                  </button>
-                )}
-                <button type="button" onClick={() => deleteRow(a.id)} className="btn-delete px-1 py-0.5 flex items-center gap-1">
-                  <FiTrash /> <span>Delete</span>
-                </button>
+                  </div>
+                </div>
               </div>
             </div>
-          ))}
+          ) : null}
+
+          {view === 'list' ? (
+            filtered.length > 0 ? (
+              <div className="space-y-4">
+                <Table>
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>Name</th>
+                      <th>URL</th>
+                      <th>Thumbnail</th>
+                      <th>Type</th>
+                      <th>Description</th>
+                      <th>Product</th>
+                      <th>Folder Name</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.map((a, idx) => (
+                      <tr key={a.id}>
+                        <td className="text-center">
+                          <input
+                            type="checkbox"
+                            checked={selected[a.id] || false}
+                            onChange={(e) => handleCheckChange(e, startIdx + idx, a.id)}
+                          />
+                        </td>
+                        <td className="max-w-[12rem] truncate text-gray-700 dark:text-gray-200" title={a.name}>
+                          {a.name}
+                        </td>
+                        <td className="text-center">
+                          {a.url && (
+                            <button
+                              type="button"
+                              onClick={() => window.open(a.url, '_blank')}
+                              className="inline-flex items-center justify-center rounded-full bg-[var(--accent-color-10)] p-2 text-[var(--accent-color)] transition-colors hover:brightness-95"
+                              aria-label="Open link"
+                            >
+                              <FiLink />
+                            </button>
+                          )}
+                        </td>
+                        <td className="text-center" style={{ overflow: 'visible' }}>
+                          {a.thumbnailUrl && (
+                            <HoverPreview
+                              preview={
+                                <img
+                                  src={a.thumbnailUrl}
+                                  alt="preview"
+                                  className="max-h-[25rem] w-auto object-contain"
+                                />
+                              }
+                            >
+                              <button
+                                type="button"
+                                onClick={() => window.open(a.thumbnailUrl, '_blank')}
+                                className="inline-flex items-center justify-center rounded-full bg-[var(--accent-color)] p-2 text-white transition-colors hover:brightness-95"
+                                aria-label="Preview image"
+                              >
+                                <FiImage />
+                              </button>
+                            </HoverPreview>
+                          )}
+                        </td>
+                        <td>
+                          <input
+                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-100"
+                            value={a.type}
+                            onMouseDown={handleInputDown('type', a.type)}
+                            onMouseOver={handleInputOver(a.id)}
+                            onChange={(e) => updateRow(a.id, 'type', e.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-100"
+                            value={a.description}
+                            onMouseDown={handleInputDown('description', a.description)}
+                            onMouseOver={handleInputOver(a.id)}
+                            onChange={(e) => updateRow(a.id, 'description', e.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <select
+                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-100"
+                            value={a.product}
+                            onMouseDown={handleInputDown('product', a.product)}
+                            onMouseOver={handleInputOver(a.id)}
+                            onChange={(e) => updateRow(a.id, 'product', e.target.value)}
+                          >
+                            <option value="">None</option>
+                            {products.map((p) => (
+                              <option key={p} value={p}>
+                                {p}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-100"
+                            value={a.campaign}
+                            onMouseDown={handleInputDown('campaign', a.campaign)}
+                            onMouseOver={handleInputOver(a.id)}
+                            onChange={(e) => updateRow(a.id, 'campaign', e.target.value)}
+                          />
+                        </td>
+                        <td className="text-center">
+                          <button
+                            type="button"
+                            onClick={() => deleteRow(a.id)}
+                            aria-label="Delete"
+                            className="inline-flex items-center justify-center rounded-full bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
+                          >
+                            <FiTrash />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-300">
+                    <span>
+                      Showing {Math.min(visible.length, filtered.length)} of {filtered.length} asset{filtered.length === 1 ? '' : 's'}
+                    </span>
+                    {hasFilter ? (
+                      <button
+                        type="button"
+                        onClick={() => setFilter('')}
+                        className="text-[var(--accent-color)] hover:underline"
+                      >
+                        Clear filter
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      className="inline-flex items-center justify-center rounded-full border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                      disabled={page === 0}
+                    >
+                      Prev
+                    </button>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                      Page {page + 1} of {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                      className="inline-flex items-center justify-center rounded-full border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                      disabled={page >= totalPages - 1}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+                {canShowMore ? (
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRowsPerPage((s) => Math.min(s + PAGE_SIZE, filtered.length - startIdx))
+                      }
+                      className="inline-flex items-center justify-center rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-[var(--border-color-default)] dark:text-gray-200 dark:hover:bg-[var(--dark-sidebar-hover)]"
+                    >
+                      Show {PAGE_SIZE} More
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-16 text-center text-sm text-gray-500 shadow-inner dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300">
+                {hasFilter ? 'No assets match your current filters yet.' : 'No brand assets have been added yet.'}
+              </div>
+            )
+          ) : filtered.length > 0 ? (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]">
+              <div className="asset-gallery" ref={galleryRef}>
+                {filtered.map((a) => (
+                  <div key={a.id} className="asset-gallery-item group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                    {(a.thumbnailUrl || a.url) && (
+                      <img
+                        src={a.thumbnailUrl || a.url}
+                        alt={a.name}
+                        className="h-auto w-full object-contain"
+                        onLoad={updateSpans}
+                      />
+                    )}
+                    <div className="absolute inset-0 hidden items-center justify-center gap-2 bg-black/70 p-3 text-xs text-white transition-opacity group-hover:flex">
+                      {a.url ? (
+                        <a
+                          href={a.url}
+                          download
+                          className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-black transition-colors hover:bg-white"
+                        >
+                          <FiDownload /> Download
+                        </a>
+                      ) : null}
+                      {a.url ? (
+                        <button
+                          type="button"
+                          onClick={() => window.open(a.url, '_blank')}
+                          className="inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-1 text-black transition-colors hover:bg-white"
+                        >
+                          <FiLink /> Link
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => deleteRow(a.id)}
+                        className="inline-flex items-center gap-1 rounded-full bg-red-500/90 px-2 py-1 text-white transition-colors hover:bg-red-500"
+                      >
+                        <FiTrash /> Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-16 text-center text-sm text-gray-500 shadow-inner dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300">
+              {hasFilter ? 'No assets match your current filters yet.' : 'No brand assets have been added yet.'}
+            </div>
+          )}
         </div>
-      )}
-      {showTagger && (
-        <TaggerModal brandCode={brandCode} onClose={() => setShowTagger(false)} />
-      )}
+      </section>
+
+      {showTagger ? <TaggerModal brandCode={brandCode} onClose={() => setShowTagger(false)} /> : null}
     </div>
   );
 };
