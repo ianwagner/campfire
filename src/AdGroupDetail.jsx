@@ -81,6 +81,7 @@ import diffWords from "./utils/diffWords";
 import Modal from "./components/Modal.jsx";
 import sortCopyCards from "./utils/sortCopyCards";
 import IconButton from "./components/IconButton.jsx";
+import Button from "./components/Button.jsx";
 import TabButton from "./components/TabButton.jsx";
 import Table from "./components/common/Table";
 import stripVersion from "./utils/stripVersion";
@@ -175,6 +176,204 @@ const createRenderCopyEditDiff = (meta = {}) =>
       );
     });
   };
+
+const flattenRichText = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((child) => flattenRichText(child)).join('');
+  }
+  if (React.isValidElement(value)) {
+    return flattenRichText(value.props?.children);
+  }
+  if (value && typeof value === 'object' && 'props' in value) {
+    return flattenRichText(value.props.children);
+  }
+  return '';
+};
+
+const summaryInlineTokenPattern = /\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^\)]+\)/;
+
+const renderInlineSummarySegments = (text, keyPrefix = 'segment') => {
+  if (!text) return [];
+  const nodes = [];
+  let remaining = text;
+  let index = 0;
+  while (remaining.length > 0) {
+    const matchIndex = remaining.search(summaryInlineTokenPattern);
+    if (matchIndex === -1) {
+      nodes.push(
+        <React.Fragment key={`${keyPrefix}-${index}`}>{remaining}</React.Fragment>,
+      );
+      break;
+    }
+    if (matchIndex > 0) {
+      const plain = remaining.slice(0, matchIndex);
+      nodes.push(
+        <React.Fragment key={`${keyPrefix}-${index}`}>{plain}</React.Fragment>,
+      );
+      index += 1;
+      remaining = remaining.slice(matchIndex);
+      continue;
+    }
+    const match = remaining.match(summaryInlineTokenPattern);
+    if (!match) break;
+    const token = match[0];
+    const nextIndex = index + 1;
+    if (token.startsWith('**')) {
+      const content = token.slice(2, -2);
+      nodes.push(
+        <strong key={`${keyPrefix}-${index}`}>{renderInlineSummarySegments(content, `${keyPrefix}-${index}-strong`)}</strong>,
+      );
+    } else if (token.startsWith('*')) {
+      const content = token.slice(1, -1);
+      nodes.push(
+        <em key={`${keyPrefix}-${index}`}>{renderInlineSummarySegments(content, `${keyPrefix}-${index}-em`)}</em>,
+      );
+    } else if (token.startsWith('`')) {
+      nodes.push(
+        <code
+          key={`${keyPrefix}-${index}`}
+          className="rounded bg-gray-100 px-1 py-0.5 font-mono text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-100"
+        >
+          {token.slice(1, -1)}
+        </code>,
+      );
+    } else if (token.startsWith('[')) {
+      const [, label, url] = token.match(/\[([^\]]+)\]\(([^)]+)\)/) || [];
+      const safeLabel = label || url || '';
+      nodes.push(
+        <a
+          key={`${keyPrefix}-${index}`}
+          href={url || '#'}
+          target="_blank"
+          rel="noreferrer"
+          className="text-[var(--accent-color)] underline"
+        >
+          {renderInlineSummarySegments(safeLabel, `${keyPrefix}-${index}-link`)}
+        </a>,
+      );
+    }
+    index = nextIndex;
+    remaining = remaining.slice(token.length);
+  }
+  return nodes;
+};
+
+const parseSummaryMarkdown = (raw = '') => {
+  const text = typeof raw === 'string' ? raw : String(raw || '');
+  if (!text.trim()) return [];
+  const lines = text.split(/\r?\n/);
+  const blocks = [];
+  let currentList = null;
+  const flushList = () => {
+    if (currentList) {
+      blocks.push(currentList);
+      currentList = null;
+    }
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushList();
+      return;
+    }
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      flushList();
+      blocks.push({ type: 'heading', level: headingMatch[1].length, content: headingMatch[2].trim() });
+      return;
+    }
+    const quoteMatch = trimmed.match(/^>\s?(.*)$/);
+    if (quoteMatch) {
+      flushList();
+      blocks.push({ type: 'quote', content: quoteMatch[1].trim() });
+      return;
+    }
+    const dividerMatch = trimmed.replace(/\s+/g, '').match(/^([-*_])\1{2,}$/);
+    if (dividerMatch) {
+      flushList();
+      blocks.push({ type: 'divider' });
+      return;
+    }
+    const orderedMatch = trimmed.match(/^(\d+)[\.)]\s+(.*)$/);
+    if (orderedMatch) {
+      if (!currentList || currentList.kind !== 'ordered') {
+        flushList();
+        currentList = { type: 'list', kind: 'ordered', items: [] };
+      }
+      currentList.items.push(orderedMatch[2].trim());
+      return;
+    }
+    const bulletMatch = trimmed.match(/^([-*+])\s+(.*)$/);
+    if (bulletMatch) {
+      if (!currentList || currentList.kind !== 'bullet') {
+        flushList();
+        currentList = { type: 'list', kind: 'bullet', items: [] };
+      }
+      currentList.items.push(bulletMatch[2].trim());
+      return;
+    }
+    flushList();
+    blocks.push({ type: 'paragraph', content: trimmed });
+  });
+
+  flushList();
+  return blocks;
+};
+
+const renderSummaryBlocks = (blocks = []) =>
+  blocks.map((block, index) => {
+    if (!block) return null;
+    if (block.type === 'heading') {
+      const HeadingTag = block.level <= 2 ? 'h4' : 'h5';
+      return (
+        <HeadingTag
+          key={`summary-heading-${index}`}
+          className="text-sm font-semibold text-gray-900 dark:text-gray-100"
+        >
+          {renderInlineSummarySegments(block.content, `summary-heading-${index}`)}
+        </HeadingTag>
+      );
+    }
+    if (block.type === 'list') {
+      const ListTag = block.kind === 'ordered' ? 'ol' : 'ul';
+      return (
+        <ListTag
+          key={`summary-list-${index}`}
+          className={`${block.kind === 'ordered' ? 'list-decimal' : 'list-disc'} ml-5 space-y-1 text-sm text-gray-700 dark:text-gray-200`}
+        >
+          {(block.items || []).map((item, itemIndex) => (
+            <li key={`summary-list-${index}-${itemIndex}`}>
+              {renderInlineSummarySegments(item, `summary-list-${index}-${itemIndex}`)}
+            </li>
+          ))}
+        </ListTag>
+      );
+    }
+    if (block.type === 'quote') {
+      return (
+        <blockquote
+          key={`summary-quote-${index}`}
+          className="border-l-2 border-gray-200 pl-4 italic text-gray-600 dark:border-gray-700 dark:text-gray-300"
+        >
+          {renderInlineSummarySegments(block.content, `summary-quote-${index}`)}
+        </blockquote>
+      );
+    }
+    if (block.type === 'divider') {
+      return <hr key={`summary-divider-${index}`} className="border-gray-200 dark:border-gray-700" />;
+    }
+    return (
+      <p key={`summary-paragraph-${index}`} className="text-sm text-gray-700 dark:text-gray-200">
+        {renderInlineSummarySegments(block.content, `summary-paragraph-${index}`)}
+      </p>
+    );
+  }).filter(Boolean);
 
 const normalizeId = (value) =>
   String(value ?? "")
@@ -369,6 +568,7 @@ const AdGroupDetail = () => {
   const [inspectRecipe, setInspectRecipe] = useState(null);
   const menuRef = useRef(null);
   const allFeedbackLoadedRef = useRef(false);
+  const autoSummaryTriggeredRef = useRef(false);
   const [feedbackSummary, setFeedbackSummary] = useState("");
   const [feedbackSummaryUpdatedAt, setFeedbackSummaryUpdatedAt] = useState(null);
   const [updatingFeedbackSummary, setUpdatingFeedbackSummary] = useState(false);
@@ -573,38 +773,109 @@ const AdGroupDetail = () => {
       ]
     : [{ value: 'current', label: 'This group' }];
 
+  const summaryBlocks = useMemo(
+    () => (feedbackSummary ? parseSummaryMarkdown(feedbackSummary) : []),
+    [feedbackSummary],
+  );
+
+  const renderedSummary = useMemo(() => {
+    if (!feedbackSummary) return [];
+    const blocks = summaryBlocks.length
+      ? summaryBlocks
+      : [{ type: 'paragraph', content: feedbackSummary }];
+    return renderSummaryBlocks(blocks);
+  }, [feedbackSummary, summaryBlocks]);
+
   const formatFeedbackForSummary = useCallback(() => {
-    if (!feedbackItems.length) return 'No feedback available.';
+    if (!feedbackItems.length) return 'No client feedback available yet.';
+    const formatTimestamp = (value) => {
+      if (!value || !(value instanceof Date)) return '';
+      try {
+        return value.toLocaleString(undefined, { month: 'short', day: 'numeric' });
+      } catch (err) {
+        return '';
+      }
+    };
+    const cleanText = (value) => {
+      if (!value) return '';
+      if (typeof value === 'string') return value.trim();
+      return flattenRichText(value).trim();
+    };
+    const sanitizeLine = (value) => (value ? value.replace(/\s+/g, ' ').trim() : '');
+
     return feedbackItems
-      .map((entry) => {
+      .map((entry, entryIndex) => {
         const headerParts = [];
         if (entry.groupName) headerParts.push(`Group: ${entry.groupName}`);
-        if (entry.recipeCode) headerParts.push(`Recipe ${entry.recipeCode}`);
-        const header = headerParts.length
-          ? headerParts.join(' • ')
-          : entry.title || 'Feedback';
-        const lines = [];
-        if (Array.isArray(entry.commentList) && entry.commentList.length) {
-          entry.commentList.forEach((item) => {
-            if (!item?.text) return;
-            lines.push(
-              `- Comment${item.assetLabel ? ` (${item.assetLabel})` : ''}: ${item.text}`,
-            );
-          });
-        } else if (entry.comment) {
-          lines.push(`- ${entry.comment}`);
+        if (entry.recipeCode) headerParts.push(`Recipe: ${entry.recipeCode}`);
+        if (entry.subtitle) headerParts.push(`Details: ${sanitizeLine(entry.subtitle)}`);
+        if (entry.adStatus) {
+          headerParts.push(`Status: ${entry.adStatus.replace(/_/g, ' ')}`);
         }
-        if (Array.isArray(entry.copyEditList) && entry.copyEditList.length) {
-          entry.copyEditList.forEach((item) => {
-            if (!item?.text) return;
-            lines.push(
-              `- Copy edit${item.assetLabel ? ` (${item.assetLabel})` : ''}: ${item.text}`,
-            );
-          });
-        } else if (entry.copyEdit) {
-          lines.push(`- Copy edit: ${entry.copyEdit}`);
+        const commentCount = Array.isArray(entry.commentList)
+          ? entry.commentList.length
+          : 0;
+        const copyEditCount = Array.isArray(entry.copyEditList)
+          ? entry.copyEditList.length
+          : 0;
+        if (commentCount) {
+          headerParts.push(`${commentCount} comment${commentCount === 1 ? '' : 's'}`);
         }
-        return lines.length ? `${header}\n${lines.join('\n')}` : '';
+        if (copyEditCount) {
+          headerParts.push(`${copyEditCount} copy edit${copyEditCount === 1 ? '' : 's'}`);
+        }
+        const headerLabel = headerParts.length
+          ? headerParts.join(' | ')
+          : entry.title || `Entry ${entryIndex + 1}`;
+        const lines = [`Entry ${entryIndex + 1}: ${headerLabel}`];
+
+        const commentItems = Array.isArray(entry.commentList)
+          ? entry.commentList
+          : [];
+        commentItems.forEach((item) => {
+          if (!item?.text) return;
+          const detailParts = [];
+          if (item.assetLabel) detailParts.push(item.assetLabel);
+          if (item.updatedBy) detailParts.push(`by ${item.updatedBy}`);
+          const timestamp = formatTimestamp(item.updatedAt);
+          if (timestamp) detailParts.push(timestamp);
+          if (item.status) {
+            detailParts.push(`status: ${item.status.replace(/_/g, ' ')}`);
+          }
+          const detailString = detailParts.length ? ` (${detailParts.join(' • ')})` : '';
+          lines.push(`  - Comment${detailString}: ${sanitizeLine(item.text)}`);
+        });
+        if (!commentItems.length && entry.comment) {
+          lines.push(`  - Comment: ${sanitizeLine(entry.comment)}`);
+        }
+
+        const copyItems = Array.isArray(entry.copyEditList)
+          ? entry.copyEditList
+          : [];
+        copyItems.forEach((item) => {
+          const detailParts = [];
+          if (item.assetLabel) detailParts.push(item.assetLabel);
+          if (item.updatedBy) detailParts.push(`by ${item.updatedBy}`);
+          const timestamp = formatTimestamp(item.updatedAt);
+          if (timestamp) detailParts.push(timestamp);
+          if (item.status) {
+            detailParts.push(`status: ${item.status.replace(/_/g, ' ')}`);
+          }
+          const detailString = detailParts.length ? ` (${detailParts.join(' • ')})` : '';
+          const copyText = sanitizeLine(cleanText(item.text) || cleanText(item.diff));
+          if (copyText) {
+            lines.push(`  - Copy edit${detailString}: ${copyText}`);
+          } else {
+            lines.push(
+              `  - Copy edit${detailString}: Updated copy provided via diff.`,
+            );
+          }
+        });
+        if (!copyItems.length && entry.copyEdit) {
+          lines.push(`  - Copy edit: ${sanitizeLine(entry.copyEdit)}`);
+        }
+
+        return lines.join('\n');
       })
       .filter(Boolean)
       .join('\n\n');
@@ -699,6 +970,32 @@ const AdGroupDetail = () => {
     formatFeedbackForSummary,
     group?.name,
     id,
+    updatingFeedbackSummary,
+  ]);
+
+  useEffect(() => {
+    autoSummaryTriggeredRef.current = false;
+  }, [id]);
+
+  useEffect(() => {
+    if (autoSummaryTriggeredRef.current) return;
+    if (!group) return;
+    const hasExistingSummary =
+      Boolean(group.feedbackSummaryUpdatedAt) ||
+      Boolean((group.feedbackSummary || '').trim()) ||
+      Boolean(feedbackSummaryUpdatedAt) ||
+      Boolean((feedbackSummary || '').trim());
+    if (hasExistingSummary) return;
+    if (!feedbackItems.length) return;
+    if (updatingFeedbackSummary) return;
+    autoSummaryTriggeredRef.current = true;
+    void handleUpdateSummary();
+  }, [
+    feedbackItems.length,
+    feedbackSummary,
+    feedbackSummaryUpdatedAt,
+    group,
+    handleUpdateSummary,
     updatingFeedbackSummary,
   ]);
 
@@ -4380,19 +4677,20 @@ const AdGroupDetail = () => {
                     : 'Generate a snapshot summary of client feedback.'}
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
-                className="btn-primary"
+                variant="accent"
+                size="sm"
                 onClick={handleUpdateSummary}
                 disabled={updatingFeedbackSummary}
               >
                 {updatingFeedbackSummary ? 'Updating…' : 'Update summary'}
-              </button>
+              </Button>
             </div>
             <div className="px-5 pb-5">
               {feedbackSummary ? (
-                <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-700 dark:text-gray-200">
-                  {feedbackSummary}
+                <div className="space-y-3 text-sm text-gray-700 dark:text-gray-200">
+                  {renderedSummary}
                 </div>
               ) : (
                 <p className="text-sm text-gray-500 dark:text-gray-300">

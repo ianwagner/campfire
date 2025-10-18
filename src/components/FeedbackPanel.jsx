@@ -1,6 +1,113 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import StatusBadge from './StatusBadge.jsx';
 
+const normalizeKeyPart = (value) => {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value.getTime().toString();
+  if (typeof value === 'string') return value.trim().toLowerCase();
+  return String(value).trim().toLowerCase();
+};
+
+const dedupeItems = (items, getKey) => {
+  if (!Array.isArray(items)) return [];
+  const seen = new Set();
+  const deduped = [];
+  items.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const key = getKey(item);
+    if (key && seen.has(key)) return;
+    if (key) seen.add(key);
+    deduped.push(item);
+  });
+  return deduped;
+};
+
+const sortByDateDesc = (items) =>
+  items.slice().sort((a, b) => {
+    const aTime = a?.updatedAt?.getTime?.() || 0;
+    const bTime = b?.updatedAt?.getTime?.() || 0;
+    return bTime - aTime;
+  });
+
+const sanitizeTimelineItems = (items, { includeEmptyText = false } = {}) =>
+  sortByDateDesc(
+    dedupeItems(
+      (Array.isArray(items) ? items : [])
+        .map((item) => ({
+          ...item,
+          text: typeof item?.text === 'string' ? item.text.trim() : item?.text || '',
+          assetLabel:
+            typeof item?.assetLabel === 'string' ? item.assetLabel.trim() : item?.assetLabel || '',
+          updatedAt: toDateValue(item?.updatedAt),
+          updatedBy: item?.updatedBy || '',
+          status: item?.status || '',
+        }))
+        .filter((item) => (includeEmptyText ? true : Boolean(item.text))),
+      (item) => {
+        const baseKey = [
+          normalizeKeyPart(item?.text || ''),
+          normalizeKeyPart(item?.assetLabel || ''),
+          normalizeKeyPart(item?.assetId || ''),
+        ].join('|');
+        if (baseKey.replace(/\|/g, '') === '' && item?.id) {
+          return normalizeKeyPart(item.id);
+        }
+        return baseKey;
+      },
+    ),
+  );
+
+const sanitizeCopyItems = (items) =>
+  sortByDateDesc(
+    dedupeItems(
+      (Array.isArray(items) ? items : [])
+        .map((item) => ({
+          ...item,
+          text: typeof item?.text === 'string' ? item.text.trim() : item?.text || '',
+          assetLabel:
+            typeof item?.assetLabel === 'string' ? item.assetLabel.trim() : item?.assetLabel || '',
+          updatedAt: toDateValue(item?.updatedAt),
+          updatedBy: item?.updatedBy || '',
+          status: item?.status || '',
+        }))
+        .filter((item) => Boolean(item.text) || Boolean(item.diff)),
+      (item) => {
+        const textKey = normalizeKeyPart(item?.text || '');
+        const assetKey = normalizeKeyPart(item?.assetLabel || '');
+        const assetIdKey = normalizeKeyPart(item?.assetId || '');
+        const combined = [textKey, assetKey, assetIdKey].join('|');
+        if (combined.replace(/\|/g, '') === '' && item?.id) {
+          return normalizeKeyPart(item.id);
+        }
+        return combined;
+      },
+    ),
+  );
+
+const getEntryDisplayTitle = (entry) => {
+  if (!entry) return 'Feedback';
+  const recipeLabel = entry.recipeCode ? `Recipe #${entry.recipeCode}` : '';
+  if (recipeLabel) {
+    const normalizedTitle = (entry.title || '').trim();
+    const recipeTitle = `Recipe ${entry.recipeCode}`.trim();
+    let prefix = '';
+    if (entry.groupName) {
+      prefix = entry.groupName;
+    } else if (
+      normalizedTitle &&
+      normalizedTitle.toLowerCase() !== recipeTitle.toLowerCase()
+    ) {
+      prefix = normalizedTitle;
+    }
+    return [prefix, recipeLabel].filter(Boolean).join(' ') || recipeLabel;
+  }
+  if (entry.groupName && entry.title && entry.title !== entry.groupName) {
+    return `${entry.groupName} ${entry.title}`;
+  }
+  if (entry.groupName) return entry.groupName;
+  return entry.title || 'Feedback';
+};
+
 const toDateValue = (value) => {
   if (!value) return null;
   if (value instanceof Date) return value;
@@ -36,8 +143,8 @@ const FeedbackPanel = ({
       entries.map((entry) => ({
         ...entry,
         updatedAt: toDateValue(entry.updatedAt),
-        commentList: Array.isArray(entry.commentList) ? entry.commentList : [],
-        copyEditList: Array.isArray(entry.copyEditList) ? entry.copyEditList : [],
+        commentList: sanitizeTimelineItems(entry.commentList),
+        copyEditList: sanitizeCopyItems(entry.copyEditList),
       })),
     [entries],
   );
@@ -47,6 +154,7 @@ const FeedbackPanel = ({
     const term = filter.trim().toLowerCase();
     return normalizedEntries.filter((entry) => {
       const haystack = [
+        getEntryDisplayTitle(entry),
         entry.title,
         entry.subtitle,
         entry.comment,
@@ -177,7 +285,7 @@ const FeedbackPanel = ({
                   : 'Feedback will appear here when clients leave comments.'}
               </div>
             ) : (
-              <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto pr-1">
+              <ul className="flex max-h-[32rem] min-h-[18rem] flex-col gap-2 overflow-y-auto pr-1">
                 {filteredEntries.map((entry) => {
                   const isActive = entry.id === selectedId;
                   return (
@@ -204,7 +312,7 @@ const FeedbackPanel = ({
                               ) : null}
                             </div>
                             <h4 className="mt-1 text-sm font-semibold leading-5 group-hover:text-[var(--accent-color)] dark:group-hover:text-[var(--accent-color)]">
-                              {entry.title || 'Feedback'}
+                              {getEntryDisplayTitle(entry)}
                             </h4>
                             {entry.subtitle ? (
                               <p className="mt-1 text-xs text-gray-500 dark:text-gray-300">{entry.subtitle}</p>
@@ -235,11 +343,11 @@ const FeedbackPanel = ({
                 <div className="flex flex-col gap-1">
                   <div className="flex flex-wrap items-baseline gap-2">
                     <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {selectedEntry.title || 'Feedback'}
+                      {getEntryDisplayTitle(selectedEntry)}
                     </h4>
                     {selectedEntry.recipeCode ? (
                       <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-200">
-                        Recipe {selectedEntry.recipeCode}
+                        Recipe #{selectedEntry.recipeCode}
                       </span>
                     ) : null}
                   </div>
