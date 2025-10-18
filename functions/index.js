@@ -11,6 +11,8 @@ import sharp from 'sharp';
 import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
+import protobuf from 'protobufjs/minimal.js';
+import firestoreProtos from 'firebase-functions/protos/compiledFirestore.js';
 import { tagger } from './tagger.js';
 import { generateThumbnailsForAssets, deleteThumbnails } from './thumbnails.js';
 import { generateTagsForAssets } from './tagAssets.js';
@@ -23,6 +25,30 @@ import { openaiProxy } from './openaiProxy.js';
 
 if (!admin.apps.length) {
   admin.initializeApp();
+}
+
+// Ensure the protobuf root keeps the Firestore event namespace available even if
+// another dependency mutates the shared protobuf root at runtime. When the
+// namespace disappears, firebase-functions fails to decode Firestore change
+// events ("Cannot read properties of undefined (reading 'cloud')").
+const defaultProtoRoot = protobuf?.roots?.default;
+const compiledGoogle = firestoreProtos?.google;
+if (compiledGoogle) {
+  if (!defaultProtoRoot) {
+    protobuf.roots.default = firestoreProtos;
+  } else {
+    defaultProtoRoot.google = defaultProtoRoot.google || {};
+    const googleRoot = defaultProtoRoot.google;
+    googleRoot.events = googleRoot.events || {};
+    const eventsRoot = googleRoot.events;
+    eventsRoot.cloud = eventsRoot.cloud || {};
+    const cloudRoot = eventsRoot.cloud;
+    const compiledFirestore = compiledGoogle.events?.cloud?.firestore;
+    const hasFirestoreNamespace = cloudRoot.firestore?.v1?.DocumentEventData;
+    if (!hasFirestoreNamespace && compiledFirestore) {
+      cloudRoot.firestore = compiledFirestore;
+    }
+  }
 }
 
 const db = admin.firestore();
