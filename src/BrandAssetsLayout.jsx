@@ -297,7 +297,7 @@ const BrandAssetsLayout = ({
   }, [combinedNotes, searchTerm, selectedTag]);
 
   const contentClasses = [
-    'gm-brand-assets__content flex-1 space-y-6 px-4 py-6 scroll-smooth lg:px-8',
+    'gm-brand-assets__content space-y-6 px-4 py-6 scroll-smooth lg:px-8',
   ];
   if (resolvedHeight) {
     contentClasses.push('overflow-y-auto');
@@ -306,39 +306,39 @@ const BrandAssetsLayout = ({
   }
 
   return (
-    <div className="gm-brand-assets flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
-      <div className="flex flex-col lg:flex-row">
-        <nav className="gm-brand-assets__nav border-b border-gray-200 bg-white dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] lg:min-w-[14rem] lg:border-b-0 lg:border-r lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-          <div className="flex overflow-x-auto px-4 py-3 text-sm font-medium text-gray-600 lg:flex-col lg:gap-1 lg:overflow-visible">
-            {SECTION_ORDER.map((sectionId) => {
-              const label =
-                sectionId === 'logos'
-                  ? 'Logos'
-                  : sectionId === 'colors'
-                  ? 'Colors'
-                  : sectionId === 'typography'
-                  ? 'Typography'
-                  : sectionId === 'guidelines'
-                  ? 'Guidelines'
-                  : 'Notes';
-              const isActive = activeSection === sectionId;
-              return (
-                <button
-                  key={sectionId}
-                  type="button"
-                  onClick={() => handleNavClick(sectionId)}
-                  className={`gm-brand-assets__nav-link mr-2 flex-shrink-0 rounded-full px-4 py-2 transition-colors last:mr-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] lg:mr-0 ${
-                    isActive
-                      ? 'bg-[var(--accent-color)] text-white shadow'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </nav>
+    <div className="gm-brand-assets flex flex-col gap-6 lg:flex-row lg:items-start">
+      <nav className="gm-brand-assets__nav w-full lg:min-w-[14rem] lg:max-w-[16rem] lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+        <div className="flex overflow-x-auto px-4 py-3 text-sm font-medium text-gray-600 lg:flex-col lg:items-start lg:gap-2 lg:overflow-visible lg:px-0 lg:py-0">
+          {SECTION_ORDER.map((sectionId) => {
+            const label =
+              sectionId === 'logos'
+                ? 'Logos'
+                : sectionId === 'colors'
+                ? 'Colors'
+                : sectionId === 'typography'
+                ? 'Typography'
+                : sectionId === 'guidelines'
+                ? 'Guidelines'
+                : 'Notes';
+            const isActive = activeSection === sectionId;
+            return (
+              <button
+                key={sectionId}
+                type="button"
+                onClick={() => handleNavClick(sectionId)}
+                className={`gm-brand-assets__nav-link mr-2 flex-shrink-0 rounded-full px-4 py-2 transition-colors last:mr-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)] lg:mr-0 ${
+                  isActive
+                    ? 'bg-[var(--accent-color)] text-white shadow'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+      <div className="gm-brand-assets__content-wrapper flex-1 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
         <div
           ref={contentRef}
           className={contentClasses.join(' ')}
