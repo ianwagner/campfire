@@ -117,6 +117,23 @@ const normalizeKeyPart = (value) => {
   return String(value);
 };
 
+const normalizeUniqueIdList = (values) => {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set();
+  const normalized = [];
+  values.forEach((value) => {
+    const candidate =
+      typeof value === 'string' ? value : value?.id ?? value?.assetId ?? value;
+    const key = normalizeKeyPart(candidate);
+    if (!key || seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    normalized.push(key);
+  });
+  return normalized;
+};
+
 const normalizeReviewAssetData = (raw, overrides = {}) => {
   const combined = { ...raw, ...overrides };
   const info = parseAdFilename(combined.filename || '');
@@ -860,6 +877,7 @@ const Review = forwardRef(
   const [recipes, setRecipes] = useState([]); // ad recipes for brief review
   const [recipesLoaded, setRecipesLoaded] = useState(false);
   const [groupBrandCode, setGroupBrandCode] = useState('');
+  const [exportedAdIds, setExportedAdIds] = useState([]);
   const [finalGallery, setFinalGallery] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
@@ -1901,10 +1919,12 @@ useEffect(() => {
     const applyStatus = (snapshot) => {
       if (!snapshot || !snapshot.exists()) {
         setGroupStatus(null);
+        setExportedAdIds([]);
         return;
       }
       const data = snapshot.data();
       setGroupStatus(data?.status || null);
+      setExportedAdIds(normalizeUniqueIdList(data?.exportedAdIds));
     };
 
     const fetchStatus = async () => {
@@ -1961,6 +1981,7 @@ useEffect(() => {
             if (cancelled) return;
             if (groupSnap.exists()) {
               const data = groupSnap.data();
+              setExportedAdIds(normalizeUniqueIdList(data?.exportedAdIds));
               const rawStatus = data.status || 'pending';
               setGroupStatus(rawStatus);
               status = rawStatus;
@@ -2014,11 +2035,13 @@ useEffect(() => {
               );
           } else {
             setGroupStatus(null);
+            setExportedAdIds([]);
           }
           setInitialStatus(status);
           setReviewVersion(rv);
         } else {
           setGroupStatus(null);
+          setExportedAdIds([]);
           const normalizedBrandCodes = Array.from(
             new Set(
               brandCodes
@@ -3384,15 +3407,11 @@ useEffect(() => {
     if (initialStatus === 'done') {
       return false;
     }
-    if (isPublicReviewer) {
-      return false;
-    }
     return true;
   }, [
     groupId,
     initialStatus,
     isGroupReviewed,
-    isPublicReviewer,
     reviewAds,
   ]);
 
@@ -4616,7 +4635,12 @@ useEffect(() => {
         }
       });
 
-      const approvedAdIds = Array.from(approvedDocIdSet);
+      const allApprovedAdIds = normalizeUniqueIdList(Array.from(approvedDocIdSet));
+      const previouslyExportedIds = normalizeUniqueIdList(exportedAdIds);
+      const previouslyExportedSet = new Set(previouslyExportedIds);
+      const exportAdIds = allApprovedAdIds.filter(
+        (id) => !previouslyExportedSet.has(id),
+      );
       const { reviewUrl: detailUrl, adGroupUrl } = buildDetailLinks();
 
       const timestamp = serverTimestamp();
@@ -4628,6 +4652,12 @@ useEffect(() => {
       const jobMetadata = {
         source: 'review-finalize',
         totalAds: reviewAds.length,
+        totalApproved: allApprovedAdIds.length,
+        newlyApproved: exportAdIds.length,
+        previouslyExported: Math.max(
+          0,
+          allApprovedAdIds.length - exportAdIds.length,
+        ),
       };
       if (detailUrl) {
         jobMetadata.reviewUrl = detailUrl;
@@ -4641,8 +4671,8 @@ useEffect(() => {
         adGroupName: adGroupDisplayName || '',
         brandCode: jobBrandCode,
         groupDesc: jobGroupDesc,
-        adIds: approvedAdIds,
-        approvedAdIds,
+        adIds: exportAdIds,
+        approvedAdIds: exportAdIds,
         targetEnv: DEFAULT_EXPORT_TARGET_ENV,
         targetIntegration: DEFAULT_EXPORT_TARGET_INTEGRATION,
         integrationKey: DEFAULT_EXPORT_TARGET_INTEGRATION,
@@ -4653,8 +4683,12 @@ useEffect(() => {
         requestedAt: timestamp,
         metadata: jobMetadata,
         counts: {
-          approved: approvedAdIds.length,
+          approved: exportAdIds.length,
           total: reviewAds.length,
+          previouslyExported: Math.max(
+            0,
+            allApprovedAdIds.length - exportAdIds.length,
+          ),
         },
       };
 
@@ -4666,7 +4700,18 @@ useEffect(() => {
         lastUpdated: serverTimestamp(),
       };
 
+      if (exportAdIds.length > 0) {
+        updateData.exportedAdIds = normalizeUniqueIdList([
+          ...previouslyExportedIds,
+          ...exportAdIds,
+        ]);
+      }
+
       await updateDoc(doc(db, 'adGroups', groupId), updateData);
+
+      if (updateData.exportedAdIds) {
+        setExportedAdIds(updateData.exportedAdIds);
+      }
 
       await notifySlackStatusChange({
         brandCode: jobBrandCode || '',
