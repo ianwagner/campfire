@@ -4072,60 +4072,194 @@ const AdGroupDetail = () => {
               </Link>
             )}
           </div>
-          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] md:p-6">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] md:col-span-2 xl:col-span-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Informational
-                </p>
-                <div className="mt-3 space-y-4 text-sm text-gray-600 dark:text-gray-300">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="md:col-span-2 xl:col-span-3">
+              <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Brand
+                    </span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {group.brandCode}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Status
+                    </span>
+                    <div className="text-sm">
+                      {isAdmin || isEditor || isDesigner ? (
+                        <select
+                          aria-label="Status"
+                          value={group.status}
+                          onChange={handleStatusChange}
+                          className={`status-select status-${(group.status || '').replace(/\s+/g, '_')}`}
+                        >
+                          {statusOptions.map((s) => (
+                            <option
+                              key={s}
+                              value={s}
+                              disabled={isDesigner && s === 'briefed'}
+                              hidden={isDesigner && s === 'briefed'}
+                            >
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <StatusBadge status={group.status} />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Due Date
+                    </span>
+                    {userRole === 'admin' || userRole === 'agency' ? (
+                      <input
+                        type="date"
+                        value={
+                          group.dueDate
+                            ? group.dueDate.toDate().toISOString().slice(0, 10)
+                            : ''
+                        }
+                        onChange={async (e) => {
+                          const date = e.target.value
+                            ? Timestamp.fromDate(new Date(e.target.value))
+                            : null;
+                          try {
+                            await updateDoc(doc(db, 'adGroups', id), { dueDate: date });
+                            setGroup((p) => ({ ...p, dueDate: date }));
+                            if (group.requestId) {
+                              try {
+                                await updateDoc(doc(db, 'requests', group.requestId), {
+                                  dueDate: date,
+                                });
+                              } catch (err) {
+                                console.error('Failed to sync ticket due date', err);
+                              }
+                            }
+                          } catch (err) {
+                            console.error('Failed to update due date', err);
+                          }
+                        }}
+                        className="border tag-pill px-2 py-1 text-sm"
+                      />
+                    ) : (
+                      <span>
+                        {group.dueDate
+                          ? group.dueDate.toDate().toLocaleDateString()
+                          : 'N/A'}
+                      </span>
+                    )}
+                  </div>
+                  {(isAdmin || isEditor) && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Review Type
+                      </span>
+                      <select
+                        aria-label="Review Type"
+                        value={group.reviewVersion || 1}
+                        onChange={handleReviewTypeChange}
+                        className="border p-1 text-sm"
+                      >
+                        <option value={1}>Legacy</option>
+                        <option value={2}>2.0</option>
+                        <option value={3}>Brief</option>
+                      </select>
+                    </div>
+                  )}
+                  {(brandHasAgency || userRole === 'admin') && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Month
+                      </span>
+                      <input
+                        type="month"
+                        value={group.month || ''}
+                        onChange={async (e) => {
+                          const value = e.target.value;
+                          try {
+                            if (value) {
+                              await updateDoc(doc(db, 'adGroups', id), { month: value });
+                              setGroup((p) => ({ ...p, month: value }));
+                              if (group.requestId) {
+                                try {
+                                  await updateDoc(doc(db, 'requests', group.requestId), { month: value });
+                                } catch (err) {
+                                  console.error('Failed to sync ticket month', err);
+                                }
+                              }
+                            } else {
+                              await updateDoc(doc(db, 'adGroups', id), { month: deleteField() });
+                              setGroup((p) => {
+                                const u = { ...p };
+                                delete u.month;
+                                return u;
+                              });
+                              if (group.requestId) {
+                                try {
+                                  await updateDoc(doc(db, 'requests', group.requestId), { month: deleteField() });
+                                } catch (err) {
+                                  console.error('Failed to sync ticket month', err);
+                                }
+                              }
+                            }
+                          } catch (err) {
+                            console.error('Failed to update month', err);
+                          }
+                        }}
+                        className="border tag-pill px-2 py-1 text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+                {(!isClientPortalUser || isProjectManager) && (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-1">
                       <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        Brand
+                        Editor
                       </span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {group.brandCode}
-                      </span>
+                      {canManageStaff ? (
+                        <select
+                          aria-label="Editor Assignment"
+                          value={group.editorId || ''}
+                          onChange={async (e) => {
+                            const value = e.target.value || null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { editorId: value });
+                              setGroup((p) => ({ ...p, editorId: value }));
+                            } catch (err) {
+                              console.error('Failed to update editor', err);
+                            }
+                          }}
+                          className="border p-1 rounded"
+                        >
+                          <option value="">Unassigned</option>
+                          {editors.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{editorName || 'Unassigned'}</span>
+                      )}
                     </div>
                     <div className="flex flex-col gap-1">
                       <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        Status
+                        Editor Due Date
                       </span>
-                      <div className="text-sm">
-                        {isAdmin || isEditor || isDesigner ? (
-                          <select
-                            aria-label="Status"
-                            value={group.status}
-                            onChange={handleStatusChange}
-                            className={`status-select status-${(group.status || '').replace(/\s+/g, '_')}`}
-                          >
-                            {statusOptions.map((s) => (
-                              <option
-                                key={s}
-                                value={s}
-                                disabled={isDesigner && s === 'briefed'}
-                                hidden={isDesigner && s === 'briefed'}
-                              >
-                                {s}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <StatusBadge status={group.status} />
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        Due Date
-                      </span>
-                      {userRole === 'admin' || userRole === 'agency' ? (
+                      {canManageStaff ? (
                         <input
                           type="date"
                           value={
-                            group.dueDate
-                              ? group.dueDate.toDate().toISOString().slice(0, 10)
+                            group.editorDueDate
+                              ? (group.editorDueDate.toDate
+                                  ? group.editorDueDate.toDate().toISOString().slice(0, 10)
+                                  : new Date(group.editorDueDate).toISOString().slice(0, 10))
                               : ''
                           }
                           onChange={async (e) => {
@@ -4133,261 +4267,113 @@ const AdGroupDetail = () => {
                               ? Timestamp.fromDate(new Date(e.target.value))
                               : null;
                             try {
-                              await updateDoc(doc(db, 'adGroups', id), { dueDate: date });
-                              setGroup((p) => ({ ...p, dueDate: date }));
-                              if (group.requestId) {
-                                try {
-                                  await updateDoc(doc(db, 'requests', group.requestId), {
-                                    dueDate: date,
-                                  });
-                                } catch (err) {
-                                  console.error('Failed to sync ticket due date', err);
-                                }
-                              }
+                              await updateDoc(doc(db, 'adGroups', id), { editorDueDate: date });
+                              setGroup((p) => ({ ...p, editorDueDate: date }));
                             } catch (err) {
-                              console.error('Failed to update due date', err);
+                              console.error('Failed to update editor due date', err);
                             }
                           }}
                           className="border tag-pill px-2 py-1 text-sm"
                         />
                       ) : (
                         <span>
-                          {group.dueDate
-                            ? group.dueDate.toDate().toLocaleDateString()
+                          {group.editorDueDate
+                            ? (group.editorDueDate.toDate
+                                ? group.editorDueDate.toDate().toLocaleDateString()
+                                : new Date(group.editorDueDate).toLocaleDateString())
                             : 'N/A'}
                         </span>
                       )}
                     </div>
-                    {(isAdmin || isEditor) && (
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Review Type
-                        </span>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Designer
+                      </span>
+                      {canManageStaff ? (
                         <select
-                          aria-label="Review Type"
-                          value={group.reviewVersion || 1}
-                          onChange={handleReviewTypeChange}
-                          className="border p-1 text-sm"
-                        >
-                          <option value={1}>Legacy</option>
-                          <option value={2}>2.0</option>
-                          <option value={3}>Brief</option>
-                        </select>
-                      </div>
-                    )}
-                    {(brandHasAgency || userRole === 'admin') && (
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Month
-                        </span>
-                        <input
-                          type="month"
-                          value={group.month || ''}
+                          aria-label="Designer Assignment"
+                          value={group.designerId || ''}
                           onChange={async (e) => {
-                            const value = e.target.value;
+                            const value = e.target.value || null;
                             try {
-                              if (value) {
-                                await updateDoc(doc(db, 'adGroups', id), { month: value });
-                                setGroup((p) => ({ ...p, month: value }));
-                                if (group.requestId) {
-                                  try {
-                                    await updateDoc(doc(db, 'requests', group.requestId), { month: value });
-                                  } catch (err) {
-                                    console.error('Failed to sync ticket month', err);
-                                  }
-                                }
-                              } else {
-                                await updateDoc(doc(db, 'adGroups', id), { month: deleteField() });
-                                setGroup((p) => {
-                                  const u = { ...p };
-                                  delete u.month;
-                                  return u;
-                                });
-                                if (group.requestId) {
-                                  try {
-                                    await updateDoc(doc(db, 'requests', group.requestId), { month: deleteField() });
-                                  } catch (err) {
-                                    console.error('Failed to sync ticket month', err);
-                                  }
-                                }
-                              }
+                              await updateDoc(doc(db, 'adGroups', id), { designerId: value });
+                              setGroup((p) => ({ ...p, designerId: value }));
                             } catch (err) {
-                              console.error('Failed to update month', err);
+                              console.error('Failed to update designer', err);
+                            }
+                          }}
+                          className="border p-1 rounded"
+                        >
+                          <option value="">Unassigned</option>
+                          {designers.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{designerName || 'Unassigned'}</span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Design Due Date
+                      </span>
+                      {canManageStaff ? (
+                        <input
+                          type="date"
+                          value={
+                            group.designDueDate
+                              ? (group.designDueDate.toDate
+                                  ? group.designDueDate.toDate().toISOString().slice(0, 10)
+                                  : new Date(group.designDueDate).toISOString().slice(0, 10))
+                              : ''
+                          }
+                          onChange={async (e) => {
+                            const date = e.target.value
+                              ? Timestamp.fromDate(new Date(e.target.value))
+                              : null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { designDueDate: date });
+                              setGroup((p) => ({ ...p, designDueDate: date }));
+                            } catch (err) {
+                              console.error('Failed to update design due date', err);
                             }
                           }}
                           className="border tag-pill px-2 py-1 text-sm"
                         />
-                      </div>
-                    )}
+                      ) : (
+                        <span>
+                          {group.designDueDate
+                            ? (group.designDueDate.toDate
+                                ? group.designDueDate.toDate().toLocaleDateString()
+                                : new Date(group.designDueDate).toLocaleDateString())
+                            : 'N/A'}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {(!isClientPortalUser || isProjectManager) && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Designer
-                        </span>
-                        {canManageStaff ? (
-                          <select
-                            aria-label="Designer Assignment"
-                            value={group.designerId || ''}
-                            onChange={async (e) => {
-                              const value = e.target.value || null;
-                              try {
-                                await updateDoc(doc(db, 'adGroups', id), { designerId: value });
-                                setGroup((p) => ({ ...p, designerId: value }));
-                              } catch (err) {
-                                console.error('Failed to update designer', err);
-                              }
-                            }}
-                            className="border p-1 rounded"
-                          >
-                            <option value="">Unassigned</option>
-                            {designers.map((d) => (
-                              <option key={d.id} value={d.id}>
-                                {d.name}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span>{designerName || 'Unassigned'}</span>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Design Due Date
-                        </span>
-                        {canManageStaff ? (
-                          <input
-                            type="date"
-                            value={
-                              group.designDueDate
-                                ? (group.designDueDate.toDate
-                                    ? group.designDueDate.toDate().toISOString().slice(0, 10)
-                                    : new Date(group.designDueDate).toISOString().slice(0, 10))
-                                : ''
-                            }
-                            onChange={async (e) => {
-                              const date = e.target.value
-                                ? Timestamp.fromDate(new Date(e.target.value))
-                                : null;
-                              try {
-                                await updateDoc(doc(db, 'adGroups', id), { designDueDate: date });
-                                setGroup((p) => ({ ...p, designDueDate: date }));
-                              } catch (err) {
-                                console.error('Failed to update design due date', err);
-                              }
-                            }}
-                            className="border tag-pill px-2 py-1 text-sm"
-                          />
-                        ) : (
-                          <span>
-                            {group.designDueDate
-                              ? (group.designDueDate.toDate
-                                  ? group.designDueDate.toDate().toLocaleDateString()
-                                  : new Date(group.designDueDate).toLocaleDateString())
-                              : 'N/A'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Editor
-                        </span>
-                        {canManageStaff ? (
-                          <select
-                            aria-label="Editor Assignment"
-                            value={group.editorId || ''}
-                            onChange={async (e) => {
-                              const value = e.target.value || null;
-                              try {
-                                await updateDoc(doc(db, 'adGroups', id), { editorId: value });
-                                setGroup((p) => ({ ...p, editorId: value }));
-                              } catch (err) {
-                                console.error('Failed to update editor', err);
-                              }
-                            }}
-                            className="border p-1 rounded"
-                          >
-                            <option value="">Unassigned</option>
-                            {editors.map((d) => (
-                              <option key={d.id} value={d.id}>
-                                {d.name}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span>{editorName || 'Unassigned'}</span>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Editor Due Date
-                        </span>
-                        {canManageStaff ? (
-                          <input
-                            type="date"
-                            value={
-                              group.editorDueDate
-                                ? (group.editorDueDate.toDate
-                                    ? group.editorDueDate.toDate().toISOString().slice(0, 10)
-                                    : new Date(group.editorDueDate).toISOString().slice(0, 10))
-                                : ''
-                            }
-                            onChange={async (e) => {
-                              const date = e.target.value
-                                ? Timestamp.fromDate(new Date(e.target.value))
-                                : null;
-                              try {
-                                await updateDoc(doc(db, 'adGroups', id), { editorDueDate: date });
-                                setGroup((p) => ({ ...p, editorDueDate: date }));
-                              } catch (err) {
-                                console.error('Failed to update editor due date', err);
-                              }
-                            }}
-                            className="border tag-pill px-2 py-1 text-sm"
-                          />
-                        ) : (
-                          <span>
-                            {group.editorDueDate
-                              ? (group.editorDueDate.toDate
-                                  ? group.editorDueDate.toDate().toLocaleDateString()
-                                  : new Date(group.editorDueDate).toLocaleDateString())
-                              : 'N/A'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {group.status === 'archived' && (
-                    <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
-                      This ad group is archived and read-only.
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] md:col-span-2 xl:col-span-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Tab Navigation
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {renderTabNavigation()}
-                </div>
-              </div>
-              <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] md:col-span-2 xl:col-span-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  Actions
-                </p>
-                <div className="mt-3 text-sm text-gray-600 dark:text-gray-300">
-                  {renderActionButtons()}
-                </div>
+                )}
+                {group.status === 'archived' && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                    This ad group is archived and read-only.
+                  </div>
+                )}
               </div>
             </div>
+            <div className="rounded-2xl border border-gray-200 p-3 dark:border-[var(--border-color-default)] md:col-span-2 xl:col-span-1">
+              <div className="flex flex-wrap gap-2">
+                {renderTabNavigation()}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-gray-200 p-3 text-sm text-gray-600 dark:border-[var(--border-color-default)] dark:text-gray-300 md:col-span-2 xl:col-span-1">
+              {renderActionButtons()}
+            </div>
+          </section>
 
-      {uploading && (
-        <span className="text-sm text-gray-600 dark:text-gray-300">Uploading...</span>
-      )}
-          </div>
-        </section>
+          {uploading && (
+            <p className="text-sm text-gray-600 dark:text-gray-300">Uploading...</p>
+          )}
 
       {showStats && (
         <>
@@ -5451,21 +5437,19 @@ const AdGroupDetail = () => {
       )}
 
       {usesTabs
-        ?
-            tab === "assets" && (
-              <BrandAssetsLayout
-                brandCode={group?.brandCode}
-                guidelinesUrl={brandGuidelines}
-                brandNotes={brandNotes}
-              />
-            )
-        :
-            showBrandAssets && (
-              <BrandAssets
-                brandCode={group?.brandCode}
-                onClose={() => setShowBrandAssets(false)}
-              />
-            )}
+        ? tab === "assets" && (
+            <BrandAssetsLayout
+              brandCode={group?.brandCode}
+              guidelinesUrl={brandGuidelines}
+              brandNotes={brandNotes}
+            />
+          )
+        : showBrandAssets && (
+            <BrandAssets
+              brandCode={group?.brandCode}
+              onClose={() => setShowBrandAssets(false)}
+            />
+          )}
         </div>
       </div>
     </div>
