@@ -3969,7 +3969,7 @@ const AdGroupDetail = () => {
             />
           </>
         )}
-      </p>
+      </div>
       {(!isClientPortalUser || isProjectManager) && (
         <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
           Designer:
@@ -4093,7 +4093,7 @@ const AdGroupDetail = () => {
               : 'N/A'}
           </span>
         )}
-      </div>
+      </p>
     )}
     {group.status === "archived" && (
       <div className="text-sm text-red-500 dark:text-red-400">
