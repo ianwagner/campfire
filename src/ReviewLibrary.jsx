@@ -6,6 +6,9 @@ import Table from './components/common/Table';
 
 const emptyReview = { id: '', name: '', body: '', title: '', rating: '', product: '' };
 
+const inputClassName =
+  'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]';
+
 const ReviewLibrary = ({ brandCode = '' }) => {
   const [reviews, setReviews] = useState([]);
   const [csvColumns, setCsvColumns] = useState([]);
@@ -80,26 +83,11 @@ const ReviewLibrary = ({ brandCode = '' }) => {
   const addCsvRows = () => {
     const newReviews = csvRows.map((row) => ({
       id: Math.random().toString(36).slice(2),
-      name:
-        csvMap.name !== undefined && csvMap.name !== ''
-          ? row[csvMap.name] || ''
-          : '',
-      body:
-        csvMap.body !== undefined && csvMap.body !== ''
-          ? row[csvMap.body] || ''
-          : '',
-      title:
-        csvMap.title !== undefined && csvMap.title !== ''
-          ? row[csvMap.title] || ''
-          : '',
-      rating:
-        csvMap.rating !== undefined && csvMap.rating !== ''
-          ? row[csvMap.rating] || ''
-          : '',
-      product:
-        csvMap.product !== undefined && csvMap.product !== ''
-          ? row[csvMap.product] || ''
-          : '',
+      name: csvMap.name !== undefined && csvMap.name !== '' ? row[csvMap.name] || '' : '',
+      body: csvMap.body !== undefined && csvMap.body !== '' ? row[csvMap.body] || '' : '',
+      title: csvMap.title !== undefined && csvMap.title !== '' ? row[csvMap.title] || '' : '',
+      rating: csvMap.rating !== undefined && csvMap.rating !== '' ? row[csvMap.rating] || '' : '',
+      product: csvMap.product !== undefined && csvMap.product !== '' ? row[csvMap.product] || '' : '',
     }));
     setReviews((p) => [...p, ...newReviews]);
     setDirty(true);
@@ -111,107 +99,137 @@ const ReviewLibrary = ({ brandCode = '' }) => {
   useUnsavedChanges(dirty, saveReviews);
 
   return (
-    <div>
-      <div className="mb-4 flex gap-2 flex-wrap">
-        <button type="button" className="btn-secondary" onClick={addRow}>
-          Add Row
-        </button>
-        <input type="file" accept=".csv" onChange={handleCsv} />
-        <SaveButton onClick={saveReviews} canSave={dirty} loading={saving} />
-      </div>
-      {csvColumns.length > 0 && (
-        <div className="mb-4 space-y-2">
-          {['name', 'body', 'title', 'rating', 'product'].map((key) => (
-            <div key={key}>
-              <label className="block text-sm mb-1 capitalize">{key} Column</label>
-              <select
-                className="p-1 border rounded w-full"
-                value={csvMap[key] ?? ''}
-                onChange={(e) => setCsvMap({ ...csvMap, [key]: e.target.value })}
-              >
-                <option value="">Ignore</option>
-                {csvColumns.map((c, idx) => (
-                  <option key={idx} value={idx}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
-          <button type="button" className="btn-primary" onClick={addCsvRows}>
-            Add Rows
-          </button>
+    <div className="flex flex-col gap-6">
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Customer Reviews</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Centralize testimonials you can pull into briefs, landing pages, and ad creative.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 md:justify-end">
+            <button type="button" className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-[var(--accent-color)] hover:text-[var(--accent-color)]" onClick={addRow}>
+              Add Row
+            </button>
+            <label className="relative inline-flex cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-[var(--accent-color)] hover:text-[var(--accent-color)]">
+              <input type="file" accept=".csv" onChange={handleCsv} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+              Import CSV
+            </label>
+            <SaveButton onClick={saveReviews} canSave={dirty} loading={saving} />
+          </div>
         </div>
-      )}
-      {reviews.length === 0 ? (
-        <p>No reviews found.</p>
-      ) : (
-        <Table>
-          <thead>
-              <tr>
-                <th>Name</th>
-                <th>Body</th>
-                <th>Title</th>
-                <th>Rating</th>
-                <th>Product</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reviews.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    <input
-                      className="p-1 border rounded w-full"
-                      value={r.name}
-                      onChange={(e) => updateRow(r.id, 'name', e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <textarea
-                      className="p-1 border rounded w-full"
-                      value={r.body}
-                      onChange={(e) => updateRow(r.id, 'body', e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="p-1 border rounded w-full"
-                      value={r.title}
-                      onChange={(e) => updateRow(r.id, 'title', e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      min="1"
-                      max="5"
-                      className="p-1 border rounded w-full"
-                      value={r.rating}
-                      onChange={(e) => updateRow(r.id, 'rating', e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="p-1 border rounded w-full"
-                      value={r.product}
-                      onChange={(e) => updateRow(r.id, 'product', e.target.value)}
-                    />
-                  </td>
-                  <td className="text-center">
-                    <button
-                      type="button"
-                      className="btn-delete"
-                      onClick={() => deleteRow(r.id)}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
+
+        {csvColumns.length > 0 && (
+          <div className="mt-6 space-y-3 rounded-2xl border border-dashed border-gray-300 bg-white/60 p-4 dark:border-gray-700/60 dark:bg-[var(--dark-sidebar-hover)]">
+            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Map CSV Columns</h3>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {['name', 'body', 'title', 'rating', 'product'].map((key) => (
+                <div key={key} className="space-y-1">
+                  <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {key}
+                  </label>
+                  <select
+                    className={`${inputClassName} text-sm`}
+                    value={csvMap[key] ?? ''}
+                    onChange={(e) => setCsvMap({ ...csvMap, [key]: e.target.value })}
+                  >
+                    <option value="">Ignore</option>
+                    {csvColumns.map((c, idx) => (
+                      <option key={idx} value={idx}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               ))}
-            </tbody>
-          </Table>
-      )}
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="rounded-lg bg-[var(--accent-color)] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:brightness-95"
+                onClick={addCsvRows}
+              >
+                Add Rows
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 space-y-4">
+          {reviews.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-white/60 p-6 text-sm text-gray-600 dark:border-gray-700/60 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300">
+              No reviews yet. Add rows manually or import them from a CSV file.
+            </div>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Body</th>
+                  <th>Title</th>
+                  <th>Rating</th>
+                  <th>Product</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reviews.map((r) => (
+                  <tr key={r.id}>
+                    <td>
+                      <input
+                        className={inputClassName}
+                        value={r.name}
+                        onChange={(e) => updateRow(r.id, 'name', e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <textarea
+                        className={`${inputClassName} h-24 resize-y`}
+                        value={r.body}
+                        onChange={(e) => updateRow(r.id, 'body', e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className={inputClassName}
+                        value={r.title}
+                        onChange={(e) => updateRow(r.id, 'title', e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="1"
+                        max="5"
+                        className={inputClassName}
+                        value={r.rating}
+                        onChange={(e) => updateRow(r.id, 'rating', e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className={inputClassName}
+                        value={r.product}
+                        onChange={(e) => updateRow(r.id, 'product', e.target.value)}
+                      />
+                    </td>
+                    <td className="text-center">
+                      <button
+                        type="button"
+                        className="rounded-lg border border-red-200 px-3 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                        onClick={() => deleteRow(r.id)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </div>
+      </section>
     </div>
   );
 };
