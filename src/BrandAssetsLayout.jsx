@@ -9,7 +9,7 @@ import { FiCopy, FiDownload, FiFilter, FiPlus, FiSearch } from 'react-icons/fi';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import { useBrandAssets } from './useBrandAssets.js';
 
-const SECTION_ORDER = ['logos', 'colors', 'typography', 'guidelines', 'notes'];
+const BASE_SECTION_ORDER = ['logos', 'colors', 'typography', 'guidelines', 'notes'];
 
 const stripHtml = (value = '') =>
   value
@@ -104,7 +104,15 @@ const BrandAssetsLayout = ({
   brandNotes = [],
   height = 'auto',
   onCreateNote,
+  showNotes = true,
 }) => {
+  const sectionOrder = useMemo(
+    () =>
+      showNotes
+        ? BASE_SECTION_ORDER
+        : BASE_SECTION_ORDER.filter((section) => section !== 'notes'),
+    [showNotes],
+  );
   const {
     loading,
     guidelinesUrl: brandGuidelinesUrl,
@@ -188,7 +196,7 @@ const BrandAssetsLayout = ({
           .filter((entry) => entry.isIntersecting)
           .sort(
             (a, b) =>
-              SECTION_ORDER.indexOf(a.target.id) - SECTION_ORDER.indexOf(b.target.id),
+              sectionOrder.indexOf(a.target.id) - sectionOrder.indexOf(b.target.id),
           );
         if (visible.length > 0) {
           setActiveSection(visible[0].target.id);
@@ -197,7 +205,7 @@ const BrandAssetsLayout = ({
       { root, threshold: 0.35 },
     );
 
-    const nodes = SECTION_ORDER.map((id) => sectionRefs.current[id]).filter(Boolean);
+    const nodes = sectionOrder.map((id) => sectionRefs.current[id]).filter(Boolean);
     nodes.forEach((node) => observer.observe(node));
 
     return () => {
@@ -309,7 +317,7 @@ const BrandAssetsLayout = ({
     <div className="gm-brand-assets flex flex-col gap-6 lg:flex-row lg:items-start">
       <nav className="gm-brand-assets__nav w-full lg:min-w-[14rem] lg:max-w-[16rem] lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
         <div className="flex overflow-x-auto px-4 py-3 text-sm font-medium text-gray-600 lg:flex-col lg:items-start lg:gap-2 lg:overflow-visible lg:px-0 lg:py-0">
-          {SECTION_ORDER.map((sectionId) => {
+          {sectionOrder.map((sectionId) => {
             const label =
               sectionId === 'logos'
                 ? 'Logos'
@@ -415,7 +423,7 @@ const BrandAssetsLayout = ({
                 No logo files have been added yet.
               </p>
             )}
-          </section>
+            </section>
 
           <section
             id="colors"
@@ -599,11 +607,12 @@ const BrandAssetsLayout = ({
             )}
           </section>
 
-          <section
-            id="notes"
-            ref={registerSection('notes')}
-            className="gm-brand-assets__section rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
-          >
+          {showNotes ? (
+            <section
+              id="notes"
+              ref={registerSection('notes')}
+              className="gm-brand-assets__section rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]"
+            >
             <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Notes</h3>
@@ -709,7 +718,8 @@ const BrandAssetsLayout = ({
                 No brand notes have been added yet.
               </p>
             )}
-          </section>
+            </section>
+          ) : null}
         </div>
       </div>
     </div>
