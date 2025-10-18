@@ -3543,7 +3543,7 @@ useEffect(() => {
   );
 
   useEffect(() => {
-    if (!allowPublicListeners || !groupId) {
+    if (!groupId) {
       setAdSyncStatus((prev) => (Object.keys(prev).length > 0 ? {} : prev));
       return undefined;
     }
@@ -3740,19 +3740,12 @@ useEffect(() => {
         });
       },
       (error) => {
-        if (error?.code === 'permission-denied') {
-          console.info(
-            'Export job status updates are not available for this reviewer due to Firestore permissions.',
-          );
-          return;
-        }
         console.error('Failed to subscribe to export job status', error);
       },
     );
 
     return () => unsubscribe();
   }, [
-    allowPublicListeners,
     groupId,
     enqueueToast,
   ]);

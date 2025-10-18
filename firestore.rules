@@ -291,7 +291,8 @@ match /{path=**} {
 
     match /exportJobs/{jobId} {
       allow create: if true;
-      allow read, update, delete: if false;
+      allow read: if request.auth != null || isPublicReviewer();
+      allow update, delete: if false;
     }
 
     match /taggerJobs/{jobId} {
