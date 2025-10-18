@@ -94,79 +94,87 @@ const BrandProfile = ({ brandId: propId = null, backPath = '/brand-profile' }) =
   }, [brandId, brandCodes]);
   if (!brandId && brandCodes.length > 1) {
     return (
-      <div className="min-h-screen p-4">
-        <h1 className="text-2xl mb-4">Brand Profile</h1>
-        {loading ? (
-          <p>Loading brands...</p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {brands.map((b) => (
-              <Link key={b.id} to={`/brand-profile/${b.id}`}>
-                <BrandCard brand={b} />
-              </Link>
-            ))}
-          </div>
-        )}
+      <div className="min-h-screen bg-gray-50 p-4 dark:bg-[var(--dark-bg)]">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4">
+          <h1 className="text-2xl">Brand Profile</h1>
+          {loading ? (
+            <p>Loading brands...</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {brands.map((b) => (
+                <Link key={b.id} to={`/brand-profile/${b.id}`}>
+                  <BrandCard brand={b} />
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4">
-      <div className="flex items-center mb-2">
-        {id && (
-          <Link to={backPath} className="btn-arrow mr-2" aria-label="Back">
-            &lt;
-          </Link>
-        )}
-        <h1 className="text-2xl mb-0">{brandName || 'Brand Profile'}</h1>
+    <div className="min-h-screen bg-gray-50 dark:bg-[var(--dark-bg)]">
+      <div className="px-4 py-6">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4">
+          <div className="flex items-center">
+            {id && (
+              <Link to={backPath} className="btn-arrow mr-2" aria-label="Back">
+                &lt;
+              </Link>
+            )}
+            <h1 className="text-2xl">{brandName || 'Brand Profile'}</h1>
+          </div>
+          <div className="flex flex-wrap gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+            <TabButton active={tab === 'setup'} onClick={() => setTab('setup')}>
+              <FiSettings /> <span>Brand Setup</span>
+            </TabButton>
+            <TabButton active={tab === 'library'} onClick={() => setTab('library')}>
+              <FiFolder /> <span>Asset Library</span>
+            </TabButton>
+            <TabButton active={tab === 'tone'} onClick={() => setTab('tone')}>
+              <FiMessageCircle /> <span>Tone of Voice</span>
+            </TabButton>
+            <TabButton active={tab === 'ai'} onClick={() => setTab('ai')}>
+              <FiFeather /> <span>AI Art Style</span>
+            </TabButton>
+            <TabButton active={tab === 'reviews'} onClick={() => setTab('reviews')}>
+              <FiStar /> <span>Customer Reviews</span>
+            </TabButton>
+            <TabButton active={tab === 'products'} onClick={() => setTab('products')}>
+              <FiShoppingCart /> <span>Products</span>
+            </TabButton>
+            <TabButton active={tab === 'campaigns'} onClick={() => setTab('campaigns')}>
+              <FiFlag /> <span>Campaigns</span>
+            </TabButton>
+            <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
+              <FiMessageSquare /> <span>Feedback</span>
+            </TabButton>
+            <TabButton active={tab === 'notes'} onClick={() => setTab('notes')}>
+              <FiBookOpen /> <span>Notes</span>
+            </TabButton>
+            <TabButton active={tab === 'contracts'} onClick={() => setTab('contracts')}>
+              <FiFileText /> <span>Contracts</span>
+            </TabButton>
+          </div>
+          <div className="pb-6">
+            {tab === 'setup' && <BrandSetup brandId={brandId} />}
+            {tab === 'tone' && <BrandTone brandId={brandId} brandCode={brandCode} />}
+            {tab === 'ai' && <BrandAIArtStyle brandId={brandId} brandCode={brandCode} />}
+            {tab === 'library' && <AssetLibrary brandCode={brandCode} />}
+            {tab === 'reviews' && <ReviewLibrary brandCode={brandCode} />}
+            {tab === 'products' && <BrandProducts brandId={brandId} brandCode={brandCode} />}
+            {tab === 'campaigns' && <BrandCampaigns brandId={brandId} brandCode={brandCode} />}
+            {tab === 'feedback' && (
+              <BrandFeedback brandId={brandId} brandCode={brandCode} brandName={brandName} />
+            )}
+            {tab === 'notes' && <BrandNotes brandId={brandId} />}
+            {tab === 'contracts' && (
+              <BrandContracts brandId={brandId} brandCode={brandCode} />
+            )}
+          </div>
+        </div>
       </div>
-      <div className="flex flex-wrap gap-2 mb-4">
-        <TabButton active={tab === 'setup'} onClick={() => setTab('setup')}>
-          <FiSettings /> <span>Brand Setup</span>
-        </TabButton>
-        <TabButton active={tab === 'library'} onClick={() => setTab('library')}>
-          <FiFolder /> <span>Asset Library</span>
-        </TabButton>
-        <TabButton active={tab === 'tone'} onClick={() => setTab('tone')}>
-          <FiMessageCircle /> <span>Tone of Voice</span>
-        </TabButton>
-        <TabButton active={tab === 'ai'} onClick={() => setTab('ai')}>
-          <FiFeather /> <span>AI Art Style</span>
-        </TabButton>
-        <TabButton active={tab === 'reviews'} onClick={() => setTab('reviews')}>
-          <FiStar /> <span>Customer Reviews</span>
-        </TabButton>
-        <TabButton active={tab === 'products'} onClick={() => setTab('products')}>
-          <FiShoppingCart /> <span>Products</span>
-        </TabButton>
-        <TabButton active={tab === 'campaigns'} onClick={() => setTab('campaigns')}>
-          <FiFlag /> <span>Campaigns</span>
-        </TabButton>
-        <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
-          <FiMessageSquare /> <span>Feedback</span>
-        </TabButton>
-        <TabButton active={tab === 'notes'} onClick={() => setTab('notes')}>
-          <FiBookOpen /> <span>Notes</span>
-        </TabButton>
-        <TabButton active={tab === 'contracts'} onClick={() => setTab('contracts')}>
-          <FiFileText /> <span>Contracts</span>
-        </TabButton>
-      </div>
-      {tab === 'setup' && <BrandSetup brandId={brandId} />}
-      {tab === 'tone' && <BrandTone brandId={brandId} brandCode={brandCode} />}
-      {tab === 'ai' && <BrandAIArtStyle brandId={brandId} brandCode={brandCode} />}
-      {tab === 'library' && <AssetLibrary brandCode={brandCode} />}
-      {tab === 'reviews' && <ReviewLibrary brandCode={brandCode} />}
-      {tab === 'products' && <BrandProducts brandId={brandId} brandCode={brandCode} />}
-      {tab === 'campaigns' && <BrandCampaigns brandId={brandId} brandCode={brandCode} />}
-      {tab === 'feedback' && (
-        <BrandFeedback brandId={brandId} brandCode={brandCode} brandName={brandName} />
-      )}
-      {tab === 'notes' && <BrandNotes brandId={brandId} />}
-      {tab === 'contracts' && (
-        <BrandContracts brandId={brandId} brandCode={brandCode} />
-      )}
     </div>
   );
 };
