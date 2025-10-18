@@ -4382,12 +4382,11 @@ const AdGroupDetail = () => {
                 </div>
               </div>
             </div>
+          </section>
 
-      {uploading && (
-        <span className="text-sm text-gray-600 dark:text-gray-300">Uploading...</span>
-      )}
-          </div>
-        </section>
+          {uploading && (
+            <p className="text-sm text-gray-600 dark:text-gray-300">Uploading...</p>
+          )}
 
       {showStats && (
         <>
@@ -5451,21 +5450,19 @@ const AdGroupDetail = () => {
       )}
 
       {usesTabs
-        ?
-            tab === "assets" && (
-              <BrandAssetsLayout
-                brandCode={group?.brandCode}
-                guidelinesUrl={brandGuidelines}
-                brandNotes={brandNotes}
-              />
-            )
-        :
-            showBrandAssets && (
-              <BrandAssets
-                brandCode={group?.brandCode}
-                onClose={() => setShowBrandAssets(false)}
-              />
-            )}
+        ? tab === "assets" && (
+            <BrandAssetsLayout
+              brandCode={group?.brandCode}
+              guidelinesUrl={brandGuidelines}
+              brandNotes={brandNotes}
+            />
+          )
+        : showBrandAssets && (
+            <BrandAssets
+              brandCode={group?.brandCode}
+              onClose={() => setShowBrandAssets(false)}
+            />
+          )}
         </div>
       </div>
     </div>
