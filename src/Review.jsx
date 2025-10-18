@@ -3696,12 +3696,22 @@ useEffect(() => {
         });
       },
       (error) => {
+        if (error?.code === 'permission-denied') {
+          console.info(
+            'Export job status updates are not available for this reviewer due to Firestore permissions.',
+          );
+          return;
+        }
         console.error('Failed to subscribe to export job status', error);
       },
     );
 
     return () => unsubscribe();
-  }, [allowPublicListeners, groupId, enqueueToast]);
+  }, [
+    allowPublicListeners,
+    groupId,
+    enqueueToast,
+  ]);
 
   const handleDownloadBrief = useCallback(() => {
     if (
@@ -4665,7 +4675,26 @@ useEffect(() => {
       setStarted(false);
       setShowFinalizeModal(null);
     } catch (err) {
-      console.error('Failed to finalize review', err);
+      if (err?.code === 'permission-denied') {
+        console.info(
+          'Finalize review is not available for this reviewer due to Firestore permissions.',
+        );
+        enqueueToast({
+          type: 'error',
+          title: 'Unable to finalize review',
+          description:
+            'You do not have permission to finalize this review. Please contact your Campfire team for help.',
+        });
+        setShowFinalizeModal(null);
+      } else {
+        console.error('Failed to finalize review', err);
+        enqueueToast({
+          type: 'error',
+          title: 'Unable to finalize review',
+          description: 'Something went wrong while finalizing. Please try again.',
+        });
+        setShowFinalizeModal(null);
+      }
     } finally {
       setFinalizeProcessing(false);
     }
@@ -4869,7 +4898,7 @@ useEffect(() => {
   return (
     <div className="relative flex flex-col items-center justify-center space-y-4 min-h-screen">
       {toastElements}
-      {showFinalizeModal && (
+      {showFinalizeModal && canFinalizeReview && (
         <Modal>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3">
@@ -6169,9 +6198,11 @@ useEffect(() => {
               </div>
               <div className="mt-6 px-4 pt-8 pb-12 text-center text-sm text-gray-500 dark:text-gray-300">
                 <p className="mb-2">Thank you for taking the time to review these!</p>
-                <p className="mb-0">
-                  When you are all set, just click Finalize Review so we can keep things moving.
-                </p>
+                {canFinalizeReview ? (
+                  <p className="mb-0">
+                    When you are all set, just click Finalize Review so we can keep things moving.
+                  </p>
+                ) : null}
               </div>
             </div>
           ) : (
