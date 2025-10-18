@@ -4367,12 +4367,11 @@ const AdGroupDetail = () => {
                 </div>
               </div>
             </div>
-              {group.status === 'archived' && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
-                  This ad group is archived and read-only.
-                </div>
-              )}
-            </div>
+            {group.status === 'archived' && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                This ad group is archived and read-only.
+              </div>
+            )}
             <div className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
               <div className="flex flex-wrap gap-2">
                 {renderTabNavigation()}
