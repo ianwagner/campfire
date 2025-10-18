@@ -20,7 +20,6 @@ import { parsePdp } from './parsePdp.js';
 import { cacheProductImages } from './cacheProductImages.js';
 import { copyAssetToDrive, cleanupDriveFile } from './driveAssets.js';
 import { openaiProxy } from './openaiProxy.js';
-import { processExportJob } from './exportJobWorker.js';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -780,5 +779,6 @@ export {
   copyAssetToDrive,
   cleanupDriveFile,
   openaiProxy,
-  processExportJob,
 };
+
+export { processExportJob } from "./exportJobWorker.js";
