@@ -3822,104 +3822,110 @@ const AdGroupDetail = () => {
     ) : null;
 
   return (
-    <div className="min-h-screen p-4 ">
-      <div className="flex items-center mb-2 gap-2">
-        <Link to={backPath} className="btn-arrow" aria-label="Back">
-          &lt;
-        </Link>
-        <h1 className="text-2xl mb-0 flex-1">{group.name}</h1>
-        {userRole === "project-manager" && (
-          <Link
-            to={ganttPath}
-            className="btn-secondary"
-            aria-label="View Gantt Chart"
-          >
-            Gantt
-          </Link>
-        )}
-      </div>
-      <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
-        Brand: {group.brandCode}
-        <span className="hidden sm:inline">|</span>
-        Status:
-        {isAdmin || isEditor || isDesigner ? (
-          <select
-            aria-label="Status"
-            value={group.status}
-            onChange={handleStatusChange}
-            className={`status-select status-${(group.status || '').replace(/\s+/g, '_')}`}
-          >
-            {statusOptions.map((s) => (
-              <option
-                key={s}
-                value={s}
-                disabled={isDesigner && s === 'briefed'}
-                hidden={isDesigner && s === 'briefed'}
+    <div className="min-h-screen bg-gray-50 dark:bg-[var(--dark-bg)]">
+      <div className="px-4 py-6">
+        <div className="mx-auto max-w-6xl space-y-4">
+          <div className="flex items-center gap-2">
+            <Link to={backPath} className="btn-arrow" aria-label="Back">
+              &lt;
+            </Link>
+            <h1 className="flex-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              {group.name}
+            </h1>
+            {userRole === "project-manager" && (
+              <Link
+                to={ganttPath}
+                className="btn-secondary"
+                aria-label="View Gantt Chart"
               >
-                {s}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <StatusBadge status={group.status} />
-        )}
-        <span className="hidden sm:inline">|</span>
-        Due Date:
-        {userRole === "admin" || userRole === "agency" ? (
-          <input
-            type="date"
-            value={
-              group.dueDate
-                ? group.dueDate.toDate().toISOString().slice(0, 10)
-                : ""
-            }
-            onChange={async (e) => {
-              const date = e.target.value
-                ? Timestamp.fromDate(new Date(e.target.value))
-                : null;
-              try {
-                await updateDoc(doc(db, "adGroups", id), { dueDate: date });
-                setGroup((p) => ({ ...p, dueDate: date }));
-                if (group.requestId) {
-                  try {
-                    await updateDoc(doc(db, 'requests', group.requestId), {
-                      dueDate: date,
-                    });
-                  } catch (err) {
-                    console.error('Failed to sync ticket due date', err);
-                  }
-                }
-              } catch (err) {
-                console.error("Failed to update due date", err);
-              }
-            }}
-          className="border tag-pill px-2 py-1 text-sm"
-          />
-        ) : (
-          <span>
-            {group.dueDate
-              ? group.dueDate.toDate().toLocaleDateString()
-              : "N/A"}
-          </span>
-          )}
-        {(isAdmin || isEditor) && (
-          <>
-            <span className="hidden sm:inline">|</span>
-            <label className="flex items-center gap-1">
-              <span className="hidden sm:inline">Review Type:</span>
-              <select
-                aria-label="Review Type"
-                value={group.reviewVersion || 1}
-                onChange={handleReviewTypeChange}
-                className="border p-1 text-sm"
-              >
-                <option value={1}>Legacy</option>
-                <option value={2}>2.0</option>
-                <option value={3}>Brief</option>
-              </select>
-            </label>
-          </>
-        )}
+                Gantt
+              </Link>
+            )}
+          </div>
+          <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] md:p-6">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                Brand: {group.brandCode}
+                <span className="hidden sm:inline">|</span>
+                Status:
+                {isAdmin || isEditor || isDesigner ? (
+                  <select
+                    aria-label="Status"
+                    value={group.status}
+                    onChange={handleStatusChange}
+                    className={`status-select status-${(group.status || '').replace(/\s+/g, '_')}`}
+                  >
+                    {statusOptions.map((s) => (
+                      <option
+                        key={s}
+                        value={s}
+                        disabled={isDesigner && s === 'briefed'}
+                        hidden={isDesigner && s === 'briefed'}
+                      >
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <StatusBadge status={group.status} />
+                )}
+                <span className="hidden sm:inline">|</span>
+                Due Date:
+                {userRole === "admin" || userRole === "agency" ? (
+                  <input
+                    type="date"
+                    value={
+                      group.dueDate
+                        ? group.dueDate.toDate().toISOString().slice(0, 10)
+                        : ""
+                    }
+                    onChange={async (e) => {
+                      const date = e.target.value
+                        ? Timestamp.fromDate(new Date(e.target.value))
+                        : null;
+                      try {
+                        await updateDoc(doc(db, "adGroups", id), { dueDate: date });
+                        setGroup((p) => ({ ...p, dueDate: date }));
+                        if (group.requestId) {
+                          try {
+                            await updateDoc(doc(db, 'requests', group.requestId), {
+                              dueDate: date,
+                            });
+                          } catch (err) {
+                            console.error('Failed to sync ticket due date', err);
+                          }
+                        }
+                      } catch (err) {
+                        console.error("Failed to update due date", err);
+                      }
+                    }}
+                    className="border tag-pill px-2 py-1 text-sm"
+                  />
+                ) : (
+                  <span>
+                    {group.dueDate
+                      ? group.dueDate.toDate().toLocaleDateString()
+                      : "N/A"}
+                  </span>
+                )}
+                {(isAdmin || isEditor) && (
+                  <>
+                    <span className="hidden sm:inline">|</span>
+                    <label className="flex items-center gap-1">
+                      <span className="hidden sm:inline">Review Type:</span>
+                      <select
+                        aria-label="Review Type"
+                        value={group.reviewVersion || 1}
+                        onChange={handleReviewTypeChange}
+                        className="border p-1 text-sm"
+                      >
+                        <option value={1}>Legacy</option>
+                        <option value={2}>2.0</option>
+                        <option value={3}>Brief</option>
+                      </select>
+                    </label>
+                  </>
+                )}
         {(brandHasAgency || userRole === 'admin') && (
           <>
             <span className="hidden sm:inline">|</span>
@@ -4087,16 +4093,16 @@ const AdGroupDetail = () => {
               : 'N/A'}
           </span>
         )}
-        </p>
-      )}
-      {group.status === "archived" && (
-        <p className="text-red-500 text-sm mb-2">
-          This ad group is archived and read-only.
-        </p>
-      )}
+      </div>
+    )}
+    {group.status === "archived" && (
+      <div className="text-sm text-red-500 dark:text-red-400">
+        This ad group is archived and read-only.
+      </div>
+    )}
 
-      <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center justify-between">
-        <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-3 text-sm text-gray-600 dark:text-gray-300 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
           {isClientPortalUser ? (
             <>
               {blockerTab}
@@ -4152,7 +4158,7 @@ const AdGroupDetail = () => {
           )}
         </div>
         {(isAdmin || userRole === "agency" || isDesigner) ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:justify-end">
             {group.status === "archived" && isAdmin && (
               <IconButton
                 onClick={restoreGroup}
@@ -4271,7 +4277,7 @@ const AdGroupDetail = () => {
             )}
           </div>
         ) : isClientPortalUser ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:justify-end">
             <IconButton onClick={handleShare} aria-label="Share" className="bg-transparent">
               <FiShare2 size={20} />
             </IconButton>
@@ -4292,7 +4298,7 @@ const AdGroupDetail = () => {
             </IconButton>
           </div>
         ) : userRole === "editor" ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:justify-end">
             <IconButton
               onClick={() => setShowGallery(true)}
               aria-label="See Gallery"
@@ -4305,8 +4311,10 @@ const AdGroupDetail = () => {
       </div>
 
       {uploading && (
-        <span className="ml-2 text-sm text-gray-600">Uploading...</span>
+        <span className="text-sm text-gray-600 dark:text-gray-300">Uploading...</span>
       )}
+          </div>
+        </section>
 
       {showStats && (
         <>
@@ -5418,6 +5426,8 @@ const AdGroupDetail = () => {
                 onClose={() => setShowBrandAssets(false)}
               />
             )}
+        </div>
+      </div>
     </div>
   );
 };
