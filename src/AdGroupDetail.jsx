@@ -41,6 +41,7 @@ import RecipePreview from "./RecipePreview.jsx";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
 import BrandAssets from "./BrandAssets.jsx";
 import BrandAssetsLayout from "./BrandAssetsLayout.jsx";
+import BrandNotesPanel from "./BrandNotesPanel.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
 import {
   doc,
@@ -605,11 +606,12 @@ const AdGroupDetail = () => {
   const canUploadAds = isAdmin || isDesigner || isAgency;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
+  const brandNotesVisible = usesTabs ? tab === "brandNotes" : false;
   const showStats = usesTabs ? (!isClientPortalUser && tab === "stats") : !showTable;
 
   useEffect(() => {
     if (!isClientPortalUser) return;
-    if (!['brief', 'ads', 'copy', 'feedback', 'blocker'].includes(tab)) {
+    if (!['brief', 'brandNotes', 'assets', 'ads', 'copy', 'feedback', 'blocker'].includes(tab)) {
       setTab('brief');
     }
   }, [isClientPortalUser, tab]);
@@ -1296,6 +1298,11 @@ const AdGroupDetail = () => {
           body: data.body || data.text || data.note || "",
           createdAt,
           updatedAt,
+          tags: Array.isArray(data.tags)
+            ? data.tags
+                .map((tag) => (typeof tag === 'string' ? tag.trim() : ''))
+                .filter(Boolean)
+            : [],
         };
       });
       setBrandNotes(items);
@@ -3830,13 +3837,21 @@ const AdGroupDetail = () => {
             <FiFileText size={18} />
             Brief
           </TabButton>
-          <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
-            <FiEye size={18} />
-            Ads
+          <TabButton active={tab === 'brandNotes'} onClick={() => setTab('brandNotes')}>
+            <FiFileText size={18} />
+            Brand Notes
+          </TabButton>
+          <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
+            <FiFolder size={18} />
+            Brand Assets
           </TabButton>
           <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
             <FiType size={18} />
             Platform Copy
+          </TabButton>
+          <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
+            <FiEye size={18} />
+            Ads
           </TabButton>
           <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
             <FiMessageSquare size={18} />
@@ -3845,6 +3860,14 @@ const AdGroupDetail = () => {
         </>
       );
     }
+
+    const copyTab =
+      canManageCopy ? (
+        <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
+          <FiType size={18} />
+          Platform Copy
+        </TabButton>
+      ) : null;
 
     return (
       <>
@@ -3857,16 +3880,15 @@ const AdGroupDetail = () => {
           <FiFileText size={18} />
           Brief
         </TabButton>
-        {canManageCopy && (
-          <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
-            <FiType size={18} />
-            Platform Copy
-          </TabButton>
-        )}
+        <TabButton active={tab === 'brandNotes'} onClick={() => setTab('brandNotes')}>
+          <FiFileText size={18} />
+          Brand Notes
+        </TabButton>
         <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
           <FiFolder size={18} />
           Brand Assets
         </TabButton>
+        {copyTab}
         <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
           <FiEye size={18} />
           Ads
@@ -3890,6 +3912,7 @@ const AdGroupDetail = () => {
               onClick={restoreGroup}
               aria-label="Restore Group"
               className="bg-transparent"
+              title="Restore ad group"
             >
               <FiRotateCcw size={20} />
             </IconButton>
@@ -3910,6 +3933,7 @@ const AdGroupDetail = () => {
               <IconButton
                 onClick={() => document.getElementById('upload-input').click()}
                 className="bg-transparent"
+                title="Upload ads"
               >
                 <FiUpload size={20} />
                 Upload
@@ -3921,6 +3945,7 @@ const AdGroupDetail = () => {
               onClick={resetGroup}
               aria-label="Reset"
               className="bg-transparent"
+              title="Reset ad group"
             >
               <FiRefreshCw size={20} />
             </IconButton>
@@ -3935,6 +3960,7 @@ const AdGroupDetail = () => {
               }
               className="bg-transparent"
               aria-label="Designed"
+              title="Mark as designed"
             >
               <FiCheckCircle size={20} />
             </IconButton>
@@ -3946,6 +3972,7 @@ const AdGroupDetail = () => {
                 to={`/review/${id}`}
                 aria-label="Review"
                 className="bg-transparent"
+                title="Open review page"
               >
                 <FiBookOpen size={20} />
               </IconButton>
@@ -3953,6 +3980,7 @@ const AdGroupDetail = () => {
                 onClick={handleShare}
                 aria-label="Share"
                 className="bg-transparent"
+                title="Share review link"
               >
                 <FiShare2 size={20} />
               </IconButton>
@@ -3961,6 +3989,7 @@ const AdGroupDetail = () => {
                   onClick={() => setClientModal(true)}
                   aria-label="Send to Projects"
                   className="bg-transparent"
+                  title="Send to Projects"
                 >
                   <FiSend size={20} />
                 </IconButton>
@@ -3971,6 +4000,7 @@ const AdGroupDetail = () => {
                     onClick={() => setExportModal(true)}
                     aria-label="Export Approved"
                     className="bg-transparent"
+                    title="Export approved ads"
                   >
                     <FiDownload size={20} />
                   </IconButton>
@@ -3979,6 +4009,7 @@ const AdGroupDetail = () => {
                       onClick={undoScrubReviewHistory}
                       aria-label="Undo Scrub"
                       className="bg-transparent"
+                      title="Undo scrubbed history"
                     >
                       <FiRotateCw size={20} />
                     </IconButton>
@@ -3987,6 +4018,7 @@ const AdGroupDetail = () => {
                     onClick={scrubReviewHistory}
                     aria-label="Scrub Review History"
                     className="bg-transparent"
+                    title="Scrub review history"
                   >
                     <Bubbles size={20} />
                   </IconButton>
@@ -3994,6 +4026,7 @@ const AdGroupDetail = () => {
                     onClick={archiveGroup}
                     aria-label="Archive"
                     className="bg-transparent"
+                    title="Archive ad group"
                   >
                     <FiArchive size={20} />
                   </IconButton>
@@ -4008,7 +4041,7 @@ const AdGroupDetail = () => {
     if (isClientPortalUser) {
       return (
         <div className="flex flex-wrap items-center gap-2">
-          <IconButton onClick={handleShare} aria-label="Share" className="bg-transparent">
+          <IconButton onClick={handleShare} aria-label="Share" className="bg-transparent" title="Share review link">
             <FiShare2 size={20} />
           </IconButton>
           <IconButton
@@ -4016,6 +4049,7 @@ const AdGroupDetail = () => {
             to={`/review/${id}`}
             aria-label="Review"
             className="bg-transparent"
+            title="Open review page"
           >
             <FiBookOpen size={20} />
           </IconButton>
@@ -4023,6 +4057,7 @@ const AdGroupDetail = () => {
             onClick={() => setExportModal(true)}
             aria-label="Download Approved"
             className="bg-transparent"
+            title="Download approved ads"
           >
             <FiDownload size={20} />
           </IconButton>
@@ -4037,6 +4072,7 @@ const AdGroupDetail = () => {
             onClick={() => setShowGallery(true)}
             aria-label="See Gallery"
             className="bg-transparent"
+            title="Open gallery"
           >
             <FiGrid size={20} />
           </IconButton>
@@ -4471,7 +4507,7 @@ const AdGroupDetail = () => {
 
 
       {recipesTableVisible && (
-        <div className="my-4">
+        <div className="my-4 space-y-4">
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
             <div className="space-y-6">
               <div className="space-y-3">
@@ -4483,6 +4519,7 @@ const AdGroupDetail = () => {
                         setNotesInput(group?.notes || '');
                         setEditingNotes(true);
                       }}
+                      title={group?.notes ? 'Edit brief note' : 'Add brief note'}
                     >
                       {group?.notes ? 'Edit Note' : 'Add Note'}
                     </IconButton>
@@ -4500,7 +4537,9 @@ const AdGroupDetail = () => {
                       <button onClick={saveNotes} className="btn-primary px-3 py-1 text-sm">
                         Save
                       </button>
-                      <IconButton onClick={() => setEditingNotes(false)}>Cancel</IconButton>
+                      <IconButton onClick={() => setEditingNotes(false)} title="Cancel editing">
+                        Cancel
+                      </IconButton>
                     </div>
                   </div>
                 ) : group?.notes ? (
@@ -4521,7 +4560,7 @@ const AdGroupDetail = () => {
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Brief Assets</h3>
                   <div className="flex flex-wrap items-center gap-2">
                     {briefAssets.length > 0 && (
-                      <IconButton onClick={downloadBriefAll}>
+                      <IconButton onClick={downloadBriefAll} title="Download all brief assets">
                         <FiDownload />
                         Download All
                       </IconButton>
@@ -4538,7 +4577,10 @@ const AdGroupDetail = () => {
                           }}
                           className="hidden"
                         />
-                        <IconButton onClick={() => document.getElementById('brief-upload').click()}>
+                        <IconButton
+                          onClick={() => document.getElementById('brief-upload').click()}
+                          title="Upload brief assets"
+                        >
                           <FiUpload />
                           Add Assets
                         </IconButton>
@@ -4657,29 +4699,43 @@ const AdGroupDetail = () => {
                   )}
                 </div>
               </div>
-
-              {savedRecipes.length > 0 && (
-                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
-                  <RecipePreview
-                    onSave={saveRecipes}
-                    initialResults={savedRecipes}
-                    showOnlyResults
-                    onSelectChange={toggleRecipeSelect}
-                    onRecipesClick={() => setShowRecipes(true)}
-                    externalOnly
-                    hideActions={isClientPortalUser}
-                  />
-                </div>
-              )}
-              {['admin', 'editor', 'project-manager'].includes(userRole) && savedRecipes.length === 0 && (
-                <div className="flex justify-start">
-                  <IconButton onClick={() => setShowRecipes(true)}>
-                    <FaMagic /> Briefs
-                  </IconButton>
-                </div>
-              )}
             </div>
           </div>
+
+          {savedRecipes.length > 0 ? (
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Brief Recipes</h3>
+                {['admin', 'editor', 'project-manager'].includes(userRole) && !isClientPortalUser && (
+                  <IconButton onClick={() => setShowRecipes(true)} title="Edit brief recipes">
+                    <FaMagic /> Manage Briefs
+                  </IconButton>
+                )}
+              </div>
+              <RecipePreview
+                onSave={saveRecipes}
+                initialResults={savedRecipes}
+                showOnlyResults
+                onSelectChange={toggleRecipeSelect}
+                onRecipesClick={() => setShowRecipes(true)}
+                externalOnly
+                hideActions={isClientPortalUser}
+              />
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-300">
+              <p>
+                {['admin', 'editor', 'project-manager'].includes(userRole)
+                  ? 'No recipes have been added yet. Start a brief to generate recommended ads.'
+                  : 'No recipes have been added for this brief yet.'}
+              </p>
+              {['admin', 'editor', 'project-manager'].includes(userRole) && !isClientPortalUser && (
+                <IconButton onClick={() => setShowRecipes(true)} className="mt-3" title="Generate brief recipes">
+                  <FaMagic /> Build Brief Recipes
+                </IconButton>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -4695,10 +4751,19 @@ const AdGroupDetail = () => {
               hideBrandSelect
             />
           ) : (
-            <div className="mt-4">
-              <IconButton onClick={() => setShowCopyModal(true)}>
-                <FiType /> Platform Copy
-              </IconButton>
+            <div className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+                <FiType size={20} />
+              </div>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">No platform copy yet</h3>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Generate ad-ready headlines and primary text for this group without leaving the page.
+              </p>
+              <div className="mt-4 flex justify-center">
+                <Button type="button" variant="accent" size="sm" onClick={() => setShowCopyModal(true)}>
+                  Create Platform Copy
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -5444,12 +5509,17 @@ const AdGroupDetail = () => {
         />
       )}
 
+      {brandNotesVisible && (
+        <BrandNotesPanel brandCode={group?.brandCode} brandNotes={brandNotes} />
+      )}
+
       {usesTabs
         ? tab === "assets" && (
             <BrandAssetsLayout
               brandCode={group?.brandCode}
               guidelinesUrl={brandGuidelines}
               brandNotes={brandNotes}
+              showNotes={false}
             />
           )
         : showBrandAssets && (
