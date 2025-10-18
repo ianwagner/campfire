@@ -3969,9 +3969,9 @@ const AdGroupDetail = () => {
             />
           </>
         )}
-      </p>
+      </div>
       {(!isClientPortalUser || isProjectManager) && (
-        <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
+        <div className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
           Designer:
           {canManageStaff ? (
             <select
@@ -3998,103 +3998,103 @@ const AdGroupDetail = () => {
           ) : (
             <span>{designerName || 'Unassigned'}</span>
           )}
-        <span className="hidden sm:inline">|</span>
-        Design Due Date:
-        {canManageStaff ? (
-          <input
-            type="date"
-            value={
-              group.designDueDate
+          <span className="hidden sm:inline">|</span>
+          Design Due Date:
+          {canManageStaff ? (
+            <input
+              type="date"
+              value={
+                group.designDueDate
+                  ? (group.designDueDate.toDate
+                      ? group.designDueDate.toDate().toISOString().slice(0, 10)
+                      : new Date(group.designDueDate).toISOString().slice(0, 10))
+                  : ''
+              }
+              onChange={async (e) => {
+                const date = e.target.value
+                  ? Timestamp.fromDate(new Date(e.target.value))
+                  : null;
+                try {
+                  await updateDoc(doc(db, 'adGroups', id), { designDueDate: date });
+                  setGroup((p) => ({ ...p, designDueDate: date }));
+                } catch (err) {
+                  console.error('Failed to update design due date', err);
+                }
+              }}
+              className="border tag-pill px-2 py-1 text-sm"
+            />
+          ) : (
+            <span>
+              {group.designDueDate
                 ? (group.designDueDate.toDate
-                    ? group.designDueDate.toDate().toISOString().slice(0, 10)
-                    : new Date(group.designDueDate).toISOString().slice(0, 10))
-                : ''
-            }
-            onChange={async (e) => {
-              const date = e.target.value
-                ? Timestamp.fromDate(new Date(e.target.value))
-                : null;
-              try {
-                await updateDoc(doc(db, 'adGroups', id), { designDueDate: date });
-                setGroup((p) => ({ ...p, designDueDate: date }));
-              } catch (err) {
-                console.error('Failed to update design due date', err);
+                    ? group.designDueDate.toDate().toLocaleDateString()
+                    : new Date(group.designDueDate).toLocaleDateString())
+                : 'N/A'}
+            </span>
+          )}
+          <span className="hidden sm:inline">|</span>
+          Editor:
+          {canManageStaff ? (
+            <select
+              aria-label="Editor Assignment"
+              value={group.editorId || ''}
+              onChange={async (e) => {
+                const value = e.target.value || null;
+                try {
+                  await updateDoc(doc(db, 'adGroups', id), { editorId: value });
+                  setGroup((p) => ({ ...p, editorId: value }));
+                } catch (err) {
+                  console.error('Failed to update editor', err);
+                }
+              }}
+              className="border p-1 rounded"
+            >
+              <option value="">Unassigned</option>
+              {editors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span>{editorName || 'Unassigned'}</span>
+          )}
+          <span className="hidden sm:inline">|</span>
+          Editor Due Date:
+          {canManageStaff ? (
+            <input
+              type="date"
+              value={
+                group.editorDueDate
+                  ? (group.editorDueDate.toDate
+                      ? group.editorDueDate.toDate().toISOString().slice(0, 10)
+                      : new Date(group.editorDueDate).toISOString().slice(0, 10))
+                  : ''
               }
-            }}
-            className="border tag-pill px-2 py-1 text-sm"
-          />
-        ) : (
-          <span>
-            {group.designDueDate
-              ? (group.designDueDate.toDate
-                  ? group.designDueDate.toDate().toLocaleDateString()
-                  : new Date(group.designDueDate).toLocaleDateString())
-              : 'N/A'}
-          </span>
-        )}
-        <span className="hidden sm:inline">|</span>
-        Editor:
-        {canManageStaff ? (
-          <select
-            aria-label="Editor Assignment"
-            value={group.editorId || ''}
-            onChange={async (e) => {
-              const value = e.target.value || null;
-              try {
-                await updateDoc(doc(db, 'adGroups', id), { editorId: value });
-                setGroup((p) => ({ ...p, editorId: value }));
-              } catch (err) {
-                console.error('Failed to update editor', err);
-              }
-            }}
-            className="border p-1 rounded"
-          >
-            <option value="">Unassigned</option>
-            {editors.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span>{editorName || 'Unassigned'}</span>
-        )}
-        <span className="hidden sm:inline">|</span>
-        Editor Due Date:
-        {canManageStaff ? (
-          <input
-            type="date"
-            value={
-              group.editorDueDate
+              onChange={async (e) => {
+                const date = e.target.value
+                  ? Timestamp.fromDate(new Date(e.target.value))
+                  : null;
+                try {
+                  await updateDoc(doc(db, 'adGroups', id), { editorDueDate: date });
+                  setGroup((p) => ({ ...p, editorDueDate: date }));
+                } catch (err) {
+                  console.error('Failed to update editor due date', err);
+                }
+              }}
+              className="border tag-pill px-2 py-1 text-sm"
+            />
+          ) : (
+            <span>
+              {group.editorDueDate
                 ? (group.editorDueDate.toDate
-                    ? group.editorDueDate.toDate().toISOString().slice(0, 10)
-                    : new Date(group.editorDueDate).toISOString().slice(0, 10))
-                : ''
-            }
-            onChange={async (e) => {
-              const date = e.target.value
-                ? Timestamp.fromDate(new Date(e.target.value))
-                : null;
-              try {
-                await updateDoc(doc(db, 'adGroups', id), { editorDueDate: date });
-                setGroup((p) => ({ ...p, editorDueDate: date }));
-              } catch (err) {
-                console.error('Failed to update editor due date', err);
-              }
-            }}
-            className="border tag-pill px-2 py-1 text-sm"
-          />
-        ) : (
-          <span>
-            {group.editorDueDate
-              ? (group.editorDueDate.toDate
-                  ? group.editorDueDate.toDate().toLocaleDateString()
-                  : new Date(group.editorDueDate).toLocaleDateString())
-              : 'N/A'}
-          </span>
-        )}
-      </div>
-    )}
+                    ? group.editorDueDate.toDate().toLocaleDateString()
+                    : new Date(group.editorDueDate).toLocaleDateString())
+                : 'N/A'}
+            </span>
+          )}
+        </div>
+      )}
     {group.status === "archived" && (
       <div className="text-sm text-red-500 dark:text-red-400">
         This ad group is archived and read-only.
