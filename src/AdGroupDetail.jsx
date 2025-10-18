@@ -4055,171 +4055,174 @@ const AdGroupDetail = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-[var(--dark-bg)]">
       <div className="px-4 py-6">
         <div className="mx-auto max-w-6xl space-y-4">
-          <div className="flex items-center gap-2">
-            <Link to={backPath} className="btn-arrow" aria-label="Back">
-              &lt;
-            </Link>
-            <h1 className="flex-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
-              {group.name}
-            </h1>
-            {userRole === "project-manager" && (
-              <Link
-                to={ganttPath}
-                className="btn-secondary"
-                aria-label="View Gantt Chart"
-              >
-                Gantt
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Link to={backPath} className="btn-arrow" aria-label="Back">
+                &lt;
               </Link>
-            )}
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                {group.name}
+              </h1>
+              {userRole === "project-manager" && (
+                <Link
+                  to={ganttPath}
+                  className="btn-secondary"
+                  aria-label="View Gantt Chart"
+                >
+                  Gantt
+                </Link>
+              )}
+            </div>
+            <div className="ml-auto flex flex-wrap items-center gap-2 justify-end text-right">
+              {renderActionButtons()}
+            </div>
           </div>
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <div className="md:col-span-2 xl:col-span-3">
-              <div className="space-y-4 text-sm text-gray-600 dark:text-gray-300">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Brand
-                    </span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {group.brandCode}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Status
-                    </span>
-                    <div className="text-sm">
-                      {isAdmin || isEditor || isDesigner ? (
-                        <select
-                          aria-label="Status"
-                          value={group.status}
-                          onChange={handleStatusChange}
-                          className={`status-select status-${(group.status || '').replace(/\s+/g, '_')}`}
-                        >
-                          {statusOptions.map((s) => (
-                            <option
-                              key={s}
-                              value={s}
-                              disabled={isDesigner && s === 'briefed'}
-                              hidden={isDesigner && s === 'briefed'}
-                            >
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <StatusBadge status={group.status} />
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Due Date
-                    </span>
-                    {userRole === 'admin' || userRole === 'agency' ? (
-                      <input
-                        type="date"
-                        value={
-                          group.dueDate
-                            ? group.dueDate.toDate().toISOString().slice(0, 10)
-                            : ''
-                        }
-                        onChange={async (e) => {
-                          const date = e.target.value
-                            ? Timestamp.fromDate(new Date(e.target.value))
-                            : null;
-                          try {
-                            await updateDoc(doc(db, 'adGroups', id), { dueDate: date });
-                            setGroup((p) => ({ ...p, dueDate: date }));
-                            if (group.requestId) {
-                              try {
-                                await updateDoc(doc(db, 'requests', group.requestId), {
-                                  dueDate: date,
-                                });
-                              } catch (err) {
-                                console.error('Failed to sync ticket due date', err);
-                              }
-                            }
-                          } catch (err) {
-                            console.error('Failed to update due date', err);
-                          }
-                        }}
-                        className="border tag-pill px-2 py-1 text-sm"
-                      />
+          <section className="space-y-4">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-300">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Brand
+                  </span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {group.brandCode}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Status
+                  </span>
+                  <div className="text-sm">
+                    {isAdmin || isEditor || isDesigner ? (
+                      <select
+                        aria-label="Status"
+                        value={group.status}
+                        onChange={handleStatusChange}
+                        className={`status-select status-${(group.status || '').replace(/\s+/g, '_')}`}
+                      >
+                        {statusOptions.map((s) => (
+                          <option
+                            key={s}
+                            value={s}
+                            disabled={isDesigner && s === 'briefed'}
+                            hidden={isDesigner && s === 'briefed'}
+                          >
+                            {s}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
-                      <span>
-                        {group.dueDate
-                          ? group.dueDate.toDate().toLocaleDateString()
-                          : 'N/A'}
-                      </span>
+                      <StatusBadge status={group.status} />
                     )}
                   </div>
-                  {(isAdmin || isEditor) && (
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        Review Type
-                      </span>
-                      <select
-                        aria-label="Review Type"
-                        value={group.reviewVersion || 1}
-                        onChange={handleReviewTypeChange}
-                        className="border p-1 text-sm"
-                      >
-                        <option value={1}>Legacy</option>
-                        <option value={2}>2.0</option>
-                        <option value={3}>Brief</option>
-                      </select>
-                    </div>
-                  )}
-                  {(brandHasAgency || userRole === 'admin') && (
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        Month
-                      </span>
-                      <input
-                        type="month"
-                        value={group.month || ''}
-                        onChange={async (e) => {
-                          const value = e.target.value;
-                          try {
-                            if (value) {
-                              await updateDoc(doc(db, 'adGroups', id), { month: value });
-                              setGroup((p) => ({ ...p, month: value }));
-                              if (group.requestId) {
-                                try {
-                                  await updateDoc(doc(db, 'requests', group.requestId), { month: value });
-                                } catch (err) {
-                                  console.error('Failed to sync ticket month', err);
-                                }
-                              }
-                            } else {
-                              await updateDoc(doc(db, 'adGroups', id), { month: deleteField() });
-                              setGroup((p) => {
-                                const u = { ...p };
-                                delete u.month;
-                                return u;
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Due Date
+                  </span>
+                  {userRole === 'admin' || userRole === 'agency' ? (
+                    <input
+                      type="date"
+                      value={
+                        group.dueDate
+                          ? group.dueDate.toDate().toISOString().slice(0, 10)
+                          : ''
+                      }
+                      onChange={async (e) => {
+                        const date = e.target.value
+                          ? Timestamp.fromDate(new Date(e.target.value))
+                          : null;
+                        try {
+                          await updateDoc(doc(db, 'adGroups', id), { dueDate: date });
+                          setGroup((p) => ({ ...p, dueDate: date }));
+                          if (group.requestId) {
+                            try {
+                              await updateDoc(doc(db, 'requests', group.requestId), {
+                                dueDate: date,
                               });
-                              if (group.requestId) {
-                                try {
-                                  await updateDoc(doc(db, 'requests', group.requestId), { month: deleteField() });
-                                } catch (err) {
-                                  console.error('Failed to sync ticket month', err);
-                                }
-                              }
+                            } catch (err) {
+                              console.error('Failed to sync ticket due date', err);
                             }
-                          } catch (err) {
-                            console.error('Failed to update month', err);
                           }
-                        }}
-                        className="border tag-pill px-2 py-1 text-sm"
-                      />
-                    </div>
+                        } catch (err) {
+                          console.error('Failed to update due date', err);
+                        }
+                      }}
+                      className="border tag-pill px-2 py-1 text-sm"
+                    />
+                  ) : (
+                    <span>
+                      {group.dueDate
+                        ? group.dueDate.toDate().toLocaleDateString()
+                        : 'N/A'}
+                    </span>
                   )}
                 </div>
+                {(isAdmin || isEditor) && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Review Type
+                    </span>
+                    <select
+                      aria-label="Review Type"
+                      value={group.reviewVersion || 1}
+                      onChange={handleReviewTypeChange}
+                      className="border p-1 text-sm"
+                    >
+                      <option value={1}>Legacy</option>
+                      <option value={2}>2.0</option>
+                      <option value={3}>Brief</option>
+                    </select>
+                  </div>
+                )}
+                {(brandHasAgency || userRole === 'admin') && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Month
+                    </span>
+                    <input
+                      type="month"
+                      value={group.month || ''}
+                      onChange={async (e) => {
+                        const value = e.target.value;
+                        try {
+                          if (value) {
+                            await updateDoc(doc(db, 'adGroups', id), { month: value });
+                            setGroup((p) => ({ ...p, month: value }));
+                            if (group.requestId) {
+                              try {
+                                await updateDoc(doc(db, 'requests', group.requestId), { month: value });
+                              } catch (err) {
+                                console.error('Failed to sync ticket month', err);
+                              }
+                            }
+                          } else {
+                            await updateDoc(doc(db, 'adGroups', id), { month: deleteField() });
+                            setGroup((p) => {
+                              const u = { ...p };
+                              delete u.month;
+                              return u;
+                            });
+                            if (group.requestId) {
+                              try {
+                                await updateDoc(doc(db, 'requests', group.requestId), { month: deleteField() });
+                              } catch (err) {
+                                console.error('Failed to sync ticket month', err);
+                              }
+                            }
+                          }
+                        } catch (err) {
+                          console.error('Failed to update month', err);
+                        }
+                      }}
+                      className="border tag-pill px-2 py-1 text-sm"
+                    />
+                  </div>
+                )}
                 {(!isClientPortalUser || isProjectManager) && (
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <>
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Editor
                       </span>
                       {canManageStaff ? (
@@ -4235,7 +4238,7 @@ const AdGroupDetail = () => {
                               console.error('Failed to update editor', err);
                             }
                           }}
-                          className="border p-1 rounded"
+                          className="rounded border p-1"
                         >
                           <option value="">Unassigned</option>
                           {editors.map((d) => (
@@ -4249,7 +4252,7 @@ const AdGroupDetail = () => {
                       )}
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Editor Due Date
                       </span>
                       {canManageStaff ? (
@@ -4286,7 +4289,7 @@ const AdGroupDetail = () => {
                       )}
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Designer
                       </span>
                       {canManageStaff ? (
@@ -4302,7 +4305,7 @@ const AdGroupDetail = () => {
                               console.error('Failed to update designer', err);
                             }
                           }}
-                          className="border p-1 rounded"
+                          className="rounded border p-1"
                         >
                           <option value="">Unassigned</option>
                           {designers.map((d) => (
@@ -4316,8 +4319,8 @@ const AdGroupDetail = () => {
                       )}
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        Design Due Date
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Designer Due Date
                       </span>
                       {canManageStaff ? (
                         <input
@@ -4352,22 +4355,19 @@ const AdGroupDetail = () => {
                         </span>
                       )}
                     </div>
-                  </div>
-                )}
-                {group.status === 'archived' && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
-                    This ad group is archived and read-only.
-                  </div>
+                  </>
                 )}
               </div>
+              {group.status === 'archived' && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                  This ad group is archived and read-only.
+                </div>
+              )}
             </div>
-            <div className="rounded-2xl border border-gray-200 p-3 dark:border-[var(--border-color-default)] md:col-span-2 xl:col-span-1">
+            <div className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
               <div className="flex flex-wrap gap-2">
                 {renderTabNavigation()}
               </div>
-            </div>
-            <div className="rounded-2xl border border-gray-200 p-3 text-sm text-gray-600 dark:border-[var(--border-color-default)] dark:text-gray-300 md:col-span-2 xl:col-span-1">
-              {renderActionButtons()}
             </div>
           </section>
 
