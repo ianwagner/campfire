@@ -478,16 +478,50 @@ async function runExportJobById(jobId) {
 export const processExportJob = onDocumentCreated(
   { region: "us-central1", document: "exportJobs/{jobId}" },
   async (event) => {
-    const snapshot = event.data;
+    let snapshot = event.data;
+    const paramsJobId = normalizeJobId(event.params?.jobId);
+    let jobId = paramsJobId;
+    let jobRef;
+    let jobData;
 
-    if (!snapshot) {
-      console.error("processExportJob: missing Firestore snapshot");
-      return;
+    if (snapshot) {
+      jobRef = snapshot.ref;
+      jobData = snapshot.data() || {};
+      jobId = normalizeJobId(snapshot.id) || jobId;
+    } else {
+      const fallbackJobId = jobId;
+
+      if (!fallbackJobId) {
+        console.error("processExportJob: missing Firestore snapshot and jobId");
+        return;
+      }
+
+      try {
+        const fallbackSnapshot = await db.collection("exportJobs").doc(fallbackJobId).get();
+        if (!fallbackSnapshot.exists) {
+          console.error("processExportJob: export job not found", { jobId: fallbackJobId });
+          return;
+        }
+        snapshot = fallbackSnapshot;
+        jobRef = fallbackSnapshot.ref;
+        jobData = fallbackSnapshot.data() || {};
+        jobId = fallbackJobId;
+        console.warn("processExportJob: recovered missing snapshot from Firestore", {
+          jobId: fallbackJobId,
+        });
+      } catch (err) {
+        console.error("processExportJob: failed to load job snapshot", {
+          jobId: fallbackJobId,
+          error: err?.message || String(err),
+        });
+        return;
+      }
     }
 
-    const jobRef = snapshot.ref;
-    const jobData = snapshot.data() || {};
-    const jobId = event.params?.jobId || snapshot.id;
+    if (!jobRef || !jobData) {
+      console.error("processExportJob: unable to resolve job data", { jobId });
+      return;
+    }
 
     console.log(
       "processExportJob triggered via Firestore",
