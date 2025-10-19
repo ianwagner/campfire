@@ -1001,6 +1001,62 @@ function gatherCompassFieldValues({ adData = {}, jobData = {}, adId }) {
   return { fields: fieldValues, errors };
 }
 
+function parseCompassValidationError(error = '') {
+  const trimmed = typeof error === 'string' ? error.trim() : '';
+
+  if (!trimmed) {
+    return { field: 'unknown', issue: 'Unknown validation error', raw: error };
+  }
+
+  const colonIndex = trimmed.indexOf(':');
+  if (colonIndex > -1) {
+    const field = trimmed.slice(0, colonIndex).trim() || 'unknown';
+    const issue = trimmed.slice(colonIndex + 1).trim() || trimmed;
+    return { field, issue, raw: error };
+  }
+
+  const missingMatch = trimmed.match(/^Missing\s+(.+)$/i);
+  if (missingMatch) {
+    const field = missingMatch[1].trim() || 'unknown';
+    return { field, issue: `Missing ${field}`, raw: error };
+  }
+
+  const invalidUrlMatch = trimmed.match(/^Invalid\s+(.+?)\s+URL$/i);
+  if (invalidUrlMatch) {
+    const field = invalidUrlMatch[1].trim() || 'unknown';
+    return { field, issue: 'Invalid URL', raw: error };
+  }
+
+  return { field: 'unknown', issue: trimmed, raw: error };
+}
+
+function formatCompassValidationErrors({ errors = [], adId, adData = {} }) {
+  const adIdValue = adId !== undefined && adId !== null ? adId : 'unknown';
+  const adIdString = typeof adIdValue === 'string' ? adIdValue : String(adIdValue);
+  const parsedErrors = errors.map((error) => parseCompassValidationError(error));
+  const errorLines = parsedErrors.map(
+    ({ field, issue }) => `- Field: ${field} | Issue: ${issue || 'Unknown validation issue'}`,
+  );
+  const adDataKeys =
+    adData && typeof adData === 'object' && !Array.isArray(adData) ? Object.keys(adData) : [];
+
+  const messageLines = [
+    `Invalid Compass payload for adId=${adIdString}`,
+    ...errorLines,
+    `Ad data keys: ${JSON.stringify(adDataKeys)}`,
+  ];
+
+  return {
+    message: messageLines.join('\n'),
+    details: {
+      adId: adIdString,
+      errors: parsedErrors,
+      adDataKeys,
+      rawErrors: errors,
+    },
+  };
+}
+
 const compassIntegration = {
   key: 'compass',
   label: 'Compass AdLog',
@@ -1046,7 +1102,16 @@ const compassIntegration = {
     const { fields, errors } = gatherCompassFieldValues({ adData, jobData, adId: adData.id || jobId });
 
     if (Array.isArray(errors) && errors.length > 0) {
-      throw new Error(`Invalid Compass payload: ${errors.join('; ')}`);
+      const adIdentifier =
+        adData && adData.id !== undefined && adData.id !== null ? adData.id : jobId;
+      const { message, details } = formatCompassValidationErrors({
+        errors,
+        adId: adIdentifier,
+        adData,
+      });
+
+      console.error('Compass payload validation error', details);
+      throw new Error(message);
     }
 
     const payload = {};
