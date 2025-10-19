@@ -8,6 +8,23 @@ function normalizeString(value) {
   return '';
 }
 
+function normalizeHttpUrl(value) {
+  const normalized = normalizeString(value);
+  if (!normalized) {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(normalized);
+    if (!['http:', 'https:'].includes(parsed.protocol.toLowerCase())) {
+      return '';
+    }
+    return parsed.toString();
+  } catch (err) {
+    return '';
+  }
+}
+
 export function resolveAssetUrl(adData = {}) {
   const candidates = [
     adData.exportUrl,
@@ -107,6 +124,111 @@ export function validateAssetUrl(value) {
   }
 
   return { valid: true, reason: '', url: normalized };
+}
+
+function resolveCompassEndpointFromDestinations(destinations = []) {
+  if (!Array.isArray(destinations)) {
+    return '';
+  }
+
+  for (const destination of destinations) {
+    if (!destination || typeof destination !== 'object') {
+      continue;
+    }
+
+    const keyCandidate = normalizeString(
+      destination.key ||
+        destination.integration ||
+        destination.id ||
+        destination.name ||
+        destination.type,
+    ).toLowerCase();
+
+    if (!keyCandidate) {
+      continue;
+    }
+
+    if (keyCandidate === 'compass' || keyCandidate === 'adlog') {
+      const candidateValues = [
+        destination.endpoint,
+        destination.url,
+        destination.webhookUrl,
+        destination.config && destination.config.endpoint,
+        destination.config && destination.config.url,
+      ];
+
+      for (const value of candidateValues) {
+        const normalized = normalizeHttpUrl(value);
+        if (normalized) {
+          return normalized;
+        }
+      }
+    }
+  }
+
+  return '';
+}
+
+function resolveCompassEndpointFromJobData(jobData = {}) {
+  if (!jobData || typeof jobData !== 'object') {
+    return '';
+  }
+
+  const directCandidates = [
+    jobData.endpoint,
+    jobData.integrationEndpoint,
+    jobData.integrationUrl,
+    jobData.destinationUrl,
+    jobData.webhookUrl,
+    jobData.partnerEndpoint,
+    jobData.partnerUrl,
+    jobData.partnerWebhook,
+  ];
+
+  for (const value of directCandidates) {
+    const normalized = normalizeHttpUrl(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  const nestedSources = [
+    jobData.integration,
+    jobData.partner,
+    jobData.partnerData,
+    jobData.destination,
+    jobData.compass,
+    jobData.export,
+    jobData.exportData,
+  ];
+
+  for (const source of nestedSources) {
+    if (!source || typeof source !== 'object') {
+      continue;
+    }
+
+    const candidateValues = [
+      source.endpoint,
+      source.url,
+      source.webhookUrl,
+      source.config && source.config.endpoint,
+      source.config && source.config.url,
+    ];
+
+    for (const value of candidateValues) {
+      const normalized = normalizeHttpUrl(value);
+      if (normalized) {
+        return normalized;
+      }
+    }
+  }
+
+  const destinationEndpoint = resolveCompassEndpointFromDestinations(jobData.destinations);
+  if (destinationEndpoint) {
+    return destinationEndpoint;
+  }
+
+  return '';
 }
 
 const COMPASS_REQUIRED_FIELDS = [
@@ -785,6 +907,11 @@ const compassIntegration = {
   getEndpoint(jobData = {}) {
     const override = normalizeString(jobData.endpointOverride);
     if (override) return override;
+
+    const jobDefinedEndpoint = resolveCompassEndpointFromJobData(jobData);
+    if (jobDefinedEndpoint) {
+      return jobDefinedEndpoint;
+    }
 
     const targetEnv = normalizeString(jobData.targetEnv);
     if (targetEnv === 'prod' || targetEnv === 'production') {
