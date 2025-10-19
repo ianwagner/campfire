@@ -90,6 +90,27 @@ const adAssetsStore = adminMock.__mockAdAssets;
 const exportJobsStore = adminMock.__mockExportJobs;
 
 let processExportJobCallable;
+let runExportJobCallable;
+
+const defaultCompassFields = {
+  shop: 'TESTSHOP',
+  group_desc: 'Group Description',
+  recipe_no: 101,
+  product: 'Product Name',
+  product_url: 'https://example.com/product',
+  go_live_date: '2024-01-01',
+  funnel: 'Awareness',
+  angle: 'Angle 1',
+  persona: 'Persona 1',
+  primary_text: 'Primary text goes here',
+  headline: 'Headline text',
+  image_1x1: 'https://cdn.example.com/default-1x1.png',
+  image_9x16: 'https://cdn.example.com/default-9x16.png',
+};
+
+function buildCompassFields(overrides = {}) {
+  return { ...defaultCompassFields, ...overrides };
+}
 
 function seedExportJob(jobId, jobData) {
   exportJobsStore.set(jobId, { data: jobData, writes: [], ref: null });
@@ -112,7 +133,7 @@ function mockFetchResponse({ status = 200, ok = true, statusText = 'OK', body = 
 }
 
 beforeAll(async () => {
-  ({ processExportJobCallable } = await import('./exportJobWorker.js'));
+  ({ processExportJobCallable, runExportJob: runExportJobCallable } = await import('./exportJobWorker.js'));
 });
 
 beforeEach(() => {
@@ -149,6 +170,11 @@ test('processes approved ads and records success summary', async () => {
     assetUrl: 'https://cdn.example.com/ad-1.png',
     status: 'approved',
     name: 'Ad 1',
+    compass: buildCompassFields({
+      shop: 'BRAND1',
+      image_1x1: 'https://cdn.example.com/ad-1-1x1.png',
+      image_9x16: 'https://cdn.example.com/ad-1-9x16.png',
+    }),
   });
 
   global.fetch.mockResolvedValue(
@@ -188,11 +214,62 @@ test('processes approved ads and records success summary', async () => {
   });
 });
 
+test('runExportJob returns status and counts in response', async () => {
+  adAssetsStore.set('ad-http', {
+    id: 'ad-http',
+    brandCode: 'BRAND1',
+    assetUrl: 'https://cdn.example.com/ad-http.png',
+    compass: buildCompassFields({
+      shop: 'BRAND1',
+      image_1x1: 'https://cdn.example.com/ad-http-1x1.png',
+      image_9x16: 'https://cdn.example.com/ad-http-9x16.png',
+    }),
+  });
+
+  global.fetch.mockResolvedValue(
+    mockFetchResponse({
+      status: 200,
+      ok: true,
+      statusText: 'OK',
+      body: JSON.stringify({ message: 'Delivered' }),
+    }),
+  );
+
+  const jobData = {
+    approvedAdIds: ['ad-http'],
+    brandCode: 'BRAND1',
+    targetIntegration: 'compass',
+  };
+
+  seedExportJob('job-http', jobData);
+
+  const result = await runExportJobCallable.run({ data: { jobId: 'job-http' } });
+
+  expect(result).toMatchObject({
+    status: 'success',
+    counts: {
+      total: 1,
+      received: 1,
+      duplicate: 0,
+      error: 0,
+      success: 1,
+    },
+  });
+
+  const finalWrite = getFinalWrite(getJobWrites('job-http'));
+  expect(finalWrite.status).toBe('success');
+});
+
 test('marks duplicates as success with duplicate state', async () => {
   adAssetsStore.set('ad-dup', {
     id: 'ad-dup',
     brandCode: 'BRAND2',
     assetUrl: 'https://cdn.example.com/ad-dup.png',
+    compass: buildCompassFields({
+      shop: 'BRAND2',
+      image_1x1: 'https://cdn.example.com/ad-dup-1x1.png',
+      image_9x16: 'https://cdn.example.com/ad-dup-9x16.png',
+    }),
   });
 
   global.fetch.mockResolvedValue(
@@ -234,6 +311,11 @@ test('rejects invalid asset urls and surfaces validation error', async () => {
     id: 'ad-bad',
     brandCode: 'BRAND3',
     assetUrl: 'https://drive.google.com/drive/folders/abc123',
+    compass: buildCompassFields({
+      shop: 'BRAND3',
+      image_1x1: 'https://cdn.example.com/ad-bad-1x1.png',
+      image_9x16: 'https://cdn.example.com/ad-bad-9x16.png',
+    }),
   });
 
   const jobData = {
@@ -265,6 +347,11 @@ test('surfaces partner error responses for invalid brands', async () => {
     id: 'ad-brand',
     brandCode: 'WRONG',
     assetUrl: 'https://cdn.example.com/ad-brand.png',
+    compass: buildCompassFields({
+      shop: 'WRONG',
+      image_1x1: 'https://cdn.example.com/ad-brand-1x1.png',
+      image_9x16: 'https://cdn.example.com/ad-brand-9x16.png',
+    }),
   });
 
   global.fetch.mockResolvedValue(
