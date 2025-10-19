@@ -178,7 +178,7 @@ function emptySummary(message = '') {
 
 async function executeExportJob({ jobRef, jobData, jobId }) {
   const integrationKey = resolveIntegrationKey(jobData);
-  const integration = getIntegration(integrationKey);
+  const integration = await getIntegration(integrationKey);
 
   if (!integration) {
     const completedAt = admin.firestore.FieldValue.serverTimestamp();

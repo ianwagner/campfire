@@ -49,6 +49,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
+import useExporterIntegrations from './useExporterIntegrations';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import GalleryModal from './components/GalleryModal.jsx';
@@ -883,6 +884,7 @@ const Review = forwardRef(
   const [recipes, setRecipes] = useState([]); // ad recipes for brief review
   const [recipesLoaded, setRecipesLoaded] = useState(false);
   const [groupBrandCode, setGroupBrandCode] = useState('');
+  const [groupRecipeTypeIds, setGroupRecipeTypeIds] = useState([]);
   const [exportedAdIds, setExportedAdIds] = useState([]);
   const [finalGallery, setFinalGallery] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
@@ -917,6 +919,43 @@ const Review = forwardRef(
   const [started, setStarted] = useState(false);
   const [allHeroAds, setAllHeroAds] = useState([]); // hero list for all ads
   const [versionMode, setVersionMode] = useState(false); // reviewing new versions
+  const { integrations: exporterIntegrations } = useExporterIntegrations();
+  const enabledExporterIntegrations = useMemo(
+    () => exporterIntegrations.filter((integration) => integration.enabled !== false),
+    [exporterIntegrations],
+  );
+  const normalizedGroupRecipeTypes = useMemo(
+    () =>
+      groupRecipeTypeIds
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .filter(Boolean),
+    [groupRecipeTypeIds],
+  );
+  const matchingExporterIntegration = useMemo(() => {
+    if (normalizedGroupRecipeTypes.length === 0) {
+      return null;
+    }
+    return (
+      enabledExporterIntegrations.find((integration) => {
+        const recipeTypeId =
+          typeof integration.recipeTypeId === 'string'
+            ? integration.recipeTypeId.trim()
+            : '';
+        return recipeTypeId && normalizedGroupRecipeTypes.includes(recipeTypeId);
+      }) || null
+    );
+  }, [enabledExporterIntegrations, normalizedGroupRecipeTypes]);
+  const defaultExporterIntegration = useMemo(() => {
+    const defaultKey = DEFAULT_EXPORT_TARGET_INTEGRATION.toLowerCase();
+    return (
+      enabledExporterIntegrations.find(
+        (integration) =>
+          typeof integration.partnerKey === 'string' &&
+          integration.partnerKey.trim().toLowerCase() === defaultKey,
+      ) || null
+    );
+  }, [enabledExporterIntegrations]);
+  const selectedExporterIntegration = matchingExporterIntegration || defaultExporterIntegration || null;
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [showVersionMenu, setShowVersionMenu] = useState(false);
   const [cardVersionIndices, setCardVersionIndices] = useState({});
@@ -1993,6 +2032,18 @@ useEffect(() => {
               status = rawStatus;
               rv = data.reviewVersion || 1;
               setGroupBrandCode(data.brandCode || '');
+              const recipeTypeCandidates = Array.isArray(data?.recipeTypes)
+                ? data.recipeTypes
+                : data?.recipeType
+                  ? [data.recipeType]
+                  : data?.recipeTypeId
+                    ? [data.recipeTypeId]
+                    : [];
+              setGroupRecipeTypeIds(
+                recipeTypeCandidates
+                  .map((value) => (typeof value === 'string' ? value.trim() : ''))
+                  .filter(Boolean),
+              );
               if (rv === 2 || rv === 3) {
                 try {
                   const rSnap = await getDocs(
@@ -2042,6 +2093,7 @@ useEffect(() => {
           } else {
             setGroupStatus(null);
             setExportedAdIds([]);
+            setGroupRecipeTypeIds([]);
           }
           setInitialStatus(status);
           setReviewVersion(rv);
@@ -4665,6 +4717,21 @@ useEffect(() => {
         jobMetadata.adGroupUrl = adGroupUrl;
       }
 
+      const integrationConfig = selectedExporterIntegration;
+      const integrationKeyCandidate =
+        typeof integrationConfig?.partnerKey === 'string'
+          ? integrationConfig.partnerKey.trim()
+          : '';
+      const resolvedIntegrationKeyRaw =
+        integrationKeyCandidate || DEFAULT_EXPORT_TARGET_INTEGRATION;
+      const resolvedIntegrationKey = resolvedIntegrationKeyRaw.toLowerCase();
+      const resolvedIntegrationLabel =
+        integrationConfig?.name ||
+        integrationConfig?.label ||
+        integrationKeyCandidate ||
+        (resolvedIntegrationKey === 'compass' ? 'Compass Ad Log' : resolvedIntegrationKeyRaw);
+      const resolvedRecipeTypeId = integrationConfig?.recipeTypeId || null;
+
       const exportJobPayload = {
         adGroupId: groupId,
         adGroupName: adGroupDisplayName || '',
@@ -4673,14 +4740,19 @@ useEffect(() => {
         adIds: exportAdIds,
         approvedAdIds: exportAdIds,
         targetEnv: DEFAULT_EXPORT_TARGET_ENV,
-        targetIntegration: DEFAULT_EXPORT_TARGET_INTEGRATION,
-        integrationKey: DEFAULT_EXPORT_TARGET_INTEGRATION,
+        targetIntegration: resolvedIntegrationKey,
+        integrationKey: resolvedIntegrationKey,
+        recipeTypeId: resolvedRecipeTypeId,
         status: 'pending',
         triggeredBy: reviewerIdentifier || '',
         createdBy: reviewerIdentifier || '',
         createdAt: timestamp,
         requestedAt: timestamp,
         metadata: jobMetadata,
+        integration: {
+          key: resolvedIntegrationKey,
+          label: resolvedIntegrationLabel,
+        },
         counts: {
           approved: exportAdIds.length,
           total: reviewAds.length,

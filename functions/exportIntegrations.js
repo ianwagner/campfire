@@ -1,7 +1,17 @@
 import { URL } from 'url';
+import admin from 'firebase-admin';
 
 const DEFAULT_COMPASS_EXPORT_ENDPOINT =
   'https://api.compass.statlas.io/compass/RA9cCzM5Ux';
+
+const COMPASS_INTEGRATION_KEY = 'compass';
+
+const EXPORTER_INTEGRATIONS_COLLECTION = 'settings';
+const EXPORTER_INTEGRATIONS_DOC = 'exporterIntegrations';
+const SETTINGS_CACHE_TTL_MS = 60 * 1000;
+
+let cachedIntegrationSettings = null;
+let cachedIntegrationFetchTime = 0;
 
 function normalizeString(value) {
   if (typeof value === 'string') {
@@ -26,6 +36,387 @@ function normalizeHttpUrl(value) {
   } catch (err) {
     return '';
   }
+}
+
+function normalizeFieldMappingObject(mapping) {
+  if (!mapping || typeof mapping !== 'object') {
+    return {};
+  }
+
+  const normalized = {};
+
+  Object.entries(mapping).forEach(([recipeField, partnerField]) => {
+    const key = typeof recipeField === 'string' ? recipeField.trim() : '';
+    const value = typeof partnerField === 'string' ? partnerField.trim() : '';
+    if (!key || !value) {
+      return;
+    }
+    normalized[key] = value;
+  });
+
+  return normalized;
+}
+
+function normalizeIntegrationConfig(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const partnerKeyRaw = typeof raw.partnerKey === 'string' ? raw.partnerKey.trim() : '';
+  const fallbackKey = typeof raw.key === 'string' ? raw.key.trim() : '';
+  const fallbackId = typeof raw.id === 'string' ? raw.id.trim() : '';
+  const normalizedKey = normalizeString(partnerKeyRaw || fallbackKey || fallbackId).toLowerCase();
+
+  if (!normalizedKey) {
+    return null;
+  }
+
+  const displayName = typeof raw.name === 'string' ? raw.name.trim() : '';
+
+  return {
+    id: fallbackId || normalizedKey,
+    key: normalizedKey,
+    partnerKey: partnerKeyRaw || normalizedKey,
+    name: displayName,
+    label: displayName || partnerKeyRaw || normalizedKey,
+    baseUrl: normalizeString(raw.baseUrl),
+    apiKey: typeof raw.apiKey === 'string' ? raw.apiKey.trim() : '',
+    enabled: raw.enabled !== false,
+    notes: typeof raw.notes === 'string' ? raw.notes : '',
+    recipeTypeId: typeof raw.recipeTypeId === 'string' ? raw.recipeTypeId.trim() : '',
+    fieldMapping: normalizeFieldMappingObject(raw.fieldMapping),
+  };
+}
+
+async function fetchIntegrationSettings() {
+  try {
+    const db = admin.firestore();
+    const docRef = db
+      .collection(EXPORTER_INTEGRATIONS_COLLECTION)
+      .doc(EXPORTER_INTEGRATIONS_DOC);
+    const snap = await docRef.get();
+    if (!snap.exists) {
+      return [];
+    }
+    const data = snap.data() || {};
+    const entries = Array.isArray(data.integrations) ? data.integrations : [];
+    return entries
+      .map((entry) => normalizeIntegrationConfig(entry))
+      .filter((config) => config);
+  } catch (err) {
+    console.error('Failed to load exporter integrations from Firestore', err);
+    return [];
+  }
+}
+
+async function getCachedIntegrationSettings(force = false) {
+  const now = Date.now();
+  if (
+    !force &&
+    Array.isArray(cachedIntegrationSettings) &&
+    now - cachedIntegrationFetchTime < SETTINGS_CACHE_TTL_MS
+  ) {
+    return cachedIntegrationSettings;
+  }
+
+  const settings = await fetchIntegrationSettings();
+  cachedIntegrationSettings = settings;
+  cachedIntegrationFetchTime = now;
+  return settings;
+}
+
+async function findIntegrationConfig(key) {
+  const normalizedKey = normalizeString(key).toLowerCase();
+  if (!normalizedKey) {
+    return null;
+  }
+
+  const settings = await getCachedIntegrationSettings();
+  return settings.find((config) => config.key === normalizedKey) || null;
+}
+
+function resolveValueByPath(source, segments) {
+  if (!source || typeof source !== 'object' || !Array.isArray(segments) || segments.length === 0) {
+    return undefined;
+  }
+
+  let current = source;
+
+  for (const segment of segments) {
+    if (current === null || current === undefined) {
+      return undefined;
+    }
+
+    if (Array.isArray(current)) {
+      const index = Number(segment);
+      if (Number.isInteger(index) && current[index] !== undefined) {
+        current = current[index];
+        continue;
+      }
+      return undefined;
+    }
+
+    if (typeof current !== 'object') {
+      return undefined;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(current, segment)) {
+      return undefined;
+    }
+
+    current = current[segment];
+  }
+
+  return current;
+}
+
+function resolveValueForMappingKey(recipeField, context = {}) {
+  const { adData = {}, jobData = {}, assetUrl = '', adId } = context;
+  const rawKey = typeof recipeField === 'string' ? recipeField.trim() : '';
+  if (!rawKey) {
+    return undefined;
+  }
+
+  const normalizedKey = normalizeKeyName(rawKey);
+  const pathSegments = rawKey.includes('.')
+    ? rawKey.split('.').map((segment) => segment.trim()).filter(Boolean)
+    : [];
+
+  const normalizedAdId = normalizeString(adData?.id || adId);
+
+  const overrideSources = [];
+  if (normalizedAdId) {
+    if (jobData.fieldOverrides && typeof jobData.fieldOverrides === 'object') {
+      overrideSources.push(jobData.fieldOverrides[normalizedAdId]);
+      if (adData?.id && adData.id !== normalizedAdId) {
+        overrideSources.push(jobData.fieldOverrides[adData.id]);
+      }
+    }
+    if (jobData.assetOverrides && typeof jobData.assetOverrides === 'object') {
+      overrideSources.push(jobData.assetOverrides[normalizedAdId]);
+      if (adData?.id && adData.id !== normalizedAdId) {
+        overrideSources.push(jobData.assetOverrides[adData.id]);
+      }
+    }
+    if (jobData.compassOverrides && typeof jobData.compassOverrides === 'object') {
+      overrideSources.push(jobData.compassOverrides[normalizedAdId]);
+      if (adData?.id && adData.id !== normalizedAdId) {
+        overrideSources.push(jobData.compassOverrides[adData.id]);
+      }
+    }
+  }
+
+  const adSources = [
+    adData,
+    adData.partnerFields,
+    adData.partnerData,
+    adData.recipe,
+    adData.recipeData,
+    adData.recipeFields,
+    adData.recipe?.fields,
+    adData.compass,
+    adData.adlog,
+    adData.integration,
+    adData.integrationData,
+    adData.export,
+    adData.exportData,
+    adData.metadata,
+    adData.meta,
+    adData.details,
+    adData.info,
+    adData.fields,
+  ];
+
+  const jobSources = [
+    jobData.partnerFields,
+    jobData.partnerData,
+    jobData.recipe,
+    jobData.recipeData,
+    jobData.recipeFields,
+    jobData.compass,
+    jobData.adlog,
+    jobData.integration,
+    jobData.integrationData,
+    jobData.export,
+    jobData.exportData,
+    jobData.metadata,
+    jobData.meta,
+    jobData.details,
+    jobData.info,
+    jobData.fields,
+    jobData.group,
+    jobData.groupData,
+    jobData.brand,
+    jobData,
+  ];
+
+  const sourcesByPriority = [overrideSources, adSources, jobSources];
+
+  if (pathSegments.length > 1) {
+    for (const sourceGroup of sourcesByPriority) {
+      for (const source of sourceGroup) {
+        if (!source || typeof source !== 'object') {
+          continue;
+        }
+        const value = resolveValueByPath(source, pathSegments);
+        const extracted = extractPrimitiveValue(value);
+        if (extracted !== undefined) {
+          return extracted;
+        }
+      }
+    }
+  }
+
+  if (normalizedKey) {
+    const keyVariants = new Set([normalizedKey]);
+    for (const sourceGroup of sourcesByPriority) {
+      const value = resolveFieldFromSources(sourceGroup, keyVariants);
+      if (value !== undefined) {
+        const extracted = extractPrimitiveValue(value);
+        if (extracted !== undefined) {
+          return extracted;
+        }
+      }
+    }
+  }
+
+  if (normalizedKey === 'asseturl') {
+    const explicitAsset = normalizeString(assetUrl);
+    if (explicitAsset) {
+      return explicitAsset;
+    }
+    const resolvedAsset = resolveAssetUrl(adData);
+    return resolvedAsset || undefined;
+  }
+
+  if (
+    normalizedKey.includes('image1x1') ||
+    normalizedKey.includes('imagesquare') ||
+    normalizedKey.includes('squareimage')
+  ) {
+    const overrideAsset =
+      normalizedAdId && jobData.assetOverrides?.[normalizedAdId]?.assetUrl
+        ? normalizeString(jobData.assetOverrides[normalizedAdId].assetUrl)
+        : '';
+    if (overrideAsset) {
+      return overrideAsset;
+    }
+    const squareAsset = extractAssetUrlByAspect(adData.assets, ['1x1']);
+    if (squareAsset) {
+      return squareAsset;
+    }
+  }
+
+  if (
+    normalizedKey.includes('image9x16') ||
+    normalizedKey.includes('imagevertical') ||
+    normalizedKey.includes('verticalimage') ||
+    normalizedKey.includes('storyimage')
+  ) {
+    const overrideAsset =
+      normalizedAdId && jobData.assetOverrides?.[normalizedAdId]?.assetUrl
+        ? normalizeString(jobData.assetOverrides[normalizedAdId].assetUrl)
+        : '';
+    if (overrideAsset) {
+      return overrideAsset;
+    }
+    const verticalAsset = extractAssetUrlByAspect(adData.assets, ['9x16']);
+    if (verticalAsset) {
+      return verticalAsset;
+    }
+  }
+
+  return undefined;
+}
+
+function buildPayloadFromMapping({
+  fieldMapping = {},
+  adData = {},
+  jobData = {},
+  assetUrl = '',
+  integrationKey = '',
+  adId,
+}) {
+  const entries = Object.entries(fieldMapping);
+  const payload = {};
+  const missingFields = [];
+
+  for (const [recipeField, partnerField] of entries) {
+    const recipeKey = typeof recipeField === 'string' ? recipeField.trim() : '';
+    const partnerKey = typeof partnerField === 'string' ? partnerField.trim() : '';
+    if (!recipeKey || !partnerKey) {
+      continue;
+    }
+
+    const value = resolveValueForMappingKey(recipeKey, {
+      adData,
+      jobData,
+      assetUrl,
+      adId,
+    });
+
+    let finalValue = value;
+    const normalizedRecipeKey = normalizeKeyName(recipeKey);
+
+    if (integrationKey === COMPASS_INTEGRATION_KEY) {
+      if (normalizedRecipeKey === 'recipeno') {
+        if (finalValue !== undefined && finalValue !== null && finalValue !== '') {
+          const normalized = normalizeRecipeNumber(finalValue);
+          if (!normalized.error) {
+            finalValue = normalized.value;
+          } else {
+            finalValue = undefined;
+          }
+        }
+      } else if (normalizedRecipeKey === 'golivedate') {
+        finalValue = formatDateString(finalValue);
+        if (!finalValue) {
+          finalValue = undefined;
+        }
+      } else if (normalizedRecipeKey === 'angle') {
+        finalValue = normalizeAngleValue(finalValue);
+        if (finalValue === '') {
+          finalValue = undefined;
+        }
+      } else if (
+        normalizedRecipeKey === 'image1x1' ||
+        normalizedRecipeKey === 'image9x16'
+      ) {
+        const candidate = normalizeString(finalValue);
+        if (candidate) {
+          const { valid, url } = validateAssetUrl(candidate);
+          finalValue = valid ? url : undefined;
+        } else {
+          finalValue = undefined;
+        }
+      }
+    }
+
+    if (finalValue === undefined || finalValue === null || finalValue === '') {
+      missingFields.push(recipeKey);
+      continue;
+    }
+
+    payload[partnerKey] = finalValue;
+  }
+
+  if (missingFields.length > 0) {
+    const error = new Error(`Missing mapped fields: ${missingFields.join(', ')}`);
+    error.code = 'missing-mapped-fields';
+    error.metadata = { missingFields, integrationKey };
+    throw error;
+  }
+
+  return payload;
+}
+
+function buildHeadersForConfig(config = {}) {
+  const headers = {};
+  if (config.apiKey) {
+    headers.Authorization = `Bearer ${config.apiKey}`;
+    headers['x-api-key'] = config.apiKey;
+  }
+  return headers;
 }
 
 export function resolveAssetUrl(adData = {}) {
@@ -1058,7 +1449,7 @@ function formatCompassValidationErrors({ errors = [], adId, adData = {} }) {
 }
 
 const compassIntegration = {
-  key: 'compass',
+  key: COMPASS_INTEGRATION_KEY,
   label: 'Compass AdLog',
   requiredFields: [],
   getEndpoint(jobData = {}) {
@@ -1161,13 +1552,104 @@ const compassIntegration = {
   aliases: ['adlog'],
 };
 
+function buildIntegrationFromConfig(config) {
+  if (!config || !config.key) {
+    return null;
+  }
+
+  const normalizedKey = config.key;
+  const hasMapping =
+    config.fieldMapping && Object.keys(config.fieldMapping).length > 0;
+
+  let integration;
+
+  if (normalizedKey === COMPASS_INTEGRATION_KEY) {
+    integration = { ...compassIntegration };
+    integration.aliases = Array.isArray(compassIntegration.aliases)
+      ? [...compassIntegration.aliases]
+      : [];
+  } else if (!hasMapping) {
+    return null;
+  } else {
+    integration = {
+      key: normalizedKey,
+      label: config.label || config.partnerKey || normalizedKey,
+      requiredFields: [],
+    };
+  }
+
+  integration.partnerKey = config.partnerKey || normalizedKey;
+  integration.label = config.label || integration.label || integration.partnerKey;
+  integration.recipeTypeId = config.recipeTypeId || '';
+  integration.fieldMapping = config.fieldMapping || {};
+  integration.config = config;
+
+  const configuredEndpoint = normalizeHttpUrl(config.baseUrl) || normalizeString(config.baseUrl);
+  if (configuredEndpoint) {
+    integration.endpoint = configuredEndpoint;
+    integration.getEndpoint = (jobData = {}) => {
+      if (
+        normalizedKey === COMPASS_INTEGRATION_KEY &&
+        typeof compassIntegration.getEndpoint === 'function'
+      ) {
+        const jobDefined = compassIntegration.getEndpoint(jobData);
+        if (jobDefined) {
+          return jobDefined;
+        }
+      }
+      return configuredEndpoint;
+    };
+  }
+
+  const headers = buildHeadersForConfig(config);
+  if (Object.keys(headers).length > 0) {
+    integration.buildHeaders = () => ({ ...headers });
+  }
+
+  if (hasMapping) {
+    integration.buildPayload = async ({
+      adData = {},
+      jobData = {},
+      assetUrl = '',
+      jobId,
+    }) =>
+      buildPayloadFromMapping({
+        fieldMapping: config.fieldMapping,
+        adData,
+        jobData,
+        assetUrl,
+        integrationKey: normalizedKey,
+        adId: adData?.id || jobId,
+      });
+  }
+
+  return integration;
+}
+
 const integrationRegistry = {
   [compassIntegration.key]: compassIntegration,
 };
 
-export function getIntegration(key) {
+export async function getIntegration(key) {
   const normalized = normalizeString(key).toLowerCase();
   if (!normalized) return null;
+
+  try {
+    const config = await findIntegrationConfig(normalized);
+    if (config) {
+      if (config.enabled === false) {
+        console.warn('Requested integration is disabled in settings', { integrationKey: normalized });
+        return null;
+      }
+      const dynamicIntegration = buildIntegrationFromConfig(config);
+      if (dynamicIntegration) {
+        return dynamicIntegration;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to resolve integration from Firestore settings', err);
+  }
+
   if (integrationRegistry[normalized]) {
     return integrationRegistry[normalized];
   }
@@ -1181,9 +1663,40 @@ export function getIntegration(key) {
   return null;
 }
 
-export function listIntegrations() {
-  return Object.values(integrationRegistry).map((integration) => ({
-    key: integration.key,
-    label: integration.label,
-  }));
+export async function listIntegrations() {
+  const seen = new Set();
+  const entries = [];
+
+  try {
+    const dynamicConfigs = await getCachedIntegrationSettings();
+    dynamicConfigs
+      .filter((config) => config.enabled !== false)
+      .forEach((config) => {
+        if (seen.has(config.key)) {
+          return;
+        }
+        seen.add(config.key);
+        entries.push({
+          key: config.key,
+          label: config.label || config.partnerKey || config.key,
+        });
+      });
+  } catch (err) {
+    console.error('Failed to list exporter integrations from settings', err);
+  }
+
+  Object.values(integrationRegistry).forEach((integration) => {
+    if (seen.has(integration.key)) {
+      return;
+    }
+    seen.add(integration.key);
+    entries.push({ key: integration.key, label: integration.label });
+  });
+
+  return entries;
+}
+
+export function __resetIntegrationCache() {
+  cachedIntegrationSettings = null;
+  cachedIntegrationFetchTime = 0;
 }
