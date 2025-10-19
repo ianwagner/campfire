@@ -82,6 +82,7 @@ import diffWords from "./utils/diffWords";
 import Modal from "./components/Modal.jsx";
 import sortCopyCards from "./utils/sortCopyCards";
 import IconButton from "./components/IconButton.jsx";
+import InfoTooltip from "./components/InfoTooltip.jsx";
 import Button from "./components/Button.jsx";
 import TabButton from "./components/TabButton.jsx";
 import Table from "./components/common/Table";
@@ -3913,14 +3914,16 @@ const AdGroupDetail = () => {
       return (
         <div className="flex flex-wrap items-center gap-2">
           {group.status === 'archived' && isAdmin && (
-            <IconButton
-              onClick={restoreGroup}
-              aria-label="Restore Group"
-              className="bg-transparent"
-              title="Restore ad group"
-            >
-              <FiRotateCcw size={20} />
-            </IconButton>
+            <InfoTooltip text="Restore ad group" placement="bottom" className="flex">
+              <IconButton
+                onClick={restoreGroup}
+                aria-label="Restore Group"
+                className="bg-transparent"
+                title="Restore ad group"
+              >
+                <FiRotateCcw size={20} />
+              </IconButton>
+            </InfoTooltip>
           )}
           {tab === 'ads' && (group.status !== 'archived' || isAdmin) && (
             <>
@@ -3935,106 +3938,126 @@ const AdGroupDetail = () => {
                 }}
                 className="hidden"
               />
-              <IconButton
-                onClick={() => document.getElementById('upload-input').click()}
-                className="bg-transparent"
-                title="Upload ads"
-              >
-                <FiUpload size={20} />
-                Upload
-              </IconButton>
+              <InfoTooltip text="Upload ads" placement="bottom" className="flex">
+                <IconButton
+                  onClick={() => document.getElementById('upload-input').click()}
+                  className="bg-transparent"
+                  title="Upload ads"
+                >
+                  <FiUpload size={20} />
+                  Upload
+                </IconButton>
+              </InfoTooltip>
             </>
           )}
           {(isAdmin || userRole === 'agency') && (
-            <IconButton
-              onClick={resetGroup}
-              aria-label="Reset"
-              className="bg-transparent"
-              title="Reset ad group"
-            >
-              <FiRefreshCw size={20} />
-            </IconButton>
+            <InfoTooltip text="Reset ad group" placement="bottom" className="flex">
+              <IconButton
+                onClick={resetGroup}
+                aria-label="Reset"
+                className="bg-transparent"
+                title="Reset ad group"
+              >
+                <FiRefreshCw size={20} />
+              </IconButton>
+            </InfoTooltip>
           )}
           {(isAdmin || userRole === 'agency' || isDesigner) && (
-            <IconButton
-              onClick={markDesigned}
-              disabled={
-                designLoading ||
-                assets.length === 0 ||
-                group.status === 'designed'
-              }
-              className="bg-transparent"
-              aria-label="Designed"
-              title="Mark as designed"
-            >
-              <FiCheckCircle size={20} />
-            </IconButton>
+            <InfoTooltip text="Mark as designed" placement="bottom" className="flex">
+              <IconButton
+                onClick={markDesigned}
+                disabled={
+                  designLoading ||
+                  assets.length === 0 ||
+                  group.status === 'designed'
+                }
+                className="bg-transparent"
+                aria-label="Designed"
+                title="Mark as designed"
+              >
+                <FiCheckCircle size={20} />
+              </IconButton>
+            </InfoTooltip>
           )}
           {(isAdmin || userRole === 'agency') && (
             <>
-              <IconButton
-                as={Link}
-                to={`/review/${id}`}
-                aria-label="Review"
-                className="bg-transparent"
-                title="Open review page"
-              >
-                <FiBookOpen size={20} />
-              </IconButton>
-              <IconButton
-                onClick={handleShare}
-                aria-label="Share"
-                className="bg-transparent"
-                title="Share review link"
-              >
-                <FiShare2 size={20} />
-              </IconButton>
-              {isAdmin && (
+              <InfoTooltip text="Open review page" placement="bottom" className="flex">
                 <IconButton
-                  onClick={() => setClientModal(true)}
-                  aria-label="Send to Projects"
+                  as={Link}
+                  to={`/review/${id}`}
+                  aria-label="Review"
                   className="bg-transparent"
-                  title="Send to Projects"
+                  title="Open review page"
                 >
-                  <FiSend size={20} />
+                  <FiBookOpen size={20} />
                 </IconButton>
+              </InfoTooltip>
+              <InfoTooltip text="Share review link" placement="bottom" className="flex">
+                <IconButton
+                  onClick={handleShare}
+                  aria-label="Share"
+                  className="bg-transparent"
+                  title="Share review link"
+                >
+                  <FiShare2 size={20} />
+                </IconButton>
+              </InfoTooltip>
+              {isAdmin && (
+                <InfoTooltip text="Send to Projects" placement="bottom" className="flex">
+                  <IconButton
+                    onClick={() => setClientModal(true)}
+                    aria-label="Send to Projects"
+                    className="bg-transparent"
+                    title="Send to Projects"
+                  >
+                    <FiSend size={20} />
+                  </IconButton>
+                </InfoTooltip>
               )}
               {(isAdmin || isManager) && (
                 <>
-                  <IconButton
-                    onClick={() => setExportModal(true)}
-                    aria-label="Export Approved"
-                    className="bg-transparent"
-                    title="Export approved ads"
-                  >
-                    <FiDownload size={20} />
-                  </IconButton>
-                  {hasScrubbed && (
+                  <InfoTooltip text="Export approved ads" placement="bottom" className="flex">
                     <IconButton
-                      onClick={undoScrubReviewHistory}
-                      aria-label="Undo Scrub"
+                      onClick={() => setExportModal(true)}
+                      aria-label="Export Approved"
                       className="bg-transparent"
-                      title="Undo scrubbed history"
+                      title="Export approved ads"
                     >
-                      <FiRotateCw size={20} />
+                      <FiDownload size={20} />
                     </IconButton>
+                  </InfoTooltip>
+                  {hasScrubbed && (
+                    <InfoTooltip text="Undo scrubbed history" placement="bottom" className="flex">
+                      <IconButton
+                        onClick={undoScrubReviewHistory}
+                        aria-label="Undo Scrub"
+                        className="bg-transparent"
+                        title="Undo scrubbed history"
+                      >
+                        <FiRotateCw size={20} />
+                      </IconButton>
+                    </InfoTooltip>
                   )}
-                  <IconButton
-                    onClick={scrubReviewHistory}
-                    aria-label="Scrub Review History"
-                    className="bg-transparent"
-                    title="Scrub review history"
-                  >
-                    <Bubbles size={20} />
-                  </IconButton>
-                  <IconButton
-                    onClick={archiveGroup}
-                    aria-label="Archive"
-                    className="bg-transparent"
-                    title="Archive ad group"
-                  >
-                    <FiArchive size={20} />
-                  </IconButton>
+                  <InfoTooltip text="Scrub review history" placement="bottom" className="flex">
+                    <IconButton
+                      onClick={scrubReviewHistory}
+                      aria-label="Scrub Review History"
+                      className="bg-transparent"
+                      title="Scrub review history"
+                    >
+                      <Bubbles size={20} />
+                    </IconButton>
+                  </InfoTooltip>
+                  <InfoTooltip text="Archive ad group" placement="bottom" className="flex">
+                    <IconButton
+                      onClick={archiveGroup}
+                      aria-label="Archive"
+                      className="bg-transparent"
+                      title="Archive ad group"
+                    >
+                      <FiArchive size={20} />
+                    </IconButton>
+                  </InfoTooltip>
                 </>
               )}
             </>
@@ -4046,26 +4069,32 @@ const AdGroupDetail = () => {
     if (isClientPortalUser) {
       return (
         <div className="flex flex-wrap items-center gap-2">
-          <IconButton onClick={handleShare} aria-label="Share" className="bg-transparent" title="Share review link">
-            <FiShare2 size={20} />
-          </IconButton>
-          <IconButton
-            as={Link}
-            to={`/review/${id}`}
-            aria-label="Review"
-            className="bg-transparent"
-            title="Open review page"
-          >
-            <FiBookOpen size={20} />
-          </IconButton>
-          <IconButton
-            onClick={() => setExportModal(true)}
-            aria-label="Download Approved"
-            className="bg-transparent"
-            title="Download approved ads"
-          >
-            <FiDownload size={20} />
-          </IconButton>
+          <InfoTooltip text="Share review link" placement="bottom" className="flex">
+            <IconButton onClick={handleShare} aria-label="Share" className="bg-transparent" title="Share review link">
+              <FiShare2 size={20} />
+            </IconButton>
+          </InfoTooltip>
+          <InfoTooltip text="Open review page" placement="bottom" className="flex">
+            <IconButton
+              as={Link}
+              to={`/review/${id}`}
+              aria-label="Review"
+              className="bg-transparent"
+              title="Open review page"
+            >
+              <FiBookOpen size={20} />
+            </IconButton>
+          </InfoTooltip>
+          <InfoTooltip text="Download approved ads" placement="bottom" className="flex">
+            <IconButton
+              onClick={() => setExportModal(true)}
+              aria-label="Download Approved"
+              className="bg-transparent"
+              title="Download approved ads"
+            >
+              <FiDownload size={20} />
+            </IconButton>
+          </InfoTooltip>
         </div>
       );
     }
@@ -4073,14 +4102,16 @@ const AdGroupDetail = () => {
     if (userRole === 'editor') {
       return (
         <div className="flex flex-wrap items-center gap-2">
-          <IconButton
-            onClick={() => setShowGallery(true)}
-            aria-label="See Gallery"
-            className="bg-transparent"
-            title="Open gallery"
-          >
-            <FiGrid size={20} />
-          </IconButton>
+          <InfoTooltip text="Open gallery" placement="bottom" className="flex">
+            <IconButton
+              onClick={() => setShowGallery(true)}
+              aria-label="See Gallery"
+              className="bg-transparent"
+              title="Open gallery"
+            >
+              <FiGrid size={20} />
+            </IconButton>
+          </InfoTooltip>
         </div>
       );
     }
