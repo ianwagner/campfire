@@ -1,5 +1,12 @@
 import { URL } from 'url';
 import admin from 'firebase-admin';
+import {
+  COMPASS_REQUIRED_FIELDS,
+  COMPASS_OPTIONAL_FIELDS,
+  COMPASS_FIELD_LABELS,
+  getIntegrationFieldDefinitions,
+  getCampfireStandardFields,
+} from '../src/integrationFieldDefinitions.js';
 
 const DEFAULT_COMPASS_EXPORT_ENDPOINT =
   'https://api.compass.statlas.io/compass/RA9cCzM5Ux';
@@ -38,20 +45,92 @@ function normalizeHttpUrl(value) {
   }
 }
 
-function normalizeFieldMappingObject(mapping) {
+const CAMPFIRE_FIELD_HINTS = (() => {
+  const hints = new Set();
+  getCampfireStandardFields().forEach((field) => {
+    if (field?.key) {
+      hints.add(field.key);
+    }
+  });
+  return hints;
+})();
+
+function isCampfireFieldCandidate(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+  if (CAMPFIRE_FIELD_HINTS.has(trimmed)) {
+    return true;
+  }
+  if (trimmed.includes('.')) {
+    return true;
+  }
+  if (/^image[_]?1x1(?:_[0-9]+)?$/i.test(trimmed)) {
+    return true;
+  }
+  if (/^image[_]?9x16(?:_[0-9]+)?$/i.test(trimmed)) {
+    return true;
+  }
+  if (/(Id|URL|Url|Code|Name|Number|Date)$/.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
+function normalizeFieldMappingObject(mapping, { partnerKey } = {}) {
   if (!mapping || typeof mapping !== 'object') {
     return {};
   }
 
   const normalized = {};
+  const entries = Object.entries(mapping)
+    .map(([rawKey, rawValue]) => [
+      typeof rawKey === 'string' ? rawKey.trim() : '',
+      typeof rawValue === 'string' ? rawValue.trim() : '',
+    ])
+    .filter(([key, value]) => key && value);
 
-  Object.entries(mapping).forEach(([recipeField, partnerField]) => {
-    const key = typeof recipeField === 'string' ? recipeField.trim() : '';
-    const value = typeof partnerField === 'string' ? partnerField.trim() : '';
-    if (!key || !value) {
+  if (entries.length === 0) {
+    return normalized;
+  }
+
+  const partnerDefinitions = getIntegrationFieldDefinitions(partnerKey);
+  const partnerFieldSet = new Set(partnerDefinitions.map((field) => field.key));
+
+  const keyPartnerMatches = entries.filter(([key]) => partnerFieldSet.has(key)).length;
+  const valuePartnerMatches = entries.filter(([, value]) => partnerFieldSet.has(value)).length;
+  const keyCampfireMatches = entries.filter(([key]) => isCampfireFieldCandidate(key)).length;
+  const valueCampfireMatches = entries.filter(([, value]) => isCampfireFieldCandidate(value)).length;
+  const hasKeyDot = entries.some(([key]) => key.includes('.'));
+  const hasValueDot = entries.some(([, value]) => value.includes('.'));
+
+  let treatAsPartnerToCampfire = true;
+
+  if (hasKeyDot && !hasValueDot) {
+    treatAsPartnerToCampfire = false;
+  } else if (hasValueDot && !hasKeyDot) {
+    treatAsPartnerToCampfire = true;
+  } else if (keyPartnerMatches > valuePartnerMatches) {
+    treatAsPartnerToCampfire = true;
+  } else if (valuePartnerMatches > keyPartnerMatches) {
+    treatAsPartnerToCampfire = false;
+  } else if (valueCampfireMatches > keyCampfireMatches) {
+    treatAsPartnerToCampfire = true;
+  } else if (keyCampfireMatches > valueCampfireMatches) {
+    treatAsPartnerToCampfire = false;
+  }
+
+  entries.forEach(([key, value]) => {
+    const partnerField = treatAsPartnerToCampfire ? key : value;
+    const recipeField = treatAsPartnerToCampfire ? value : key;
+    if (!partnerField || !recipeField) {
       return;
     }
-    normalized[key] = value;
+    normalized[partnerField] = recipeField;
   });
 
   return normalized;
@@ -84,7 +163,7 @@ function normalizeIntegrationConfig(raw) {
     enabled: raw.enabled !== false,
     notes: typeof raw.notes === 'string' ? raw.notes : '',
     recipeTypeId: typeof raw.recipeTypeId === 'string' ? raw.recipeTypeId.trim() : '',
-    fieldMapping: normalizeFieldMappingObject(raw.fieldMapping),
+    fieldMapping: normalizeFieldMappingObject(raw.fieldMapping, { partnerKey: normalizedKey }),
   };
 }
 
@@ -386,19 +465,18 @@ function buildPayloadFromMapping({
   const payload = {};
   const missingFields = [];
 
-  for (const [recipeField, partnerField] of entries) {
-    const recipeKey = typeof recipeField === 'string' ? recipeField.trim() : '';
+  for (const [partnerField, recipeField] of entries) {
     const partnerKey = typeof partnerField === 'string' ? partnerField.trim() : '';
-    if (!recipeKey || !partnerKey) {
+    const recipeKey = typeof recipeField === 'string' ? recipeField.trim() : '';
+    if (!partnerKey || !recipeKey) {
       continue;
     }
 
-    const partnerBaseField =
-      integrationKey === COMPASS_INTEGRATION_KEY
-        ? normalizeCompassFieldName(partnerKey)
-        : '';
-    const isPartnerAssetField =
-      partnerBaseField === 'image_1x1' || partnerBaseField === 'image_9x16';
+    const assetInfo =
+      integrationKey === COMPASS_INTEGRATION_KEY ? parseCompassAssetKey(partnerKey) : null;
+    const basePartnerField = assetInfo ? assetInfo.baseKey : partnerKey.trim().toLowerCase();
+    const normalizedPartnerKey = normalizeKeyName(partnerKey);
+    const isPartnerAssetField = !!assetInfo;
 
     const value = resolveValueForMappingKey(recipeKey, {
       adData,
@@ -408,10 +486,21 @@ function buildPayloadFromMapping({
     });
 
     let finalValue = value;
-    const normalizedPartnerKey = normalizeKeyName(partnerKey);
 
     if (integrationKey === COMPASS_INTEGRATION_KEY) {
-      if (partnerBaseField === 'recipe_no' || normalizedPartnerKey === 'recipeno') {
+      const matchesRecipeNumber =
+        basePartnerField === 'recipe_no' ||
+        normalizedPartnerKey === 'recipeno' ||
+        normalizedPartnerKey === 'recipeid';
+      const matchesGoLiveDate =
+        basePartnerField === 'go_live_date' ||
+        normalizedPartnerKey === 'golivedate' ||
+        normalizedPartnerKey === 'launchdate' ||
+        normalizedPartnerKey === 'startdate';
+      const matchesAngleField =
+        basePartnerField === 'angle' || normalizedPartnerKey.startsWith('angle');
+
+      if (matchesRecipeNumber) {
         if (finalValue !== undefined && finalValue !== null && finalValue !== '') {
           const normalized = normalizeRecipeNumber(finalValue);
           if (!normalized.error) {
@@ -420,12 +509,12 @@ function buildPayloadFromMapping({
             finalValue = undefined;
           }
         }
-      } else if (partnerBaseField === 'go_live_date' || normalizedPartnerKey === 'golivedate') {
+      } else if (matchesGoLiveDate) {
         finalValue = formatDateString(finalValue);
         if (!finalValue) {
           finalValue = undefined;
         }
-      } else if (partnerBaseField === 'angle' || normalizedPartnerKey === 'angle') {
+      } else if (matchesAngleField) {
         finalValue = normalizeAngleValue(finalValue);
         if (finalValue === '') {
           finalValue = undefined;
@@ -442,7 +531,7 @@ function buildPayloadFromMapping({
     }
 
     if (finalValue === undefined || finalValue === null || finalValue === '') {
-      missingFields.push(recipeKey);
+      missingFields.push(partnerKey);
       continue;
     }
 
@@ -772,44 +861,7 @@ function resolveCompassEndpointFromJobData(jobData = {}) {
   return '';
 }
 
-const COMPASS_REQUIRED_FIELDS = [
-  'shop',
-  'group_desc',
-  'recipe_no',
-  'product',
-  'product_url',
-  'go_live_date',
-  'funnel',
-  'angle',
-  'persona',
-  'primary_text',
-  'headline',
-  'image_1x1',
-  'image_9x16',
-];
-
-const COMPASS_OPTIONAL_FIELDS = ['moment', 'description', 'status'];
-
 const COMPASS_ALL_FIELDS = [...new Set([...COMPASS_REQUIRED_FIELDS, ...COMPASS_OPTIONAL_FIELDS])];
-
-const COMPASS_FIELD_LABELS = {
-  shop: 'shop',
-  group_desc: 'group_desc',
-  recipe_no: 'recipe_no',
-  product: 'product',
-  product_url: 'product_url',
-  go_live_date: 'go_live_date',
-  funnel: 'funnel',
-  angle: 'angle',
-  persona: 'persona',
-  primary_text: 'primary_text',
-  headline: 'headline',
-  image_1x1: 'image_1x1',
-  image_9x16: 'image_9x16',
-  moment: 'moment',
-  description: 'description',
-  status: 'status',
-};
 
 const COMPASS_FIELD_SYNONYMS = {
   shop: [
