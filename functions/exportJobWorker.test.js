@@ -4,27 +4,69 @@
 
 jest.mock('firebase-admin', () => {
   const adAssets = new Map();
+  const exportJobs = new Map();
   const FieldValue = { serverTimestamp: jest.fn(() => '__ts__') };
-  const firestoreInstance = {
-    collection: jest.fn((name) => {
-      if (name !== 'adAssets') {
-        throw new Error(`Unexpected collection ${name}`);
-      }
-      return {
-        doc: (id) => ({
-          async get() {
-            const data = adAssets.get(id);
-            if (!data) {
-              return { exists: false };
-            }
-            return {
-              exists: true,
-              id,
-              data: () => data,
-            };
-          },
+
+  function ensureExportJobEntry(id) {
+    if (!exportJobs.has(id)) {
+      exportJobs.set(id, { data: undefined, writes: [], ref: null });
+    }
+    const entry = exportJobs.get(id);
+    if (!entry.writes) entry.writes = [];
+    if (!entry.ref) {
+      const docRef = {
+        id,
+        set: jest.fn((payload, options) => {
+          entry.writes.push({ payload, options });
+          if (options && options.merge && entry.data && typeof entry.data === 'object') {
+            entry.data = { ...entry.data, ...payload };
+          } else {
+            entry.data = payload;
+          }
+          return Promise.resolve();
         }),
       };
+      docRef.get = async () => {
+        if (entry.data === undefined) {
+          return { exists: false, id, ref: docRef };
+        }
+        return {
+          exists: true,
+          id,
+          data: () => entry.data,
+          ref: docRef,
+        };
+      };
+      entry.ref = docRef;
+    }
+    return entry.ref;
+  }
+
+  const firestoreInstance = {
+    collection: jest.fn((name) => {
+      if (name === 'adAssets') {
+        return {
+          doc: (id) => ({
+            async get() {
+              const data = adAssets.get(id);
+              if (!data) {
+                return { exists: false };
+              }
+              return {
+                exists: true,
+                id,
+                data: () => data,
+              };
+            },
+          }),
+        };
+      }
+      if (name === 'exportJobs') {
+        return {
+          doc: (id) => ensureExportJobEntry(id),
+        };
+      }
+      throw new Error(`Unexpected collection ${name}`);
     }),
   };
   const firestore = jest.fn(() => firestoreInstance);
@@ -38,35 +80,24 @@ jest.mock('firebase-admin', () => {
       firestore,
     },
     __mockAdAssets: adAssets,
+    __mockExportJobs: exportJobs,
     __FieldValue: FieldValue,
   };
 });
 
 const adminMock = jest.requireMock('firebase-admin');
 const adAssetsStore = adminMock.__mockAdAssets;
+const exportJobsStore = adminMock.__mockExportJobs;
 
 let processExportJob;
 
-function createEvent(jobData, { jobId = 'job-1' } = {}) {
-  const writes = [];
-  const jobRef = {
-    set: jest.fn((payload, options) => {
-      writes.push({ payload, options });
-      return Promise.resolve();
-    }),
-  };
-  const snapshot = {
-    data: () => jobData,
-    ref: jobRef,
-  };
-  return {
-    event: {
-      data: snapshot,
-      params: { jobId },
-    },
-    jobRef,
-    writes,
-  };
+function seedExportJob(jobId, jobData) {
+  exportJobsStore.set(jobId, { data: jobData, writes: [], ref: null });
+}
+
+function getJobWrites(jobId) {
+  const entry = exportJobsStore.get(jobId);
+  return entry?.writes || [];
 }
 
 function mockFetchResponse({ status = 200, ok = true, statusText = 'OK', body = '' }) {
@@ -86,6 +117,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   adAssetsStore.clear();
+  exportJobsStore.clear();
   adminMock.__FieldValue.serverTimestamp.mockClear();
   global.fetch = jest.fn();
   process.env.COMPASS_EXPORT_ENDPOINT = 'https://partner.example.com/export';
@@ -135,12 +167,12 @@ test('processes approved ads and records success summary', async () => {
     targetIntegration: 'compass',
   };
 
-  const { event, writes } = createEvent(jobData, { jobId: 'job-success' });
+  seedExportJob('job-success', jobData);
 
-  await processExportJob.run(event);
+  await processExportJob.run({ data: { jobId: 'job-success' } });
 
   expect(global.fetch).toHaveBeenCalledTimes(1);
-  const finalWrite = getFinalWrite(writes);
+  const finalWrite = getFinalWrite(getJobWrites('job-success'));
   expect(finalWrite.status).toBe('success');
   expectSummaryCounts(finalWrite, {
     total: 1,
@@ -178,12 +210,12 @@ test('marks duplicates as success with duplicate state', async () => {
     targetIntegration: 'compass',
   };
 
-  const { event, writes } = createEvent(jobData, { jobId: 'job-duplicate' });
+  seedExportJob('job-duplicate', jobData);
 
-  await processExportJob.run(event);
+  await processExportJob.run({ data: { jobId: 'job-duplicate' } });
 
   expect(global.fetch).toHaveBeenCalledTimes(1);
-  const finalWrite = getFinalWrite(writes);
+  const finalWrite = getFinalWrite(getJobWrites('job-duplicate'));
   expect(finalWrite.status).toBe('success');
   expectSummaryCounts(finalWrite, {
     total: 1,
@@ -210,12 +242,12 @@ test('rejects invalid asset urls and surfaces validation error', async () => {
     targetIntegration: 'compass',
   };
 
-  const { event, writes } = createEvent(jobData, { jobId: 'job-invalid-url' });
+  seedExportJob('job-invalid-url', jobData);
 
-  await processExportJob.run(event);
+  await processExportJob.run({ data: { jobId: 'job-invalid-url' } });
 
   expect(global.fetch).not.toHaveBeenCalled();
-  const finalWrite = getFinalWrite(writes);
+  const finalWrite = getFinalWrite(getJobWrites('job-invalid-url'));
   expect(finalWrite.status).toBe('failed');
   expectSummaryCounts(finalWrite, {
     total: 1,
@@ -250,12 +282,12 @@ test('surfaces partner error responses for invalid brands', async () => {
     targetIntegration: 'compass',
   };
 
-  const { event, writes } = createEvent(jobData, { jobId: 'job-invalid-brand' });
+  seedExportJob('job-invalid-brand', jobData);
 
-  await processExportJob.run(event);
+  await processExportJob.run({ data: { jobId: 'job-invalid-brand' } });
 
   expect(global.fetch).toHaveBeenCalledTimes(1);
-  const finalWrite = getFinalWrite(writes);
+  const finalWrite = getFinalWrite(getJobWrites('job-invalid-brand'));
   expect(finalWrite.status).toBe('failed');
   expectSummaryCounts(finalWrite, {
     total: 1,
