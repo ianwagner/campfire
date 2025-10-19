@@ -170,8 +170,33 @@ function resolveValueByPath(source, segments) {
   return current;
 }
 
+function findDirectFieldValue(source, lowerKey) {
+  if (!source || typeof source !== 'object') {
+    return undefined;
+  }
+
+  if (Array.isArray(source)) {
+    return undefined;
+  }
+
+  const entries = source instanceof Map ? source.entries() : Object.entries(source);
+
+  for (const [candidateKey, candidateValue] of entries) {
+    if (typeof candidateKey === 'string' && candidateKey.toLowerCase() === lowerKey) {
+      return candidateValue;
+    }
+  }
+
+  return undefined;
+}
+
 function resolveValueForMappingKey(recipeField, context = {}) {
-  const { adData = {}, jobData = {}, assetUrl = '', adId } = context;
+  const {
+    adData = {},
+    jobData = {},
+    assetUrl = '',
+    adId,
+  } = context;
   const rawKey = typeof recipeField === 'string' ? recipeField.trim() : '';
   if (!rawKey) {
     return undefined;
@@ -179,21 +204,22 @@ function resolveValueForMappingKey(recipeField, context = {}) {
 
   const normalizedKey = normalizeKeyName(rawKey);
   const pathSegments = rawKey.includes('.')
-    ? rawKey.split('.').map((segment) => segment.trim()).filter(Boolean)
+    ? rawKey
+        .split('.')
+        .map((segment) => segment.trim())
+        .filter(Boolean)
     : [];
 
   const assetKeyInfo = parseCompassAssetKey(rawKey);
-  const baseCompassField = findCompassFieldForKey(rawKey);
-  const isCompassAssetField =
-    baseCompassField === 'image_1x1' || baseCompassField === 'image_9x16';
-  const assetBaseKey = assetKeyInfo ? assetKeyInfo.baseKey : baseCompassField;
-  const assetSlotIndex =
-    assetKeyInfo && assetKeyInfo.hasIndex ? assetKeyInfo.index : 0;
-  const assetAspectTargets = isCompassAssetField
-    ? baseCompassField === 'image_9x16'
+  const assetSlotIndex = assetKeyInfo && assetKeyInfo.hasIndex ? assetKeyInfo.index : 0;
+  const baseCompassField = assetKeyInfo ? assetKeyInfo.baseKey : '';
+  const isAssetField = baseCompassField === 'image_1x1' || baseCompassField === 'image_9x16';
+  const assetAspectTargets =
+    baseCompassField === 'image_9x16'
       ? ['9x16']
-      : ['1x1']
-    : [];
+      : baseCompassField === 'image_1x1'
+      ? ['1x1']
+      : [];
 
   const normalizedAdId = normalizeString(adData?.id || adId);
 
@@ -265,28 +291,17 @@ function resolveValueForMappingKey(recipeField, context = {}) {
 
   const sourcesByPriority = [overrideSources, adSources, jobSources];
 
-  const keyVariants = new Set();
-  if (normalizedKey) {
-    keyVariants.add(normalizedKey);
-  }
-  if (baseCompassField) {
-    const expanded = expandFieldKeySet(baseCompassField);
-    expanded.forEach((variant) => {
-      keyVariants.add(variant);
-      if (assetKeyInfo && assetKeyInfo.hasIndex && assetKeyInfo.rawIndex) {
-        keyVariants.add(`${variant}${assetKeyInfo.rawIndex}`);
-      }
-    });
-  }
-
-  if (isCompassAssetField) {
+  const tryResolveAssetOverride = () => {
+    if (!isAssetField) {
+      return '';
+    }
     for (const overrideSource of overrideSources) {
       if (!overrideSource) {
         continue;
       }
       const overrideValue = resolveAssetOverrideValue(overrideSource, {
         rawKey,
-        baseKey: assetBaseKey,
+        baseKey: baseCompassField,
         slotIndex: assetSlotIndex,
         aspectTargets: assetAspectTargets,
       });
@@ -294,28 +309,42 @@ function resolveValueForMappingKey(recipeField, context = {}) {
         return overrideValue;
       }
     }
-  }
+    return '';
+  };
 
-  if (pathSegments.length > 1) {
-    for (const sourceGroup of sourcesByPriority) {
-      for (const source of sourceGroup) {
-        if (!source || typeof source !== 'object') {
-          continue;
-        }
-        const value = resolveValueByPath(source, pathSegments);
-        const extracted = extractPrimitiveValue(value);
-        if (extracted !== undefined) {
-          return extracted;
-        }
-      }
+  if (isAssetField) {
+    const overrideValue = tryResolveAssetOverride();
+    if (overrideValue) {
+      return overrideValue;
     }
   }
 
-  if (keyVariants.size > 0) {
+  if (pathSegments.length > 1) {
+    const adValue = resolveValueByPath(adData, pathSegments);
+    const adExtracted = extractPrimitiveValue(adValue);
+    if (adExtracted !== undefined) {
+      return adExtracted;
+    }
+
+    const jobValue = resolveValueByPath(jobData, pathSegments);
+    const jobExtracted = extractPrimitiveValue(jobValue);
+    if (jobExtracted !== undefined) {
+      return jobExtracted;
+    }
+  }
+
+  if (normalizedKey) {
+    const lowerKey = rawKey.toLowerCase();
     for (const sourceGroup of sourcesByPriority) {
-      const value = resolveFieldFromSources(sourceGroup, keyVariants);
-      if (value !== undefined) {
-        const extracted = extractPrimitiveValue(value);
+      for (const source of sourceGroup) {
+        if (!source) {
+          continue;
+        }
+        const directValue = findDirectFieldValue(source, lowerKey);
+        if (directValue === undefined) {
+          continue;
+        }
+        const extracted = extractPrimitiveValue(directValue);
         if (extracted !== undefined) {
           return extracted;
         }
@@ -332,7 +361,7 @@ function resolveValueForMappingKey(recipeField, context = {}) {
     return resolvedAsset || undefined;
   }
 
-  if (isCompassAssetField) {
+  if (isAssetField) {
     const assetFromAd =
       assetKeyInfo && assetKeyInfo.hasIndex
         ? extractAssetUrlByAspectIndex(adData.assets, assetAspectTargets, assetSlotIndex)
@@ -364,9 +393,12 @@ function buildPayloadFromMapping({
       continue;
     }
 
-    const recipeBaseField = findCompassFieldForKey(recipeKey);
-    const isRecipeAssetField =
-      recipeBaseField === 'image_1x1' || recipeBaseField === 'image_9x16';
+    const partnerBaseField =
+      integrationKey === COMPASS_INTEGRATION_KEY
+        ? normalizeCompassFieldName(partnerKey)
+        : '';
+    const isPartnerAssetField =
+      partnerBaseField === 'image_1x1' || partnerBaseField === 'image_9x16';
 
     const value = resolveValueForMappingKey(recipeKey, {
       adData,
@@ -376,10 +408,10 @@ function buildPayloadFromMapping({
     });
 
     let finalValue = value;
-    const normalizedRecipeKey = normalizeKeyName(recipeKey);
+    const normalizedPartnerKey = normalizeKeyName(partnerKey);
 
     if (integrationKey === COMPASS_INTEGRATION_KEY) {
-      if (recipeBaseField === 'recipe_no' || normalizedRecipeKey === 'recipeno') {
+      if (partnerBaseField === 'recipe_no' || normalizedPartnerKey === 'recipeno') {
         if (finalValue !== undefined && finalValue !== null && finalValue !== '') {
           const normalized = normalizeRecipeNumber(finalValue);
           if (!normalized.error) {
@@ -388,17 +420,17 @@ function buildPayloadFromMapping({
             finalValue = undefined;
           }
         }
-      } else if (recipeBaseField === 'go_live_date' || normalizedRecipeKey === 'golivedate') {
+      } else if (partnerBaseField === 'go_live_date' || normalizedPartnerKey === 'golivedate') {
         finalValue = formatDateString(finalValue);
         if (!finalValue) {
           finalValue = undefined;
         }
-      } else if (recipeBaseField === 'angle' || normalizedRecipeKey === 'angle') {
+      } else if (partnerBaseField === 'angle' || normalizedPartnerKey === 'angle') {
         finalValue = normalizeAngleValue(finalValue);
         if (finalValue === '') {
           finalValue = undefined;
         }
-      } else if (isRecipeAssetField) {
+      } else if (isPartnerAssetField) {
         const candidate = normalizeString(finalValue);
         if (candidate) {
           const { valid, url } = validateAssetUrl(candidate);
@@ -938,6 +970,25 @@ function expandFieldKeySet(field) {
     }
   }
   return variants;
+}
+
+function normalizeCompassFieldName(field = '') {
+  const trimmed = typeof field === 'string' ? field.trim() : '';
+  if (!trimmed) {
+    return '';
+  }
+
+  const assetInfo = parseCompassAssetKey(trimmed);
+  if (assetInfo) {
+    return assetInfo.baseKey;
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (COMPASS_ALL_FIELDS.includes(lower)) {
+    return lower;
+  }
+
+  return '';
 }
 
 function findCompassFieldForKey(rawKey = '') {
