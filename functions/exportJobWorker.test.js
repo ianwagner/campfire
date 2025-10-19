@@ -325,6 +325,139 @@ test('builds payload using Firestore field mapping configuration', async () => {
   });
 });
 
+test('supports standard compass fields and carousel asset mappings', async () => {
+  settingsStore.set('exporterIntegrations', {
+    integrations: [
+      {
+        id: 'carousel-1',
+        partnerKey: 'carousel-partner',
+        name: 'Carousel Partner',
+        baseUrl: 'https://partner.example.com/carousel',
+        apiKey: 'carousel-secret',
+        enabled: true,
+        recipeTypeId: 'recipe-carousel',
+        fieldMapping: {
+          shop: 'shopId',
+          group_desc: 'groupName',
+          recipe_no: 'recipeId',
+          product: 'productName',
+          product_url: 'productLink',
+          go_live_date: 'launchDate',
+          funnel: 'funnelStage',
+          angle: 'angleName',
+          persona: 'personaName',
+          primary_text: 'primaryCopy',
+          headline: 'headlineCopy',
+          image_1x1_1: 'squareOne',
+          image_1x1_2: 'squareTwo',
+          image_9x16: 'storyImage',
+        },
+      },
+    ],
+  });
+
+  adAssetsStore.set('ad-carousel', {
+    id: 'ad-carousel',
+    brandCode: 'SHOP123',
+    recipe: {
+      fields: {
+        recipe_no: '200',
+        group_desc: 'Spring Launch Group',
+        product: 'Carousel Product',
+        product_url: 'https://example.com/product',
+        go_live_date: '2024-03-05',
+        funnel: 'Awareness',
+        angle: 'Angle 1',
+        persona: 'Persona 1',
+        primary_text: 'Primary carousel message',
+        headline: 'Carousel headline',
+      },
+    },
+    compass: {
+      group_desc: 'Spring Launch Group',
+      funnel: 'Awareness',
+      angle: 'Angle 1',
+      persona: 'Persona 1',
+      primary_text: 'Primary carousel message',
+      headline: 'Carousel headline',
+    },
+    assets: [
+      {
+        url: 'https://cdn.example.com/square-1.png',
+        aspectRatio: '1x1',
+        order: 0,
+      },
+      {
+        url: 'https://cdn.example.com/square-2.png',
+        aspectRatio: '1x1',
+        order: 1,
+      },
+      {
+        url: 'https://cdn.example.com/vertical.png',
+        aspectRatio: '9x16',
+        order: 0,
+      },
+    ],
+  });
+
+  global.fetch.mockResolvedValue(
+    mockFetchResponse({
+      status: 200,
+      ok: true,
+      statusText: 'OK',
+      body: JSON.stringify({ message: 'Processed successfully' }),
+    }),
+  );
+
+  const jobData = {
+    approvedAdIds: ['ad-carousel'],
+    adIds: ['ad-carousel'],
+    brandCode: 'SHOP123',
+    group: { description: 'Spring Launch Group' },
+    targetIntegration: 'carousel-partner',
+    integrationKey: 'carousel-partner',
+  };
+
+  seedExportJob('job-carousel', jobData);
+
+  await processExportJobCallable.run({ data: { jobId: 'job-carousel' } });
+
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  const [endpoint, requestInit] = global.fetch.mock.calls[0];
+  expect(endpoint).toBe('https://partner.example.com/carousel');
+  expect(requestInit.headers).toMatchObject({
+    Authorization: 'Bearer carousel-secret',
+    'x-api-key': 'carousel-secret',
+  });
+  const payload = JSON.parse(requestInit.body);
+  expect(payload).toEqual({
+    shopId: 'SHOP123',
+    groupName: 'Spring Launch Group',
+    recipeId: 200,
+    productName: 'Carousel Product',
+    productLink: 'https://example.com/product',
+    launchDate: '2024-03-05',
+    funnelStage: 'Awareness',
+    angleName: 'Angle 1',
+    personaName: 'Persona 1',
+    primaryCopy: 'Primary carousel message',
+    headlineCopy: 'Carousel headline',
+    squareOne: 'https://cdn.example.com/square-1.png',
+    squareTwo: 'https://cdn.example.com/square-2.png',
+    storyImage: 'https://cdn.example.com/vertical.png',
+  });
+
+  const finalWrite = getFinalWrite(getJobWrites('job-carousel'));
+  expect(finalWrite.status).toBe('success');
+  expectSummaryCounts(finalWrite, {
+    total: 1,
+    received: 1,
+    duplicate: 0,
+    error: 0,
+    success: 1,
+  });
+});
+
 test('uses production endpoint environment variable regardless of targetEnv casing', async () => {
   adAssetsStore.set('ad-prod', {
     id: 'ad-prod',

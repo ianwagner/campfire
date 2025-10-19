@@ -4,6 +4,116 @@ import useExporterIntegrations from './useExporterIntegrations';
 import Button from './components/Button.jsx';
 import { db } from './firebase/config';
 
+const STANDARD_FIELDS = [
+  { key: 'shop', label: 'Shop / Brand ID', required: true },
+  { key: 'group_desc', label: 'Group description', required: true },
+  { key: 'recipe_no', label: 'Recipe number', required: true },
+  { key: 'product', label: 'Product', required: true },
+  { key: 'product_url', label: 'Product URL', required: true },
+  { key: 'go_live_date', label: 'Go live date', required: true },
+  { key: 'funnel', label: 'Funnel', required: true },
+  { key: 'angle', label: 'Angle', required: true },
+  { key: 'persona', label: 'Persona', required: true },
+  { key: 'primary_text', label: 'Primary text', required: true },
+  { key: 'headline', label: 'Headline', required: true },
+  { key: 'image_1x1', label: '1×1 creative', required: true },
+  { key: 'image_9x16', label: '9×16 creative', required: true },
+  { key: 'moment', label: 'Moment', required: false },
+  { key: 'description', label: 'Description', required: false },
+  { key: 'status', label: 'Status', required: false },
+];
+
+const normalizeFieldEntry = (field) => {
+  const key = typeof field?.key === 'string' ? field.key.trim() : '';
+  const label = typeof field?.label === 'string' ? field.label.trim() : key;
+  const required = !!field?.required;
+  return key
+    ? {
+        key,
+        label,
+        required,
+      }
+    : null;
+};
+
+const parseNumeric = (value) => {
+  if (value === undefined || value === null) {
+    return NaN;
+  }
+  const asNumber = Number(value);
+  if (Number.isFinite(asNumber)) {
+    return asNumber;
+  }
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : NaN;
+};
+
+const inferCarouselAssetCount = (recipeType) => {
+  if (!recipeType || typeof recipeType !== 'object') {
+    return 1;
+  }
+
+  const fields = Array.isArray(recipeType.writeInFields)
+    ? recipeType.writeInFields
+    : [];
+
+  let inferredMax = 1;
+
+  fields.forEach((field) => {
+    const normalized = normalizeFieldEntry(field);
+    if (!normalized) {
+      return;
+    }
+
+    const match = normalized.key.match(/^image[_]?1x1_(\d+)$/i);
+    if (match) {
+      const index = parseNumeric(match[1]);
+      if (Number.isFinite(index)) {
+        inferredMax = Math.max(inferredMax, index);
+      }
+      return;
+    }
+
+    if (/^image[_]?1x1$/i.test(normalized.key)) {
+      const numericHints = [
+        parseNumeric(field?.maxItems),
+        parseNumeric(field?.maxCount),
+        parseNumeric(field?.limit),
+        parseNumeric(field?.count),
+        parseNumeric(field?.total),
+        parseNumeric(field?.max),
+        parseNumeric(field?.maxAssets),
+        parseNumeric(field?.carouselLength),
+      ];
+      numericHints.forEach((hint) => {
+        if (Number.isFinite(hint)) {
+          inferredMax = Math.max(inferredMax, hint);
+        }
+      });
+      if (field?.multiple || field?.allowMultiple || field?.enableCarousel) {
+        inferredMax = Math.max(inferredMax, 2);
+      }
+    }
+  });
+
+  const topLevelHints = [
+    parseNumeric(recipeType?.carouselAssetCount),
+    parseNumeric(recipeType?.carouselImageCount),
+    parseNumeric(recipeType?.squareAssetCount),
+    parseNumeric(recipeType?.squareAssets),
+    parseNumeric(recipeType?.assetCarouselLength),
+    parseNumeric(recipeType?.carouselLength),
+  ];
+
+  topLevelHints.forEach((hint) => {
+    if (Number.isFinite(hint)) {
+      inferredMax = Math.max(inferredMax, hint);
+    }
+  });
+
+  return Number.isFinite(inferredMax) && inferredMax > 0 ? inferredMax : 1;
+};
+
 const EMPTY_FORM = {
   id: '',
   name: '',
@@ -127,21 +237,65 @@ const AdminIntegrations = () => {
     : null;
 
   const availableRecipeFields = useMemo(() => {
-    if (!currentRecipeType) {
-      return [];
-    }
+    const carouselSlots = inferCarouselAssetCount(currentRecipeType);
+    const standardFields = STANDARD_FIELDS.flatMap((field) => {
+      if (field.key === 'image_1x1') {
+        if (carouselSlots <= 1) {
+          return [field];
+        }
+        return Array.from({ length: carouselSlots }, (_, index) => ({
+          key: `${field.key}_${index + 1}`,
+          label: `${field.label} #${index + 1}`,
+          required: index === 0 ? field.required : false,
+        }));
+      }
+      return [field];
+    });
 
-    const fields = Array.isArray(currentRecipeType.writeInFields)
+    const writeInFields = Array.isArray(currentRecipeType?.writeInFields)
       ? currentRecipeType.writeInFields
       : [];
 
-    return fields
-      .map((field) => ({
-        key: typeof field?.key === 'string' ? field.key.trim() : '',
-        label: typeof field?.label === 'string' ? field.label.trim() : '',
-        required: !!field?.required,
-      }))
-      .filter((field) => field.key);
+    const customFields = writeInFields
+      .map((field) => normalizeFieldEntry(field))
+      .filter(Boolean);
+
+    const merged = new Map();
+
+    const addField = (field) => {
+      if (!field || !field.key) {
+        return;
+      }
+      const existing = merged.get(field.key);
+      if (existing) {
+        merged.set(field.key, {
+          key: existing.key,
+          label: field.label || existing.label || field.key,
+          required: existing.required || field.required,
+        });
+      } else {
+        merged.set(field.key, {
+          key: field.key,
+          label: field.label || field.key,
+          required: !!field.required,
+        });
+      }
+    };
+
+    standardFields.forEach(addField);
+    customFields.forEach(addField);
+
+    return Array.from(merged.values());
+  }, [currentRecipeType]);
+
+  const recipeSpecificFieldCount = useMemo(() => {
+    if (!currentRecipeType) {
+      return 0;
+    }
+    const fields = Array.isArray(currentRecipeType.writeInFields)
+      ? currentRecipeType.writeInFields
+      : [];
+    return fields.map((field) => normalizeFieldEntry(field)).filter(Boolean).length;
   }, [currentRecipeType]);
 
   const availableRecipeFieldKeys = useMemo(() => {
@@ -560,59 +714,62 @@ const AdminIntegrations = () => {
             <div className="md:col-span-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Field mapping</span>
-                {currentRecipeType && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Mapping {availableRecipeFields.length} recipe field{availableRecipeFields.length === 1 ? '' : 's'}
-                  </span>
-                )}
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Mapping {availableRecipeFields.length} field
+                  {availableRecipeFields.length === 1 ? '' : 's'}
+                </span>
               </div>
               <div className="mt-2 rounded-md border border-gray-200 bg-white dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]">
-                {currentRecipeType ? (
-                  availableRecipeFields.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200 text-left text-sm dark:divide-[var(--border-color-default)]">
-                        <thead className="bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500 dark:bg-[var(--dark-input-bg)] dark:text-gray-400">
-                          <tr>
-                            <th className="px-3 py-2">Recipe field</th>
-                            <th className="px-3 py-2">Partner field</th>
+                {availableRecipeFields.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 text-left text-sm dark:divide-[var(--border-color-default)]">
+                      <thead className="bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500 dark:bg-[var(--dark-input-bg)] dark:text-gray-400">
+                        <tr>
+                          <th className="px-3 py-2">Recipe field</th>
+                          <th className="px-3 py-2">Partner field</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 dark:divide-[var(--border-color-default)]">
+                        {availableRecipeFields.map((field) => (
+                          <tr key={field.key}>
+                            <td className="px-3 py-2 align-top text-sm text-gray-700 dark:text-gray-200">
+                              <div className="font-medium">{field.label || field.key}</div>
+                              <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                Key: {field.key}
+                                {field.required ? ' • Required' : ''}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 align-top">
+                              <input
+                                type="text"
+                                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                                value={formState.fieldMapping?.[field.key] || ''}
+                                onChange={(event) => updateFieldMapping(field.key, event.target.value)}
+                                placeholder="Partner field name"
+                              />
+                              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                Leave blank to omit this field from the payload.
+                              </p>
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-[var(--border-color-default)]">
-                          {availableRecipeFields.map((field) => (
-                            <tr key={field.key}>
-                              <td className="px-3 py-2 align-top text-sm text-gray-700 dark:text-gray-200">
-                                <div className="font-medium">{field.label || field.key}</div>
-                                <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                  Key: {field.key}
-                                  {field.required ? ' • Required' : ''}
-                                </div>
-                              </td>
-                              <td className="px-3 py-2 align-top">
-                                <input
-                                  type="text"
-                                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
-                                  value={formState.fieldMapping?.[field.key] || ''}
-                                  onChange={(event) => updateFieldMapping(field.key, event.target.value)}
-                                  placeholder="Partner field name"
-                                />
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                  Leave blank to omit this field from the payload.
-                                </p>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="p-4 text-sm text-gray-500 dark:text-gray-400">
-                      This recipe type does not define any custom fields to map.
-                    </p>
-                  )
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
                   <p className="p-4 text-sm text-gray-500 dark:text-gray-400">
-                    Select a recipe type to configure how recipe data maps to the partner payload.
+                    No fields available to map for the selected recipe.
                   </p>
+                )}
+                {!currentRecipeType && (
+                  <div className="border-t border-gray-200 p-4 text-xs text-gray-500 dark:border-[var(--border-color-default)] dark:text-gray-400">
+                    Select a recipe type to include recipe-specific fields in addition to the standard mapping options.
+                  </div>
+                )}
+                {currentRecipeType && recipeSpecificFieldCount === 0 && (
+                  <div className="border-t border-gray-200 p-4 text-xs text-gray-500 dark:border-[var(--border-color-default)] dark:text-gray-400">
+                    This recipe type does not define any custom fields; only standard mapping options are available.
+                  </div>
                 )}
               </div>
               <div className="mt-4 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]/60">
