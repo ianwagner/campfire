@@ -608,6 +608,11 @@ const AdGroupDetail = () => {
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
   const brandNotesVisible = usesTabs ? tab === "brandNotes" : false;
   const showStats = usesTabs ? (!isClientPortalUser && tab === "stats") : !showTable;
+  const activeAdsCount = useMemo(
+    () => assets.filter((asset) => asset.status !== "archived").length,
+    [assets],
+  );
+  const showAdsEmptyState = usesTabs && tab === "ads" && activeAdsCount === 0;
 
   useEffect(() => {
     if (!isClientPortalUser) return;
@@ -4452,7 +4457,41 @@ const AdGroupDetail = () => {
         </>
       )}
 
-      {(tableVisible || (showStats && specialGroups.length > 0)) && (
+      {showAdsEmptyState && (
+        <div className="my-4">
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+              <FiUpload size={20} />
+            </div>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">No ads uploaded yet</h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              Upload completed ad units to share them with your team and clients.
+            </p>
+            {group?.status === "archived" ? (
+              <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+                This ad group is archived and cannot accept new uploads.
+              </p>
+            ) : canUploadAds ? (
+              <div className="mt-4 flex justify-center">
+                <Button
+                  type="button"
+                  variant="accent"
+                  size="sm"
+                  onClick={() => document.getElementById("upload-input")?.click()}
+                >
+                  Upload Ads
+                </Button>
+              </div>
+            ) : (
+              <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+                Once ads are uploaded, they will appear in this space for review.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!showAdsEmptyState && (tableVisible || (showStats && specialGroups.length > 0)) && (
         <Table
           columns={["18%", "28%", "12%", "14%", "18%", "10%"]}
           className="min-w-full"
@@ -4494,7 +4533,11 @@ const AdGroupDetail = () => {
             )}
           </>
         )}
-        {usesTabs && tab === "ads" && group.status !== "archived" && canUploadAds && (
+        {usesTabs &&
+          tab === "ads" &&
+          group.status !== "archived" &&
+          canUploadAds &&
+          !showAdsEmptyState && (
           <button
             onClick={() => document.getElementById("upload-input").click()}
             className="btn-primary px-2 py-0.5 flex items-center gap-1 ml-2"
