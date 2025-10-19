@@ -3,7 +3,7 @@ console.log("BOOT versions", {
   node: process.versions.node,
 });
 
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import * as functions from "firebase-functions/v1";
 import admin from "firebase-admin";
 import { getIntegration, resolveAssetUrl, validateAssetUrl } from "./exportIntegrations.js";
 
@@ -109,10 +109,10 @@ function emptySummary(message = '') {
   };
 }
 
-export const processExportJob = onDocumentCreated(
-  { document: "exportJobs/{jobId}", region: "us-central1" },
-  async (event) => {
-    const snap = event.data;
+export const processExportJob = functions
+  .region("us-central1")
+  .firestore.document("exportJobs/{jobId}")
+  .onCreate(async (snap, context) => {
     if (!snap) {
       console.error("processExportJob: missing Firestore snapshot");
       return;
@@ -124,11 +124,16 @@ export const processExportJob = onDocumentCreated(
       "targetEnv:",
       snap.data()?.targetEnv,
     );
-    console.log("Job received:", event.params.jobId, "targetEnv:", snap.data()?.targetEnv);
+    console.log(
+      "Job received:",
+      context.params?.jobId,
+      "targetEnv:",
+      snap.data()?.targetEnv,
+    );
 
     const jobRef = snap.ref;
     const jobData = snap.data() || {};
-    const jobId = event.params.jobId;
+    const jobId = context.params?.jobId || snap.id;
 
     const integrationKey = resolveIntegrationKey(jobData);
     const integration = getIntegration(integrationKey);
@@ -389,5 +394,4 @@ export const processExportJob = onDocumentCreated(
     });
 
     return null;
-  }
-);
+  });
