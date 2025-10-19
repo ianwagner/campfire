@@ -13,6 +13,69 @@ if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 const successStates = new Set(['sent', 'received', 'duplicate']);
 
+const SHARED_SECRET_HEADER = 'x-export-worker-secret';
+
+function normalizeJobId(value) {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return String(value).trim();
+}
+
+function enforceSharedSecret(request, payload) {
+  const requiredSecretRaw =
+    process.env.EXPORT_WORKER_SECRET || process.env.RUN_EXPORT_JOB_SECRET || '';
+  const requiredSecret =
+    typeof requiredSecretRaw === 'string'
+      ? requiredSecretRaw.trim()
+      : String(requiredSecretRaw || '').trim();
+  if (!requiredSecret) {
+    return;
+  }
+
+  const rawRequest = request?.rawRequest || request;
+  const headers = rawRequest?.headers;
+  const candidates = [];
+  if (headers) {
+    const headerKeys = [
+      SHARED_SECRET_HEADER,
+      SHARED_SECRET_HEADER.toLowerCase(),
+      SHARED_SECRET_HEADER.toUpperCase(),
+    ];
+    for (const key of headerKeys) {
+      const value = headers[key];
+      if (Array.isArray(value)) {
+        candidates.push(...value);
+      } else {
+        candidates.push(value);
+      }
+    }
+  }
+
+  if (payload && typeof payload === 'object') {
+    candidates.push(payload.secret, payload.sharedSecret, payload.token);
+  }
+
+  const normalizedSecret = requiredSecret;
+  const normalizedCandidates = candidates
+    .filter((value) => value !== undefined && value !== null)
+    .map((value) => {
+      if (typeof value === 'string') {
+        return value.trim();
+      }
+      return String(value);
+    })
+    .filter(Boolean);
+
+  if (!normalizedCandidates.some((value) => value === normalizedSecret)) {
+    console.warn('runExportJob denied due to invalid shared secret');
+    throw new HttpsError('permission-denied', 'Invalid authentication secret');
+  }
+}
+
 function normalizeString(value) {
   if (typeof value === 'string') {
     const trimmed = value.trim();
@@ -116,17 +179,18 @@ async function executeExportJob({ jobRef, jobData, jobId }) {
 
   if (!integration) {
     const completedAt = admin.firestore.FieldValue.serverTimestamp();
+    const summary = emptySummary(`Unknown integration: ${integrationKey || 'unspecified'}`);
     await jobRef.set(
       {
         status: 'failed',
-        summary: emptySummary(`Unknown integration: ${integrationKey || 'unspecified'}`),
+        summary,
         completedAt,
         updatedAt: completedAt,
       },
       { merge: true }
     );
     console.warn('Export job failed due to unknown integration', { jobId, integrationKey });
-    return { jobId, status: 'failed' };
+    return { jobId, status: 'failed', counts: summary.counts };
   }
 
   const endpoint = typeof integration.getEndpoint === 'function'
@@ -134,10 +198,11 @@ async function executeExportJob({ jobRef, jobData, jobId }) {
     : normalizeString(integration.endpoint);
   if (!endpoint) {
     const completedAt = admin.firestore.FieldValue.serverTimestamp();
+    const summary = emptySummary('Missing integration endpoint');
     await jobRef.set(
       {
         status: 'failed',
-        summary: emptySummary('Missing integration endpoint'),
+        summary,
         integration: {
           key: integration.key,
           label: integration.label,
@@ -148,7 +213,7 @@ async function executeExportJob({ jobRef, jobData, jobId }) {
       { merge: true }
     );
     console.error('Export job failed due to missing endpoint', { jobId, integrationKey: integration.key });
-    return { jobId, status: 'failed' };
+    return { jobId, status: 'failed', counts: summary.counts };
   }
 
   const approvedIds = uniqueStringArray(jobData.approvedAdIds);
@@ -175,21 +240,22 @@ async function executeExportJob({ jobRef, jobData, jobId }) {
 
   if (adIds.length === 0) {
     const completedAt = admin.firestore.FieldValue.serverTimestamp();
+    const summary = {
+      status: 'success',
+      counts: {
+        total: 0,
+        sent: 0,
+        received: 0,
+        duplicate: 0,
+        error: 0,
+        success: 0,
+      },
+      message: 'No approved ads to export',
+    };
     await jobRef.set(
       {
         status: 'success',
-        summary: {
-          status: 'success',
-          counts: {
-            total: 0,
-            sent: 0,
-            received: 0,
-            duplicate: 0,
-            error: 0,
-            success: 0,
-          },
-          message: 'No approved ads to export',
-        },
+        summary,
         syncStatus: {},
         completedAt,
         updatedAt: completedAt,
@@ -197,7 +263,7 @@ async function executeExportJob({ jobRef, jobData, jobId }) {
       { merge: true }
     );
     console.log('Export job completed without ads', { jobId, integration: integration.key });
-    return { jobId, status: 'success' };
+    return { jobId, status: 'success', counts: summary.counts };
   }
 
   const syncStatus = {};
@@ -368,7 +434,42 @@ async function executeExportJob({ jobRef, jobData, jobId }) {
     counts: summary.counts,
   });
 
-  return { jobId, status: summaryStatus };
+  return { jobId, status: summaryStatus, counts: summary.counts };
+}
+
+function extractJobId(payload) {
+  const jobIdRaw =
+    (payload && (payload.jobId ?? payload.jobID ?? payload.id)) !== undefined
+      ? payload.jobId ?? payload.jobID ?? payload.id
+      : undefined;
+  return normalizeJobId(jobIdRaw);
+}
+
+async function runExportJobById(jobId) {
+  if (!jobId) {
+    throw new HttpsError('invalid-argument', 'A jobId must be provided');
+  }
+
+  console.log('runExportJob invoked', process.env.GCLOUD_PROJECT, 'jobId:', jobId);
+
+  const jobRef = db.collection('exportJobs').doc(jobId);
+  const jobSnap = await jobRef.get();
+
+  if (!jobSnap.exists) {
+    throw new HttpsError('not-found', `Export job ${jobId} not found`);
+  }
+
+  const jobData = jobSnap.data() || {};
+
+  console.log(
+    'runExportJob executing',
+    process.env.GCLOUD_PROJECT,
+    'targetEnv:',
+    jobData?.targetEnv,
+  );
+
+  const result = await executeExportJob({ jobRef, jobData, jobId });
+  return result || { jobId, status: jobData?.status || 'pending', counts: jobData?.summary?.counts };
 }
 
 export const processExportJob = onDocumentCreated(
@@ -398,35 +499,15 @@ export const processExportJob = onDocumentCreated(
 
 export const processExportJobCallable = onCallFn({ region: 'us-central1', timeoutSeconds: 540 }, async (request) => {
   const payload = request && typeof request === 'object' && 'data' in request ? request.data : request;
-  const jobIdRaw =
-    (payload && (payload.jobId ?? payload.jobID ?? payload.id)) !== undefined
-      ? payload.jobId ?? payload.jobID ?? payload.id
-      : undefined;
-  const jobId = typeof jobIdRaw === 'string' ? jobIdRaw.trim() : jobIdRaw ? String(jobIdRaw) : '';
+  const jobId = extractJobId(payload);
+  const result = await runExportJobById(jobId);
+  return result;
+});
 
-  if (!jobId) {
-    throw new HttpsError('invalid-argument', 'A jobId must be provided');
-  }
-
-  console.log('processExportJob invoked', process.env.GCLOUD_PROJECT, 'jobId:', jobId);
-
-  const jobRef = db.collection('exportJobs').doc(jobId);
-  const jobSnap = await jobRef.get();
-
-  if (!jobSnap.exists) {
-    throw new HttpsError('not-found', `Export job ${jobId} not found`);
-  }
-
-  const jobData = jobSnap.data() || {};
-
-  console.log(
-    'processExportJob running',
-    process.env.GCLOUD_PROJECT,
-    'targetEnv:',
-    jobData?.targetEnv,
-  );
-  console.log('Job received:', jobId, 'targetEnv:', jobData?.targetEnv);
-
-  const result = await executeExportJob({ jobRef, jobData, jobId });
-  return result || { jobId };
+export const runExportJob = onCallFn({ region: 'us-central1', timeoutSeconds: 540 }, async (request) => {
+  const payload = request && typeof request === 'object' && 'data' in request ? request.data : request;
+  enforceSharedSecret(request, payload);
+  const jobId = extractJobId(payload);
+  const result = await runExportJobById(jobId);
+  return { status: result.status, counts: result.counts || null };
 });

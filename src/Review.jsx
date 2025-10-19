@@ -45,7 +45,8 @@ import {
   documentId,
   limit,
 } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
 import OptimizedImage from './components/OptimizedImage.jsx';
@@ -109,6 +110,11 @@ const DEFAULT_EXPORT_TARGET_INTEGRATION = (() => {
     .trim()
     .toLowerCase();
   return raw || 'compass';
+})();
+
+const EXPORT_WORKER_SECRET = (() => {
+  const raw = resolveEnvValue('VITE_EXPORT_WORKER_SECRET', '').trim();
+  return raw;
 })();
 
 const normalizeKeyPart = (value) => {
@@ -4685,7 +4691,21 @@ useEffect(() => {
         },
       };
 
-      await addDoc(collection(db, 'exportJobs'), exportJobPayload);
+      const jobDocRef = await addDoc(collection(db, 'exportJobs'), exportJobPayload);
+
+      try {
+        const runExportJobCallable = httpsCallable(functions, 'runExportJob', {
+          timeout: 540000,
+        });
+        const workerPayload = { jobId: jobDocRef.id };
+        if (EXPORT_WORKER_SECRET) {
+          workerPayload.secret = EXPORT_WORKER_SECRET;
+        }
+        await runExportJobCallable(workerPayload);
+      } catch (workerErr) {
+        console.error('Failed to trigger export job', workerErr);
+        throw workerErr;
+      }
 
       const updateData = {
         status: 'reviewed',
