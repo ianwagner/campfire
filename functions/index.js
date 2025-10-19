@@ -781,4 +781,4 @@ export {
   openaiProxy,
 };
 
-export { processExportJob } from "./exportJobWorker.js";
+export { processExportJob, processExportJobCallable } from "./exportJobWorker.js";
