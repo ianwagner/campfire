@@ -1,3 +1,10 @@
+// Prints even before Firestore event is decoded
+console.log("BOOT versions", {
+  ff: require("firebase-functions/package.json").version,
+  fa: require("firebase-admin/package.json").version,
+  node: process.versions.node,
+});
+
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import admin from "firebase-admin";
 import { getIntegration, resolveAssetUrl, validateAssetUrl } from "./exportIntegrations.js";
