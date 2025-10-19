@@ -1011,7 +1011,10 @@ const compassIntegration = {
       return jobDefinedEndpoint;
     }
 
-    const targetEnv = normalizeString(jobData.targetEnv);
+    const targetEnvRaw =
+      normalizeString(jobData.targetEnv) || normalizeString(jobData.targetEnvironment);
+    const targetEnv = targetEnvRaw ? targetEnvRaw.toLowerCase() : '';
+
     if (targetEnv === 'prod' || targetEnv === 'production') {
       const prodEndpoint =
         normalizeString(process.env.COMPASS_EXPORT_ENDPOINT_PROD) ||
@@ -1021,7 +1024,7 @@ const compassIntegration = {
       }
     }
 
-    if (targetEnv === 'staging' || targetEnv === 'stage') {
+    if (targetEnv === 'staging' || targetEnv === 'stage' || targetEnv === 'stg') {
       const stagingEndpoint =
         normalizeString(process.env.COMPASS_EXPORT_ENDPOINT_STAGING) ||
         normalizeString(process.env.ADLOG_EXPORT_ENDPOINT_STAGING);
