@@ -6,6 +6,10 @@ import { db } from './firebase/config';
 
 const STANDARD_FIELDS = [
   { key: 'shop', label: 'Shop / Brand ID', required: true },
+  { key: 'brand.id', label: 'Brand ID', required: false },
+  { key: 'brand.code', label: 'Brand Code (Campfire)', required: false },
+  { key: 'brandCode', label: 'Brand Code', required: false },
+  { key: 'storeId', label: 'Store ID', required: false },
   { key: 'group_desc', label: 'Group description', required: true },
   { key: 'recipe_no', label: 'Recipe number', required: true },
   { key: 'product', label: 'Product', required: true },
