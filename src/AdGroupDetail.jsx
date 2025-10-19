@@ -3608,7 +3608,40 @@ const AdGroupDetail = () => {
           </td>
           <td className="align-top">
             {activeAds.length === 0 ? (
-              <span className="text-xs text-gray-500">No ads uploaded</span>
+              <div
+                className="w-full max-w-xs rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]/60"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-400 shadow-sm dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-300">
+                  <FiUpload size={20} />
+                </div>
+                <p className="mt-3 text-sm font-semibold text-gray-700 dark:text-gray-100">
+                  No ads uploaded yet
+                </p>
+                <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                  {canUploadAds
+                    ? "Upload exports for this recipe to kick off review and sharing."
+                    : "Your team hasn't uploaded ads for this recipe yet."}
+                </p>
+                {canUploadAds && (
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    className="mt-4"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (typeof document !== "undefined") {
+                        const input = document.getElementById("upload-input");
+                        input?.click();
+                      }
+                    }}
+                  >
+                    <FiUpload size={14} />
+                    Upload ads
+                  </Button>
+                )}
+              </div>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {activeAds.map((asset) => {
