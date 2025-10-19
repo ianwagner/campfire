@@ -126,42 +126,119 @@ export function validateAssetUrl(value) {
   return { valid: true, reason: '', url: normalized };
 }
 
-function resolveCompassEndpointFromDestinations(destinations = []) {
-  if (!Array.isArray(destinations)) {
-    return '';
+function resolveCompassEndpointFromDestinations(destinations = [], targetKey = '') {
+  const normalizedTargetKey = normalizeString(targetKey).toLowerCase();
+  const aliasKeys = ['compass', 'adlog'];
+
+  function keyMatches(candidate) {
+    const normalized = normalizeString(candidate).toLowerCase();
+    if (!normalized) {
+      return false;
+    }
+    if (aliasKeys.includes(normalized)) {
+      return true;
+    }
+    if (normalizedTargetKey && normalized === normalizedTargetKey) {
+      return true;
+    }
+    return false;
   }
 
-  for (const destination of destinations) {
-    if (!destination || typeof destination !== 'object') {
+  const queue = [];
+  const visited = new Set();
+
+  function enqueue(value, metaKey = '') {
+    if (value === undefined || value === null) {
+      return;
+    }
+    if (typeof value === 'object' && value !== null) {
+      if (visited.has(value)) {
+        return;
+      }
+      visited.add(value);
+    }
+    queue.push({ value, metaKey });
+  }
+
+  enqueue(destinations, '');
+
+  while (queue.length > 0) {
+    const { value, metaKey } = queue.shift();
+
+    if (typeof value === 'string') {
+      const normalized = normalizeHttpUrl(value);
+      if (!normalized) {
+        continue;
+      }
+      if (
+        !normalizedTargetKey ||
+        aliasKeys.includes(normalizedTargetKey) ||
+        keyMatches(metaKey)
+      ) {
+        return normalized;
+      }
       continue;
     }
 
-    const keyCandidate = normalizeString(
-      destination.key ||
-        destination.integration ||
-        destination.id ||
-        destination.name ||
-        destination.type,
-    ).toLowerCase();
-
-    if (!keyCandidate) {
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        enqueue(entry, metaKey);
+      }
       continue;
     }
 
-    if (keyCandidate === 'compass' || keyCandidate === 'adlog') {
+    if (typeof value !== 'object' || value === null) {
+      continue;
+    }
+
+    const candidateKeys = [
+      value.key,
+      value.integration,
+      value.integrationKey,
+      value.partner,
+      value.partnerKey,
+      value.provider,
+      value.id,
+      value.name,
+      value.type,
+      metaKey,
+    ];
+
+    const matchesCompass = candidateKeys.some((candidate) => keyMatches(candidate));
+
+    if (matchesCompass) {
       const candidateValues = [
-        destination.endpoint,
-        destination.url,
-        destination.webhookUrl,
-        destination.config && destination.config.endpoint,
-        destination.config && destination.config.url,
+        value.endpoint,
+        value.url,
+        value.webhookUrl,
+        value.partnerEndpoint,
+        value.partnerUrl,
+        value.partnerWebhook,
+        value.config && value.config.endpoint,
+        value.config && value.config.url,
+        value.value,
       ];
 
-      for (const value of candidateValues) {
-        const normalized = normalizeHttpUrl(value);
+      for (const candidateValue of candidateValues) {
+        const normalized = normalizeHttpUrl(candidateValue);
         if (normalized) {
           return normalized;
         }
+      }
+    }
+
+    for (const [childKey, childValue] of Object.entries(value)) {
+      if (
+        childValue === undefined ||
+        childValue === null ||
+        (typeof childValue === 'string' &&
+          ['endpoint', 'url', 'webhookUrl', 'partnerEndpoint', 'partnerUrl', 'partnerWebhook'].includes(childKey))
+      ) {
+        continue;
+      }
+
+      if (typeof childValue === 'object' || Array.isArray(childValue) || typeof childValue === 'string') {
+        enqueue(childValue, childKey);
       }
     }
   }
@@ -173,6 +250,14 @@ function resolveCompassEndpointFromJobData(jobData = {}) {
   if (!jobData || typeof jobData !== 'object') {
     return '';
   }
+
+  const targetKey =
+    jobData.targetIntegration ||
+    jobData.integrationKey ||
+    (jobData.integration && (jobData.integration.key || jobData.integration.integrationKey)) ||
+    jobData.partnerKey ||
+    (jobData.partner && (jobData.partner.key || jobData.partner.integrationKey)) ||
+    '';
 
   const directCandidates = [
     jobData.endpoint,
@@ -223,9 +308,22 @@ function resolveCompassEndpointFromJobData(jobData = {}) {
     }
   }
 
-  const destinationEndpoint = resolveCompassEndpointFromDestinations(jobData.destinations);
+  const destinationEndpoint = resolveCompassEndpointFromDestinations(jobData.destinations, targetKey);
   if (destinationEndpoint) {
     return destinationEndpoint;
+  }
+
+  const partnerDestinationEndpoint = resolveCompassEndpointFromDestinations(
+    jobData.partnerDestinations,
+    targetKey,
+  );
+  if (partnerDestinationEndpoint) {
+    return partnerDestinationEndpoint;
+  }
+
+  const partnersEndpoint = resolveCompassEndpointFromDestinations(jobData.partners, targetKey);
+  if (partnersEndpoint) {
+    return partnersEndpoint;
   }
 
   return '';

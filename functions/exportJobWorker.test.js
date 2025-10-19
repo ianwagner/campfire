@@ -274,6 +274,133 @@ test('uses integration endpoint from job data when environment variables are abs
   });
 });
 
+test('uses compass endpoint defined in destination map structure', async () => {
+  adAssetsStore.set('ad-map', {
+    id: 'ad-map',
+    brandCode: 'BRAND1',
+    assetUrl: 'https://cdn.example.com/ad-map.png',
+    status: 'approved',
+    name: 'Ad Map',
+    compass: buildCompassFields({
+      shop: 'BRAND1',
+      image_1x1: 'https://cdn.example.com/ad-map-1x1.png',
+      image_9x16: 'https://cdn.example.com/ad-map-9x16.png',
+    }),
+  });
+
+  const destinationEndpoint = 'https://destination-map.example.com/export';
+
+  global.fetch.mockResolvedValue(
+    mockFetchResponse({
+      status: 200,
+      ok: true,
+      statusText: 'OK',
+      body: JSON.stringify({ message: 'Processed successfully' }),
+    }),
+  );
+
+  delete process.env.COMPASS_EXPORT_ENDPOINT;
+  delete process.env.ADLOG_EXPORT_ENDPOINT;
+  delete process.env.COMPASS_EXPORT_ENDPOINT_STAGING;
+  delete process.env.ADLOG_EXPORT_ENDPOINT_STAGING;
+  delete process.env.COMPASS_EXPORT_ENDPOINT_PROD;
+  delete process.env.ADLOG_EXPORT_ENDPOINT_PROD;
+
+  const jobData = {
+    approvedAdIds: ['ad-map'],
+    brandCode: 'BRAND1',
+    targetIntegration: 'compass',
+    targetEnv: 'staging',
+    destinations: {
+      compass: {
+        endpoint: destinationEndpoint,
+      },
+    },
+  };
+
+  seedExportJob('job-destination-map', jobData);
+
+  await processExportJobCallable.run({ data: { jobId: 'job-destination-map' } });
+
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect(global.fetch.mock.calls[0][0]).toBe(destinationEndpoint);
+
+  const finalWrite = getFinalWrite(getJobWrites('job-destination-map'));
+  expect(finalWrite.status).toBe('success');
+  expectSummaryCounts(finalWrite, {
+    total: 1,
+    received: 1,
+    duplicate: 0,
+    error: 0,
+    success: 1,
+  });
+});
+
+test('uses compass partner endpoint defined under partners map', async () => {
+  adAssetsStore.set('ad-partner-map', {
+    id: 'ad-partner-map',
+    brandCode: 'BRAND1',
+    assetUrl: 'https://cdn.example.com/ad-partner-map.png',
+    status: 'approved',
+    name: 'Ad Partner Map',
+    compass: buildCompassFields({
+      shop: 'BRAND1',
+      image_1x1: 'https://cdn.example.com/ad-partner-map-1x1.png',
+      image_9x16: 'https://cdn.example.com/ad-partner-map-9x16.png',
+    }),
+  });
+
+  const partnerEndpoint = 'https://partners.example.com/compass-export';
+
+  global.fetch.mockResolvedValue(
+    mockFetchResponse({
+      status: 200,
+      ok: true,
+      statusText: 'OK',
+      body: JSON.stringify({ message: 'Processed successfully' }),
+    }),
+  );
+
+  delete process.env.COMPASS_EXPORT_ENDPOINT;
+  delete process.env.ADLOG_EXPORT_ENDPOINT;
+  delete process.env.COMPASS_EXPORT_ENDPOINT_STAGING;
+  delete process.env.ADLOG_EXPORT_ENDPOINT_STAGING;
+  delete process.env.COMPASS_EXPORT_ENDPOINT_PROD;
+  delete process.env.ADLOG_EXPORT_ENDPOINT_PROD;
+
+  const jobData = {
+    approvedAdIds: ['ad-partner-map'],
+    brandCode: 'BRAND1',
+    targetIntegration: 'compass',
+    targetEnv: 'staging',
+    destinations: {
+      partners: {
+        compass: {
+          partner: 'Compass',
+          partnerEndpoint,
+        },
+      },
+    },
+  };
+
+  seedExportJob('job-partner-map', jobData);
+
+  await processExportJobCallable.run({ data: { jobId: 'job-partner-map' } });
+
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect(global.fetch.mock.calls[0][0]).toBe(partnerEndpoint);
+
+  const finalWrite = getFinalWrite(getJobWrites('job-partner-map'));
+  expect(finalWrite.status).toBe('success');
+  expectSummaryCounts(finalWrite, {
+    total: 1,
+    received: 1,
+    duplicate: 0,
+    error: 0,
+    success: 1,
+  });
+});
+
 test('runExportJob returns status and counts in response', async () => {
   adAssetsStore.set('ad-http', {
     id: 'ad-http',
