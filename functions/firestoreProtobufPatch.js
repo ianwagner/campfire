@@ -24,11 +24,11 @@ export function patchFirestoreProtobufDecoding() {
   }
 
   try {
-    const firebaseFunctionsPackagePath = require.resolve('firebase-functions/package.json');
-    const firebaseFunctionsDir = path.dirname(firebaseFunctionsPackagePath);
+    const firebaseFunctionsEntryPath = require.resolve('firebase-functions');
+    const firebaseFunctionsDir = path.dirname(firebaseFunctionsEntryPath);
     const firestoreCommonPath = path.join(
       firebaseFunctionsDir,
-      'lib',
+      '..',
       'common',
       'providers',
       'firestore.js',
