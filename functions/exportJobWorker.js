@@ -3,7 +3,7 @@ console.log("BOOT versions", {
   node: process.versions.node,
 });
 
-import * as functions from "firebase-functions/v1";
+import { onCall as onCallFn, HttpsError } from "firebase-functions/v2/https";
 import admin from "firebase-admin";
 import { getIntegration, resolveAssetUrl, validateAssetUrl } from "./exportIntegrations.js";
 
@@ -109,289 +109,298 @@ function emptySummary(message = '') {
   };
 }
 
-export const processExportJob = functions
-  .region("us-central1")
-  .firestore.document("exportJobs/{jobId}")
-  .onCreate(async (snap, context) => {
-    if (!snap) {
-      console.error("processExportJob: missing Firestore snapshot");
-      return;
-    }
+async function executeExportJob({ jobRef, jobData, jobId }) {
+  const integrationKey = resolveIntegrationKey(jobData);
+  const integration = getIntegration(integrationKey);
 
-    console.log(
-      "processExportJob running",
-      process.env.GCLOUD_PROJECT,
-      "targetEnv:",
-      snap.data()?.targetEnv,
-    );
-    console.log(
-      "Job received:",
-      context.params?.jobId,
-      "targetEnv:",
-      snap.data()?.targetEnv,
-    );
-
-    const jobRef = snap.ref;
-    const jobData = snap.data() || {};
-    const jobId = context.params?.jobId || snap.id;
-
-    const integrationKey = resolveIntegrationKey(jobData);
-    const integration = getIntegration(integrationKey);
-
-    if (!integration) {
-      const completedAt = admin.firestore.FieldValue.serverTimestamp();
-      await jobRef.set(
-        {
-          status: 'failed',
-          summary: emptySummary(`Unknown integration: ${integrationKey || 'unspecified'}`),
-          completedAt,
-          updatedAt: completedAt,
-        },
-        { merge: true }
-      );
-      console.warn('Export job failed due to unknown integration', { jobId, integrationKey });
-      return null;
-    }
-
-    const endpoint = typeof integration.getEndpoint === 'function' ? integration.getEndpoint(jobData) : normalizeString(integration.endpoint);
-    if (!endpoint) {
-      const completedAt = admin.firestore.FieldValue.serverTimestamp();
-      await jobRef.set(
-        {
-          status: 'failed',
-          summary: emptySummary('Missing integration endpoint'),
-          integration: {
-            key: integration.key,
-            label: integration.label,
-          },
-          completedAt,
-          updatedAt: completedAt,
-        },
-        { merge: true }
-      );
-      console.error('Export job failed due to missing endpoint', { jobId, integrationKey: integration.key });
-      return null;
-    }
-
-    const approvedIds = uniqueStringArray(jobData.approvedAdIds);
-    const fallbackIds = uniqueStringArray(jobData.adIds);
-    const embeddedIds = Array.isArray(jobData.ads)
-      ? uniqueStringArray(jobData.ads.map((item) => (typeof item === 'string' ? item : item?.id)))
-      : [];
-    const adIds = uniqueStringArray([...approvedIds, ...fallbackIds, ...embeddedIds]);
-
-    const startedAt = admin.firestore.FieldValue.serverTimestamp();
-    await jobRef.set(
-      {
-        status: 'processing',
-        startedAt,
-        updatedAt: startedAt,
-        integration: {
-          key: integration.key,
-          label: integration.label,
-          endpoint,
-        },
-      },
-      { merge: true }
-    );
-
-    if (adIds.length === 0) {
-      const completedAt = admin.firestore.FieldValue.serverTimestamp();
-      await jobRef.set(
-        {
-          status: 'success',
-          summary: {
-            status: 'success',
-            counts: {
-              total: 0,
-              sent: 0,
-              received: 0,
-              duplicate: 0,
-              error: 0,
-              success: 0,
-            },
-            message: 'No approved ads to export',
-          },
-          syncStatus: {},
-          completedAt,
-          updatedAt: completedAt,
-        },
-        { merge: true }
-      );
-      console.log('Export job completed without ads', { jobId, integration: integration.key });
-      return null;
-    }
-
-    const syncStatus = {};
-    const counters = {
-      sent: 0,
-      received: 0,
-      duplicate: 0,
-      error: 0,
-    };
-
-    for (const adId of adIds) {
-      let state = 'error';
-      let message = '';
-      let payload = null;
-      let assetUrl = '';
-
-      try {
-        const adSnap = await db.collection('adAssets').doc(adId).get();
-        if (!adSnap.exists) {
-          message = 'Ad asset not found';
-        } else {
-          const adData = { ...adSnap.data(), id: adSnap.id };
-          const validationErrors = [];
-
-          assetUrl = normalizeString(jobData.assetOverrides?.[adId]?.assetUrl) || resolveAssetUrl(adData);
-
-          if (typeof integration.validateAd === 'function') {
-            const result = await integration.validateAd({ adData, jobData, assetUrl });
-            if (result && typeof result === 'object') {
-              if (Array.isArray(result.errors)) {
-                validationErrors.push(...result.errors.filter(Boolean));
-              }
-              if (normalizeString(result.assetUrl)) {
-                assetUrl = normalizeString(result.assetUrl);
-              }
-            }
-          }
-
-          const { valid: assetUrlValid, reason: assetUrlError, url: normalizedAssetUrl } = validateAssetUrl(assetUrl);
-          if (!assetUrlValid) {
-            if (assetUrlError && !validationErrors.includes(assetUrlError)) {
-              validationErrors.push(assetUrlError);
-            }
-          }
-
-          const requiredFields = Array.isArray(integration.requiredFields) ? integration.requiredFields : [];
-          for (const field of requiredFields) {
-            const value = field === 'assetUrl' ? assetUrl : resolveRequiredFieldValue(field, adData, jobData);
-            if (!normalizeString(value)) {
-              const missingMessage = field === 'assetUrl' ? 'Missing asset URL' : `Missing ${field}`;
-              if (!validationErrors.includes(missingMessage)) {
-                validationErrors.push(missingMessage);
-              }
-            }
-          }
-
-          if (validationErrors.length > 0) {
-            state = 'error';
-            message = validationErrors.join('; ');
-          } else {
-            assetUrl = normalizedAssetUrl || assetUrl;
-            payload = integration.buildPayload
-              ? await integration.buildPayload({ adData, jobData, jobId, assetUrl, integration })
-              : null;
-
-            if (!payload || typeof payload !== 'object') {
-              state = 'error';
-              message = 'Integration payload could not be built';
-            } else {
-              const headers = buildHeaders(integration, { jobData, adData, jobId, assetUrl });
-              let response;
-              try {
-                response = await fetch(endpoint, {
-                  method: 'POST',
-                  headers,
-                  body: JSON.stringify(payload),
-                });
-              } catch (err) {
-                response = null;
-                message = `Network error: ${err.message || err.toString()}`;
-                state = 'error';
-              }
-
-              if (response) {
-                let rawBody = '';
-                try {
-                  rawBody = await response.text();
-                } catch (err) {
-                  rawBody = '';
-                }
-
-                let parsedBody;
-                if (rawBody) {
-                  try {
-                    parsedBody = JSON.parse(rawBody);
-                  } catch (err) {
-                    parsedBody = undefined;
-                  }
-                }
-
-                const handlerResult = integration.handleResponse
-                  ? await integration.handleResponse({ response, payload, adData, jobData, rawBody, parsedBody })
-                  : defaultHandleResponse(response);
-
-                const resolvedState = normalizeString(handlerResult?.state);
-                state = resolvedState ? resolvedState.toLowerCase() : response.ok ? 'received' : 'error';
-                const resolvedMessage = normalizeString(handlerResult?.message);
-                message = resolvedMessage || (response.ok ? 'Delivered to partner' : `HTTP ${response.status}`);
-              }
-            }
-          }
-        }
-      } catch (err) {
-        state = 'error';
-        message = message || err.message || 'Unexpected error';
-        console.error('Failed to process export for ad', { jobId, adId, error: err });
-      }
-
-      if (state === 'error') {
-        counters.error += 1;
-      } else if (successStates.has(state)) {
-        counters[state] += 1;
-      } else {
-        counters.sent += 1;
-      }
-
-      syncStatus[adId] = {
-        state,
-        message,
-        attemptedAt: admin.firestore.FieldValue.serverTimestamp(),
-        assetUrl: assetUrl || null,
-      };
-    }
-
-    const total = adIds.length;
-    const successCount = total - counters.error;
+  if (!integration) {
     const completedAt = admin.firestore.FieldValue.serverTimestamp();
-    const summaryStatus = successCount === total
-      ? 'success'
-      : successCount === 0
-        ? 'failed'
-        : 'partial';
-
-    const summary = {
-      status: summaryStatus,
-      counts: {
-        total,
-        sent: counters.sent,
-        received: counters.received,
-        duplicate: counters.duplicate,
-        error: counters.error,
-        success: successCount,
-      },
-    };
-
     await jobRef.set(
       {
-        status: summaryStatus,
-        summary,
-        syncStatus,
+        status: 'failed',
+        summary: emptySummary(`Unknown integration: ${integrationKey || 'unspecified'}`),
         completedAt,
         updatedAt: completedAt,
       },
       { merge: true }
     );
+    console.warn('Export job failed due to unknown integration', { jobId, integrationKey });
+    return { jobId, status: 'failed' };
+  }
 
-    console.log('Export job completed', {
-      jobId,
-      integration: integration.key,
+  const endpoint = typeof integration.getEndpoint === 'function'
+    ? integration.getEndpoint(jobData)
+    : normalizeString(integration.endpoint);
+  if (!endpoint) {
+    const completedAt = admin.firestore.FieldValue.serverTimestamp();
+    await jobRef.set(
+      {
+        status: 'failed',
+        summary: emptySummary('Missing integration endpoint'),
+        integration: {
+          key: integration.key,
+          label: integration.label,
+        },
+        completedAt,
+        updatedAt: completedAt,
+      },
+      { merge: true }
+    );
+    console.error('Export job failed due to missing endpoint', { jobId, integrationKey: integration.key });
+    return { jobId, status: 'failed' };
+  }
+
+  const approvedIds = uniqueStringArray(jobData.approvedAdIds);
+  const fallbackIds = uniqueStringArray(jobData.adIds);
+  const embeddedIds = Array.isArray(jobData.ads)
+    ? uniqueStringArray(jobData.ads.map((item) => (typeof item === 'string' ? item : item?.id)))
+    : [];
+  const adIds = uniqueStringArray([...approvedIds, ...fallbackIds, ...embeddedIds]);
+
+  const startedAt = admin.firestore.FieldValue.serverTimestamp();
+  await jobRef.set(
+    {
+      status: 'processing',
+      startedAt,
+      updatedAt: startedAt,
+      integration: {
+        key: integration.key,
+        label: integration.label,
+        endpoint,
+      },
+    },
+    { merge: true }
+  );
+
+  if (adIds.length === 0) {
+    const completedAt = admin.firestore.FieldValue.serverTimestamp();
+    await jobRef.set(
+      {
+        status: 'success',
+        summary: {
+          status: 'success',
+          counts: {
+            total: 0,
+            sent: 0,
+            received: 0,
+            duplicate: 0,
+            error: 0,
+            success: 0,
+          },
+          message: 'No approved ads to export',
+        },
+        syncStatus: {},
+        completedAt,
+        updatedAt: completedAt,
+      },
+      { merge: true }
+    );
+    console.log('Export job completed without ads', { jobId, integration: integration.key });
+    return { jobId, status: 'success' };
+  }
+
+  const syncStatus = {};
+  const counters = {
+    sent: 0,
+    received: 0,
+    duplicate: 0,
+    error: 0,
+  };
+
+  for (const adId of adIds) {
+    let state = 'error';
+    let message = '';
+    let payload = null;
+    let assetUrl = '';
+
+    try {
+      const adSnap = await db.collection('adAssets').doc(adId).get();
+      if (!adSnap.exists) {
+        message = 'Ad asset not found';
+      } else {
+        const adData = { ...adSnap.data(), id: adSnap.id };
+        const validationErrors = [];
+
+        assetUrl = normalizeString(jobData.assetOverrides?.[adId]?.assetUrl) || resolveAssetUrl(adData);
+
+        if (typeof integration.validateAd === 'function') {
+          const result = await integration.validateAd({ adData, jobData, assetUrl });
+          if (result && typeof result === 'object') {
+            if (Array.isArray(result.errors)) {
+              validationErrors.push(...result.errors.filter(Boolean));
+            }
+            if (normalizeString(result.assetUrl)) {
+              assetUrl = normalizeString(result.assetUrl);
+            }
+          }
+        }
+
+        const { valid: assetUrlValid, reason: assetUrlError, url: normalizedAssetUrl } = validateAssetUrl(assetUrl);
+        if (!assetUrlValid) {
+          if (assetUrlError && !validationErrors.includes(assetUrlError)) {
+            validationErrors.push(assetUrlError);
+          }
+        }
+
+        const requiredFields = Array.isArray(integration.requiredFields) ? integration.requiredFields : [];
+        for (const field of requiredFields) {
+          const value = field === 'assetUrl' ? assetUrl : resolveRequiredFieldValue(field, adData, jobData);
+          if (!normalizeString(value)) {
+            const missingMessage = field === 'assetUrl' ? 'Missing asset URL' : `Missing ${field}`;
+            if (!validationErrors.includes(missingMessage)) {
+              validationErrors.push(missingMessage);
+            }
+          }
+        }
+
+        if (validationErrors.length > 0) {
+          state = 'error';
+          message = validationErrors.join('; ');
+        } else {
+          assetUrl = normalizedAssetUrl || assetUrl;
+          payload = integration.buildPayload
+            ? await integration.buildPayload({ adData, jobData, jobId, assetUrl, integration })
+            : null;
+
+          if (!payload || typeof payload !== 'object') {
+            state = 'error';
+            message = 'Integration payload could not be built';
+          } else {
+            const headers = buildHeaders(integration, { jobData, adData, jobId, assetUrl });
+            let response;
+            try {
+              response = await fetch(endpoint, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(payload),
+              });
+            } catch (err) {
+              response = null;
+              message = `Network error: ${err.message || err.toString()}`;
+              state = 'error';
+            }
+
+            if (response) {
+              let rawBody = '';
+              try {
+                rawBody = await response.text();
+              } catch (err) {
+                rawBody = '';
+              }
+
+              let parsedBody;
+              if (rawBody) {
+                try {
+                  parsedBody = JSON.parse(rawBody);
+                } catch (err) {
+                  parsedBody = undefined;
+                }
+              }
+
+              const handlerResult = integration.handleResponse
+                ? await integration.handleResponse({ response, payload, adData, jobData, rawBody, parsedBody })
+                : defaultHandleResponse(response);
+
+              const resolvedState = normalizeString(handlerResult?.state);
+              state = resolvedState ? resolvedState.toLowerCase() : response.ok ? 'received' : 'error';
+              const resolvedMessage = normalizeString(handlerResult?.message);
+              message = resolvedMessage || (response.ok ? 'Delivered to partner' : `HTTP ${response.status}`);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      state = 'error';
+      message = message || err.message || 'Unexpected error';
+      console.error('Failed to process export for ad', { jobId, adId, error: err });
+    }
+
+    if (state === 'error') {
+      counters.error += 1;
+    } else if (successStates.has(state)) {
+      counters[state] += 1;
+    } else {
+      counters.sent += 1;
+    }
+
+    syncStatus[adId] = {
+      state,
+      message,
+      attemptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      assetUrl: assetUrl || null,
+    };
+  }
+
+  const total = adIds.length;
+  const successCount = total - counters.error;
+  const completedAt = admin.firestore.FieldValue.serverTimestamp();
+  const summaryStatus =
+    successCount === total ? 'success' : successCount === 0 ? 'failed' : 'partial';
+
+  const summary = {
+    status: summaryStatus,
+    counts: {
+      total,
+      sent: counters.sent,
+      received: counters.received,
+      duplicate: counters.duplicate,
+      error: counters.error,
+      success: successCount,
+    },
+  };
+
+  await jobRef.set(
+    {
       status: summaryStatus,
-      counts: summary.counts,
-    });
+      summary,
+      syncStatus,
+      completedAt,
+      updatedAt: completedAt,
+    },
+    { merge: true }
+  );
 
-    return null;
+  console.log('Export job completed', {
+    jobId,
+    integration: integration.key,
+    status: summaryStatus,
+    counts: summary.counts,
   });
+
+  return { jobId, status: summaryStatus };
+}
+
+export const processExportJob = onCallFn({ region: 'us-central1', timeoutSeconds: 540 }, async (request) => {
+  const payload = request && typeof request === 'object' && 'data' in request ? request.data : request;
+  const jobIdRaw =
+    (payload && (payload.jobId ?? payload.jobID ?? payload.id)) !== undefined
+      ? payload.jobId ?? payload.jobID ?? payload.id
+      : undefined;
+  const jobId = typeof jobIdRaw === 'string' ? jobIdRaw.trim() : jobIdRaw ? String(jobIdRaw) : '';
+
+  if (!jobId) {
+    throw new HttpsError('invalid-argument', 'A jobId must be provided');
+  }
+
+  console.log('processExportJob invoked', process.env.GCLOUD_PROJECT, 'jobId:', jobId);
+
+  const jobRef = db.collection('exportJobs').doc(jobId);
+  const jobSnap = await jobRef.get();
+
+  if (!jobSnap.exists) {
+    throw new HttpsError('not-found', `Export job ${jobId} not found`);
+  }
+
+  const jobData = jobSnap.data() || {};
+
+  console.log(
+    'processExportJob running',
+    process.env.GCLOUD_PROJECT,
+    'targetEnv:',
+    jobData?.targetEnv,
+  );
+  console.log('Job received:', jobId, 'targetEnv:', jobData?.targetEnv);
+
+  const result = await executeExportJob({ jobRef, jobData, jobId });
+  return result || { jobId };
+});
