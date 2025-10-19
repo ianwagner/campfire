@@ -89,7 +89,7 @@ const adminMock = jest.requireMock('firebase-admin');
 const adAssetsStore = adminMock.__mockAdAssets;
 const exportJobsStore = adminMock.__mockExportJobs;
 
-let processExportJob;
+let processExportJobCallable;
 
 function seedExportJob(jobId, jobData) {
   exportJobsStore.set(jobId, { data: jobData, writes: [], ref: null });
@@ -112,7 +112,7 @@ function mockFetchResponse({ status = 200, ok = true, statusText = 'OK', body = 
 }
 
 beforeAll(async () => {
-  ({ processExportJob } = await import('./exportJobWorker.js'));
+  ({ processExportJobCallable } = await import('./exportJobWorker.js'));
 });
 
 beforeEach(() => {
@@ -169,7 +169,7 @@ test('processes approved ads and records success summary', async () => {
 
   seedExportJob('job-success', jobData);
 
-  await processExportJob.run({ data: { jobId: 'job-success' } });
+  await processExportJobCallable.run({ data: { jobId: 'job-success' } });
 
   expect(global.fetch).toHaveBeenCalledTimes(1);
   const finalWrite = getFinalWrite(getJobWrites('job-success'));
@@ -212,7 +212,7 @@ test('marks duplicates as success with duplicate state', async () => {
 
   seedExportJob('job-duplicate', jobData);
 
-  await processExportJob.run({ data: { jobId: 'job-duplicate' } });
+  await processExportJobCallable.run({ data: { jobId: 'job-duplicate' } });
 
   expect(global.fetch).toHaveBeenCalledTimes(1);
   const finalWrite = getFinalWrite(getJobWrites('job-duplicate'));
@@ -244,7 +244,7 @@ test('rejects invalid asset urls and surfaces validation error', async () => {
 
   seedExportJob('job-invalid-url', jobData);
 
-  await processExportJob.run({ data: { jobId: 'job-invalid-url' } });
+  await processExportJobCallable.run({ data: { jobId: 'job-invalid-url' } });
 
   expect(global.fetch).not.toHaveBeenCalled();
   const finalWrite = getFinalWrite(getJobWrites('job-invalid-url'));
@@ -284,7 +284,7 @@ test('surfaces partner error responses for invalid brands', async () => {
 
   seedExportJob('job-invalid-brand', jobData);
 
-  await processExportJob.run({ data: { jobId: 'job-invalid-brand' } });
+  await processExportJobCallable.run({ data: { jobId: 'job-invalid-brand' } });
 
   expect(global.fetch).toHaveBeenCalledTimes(1);
   const finalWrite = getFinalWrite(getJobWrites('job-invalid-brand'));

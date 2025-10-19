@@ -4,6 +4,7 @@ console.log("BOOT versions", {
 });
 
 import { onCall as onCallFn, HttpsError } from "firebase-functions/v2/https";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import admin from "firebase-admin";
 import { getIntegration, resolveAssetUrl, validateAssetUrl } from "./exportIntegrations.js";
 
@@ -370,7 +371,32 @@ async function executeExportJob({ jobRef, jobData, jobId }) {
   return { jobId, status: summaryStatus };
 }
 
-export const processExportJob = onCallFn({ region: 'us-central1', timeoutSeconds: 540 }, async (request) => {
+export const processExportJob = onDocumentCreated(
+  { region: "us-central1", document: "exportJobs/{jobId}" },
+  async (event) => {
+    const snapshot = event.data;
+
+    if (!snapshot) {
+      console.error("processExportJob: missing Firestore snapshot");
+      return;
+    }
+
+    const jobRef = snapshot.ref;
+    const jobData = snapshot.data() || {};
+    const jobId = event.params?.jobId || snapshot.id;
+
+    console.log(
+      "processExportJob triggered via Firestore",
+      process.env.GCLOUD_PROJECT,
+      "jobId:",
+      jobId,
+    );
+
+    await executeExportJob({ jobRef, jobData, jobId });
+  },
+);
+
+export const processExportJobCallable = onCallFn({ region: 'us-central1', timeoutSeconds: 540 }, async (request) => {
   const payload = request && typeof request === 'object' && 'data' in request ? request.data : request;
   const jobIdRaw =
     (payload && (payload.jobId ?? payload.jobID ?? payload.id)) !== undefined
