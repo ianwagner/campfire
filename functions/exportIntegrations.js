@@ -182,6 +182,19 @@ function resolveValueForMappingKey(recipeField, context = {}) {
     ? rawKey.split('.').map((segment) => segment.trim()).filter(Boolean)
     : [];
 
+  const assetKeyInfo = parseCompassAssetKey(rawKey);
+  const baseCompassField = findCompassFieldForKey(rawKey);
+  const isCompassAssetField =
+    baseCompassField === 'image_1x1' || baseCompassField === 'image_9x16';
+  const assetBaseKey = assetKeyInfo ? assetKeyInfo.baseKey : baseCompassField;
+  const assetSlotIndex =
+    assetKeyInfo && assetKeyInfo.hasIndex ? assetKeyInfo.index : 0;
+  const assetAspectTargets = isCompassAssetField
+    ? baseCompassField === 'image_9x16'
+      ? ['9x16']
+      : ['1x1']
+    : [];
+
   const normalizedAdId = normalizeString(adData?.id || adId);
 
   const overrideSources = [];
@@ -252,6 +265,37 @@ function resolveValueForMappingKey(recipeField, context = {}) {
 
   const sourcesByPriority = [overrideSources, adSources, jobSources];
 
+  const keyVariants = new Set();
+  if (normalizedKey) {
+    keyVariants.add(normalizedKey);
+  }
+  if (baseCompassField) {
+    const expanded = expandFieldKeySet(baseCompassField);
+    expanded.forEach((variant) => {
+      keyVariants.add(variant);
+      if (assetKeyInfo && assetKeyInfo.hasIndex && assetKeyInfo.rawIndex) {
+        keyVariants.add(`${variant}${assetKeyInfo.rawIndex}`);
+      }
+    });
+  }
+
+  if (isCompassAssetField) {
+    for (const overrideSource of overrideSources) {
+      if (!overrideSource) {
+        continue;
+      }
+      const overrideValue = resolveAssetOverrideValue(overrideSource, {
+        rawKey,
+        baseKey: assetBaseKey,
+        slotIndex: assetSlotIndex,
+        aspectTargets: assetAspectTargets,
+      });
+      if (overrideValue) {
+        return overrideValue;
+      }
+    }
+  }
+
   if (pathSegments.length > 1) {
     for (const sourceGroup of sourcesByPriority) {
       for (const source of sourceGroup) {
@@ -267,8 +311,7 @@ function resolveValueForMappingKey(recipeField, context = {}) {
     }
   }
 
-  if (normalizedKey) {
-    const keyVariants = new Set([normalizedKey]);
+  if (keyVariants.size > 0) {
     for (const sourceGroup of sourcesByPriority) {
       const value = resolveFieldFromSources(sourceGroup, keyVariants);
       if (value !== undefined) {
@@ -289,40 +332,13 @@ function resolveValueForMappingKey(recipeField, context = {}) {
     return resolvedAsset || undefined;
   }
 
-  if (
-    normalizedKey.includes('image1x1') ||
-    normalizedKey.includes('imagesquare') ||
-    normalizedKey.includes('squareimage')
-  ) {
-    const overrideAsset =
-      normalizedAdId && jobData.assetOverrides?.[normalizedAdId]?.assetUrl
-        ? normalizeString(jobData.assetOverrides[normalizedAdId].assetUrl)
-        : '';
-    if (overrideAsset) {
-      return overrideAsset;
-    }
-    const squareAsset = extractAssetUrlByAspect(adData.assets, ['1x1']);
-    if (squareAsset) {
-      return squareAsset;
-    }
-  }
-
-  if (
-    normalizedKey.includes('image9x16') ||
-    normalizedKey.includes('imagevertical') ||
-    normalizedKey.includes('verticalimage') ||
-    normalizedKey.includes('storyimage')
-  ) {
-    const overrideAsset =
-      normalizedAdId && jobData.assetOverrides?.[normalizedAdId]?.assetUrl
-        ? normalizeString(jobData.assetOverrides[normalizedAdId].assetUrl)
-        : '';
-    if (overrideAsset) {
-      return overrideAsset;
-    }
-    const verticalAsset = extractAssetUrlByAspect(adData.assets, ['9x16']);
-    if (verticalAsset) {
-      return verticalAsset;
+  if (isCompassAssetField) {
+    const assetFromAd =
+      assetKeyInfo && assetKeyInfo.hasIndex
+        ? extractAssetUrlByAspectIndex(adData.assets, assetAspectTargets, assetSlotIndex)
+        : extractAssetUrlByAspect(adData.assets, assetAspectTargets);
+    if (assetFromAd) {
+      return assetFromAd;
     }
   }
 
@@ -348,6 +364,10 @@ function buildPayloadFromMapping({
       continue;
     }
 
+    const recipeBaseField = findCompassFieldForKey(recipeKey);
+    const isRecipeAssetField =
+      recipeBaseField === 'image_1x1' || recipeBaseField === 'image_9x16';
+
     const value = resolveValueForMappingKey(recipeKey, {
       adData,
       jobData,
@@ -359,7 +379,7 @@ function buildPayloadFromMapping({
     const normalizedRecipeKey = normalizeKeyName(recipeKey);
 
     if (integrationKey === COMPASS_INTEGRATION_KEY) {
-      if (normalizedRecipeKey === 'recipeno') {
+      if (recipeBaseField === 'recipe_no' || normalizedRecipeKey === 'recipeno') {
         if (finalValue !== undefined && finalValue !== null && finalValue !== '') {
           const normalized = normalizeRecipeNumber(finalValue);
           if (!normalized.error) {
@@ -368,20 +388,17 @@ function buildPayloadFromMapping({
             finalValue = undefined;
           }
         }
-      } else if (normalizedRecipeKey === 'golivedate') {
+      } else if (recipeBaseField === 'go_live_date' || normalizedRecipeKey === 'golivedate') {
         finalValue = formatDateString(finalValue);
         if (!finalValue) {
           finalValue = undefined;
         }
-      } else if (normalizedRecipeKey === 'angle') {
+      } else if (recipeBaseField === 'angle' || normalizedRecipeKey === 'angle') {
         finalValue = normalizeAngleValue(finalValue);
         if (finalValue === '') {
           finalValue = undefined;
         }
-      } else if (
-        normalizedRecipeKey === 'image1x1' ||
-        normalizedRecipeKey === 'image9x16'
-      ) {
+      } else if (isRecipeAssetField) {
         const candidate = normalizeString(finalValue);
         if (candidate) {
           const { valid, url } = validateAssetUrl(candidate);
@@ -741,6 +758,8 @@ const COMPASS_REQUIRED_FIELDS = [
 
 const COMPASS_OPTIONAL_FIELDS = ['moment', 'description', 'status'];
 
+const COMPASS_ALL_FIELDS = [...new Set([...COMPASS_REQUIRED_FIELDS, ...COMPASS_OPTIONAL_FIELDS])];
+
 const COMPASS_FIELD_LABELS = {
   shop: 'shop',
   group_desc: 'group_desc',
@@ -875,6 +894,39 @@ function normalizeKeyName(name = '') {
     .replace(/[^a-z0-9]/g, '');
 }
 
+function parseCompassAssetKey(rawKey = '') {
+  if (!rawKey) {
+    return null;
+  }
+
+  const trimmed = String(rawKey).trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const match = trimmed.match(/^(image[_]?1x1|image[_]?9x16)(?:[_\-]?([0-9]+))?$/i);
+  if (!match) {
+    return null;
+  }
+
+  const baseRaw = match[1].toLowerCase();
+  const baseKey = baseRaw.includes('9x16') ? 'image_9x16' : 'image_1x1';
+  const hasIndex = !!match[2];
+  let index = 0;
+  let rawIndex = 0;
+
+  if (hasIndex) {
+    const parsed = parseInt(match[2], 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+    index = parsed - 1;
+    rawIndex = parsed;
+  }
+
+  return { baseKey, hasIndex, index, rawIndex };
+}
+
 function expandFieldKeySet(field) {
   const variants = new Set();
   variants.add(normalizeKeyName(field));
@@ -886,6 +938,24 @@ function expandFieldKeySet(field) {
     }
   }
   return variants;
+}
+
+function findCompassFieldForKey(rawKey = '') {
+  const parsed = parseCompassAssetKey(rawKey);
+  const keyForMatch = parsed ? parsed.baseKey : rawKey;
+  const normalized = normalizeKeyName(keyForMatch);
+  if (!normalized) {
+    return '';
+  }
+
+  for (const field of COMPASS_ALL_FIELDS) {
+    const variants = expandFieldKeySet(field);
+    if (variants.has(normalized)) {
+      return field;
+    }
+  }
+
+  return '';
 }
 
 function extractPrimitiveValue(value) {
@@ -1054,18 +1124,121 @@ function normalizeAspectKey(value) {
   return '';
 }
 
-function extractAssetUrlByAspect(assets = [], aspectTargets = []) {
-  if (!Array.isArray(assets)) {
+function extractAssetUrlFromCandidate(candidate, slotIndex = 0) {
+  if (!candidate) {
     return '';
+  }
+
+  if (typeof candidate === 'string') {
+    return normalizeString(candidate);
+  }
+
+  if (Array.isArray(candidate)) {
+    if (candidate.length === 0) {
+      return '';
+    }
+
+    if (slotIndex >= 0 && slotIndex < candidate.length) {
+      const direct = extractAssetUrlFromCandidate(candidate[slotIndex], 0);
+      if (direct) {
+        return direct;
+      }
+    }
+
+    for (const item of candidate) {
+      const extracted = extractAssetUrlFromCandidate(item, 0);
+      if (extracted) {
+        return extracted;
+      }
+    }
+
+    return '';
+  }
+
+  if (typeof candidate === 'object') {
+    const prioritizedKeys = [
+      'url',
+      'downloadUrl',
+      'assetUrl',
+      'firebaseUrl',
+      'imageUrl',
+      'mediaUrl',
+      'sourceUrl',
+      'src',
+      'href',
+      'link',
+      'fileUrl',
+      'publicUrl',
+      'permalink',
+      'previewUrl',
+      'thumbnailUrl',
+      'value',
+      'variants',
+      'images',
+      'files',
+      'creative',
+      'asset',
+    ];
+
+    for (const key of prioritizedKeys) {
+      if (Object.prototype.hasOwnProperty.call(candidate, key)) {
+        const extracted = extractAssetUrlFromCandidate(candidate[key], 0);
+        if (extracted) {
+          return extracted;
+        }
+      }
+    }
+
+    return '';
+  }
+
+  return '';
+}
+
+function getAssetOrderWeight(asset, fallbackIndex = 0) {
+  if (!asset || typeof asset !== 'object') {
+    return fallbackIndex;
+  }
+
+  const numericCandidates = [
+    asset.carouselIndex,
+    asset.carouselPosition,
+    asset.position,
+    asset.order,
+    asset.sequence,
+    asset.sequenceIndex,
+    asset.rank,
+    asset.priority,
+    asset.index,
+  ];
+
+  for (const candidate of numericCandidates) {
+    const value = Number(candidate);
+    if (Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return fallbackIndex;
+}
+
+function collectAssetsByAspect(assets = [], aspectTargets = []) {
+  if (!Array.isArray(assets)) {
+    return [];
   }
 
   const normalizedTargets = aspectTargets.map((aspect) => normalizeAspectKey(aspect)).filter(Boolean);
   if (normalizedTargets.length === 0) {
-    return '';
+    return [];
   }
 
-  for (const asset of assets) {
-    if (!asset || typeof asset !== 'object') continue;
+  const matches = [];
+
+  assets.forEach((asset, index) => {
+    if (!asset || typeof asset !== 'object') {
+      return;
+    }
+
     const aspectCandidates = [
       asset.aspectRatio,
       asset.aspect,
@@ -1090,27 +1263,130 @@ function extractAssetUrlByAspect(assets = [], aspectTargets = []) {
       }
     }
 
+    if (Array.isArray(asset.labels)) {
+      asset.labels.forEach((label) => aspectCandidates.push(label));
+    }
+
+    if (Array.isArray(asset.tags)) {
+      asset.tags.forEach((tag) => aspectCandidates.push(tag));
+    }
+
     const normalizedAspectCandidates = aspectCandidates
       .map((value) => normalizeAspectKey(value))
       .filter(Boolean);
 
-    if (normalizedAspectCandidates.some((value) => normalizedTargets.includes(value))) {
-      const urlCandidates = [
-        asset.url,
-        asset.downloadUrl,
-        asset.assetUrl,
-        asset.firebaseUrl,
-        asset.sourceUrl,
-        asset.adUrl,
-      ];
-      for (const candidate of urlCandidates) {
-        const normalized = normalizeString(candidate);
-        if (normalized) {
-          const { valid } = validateAssetUrl(normalized);
-          if (valid) {
-            return normalized;
-          }
-        }
+    if (!normalizedAspectCandidates.some((value) => normalizedTargets.includes(value))) {
+      return;
+    }
+
+    const url = extractAssetUrlFromCandidate(asset);
+    if (!url) {
+      return;
+    }
+
+    const { valid, url: normalizedUrl } = validateAssetUrl(url);
+    if (!valid || !normalizedUrl) {
+      return;
+    }
+
+    matches.push({ url: normalizedUrl, asset, index });
+  });
+
+  matches.sort((a, b) => getAssetOrderWeight(a.asset, a.index) - getAssetOrderWeight(b.asset, b.index));
+
+  return matches;
+}
+
+function extractAssetUrlByAspect(assets = [], aspectTargets = []) {
+  const matches = collectAssetsByAspect(assets, aspectTargets);
+  if (matches.length === 0) {
+    return '';
+  }
+  return matches[0].url;
+}
+
+function extractAssetUrlByAspectIndex(assets = [], aspectTargets = [], index = 0) {
+  const matches = collectAssetsByAspect(assets, aspectTargets);
+  if (matches.length === 0) {
+    return '';
+  }
+  const clampedIndex = Math.min(Math.max(0, index), matches.length - 1);
+  return matches[clampedIndex].url;
+}
+
+function resolveAssetOverrideValue(
+  overrideEntry,
+  { rawKey = '', baseKey = '', slotIndex = 0, aspectTargets = [] } = {},
+) {
+  if (!overrideEntry) {
+    return '';
+  }
+
+  if (typeof overrideEntry === 'string' || Array.isArray(overrideEntry)) {
+    return extractAssetUrlFromCandidate(overrideEntry, slotIndex);
+  }
+
+  if (typeof overrideEntry !== 'object') {
+    return '';
+  }
+
+  const candidateKeys = [];
+
+  if (rawKey) {
+    candidateKeys.push(rawKey);
+  }
+
+  if (baseKey) {
+    const sanitizedBase = baseKey.replace(/\s+/g, '');
+    const suffix = slotIndex >= 0 ? `_${slotIndex + 1}` : '';
+    const simpleSuffix = slotIndex >= 0 ? String(slotIndex + 1) : '';
+
+    if (suffix) {
+      candidateKeys.push(`${baseKey}${suffix}`);
+      candidateKeys.push(`${sanitizedBase}${suffix}`);
+      candidateKeys.push(`${baseKey}${simpleSuffix}`);
+      candidateKeys.push(`${sanitizedBase}${simpleSuffix}`);
+    }
+
+    candidateKeys.push(baseKey);
+    candidateKeys.push(sanitizedBase);
+  }
+
+  if (slotIndex === 0) {
+    candidateKeys.push('assetUrl');
+  }
+
+  candidateKeys.push('assetUrls');
+
+  for (const key of candidateKeys) {
+    if (!key) {
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(overrideEntry, key)) {
+      const extracted = extractAssetUrlFromCandidate(overrideEntry[key], slotIndex);
+      if (extracted) {
+        return extracted;
+      }
+    }
+  }
+
+  if (Array.isArray(overrideEntry.assets)) {
+    const overrideAsset = extractAssetUrlByAspectIndex(
+      overrideEntry.assets,
+      aspectTargets,
+      slotIndex,
+    );
+    if (overrideAsset) {
+      return overrideAsset;
+    }
+  }
+
+  const nestedKeys = ['asset', 'creative', 'image'];
+  for (const nestedKey of nestedKeys) {
+    if (Object.prototype.hasOwnProperty.call(overrideEntry, nestedKey)) {
+      const extracted = extractAssetUrlFromCandidate(overrideEntry[nestedKey], slotIndex);
+      if (extracted) {
+        return extracted;
       }
     }
   }
