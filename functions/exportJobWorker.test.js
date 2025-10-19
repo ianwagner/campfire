@@ -214,6 +214,47 @@ test('processes approved ads and records success summary', async () => {
   });
 });
 
+test('uses production endpoint environment variable regardless of targetEnv casing', async () => {
+  adAssetsStore.set('ad-prod', {
+    id: 'ad-prod',
+    brandCode: 'BRAND1',
+    assetUrl: 'https://cdn.example.com/ad-prod.png',
+    status: 'approved',
+    name: 'Ad Prod',
+    compass: buildCompassFields({
+      shop: 'BRAND1',
+      image_1x1: 'https://cdn.example.com/ad-prod-1x1.png',
+      image_9x16: 'https://cdn.example.com/ad-prod-9x16.png',
+    }),
+  });
+
+  process.env.COMPASS_EXPORT_ENDPOINT = 'https://partner.example.com/default';
+  process.env.COMPASS_EXPORT_ENDPOINT_PROD = 'https://partner.example.com/prod';
+
+  global.fetch.mockResolvedValue(
+    mockFetchResponse({
+      status: 200,
+      ok: true,
+      statusText: 'OK',
+      body: JSON.stringify({ message: 'Processed successfully' }),
+    }),
+  );
+
+  const jobData = {
+    approvedAdIds: ['ad-prod'],
+    brandCode: 'BRAND1',
+    targetIntegration: 'compass',
+    targetEnv: 'Production',
+  };
+
+  seedExportJob('job-prod-env', jobData);
+
+  await processExportJobCallable.run({ data: { jobId: 'job-prod-env' } });
+
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect(global.fetch.mock.calls[0][0]).toBe('https://partner.example.com/prod');
+});
+
 test('uses integration endpoint from job data when environment variables are absent', async () => {
   adAssetsStore.set('ad-1', {
     id: 'ad-1',
