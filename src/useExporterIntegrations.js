@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import debugLog from './utils/debugLog';
+import {
+  getIntegrationFieldDefinitions,
+  getCampfireStandardFields,
+} from './integrationFieldDefinitions.js';
 
 const integrationsDocRef = doc(db, 'settings', 'exporterIntegrations');
 
@@ -51,22 +55,92 @@ const normalizeFormats = (formats) => {
   return [];
 };
 
-const normalizeFieldMapping = (mapping) => {
+const CAMPFIRE_FIELD_HINTS = (() => {
+  const hints = new Set();
+  getCampfireStandardFields().forEach((field) => {
+    if (field?.key) {
+      hints.add(field.key);
+    }
+  });
+  return hints;
+})();
+
+const isCampfireFieldCandidate = (value) => {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+  if (CAMPFIRE_FIELD_HINTS.has(trimmed)) {
+    return true;
+  }
+  if (trimmed.includes('.')) {
+    return true;
+  }
+  if (/^image[_]?1x1(?:_[0-9]+)?$/i.test(trimmed)) {
+    return true;
+  }
+  if (/^image[_]?9x16(?:_[0-9]+)?$/i.test(trimmed)) {
+    return true;
+  }
+  if (/(Id|URL|Url|Code|Name|Number|Date)$/.test(trimmed)) {
+    return true;
+  }
+  return false;
+};
+
+const normalizeFieldMapping = (mapping, partnerKey) => {
   if (!mapping || typeof mapping !== 'object') {
     return {};
   }
 
   const normalized = {};
+  const entries = Object.entries(mapping)
+    .map(([rawKey, rawValue]) => [
+      typeof rawKey === 'string' ? rawKey.trim() : '',
+      typeof rawValue === 'string' ? rawValue.trim() : '',
+    ])
+    .filter(([recipeField, partnerField]) => recipeField && partnerField);
 
-  Object.entries(mapping).forEach(([rawRecipeField, rawPartnerField]) => {
-    const recipeField = typeof rawRecipeField === 'string' ? rawRecipeField.trim() : '';
-    const partnerField = typeof rawPartnerField === 'string' ? rawPartnerField.trim() : '';
+  if (entries.length === 0) {
+    return normalized;
+  }
 
-    if (!recipeField || !partnerField) {
+  const partnerDefinitions = getIntegrationFieldDefinitions(partnerKey);
+  const partnerFieldSet = new Set(partnerDefinitions.map((field) => field.key));
+
+  const keyPartnerMatches = entries.filter(([key]) => partnerFieldSet.has(key)).length;
+  const valuePartnerMatches = entries.filter(([, value]) => partnerFieldSet.has(value)).length;
+  const keyCampfireMatches = entries.filter(([key]) => isCampfireFieldCandidate(key)).length;
+  const valueCampfireMatches = entries.filter(([, value]) => isCampfireFieldCandidate(value)).length;
+  const hasKeyDot = entries.some(([key]) => key.includes('.'));
+  const hasValueDot = entries.some(([, value]) => value.includes('.'));
+
+  let treatAsPartnerToCampfire = true;
+
+  if (hasKeyDot && !hasValueDot) {
+    treatAsPartnerToCampfire = false;
+  } else if (hasValueDot && !hasKeyDot) {
+    treatAsPartnerToCampfire = true;
+  } else if (keyPartnerMatches > valuePartnerMatches) {
+    treatAsPartnerToCampfire = true;
+  } else if (valuePartnerMatches > keyPartnerMatches) {
+    treatAsPartnerToCampfire = false;
+  } else if (valueCampfireMatches > keyCampfireMatches) {
+    treatAsPartnerToCampfire = true;
+  } else if (keyCampfireMatches > valueCampfireMatches) {
+    treatAsPartnerToCampfire = false;
+  }
+
+  entries.forEach(([key, value]) => {
+    const partnerField = treatAsPartnerToCampfire ? key : value;
+    const recipeField = treatAsPartnerToCampfire ? value : key;
+    if (!partnerField || !recipeField) {
       return;
     }
-
-    normalized[recipeField] = partnerField;
+    normalized[partnerField] = recipeField;
   });
 
   return normalized;
@@ -87,7 +161,7 @@ const normalizeIntegration = (integration) => {
     supportedFormats: normalizeFormats(integration.supportedFormats),
     recipeTypeId:
       typeof integration.recipeTypeId === 'string' ? integration.recipeTypeId.trim() : '',
-    fieldMapping: normalizeFieldMapping(integration.fieldMapping),
+    fieldMapping: normalizeFieldMapping(integration.fieldMapping, integration.partnerKey || ''),
     updatedAt: toIsoString(integration.updatedAt),
   };
 };
