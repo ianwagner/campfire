@@ -214,6 +214,66 @@ test('processes approved ads and records success summary', async () => {
   });
 });
 
+test('uses integration endpoint from job data when environment variables are absent', async () => {
+  adAssetsStore.set('ad-1', {
+    id: 'ad-1',
+    brandCode: 'BRAND1',
+    assetUrl: 'https://cdn.example.com/ad-1.png',
+    status: 'approved',
+    name: 'Ad 1',
+    compass: buildCompassFields({
+      shop: 'BRAND1',
+      image_1x1: 'https://cdn.example.com/ad-1-1x1.png',
+      image_9x16: 'https://cdn.example.com/ad-1-9x16.png',
+    }),
+  });
+
+  const jobDefinedEndpoint = 'https://job-endpoint.example.com/export';
+
+  global.fetch.mockResolvedValue(
+    mockFetchResponse({
+      status: 200,
+      ok: true,
+      statusText: 'OK',
+      body: JSON.stringify({ message: 'Processed successfully' }),
+    }),
+  );
+
+  delete process.env.COMPASS_EXPORT_ENDPOINT;
+  delete process.env.ADLOG_EXPORT_ENDPOINT;
+  delete process.env.COMPASS_EXPORT_ENDPOINT_STAGING;
+  delete process.env.ADLOG_EXPORT_ENDPOINT_STAGING;
+  delete process.env.COMPASS_EXPORT_ENDPOINT_PROD;
+  delete process.env.ADLOG_EXPORT_ENDPOINT_PROD;
+
+  const jobData = {
+    approvedAdIds: ['ad-1'],
+    brandCode: 'BRAND1',
+    targetIntegration: 'compass',
+    targetEnv: 'staging',
+    integration: {
+      endpoint: jobDefinedEndpoint,
+    },
+  };
+
+  seedExportJob('job-job-endpoint', jobData);
+
+  await processExportJobCallable.run({ data: { jobId: 'job-job-endpoint' } });
+
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  expect(global.fetch.mock.calls[0][0]).toBe(jobDefinedEndpoint);
+
+  const finalWrite = getFinalWrite(getJobWrites('job-job-endpoint'));
+  expect(finalWrite.status).toBe('success');
+  expectSummaryCounts(finalWrite, {
+    total: 1,
+    received: 1,
+    duplicate: 0,
+    error: 0,
+    success: 1,
+  });
+});
+
 test('runExportJob returns status and counts in response', async () => {
   adAssetsStore.set('ad-http', {
     id: 'ad-http',
