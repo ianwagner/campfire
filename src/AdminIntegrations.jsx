@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
 import useExporterIntegrations from './useExporterIntegrations';
 import Button from './components/Button.jsx';
+import { db } from './firebase/config';
 
 const EMPTY_FORM = {
   id: '',
@@ -11,7 +13,11 @@ const EMPTY_FORM = {
   enabled: true,
   notes: '',
   supportedFormatsText: '',
+  recipeTypeId: '',
+  fieldMapping: {},
 };
+
+const createEmptyForm = () => ({ ...EMPTY_FORM, fieldMapping: {} });
 
 const maskSecret = (value) => {
   if (!value) {
@@ -49,30 +55,163 @@ const AdminIntegrations = () => {
     deleteIntegration,
   } = useExporterIntegrations();
 
-  const [formState, setFormState] = useState(EMPTY_FORM);
+  const [formState, setFormState] = useState(() => createEmptyForm());
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [validationError, setValidationError] = useState('');
+  const [recipeTypes, setRecipeTypes] = useState([]);
+  const [recipeTypesLoading, setRecipeTypesLoading] = useState(true);
+  const [recipeTypesError, setRecipeTypesError] = useState('');
+  const [customRecipeField, setCustomRecipeField] = useState('');
+  const [customPartnerField, setCustomPartnerField] = useState('');
+  const [customMappingError, setCustomMappingError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchRecipeTypes = async () => {
+      setRecipeTypesLoading(true);
+      setRecipeTypesError('');
+      try {
+        const snap = await getDocs(collection(db, 'recipeTypes'));
+        if (!active) {
+          return;
+        }
+        setRecipeTypes(
+          snap.docs.map((docSnap) => {
+            const data = docSnap.data() || {};
+            return {
+              id: docSnap.id,
+              name: data.name || docSnap.id,
+              writeInFields: Array.isArray(data.writeInFields)
+                ? data.writeInFields
+                : [],
+            };
+          }),
+        );
+      } catch (err) {
+        console.error('Failed to fetch recipe types', err);
+        if (!active) {
+          return;
+        }
+        setRecipeTypes([]);
+        setRecipeTypesError('Failed to load recipe types.');
+      } finally {
+        if (active) {
+          setRecipeTypesLoading(false);
+        }
+      }
+    };
+
+    fetchRecipeTypes();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const recipeTypeMap = useMemo(() => {
+    const map = {};
+    recipeTypes.forEach((type) => {
+      if (type && type.id) {
+        map[type.id] = type;
+      }
+    });
+    return map;
+  }, [recipeTypes]);
+
+  const currentRecipeType = formState.recipeTypeId
+    ? recipeTypeMap[formState.recipeTypeId]
+    : null;
+
+  const availableRecipeFields = useMemo(() => {
+    if (!currentRecipeType) {
+      return [];
+    }
+
+    const fields = Array.isArray(currentRecipeType.writeInFields)
+      ? currentRecipeType.writeInFields
+      : [];
+
+    return fields
+      .map((field) => ({
+        key: typeof field?.key === 'string' ? field.key.trim() : '',
+        label: typeof field?.label === 'string' ? field.label.trim() : '',
+        required: !!field?.required,
+      }))
+      .filter((field) => field.key);
+  }, [currentRecipeType]);
+
+  const availableRecipeFieldKeys = useMemo(() => {
+    return new Set(availableRecipeFields.map((field) => field.key));
+  }, [availableRecipeFields]);
+
+  const customMappingEntries = useMemo(() => {
+    const mappingEntries = Object.entries(formState.fieldMapping || {});
+    return mappingEntries.filter(([recipeField]) => !availableRecipeFieldKeys.has(recipeField));
+  }, [formState.fieldMapping, availableRecipeFieldKeys]);
 
   const sortedIntegrations = useMemo(() => {
     return [...integrations].sort((a, b) => a.name.localeCompare(b.name));
   }, [integrations]);
 
+  const updateFieldMapping = (recipeField, partnerField) => {
+    setFormState((prev) => {
+      const nextMapping = { ...(prev.fieldMapping || {}) };
+      const trimmedPartner =
+        typeof partnerField === 'string' ? partnerField.trim() : '';
+      if (!trimmedPartner) {
+        delete nextMapping[recipeField];
+      } else {
+        nextMapping[recipeField] = partnerField;
+      }
+      return { ...prev, fieldMapping: nextMapping };
+    });
+  };
+
+  const handleRemoveCustomMapping = (recipeField) => {
+    setFormState((prev) => {
+      const nextMapping = { ...(prev.fieldMapping || {}) };
+      delete nextMapping[recipeField];
+      return { ...prev, fieldMapping: nextMapping };
+    });
+    setCustomMappingError('');
+  };
+
+  const handleAddCustomMapping = () => {
+    const recipeField = customRecipeField.trim();
+    const partnerField = customPartnerField.trim();
+    if (!recipeField || !partnerField) {
+      setCustomMappingError('Recipe field and partner field are required.');
+      return;
+    }
+    updateFieldMapping(recipeField, partnerField);
+    setCustomRecipeField('');
+    setCustomPartnerField('');
+    setCustomMappingError('');
+  };
+
   const resetForm = () => {
-    setFormState(EMPTY_FORM);
+    setFormState(createEmptyForm());
     setEditingId(null);
     setShowApiKey(false);
     setValidationError('');
+    setCustomRecipeField('');
+    setCustomPartnerField('');
+    setCustomMappingError('');
   };
 
   const startCreate = () => {
-    setFormState(EMPTY_FORM);
+    setFormState(createEmptyForm());
     setEditingId('new');
     setShowApiKey(false);
     setMessage('');
     setValidationError('');
+    setCustomRecipeField('');
+    setCustomPartnerField('');
+    setCustomMappingError('');
   };
 
   const startEdit = (integration) => {
@@ -87,11 +226,16 @@ const AdminIntegrations = () => {
       supportedFormatsText: Array.isArray(integration.supportedFormats)
         ? integration.supportedFormats.join(', ')
         : '',
+      recipeTypeId: integration.recipeTypeId || '',
+      fieldMapping: { ...(integration.fieldMapping || {}) },
     });
     setEditingId(integration.id);
     setShowApiKey(false);
     setMessage('');
     setValidationError('');
+    setCustomRecipeField('');
+    setCustomPartnerField('');
+    setCustomMappingError('');
   };
 
   const handleDelete = async (integration) => {
@@ -115,6 +259,17 @@ const AdminIntegrations = () => {
   };
 
   const handleChange = (field, value) => {
+    if (field === 'recipeTypeId') {
+      setFormState((prev) => ({
+        ...prev,
+        recipeTypeId: value,
+        fieldMapping: {},
+      }));
+      setCustomRecipeField('');
+      setCustomPartnerField('');
+      setCustomMappingError('');
+      return;
+    }
     setFormState((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -150,6 +305,8 @@ const AdminIntegrations = () => {
       enabled: !!formState.enabled,
       notes: formState.notes.trim(),
       supportedFormats,
+      recipeTypeId: formState.recipeTypeId || '',
+      fieldMapping: formState.fieldMapping || {},
     };
 
     setSaving(true);
@@ -178,6 +335,11 @@ const AdminIntegrations = () => {
       {error && (
         <div className="mb-4 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
           Failed to load integrations. Please refresh the page.
+        </div>
+      )}
+      {recipeTypesError && (
+        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          {recipeTypesError} Field mapping options may be incomplete.
         </div>
       )}
       {message && (
@@ -239,6 +401,13 @@ const AdminIntegrations = () => {
                       {integration.baseUrl && (
                         <p className="mt-2 text-sm text-gray-600 break-all dark:text-gray-300">
                           Base URL: {integration.baseUrl}
+                        </p>
+                      )}
+                      {integration.recipeTypeId && (
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                          Recipe type:{' '}
+                          {recipeTypeMap[integration.recipeTypeId]?.name ||
+                            integration.recipeTypeId}
                         </p>
                       )}
                       <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
@@ -334,6 +503,30 @@ const AdminIntegrations = () => {
                 placeholder="https://api.partner.com"
               />
             </label>
+            <label className="md:col-span-2 flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
+              Recipe type
+              {recipeTypesLoading ? (
+                <div className="mt-1 rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)]/40 dark:text-gray-300">
+                  Loading recipe types…
+                </div>
+              ) : (
+                <select
+                  className="mt-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                  value={formState.recipeTypeId}
+                  onChange={(event) => handleChange('recipeTypeId', event.target.value)}
+                >
+                  <option value="">Select a recipe type</option>
+                  {recipeTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name || type.id}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <span className="mt-1 text-xs font-normal text-gray-500 dark:text-gray-400">
+                Choose the recipe type this integration exports. Field mappings are based on the selected type.
+              </span>
+            </label>
             <label className="flex flex-col text-sm font-medium text-gray-700 dark:text-gray-200">
               API key
               <div className="mt-1 flex gap-2">
@@ -364,6 +557,138 @@ const AdminIntegrations = () => {
                 placeholder="Comma-separated list, e.g. ads, catalog"
               />
             </label>
+            <div className="md:col-span-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Field mapping</span>
+                {currentRecipeType && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Mapping {availableRecipeFields.length} recipe field{availableRecipeFields.length === 1 ? '' : 's'}
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 rounded-md border border-gray-200 bg-white dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]">
+                {currentRecipeType ? (
+                  availableRecipeFields.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200 text-left text-sm dark:divide-[var(--border-color-default)]">
+                        <thead className="bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500 dark:bg-[var(--dark-input-bg)] dark:text-gray-400">
+                          <tr>
+                            <th className="px-3 py-2">Recipe field</th>
+                            <th className="px-3 py-2">Partner field</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-[var(--border-color-default)]">
+                          {availableRecipeFields.map((field) => (
+                            <tr key={field.key}>
+                              <td className="px-3 py-2 align-top text-sm text-gray-700 dark:text-gray-200">
+                                <div className="font-medium">{field.label || field.key}</div>
+                                <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                  Key: {field.key}
+                                  {field.required ? ' • Required' : ''}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 align-top">
+                                <input
+                                  type="text"
+                                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                                  value={formState.fieldMapping?.[field.key] || ''}
+                                  onChange={(event) => updateFieldMapping(field.key, event.target.value)}
+                                  placeholder="Partner field name"
+                                />
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                  Leave blank to omit this field from the payload.
+                                </p>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="p-4 text-sm text-gray-500 dark:text-gray-400">
+                      This recipe type does not define any custom fields to map.
+                    </p>
+                  )
+                ) : (
+                  <p className="p-4 text-sm text-gray-500 dark:text-gray-400">
+                    Select a recipe type to configure how recipe data maps to the partner payload.
+                  </p>
+                )}
+              </div>
+              <div className="mt-4 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]/60">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Custom field mappings</span>
+                  {customMappingEntries.length > 0 && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {customMappingEntries.length} custom field{customMappingEntries.length === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+                {customMappingEntries.length > 0 ? (
+                  <ul className="mt-3 space-y-2">
+                    {customMappingEntries.map(([recipeField, partnerField]) => (
+                      <li
+                        key={recipeField}
+                        className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)]"
+                      >
+                        <div>
+                          <div className="font-medium text-gray-800 dark:text-gray-100">{recipeField}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Partner field: {partnerField}</div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="neutral"
+                          size="sm"
+                          onClick={() => handleRemoveCustomMapping(recipeField)}
+                        >
+                          Remove
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                    Add mappings for additional recipe fields or static values that are not part of the recipe type definition.
+                  </p>
+                )}
+                <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr),minmax(0,1fr),auto]">
+                  <input
+                    type="text"
+                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                    value={customRecipeField}
+                    onChange={(event) => {
+                      setCustomRecipeField(event.target.value);
+                      setCustomMappingError('');
+                    }}
+                    placeholder="Recipe field key"
+                  />
+                  <input
+                    type="text"
+                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                    value={customPartnerField}
+                    onChange={(event) => {
+                      setCustomPartnerField(event.target.value);
+                      setCustomMappingError('');
+                    }}
+                    placeholder="Partner field name"
+                  />
+                  <Button
+                    type="button"
+                    variant="accent"
+                    size="sm"
+                    onClick={handleAddCustomMapping}
+                  >
+                    Add field
+                  </Button>
+                </div>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Custom fields are saved in addition to the recipe type mappings.
+                </p>
+                {customMappingError && (
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">{customMappingError}</p>
+                )}
+              </div>
+            </div>
             <label className="md:col-span-2 flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
               <input
                 type="checkbox"

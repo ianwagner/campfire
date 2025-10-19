@@ -51,6 +51,27 @@ const normalizeFormats = (formats) => {
   return [];
 };
 
+const normalizeFieldMapping = (mapping) => {
+  if (!mapping || typeof mapping !== 'object') {
+    return {};
+  }
+
+  const normalized = {};
+
+  Object.entries(mapping).forEach(([rawRecipeField, rawPartnerField]) => {
+    const recipeField = typeof rawRecipeField === 'string' ? rawRecipeField.trim() : '';
+    const partnerField = typeof rawPartnerField === 'string' ? rawPartnerField.trim() : '';
+
+    if (!recipeField || !partnerField) {
+      return;
+    }
+
+    normalized[recipeField] = partnerField;
+  });
+
+  return normalized;
+};
+
 const normalizeIntegration = (integration) => {
   if (!integration || typeof integration !== 'object') {
     return null;
@@ -64,6 +85,9 @@ const normalizeIntegration = (integration) => {
     enabled: integration.enabled !== false,
     notes: integration.notes || '',
     supportedFormats: normalizeFormats(integration.supportedFormats),
+    recipeTypeId:
+      typeof integration.recipeTypeId === 'string' ? integration.recipeTypeId.trim() : '',
+    fieldMapping: normalizeFieldMapping(integration.fieldMapping),
     updatedAt: toIsoString(integration.updatedAt),
   };
 };

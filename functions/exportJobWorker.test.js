@@ -42,6 +42,8 @@ jest.mock('firebase-admin', () => {
     return entry.ref;
   }
 
+  const settingsStore = new Map();
+
   const firestoreInstance = {
     collection: jest.fn((name) => {
       if (name === 'adAssets') {
@@ -66,6 +68,27 @@ jest.mock('firebase-admin', () => {
           doc: (id) => ensureExportJobEntry(id),
         };
       }
+      if (name === 'settings') {
+        return {
+          doc: (id) => ({
+            async get() {
+              if (!settingsStore.has(id)) {
+                return { exists: false, id };
+              }
+              const data = settingsStore.get(id);
+              return {
+                exists: true,
+                id,
+                data: () => data,
+              };
+            },
+            async set(payload) {
+              settingsStore.set(id, payload);
+              return Promise.resolve();
+            },
+          }),
+        };
+      }
       throw new Error(`Unexpected collection ${name}`);
     }),
   };
@@ -81,6 +104,7 @@ jest.mock('firebase-admin', () => {
     },
     __mockAdAssets: adAssets,
     __mockExportJobs: exportJobs,
+    __mockSettings: settingsStore,
     __FieldValue: FieldValue,
   };
 });
@@ -88,9 +112,11 @@ jest.mock('firebase-admin', () => {
 const adminMock = jest.requireMock('firebase-admin');
 const adAssetsStore = adminMock.__mockAdAssets;
 const exportJobsStore = adminMock.__mockExportJobs;
+const settingsStore = adminMock.__mockSettings;
 
 let processExportJobCallable;
 let runExportJobCallable;
+let resetIntegrationCache;
 
 const defaultCompassFields = {
   shop: 'TESTSHOP',
@@ -134,11 +160,16 @@ function mockFetchResponse({ status = 200, ok = true, statusText = 'OK', body = 
 
 beforeAll(async () => {
   ({ processExportJobCallable, runExportJob: runExportJobCallable } = await import('./exportJobWorker.js'));
+  ({ __resetIntegrationCache: resetIntegrationCache } = await import('./exportIntegrations.js'));
 });
 
 beforeEach(() => {
   adAssetsStore.clear();
   exportJobsStore.clear();
+  settingsStore.clear();
+  if (typeof resetIntegrationCache === 'function') {
+    resetIntegrationCache();
+  }
   adminMock.__FieldValue.serverTimestamp.mockClear();
   global.fetch = jest.fn();
   process.env.COMPASS_EXPORT_ENDPOINT = 'https://partner.example.com/export';
@@ -211,6 +242,86 @@ test('processes approved ads and records success summary', async () => {
     state: 'received',
     message: 'Processed successfully',
     assetUrl: 'https://cdn.example.com/ad-1.png',
+  });
+});
+
+test('builds payload using Firestore field mapping configuration', async () => {
+  settingsStore.set('exporterIntegrations', {
+    integrations: [
+      {
+        id: 'dynamic-1',
+        partnerKey: 'test-partner',
+        name: 'Test Partner',
+        baseUrl: 'https://partner.example.com/export',
+        apiKey: 'secret-key',
+        enabled: true,
+        recipeTypeId: 'recipe-type-1',
+        fieldMapping: {
+          product_name: 'productName',
+          recipe_no: 'recipeId',
+          asset_url: 'assetUrl',
+        },
+      },
+    ],
+  });
+
+  adAssetsStore.set('ad-dynamic', {
+    id: 'ad-dynamic',
+    assetUrl: 'https://cdn.example.com/dynamic.png',
+    recipe: {
+      product_name: 'Dynamic Product',
+      recipe_no: 321,
+    },
+  });
+
+  global.fetch.mockResolvedValue(
+    mockFetchResponse({
+      status: 200,
+      ok: true,
+      statusText: 'OK',
+      body: JSON.stringify({ message: 'Processed successfully' }),
+    }),
+  );
+
+  const jobData = {
+    approvedAdIds: ['ad-dynamic'],
+    adIds: ['ad-dynamic'],
+    brandCode: 'BRAND1',
+    targetIntegration: 'test-partner',
+    integrationKey: 'test-partner',
+  };
+
+  seedExportJob('job-dynamic', jobData);
+
+  await processExportJobCallable.run({ data: { jobId: 'job-dynamic' } });
+
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  const [endpoint, requestInit] = global.fetch.mock.calls[0];
+  expect(endpoint).toBe('https://partner.example.com/export');
+  expect(requestInit.headers).toMatchObject({
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer secret-key',
+    'x-api-key': 'secret-key',
+  });
+  const payload = JSON.parse(requestInit.body);
+  expect(payload).toEqual({
+    productName: 'Dynamic Product',
+    recipeId: 321,
+    assetUrl: 'https://cdn.example.com/dynamic.png',
+  });
+
+  const finalWrite = getFinalWrite(getJobWrites('job-dynamic'));
+  expect(finalWrite.status).toBe('success');
+  expect(finalWrite.integration).toMatchObject({
+    key: 'test-partner',
+    label: 'Test Partner',
+  });
+  expectSummaryCounts(finalWrite, {
+    total: 1,
+    received: 1,
+    duplicate: 0,
+    error: 0,
+    success: 1,
   });
 });
 
