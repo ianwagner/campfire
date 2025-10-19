@@ -1,4 +1,5 @@
 import { createRequire } from 'module';
+import path from 'path';
 
 const require = createRequire(import.meta.url);
 
@@ -23,7 +24,17 @@ export function patchFirestoreProtobufDecoding() {
   }
 
   try {
-    const firestoreCommon = require('firebase-functions/lib/common/providers/firestore.js');
+    const firebaseFunctionsPackagePath = require.resolve('firebase-functions/package.json');
+    const firebaseFunctionsDir = path.dirname(firebaseFunctionsPackagePath);
+    const firestoreCommonPath = path.join(
+      firebaseFunctionsDir,
+      'lib',
+      'common',
+      'providers',
+      'firestore.js',
+    );
+
+    const firestoreCommon = require(firestoreCommonPath);
 
     if (!firestoreCommon) {
       patched = true;
