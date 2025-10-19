@@ -2,10 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from './firebase/config';
 import debugLog from './utils/debugLog';
-import {
-  getIntegrationFieldDefinitions,
-  getCampfireStandardFields,
-} from './integrationFieldDefinitions.js';
+import { getCampfireStandardFields } from './integrationFieldDefinitions.js';
 
 const integrationsDocRef = doc(db, 'settings', 'exporterIntegrations');
 
@@ -91,7 +88,7 @@ const isCampfireFieldCandidate = (value) => {
   return false;
 };
 
-const normalizeFieldMapping = (mapping, partnerKey) => {
+const normalizeFieldMapping = (mapping) => {
   if (!mapping || typeof mapping !== 'object') {
     return {};
   }
@@ -108,39 +105,28 @@ const normalizeFieldMapping = (mapping, partnerKey) => {
     return normalized;
   }
 
-  const partnerDefinitions = getIntegrationFieldDefinitions(partnerKey);
-  const partnerFieldSet = new Set(partnerDefinitions.map((field) => field.key));
-
-  const keyPartnerMatches = entries.filter(([key]) => partnerFieldSet.has(key)).length;
-  const valuePartnerMatches = entries.filter(([, value]) => partnerFieldSet.has(value)).length;
   const keyCampfireMatches = entries.filter(([key]) => isCampfireFieldCandidate(key)).length;
   const valueCampfireMatches = entries.filter(([, value]) => isCampfireFieldCandidate(value)).length;
   const hasKeyDot = entries.some(([key]) => key.includes('.'));
   const hasValueDot = entries.some(([, value]) => value.includes('.'));
 
-  let treatAsPartnerToCampfire = true;
+  let keysAreCampfire = true;
 
   if (hasKeyDot && !hasValueDot) {
-    treatAsPartnerToCampfire = false;
+    keysAreCampfire = true;
   } else if (hasValueDot && !hasKeyDot) {
-    treatAsPartnerToCampfire = true;
-  } else if (keyPartnerMatches > valuePartnerMatches) {
-    treatAsPartnerToCampfire = true;
-  } else if (valuePartnerMatches > keyPartnerMatches) {
-    treatAsPartnerToCampfire = false;
+    keysAreCampfire = false;
   } else if (valueCampfireMatches > keyCampfireMatches) {
-    treatAsPartnerToCampfire = true;
-  } else if (keyCampfireMatches > valueCampfireMatches) {
-    treatAsPartnerToCampfire = false;
+    keysAreCampfire = false;
   }
 
   entries.forEach(([key, value]) => {
-    const partnerField = treatAsPartnerToCampfire ? key : value;
-    const recipeField = treatAsPartnerToCampfire ? value : key;
-    if (!partnerField || !recipeField) {
+    const campfireField = keysAreCampfire ? key : value;
+    const partnerField = keysAreCampfire ? value : key;
+    if (!campfireField || !partnerField) {
       return;
     }
-    normalized[partnerField] = recipeField;
+    normalized[campfireField] = partnerField;
   });
 
   return normalized;
@@ -161,7 +147,7 @@ const normalizeIntegration = (integration) => {
     supportedFormats: normalizeFormats(integration.supportedFormats),
     recipeTypeId:
       typeof integration.recipeTypeId === 'string' ? integration.recipeTypeId.trim() : '',
-    fieldMapping: normalizeFieldMapping(integration.fieldMapping, integration.partnerKey || ''),
+    fieldMapping: normalizeFieldMapping(integration.fieldMapping),
     updatedAt: toIsoString(integration.updatedAt),
   };
 };

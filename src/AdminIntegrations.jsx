@@ -4,7 +4,6 @@ import useExporterIntegrations from './useExporterIntegrations';
 import Button from './components/Button.jsx';
 import { db } from './firebase/config';
 import {
-  getIntegrationFieldDefinitions,
   getCampfireStandardFields,
 } from './integrationFieldDefinitions.js';
 
@@ -19,6 +18,82 @@ const normalizeFieldEntry = (field) => {
         required,
       }
     : null;
+};
+
+const expandFieldWithCarousel = (field, carouselSlots = 1) => {
+  if (!field || !field.key) {
+    return [];
+  }
+
+  if (/^image[_]?1x1$/i.test(field.key)) {
+    if (carouselSlots <= 1) {
+      return [field];
+    }
+    return Array.from({ length: carouselSlots }, (_, index) => ({
+      key: `${field.key.replace(/[_]?1x1$/i, '_1x1')}_${index + 1}`.replace('__', '_'),
+      label: `${field.label || field.key} #${index + 1}`,
+    }));
+  }
+
+  return [field];
+};
+
+const collectNestedFieldPaths = (source, maxDepth = 4) => {
+  const paths = new Set();
+  const seen = new WeakSet();
+
+  const visit = (value, prefix = '', depth = 0) => {
+    if (depth > maxDepth) {
+      return;
+    }
+    if (!value || typeof value !== 'object') {
+      return;
+    }
+    if (seen.has(value)) {
+      return;
+    }
+    seen.add(value);
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => visit(item, prefix, depth + 1));
+      return;
+    }
+
+    Object.entries(value).forEach(([rawKey, child]) => {
+      if (typeof rawKey !== 'string') {
+        return;
+      }
+      const key = rawKey.trim();
+      if (!key) {
+        return;
+      }
+      const nextPath = prefix ? `${prefix}.${key}` : key;
+      paths.add(nextPath);
+      visit(child, nextPath, depth + 1);
+    });
+  };
+
+  visit(source);
+
+  return Array.from(paths);
+};
+
+const arraysShallowEqual = (a, b) => {
+  if (a === b) {
+    return true;
+  }
+  if (!Array.isArray(a) || !Array.isArray(b)) {
+    return false;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] !== b[index]) {
+      return false;
+    }
+  }
+  return true;
 };
 
 const parseNumeric = (value) => {
@@ -159,10 +234,8 @@ const AdminIntegrations = () => {
   const [recipeTypes, setRecipeTypes] = useState([]);
   const [recipeTypesLoading, setRecipeTypesLoading] = useState(true);
   const [recipeTypesError, setRecipeTypesError] = useState('');
-  const [customPartnerFields, setCustomPartnerFields] = useState([]);
-  const [newPartnerFieldKey, setNewPartnerFieldKey] = useState('');
-  const [newPartnerFieldLabel, setNewPartnerFieldLabel] = useState('');
-  const [customFieldError, setCustomFieldError] = useState('');
+  const [extraCampfireFieldKeys, setExtraCampfireFieldKeys] = useState([]);
+  const [campfireFieldSearch, setCampfireFieldSearch] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -222,30 +295,28 @@ const AdminIntegrations = () => {
     ? recipeTypeMap[formState.recipeTypeId]
     : null;
 
+  const campfireStandardFields = useMemo(() => {
+    return getCampfireStandardFields().map((field) => ({
+      key: field?.key || '',
+      label: field?.label || field?.key || '',
+    })).filter((field) => field.key);
+  }, []);
+
   const availableCampfireFields = useMemo(() => {
     const carouselSlots = inferCarouselAssetCount(currentRecipeType);
 
-    const baseFields = getCampfireStandardFields().flatMap((field) => {
-      if (!field || !field.key) {
-        return [];
-      }
-      if (field.key === 'image_1x1') {
-        if (carouselSlots <= 1) {
-          return [field];
-        }
-        return Array.from({ length: carouselSlots }, (_, index) => ({
-          key: `${field.key}_${index + 1}`,
-          label: `${field.label} #${index + 1}`,
-        }));
-      }
-      return [field];
-    });
+    const baseFields = campfireStandardFields.flatMap((field) =>
+      expandFieldWithCarousel(field, carouselSlots),
+    );
 
     const writeInFields = Array.isArray(currentRecipeType?.writeInFields)
       ? currentRecipeType.writeInFields
       : [];
 
-    const customRecipeFields = writeInFields.map((field) => normalizeFieldEntry(field)).filter(Boolean);
+    const customRecipeFields = writeInFields
+      .map((field) => normalizeFieldEntry(field))
+      .filter(Boolean)
+      .flatMap((field) => expandFieldWithCarousel(field, carouselSlots));
 
     const merged = new Map();
 
@@ -271,99 +342,178 @@ const AdminIntegrations = () => {
     customRecipeFields.forEach(addField);
 
     return Array.from(merged.values()).sort((a, b) => a.label.localeCompare(b.label));
-  }, [currentRecipeType]);
+  }, [campfireStandardFields, currentRecipeType]);
 
-  const partnerFieldDefinitions = useMemo(() => {
-    return getIntegrationFieldDefinitions(formState.partnerKey);
-  }, [formState.partnerKey]);
-
-  const partnerFieldMap = useMemo(() => {
+  const availableCampfireFieldMap = useMemo(() => {
     const map = new Map();
-    partnerFieldDefinitions.forEach((field) => {
+    availableCampfireFields.forEach((field) => {
       if (field?.key) {
         map.set(field.key, field);
       }
     });
     return map;
-  }, [partnerFieldDefinitions]);
+  }, [availableCampfireFields]);
 
-  const combinedPartnerFields = useMemo(() => {
+  const recipeTypeFieldPaths = useMemo(() => {
+    if (!currentRecipeType) {
+      return [];
+    }
+    return collectNestedFieldPaths(currentRecipeType);
+  }, [currentRecipeType]);
+
+  const allCampfireFieldOptions = useMemo(() => {
+    const merged = new Map();
+
+    const addField = (field) => {
+      if (!field || !field.key) {
+        return;
+      }
+      const existing = merged.get(field.key);
+      const label = field.label || existing?.label || field.key;
+      merged.set(field.key, { key: field.key, label });
+    };
+
+    campfireStandardFields.forEach(addField);
+    availableCampfireFields.forEach(addField);
+    recipeTypeFieldPaths.forEach((path) => {
+      if (typeof path === 'string' && path.trim()) {
+        addField({ key: path.trim(), label: path.trim() });
+      }
+    });
+
+    return Array.from(merged.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [availableCampfireFields, campfireStandardFields, recipeTypeFieldPaths]);
+
+  const allCampfireFieldOptionMap = useMemo(() => {
+    const map = new Map();
+    allCampfireFieldOptions.forEach((field) => {
+      if (field?.key) {
+        map.set(field.key, field);
+      }
+    });
+    return map;
+  }, [allCampfireFieldOptions]);
+
+  const displayedCampfireFields = useMemo(() => {
     const map = new Map();
 
-    partnerFieldDefinitions.forEach((field) => {
-      if (!field?.key) {
+    const addKey = (key) => {
+      if (!key) {
         return;
       }
-      map.set(field.key, field);
-    });
+      const option =
+        allCampfireFieldOptionMap.get(key) ||
+        availableCampfireFieldMap.get(key) || {
+          key,
+          label: key,
+        };
+      map.set(option.key, { key: option.key, label: option.label || option.key });
+    };
 
-    customPartnerFields.forEach((field) => {
-      if (!field?.key) {
-        return;
-      }
-      if (!map.has(field.key)) {
-        map.set(field.key, { ...field, required: false, isCustom: true });
-      }
-    });
-
-    Object.keys(formState.fieldMapping || {}).forEach((partnerKey) => {
-      if (!map.has(partnerKey)) {
-        map.set(partnerKey, {
-          key: partnerKey,
-          label: partnerKey,
-          required: false,
-          isCustom: true,
-        });
-      }
-    });
+    availableCampfireFields.forEach((field) => addKey(field.key));
+    extraCampfireFieldKeys.forEach(addKey);
+    Object.keys(formState.fieldMapping || {}).forEach(addKey);
 
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
-  }, [customPartnerFields, formState.fieldMapping, partnerFieldDefinitions]);
+  }, [
+    allCampfireFieldOptionMap,
+    availableCampfireFieldMap,
+    availableCampfireFields,
+    extraCampfireFieldKeys,
+    formState.fieldMapping,
+  ]);
+
+  const displayedCampfireFieldKeySet = useMemo(() => {
+    return new Set(displayedCampfireFields.map((field) => field.key));
+  }, [displayedCampfireFields]);
+
+  const filteredCampfireSuggestions = useMemo(() => {
+    const query = campfireFieldSearch.trim().toLowerCase();
+    if (!query) {
+      return [];
+    }
+
+    return allCampfireFieldOptions
+      .filter((field) => {
+        if (displayedCampfireFieldKeySet.has(field.key)) {
+          return false;
+        }
+        const keyMatch = field.key.toLowerCase().includes(query);
+        const labelMatch = (field.label || '').toLowerCase().includes(query);
+        return keyMatch || labelMatch;
+      })
+      .slice(0, 12);
+  }, [allCampfireFieldOptions, campfireFieldSearch, displayedCampfireFieldKeySet]);
+
+  useEffect(() => {
+    setExtraCampfireFieldKeys((prev) => {
+      const availableKeys = new Set(availableCampfireFields.map((field) => field.key));
+      const mappingKeys = Object.keys(formState.fieldMapping || {});
+      const next = [];
+
+      prev.forEach((key) => {
+        if (key && !availableKeys.has(key) && !next.includes(key)) {
+          next.push(key);
+        }
+      });
+
+      mappingKeys.forEach((key) => {
+        if (key && !availableKeys.has(key) && !next.includes(key)) {
+          next.push(key);
+        }
+      });
+
+      return arraysShallowEqual(prev, next) ? prev : next;
+    });
+  }, [availableCampfireFields, formState.fieldMapping]);
 
   const sortedIntegrations = useMemo(() => {
     return [...integrations].sort((a, b) => a.name.localeCompare(b.name));
   }, [integrations]);
 
-  const updateFieldMapping = (partnerField, recipeField) => {
+  const updateFieldMapping = (campfireFieldKey, partnerFieldName) => {
     setFormState((prev) => {
       const nextMapping = { ...(prev.fieldMapping || {}) };
-      const trimmedRecipe = typeof recipeField === 'string' ? recipeField.trim() : '';
-      if (!trimmedRecipe) {
-        delete nextMapping[partnerField];
+      const trimmedCampfire = typeof campfireFieldKey === 'string' ? campfireFieldKey.trim() : '';
+      const trimmedPartner = typeof partnerFieldName === 'string' ? partnerFieldName.trim() : '';
+      if (!trimmedCampfire) {
+        return prev;
+      }
+      if (!trimmedPartner) {
+        delete nextMapping[trimmedCampfire];
       } else {
-        nextMapping[partnerField] = trimmedRecipe;
+        nextMapping[trimmedCampfire] = trimmedPartner;
       }
       return { ...prev, fieldMapping: nextMapping };
     });
   };
 
-  const handleRemoveCustomPartnerField = (partnerFieldKey) => {
-    setCustomPartnerFields((prev) => prev.filter((field) => field.key !== partnerFieldKey));
-    setFormState((prev) => {
-      const nextMapping = { ...(prev.fieldMapping || {}) };
-      delete nextMapping[partnerFieldKey];
-      return { ...prev, fieldMapping: nextMapping };
+  const handleAddCampfireField = (fieldKey) => {
+    const key = typeof fieldKey === 'string' ? fieldKey.trim() : '';
+    if (!key) {
+      return;
+    }
+    setExtraCampfireFieldKeys((prev) => {
+      if (prev.includes(key)) {
+        return prev;
+      }
+      return [...prev, key];
     });
-    setCustomFieldError('');
+    setCampfireFieldSearch('');
   };
 
-  const handleAddCustomPartnerField = () => {
-    const key = newPartnerFieldKey.trim();
-    if (!key) {
-      setCustomFieldError('Partner field key is required.');
-      return;
+  const handleCampfireFieldSearchKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const trimmed = campfireFieldSearch.trim();
+      if (filteredCampfireSuggestions.length > 0) {
+        handleAddCampfireField(filteredCampfireSuggestions[0].key);
+      } else if (trimmed && !displayedCampfireFieldKeySet.has(trimmed)) {
+        handleAddCampfireField(trimmed);
+      }
+    } else if (event.key === 'Escape') {
+      setCampfireFieldSearch('');
     }
-
-    if (partnerFieldMap.has(key) || customPartnerFields.some((field) => field.key === key)) {
-      setCustomFieldError('This partner field already exists.');
-      return;
-    }
-
-    const label = newPartnerFieldLabel.trim() || key;
-    setCustomPartnerFields((prev) => [...prev, { key, label, required: false, isCustom: true }]);
-    setNewPartnerFieldKey('');
-    setNewPartnerFieldLabel('');
-    setCustomFieldError('');
   };
 
   const resetForm = () => {
@@ -371,10 +521,8 @@ const AdminIntegrations = () => {
     setEditingId(null);
     setShowApiKey(false);
     setValidationError('');
-    setCustomPartnerFields([]);
-    setNewPartnerFieldKey('');
-    setNewPartnerFieldLabel('');
-    setCustomFieldError('');
+    setExtraCampfireFieldKeys([]);
+    setCampfireFieldSearch('');
   };
 
   const startCreate = () => {
@@ -383,19 +531,11 @@ const AdminIntegrations = () => {
     setShowApiKey(false);
     setMessage('');
     setValidationError('');
-    setCustomPartnerFields([]);
-    setNewPartnerFieldKey('');
-    setNewPartnerFieldLabel('');
-    setCustomFieldError('');
+    setExtraCampfireFieldKeys([]);
+    setCampfireFieldSearch('');
   };
 
   const startEdit = (integration) => {
-    const normalizedPartnerKey = typeof integration.partnerKey === 'string' ? integration.partnerKey : '';
-    const definitions = getIntegrationFieldDefinitions(normalizedPartnerKey);
-    const definedKeys = new Set(definitions.map((field) => field.key));
-    const mappingKeys = Object.keys(integration.fieldMapping || {});
-    const customKeys = mappingKeys.filter((key) => !definedKeys.has(key));
-
     setFormState({
       id: integration.id,
       name: integration.name || '',
@@ -414,10 +554,8 @@ const AdminIntegrations = () => {
     setShowApiKey(false);
     setMessage('');
     setValidationError('');
-    setCustomPartnerFields(customKeys.map((key) => ({ key, label: key, required: false, isCustom: true })));
-    setNewPartnerFieldKey('');
-    setNewPartnerFieldLabel('');
-    setCustomFieldError('');
+    setExtraCampfireFieldKeys([]);
+    setCampfireFieldSearch('');
   };
 
   const handleDelete = async (integration) => {
@@ -447,15 +585,14 @@ const AdminIntegrations = () => {
         recipeTypeId: value,
         fieldMapping: {},
       }));
-      setCustomFieldError('');
+      setExtraCampfireFieldKeys([]);
+      setCampfireFieldSearch('');
       return;
     }
     if (field === 'partnerKey') {
       setFormState((prev) => ({ ...prev, [field]: value, fieldMapping: {} }));
-      setCustomPartnerFields([]);
-      setNewPartnerFieldKey('');
-      setNewPartnerFieldLabel('');
-      setCustomFieldError('');
+      setExtraCampfireFieldKeys([]);
+      setCampfireFieldSearch('');
       return;
     }
     setFormState((prev) => ({ ...prev, [field]: value }));
@@ -746,62 +883,40 @@ const AdminIntegrations = () => {
               />
             </label>
             <div className="md:col-span-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1 md:flex-row md:items-baseline md:justify-between">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Field mapping</span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Mapping {combinedPartnerFields.length} partner field
-                  {combinedPartnerFields.length === 1 ? '' : 's'}
+                  Map Campfire fields to your partner’s expected field names.
                 </span>
               </div>
               <div className="mt-2 rounded-md border border-gray-200 bg-white dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]">
-                {combinedPartnerFields.length > 0 ? (
+                {displayedCampfireFields.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 text-left text-sm dark:divide-[var(--border-color-default)]">
                       <thead className="bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500 dark:bg-[var(--dark-input-bg)] dark:text-gray-400">
                         <tr>
-                          <th className="px-3 py-2">Partner field</th>
                           <th className="px-3 py-2">Campfire field</th>
-                          <th className="px-3 py-2">&nbsp;</th>
+                          <th className="px-3 py-2">Partner field name</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 dark:divide-[var(--border-color-default)]">
-                        {combinedPartnerFields.map((field) => (
+                        {displayedCampfireFields.map((field) => (
                           <tr key={field.key}>
                             <td className="px-3 py-2 align-top text-sm text-gray-700 dark:text-gray-200">
                               <div className="font-medium">{field.label || field.key}</div>
-                              <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                Key: {field.key}
-                                {field.required ? ' • Required' : ''}
-                              </div>
+                              <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Key: {field.key}</div>
                             </td>
                             <td className="px-3 py-2 align-top">
-                              <select
+                              <input
+                                type="text"
                                 className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
                                 value={formState.fieldMapping?.[field.key] || ''}
                                 onChange={(event) => updateFieldMapping(field.key, event.target.value)}
-                              >
-                                <option value="">— Omit —</option>
-                                {availableCampfireFields.map((option) => (
-                                  <option key={option.key} value={option.key}>
-                                    {option.label || option.key}
-                                  </option>
-                                ))}
-                              </select>
+                                placeholder="Partner field name"
+                              />
                               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                Leave unset to exclude this field from the payload.
+                                Leave blank to omit this field from the payload.
                               </p>
-                            </td>
-                            <td className="px-3 py-2 align-top text-right">
-                              {field.isCustom && (
-                                <Button
-                                  type="button"
-                                  variant="neutral"
-                                  size="xs"
-                                  onClick={() => handleRemoveCustomPartnerField(field.key)}
-                                >
-                                  Remove
-                                </Button>
-                              )}
                             </td>
                           </tr>
                         ))}
@@ -810,50 +925,57 @@ const AdminIntegrations = () => {
                   </div>
                 ) : (
                   <p className="p-4 text-sm text-gray-500 dark:text-gray-400">
-                    No partner fields available for this integration.
+                    {formState.recipeTypeId
+                      ? 'No fields defined for this recipe; you can add Campfire fields below.'
+                      : 'Select a recipe type to load fields.'}
                   </p>
                 )}
-                {!currentRecipeType && (
-                  <div className="border-t border-gray-200 p-4 text-xs text-gray-500 dark:border-[var(--border-color-default)] dark:text-gray-400">
-                    Select a recipe type to include recipe-specific Campfire fields in addition to the standard options.
-                  </div>
-                )}
               </div>
-              <div className="mt-4 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]/60">
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Extra partner fields</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Use this when the partner expects additional fields not listed above.
-                  </span>
-                </div>
-                <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr),minmax(0,1fr),auto]">
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                You are selecting which Campfire fields to send and naming the partner fields that should receive them.
+              </p>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Search Campfire fields
                   <input
                     type="text"
-                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
-                    value={newPartnerFieldKey}
-                    onChange={(event) => {
-                      setNewPartnerFieldKey(event.target.value);
-                      setCustomFieldError('');
-                    }}
-                    placeholder="Partner field key"
+                    className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                    value={campfireFieldSearch}
+                    onChange={(event) => setCampfireFieldSearch(event.target.value)}
+                    onKeyDown={handleCampfireFieldSearchKeyDown}
+                    placeholder="Search Campfire fields…"
                   />
-                  <input
-                    type="text"
-                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
-                    value={newPartnerFieldLabel}
-                    onChange={(event) => {
-                      setNewPartnerFieldLabel(event.target.value);
-                      setCustomFieldError('');
-                    }}
-                    placeholder="Display label (optional)"
-                  />
-                  <Button type="button" variant="accent" size="sm" onClick={handleAddCustomPartnerField}>
-                    Add partner field
-                  </Button>
-                </div>
-                {customFieldError && (
-                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">{customFieldError}</p>
-                )}
+                </label>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Suggestions include standard Campfire fields and nested paths from the selected recipe type.
+                </p>
+                {campfireFieldSearch.trim() ? (
+                  filteredCampfireSuggestions.length > 0 ? (
+                    <ul className="mt-3 max-h-60 overflow-auto rounded-md border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-card-bg)]">
+                      {filteredCampfireSuggestions.map((option) => (
+                        <li
+                          key={option.key}
+                          className="border-b border-gray-100 last:border-0 dark:border-[var(--border-color-default)] last:dark:border-0"
+                        >
+                          <button
+                            type="button"
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 focus:bg-gray-100 focus:outline-none dark:hover:bg-[var(--dark-input-bg)] dark:focus:bg-[var(--dark-input-bg)]"
+                            onClick={() => handleAddCampfireField(option.key)}
+                          >
+                            <div className="font-medium text-gray-700 dark:text-gray-200">
+                              {option.label || option.key}
+                            </div>
+                            <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Key: {option.key}</div>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                      No matching Campfire fields found. Enter a full field path and press Enter to add it manually.
+                    </p>
+                  )
+                ) : null}
               </div>
             </div>
             <label className="md:col-span-2 flex items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">

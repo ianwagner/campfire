@@ -4,7 +4,6 @@ import {
   COMPASS_REQUIRED_FIELDS,
   COMPASS_OPTIONAL_FIELDS,
   COMPASS_FIELD_LABELS,
-  getIntegrationFieldDefinitions,
   getCampfireStandardFields,
 } from '../src/integrationFieldDefinitions.js';
 
@@ -81,7 +80,7 @@ function isCampfireFieldCandidate(value) {
   return false;
 }
 
-function normalizeFieldMappingObject(mapping, { partnerKey } = {}) {
+function normalizeFieldMappingObject(mapping) {
   if (!mapping || typeof mapping !== 'object') {
     return {};
   }
@@ -98,39 +97,28 @@ function normalizeFieldMappingObject(mapping, { partnerKey } = {}) {
     return normalized;
   }
 
-  const partnerDefinitions = getIntegrationFieldDefinitions(partnerKey);
-  const partnerFieldSet = new Set(partnerDefinitions.map((field) => field.key));
-
-  const keyPartnerMatches = entries.filter(([key]) => partnerFieldSet.has(key)).length;
-  const valuePartnerMatches = entries.filter(([, value]) => partnerFieldSet.has(value)).length;
   const keyCampfireMatches = entries.filter(([key]) => isCampfireFieldCandidate(key)).length;
   const valueCampfireMatches = entries.filter(([, value]) => isCampfireFieldCandidate(value)).length;
   const hasKeyDot = entries.some(([key]) => key.includes('.'));
   const hasValueDot = entries.some(([, value]) => value.includes('.'));
 
-  let treatAsPartnerToCampfire = true;
+  let keysAreCampfire = true;
 
   if (hasKeyDot && !hasValueDot) {
-    treatAsPartnerToCampfire = false;
+    keysAreCampfire = true;
   } else if (hasValueDot && !hasKeyDot) {
-    treatAsPartnerToCampfire = true;
-  } else if (keyPartnerMatches > valuePartnerMatches) {
-    treatAsPartnerToCampfire = true;
-  } else if (valuePartnerMatches > keyPartnerMatches) {
-    treatAsPartnerToCampfire = false;
+    keysAreCampfire = false;
   } else if (valueCampfireMatches > keyCampfireMatches) {
-    treatAsPartnerToCampfire = true;
-  } else if (keyCampfireMatches > valueCampfireMatches) {
-    treatAsPartnerToCampfire = false;
+    keysAreCampfire = false;
   }
 
   entries.forEach(([key, value]) => {
-    const partnerField = treatAsPartnerToCampfire ? key : value;
-    const recipeField = treatAsPartnerToCampfire ? value : key;
-    if (!partnerField || !recipeField) {
+    const campfireField = keysAreCampfire ? key : value;
+    const partnerField = keysAreCampfire ? value : key;
+    if (!campfireField || !partnerField) {
       return;
     }
-    normalized[partnerField] = recipeField;
+    normalized[campfireField] = partnerField;
   });
 
   return normalized;
@@ -163,7 +151,7 @@ function normalizeIntegrationConfig(raw) {
     enabled: raw.enabled !== false,
     notes: typeof raw.notes === 'string' ? raw.notes : '',
     recipeTypeId: typeof raw.recipeTypeId === 'string' ? raw.recipeTypeId.trim() : '',
-    fieldMapping: normalizeFieldMappingObject(raw.fieldMapping, { partnerKey: normalizedKey }),
+    fieldMapping: normalizeFieldMappingObject(raw.fieldMapping),
   };
 }
 
@@ -465,10 +453,10 @@ function buildPayloadFromMapping({
   const payload = {};
   const missingFields = [];
 
-  for (const [partnerField, recipeField] of entries) {
+  for (const [campfireField, partnerField] of entries) {
+    const campfireKey = typeof campfireField === 'string' ? campfireField.trim() : '';
     const partnerKey = typeof partnerField === 'string' ? partnerField.trim() : '';
-    const recipeKey = typeof recipeField === 'string' ? recipeField.trim() : '';
-    if (!partnerKey || !recipeKey) {
+    if (!campfireKey || !partnerKey) {
       continue;
     }
 
@@ -478,7 +466,7 @@ function buildPayloadFromMapping({
     const normalizedPartnerKey = normalizeKeyName(partnerKey);
     const isPartnerAssetField = !!assetInfo;
 
-    const value = resolveValueForMappingKey(recipeKey, {
+    const value = resolveValueForMappingKey(campfireKey, {
       adData,
       jobData,
       assetUrl,
