@@ -1,5 +1,8 @@
 import { URL } from 'url';
 
+const DEFAULT_COMPASS_EXPORT_ENDPOINT =
+  'https://api.compass.statlas.io/compass/RA9cCzM5Ux';
+
 function normalizeString(value) {
   if (typeof value === 'string') {
     const trimmed = value.trim();
@@ -1035,7 +1038,8 @@ const compassIntegration = {
 
     return (
       normalizeString(process.env.COMPASS_EXPORT_ENDPOINT) ||
-      normalizeString(process.env.ADLOG_EXPORT_ENDPOINT)
+      normalizeString(process.env.ADLOG_EXPORT_ENDPOINT) ||
+      DEFAULT_COMPASS_EXPORT_ENDPOINT
     );
   },
   buildPayload({ adData = {}, jobData = {}, jobId }) {
