@@ -1,7 +1,7 @@
 import { URL } from 'url';
 import admin from 'firebase-admin';
 import { format as formatDate, isValid, parseISO } from 'date-fns';
-import { getCampfireStandardFields } from '../src/integrationFieldDefinitions.js';
+import { getCampfireStandardFields } from './shared/integrationFieldDefinitions.js';
 
 const EXPORTER_INTEGRATIONS_COLLECTION = 'settings';
 const EXPORTER_INTEGRATIONS_DOC = 'exporterIntegrations';
