@@ -2343,11 +2343,26 @@ useEffect(() => {
       if (!snapshot || !snapshot.exists()) {
         setGroupStatus(null);
         setExportedAdIds([]);
+        setGroupBrandCode('');
+        setGroupRecipeTypeIds([]);
         return;
       }
       const data = snapshot.data();
       setGroupStatus(data?.status || null);
       setExportedAdIds(normalizeUniqueIdList(data?.exportedAdIds));
+      setGroupBrandCode(typeof data?.brandCode === 'string' ? data.brandCode : '');
+      const recipeTypeCandidates = Array.isArray(data?.recipeTypes)
+        ? data.recipeTypes
+        : data?.recipeType
+          ? [data.recipeType]
+          : data?.recipeTypeId
+            ? [data.recipeTypeId]
+            : [];
+      setGroupRecipeTypeIds(
+        recipeTypeCandidates
+          .map((value) => (typeof value === 'string' ? value.trim() : ''))
+          .filter(Boolean),
+      );
     };
 
     const fetchStatus = async () => {
