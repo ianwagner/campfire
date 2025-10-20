@@ -564,6 +564,7 @@ const AdGroupDetail = () => {
   const [designerName, setDesignerName] = useState('');
   const [editors, setEditors] = useState([]);
   const [editorName, setEditorName] = useState('');
+  const [availableRecipeTypes, setAvailableRecipeTypes] = useState([]);
   const [revisionModal, setRevisionModal] = useState(null);
   const [uploadSummary, setUploadSummary] = useState(null);
   const [menuRecipe, setMenuRecipe] = useState(null);
@@ -614,6 +615,24 @@ const AdGroupDetail = () => {
     [assets],
   );
   const showAdsEmptyState = usesTabs && tab === "ads" && activeAdsCount === 0;
+
+  useEffect(() => {
+    const fetchRecipeTypes = async () => {
+      const snap = await getDocs(collection(db, "recipeTypes"));
+      setAvailableRecipeTypes(
+        snap.docs.map((docSnap) => ({
+          id: docSnap.id,
+          name:
+            docSnap.data().name ||
+            docSnap.data().title ||
+            "Unnamed Recipe",
+        })),
+      );
+    };
+    fetchRecipeTypes().catch((err) =>
+      console.error("Failed to load recipe types", err),
+    );
+  }, []);
 
   useEffect(() => {
     if (!isClientPortalUser) return;
@@ -4365,6 +4384,34 @@ const AdGroupDetail = () => {
                           <option value={1}>Legacy</option>
                           <option value={2}>2.0</option>
                           <option value={3}>Brief</option>
+                        </select>
+                      </div>
+                    )}
+                    {(isAdmin || isEditor) && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Recipe Type
+                        </span>
+                        <select
+                          aria-label="Recipe Type"
+                          value={group.recipeTypeId || ''}
+                          onChange={async (e) => {
+                            const val = e.target.value || null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { recipeTypeId: val });
+                              setGroup((p) => ({ ...p, recipeTypeId: val }));
+                            } catch (err) {
+                              console.error('Failed to update recipe type', err);
+                            }
+                          }}
+                          className="border p-1 text-sm rounded"
+                        >
+                          <option value="">Unassigned</option>
+                          {availableRecipeTypes.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     )}
