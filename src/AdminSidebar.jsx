@@ -16,6 +16,7 @@ import {
   FiBell,
   FiUser,
   FiTool,
+  FiLink,
   FiType,
 } from 'react-icons/fi';
 
@@ -41,6 +42,7 @@ const tabs = [
         icon: FiType,
       },
       { label: 'Account Settings', path: '/admin/account-settings', icon: FiUser },
+      { label: 'Integrations', path: '/admin/integrations', icon: FiLink },
       { label: 'Site Settings', path: '/admin/site-settings', icon: FiTool },
     ],
     icon: FiSettings,

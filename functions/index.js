@@ -7,7 +7,7 @@ import {
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import admin from 'firebase-admin';
-import sharp from 'sharp';
+import { getSharp } from './shared/lazySharp.js';
 import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
@@ -20,10 +20,72 @@ import { parsePdp } from './parsePdp.js';
 import { cacheProductImages } from './cacheProductImages.js';
 import { copyAssetToDrive, cleanupDriveFile } from './driveAssets.js';
 import { openaiProxy } from './openaiProxy.js';
+import { patchFirestoreProtobufDecoding } from './firestoreProtobufPatch.js';
+
+try {
+  patchFirestoreProtobufDecoding();
+} catch (err) {
+  console.error('Skipping Firestore protobuf patch due to initialization error', err);
+}
 
 if (!admin.apps.length) {
   admin.initializeApp();
 }
+
+function ensureFirebaseConfig() {
+  let config = {};
+  const rawConfig = process.env.FIREBASE_CONFIG;
+  if (rawConfig) {
+    try {
+      config = JSON.parse(rawConfig);
+    } catch (err) {
+      console.warn('Failed to parse FIREBASE_CONFIG, falling back to defaults', err);
+      config = {};
+    }
+  }
+
+  const appOptions = admin.app().options || {};
+
+  const projectId =
+    config.projectId ||
+    process.env.GCLOUD_PROJECT ||
+    process.env.GOOGLE_CLOUD_PROJECT ||
+    appOptions.projectId ||
+    null;
+
+  let storageBucket =
+    process.env.FIREBASE_STORAGE_BUCKET ||
+    process.env.STORAGE_BUCKET ||
+    config.storageBucket ||
+    appOptions.storageBucket ||
+    null;
+
+  if (!storageBucket && projectId) {
+    storageBucket = `${projectId}.appspot.com`;
+  }
+
+  const updatedConfig = { ...config };
+  if (projectId && !updatedConfig.projectId) {
+    updatedConfig.projectId = projectId;
+  }
+  if (storageBucket && !updatedConfig.storageBucket) {
+    updatedConfig.storageBucket = storageBucket;
+  }
+
+  if (Object.keys(updatedConfig).length > 0) {
+    process.env.FIREBASE_CONFIG = JSON.stringify(updatedConfig);
+  } else if (!process.env.FIREBASE_CONFIG) {
+    process.env.FIREBASE_CONFIG = '{}';
+  }
+
+  if (storageBucket && !process.env.FIREBASE_STORAGE_BUCKET) {
+    process.env.FIREBASE_STORAGE_BUCKET = storageBucket;
+  }
+
+  return { projectId, storageBucket };
+}
+
+const { storageBucket: defaultStorageBucket } = ensureFirebaseConfig();
 
 const db = admin.firestore();
 
@@ -54,6 +116,341 @@ function parseAdFilename(filename) {
   }
 
   return { brandCode, adGroupCode, recipeCode, aspectRatio, version };
+}
+
+function normalizeStringValue(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return '';
+    return String(value);
+  }
+  return '';
+}
+
+function normalizeTimestampValue(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return null;
+    return value;
+  }
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  if (typeof value === 'object' && typeof value.toMillis === 'function') {
+    try {
+      return value.toMillis();
+    } catch (err) {
+      return null;
+    }
+  }
+  return null;
+}
+
+function normalizeStringArray(values) {
+  if (!Array.isArray(values)) return [];
+  const result = [];
+  const seen = new Set();
+  for (const value of values) {
+    const normalized = normalizeStringValue(value);
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(normalized);
+  }
+  return result;
+}
+
+function sanitizeNestedValue(value, depth = 0) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (depth > 6) return undefined;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return undefined;
+    return value;
+  }
+  if (typeof value === 'boolean') return value;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'object' && typeof value.toMillis === 'function') {
+    try {
+      return value.toMillis();
+    } catch (err) {
+      return undefined;
+    }
+  }
+  if (Array.isArray(value)) {
+    const arr = [];
+    for (const entry of value) {
+      const sanitized = sanitizeNestedValue(entry, depth + 1);
+      if (sanitized !== undefined) {
+        arr.push(sanitized);
+      }
+    }
+    return arr;
+  }
+  if (typeof value === 'object') {
+    const obj = {};
+    for (const [key, entry] of Object.entries(value)) {
+      const sanitized = sanitizeNestedValue(entry, depth + 1);
+      if (sanitized !== undefined) {
+        obj[key] = sanitized;
+      }
+    }
+    return obj;
+  }
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  return undefined;
+}
+
+function buildNormalizedAssetDoc(assetId, groupId, assetData = {}, groupData = {}) {
+  const normalized = { id: assetId, adGroupId: groupId };
+  const filenameInfo = parseAdFilename(assetData.filename || '');
+
+  const resolvedBrandCode =
+    normalizeStringValue(assetData.brandCode) || normalizeStringValue(groupData.brandCode);
+  if (resolvedBrandCode) normalized.brandCode = resolvedBrandCode;
+
+  const resolvedGroupCode =
+    normalizeStringValue(assetData.adGroupCode) ||
+    normalizeStringValue(filenameInfo.adGroupCode) ||
+    normalizeStringValue(groupData.code);
+  if (resolvedGroupCode) normalized.adGroupCode = resolvedGroupCode;
+
+  const resolvedRecipeCode =
+    normalizeStringValue(assetData.recipeCode) || normalizeStringValue(filenameInfo.recipeCode);
+  if (resolvedRecipeCode) normalized.recipeCode = resolvedRecipeCode;
+
+  const resolvedAspectRatio =
+    normalizeStringValue(assetData.aspectRatio) || normalizeStringValue(filenameInfo.aspectRatio);
+  if (resolvedAspectRatio) normalized.aspectRatio = resolvedAspectRatio;
+
+  const resolvedVersion =
+    Number.isFinite(assetData.version) ? Math.trunc(assetData.version) : filenameInfo.version;
+  if (Number.isFinite(resolvedVersion)) normalized.version = resolvedVersion;
+
+  const status = normalizeStringValue(assetData.status);
+  if (status) normalized.status = status;
+
+  const filename = normalizeStringValue(assetData.filename);
+  if (filename) normalized.filename = filename;
+
+  const name = normalizeStringValue(assetData.name);
+  if (name) normalized.name = name;
+
+  const product = normalizeStringValue(assetData.product);
+  if (product) normalized.product = product;
+
+  const campaign = normalizeStringValue(assetData.campaign);
+  if (campaign) normalized.campaign = campaign;
+
+  const persona = normalizeStringValue(assetData.persona);
+  if (persona) normalized.persona = persona;
+
+  const angle = normalizeStringValue(assetData.angle);
+  if (angle) normalized.angle = angle;
+
+  const primaryText = normalizeStringValue(assetData.primaryText);
+  if (primaryText) normalized.primaryText = primaryText;
+
+  const headline = normalizeStringValue(assetData.headline);
+  if (headline) normalized.headline = headline;
+
+  const type = normalizeStringValue(assetData.type);
+  if (type) normalized.type = type;
+
+  const description = normalizeStringValue(assetData.description);
+  if (description) normalized.description = description;
+
+  const thumbnailUrl = normalizeStringValue(assetData.thumbnailUrl);
+  if (thumbnailUrl) normalized.thumbnailUrl = thumbnailUrl;
+
+  const lastUpdatedBy = normalizeStringValue(assetData.lastUpdatedBy);
+  if (lastUpdatedBy) normalized.lastUpdatedBy = lastUpdatedBy;
+
+  const parentAdId = normalizeStringValue(assetData.parentAdId);
+  if (parentAdId) normalized.parentAdId = parentAdId;
+
+  const downloadUrl = normalizeStringValue(assetData.downloadUrl);
+  if (downloadUrl) normalized.downloadUrl = downloadUrl;
+
+  const firebaseUrl = normalizeStringValue(assetData.firebaseUrl);
+  if (firebaseUrl) normalized.firebaseUrl = firebaseUrl;
+
+  const exportUrl = normalizeStringValue(assetData.exportUrl);
+  if (exportUrl) normalized.exportUrl = exportUrl;
+
+  const sourceUrl = normalizeStringValue(assetData.sourceUrl);
+  if (sourceUrl) normalized.sourceUrl = sourceUrl;
+
+  const url = normalizeStringValue(assetData.url);
+  if (url) normalized.url = url;
+
+  const driveFileId = normalizeStringValue(assetData.driveFileId);
+  if (driveFileId) normalized.driveFileId = driveFileId;
+
+  const driveFileUrl = normalizeStringValue(assetData.driveFileUrl);
+  if (driveFileUrl) normalized.driveFileUrl = driveFileUrl;
+
+  const resolvedAssetUrl = [
+    assetData.exportUrl,
+    assetData.assetUrl,
+    assetData.firebaseUrl,
+    assetData.url,
+    assetData.sourceUrl,
+    assetData.downloadUrl,
+  ]
+    .map((candidate) => normalizeStringValue(candidate))
+    .find((candidate) => candidate);
+  if (resolvedAssetUrl) normalized.assetUrl = resolvedAssetUrl;
+
+  if (Object.prototype.hasOwnProperty.call(assetData, 'comment')) {
+    if (assetData.comment === null) {
+      normalized.comment = null;
+    } else {
+      const comment = normalizeStringValue(assetData.comment);
+      if (comment) normalized.comment = comment;
+    }
+  }
+
+  if (typeof assetData.isResolved === 'boolean') {
+    normalized.isResolved = assetData.isResolved;
+  }
+
+  if (typeof assetData.archived === 'boolean') {
+    normalized.archived = assetData.archived;
+  }
+
+  if (Number.isFinite(assetData.fileSize)) {
+    normalized.fileSize = Math.trunc(assetData.fileSize);
+  }
+
+  const timestampFields = [
+    'uploadedAt',
+    'createdAt',
+    'updatedAt',
+    'lastUpdatedAt',
+    'approvedAt',
+    'archivedAt',
+    'deliveredAt',
+  ];
+  for (const field of timestampFields) {
+    const ts = normalizeTimestampValue(assetData[field]);
+    if (ts !== null) {
+      normalized[field] = ts;
+    }
+  }
+
+  const tags = normalizeStringArray(assetData.tags);
+  if (tags.length > 0) normalized.tags = tags;
+
+  const keywords = normalizeStringArray(assetData.keywords);
+  if (keywords.length > 0) normalized.keywords = keywords;
+
+  if (Array.isArray(assetData.assets)) {
+    const sanitizedAssets = assetData.assets
+      .map((entry) => {
+        if (!entry || typeof entry !== 'object') return null;
+        const obj = {};
+        for (const key of [
+          'url',
+          'downloadUrl',
+          'assetUrl',
+          'firebaseUrl',
+          'sourceUrl',
+          'thumbnailUrl',
+          'aspectRatio',
+          'type',
+          'label',
+          'variant',
+        ]) {
+          const value = normalizeStringValue(entry[key]);
+          if (value) obj[key] = value;
+        }
+        if (Number.isFinite(entry.width)) obj.width = Math.trunc(entry.width);
+        if (Number.isFinite(entry.height)) obj.height = Math.trunc(entry.height);
+        if (Number.isFinite(entry.size)) obj.size = Math.trunc(entry.size);
+        if (typeof entry.primary === 'boolean') obj.primary = entry.primary;
+        return Object.keys(obj).length > 0 ? obj : null;
+      })
+      .filter(Boolean);
+    if (sanitizedAssets.length > 0) normalized.assets = sanitizedAssets;
+  }
+
+  for (const key of [
+    'compass',
+    'adlog',
+    'metadata',
+    'details',
+    'info',
+    'fields',
+    'partnerFields',
+    'partnerData',
+    'integration',
+    'integrationData',
+    'export',
+    'exportData',
+  ]) {
+    if (Object.prototype.hasOwnProperty.call(assetData, key)) {
+      const sanitized = sanitizeNestedValue(assetData[key]);
+      if (sanitized === null) {
+        normalized[key] = null;
+      } else if (Array.isArray(sanitized)) {
+        if (sanitized.length > 0) {
+          normalized[key] = sanitized;
+        }
+      } else if (sanitized && typeof sanitized === 'object') {
+        if (Object.keys(sanitized).length > 0) {
+          normalized[key] = sanitized;
+        }
+      } else if (sanitized !== undefined) {
+        normalized[key] = sanitized;
+      }
+    }
+  }
+
+  const groupSummary = {};
+  const groupName = normalizeStringValue(groupData.name);
+  if (groupName) groupSummary.name = groupName;
+  const groupCode = normalizeStringValue(groupData.code);
+  if (groupCode) groupSummary.code = groupCode;
+  const groupBrandCode = normalizeStringValue(groupData.brandCode);
+  if (groupBrandCode) groupSummary.brandCode = groupBrandCode;
+  const projectId = normalizeStringValue(groupData.projectId);
+  if (projectId) groupSummary.projectId = projectId;
+  const requestId = normalizeStringValue(groupData.requestId);
+  if (requestId) groupSummary.requestId = requestId;
+  const brandId = normalizeStringValue(groupData.brandId);
+  if (brandId) groupSummary.brandId = brandId;
+
+  if (Object.keys(groupSummary).length > 0) {
+    normalized.group = { id: groupId, ...groupSummary };
+    if (groupSummary.name) normalized.groupName = groupSummary.name;
+    if (groupSummary.projectId) normalized.projectId = groupSummary.projectId;
+    if (groupSummary.requestId) normalized.requestId = groupSummary.requestId;
+    if (groupSummary.brandId) normalized.brandId = groupSummary.brandId;
+    if (!normalized.brandCode && groupSummary.brandCode) normalized.brandCode = groupSummary.brandCode;
+    if (!normalized.adGroupCode && groupSummary.code) normalized.adGroupCode = groupSummary.code;
+  }
+
+  for (const key of Object.keys(normalized)) {
+    const value = normalized[key];
+    if (value === undefined) {
+      delete normalized[key];
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      if (Object.keys(value).length === 0) {
+        delete normalized[key];
+      }
+    } else if (Array.isArray(value) && value.length === 0) {
+      delete normalized[key];
+    }
+  }
+
+  return normalized;
 }
 
 async function resolveBrandCodeForGroup(groupData = {}) {
@@ -274,6 +671,49 @@ export const updateBrandStatsOnBrandChange = onDocumentWritten('brands/{brandId}
   return null;
 });
 
+export const mirrorAdAssets = onDocumentWritten(
+  'adGroups/{groupId}/assets/{assetId}',
+  async (event) => {
+    const { groupId, assetId } = event.params;
+    const assetRef = db.collection('adAssets').doc(assetId);
+
+    const after = event.data?.after;
+    if (!after || !after.exists) {
+      try {
+        await assetRef.delete();
+      } catch (err) {
+        const code = err?.code || err?.codeName;
+        if (code !== 'not-found' && code !== 5) {
+          console.error('Failed to delete mirrored ad asset', { assetId, groupId, error: err });
+        }
+      }
+      return null;
+    }
+
+    const assetData = after.data() || {};
+    let groupData = {};
+    try {
+      const groupSnap = await db.collection('adGroups').doc(groupId).get();
+      if (groupSnap.exists) {
+        groupData = groupSnap.data() || {};
+      }
+    } catch (err) {
+      console.error('Failed to load ad group while mirroring asset', { groupId, assetId, error: err });
+    }
+
+    const normalized = buildNormalizedAssetDoc(assetId, groupId, assetData, groupData);
+    normalized.syncedAt = admin.firestore.FieldValue.serverTimestamp();
+
+    try {
+      await assetRef.set(normalized, { merge: false });
+    } catch (err) {
+      console.error('Failed to write mirrored ad asset', { groupId, assetId, error: err });
+    }
+
+    return null;
+  }
+);
+
 export const updateBrandStatsOnAssetChange = onDocumentWritten(
   'adGroups/{groupId}/assets/{assetId}',
   async (event) => {
@@ -411,7 +851,27 @@ export const ensureAdGroupBrandCode = onDocumentWritten('adGroups/{groupId}', as
   return null;
 });
 
-export const processUpload = onObjectFinalized(async (event) => {
+function registerProcessUpload(handler) {
+  const register = (options) =>
+    options ? onObjectFinalized(options, handler) : onObjectFinalized(handler);
+
+  try {
+    if (defaultStorageBucket) {
+      return register({ bucket: defaultStorageBucket });
+    }
+    return register();
+  } catch (err) {
+    if (!defaultStorageBucket && err?.message?.includes('Missing bucket name')) {
+      console.warn(
+        'Missing storage bucket configuration. Using a placeholder bucket for processUpload trigger registration.',
+      );
+      return register({ bucket: 'placeholder-bucket' });
+    }
+    throw err;
+  }
+}
+
+async function processUploadHandler(event) {
   const object = event.data;
   const { bucket, name, contentType } = object;
   if (!contentType || (!contentType.startsWith('image/png') && !contentType.startsWith('image/tiff'))) {
@@ -432,6 +892,7 @@ export const processUpload = onObjectFinalized(async (event) => {
 
   const base = path.basename(name, path.extname(name));
   let inputTmp = temp;
+  const sharp = await getSharp();
   const meta = await sharp(temp).metadata().catch(() => ({}));
   if (meta.format === 'tiff') {
     const pngTmp = path.join(os.tmpdir(), `${base}.png`);
@@ -489,7 +950,9 @@ export const processUpload = onObjectFinalized(async (event) => {
     thumbnailUrl: thumbUrl,
   });
   return null;
-});
+}
+
+export const processUpload = registerProcessUpload(processUploadHandler);
 
 export const signOutUser = onCall(async (data, context) => {
   if (!context.auth || !context.auth.token.admin) {
@@ -780,3 +1243,5 @@ export {
   cleanupDriveFile,
   openaiProxy,
 };
+
+export { processExportJob, processExportJobCallable, runExportJob } from "./exportJobWorker.js";

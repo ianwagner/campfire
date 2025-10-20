@@ -14,7 +14,6 @@ import useUserRole from './useUserRole';
 import useAgencies from './useAgencies';
 import { uploadBrandAsset } from './uploadBrandAsset';
 import { deleteBrandAsset } from './deleteBrandAsset';
-import PageWrapper from './components/PageWrapper.jsx';
 import FormField from './components/FormField.jsx';
 import SaveButton from './components/SaveButton.jsx';
 import IconButton from './components/IconButton.jsx';
@@ -404,231 +403,241 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   useUnsavedChanges(dirty, handleSave);
 
   return (
-    <PageWrapper>
-      <div className="flex justify-end mb-2">
-        {editing ? (
-          <SaveButton
-            form="brand-form"
-            type="submit"
-            canSave={dirty && !loading}
-            loading={loading}
-          />
-        ) : (
-          <IconButton aria-label="Edit" onClick={() => setEditing(true)}>
-            <FiEdit2 />
-          </IconButton>
-        )}
-      </div>
-      {editing ? (
-        <form id="brand-form" onSubmit={handleSave} className="space-y-6 max-w-2xl">
-        <h2 className="text-xl mb-2">General Information</h2>
-        <FormField label="Brand Name">
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              setDirty(true);
-            }}
-            className="w-full p-2 border rounded"
-          />
-        </FormField>
-        <FormField label="Agency">
-          <select
-            value={agencyId}
-            onChange={(e) => {
-              setAgencyId(e.target.value);
-              setDirty(true);
-            }}
-            className="w-full p-2 border rounded"
-          >
-            <option value="">Select agency</option>
-            {agencies.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </FormField>
-        <FormField label="Offering">
-          <input
-            type="text"
-            value={offering}
-            onChange={(e) => {
-              setOffering(e.target.value);
-              setDirty(true);
-            }}
-            className="w-full p-2 border rounded"
-          />
-        </FormField>
-        <FormField label="Store ID">
-          <input
-            type="text"
-            value={storeId}
-            onChange={(e) => {
-              setStoreId(e.target.value);
-              setDirty(true);
-            }}
-            className="w-full p-2 border rounded"
-          />
-        </FormField>
-        <FormField label="Drive Folder ID">
-          <input
-            type="text"
-            value={driveFolderId}
-            onChange={(e) => {
-              setDriveFolderId(e.target.value);
-              setDirty(true);
-            }}
-            className="w-full p-2 border rounded"
-            placeholder="Optional Google Drive folder ID"
-          />
-          <p className="text-xs text-gray-600 mt-1">
-            Optional. Use the ID from the folder's URL and share the folder with the service account to store uploaded ads.
-          </p>
-        </FormField>
-        {renderDashboardUrlField()}
-        <h2 className="text-xl mb-2">Brand Assets</h2>
-        <FormField label="Brand Guidelines (PDF)">
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={(e) => {
-              setGuidelines({ url: guidelines.url, file: e.target.files[0] || null });
-              setDirty(true);
-            }}
-            className="w-full p-2 border rounded"
-          />
-          {guidelines.url && (
-            <a href={guidelines.url} target="_blank" rel="noopener noreferrer" className="text-sm underline block mt-1">
-              Current file
-            </a>
-          )}
-        </FormField>
-        <FormField label="Logos">
-          {logos.map((logo, idx) => (
-            <div key={idx} className="mb-2">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => updateLogoFile(idx, e.target.files[0])}
-                  className="w-full p-2 border rounded"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleDeleteLogo(idx)}
-                  className="btn-action"
-                >
-                  Delete
-                </button>
-              </div>
-              {logo.url && <img src={logo.url} alt="logo" className="mt-1 h-16 w-auto" />}
+    <div className="flex flex-col gap-6">
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Brand Setup</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Manage core brand details, assets, and guidelines for the team.
+            </p>
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            {editing ? (
+              <SaveButton
+                form="brand-form"
+                type="submit"
+                canSave={dirty && !loading}
+                loading={loading}
+              />
+            ) : (
+              <IconButton aria-label="Edit" onClick={() => setEditing(true)}>
+                <FiEdit2 />
+              </IconButton>
+            )}
+          </div>
+        </div>
+        <div className="mt-6">
+          {editing ? (
+            <form id="brand-form" onSubmit={handleSave} className="space-y-6 max-w-2xl">
+            <h2 className="text-xl mb-2">General Information</h2>
+            <FormField label="Brand Name">
               <input
                 type="text"
-                value={logo.description}
-                onChange={(e) => updateLogoDescription(idx, e.target.value)}
-                className="mt-2 w-full p-2 border rounded"
-                placeholder="Describe how to use this logo"
-              />
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              setLogos((p) => [...p, { ...emptyLogo }]);
-              setDirty(true);
-            }}
-            className="btn-action mt-1"
-          >
-            Add Logo
-          </button>
-        </FormField>
-        <FormField label="Palette">
-          {palette.map((color, idx) => (
-            <div key={idx} className="flex items-center mb-2 space-x-2">
-              <input
-                type="color"
-                value={color}
+                value={name}
                 onChange={(e) => {
-                  setPalette((p) => p.map((c, i) => (i === idx ? e.target.value : c)));
+                  setName(e.target.value);
                   setDirty(true);
                 }}
-                className="h-10 w-10 p-0 border rounded"
+                className="w-full p-2 border rounded"
               />
+            </FormField>
+            <FormField label="Agency">
+              <select
+                value={agencyId}
+                onChange={(e) => {
+                  setAgencyId(e.target.value);
+                  setDirty(true);
+                }}
+                className="w-full p-2 border rounded"
+              >
+                <option value="">Select agency</option>
+                {agencies.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Offering">
               <input
                 type="text"
-                value={color}
+                value={offering}
                 onChange={(e) => {
-                  setPalette((p) => p.map((c, i) => (i === idx ? e.target.value : c)));
+                  setOffering(e.target.value);
                   setDirty(true);
                 }}
-                className="w-24 p-1 border rounded"
+                className="w-full p-2 border rounded"
               />
+            </FormField>
+            <FormField label="Store ID">
+              <input
+                type="text"
+                value={storeId}
+                onChange={(e) => {
+                  setStoreId(e.target.value);
+                  setDirty(true);
+                }}
+                className="w-full p-2 border rounded"
+              />
+            </FormField>
+            <FormField label="Drive Folder ID">
+              <input
+                type="text"
+                value={driveFolderId}
+                onChange={(e) => {
+                  setDriveFolderId(e.target.value);
+                  setDirty(true);
+                }}
+                className="w-full p-2 border rounded"
+                placeholder="Optional Google Drive folder ID"
+              />
+              <p className="text-xs text-gray-600 mt-1">
+                Optional. Use the ID from the folder's URL and share the folder with the service account to store uploaded ads.
+              </p>
+            </FormField>
+            {renderDashboardUrlField()}
+            <h2 className="text-xl mb-2">Brand Assets</h2>
+            <FormField label="Brand Guidelines (PDF)">
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => {
+                  setGuidelines({ url: guidelines.url, file: e.target.files[0] || null });
+                  setDirty(true);
+                }}
+                className="w-full p-2 border rounded"
+              />
+              {guidelines.url && (
+                <a href={guidelines.url} target="_blank" rel="noopener noreferrer" className="text-sm underline block mt-1">
+                  Current file
+                </a>
+              )}
+            </FormField>
+            <FormField label="Logos">
+              {logos.map((logo, idx) => (
+                <div key={idx} className="mb-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => updateLogoFile(idx, e.target.files[0])}
+                      className="w-full p-2 border rounded"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteLogo(idx)}
+                      className="btn-action"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                  {logo.url && <img src={logo.url} alt="logo" className="mt-1 h-16 w-auto" />}
+                  <input
+                    type="text"
+                    value={logo.description}
+                    onChange={(e) => updateLogoDescription(idx, e.target.value)}
+                    className="mt-2 w-full p-2 border rounded"
+                    placeholder="Describe how to use this logo"
+                  />
+                </div>
+              ))}
               <button
                 type="button"
                 onClick={() => {
-                  setPalette((p) => p.filter((_, i) => i !== idx));
+                  setLogos((p) => [...p, { ...emptyLogo }]);
                   setDirty(true);
                 }}
-                className="btn-action"
+                className="btn-action mt-1"
               >
-                Delete
+                Add Logo
               </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              setPalette((p) => [...p, '#000000']);
-              setDirty(true);
-            }}
-            className="btn-action mt-1"
-          >
-            Add Color
-          </button>
-        </FormField>
-        <FormField label="Typefaces">
-          {fonts.map((font, idx) => (
-            <div key={idx} className="mb-2 space-y-1">
-              <select
-                value={font.type}
-                onChange={(e) => updateFont(idx, { type: e.target.value })}
-                className="p-1 border rounded mr-2"
-              >
-                <option value="google">Google Font</option>
-                <option value="custom">Custom</option>
-              </select>
-              {font.type === 'google' ? (
-                <input
-                  type="text"
-                  value={font.value}
-                  placeholder="Font Name"
-                  onChange={(e) => updateFont(idx, { value: e.target.value, name: e.target.value })}
-                  className="w-full p-2 border rounded"
-                />
-              ) : (
-                <>
+            </FormField>
+            <FormField label="Palette">
+              {palette.map((color, idx) => (
+                <div key={idx} className="flex items-center mb-2 space-x-2">
+                  <input
+                    type="color"
+                    value={color}
+                    onChange={(e) => {
+                      setPalette((p) => p.map((c, i) => (i === idx ? e.target.value : c)));
+                      setDirty(true);
+                    }}
+                    className="h-10 w-10 p-0 border rounded"
+                  />
                   <input
                     type="text"
-                    value={font.name}
-                    placeholder="Font Name"
-                    onChange={(e) => updateFont(idx, { name: e.target.value })}
-                    className="w-full p-2 border rounded"
+                    value={color}
+                    onChange={(e) => {
+                      setPalette((p) => p.map((c, i) => (i === idx ? e.target.value : c)));
+                      setDirty(true);
+                    }}
+                    className="w-24 p-1 border rounded"
                   />
-                  <input
-                    type="file"
-                    onChange={(e) =>
-                      updateFont(idx, {
-                        file: e.target.files[0],
-                        value: e.target.files[0]
-                          ? URL.createObjectURL(e.target.files[0])
-                          : font.value,
-                      })
-                    }
-                    className="w-full p-2 border rounded"
-                  />
-                </>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPalette((p) => p.filter((_, i) => i !== idx));
+                      setDirty(true);
+                    }}
+                    className="btn-action"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setPalette((p) => [...p, '#000000']);
+                  setDirty(true);
+                }}
+                className="btn-action mt-1"
+              >
+                Add Color
+              </button>
+            </FormField>
+            <FormField label="Typefaces">
+              {fonts.map((font, idx) => (
+                <div key={idx} className="mb-2 space-y-1">
+                  <select
+                    value={font.type}
+                    onChange={(e) => updateFont(idx, { type: e.target.value })}
+                    className="p-1 border rounded mr-2"
+                  >
+                    <option value="google">Google Font</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                  {font.type === 'google' ? (
+                    <input
+                      type="text"
+                      value={font.value}
+                      placeholder="Font Name"
+                      onChange={(e) => updateFont(idx, { value: e.target.value, name: e.target.value })}
+                      className="w-full p-2 border rounded"
+                    />
+              ) : (
+                    <>
+                      <input
+                        type="text"
+                        value={font.name}
+                        placeholder="Font Name"
+                        onChange={(e) => updateFont(idx, { name: e.target.value })}
+                        className="w-full p-2 border rounded"
+                      />
+                      <input
+                        type="file"
+                        onChange={(e) =>
+                          updateFont(idx, {
+                            file: e.target.files[0],
+                            value: e.target.files[0]
+                              ? URL.createObjectURL(e.target.files[0])
+                              : font.value,
+                          })
+                        }
+                        className="w-full p-2 border rounded"
+                      />
+                    </>
               )}
               {font.type === 'custom' && font.value && !font.file && (
                 <a href={font.value} target="_blank" rel="noopener noreferrer" className="text-sm underline block">
@@ -699,7 +708,9 @@ const BrandSetup = ({ brandId: propId = null, brandCode: propCode = '' }) => {
           />
         </div>
       )}
-    </PageWrapper>
+        </div>
+      </section>
+    </div>
   );
 };
 

@@ -22,6 +22,7 @@ import { auth } from '../firebase/config';
 import useUserRole from '../useUserRole';
 import IconButton from './IconButton.jsx';
 import MonthTag from './MonthTag.jsx';
+import InfoTooltip from './InfoTooltip.jsx';
 import { getReviewTypeLabel } from '../utils/reviewVersion';
 
 
@@ -231,30 +232,42 @@ const AdGroupCard = ({
         </div>
         <div className="border-t border-gray-300 dark:border-gray-600 px-3 py-2">
           <div className="grid grid-cols-6 text-center text-sm">
-            <div className="flex items-center justify-center gap-1 text-gray-600">
-              <FiZap />
-              <span>{group.recipeCount}</span>
-            </div>
-            <div className="flex items-center justify-center gap-1 text-gray-600">
-              <FiGrid />
-              <span>{unitCount}</span>
-            </div>
-            <div className="flex items-center justify-center gap-1 text-accent">
-              <FiClock />
-              <span>{pendingTotal}</span>
-            </div>
-            <div className="flex items-center justify-center gap-1 text-approve">
-              <FiThumbsUp />
-              <span>{counts.approved ?? 0}</span>
-            </div>
-            <div className="flex items-center justify-center gap-1 text-reject">
-              <FiThumbsDown />
-              <span>{counts.rejected ?? 0}</span>
-            </div>
-            <div className="flex items-center justify-center gap-1 text-edit">
-              <FiEdit />
-              <span>{counts.edit ?? 0}</span>
-            </div>
+            <InfoTooltip text="Recipes" className="w-full">
+              <div className="flex items-center justify-center gap-1 text-gray-600">
+                <FiZap />
+                <span>{group.recipeCount}</span>
+              </div>
+            </InfoTooltip>
+            <InfoTooltip text="Ad units" className="w-full">
+              <div className="flex items-center justify-center gap-1 text-gray-600">
+                <FiGrid />
+                <span>{unitCount}</span>
+              </div>
+            </InfoTooltip>
+            <InfoTooltip text="Pending review" className="w-full">
+              <div className="flex items-center justify-center gap-1 text-accent">
+                <FiClock />
+                <span>{pendingTotal}</span>
+              </div>
+            </InfoTooltip>
+            <InfoTooltip text="Approved" className="w-full">
+              <div className="flex items-center justify-center gap-1 text-approve">
+                <FiThumbsUp />
+                <span>{counts.approved ?? 0}</span>
+              </div>
+            </InfoTooltip>
+            <InfoTooltip text="Rejected" className="w-full">
+              <div className="flex items-center justify-center gap-1 text-reject">
+                <FiThumbsDown />
+                <span>{counts.rejected ?? 0}</span>
+              </div>
+            </InfoTooltip>
+            <InfoTooltip text="Needs edits" className="w-full">
+              <div className="flex items-center justify-center gap-1 text-edit">
+                <FiEdit />
+                <span>{counts.edit ?? 0}</span>
+              </div>
+            </InfoTooltip>
           </div>
         </div>
       </Link>

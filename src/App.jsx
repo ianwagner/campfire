@@ -44,6 +44,7 @@ import AdminBrands from "./AdminBrands";
 import AdminBrandDetail from "./AdminBrandDetail";
 import EditorBrands from "./EditorBrands";
 import AdminAgencies from "./AdminAgencies";
+import AdminAgencyForm from "./AdminAgencyForm.jsx";
 import AdminAgencyProfile from "./AdminAgencyProfile";
 import ClientProjects from "./ClientProjects";
 import ProjectDetail from "./ProjectDetail";
@@ -80,6 +81,7 @@ import AdminClaimDebug from "./AdminClaimDebug";
 import AdminDistribution from "./AdminDistribution";
 import AdminCapacityPlanner from "./AdminCapacityPlanner";
 import MiniGame from "./MiniGame.jsx";
+import AdminIntegrations from "./AdminIntegrations";
 
 const ThemeWatcher = () => {
   useTheme();
@@ -576,6 +578,22 @@ const App = () => {
               }
             />
             <Route
+              path="/admin/agencies/new"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole={["admin", "manager"]}
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <AdminAgencyForm />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
               path="/admin/agencies/:agencyId"
               element={
                 user ? (
@@ -1032,6 +1050,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminNotifications />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/integrations"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole="admin"
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <AdminIntegrations />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />

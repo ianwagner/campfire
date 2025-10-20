@@ -41,6 +41,7 @@ import RecipePreview from "./RecipePreview.jsx";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
 import BrandAssets from "./BrandAssets.jsx";
 import BrandAssetsLayout from "./BrandAssetsLayout.jsx";
+import BrandNotesPanel from "./BrandNotesPanel.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
 import {
   doc,
@@ -81,6 +82,7 @@ import diffWords from "./utils/diffWords";
 import Modal from "./components/Modal.jsx";
 import sortCopyCards from "./utils/sortCopyCards";
 import IconButton from "./components/IconButton.jsx";
+import InfoTooltip from "./components/InfoTooltip.jsx";
 import Button from "./components/Button.jsx";
 import TabButton from "./components/TabButton.jsx";
 import Table from "./components/common/Table";
@@ -605,11 +607,17 @@ const AdGroupDetail = () => {
   const canUploadAds = isAdmin || isDesigner || isAgency;
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
+  const brandNotesVisible = usesTabs ? tab === "brandNotes" : false;
   const showStats = usesTabs ? (!isClientPortalUser && tab === "stats") : !showTable;
+  const activeAdsCount = useMemo(
+    () => assets.filter((asset) => asset.status !== "archived").length,
+    [assets],
+  );
+  const showAdsEmptyState = usesTabs && tab === "ads" && activeAdsCount === 0;
 
   useEffect(() => {
     if (!isClientPortalUser) return;
-    if (!['brief', 'ads', 'copy', 'feedback', 'blocker'].includes(tab)) {
+    if (!['brief', 'brandNotes', 'assets', 'ads', 'copy', 'feedback', 'blocker'].includes(tab)) {
       setTab('brief');
     }
   }, [isClientPortalUser, tab]);
@@ -1296,6 +1304,11 @@ const AdGroupDetail = () => {
           body: data.body || data.text || data.note || "",
           createdAt,
           updatedAt,
+          tags: Array.isArray(data.tags)
+            ? data.tags
+                .map((tag) => (typeof tag === 'string' ? tag.trim() : ''))
+                .filter(Boolean)
+            : [],
         };
       });
       setBrandNotes(items);
@@ -3821,492 +3834,626 @@ const AdGroupDetail = () => {
       </TabButton>
     ) : null;
 
-  return (
-    <div className="min-h-screen p-4 ">
-      <div className="flex items-center mb-2 gap-2">
-        <Link to={backPath} className="btn-arrow" aria-label="Back">
-          &lt;
-        </Link>
-        <h1 className="text-2xl mb-0 flex-1">{group.name}</h1>
-        {userRole === "project-manager" && (
-          <Link
-            to={ganttPath}
-            className="btn-secondary"
-            aria-label="View Gantt Chart"
-          >
-            Gantt
-          </Link>
-        )}
-      </div>
-      <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
-        Brand: {group.brandCode}
-        <span className="hidden sm:inline">|</span>
-        Status:
-        {isAdmin || isEditor || isDesigner ? (
-          <select
-            aria-label="Status"
-            value={group.status}
-            onChange={handleStatusChange}
-            className={`status-select status-${(group.status || '').replace(/\s+/g, '_')}`}
-          >
-            {statusOptions.map((s) => (
-              <option
-                key={s}
-                value={s}
-                disabled={isDesigner && s === 'briefed'}
-                hidden={isDesigner && s === 'briefed'}
-              >
-                {s}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <StatusBadge status={group.status} />
-        )}
-        <span className="hidden sm:inline">|</span>
-        Due Date:
-        {userRole === "admin" || userRole === "agency" ? (
-          <input
-            type="date"
-            value={
-              group.dueDate
-                ? group.dueDate.toDate().toISOString().slice(0, 10)
-                : ""
-            }
-            onChange={async (e) => {
-              const date = e.target.value
-                ? Timestamp.fromDate(new Date(e.target.value))
-                : null;
-              try {
-                await updateDoc(doc(db, "adGroups", id), { dueDate: date });
-                setGroup((p) => ({ ...p, dueDate: date }));
-                if (group.requestId) {
-                  try {
-                    await updateDoc(doc(db, 'requests', group.requestId), {
-                      dueDate: date,
-                    });
-                  } catch (err) {
-                    console.error('Failed to sync ticket due date', err);
-                  }
-                }
-              } catch (err) {
-                console.error("Failed to update due date", err);
-              }
-            }}
-          className="border tag-pill px-2 py-1 text-sm"
-          />
-        ) : (
-          <span>
-            {group.dueDate
-              ? group.dueDate.toDate().toLocaleDateString()
-              : "N/A"}
-          </span>
-          )}
-        {(isAdmin || isEditor) && (
-          <>
-            <span className="hidden sm:inline">|</span>
-            <label className="flex items-center gap-1">
-              <span className="hidden sm:inline">Review Type:</span>
-              <select
-                aria-label="Review Type"
-                value={group.reviewVersion || 1}
-                onChange={handleReviewTypeChange}
-                className="border p-1 text-sm"
-              >
-                <option value={1}>Legacy</option>
-                <option value={2}>2.0</option>
-                <option value={3}>Brief</option>
-              </select>
-            </label>
-          </>
-        )}
-        {(brandHasAgency || userRole === 'admin') && (
-          <>
-            <span className="hidden sm:inline">|</span>
-            Month:
-            <input
-              type="month"
-              value={group.month || ''}
-              onChange={async (e) => {
-                const value = e.target.value;
-                try {
-                  if (value) {
-                    await updateDoc(doc(db, 'adGroups', id), { month: value });
-                    setGroup((p) => ({ ...p, month: value }));
-                    if (group.requestId) {
-                      try {
-                        await updateDoc(doc(db, 'requests', group.requestId), { month: value });
-                      } catch (err) {
-                        console.error('Failed to sync ticket month', err);
-                      }
-                    }
-                  } else {
-                    await updateDoc(doc(db, 'adGroups', id), { month: deleteField() });
-                    setGroup((p) => {
-                      const u = { ...p };
-                      delete u.month;
-                      return u;
-                    });
-                    if (group.requestId) {
-                      try {
-                        await updateDoc(doc(db, 'requests', group.requestId), { month: deleteField() });
-                      } catch (err) {
-                        console.error('Failed to sync ticket month', err);
-                      }
-                    }
-                  }
-                } catch (err) {
-                  console.error('Failed to update month', err);
-                }
-              }}
-              className="border tag-pill px-2 py-1 text-sm"
-            />
-          </>
-        )}
-      </p>
-      {(!isClientPortalUser || isProjectManager) && (
-        <p className="text-sm text-gray-500 flex flex-wrap items-center gap-2">
-          Designer:
-          {canManageStaff ? (
-            <select
-              aria-label="Designer Assignment"
-              value={group.designerId || ''}
-              onChange={async (e) => {
-                const value = e.target.value || null;
-                try {
-                  await updateDoc(doc(db, 'adGroups', id), { designerId: value });
-                  setGroup((p) => ({ ...p, designerId: value }));
-                } catch (err) {
-                  console.error('Failed to update designer', err);
-                }
-              }}
-              className="border p-1 rounded"
-            >
-              <option value="">Unassigned</option>
-              {designers.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span>{designerName || 'Unassigned'}</span>
-          )}
-        <span className="hidden sm:inline">|</span>
-        Design Due Date:
-        {canManageStaff ? (
-          <input
-            type="date"
-            value={
-              group.designDueDate
-                ? (group.designDueDate.toDate
-                    ? group.designDueDate.toDate().toISOString().slice(0, 10)
-                    : new Date(group.designDueDate).toISOString().slice(0, 10))
-                : ''
-            }
-            onChange={async (e) => {
-              const date = e.target.value
-                ? Timestamp.fromDate(new Date(e.target.value))
-                : null;
-              try {
-                await updateDoc(doc(db, 'adGroups', id), { designDueDate: date });
-                setGroup((p) => ({ ...p, designDueDate: date }));
-              } catch (err) {
-                console.error('Failed to update design due date', err);
-              }
-            }}
-            className="border tag-pill px-2 py-1 text-sm"
-          />
-        ) : (
-          <span>
-            {group.designDueDate
-              ? (group.designDueDate.toDate
-                  ? group.designDueDate.toDate().toLocaleDateString()
-                  : new Date(group.designDueDate).toLocaleDateString())
-              : 'N/A'}
-          </span>
-        )}
-        <span className="hidden sm:inline">|</span>
-        Editor:
-        {canManageStaff ? (
-          <select
-            aria-label="Editor Assignment"
-            value={group.editorId || ''}
-            onChange={async (e) => {
-              const value = e.target.value || null;
-              try {
-                await updateDoc(doc(db, 'adGroups', id), { editorId: value });
-                setGroup((p) => ({ ...p, editorId: value }));
-              } catch (err) {
-                console.error('Failed to update editor', err);
-              }
-            }}
-            className="border p-1 rounded"
-          >
-            <option value="">Unassigned</option>
-            {editors.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span>{editorName || 'Unassigned'}</span>
-        )}
-        <span className="hidden sm:inline">|</span>
-        Editor Due Date:
-        {canManageStaff ? (
-          <input
-            type="date"
-            value={
-              group.editorDueDate
-                ? (group.editorDueDate.toDate
-                    ? group.editorDueDate.toDate().toISOString().slice(0, 10)
-                    : new Date(group.editorDueDate).toISOString().slice(0, 10))
-                : ''
-            }
-            onChange={async (e) => {
-              const date = e.target.value
-                ? Timestamp.fromDate(new Date(e.target.value))
-                : null;
-              try {
-                await updateDoc(doc(db, 'adGroups', id), { editorDueDate: date });
-                setGroup((p) => ({ ...p, editorDueDate: date }));
-              } catch (err) {
-                console.error('Failed to update editor due date', err);
-              }
-            }}
-            className="border tag-pill px-2 py-1 text-sm"
-          />
-        ) : (
-          <span>
-            {group.editorDueDate
-              ? (group.editorDueDate.toDate
-                  ? group.editorDueDate.toDate().toLocaleDateString()
-                  : new Date(group.editorDueDate).toLocaleDateString())
-              : 'N/A'}
-          </span>
-        )}
-        </p>
-      )}
-      {group.status === "archived" && (
-        <p className="text-red-500 text-sm mb-2">
-          This ad group is archived and read-only.
-        </p>
-      )}
+  const renderTabNavigation = () => {
+    if (isClientPortalUser) {
+      return (
+        <>
+          {blockerTab}
+          <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
+            <FiFileText size={18} />
+            Brief
+          </TabButton>
+          <TabButton active={tab === 'brandNotes'} onClick={() => setTab('brandNotes')}>
+            <FiFileText size={18} />
+            Brand Notes
+          </TabButton>
+          <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
+            <FiFolder size={18} />
+            Brand Assets
+          </TabButton>
+          <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
+            <FiType size={18} />
+            Platform Copy
+          </TabButton>
+          <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
+            <FiEye size={18} />
+            Ads
+          </TabButton>
+          <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
+            <FiMessageSquare size={18} />
+            Feedback
+          </TabButton>
+        </>
+      );
+    }
 
-      <div className="text-sm text-gray-500 mb-4 flex flex-wrap items-center justify-between">
-        <div className="flex flex-wrap gap-2">
-          {isClientPortalUser ? (
-            <>
-              {blockerTab}
-              <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
-                <FiFileText size={18} />
-                Brief
-              </TabButton>
-              <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
-                <FiEye size={18} />
-                Ads
-              </TabButton>
-              <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
-                <FiType size={18} />
-                Platform Copy
-              </TabButton>
-              <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
-                <FiMessageSquare size={18} />
-                Feedback
-              </TabButton>
-            </>
-          ) : (
-            <>
-              {blockerTab}
-              <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
-                <FiBarChart2 size={18} />
-                Stats
-              </TabButton>
-              <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
-                <FiFileText size={18} />
-                Brief
-              </TabButton>
-              {canManageCopy && (
-                <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
-                  <FiType size={18} />
-                  Platform Copy
-                </TabButton>
-              )}
-              <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
-                <FiFolder size={18} />
-                Brand Assets
-              </TabButton>
-              <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
-                <FiEye size={18} />
-                Ads
-              </TabButton>
-              {(isAdmin || isEditor || isDesigner || isManager) && (
-                <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
-                  <FiMessageSquare size={18} />
-                  Feedback
-                </TabButton>
-              )}
-            </>
-          )}
-        </div>
-        {(isAdmin || userRole === "agency" || isDesigner) ? (
-          <div className="flex flex-wrap gap-2">
-            {group.status === "archived" && isAdmin && (
+    const copyTab =
+      canManageCopy ? (
+        <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
+          <FiType size={18} />
+          Platform Copy
+        </TabButton>
+      ) : null;
+
+    return (
+      <>
+        {blockerTab}
+        <TabButton active={tab === 'stats'} onClick={() => setTab('stats')}>
+          <FiBarChart2 size={18} />
+          Stats
+        </TabButton>
+        <TabButton active={tab === 'brief'} onClick={() => setTab('brief')}>
+          <FiFileText size={18} />
+          Brief
+        </TabButton>
+        <TabButton active={tab === 'brandNotes'} onClick={() => setTab('brandNotes')}>
+          <FiFileText size={18} />
+          Brand Notes
+        </TabButton>
+        <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
+          <FiFolder size={18} />
+          Brand Assets
+        </TabButton>
+        {copyTab}
+        <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
+          <FiEye size={18} />
+          Ads
+        </TabButton>
+        {(isAdmin || isEditor || isDesigner || isManager) && (
+          <TabButton active={tab === 'feedback'} onClick={() => setTab('feedback')}>
+            <FiMessageSquare size={18} />
+            Feedback
+          </TabButton>
+        )}
+      </>
+    );
+  };
+
+  const renderActionButtons = () => {
+    if (isAdmin || userRole === 'agency' || isDesigner) {
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          {group.status === 'archived' && isAdmin && (
+            <InfoTooltip text="Restore ad group" placement="bottom" className="flex">
               <IconButton
                 onClick={restoreGroup}
                 aria-label="Restore Group"
                 className="bg-transparent"
+                title="Restore ad group"
               >
                 <FiRotateCcw size={20} />
               </IconButton>
-            )}
-            {tab === "ads" && (group.status !== "archived" || isAdmin) && (
-              <>
-                <input
-                  id="upload-input"
-                  type="file"
-                  multiple
-                  onChange={(e) => {
-                    const sel = e.target.files;
-                    handleUpload(sel);
-                    e.target.value = null;
-                  }}
-                  className="hidden"
-                />
+            </InfoTooltip>
+          )}
+          {tab === 'ads' && (group.status !== 'archived' || isAdmin) && (
+            <>
+              <input
+                id="upload-input"
+                type="file"
+                multiple
+                onChange={(e) => {
+                  const sel = e.target.files;
+                  handleUpload(sel);
+                  e.target.value = null;
+                }}
+                className="hidden"
+              />
+              <InfoTooltip text="Upload ads" placement="bottom" className="flex">
                 <IconButton
-                  onClick={() => document.getElementById("upload-input").click()}
+                  onClick={() => document.getElementById('upload-input').click()}
                   className="bg-transparent"
+                  title="Upload ads"
                 >
                   <FiUpload size={20} />
                   Upload
                 </IconButton>
-              </>
-            )}
-            {(isAdmin || userRole === "agency") && (
+              </InfoTooltip>
+            </>
+          )}
+          {(isAdmin || userRole === 'agency') && (
+            <InfoTooltip text="Reset ad group" placement="bottom" className="flex">
               <IconButton
                 onClick={resetGroup}
                 aria-label="Reset"
                 className="bg-transparent"
+                title="Reset ad group"
               >
                 <FiRefreshCw size={20} />
               </IconButton>
-            )}
-            {(isAdmin || userRole === "agency" || isDesigner) && (
+            </InfoTooltip>
+          )}
+          {(isAdmin || userRole === 'agency' || isDesigner) && (
+            <InfoTooltip text="Mark as designed" placement="bottom" className="flex">
               <IconButton
                 onClick={markDesigned}
                 disabled={
                   designLoading ||
                   assets.length === 0 ||
-                  group.status === "designed"
+                  group.status === 'designed'
                 }
                 className="bg-transparent"
                 aria-label="Designed"
+                title="Mark as designed"
               >
                 <FiCheckCircle size={20} />
               </IconButton>
-            )}
-            {(isAdmin || userRole === "agency") && (
-              <>
+            </InfoTooltip>
+          )}
+          {(isAdmin || userRole === 'agency') && (
+            <>
+              <InfoTooltip text="Open review page" placement="bottom" className="flex">
                 <IconButton
                   as={Link}
                   to={`/review/${id}`}
                   aria-label="Review"
                   className="bg-transparent"
+                  title="Open review page"
                 >
                   <FiBookOpen size={20} />
                 </IconButton>
+              </InfoTooltip>
+              <InfoTooltip text="Share review link" placement="bottom" className="flex">
                 <IconButton
                   onClick={handleShare}
                   aria-label="Share"
                   className="bg-transparent"
+                  title="Share review link"
                 >
                   <FiShare2 size={20} />
                 </IconButton>
-                {isAdmin && (
+              </InfoTooltip>
+              {isAdmin && (
+                <InfoTooltip text="Send to Projects" placement="bottom" className="flex">
                   <IconButton
                     onClick={() => setClientModal(true)}
                     aria-label="Send to Projects"
                     className="bg-transparent"
+                    title="Send to Projects"
                   >
                     <FiSend size={20} />
                   </IconButton>
-                )}
-                {(isAdmin || isManager) && (
-                  <>
+                </InfoTooltip>
+              )}
+              {(isAdmin || isManager) && (
+                <>
+                  <InfoTooltip text="Export approved ads" placement="bottom" className="flex">
                     <IconButton
                       onClick={() => setExportModal(true)}
                       aria-label="Export Approved"
                       className="bg-transparent"
+                      title="Export approved ads"
                     >
                       <FiDownload size={20} />
                     </IconButton>
-                    {hasScrubbed && (
+                  </InfoTooltip>
+                  {hasScrubbed && (
+                    <InfoTooltip text="Undo scrubbed history" placement="bottom" className="flex">
                       <IconButton
                         onClick={undoScrubReviewHistory}
                         aria-label="Undo Scrub"
                         className="bg-transparent"
+                        title="Undo scrubbed history"
                       >
                         <FiRotateCw size={20} />
                       </IconButton>
-                    )}
+                    </InfoTooltip>
+                  )}
+                  <InfoTooltip text="Scrub review history" placement="bottom" className="flex">
                     <IconButton
                       onClick={scrubReviewHistory}
                       aria-label="Scrub Review History"
                       className="bg-transparent"
+                      title="Scrub review history"
                     >
                       <Bubbles size={20} />
                     </IconButton>
+                  </InfoTooltip>
+                  <InfoTooltip text="Archive ad group" placement="bottom" className="flex">
                     <IconButton
                       onClick={archiveGroup}
                       aria-label="Archive"
                       className="bg-transparent"
+                      title="Archive ad group"
                     >
                       <FiArchive size={20} />
                     </IconButton>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        ) : isClientPortalUser ? (
-          <div className="flex flex-wrap gap-2">
-            <IconButton onClick={handleShare} aria-label="Share" className="bg-transparent">
+                  </InfoTooltip>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      );
+    }
+
+    if (isClientPortalUser) {
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          <InfoTooltip text="Share review link" placement="bottom" className="flex">
+            <IconButton onClick={handleShare} aria-label="Share" className="bg-transparent" title="Share review link">
               <FiShare2 size={20} />
             </IconButton>
+          </InfoTooltip>
+          <InfoTooltip text="Open review page" placement="bottom" className="flex">
             <IconButton
               as={Link}
               to={`/review/${id}`}
               aria-label="Review"
               className="bg-transparent"
+              title="Open review page"
             >
               <FiBookOpen size={20} />
             </IconButton>
+          </InfoTooltip>
+          <InfoTooltip text="Download approved ads" placement="bottom" className="flex">
             <IconButton
               onClick={() => setExportModal(true)}
               aria-label="Download Approved"
               className="bg-transparent"
+              title="Download approved ads"
             >
               <FiDownload size={20} />
             </IconButton>
-          </div>
-        ) : userRole === "editor" ? (
-          <div className="flex flex-wrap gap-2">
+          </InfoTooltip>
+        </div>
+      );
+    }
+
+    if (userRole === 'editor') {
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          <InfoTooltip text="Open gallery" placement="bottom" className="flex">
             <IconButton
               onClick={() => setShowGallery(true)}
               aria-label="See Gallery"
               className="bg-transparent"
+              title="Open gallery"
             >
               <FiGrid size={20} />
             </IconButton>
-          </div>
-        ) : null}
-      </div>
+          </InfoTooltip>
+        </div>
+      );
+    }
 
-      {uploading && (
-        <span className="ml-2 text-sm text-gray-600">Uploading...</span>
-      )}
+    return (
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        No quick actions available for your role.
+      </p>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-[var(--dark-bg)]">
+      <div className="px-4 py-6">
+        <div className="mx-auto max-w-6xl space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Link to={backPath} className="btn-arrow" aria-label="Back">
+                &lt;
+              </Link>
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                {group.name}
+              </h1>
+              {userRole === "project-manager" && (
+                <Link
+                  to={ganttPath}
+                  className="btn-secondary"
+                  aria-label="View Gantt Chart"
+                >
+                  Gantt
+                </Link>
+              )}
+            </div>
+            <div className="ml-auto flex flex-wrap items-center gap-2 justify-end text-right">
+              {renderActionButtons()}
+            </div>
+          </div>
+          <section className="space-y-4">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-300">
+              <div className="space-y-6">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Brand
+                      </span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {group.brandCode}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Due Date
+                      </span>
+                      {userRole === 'admin' || userRole === 'agency' ? (
+                        <input
+                          type="date"
+                          value={
+                            group.dueDate
+                              ? group.dueDate.toDate().toISOString().slice(0, 10)
+                              : ''
+                          }
+                          onChange={async (e) => {
+                            const date = e.target.value
+                              ? Timestamp.fromDate(new Date(e.target.value))
+                              : null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { dueDate: date });
+                              setGroup((p) => ({ ...p, dueDate: date }));
+                              if (group.requestId) {
+                                try {
+                                  await updateDoc(doc(db, 'requests', group.requestId), {
+                                    dueDate: date,
+                                  });
+                                } catch (err) {
+                                  console.error('Failed to sync ticket due date', err);
+                                }
+                              }
+                            } catch (err) {
+                              console.error('Failed to update due date', err);
+                            }
+                          }}
+                          className="border tag-pill px-2 py-1 text-sm"
+                        />
+                      ) : (
+                        <span>
+                          {group.dueDate
+                            ? group.dueDate.toDate().toLocaleDateString()
+                            : 'N/A'}
+                        </span>
+                      )}
+                    </div>
+                    {(brandHasAgency || userRole === 'admin') && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Month
+                        </span>
+                        <input
+                          type="month"
+                          value={group.month || ''}
+                          onChange={async (e) => {
+                            const value = e.target.value;
+                            try {
+                              if (value) {
+                                await updateDoc(doc(db, 'adGroups', id), { month: value });
+                                setGroup((p) => ({ ...p, month: value }));
+                                if (group.requestId) {
+                                  try {
+                                    await updateDoc(doc(db, 'requests', group.requestId), { month: value });
+                                  } catch (err) {
+                                    console.error('Failed to sync ticket month', err);
+                                  }
+                                }
+                              } else {
+                                await updateDoc(doc(db, 'adGroups', id), { month: deleteField() });
+                                setGroup((p) => {
+                                  const u = { ...p };
+                                  delete u.month;
+                                  return u;
+                                });
+                                if (group.requestId) {
+                                  try {
+                                    await updateDoc(doc(db, 'requests', group.requestId), { month: deleteField() });
+                                  } catch (err) {
+                                    console.error('Failed to sync ticket month', err);
+                                  }
+                                }
+                              }
+                            } catch (err) {
+                              console.error('Failed to update month', err);
+                            }
+                          }}
+                          className="border tag-pill px-2 py-1 text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {(!isClientPortalUser || isProjectManager) && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Editor
+                      </span>
+                      {canManageStaff ? (
+                        <select
+                          aria-label="Editor Assignment"
+                          value={group.editorId || ''}
+                          onChange={async (e) => {
+                            const value = e.target.value || null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { editorId: value });
+                              setGroup((p) => ({ ...p, editorId: value }));
+                            } catch (err) {
+                              console.error('Failed to update editor', err);
+                            }
+                          }}
+                          className="rounded border p-1"
+                        >
+                          <option value="">Unassigned</option>
+                          {editors.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{editorName || 'Unassigned'}</span>
+                      )}
+                    </div>
+                  )}
+                  {(!isClientPortalUser || isProjectManager) && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Editor Due Date
+                      </span>
+                      {canManageStaff ? (
+                        <input
+                          type="date"
+                          value={
+                            group.editorDueDate
+                              ? (group.editorDueDate.toDate
+                                  ? group.editorDueDate.toDate().toISOString().slice(0, 10)
+                                  : new Date(group.editorDueDate).toISOString().slice(0, 10))
+                              : ''
+                          }
+                          onChange={async (e) => {
+                            const date = e.target.value
+                              ? Timestamp.fromDate(new Date(e.target.value))
+                              : null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { editorDueDate: date });
+                              setGroup((p) => ({ ...p, editorDueDate: date }));
+                            } catch (err) {
+                              console.error('Failed to update editor due date', err);
+                            }
+                          }}
+                          className="border tag-pill px-2 py-1 text-sm"
+                        />
+                      ) : (
+                        <span>
+                          {group.editorDueDate
+                            ? (group.editorDueDate.toDate
+                                ? group.editorDueDate.toDate().toLocaleDateString()
+                                : new Date(group.editorDueDate).toLocaleDateString())
+                            : 'N/A'}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Status
+                      </span>
+                      <div className="text-sm">
+                        {isAdmin || isEditor || isDesigner ? (
+                          <select
+                            aria-label="Status"
+                            value={group.status}
+                            onChange={handleStatusChange}
+                            className={`status-select status-${(group.status || '').replace(/\s+/g, '_')}`}
+                          >
+                            {statusOptions.map((s) => (
+                              <option
+                                key={s}
+                                value={s}
+                                disabled={isDesigner && s === 'briefed'}
+                                hidden={isDesigner && s === 'briefed'}
+                              >
+                                {s}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <StatusBadge status={group.status} />
+                        )}
+                      </div>
+                    </div>
+                    {(isAdmin || isEditor) && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Review Type
+                        </span>
+                        <select
+                          aria-label="Review Type"
+                          value={group.reviewVersion || 1}
+                          onChange={handleReviewTypeChange}
+                          className="border p-1 text-sm"
+                        >
+                          <option value={1}>Legacy</option>
+                          <option value={2}>2.0</option>
+                          <option value={3}>Brief</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Designer
+                    </span>
+                    {canManageStaff ? (
+                      <select
+                        aria-label="Designer Assignment"
+                        value={group.designerId || ''}
+                        onChange={async (e) => {
+                          const value = e.target.value || null;
+                          try {
+                            await updateDoc(doc(db, 'adGroups', id), { designerId: value });
+                            setGroup((p) => ({ ...p, designerId: value }));
+                          } catch (err) {
+                            console.error('Failed to update designer', err);
+                          }
+                        }}
+                        className="rounded border p-1"
+                      >
+                        <option value="">Unassigned</option>
+                        {designers.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span>{designerName || 'Unassigned'}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Designer Due Date
+                    </span>
+                    {canManageStaff ? (
+                      <input
+                        type="date"
+                        value={
+                          group.designDueDate
+                            ? (group.designDueDate.toDate
+                                ? group.designDueDate.toDate().toISOString().slice(0, 10)
+                                : new Date(group.designDueDate).toISOString().slice(0, 10))
+                            : ''
+                        }
+                        onChange={async (e) => {
+                          const date = e.target.value
+                            ? Timestamp.fromDate(new Date(e.target.value))
+                            : null;
+                          try {
+                            await updateDoc(doc(db, 'adGroups', id), { designDueDate: date });
+                            setGroup((p) => ({ ...p, designDueDate: date }));
+                          } catch (err) {
+                            console.error('Failed to update design due date', err);
+                          }
+                        }}
+                        className="border tag-pill px-2 py-1 text-sm"
+                      />
+                    ) : (
+                      <span>
+                        {group.designDueDate
+                          ? (group.designDueDate.toDate
+                              ? group.designDueDate.toDate().toLocaleDateString()
+                              : new Date(group.designDueDate).toLocaleDateString())
+                          : 'N/A'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {group.status === 'archived' && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                This ad group is archived and read-only.
+              </div>
+            )}
+            <div className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+              <div className="flex flex-wrap gap-2">
+                {renderTabNavigation()}
+              </div>
+            </div>
+          </section>
+
+          {uploading && (
+            <p className="text-sm text-gray-600 dark:text-gray-300">Uploading...</p>
+          )}
 
       {showStats && (
         <>
@@ -4341,7 +4488,41 @@ const AdGroupDetail = () => {
         </>
       )}
 
-      {(tableVisible || (showStats && specialGroups.length > 0)) && (
+      {showAdsEmptyState && (
+        <div className="my-4">
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+              <FiUpload size={20} />
+            </div>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">No ads uploaded yet</h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              Upload completed ad units to share them with your team and clients.
+            </p>
+            {group?.status === "archived" ? (
+              <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+                This ad group is archived and cannot accept new uploads.
+              </p>
+            ) : canUploadAds ? (
+              <div className="mt-4 flex justify-center">
+                <Button
+                  type="button"
+                  variant="accent"
+                  size="sm"
+                  onClick={() => document.getElementById("upload-input")?.click()}
+                >
+                  Upload Ads
+                </Button>
+              </div>
+            ) : (
+              <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
+                Once ads are uploaded, they will appear in this space for review.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!showAdsEmptyState && (tableVisible || (showStats && specialGroups.length > 0)) && (
         <Table
           columns={["18%", "28%", "12%", "14%", "18%", "10%"]}
           className="min-w-full"
@@ -4383,7 +4564,11 @@ const AdGroupDetail = () => {
             )}
           </>
         )}
-        {usesTabs && tab === "ads" && group.status !== "archived" && canUploadAds && (
+        {usesTabs &&
+          tab === "ads" &&
+          group.status !== "archived" &&
+          canUploadAds &&
+          !showAdsEmptyState && (
           <button
             onClick={() => document.getElementById("upload-input").click()}
             className="btn-primary px-2 py-0.5 flex items-center gap-1 ml-2"
@@ -4396,246 +4581,233 @@ const AdGroupDetail = () => {
 
 
       {recipesTableVisible && (
-        <div className="my-4">
-          {canEditBriefNote ? (
-            editingNotes ? (
-              <>
-                <h4 className="font-medium mb-1">Brief Note:</h4>
-                <div className="mb-4">
-                  <textarea
-                    className="w-full border rounded p-2"
-                    rows={3}
-                    value={notesInput}
-                    onChange={(e) => setNotesInput(e.target.value)}
-                  />
-                  <div className="flex gap-2 mt-1">
-                    <button
-                      onClick={saveNotes}
-                      className="btn-primary px-2 py-0.5"
+        <div className="my-4 space-y-4">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Brief Note</h3>
+                  {canEditBriefNote && !editingNotes && (
+                    <IconButton
+                      onClick={() => {
+                        setNotesInput(group?.notes || '');
+                        setEditingNotes(true);
+                      }}
+                      title={group?.notes ? 'Edit brief note' : 'Add brief note'}
                     >
-                      Save
-                    </button>
-                    <IconButton onClick={() => setEditingNotes(false)}>
-                      Cancel
+                      {group?.notes ? 'Edit Note' : 'Add Note'}
                     </IconButton>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <h4 className="font-medium mb-1">Brief Note:</h4>
-                  <div
-                    style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
-                  className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded relative dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
-                  >
-                  <button
-                    onClick={() => {
-                      setNotesInput(group?.notes || "");
-                      setEditingNotes(true);
-                    }}
-                    className="absolute top-1 right-1 btn-secondary px-1 py-0.5 text-xs"
-                  >
-                    Edit
-                  </button>
-                  {group?.notes}
-                </div>
-              </>
-            )
-          ) : (
-            group?.notes && (
-              <>
-                <h4 className="font-medium mb-1">Brief Note:</h4>
-                <div
-                  style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
-                  className="mb-4 whitespace-pre-line p-2 bg-white shadow rounded dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]"
-                >
-                  {group.notes}
-                </div>
-              </>
-            )
-          )}
-          {canEditBriefNote && !group?.notes && !editingNotes && (
-            <div className="mb-4">
-              <IconButton
-                onClick={() => {
-                  setNotesInput("");
-                  setEditingNotes(true);
-                }}
-              >
-                Add Note
-              </IconButton>
-            </div>
-          )}
-          {briefAssets.length > 0 && (
-            <>
-              <h4 className="font-medium mb-1">Brief Assets:</h4>
-                <div
-                  style={{ outline: '1px solid var(--border-color-default, #d1d5db)' }}
-                  className={`flex flex-wrap gap-2 mb-4 p-2 bg-white shadow rounded relative ${briefDrag ? "bg-accent-10" : ""} dark:bg-[var(--dark-sidebar-bg)]`}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setBriefDrag(true);
-                }}
-                onDragLeave={() => setBriefDrag(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setBriefDrag(false);
-                  handleBriefUpload(e.dataTransfer.files);
-                }}
-              >
-                <div className="w-full flex justify-between mb-2">
-                  <IconButton onClick={downloadBriefAll}>
-                    <FiDownload />
-                    Download All
-                  </IconButton>
-                  {canAddBriefAssets && (
-                    <>
-                      <input
-                        id="brief-upload"
-                        type="file"
-                        multiple
-                        onChange={(e) => {
-                          handleBriefUpload(e.target.files);
-                          e.target.value = null;
-                        }}
-                        className="hidden"
-                      />
-                      <IconButton
-                        onClick={() =>
-                          document.getElementById("brief-upload").click()
-                        }
-                      >
-                        <FiUpload />
-                        Add Assets
-                      </IconButton>
-                    </>
                   )}
                 </div>
-                {briefAssets.map((a) => (
-                  <div key={a.id} className="asset-card group cursor-pointer">
-                    {(() => {
-                      const ext = fileExt(a.filename || "");
-                      if (a.firebaseUrl && ext === "svg") {
-                        const img = (
-                          <img
-                            src={a.firebaseUrl}
-                            alt={a.filename}
-                            className="object-contain max-w-[10rem] max-h-32"
-                          />
-                        );
-                        return (
-                          <a href={a.firebaseUrl} download>
-                            {img}
-                          </a>
-                        );
-                      }
-                      if (
-                        a.firebaseUrl &&
-                        !["ai", "pdf"].includes(ext) &&
-                        !["otf", "ttf", "woff", "woff2"].includes(ext)
-                      ) {
-                        const img = (
-                          <OptimizedImage
-                            pngUrl={a.firebaseUrl}
-                            alt={a.filename}
-                            className="object-contain max-w-[10rem] max-h-32"
-                          />
-                        );
-                        return (
-                          <a href={a.firebaseUrl} download>
-                            {img}
-                          </a>
-                        );
-                      }
-                      return (
-                        <a href={a.firebaseUrl} download>
-                          <PlaceholderIcon ext={ext} />
-                        </a>
-                      );
-                    })()}
-                    {a.note && (
-                      <div className="absolute bottom-1 right-1 bg-accent text-white rounded-full p-1">
-                        <FiFileText size={14} />
-                      </div>
+                {editingNotes ? (
+                  <div className="space-y-2">
+                    <textarea
+                      className="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                      rows={3}
+                      value={notesInput}
+                      onChange={(e) => setNotesInput(e.target.value)}
+                    />
+                    <div className="flex items-center gap-2">
+                      <button onClick={saveNotes} className="btn-primary px-3 py-1 text-sm">
+                        Save
+                      </button>
+                      <IconButton onClick={() => setEditingNotes(false)} title="Cancel editing">
+                        Cancel
+                      </IconButton>
+                    </div>
+                  </div>
+                ) : group?.notes ? (
+                  <p className="whitespace-pre-line rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200">
+                    {group.notes}
+                  </p>
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {canEditBriefNote
+                      ? 'Add context for the team by creating a brief note.'
+                      : 'No brief note has been provided yet.'}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Brief Assets</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {briefAssets.length > 0 && (
+                      <IconButton onClick={downloadBriefAll} title="Download all brief assets">
+                        <FiDownload />
+                        Download All
+                      </IconButton>
                     )}
-                    {userRole === "admin" && (
-                      <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex flex-col items-center justify-center gap-1 text-white text-xs">
-                        <a
-                          href={a.firebaseUrl}
-                          download
-                          className="btn-secondary px-1 py-0.5"
+                    {canAddBriefAssets && (
+                      <>
+                        <input
+                          id="brief-upload"
+                          type="file"
+                          multiple
+                          onChange={(e) => {
+                            handleBriefUpload(e.target.files);
+                            e.target.value = null;
+                          }}
+                          className="hidden"
+                        />
+                        <IconButton
+                          onClick={() => document.getElementById('brief-upload').click()}
+                          title="Upload brief assets"
                         >
-                          Download
-                        </a>
-                        <label className="btn-secondary px-1 py-0.5 cursor-pointer">
-                          Replace
-                          <input
-                            type="file"
-                            className="hidden"
-                            onChange={(e) => {
-                              replaceBriefAsset(a, e.target.files[0]);
-                              e.target.value = null;
-                            }}
-                          />
-                        </label>
-                        <button
-                          onClick={() => addBriefAssetNote(a)}
-                          className="btn-secondary px-1 py-0.5"
-                        >
-                          Note
-                        </button>
-                        <button
-                          onClick={() => deleteBriefAsset(a)}
-                          className="btn-delete px-1 py-0.5"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                    {userRole === "designer" && a.note && (
-                      <div className="absolute inset-0 bg-black bg-opacity-60 hidden group-hover:flex items-center justify-center text-white text-xs p-1 text-center whitespace-pre-wrap">
-                        {a.note}
-                      </div>
+                          <FiUpload />
+                          Add Assets
+                        </IconButton>
+                      </>
                     )}
                   </div>
-                ))}
+                </div>
+                <div
+                  className={`flex flex-wrap gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500 transition-colors dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] ${briefDrag ? 'ring-2 ring-accent/50' : ''}`}
+                  onDragOver={canAddBriefAssets ? (e) => {
+                    e.preventDefault();
+                    setBriefDrag(true);
+                  } : undefined}
+                  onDragLeave={canAddBriefAssets ? () => setBriefDrag(false) : undefined}
+                  onDrop={canAddBriefAssets ? (e) => {
+                    e.preventDefault();
+                    setBriefDrag(false);
+                    handleBriefUpload(e.dataTransfer.files);
+                  } : undefined}
+                >
+                  {briefAssets.length > 0 ? (
+                    briefAssets.map((a) => (
+                      <div key={a.id} className="asset-card group cursor-pointer">
+                        {(() => {
+                          const ext = fileExt(a.filename || '');
+                          if (a.firebaseUrl && ext === 'svg') {
+                            const img = (
+                              <img
+                                src={a.firebaseUrl}
+                                alt={a.filename}
+                                className="max-h-32 max-w-[10rem] object-contain"
+                              />
+                            );
+                            return (
+                              <a href={a.firebaseUrl} download>
+                                {img}
+                              </a>
+                            );
+                          }
+                          if (
+                            a.firebaseUrl &&
+                            !['ai', 'pdf'].includes(ext) &&
+                            !['otf', 'ttf', 'woff', 'woff2'].includes(ext)
+                          ) {
+                            const img = (
+                              <OptimizedImage
+                                pngUrl={a.firebaseUrl}
+                                alt={a.filename}
+                                className="max-h-32 max-w-[10rem] object-contain"
+                              />
+                            );
+                            return (
+                              <a href={a.firebaseUrl} download>
+                                {img}
+                              </a>
+                            );
+                          }
+                          return (
+                            <a href={a.firebaseUrl} download>
+                              <PlaceholderIcon ext={ext} />
+                            </a>
+                          );
+                        })()}
+                        {a.note && (
+                          <div className="absolute bottom-1 right-1 rounded-full bg-accent p-1 text-white">
+                            <FiFileText size={14} />
+                          </div>
+                        )}
+                        {userRole === 'admin' && (
+                          <div className="absolute inset-0 hidden flex-col items-center justify-center gap-1 bg-black bg-opacity-60 p-1 text-xs text-white group-hover:flex">
+                            <a
+                              href={a.firebaseUrl}
+                              download
+                              className="btn-secondary px-1 py-0.5"
+                            >
+                              Download
+                            </a>
+                            <label className="btn-secondary px-1 py-0.5 cursor-pointer">
+                              Replace
+                              <input
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => {
+                                  replaceBriefAsset(a, e.target.files[0]);
+                                  e.target.value = null;
+                                }}
+                              />
+                            </label>
+                            <button
+                              onClick={() => addBriefAssetNote(a)}
+                              className="btn-secondary px-1 py-0.5"
+                            >
+                              Note
+                            </button>
+                            <button
+                              onClick={() => deleteBriefAsset(a)}
+                              className="btn-delete px-1 py-0.5"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                        {userRole === 'designer' && a.note && (
+                          <div className="absolute inset-0 hidden whitespace-pre-wrap break-words items-center justify-center bg-black/60 p-1 text-center text-xs text-white group-hover:flex">
+                            {a.note}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="w-full text-center text-sm text-gray-500 dark:text-gray-400">
+                      {canAddBriefAssets
+                        ? 'Drag and drop files here or use Add Assets to upload brief materials.'
+                        : 'No brief assets have been uploaded.'}
+                    </p>
+                  )}
+                </div>
               </div>
-            </>
-          )}
-          {canAddBriefAssets && briefAssets.length === 0 && (
-            <div className="mb-4">
-              <input
-                id="brief-upload"
-                type="file"
-                multiple
-                onChange={(e) => {
-                  handleBriefUpload(e.target.files);
-                  e.target.value = null;
-                }}
-                className="hidden"
-              />
-              <IconButton onClick={() => document.getElementById("brief-upload").click()}>
-                <FiUpload /> Add Assets
-              </IconButton>
             </div>
-          )}
-          {savedRecipes.length > 0 && (
-            <RecipePreview
-              onSave={saveRecipes}
-              initialResults={savedRecipes}
-              showOnlyResults
-              onSelectChange={toggleRecipeSelect}
-              onRecipesClick={() => setShowRecipes(true)}
-              externalOnly
-              hideActions={isClientPortalUser}
-            />
-          )}
-          {(["admin", "editor", "project-manager"].includes(userRole)) &&
-            savedRecipes.length === 0 && (
-            <div className="mt-4">
-              <IconButton onClick={() => setShowRecipes(true)}>
-                <FaMagic /> Briefs
-              </IconButton>
+          </div>
+
+          {savedRecipes.length > 0 ? (
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Brief Recipes</h3>
+                {['admin', 'editor', 'project-manager'].includes(userRole) && !isClientPortalUser && (
+                  <IconButton onClick={() => setShowRecipes(true)} title="Edit brief recipes">
+                    <FaMagic /> Manage Briefs
+                  </IconButton>
+                )}
+              </div>
+              <RecipePreview
+                onSave={saveRecipes}
+                initialResults={savedRecipes}
+                showOnlyResults
+                onSelectChange={toggleRecipeSelect}
+                onRecipesClick={() => setShowRecipes(true)}
+                externalOnly
+                hideActions={isClientPortalUser}
+              />
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-300">
+              <p>
+                {['admin', 'editor', 'project-manager'].includes(userRole)
+                  ? 'No recipes have been added yet. Start a brief to generate recommended ads.'
+                  : 'No recipes have been added for this brief yet.'}
+              </p>
+              {['admin', 'editor', 'project-manager'].includes(userRole) && !isClientPortalUser && (
+                <IconButton onClick={() => setShowRecipes(true)} className="mt-3" title="Generate brief recipes">
+                  <FaMagic /> Build Brief Recipes
+                </IconButton>
+              )}
             </div>
           )}
         </div>
@@ -4653,10 +4825,19 @@ const AdGroupDetail = () => {
               hideBrandSelect
             />
           ) : (
-            <div className="mt-4">
-              <IconButton onClick={() => setShowCopyModal(true)}>
-                <FiType /> Platform Copy
-              </IconButton>
+            <div className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+                <FiType size={20} />
+              </div>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">No platform copy yet</h3>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Generate ad-ready headlines and primary text for this group without leaving the page.
+              </p>
+              <div className="mt-4 flex justify-center">
+                <Button type="button" variant="accent" size="sm" onClick={() => setShowCopyModal(true)}>
+                  Create Platform Copy
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -5402,22 +5583,27 @@ const AdGroupDetail = () => {
         />
       )}
 
+      {brandNotesVisible && (
+        <BrandNotesPanel brandCode={group?.brandCode} brandNotes={brandNotes} />
+      )}
+
       {usesTabs
-        ?
-            tab === "assets" && (
-              <BrandAssetsLayout
-                brandCode={group?.brandCode}
-                guidelinesUrl={brandGuidelines}
-                brandNotes={brandNotes}
-              />
-            )
-        :
-            showBrandAssets && (
-              <BrandAssets
-                brandCode={group?.brandCode}
-                onClose={() => setShowBrandAssets(false)}
-              />
-            )}
+        ? tab === "assets" && (
+            <BrandAssetsLayout
+              brandCode={group?.brandCode}
+              guidelinesUrl={brandGuidelines}
+              brandNotes={brandNotes}
+              showNotes={false}
+            />
+          )
+        : showBrandAssets && (
+            <BrandAssets
+              brandCode={group?.brandCode}
+              onClose={() => setShowBrandAssets(false)}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 };

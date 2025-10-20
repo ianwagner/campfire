@@ -10,7 +10,7 @@ import IconButton from './IconButton.jsx';
  * @param {React.ComponentType} props.icon The icon to display when idle.
  * @param {boolean} [props.loading=false] Whether the action is running.
  */
-const LoadingIconButton = ({ icon: Icon, loading = false, ...rest }) => {
+const LoadingIconButton = ({ icon: Icon, loading = false, children = null, ...rest }) => {
   const [showCheck, setShowCheck] = useState(false);
   const prevLoading = useRef(false);
 
@@ -25,14 +25,19 @@ const LoadingIconButton = ({ icon: Icon, loading = false, ...rest }) => {
   }, [loading]);
 
   return (
-    <IconButton {...rest} disabled={rest.disabled || loading} className={`text-xl ${loading ? 'bg-accent-10' : ''} ${rest.className || ''}`.trim()}>
+    <IconButton
+      {...rest}
+      disabled={rest.disabled || loading}
+      className={`text-xl ${loading ? 'bg-accent-10' : ''} ${rest.className || ''}`.trim()}
+    >
       {loading ? (
         <div className="loading-ring" style={{ width: '1em', height: '1em', borderWidth: '2px' }} />
       ) : showCheck ? (
         <FiCheck />
-      ) : (
-        Icon ? <Icon /> : null
-      )}
+      ) : Icon ? (
+        <Icon />
+      ) : null}
+      {children}
     </IconButton>
   );
 };

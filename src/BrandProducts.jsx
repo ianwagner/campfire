@@ -4,13 +4,11 @@ import { db, auth } from './firebase/config';
 import useUserRole from './useUserRole';
 import createArchiveTicket from './utils/createArchiveTicket';
 import { uploadBrandAsset } from './uploadBrandAsset';
-import PageWrapper from './components/PageWrapper.jsx';
 import ProductImportModal from './ProductImportModal.jsx';
 import ProductCard from './components/ProductCard.jsx';
 import ProductEditModal from './components/ProductEditModal.jsx';
 import AddProductCard from './components/AddProductCard.jsx';
 import IconButton from './components/IconButton.jsx';
-import PageToolbar from './components/PageToolbar.jsx';
 import CreateButton from './components/CreateButton.jsx';
 import SaveButton from './components/SaveButton.jsx';
 import { FaMagic } from 'react-icons/fa';
@@ -26,6 +24,9 @@ const emptyProduct = {
   featuredImage: '',
   archived: false,
 };
+
+const inputClassName =
+  'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)]/20 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-[var(--dark-text)]';
 
 const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => {
   const user = auth.currentUser;
@@ -134,31 +135,8 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
     load();
   }, [brandCode, propId, propCode]);
 
-  const updateImage = (pIdx, idx, file) => {
-    setProducts((prev) =>
-      prev.map((p, i) =>
-        i === pIdx
-          ? {
-              ...p,
-              images: p.images.map((img, j) =>
-                j === idx ? { url: file ? URL.createObjectURL(file) : img.url, file } : img
-              ),
-            }
-          : p
-      )
-    );
-    setDirty(true);
-  };
-
   const updateProduct = (idx, changes) => {
     setProducts((prev) => prev.map((p, i) => (i === idx ? { ...p, ...changes } : p)));
-    setDirty(true);
-  };
-
-  const addImage = (idx) => {
-    setProducts((prev) =>
-      prev.map((p, i) => (i === idx ? { ...p, images: [...p.images, { ...emptyImage }] } : p))
-    );
     setDirty(true);
   };
 
@@ -169,9 +147,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
 
   const removeProduct = (idx) => {
     if (isManager && !isAdmin) {
-      setProducts((prev) =>
-        prev.map((p, i) => (i === idx ? { ...p, archived: true } : p))
-      );
+      setProducts((prev) => prev.map((p, i) => (i === idx ? { ...p, archived: true } : p)));
       createArchiveTicket({ target: 'product', brandId, index: idx, brandCode });
     } else {
       setProducts((prev) => prev.filter((_, i) => i !== idx));
@@ -200,12 +176,8 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
         productData.push({
           name: prod.name.trim(),
           url: (prod.url || '').trim(),
-          description: prod.description
-            .map((d) => d.trim())
-            .filter(Boolean),
-          benefits: prod.benefits
-            .map((b) => b.trim())
-            .filter(Boolean),
+          description: prod.description.map((d) => d.trim()).filter(Boolean),
+          benefits: prod.benefits.map((b) => b.trim()).filter(Boolean),
           images: imgs,
           featuredImage: prod.featuredImage || '',
           archived: !!prod.archived,
@@ -231,53 +203,65 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
 
   useUnsavedChanges(dirty, handleSave);
 
+  const visibleProducts = products.filter(
+    (p) => !p.archived && (!filter || p.name.toLowerCase().includes(filter.toLowerCase()))
+  );
+
   return (
-    <PageWrapper>
-      <PageToolbar
-        left={(
-          <input
-            type="text"
-            placeholder="Filter"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="p-1 border rounded"
-          />
-        )}
-        right={(
-          <>
-            <IconButton aria-label="Import from URL" onClick={() => setShowImport(true)}>
-              <FaMagic />
-            </IconButton>
-            <CreateButton
-              onClick={() => {
-                setProducts((p) => [...p, { ...emptyProduct }]);
-                setEditIdx(products.length);
-                setDirty(true);
-              }}
-              ariaLabel="Add Product"
+    <div className="flex flex-col gap-6">
+      <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Product Library</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Keep a curated list of products, hero images, and key benefits ready for campaign briefs.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <input
+              type="text"
+              placeholder="Filter products"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className={`${inputClassName} sm:w-64`}
             />
-            <SaveButton onClick={handleSave} canSave={dirty && !loading} loading={loading} />
-          </>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <IconButton aria-label="Import from URL" onClick={() => setShowImport(true)}>
+                <FaMagic />
+              </IconButton>
+              <CreateButton
+                onClick={() => {
+                  setProducts((p) => [...p, { ...emptyProduct }]);
+                  setEditIdx(products.length);
+                  setDirty(true);
+                }}
+                ariaLabel="Add Product"
+              />
+              <SaveButton onClick={handleSave} canSave={dirty && !loading} loading={loading} />
+            </div>
+          </div>
+        </div>
+
+        {message && (
+          <p className="mt-4 text-sm text-gray-600 dark:text-gray-300" role="status">
+            {message}
+          </p>
         )}
-      />
-      {message && <p className="text-sm mb-2">{message}</p>}
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {products
-          .filter((p) =>
-            !p.archived &&
-            (!filter || p.name.toLowerCase().includes(filter.toLowerCase()))
-          )
-          .map((prod, idx) => (
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {visibleProducts.map((prod, idx) => (
             <ProductCard key={idx} product={prod} onClick={() => setEditIdx(idx)} />
           ))}
-        <AddProductCard
-          onAdd={() => {
-            setProducts((p) => [...p, { ...emptyProduct }]);
-            setEditIdx(products.length);
-          }}
-          onImport={() => setShowImport(true)}
-        />
-      </div>
+          <AddProductCard
+            onAdd={() => {
+              setProducts((p) => [...p, { ...emptyProduct }]);
+              setEditIdx(products.length);
+            }}
+            onImport={() => setShowImport(true)}
+          />
+        </div>
+      </section>
+
       {showImport && (
         <ProductImportModal
           brandCode={brandCode}
@@ -285,6 +269,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
           onClose={() => setShowImport(false)}
         />
       )}
+
       {editIdx !== null && (
         <ProductEditModal
           product={products[editIdx]}
@@ -294,7 +279,7 @@ const BrandProducts = ({ brandId: propId = null, brandCode: propCode = '' }) => 
           onClose={() => setEditIdx(null)}
         />
       )}
-    </PageWrapper>
+    </div>
   );
 };
 

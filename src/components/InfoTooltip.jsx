@@ -6,6 +6,7 @@ const InfoTooltip = ({
   children,
   maxWidth = 200,
   placement = 'top',
+  className = '',
 }) => {
   const [visible, setVisible] = useState(false);
   const [coords, setCoords] = useState({ x: 0, y: 0 });
@@ -25,10 +26,12 @@ const InfoTooltip = ({
     }
   }, [visible, placement]);
 
+  const spanClassName = ['inline-block', className].filter(Boolean).join(' ');
+
   return (
     <span
       ref={ref}
-      className="inline-block"
+      className={spanClassName}
       onMouseEnter={() => setVisible(true)}
       onMouseLeave={() => setVisible(false)}
     >
