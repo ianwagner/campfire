@@ -6,6 +6,7 @@ jest.mock('firebase-admin', () => {
   const adAssets = new Map();
   const exportJobs = new Map();
   const FieldValue = { serverTimestamp: jest.fn(() => '__ts__') };
+  const collectionGroupAssets = new Map();
 
   function ensureExportJobEntry(id) {
     if (!exportJobs.has(id)) {
@@ -91,9 +92,49 @@ jest.mock('firebase-admin', () => {
       }
       throw new Error(`Unexpected collection ${name}`);
     }),
+    collectionGroup: jest.fn((name) => {
+      if (name !== 'assets') {
+        throw new Error(`Unexpected collectionGroup ${name}`);
+      }
+      return {
+        where: (fieldPath, op, value) => {
+          if (op !== '==') {
+            throw new Error(`Unsupported operator ${op}`);
+          }
+          return {
+            limit: () => ({
+              async get() {
+                if (!collectionGroupAssets.has(value)) {
+                  return { empty: true, size: 0, docs: [] };
+                }
+                const entry = collectionGroupAssets.get(value);
+                return {
+                  empty: false,
+                  size: 1,
+                  docs: [
+                    {
+                      id: value,
+                      data: () => entry.data,
+                      ref: {
+                        parent: {
+                          parent: entry.adGroupId
+                            ? { id: entry.adGroupId }
+                            : undefined,
+                        },
+                      },
+                    },
+                  ],
+                };
+              },
+            }),
+          };
+        },
+      };
+    }),
   };
   const firestore = jest.fn(() => firestoreInstance);
   firestore.FieldValue = FieldValue;
+  firestore.FieldPath = { documentId: jest.fn(() => '__document_id__') };
 
   return {
     __esModule: true,
@@ -106,6 +147,7 @@ jest.mock('firebase-admin', () => {
     __mockExportJobs: exportJobs,
     __mockSettings: settingsStore,
     __FieldValue: FieldValue,
+    __mockCollectionGroupAssets: collectionGroupAssets,
   };
 });
 
@@ -113,6 +155,7 @@ const adminMock = jest.requireMock('firebase-admin');
 const adAssetsStore = adminMock.__mockAdAssets;
 const exportJobsStore = adminMock.__mockExportJobs;
 const settingsStore = adminMock.__mockSettings;
+const groupAssetsStore = adminMock.__mockCollectionGroupAssets;
 
 let processExportJobCallable;
 let runExportJobCallable;
@@ -167,6 +210,7 @@ beforeEach(() => {
   adAssetsStore.clear();
   exportJobsStore.clear();
   settingsStore.clear();
+  groupAssetsStore.clear();
   if (typeof resetIntegrationCache === 'function') {
     resetIntegrationCache();
   }
@@ -242,6 +286,58 @@ test('processes approved ads and records success summary', async () => {
     state: 'received',
     message: 'Processed successfully',
     assetUrl: 'https://cdn.example.com/ad-1.png',
+  });
+});
+
+test('falls back to ad group asset when mirror is missing', async () => {
+  groupAssetsStore.set('ad-fallback', {
+    data: {
+      id: 'ad-fallback',
+      brandCode: 'BRAND2',
+      assetUrl: 'https://cdn.example.com/ad-fallback.png',
+      compass: buildCompassFields({
+        shop: 'BRAND2',
+        image_1x1: 'https://cdn.example.com/ad-fallback-1x1.png',
+        image_9x16: 'https://cdn.example.com/ad-fallback-9x16.png',
+      }),
+    },
+    adGroupId: 'group-123',
+  });
+
+  global.fetch.mockResolvedValue(
+    mockFetchResponse({
+      status: 200,
+      ok: true,
+      statusText: 'OK',
+      body: JSON.stringify({ message: 'Processed successfully' }),
+    }),
+  );
+
+  const jobData = {
+    approvedAdIds: ['ad-fallback'],
+    brandCode: 'BRAND2',
+    targetEnv: 'staging',
+    targetIntegration: 'compass',
+  };
+
+  seedExportJob('job-fallback', jobData);
+
+  await processExportJobCallable.run({ data: { jobId: 'job-fallback' } });
+
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  const finalWrite = getFinalWrite(getJobWrites('job-fallback'));
+  expect(finalWrite.status).toBe('success');
+  expectSummaryCounts(finalWrite, {
+    total: 1,
+    received: 1,
+    duplicate: 0,
+    error: 0,
+    success: 1,
+  });
+  expect(finalWrite.syncStatus['ad-fallback']).toMatchObject({
+    state: 'received',
+    message: 'Processed successfully',
+    assetUrl: 'https://cdn.example.com/ad-fallback.png',
   });
 });
 
