@@ -106,13 +106,6 @@ const DEFAULT_EXPORT_TARGET_ENV = (() => {
   return 'staging';
 })();
 
-const DEFAULT_EXPORT_TARGET_INTEGRATION = (() => {
-  const raw = `${resolveEnvValue('VITE_EXPORT_TARGET_INTEGRATION', 'compass')}`
-    .trim()
-    .toLowerCase();
-  return raw || 'compass';
-})();
-
 const EXPORT_WORKER_SECRET = (() => {
   const raw = resolveEnvValue('VITE_EXPORT_WORKER_SECRET', '').trim();
   return raw;
@@ -971,17 +964,7 @@ const Review = forwardRef(
       }) || null
     );
   }, [enabledExporterIntegrations, normalizedGroupRecipeTypes]);
-  const defaultExporterIntegration = useMemo(() => {
-    const defaultKey = DEFAULT_EXPORT_TARGET_INTEGRATION.toLowerCase();
-    return (
-      enabledExporterIntegrations.find(
-        (integration) =>
-          typeof integration.partnerKey === 'string' &&
-          integration.partnerKey.trim().toLowerCase() === defaultKey,
-      ) || null
-    );
-  }, [enabledExporterIntegrations]);
-  const selectedExporterIntegration = matchingExporterIntegration || defaultExporterIntegration || null;
+  const selectedExporterIntegration = matchingExporterIntegration || null;
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [showVersionMenu, setShowVersionMenu] = useState(false);
   const [cardVersionIndices, setCardVersionIndices] = useState({});
@@ -1230,7 +1213,12 @@ const Review = forwardRef(
         normalizeKeyPart(originalJob.targetIntegration) ||
         normalizeKeyPart(originalJob.integrationKey) ||
         normalizeKeyPart(originalJob.integration?.key) ||
-        DEFAULT_EXPORT_TARGET_INTEGRATION;
+        '';
+      if (!integrationKeyRaw) {
+        setExportJobModalError('Please select a target integration to resend.');
+        setResendingExport(false);
+        return;
+      }
       const integrationKey = integrationKeyRaw.toLowerCase();
       const integrationLabel =
         normalizeDisplayString(exportJobForm.integrationLabel) ||
@@ -5130,75 +5118,90 @@ useEffect(() => {
         jobMetadata.adGroupUrl = adGroupUrl;
       }
 
-      const integrationConfig = selectedExporterIntegration;
-      const integrationKeyCandidate =
-        typeof integrationConfig?.partnerKey === 'string'
-          ? integrationConfig.partnerKey.trim()
-          : '';
-      const resolvedIntegrationKeyRaw =
-        integrationKeyCandidate || DEFAULT_EXPORT_TARGET_INTEGRATION;
-      const resolvedIntegrationKey = resolvedIntegrationKeyRaw.toLowerCase();
-      const resolvedIntegrationLabel =
-        integrationConfig?.name ||
-        integrationConfig?.label ||
-        integrationKeyCandidate ||
-        (resolvedIntegrationKey === 'compass' ? 'Compass Ad Log' : resolvedIntegrationKeyRaw);
-      const resolvedRecipeTypeId = integrationConfig?.recipeTypeId || null;
-
-      const exportJobPayload = {
-        adGroupId: groupId,
-        adGroupName: adGroupDisplayName || '',
-        brandCode: jobBrandCode,
-        groupDesc: jobGroupDesc,
-        adIds: exportAdIds,
-        approvedAdIds: exportAdIds,
-        targetEnv: DEFAULT_EXPORT_TARGET_ENV,
-        targetIntegration: resolvedIntegrationKey,
-        integrationKey: resolvedIntegrationKey,
-        recipeTypeId: resolvedRecipeTypeId,
-        status: 'pending',
-        triggeredBy: reviewerIdentifier || '',
-        createdBy: reviewerIdentifier || '',
-        createdAt: timestamp,
-        requestedAt: timestamp,
-        metadata: jobMetadata,
-        integration: {
-          key: resolvedIntegrationKey,
-          label: resolvedIntegrationLabel,
-        },
-        counts: {
-          approved: exportAdIds.length,
-          total: reviewAds.length,
-          previouslyExported: Math.max(
-            0,
-            allApprovedAdIds.length - exportAdIds.length,
-          ),
-        },
-      };
-
-      const jobDocRef = await addDoc(collection(db, 'exportJobs'), exportJobPayload);
-
-      try {
-        const runExportJobCallable = httpsCallable(functions, 'runExportJob', {
-          timeout: 540000,
-        });
-        const workerPayload = { jobId: jobDocRef.id };
-        if (EXPORT_WORKER_SECRET) {
-          workerPayload.secret = EXPORT_WORKER_SECRET;
-        }
-        await runExportJobCallable(workerPayload);
-      } catch (workerErr) {
-        console.error('Failed to trigger export job', workerErr);
-        throw workerErr;
-      }
-
       const updateData = {
         status: 'reviewed',
         reviewProgress: null,
         lastUpdated: serverTimestamp(),
       };
-
+      let exportJobDocRef = null;
       if (exportAdIds.length > 0) {
+        if (!selectedExporterIntegration) {
+          console.info('Skipping export job creation: no matching exporter integration found', {
+            groupId,
+            recipeTypeIds: normalizedGroupRecipeTypes,
+            exportAdCount: exportAdIds.length,
+          });
+        } else {
+          const integrationKeyCandidate =
+            normalizeKeyPart(selectedExporterIntegration.partnerKey) ||
+            normalizeKeyPart(selectedExporterIntegration.key) ||
+            '';
+
+          if (!integrationKeyCandidate) {
+            console.warn('Skipping export job creation: integration key is missing', {
+              groupId,
+              integration: selectedExporterIntegration,
+            });
+          } else {
+            const resolvedIntegrationKey = integrationKeyCandidate.toLowerCase();
+            const resolvedIntegrationLabel =
+              selectedExporterIntegration.name ||
+              selectedExporterIntegration.label ||
+              integrationKeyCandidate;
+            const resolvedRecipeTypeId =
+              normalizeKeyPart(selectedExporterIntegration.recipeTypeId) || null;
+
+            const exportJobPayload = {
+              adGroupId: groupId,
+              adGroupName: adGroupDisplayName || '',
+              brandCode: jobBrandCode,
+              groupDesc: jobGroupDesc,
+              adIds: exportAdIds,
+              approvedAdIds: exportAdIds,
+              targetEnv: DEFAULT_EXPORT_TARGET_ENV,
+              targetIntegration: resolvedIntegrationKey,
+              integrationKey: resolvedIntegrationKey,
+              recipeTypeId: resolvedRecipeTypeId,
+              status: 'pending',
+              triggeredBy: reviewerIdentifier || '',
+              createdBy: reviewerIdentifier || '',
+              createdAt: timestamp,
+              requestedAt: timestamp,
+              metadata: jobMetadata,
+              integration: {
+                key: resolvedIntegrationKey,
+                label: resolvedIntegrationLabel,
+              },
+              counts: {
+                approved: exportAdIds.length,
+                total: reviewAds.length,
+                previouslyExported: Math.max(
+                  0,
+                  allApprovedAdIds.length - exportAdIds.length,
+                ),
+              },
+            };
+
+            exportJobDocRef = await addDoc(collection(db, 'exportJobs'), exportJobPayload);
+
+            try {
+              const runExportJobCallable = httpsCallable(functions, 'runExportJob', {
+                timeout: 540000,
+              });
+              const workerPayload = { jobId: exportJobDocRef.id };
+              if (EXPORT_WORKER_SECRET) {
+                workerPayload.secret = EXPORT_WORKER_SECRET;
+              }
+              await runExportJobCallable(workerPayload);
+            } catch (workerErr) {
+              console.error('Failed to trigger export job', workerErr);
+              throw workerErr;
+            }
+          }
+        }
+      }
+
+      if (exportJobDocRef) {
         updateData.exportedAdIds = normalizeUniqueIdList([
           ...previouslyExportedIds,
           ...exportAdIds,
