@@ -561,7 +561,6 @@ const AdGroupDetail = () => {
   const [notesInput, setNotesInput] = useState("");
   const [briefDrag, setBriefDrag] = useState(false);
   const [designers, setDesigners] = useState([]);
-  const [designerName, setDesignerName] = useState('');
   const [editors, setEditors] = useState([]);
   const [editorName, setEditorName] = useState('');
   const [revisionModal, setRevisionModal] = useState(null);
@@ -1351,33 +1350,6 @@ const AdGroupDetail = () => {
     };
     fetchAssignments();
   }, [isAdmin, isEditor, isManager]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadDesigner = async () => {
-      if (!group?.designerId) {
-        setDesignerName('');
-        return;
-      }
-      try {
-        const snap = await getDoc(doc(db, 'users', group.designerId));
-        if (!cancelled) {
-          setDesignerName(
-            snap.exists()
-              ? snap.data().fullName || snap.data().email || snap.id
-              : group.designerId
-          );
-        }
-      } catch (err) {
-        console.error('Failed to fetch designer name', err);
-        if (!cancelled) setDesignerName(group.designerId);
-      }
-    };
-    loadDesigner();
-    return () => {
-      cancelled = true;
-    };
-  }, [group?.designerId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -4396,7 +4368,7 @@ const AdGroupDetail = () => {
                         ))}
                       </select>
                     ) : (
-                      <span>{designerName || 'Unassigned'}</span>
+                      <span>{group?.designerId ? 'Assigned' : 'Unassigned'}</span>
                     )}
                   </div>
                   <div className="flex flex-col gap-1">
