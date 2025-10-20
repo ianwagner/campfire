@@ -993,6 +993,58 @@ const Review = forwardRef(
   const [manualStatus, setManualStatus] = useState({});
   const [adSyncStatus, setAdSyncStatus] = useState({});
   const [syncToasts, setSyncToasts] = useState([]);
+
+  const resolvedReviewerName = useMemo(() => {
+    if (typeof reviewerName === 'string' && reviewerName.trim()) {
+      return reviewerName.trim();
+    }
+    if (typeof user?.displayName === 'string' && user.displayName.trim()) {
+      return user.displayName.trim();
+    }
+    if (user?.email) {
+      return user.email;
+    }
+    if (user?.uid) {
+      return user.uid;
+    }
+    return '';
+  }, [reviewerName, user]);
+
+  const reviewerIdentifier = useMemo(
+    () => resolvedReviewerName || 'anonymous',
+    [resolvedReviewerName],
+  );
+
+  const helpdeskBrandCode = useMemo(() => {
+    const normalizedGroup =
+      typeof groupBrandCode === 'string'
+        ? groupBrandCode.trim()
+        : '';
+    if (normalizedGroup) return normalizedGroup;
+    if (Array.isArray(brandCodes)) {
+      const found = brandCodes.find(
+        (code) => typeof code === 'string' && code.trim(),
+      );
+      if (found) return found.trim();
+    }
+    return '';
+  }, [groupBrandCode, brandCodes]);
+
+  const canUpdateGroupDoc = !isPublicReviewer;
+  const reviewerNameValue = resolvedReviewerName;
+  const userUid = user?.uid || null;
+  const realtimeEnabled = useMemo(
+    () => {
+      return isRealtimeReviewerEligible({
+        allowPublicListeners,
+        isPublicReviewer,
+        isAuthenticated: Boolean(userUid),
+        reviewerName: reviewerNameValue,
+      });
+    },
+    [allowPublicListeners, isPublicReviewer, userUid, reviewerNameValue],
+  );
+
   const [exportJobModalState, setExportJobModalState] = useState(
     INITIAL_EXPORT_JOB_MODAL_STATE,
   );
@@ -1511,56 +1563,6 @@ const Review = forwardRef(
 
     return assignments;
   }, [recipes]);
-
-  const resolvedReviewerName = useMemo(() => {
-    if (typeof reviewerName === 'string' && reviewerName.trim()) {
-      return reviewerName.trim();
-    }
-    if (typeof user?.displayName === 'string' && user.displayName.trim()) {
-      return user.displayName.trim();
-    }
-    if (user?.email) {
-      return user.email;
-    }
-    if (user?.uid) {
-      return user.uid;
-    }
-    return '';
-  }, [reviewerName, user]);
-
-  const reviewerIdentifier = useMemo(
-    () => resolvedReviewerName || 'anonymous',
-    [resolvedReviewerName],
-  );
-
-  const helpdeskBrandCode = useMemo(() => {
-    const normalizedGroup = typeof groupBrandCode === 'string'
-      ? groupBrandCode.trim()
-      : '';
-    if (normalizedGroup) return normalizedGroup;
-    if (Array.isArray(brandCodes)) {
-      const found = brandCodes.find(
-        (code) => typeof code === 'string' && code.trim(),
-      );
-      if (found) return found.trim();
-    }
-    return '';
-  }, [groupBrandCode, brandCodes]);
-
-  const canUpdateGroupDoc = !isPublicReviewer;
-  const reviewerNameValue = resolvedReviewerName;
-  const userUid = user?.uid || null;
-  const realtimeEnabled = useMemo(
-    () => {
-      return isRealtimeReviewerEligible({
-        allowPublicListeners,
-        isPublicReviewer,
-        isAuthenticated: Boolean(userUid),
-        reviewerName: reviewerNameValue,
-      });
-    },
-    [allowPublicListeners, isPublicReviewer, userUid, reviewerNameValue],
-  );
 
   const performGroupUpdate = useCallback(
     async (
