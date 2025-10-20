@@ -6,7 +6,7 @@
     "build": "node -e \"console.log('No build step required for plain JS sources')\"",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
-    "start": "npm run shell",
+    "start": "node verifyDriveAccessServer.js",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
