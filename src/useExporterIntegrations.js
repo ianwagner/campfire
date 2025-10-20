@@ -225,6 +225,47 @@ const normalizeFieldMapping = (mapping) => {
   return normalized;
 };
 
+const extractRecipeTypeId = (integration) => {
+  const normalizeCandidate = (value) =>
+    typeof value === 'string' ? value.trim() : '';
+  const pickFromArray = (value) => {
+    if (!Array.isArray(value)) {
+      return '';
+    }
+    for (const entry of value) {
+      const normalized = normalizeCandidate(entry);
+      if (normalized) {
+        return normalized;
+      }
+    }
+    return '';
+  };
+
+  const directId = normalizeCandidate(integration.recipeTypeId);
+  if (directId) {
+    return directId;
+  }
+
+  const legacyId =
+    normalizeCandidate(integration.recipeTypeID) ||
+    normalizeCandidate(integration.recipe_type_id) ||
+    normalizeCandidate(integration.recipeType) ||
+    normalizeCandidate(integration.recipe_type) ||
+    normalizeCandidate(integration.recipe);
+  if (legacyId) {
+    return legacyId;
+  }
+
+  const arrayId =
+    pickFromArray(integration.recipeTypeIds) ||
+    pickFromArray(integration.recipeTypes);
+  if (arrayId) {
+    return arrayId;
+  }
+
+  return '';
+};
+
 const normalizeIntegration = (integration) => {
   if (!integration || typeof integration !== 'object') {
     return null;
@@ -238,8 +279,7 @@ const normalizeIntegration = (integration) => {
     enabled: integration.enabled !== false,
     notes: integration.notes || '',
     supportedFormats: normalizeFormats(integration.supportedFormats),
-    recipeTypeId:
-      typeof integration.recipeTypeId === 'string' ? integration.recipeTypeId.trim() : '',
+    recipeTypeId: extractRecipeTypeId(integration),
     fieldMapping: normalizeFieldMapping(integration.fieldMapping),
     updatedAt: toIsoString(integration.updatedAt),
   };
