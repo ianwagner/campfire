@@ -2678,9 +2678,10 @@ const AdGroupDetail = () => {
           group?.name || id,
         );
 
-        const docRef = await addDoc(collection(db, 'adGroups', id, 'assets'), {
+        const brandCodeValue = brandCode || group?.brandCode || '';
+        const assetPayload = {
           adGroupId: id,
-          brandCode: brandCode || '',
+          brandCode: brandCodeValue,
           adGroupCode,
           recipeCode,
           aspectRatio,
@@ -2694,7 +2695,18 @@ const AdGroupDetail = () => {
           version: info.version || version,
           parentAdId: parentId,
           isResolved: false,
-        });
+        };
+
+        const docRef = await addDoc(
+          collection(db, 'adGroups', id, 'assets'),
+          assetPayload,
+        );
+
+        await setDoc(
+          doc(db, 'adAssets', docRef.id),
+          assetPayload,
+          { merge: true },
+        );
 
         if (
           matchedAsset?.id &&
@@ -2708,7 +2720,7 @@ const AdGroupDetail = () => {
         const newAsset = {
           id: docRef.id,
           adGroupId: id,
-          brandCode: brandCode || '',
+          brandCode: brandCodeValue,
           adGroupCode,
           recipeCode,
           aspectRatio,
