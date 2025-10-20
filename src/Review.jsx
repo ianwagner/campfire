@@ -266,20 +266,33 @@ const normalizeDisplayString = (value) => {
   return String(value).trim();
 };
 
+const normalizeIntegrationKey = (value) => {
+  const normalized = normalizeKeyPart(value).toLowerCase();
+  if (!normalized) return '';
+  if (normalized === 'default' || normalized === 'adlog' || normalized === 'compass') {
+    return 'default';
+  }
+  return normalized;
+};
+
 const simplifyPartnerLabel = (label, key) => {
   const normalizedLabel = normalizeDisplayString(label);
-  const normalizedKey = normalizeKeyPart(key);
+  const normalizedKey = normalizeIntegrationKey(key);
 
   if (normalizedLabel) {
-    if (/ad\s*log/i.test(normalizedLabel)) {
-      return 'AdLog';
+    if (
+      /ad\s*log/i.test(normalizedLabel) ||
+      /compass/i.test(normalizedLabel) ||
+      /^default$/i.test(normalizedLabel)
+    ) {
+      return 'Partner';
     }
     return normalizedLabel;
   }
 
   if (normalizedKey) {
-    if (normalizedKey === 'compass' || normalizedKey === 'adlog') {
-      return 'AdLog';
+    if (normalizedKey === 'default') {
+      return 'Partner';
     }
     return normalizedKey
       .split(/[-_\s]+/)
@@ -984,18 +997,19 @@ const Review = forwardRef(
     if (!groupId || !matchingExporterIntegration) return;
 
     // derive normalized key + label
-    const key =
-      (matchingExporterIntegration.partnerKey ||
-        matchingExporterIntegration.key ||
-        '').trim().toLowerCase();
+    const rawKey =
+      matchingExporterIntegration.partnerKey ||
+      matchingExporterIntegration.key ||
+      '';
+    const key = normalizeIntegrationKey(rawKey);
     if (!key) return;
 
-    const label =
-      (matchingExporterIntegration.name ||
-        matchingExporterIntegration.label ||
-        key).trim();
+    const label = simplifyPartnerLabel(
+      matchingExporterIntegration.name || matchingExporterIntegration.label,
+      key,
+    );
 
-    const recipeTypeId = (matchingExporterIntegration.recipeTypeId || '').trim();
+    const recipeTypeId = normalizeKeyPart(matchingExporterIntegration.recipeTypeId);
 
     // avoid redundant writes
     // keep a ref of the last key we wrote for this group
@@ -1208,10 +1222,14 @@ const Review = forwardRef(
 
         setExportJobForm({
           targetIntegration:
-            normalizeDisplayString(jobData.targetIntegration) ||
-            normalizeDisplayString(jobData.integrationKey) ||
+            normalizeIntegrationKey(jobData.targetIntegration) ||
+            normalizeIntegrationKey(jobData.integrationKey) ||
             '',
-          integrationLabel: normalizeDisplayString(jobData.integration?.label) || '',
+          integrationLabel:
+            simplifyPartnerLabel(
+              jobData.integration?.label || jobData.integrationLabel,
+              jobData.integration?.key || jobData.integrationKey || jobData.targetIntegration,
+            ),
           targetEnv: normalizeDisplayString(jobData.targetEnv) || '',
           recipeTypeId: normalizeDisplayString(jobData.recipeTypeId) || '',
           brandCode: normalizeDisplayString(jobData.brandCode) || '',
@@ -1260,20 +1278,19 @@ const Review = forwardRef(
         return;
       }
 
-      const integrationKeyRaw =
-        normalizeKeyPart(exportJobForm.targetIntegration) ||
-        normalizeKeyPart(originalJob.targetIntegration) ||
-        normalizeKeyPart(originalJob.integrationKey) ||
-        normalizeKeyPart(originalJob.integration?.key) ||
+      const integrationKey =
+        normalizeIntegrationKey(exportJobForm.targetIntegration) ||
+        normalizeIntegrationKey(originalJob.targetIntegration) ||
+        normalizeIntegrationKey(originalJob.integrationKey) ||
+        normalizeIntegrationKey(originalJob.integration?.key) ||
         '';
-      if (!integrationKeyRaw) {
+      if (!integrationKey) {
         setExportJobModalError('Please select a target integration to resend.');
         setResendingExport(false);
         return;
       }
-      const integrationKey = integrationKeyRaw.toLowerCase();
       const integrationLabel =
-        normalizeDisplayString(exportJobForm.integrationLabel) ||
+        simplifyPartnerLabel(exportJobForm.integrationLabel, integrationKey) ||
         simplifyPartnerLabel(originalJob.integration?.label, integrationKey) ||
         simplifyPartnerLabel('', integrationKey);
       const targetEnv =
@@ -2386,18 +2403,15 @@ useEffect(() => {
     }
 
     const integrationKeyCandidate =
-      normalizeKeyPart(selectedExporterIntegration.partnerKey) ||
-      normalizeKeyPart(selectedExporterIntegration.key) ||
+      normalizeIntegrationKey(selectedExporterIntegration.partnerKey) ||
+      normalizeIntegrationKey(selectedExporterIntegration.key) ||
       '';
     if (!integrationKeyCandidate) {
       return;
     }
-    const resolvedIntegrationKey = integrationKeyCandidate.toLowerCase();
-    if (!resolvedIntegrationKey) {
-      return;
-    }
+    const resolvedIntegrationKey = integrationKeyCandidate;
 
-    const existingIntegrationKey = groupIntegrationKey || '';
+    const existingIntegrationKey = normalizeIntegrationKey(groupIntegrationKey || '');
     const resolvedRecipeTypeId =
       normalizeKeyPart(selectedExporterIntegration.recipeTypeId) || '';
     const resolvedRecipeTypeIdLower = resolvedRecipeTypeId
@@ -2494,9 +2508,9 @@ useEffect(() => {
           .map((value) => (typeof value === 'string' ? value.trim() : ''))
           .filter(Boolean),
       );
-      const integrationKeyRaw = normalizeKeyPart(data?.integrationKey);
-      const targetIntegrationRaw = normalizeKeyPart(data?.targetIntegration);
-      const partnerKeyRaw = normalizeKeyPart(data?.partnerKey);
+      const integrationKeyRaw = normalizeIntegrationKey(data?.integrationKey);
+      const targetIntegrationRaw = normalizeIntegrationKey(data?.targetIntegration);
+      const partnerKeyRaw = normalizeIntegrationKey(data?.partnerKey);
       const resolvedIntegrationKeySource = integrationKeyRaw
         ? 'integrationKey'
         : targetIntegrationRaw
@@ -2506,7 +2520,7 @@ useEffect(() => {
             : '';
       const resolvedIntegrationKey =
         integrationKeyRaw || targetIntegrationRaw || partnerKeyRaw || '';
-      setGroupIntegrationKey(resolvedIntegrationKey ? resolvedIntegrationKey.toLowerCase() : '');
+      setGroupIntegrationKey(resolvedIntegrationKey);
       setGroupIntegrationKeySource(resolvedIntegrationKeySource);
       setGroupHasTargetIntegration(Boolean(targetIntegrationRaw));
       const resolvedRecipeTypeId =
@@ -2586,9 +2600,9 @@ useEffect(() => {
                   .map((value) => (typeof value === 'string' ? value.trim() : ''))
                   .filter(Boolean),
               );
-              const integrationKeyRaw = normalizeKeyPart(data?.integrationKey);
-              const targetIntegrationRaw = normalizeKeyPart(data?.targetIntegration);
-              const partnerKeyRaw = normalizeKeyPart(data?.partnerKey);
+              const integrationKeyRaw = normalizeIntegrationKey(data?.integrationKey);
+              const targetIntegrationRaw = normalizeIntegrationKey(data?.targetIntegration);
+              const partnerKeyRaw = normalizeIntegrationKey(data?.partnerKey);
               const resolvedIntegrationKeySource = integrationKeyRaw
                 ? 'integrationKey'
                 : targetIntegrationRaw
@@ -2598,9 +2612,7 @@ useEffect(() => {
                     : '';
               const resolvedIntegrationKey =
                 integrationKeyRaw || targetIntegrationRaw || partnerKeyRaw || '';
-              setGroupIntegrationKey(
-                resolvedIntegrationKey ? resolvedIntegrationKey.toLowerCase() : '',
-              );
+              setGroupIntegrationKey(resolvedIntegrationKey);
               setGroupIntegrationKeySource(resolvedIntegrationKeySource);
               setGroupHasTargetIntegration(Boolean(targetIntegrationRaw));
               const resolvedRecipeTypeId =
@@ -4271,7 +4283,7 @@ useEffect(() => {
           const data = docSnap.data() || {};
           const jobId = docSnap.id;
           const integrationKey =
-            normalizeKeyPart(
+            normalizeIntegrationKey(
               data.integration?.key ||
                 data.integrationKey ||
                 data.targetIntegration ||
@@ -4281,7 +4293,7 @@ useEffect(() => {
             ) || '';
           const partnerName = simplifyPartnerLabel(
             data.integration?.label || data.integrationLabel,
-            integrationKey || data.targetIntegration,
+            integrationKey,
           );
           const syncStatusMap = data.syncStatus || {};
           const jobStatus = normalizeKeyPart(data.status);
@@ -5335,8 +5347,8 @@ useEffect(() => {
           });
         } else {
           const integrationKeyCandidate =
-            normalizeKeyPart(selectedExporterIntegration.partnerKey) ||
-            normalizeKeyPart(selectedExporterIntegration.key) ||
+            normalizeIntegrationKey(selectedExporterIntegration.partnerKey) ||
+            normalizeIntegrationKey(selectedExporterIntegration.key) ||
             '';
 
           if (!integrationKeyCandidate) {
@@ -5345,11 +5357,11 @@ useEffect(() => {
               integration: selectedExporterIntegration,
             });
           } else {
-            const resolvedIntegrationKey = integrationKeyCandidate.toLowerCase();
-            const resolvedIntegrationLabel =
-              selectedExporterIntegration.name ||
-              selectedExporterIntegration.label ||
-              integrationKeyCandidate;
+            const resolvedIntegrationKey = integrationKeyCandidate;
+            const resolvedIntegrationLabel = simplifyPartnerLabel(
+              selectedExporterIntegration.name || selectedExporterIntegration.label,
+              resolvedIntegrationKey,
+            );
             const resolvedRecipeTypeId =
               normalizeKeyPart(selectedExporterIntegration.recipeTypeId) || null;
 
