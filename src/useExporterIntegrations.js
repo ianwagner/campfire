@@ -97,36 +97,129 @@ const normalizeFieldMapping = (mapping) => {
   const entries = Object.entries(mapping)
     .map(([rawKey, rawValue]) => [
       typeof rawKey === 'string' ? rawKey.trim() : '',
-      typeof rawValue === 'string' ? rawValue.trim() : '',
+      rawValue,
     ])
-    .filter(([recipeField, partnerField]) => recipeField && partnerField);
+    .filter(([key]) => key);
 
   if (entries.length === 0) {
     return normalized;
   }
 
-  const keyCampfireMatches = entries.filter(([key]) => isCampfireFieldCandidate(key)).length;
-  const valueCampfireMatches = entries.filter(([, value]) => isCampfireFieldCandidate(value)).length;
-  const hasKeyDot = entries.some(([key]) => key.includes('.'));
-  const hasValueDot = entries.some(([, value]) => value.includes('.'));
+  const stringEntries = entries
+    .filter(([, value]) => typeof value === 'string')
+    .map(([key, value]) => ({
+      key,
+      value: value.trim(),
+    }))
+    .filter((entry) => entry.value);
 
-  let keysAreCampfire = true;
+  let keysAreCampfire = false;
 
-  if (hasKeyDot && !hasValueDot) {
-    keysAreCampfire = true;
-  } else if (hasValueDot && !hasKeyDot) {
-    keysAreCampfire = false;
-  } else if (valueCampfireMatches > keyCampfireMatches) {
-    keysAreCampfire = false;
+  if (stringEntries.length > 0) {
+    const keyCampfireMatches = stringEntries.filter(({ key }) => isCampfireFieldCandidate(key)).length;
+    const valueCampfireMatches = stringEntries.filter(({ value }) => isCampfireFieldCandidate(value)).length;
+    const hasKeyDot = stringEntries.some(({ key }) => key.includes('.'));
+    const hasValueDot = stringEntries.some(({ value }) => value.includes('.'));
+
+    if (hasKeyDot && !hasValueDot) {
+      keysAreCampfire = true;
+    } else if (hasValueDot && !hasKeyDot) {
+      keysAreCampfire = false;
+    } else if (valueCampfireMatches > keyCampfireMatches) {
+      keysAreCampfire = false;
+    } else if (keyCampfireMatches > 0) {
+      keysAreCampfire = true;
+    }
   }
 
-  entries.forEach(([key, value]) => {
-    const campfireField = keysAreCampfire ? key : value;
-    const partnerField = keysAreCampfire ? value : key;
-    if (!campfireField || !partnerField) {
+  const assignEntry = (partnerField, sourceField, format) => {
+    const partner = typeof partnerField === 'string' ? partnerField.trim() : '';
+    const source = typeof sourceField === 'string' ? sourceField.trim() : '';
+    const normalizedFormat = typeof format === 'string' ? format.trim() : '';
+    if (!partner || !source) {
       return;
     }
-    normalized[campfireField] = partnerField;
+    const entry = { source };
+    if (normalizedFormat) {
+      entry.format = normalizedFormat;
+    }
+    normalized[partner] = entry;
+  };
+
+  entries.forEach(([key, rawValue]) => {
+    if (typeof rawValue === 'string') {
+      const value = rawValue.trim();
+      if (!value) {
+        return;
+      }
+      if (keysAreCampfire) {
+        assignEntry(value, key);
+      } else {
+        assignEntry(key, value);
+      }
+      return;
+    }
+
+    if (!rawValue || typeof rawValue !== 'object') {
+      return;
+    }
+
+    const explicitSource =
+      typeof rawValue.source === 'string' ? rawValue.source.trim() : '';
+    const explicitPartner =
+      typeof rawValue.target === 'string' ? rawValue.target.trim() : '';
+    const partnerFallback =
+      typeof rawValue.partner === 'string' ? rawValue.partner.trim() : '';
+    const format =
+      typeof rawValue.format === 'string' ? rawValue.format.trim() : '';
+
+    if (explicitSource) {
+      assignEntry(explicitPartner || partnerFallback || key, explicitSource, format);
+      return;
+    }
+
+    const altSource =
+      typeof rawValue.field === 'string'
+        ? rawValue.field.trim()
+        : typeof rawValue.campfire === 'string'
+        ? rawValue.campfire.trim()
+        : '';
+
+    if (altSource) {
+      assignEntry(explicitPartner || partnerFallback || key, altSource, format);
+      return;
+    }
+
+    const altPartner =
+      explicitPartner ||
+      partnerFallback ||
+      (typeof rawValue.partnerField === 'string'
+        ? rawValue.partnerField.trim()
+        : '');
+
+    if (altPartner) {
+      const inferredSource = keysAreCampfire ? key : '';
+      assignEntry(altPartner, inferredSource || key, format);
+      return;
+    }
+
+    if (keysAreCampfire) {
+      const fallbackPartner =
+        typeof rawValue.field === 'string'
+          ? rawValue.field.trim()
+          : typeof rawValue.targetField === 'string'
+          ? rawValue.targetField.trim()
+          : '';
+      assignEntry(fallbackPartner || key, key, format);
+    } else {
+      const fallbackSource =
+        typeof rawValue.field === 'string'
+          ? rawValue.field.trim()
+          : typeof rawValue.campfire === 'string'
+          ? rawValue.campfire.trim()
+          : '';
+      assignEntry(key, fallbackSource || key, format);
+    }
   });
 
   return normalized;

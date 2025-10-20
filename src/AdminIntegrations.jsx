@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   collection,
   collectionGroup,
@@ -53,6 +53,190 @@ const STRUCTURAL_META_KEYS = new Set([
   'brandCode',
 ]);
 
+const DATE_FORMAT_OPTIONS = [
+  { value: 'yyyy-MM-dd', label: 'YYYY-MM-DD (ISO)' },
+  { value: 'MM/dd/yyyy', label: 'MM/DD/YYYY' },
+  { value: 'dd/MM/yyyy', label: 'DD/MM/YYYY' },
+  { value: 'yyyy-MM-dd HH:mm', label: 'YYYY-MM-DD HH:mm (ISO with time)' },
+];
+
+const DEFAULT_DATE_FORMAT = DATE_FORMAT_OPTIONS[0].value;
+
+const extractMetadataType = (field) => {
+  if (!field || typeof field !== 'object') {
+    return '';
+  }
+
+  const candidates = [
+    typeof field.metadata?.type === 'string' ? field.metadata.type : '',
+    typeof field.type === 'string' ? field.type : '',
+    typeof field.fieldType === 'string' ? field.fieldType : '',
+    typeof field.dataType === 'string' ? field.dataType : '',
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === 'string') {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+
+  return '';
+};
+
+const determineIsDateField = ({ key = '', label = '', metadataType = '' }) => {
+  const type = (metadataType || '').toLowerCase();
+  if (type === 'date' || type === 'datetime' || type === 'timestamp') {
+    return true;
+  }
+
+  const normalizedKey = (key || '').toLowerCase();
+  if (normalizedKey.includes('date') || normalizedKey.includes('timestamp')) {
+    return true;
+  }
+
+  const normalizedLabel = (label || '').toLowerCase();
+  if (normalizedLabel.includes('date') || normalizedLabel.includes('timestamp')) {
+    return true;
+  }
+
+  return false;
+};
+
+const normalizeMappingEntry = (entry) => {
+  if (!entry) {
+    return { target: '', format: '' };
+  }
+
+  if (typeof entry === 'string') {
+    const target = entry.trim();
+    return { target, format: '' };
+  }
+
+  if (typeof entry === 'object') {
+    const target =
+      typeof entry.target === 'string'
+        ? entry.target.trim()
+        : typeof entry.partner === 'string'
+        ? entry.partner.trim()
+        : '';
+    const format = typeof entry.format === 'string' ? entry.format.trim() : '';
+    return { target, format };
+  }
+
+  return { target: '', format: '' };
+};
+
+const convertPartnerMappingToUi = (mapping) => {
+  if (!mapping || typeof mapping !== 'object') {
+    return {};
+  }
+
+  const uiMapping = {};
+
+  Object.entries(mapping).forEach(([rawPartnerKey, rawValue]) => {
+    const partnerKey = typeof rawPartnerKey === 'string' ? rawPartnerKey.trim() : '';
+    if (!partnerKey) {
+      return;
+    }
+
+    if (typeof rawValue === 'string') {
+      const source = rawValue.trim();
+      if (!source) {
+        return;
+      }
+      uiMapping[source] = { target: partnerKey };
+      return;
+    }
+
+    if (rawValue && typeof rawValue === 'object') {
+      const source =
+        typeof rawValue.source === 'string'
+          ? rawValue.source.trim()
+          : typeof rawValue.campfire === 'string'
+          ? rawValue.campfire.trim()
+          : typeof rawValue.field === 'string'
+          ? rawValue.field.trim()
+          : '';
+      const format = typeof rawValue.format === 'string' ? rawValue.format.trim() : '';
+
+      if (source) {
+        uiMapping[source] = format ? { target: partnerKey, format } : { target: partnerKey };
+      }
+    }
+  });
+
+  Object.entries(mapping).forEach(([rawCampfireKey, rawValue]) => {
+    const campfireKey =
+      typeof rawCampfireKey === 'string' ? rawCampfireKey.trim() : '';
+    if (!campfireKey || uiMapping[campfireKey]) {
+      return;
+    }
+
+    if (typeof rawValue === 'string') {
+      const partner = rawValue.trim();
+      if (!partner) {
+        return;
+      }
+      uiMapping[campfireKey] = { target: partner };
+      return;
+    }
+
+    if (rawValue && typeof rawValue === 'object') {
+      const partner =
+        typeof rawValue.partner === 'string'
+          ? rawValue.partner.trim()
+          : typeof rawValue.target === 'string'
+          ? rawValue.target.trim()
+          : '';
+      const format = typeof rawValue.format === 'string' ? rawValue.format.trim() : '';
+      if (partner) {
+        uiMapping[campfireKey] = format
+          ? { target: partner, format }
+          : { target: partner };
+      }
+    }
+  });
+
+  return uiMapping;
+};
+
+const convertUiMappingToPartner = (mapping, isDateFieldKey = () => false) => {
+  if (!mapping || typeof mapping !== 'object') {
+    return {};
+  }
+
+  const persisted = {};
+
+  Object.entries(mapping).forEach(([rawCampfireKey, entry]) => {
+    const campfireKey =
+      typeof rawCampfireKey === 'string' ? rawCampfireKey.trim() : '';
+    if (!campfireKey) {
+      return;
+    }
+
+    const { target, format } = normalizeMappingEntry(entry);
+    if (!target) {
+      return;
+    }
+
+    const isDate = !!isDateFieldKey(campfireKey);
+
+    if (isDate) {
+      const appliedFormat = format || DEFAULT_DATE_FORMAT;
+      persisted[target] = appliedFormat
+        ? { source: campfireKey, format: appliedFormat }
+        : { source: campfireKey };
+    } else {
+      persisted[target] = campfireKey;
+    }
+  });
+
+  return persisted;
+};
+
 const shouldOmitKey = (key) => {
   if (!key) {
     return true;
@@ -101,11 +285,15 @@ const normalizeFieldEntry = (field) => {
   const key = typeof field?.key === 'string' ? field.key.trim() : '';
   const label = typeof field?.label === 'string' ? field.label.trim() : key;
   const required = !!field?.required;
+  const metadataType = extractMetadataType(field);
+  const isDate = determineIsDateField({ key, label, metadataType });
   return key
     ? {
         key,
         label,
         required,
+        metadataType,
+        isDate,
       }
     : null;
 };
@@ -122,6 +310,8 @@ const expandFieldWithCarousel = (field, carouselSlots = 1) => {
     return Array.from({ length: carouselSlots }, (_, index) => ({
       key: `${field.key.replace(/[_]?1x1$/i, '_1x1')}_${index + 1}`.replace('__', '_'),
       label: `${field.label || field.key} #${index + 1}`,
+      metadataType: field.metadataType,
+      isDate: field.isDate,
     }));
   }
 
@@ -493,17 +683,41 @@ const AdminIntegrations = () => {
       }
       const existing = merged.get(field.key);
       const label = field.label || existing?.label || formatLabel(field.key);
-      merged.set(field.key, { key: field.key, label });
+      const metadataType = field.metadataType || existing?.metadataType || '';
+      const isDate =
+        typeof field.isDate === 'boolean'
+          ? field.isDate
+          : typeof existing?.isDate === 'boolean'
+          ? existing.isDate
+          : determineIsDateField({
+              key: field.key,
+              label,
+              metadataType,
+            });
+      merged.set(field.key, { key: field.key, label, metadataType, isDate });
     };
 
     const sampleFields = sampleMetaKeyList
       .filter((key) => key && !shouldOmitKey(key))
-      .map((key) => ({ key, label: formatLabel(key) }));
+      .map((key) => {
+        const label = formatLabel(key);
+        return {
+          key,
+          label,
+          metadataType: '',
+          isDate: determineIsDateField({ key, label }),
+        };
+      });
 
-    const universalFields = UNIVERSAL_CAMPAIGN_IDENTIFIER_KEYS.map((key) => ({
-      key,
-      label: formatLabel(key),
-    }));
+    const universalFields = UNIVERSAL_CAMPAIGN_IDENTIFIER_KEYS.map((key) => {
+      const label = formatLabel(key);
+      return {
+        key,
+        label,
+        metadataType: '',
+        isDate: determineIsDateField({ key, label }),
+      };
+    });
 
     const groups =
       sampleFields.length > 0
@@ -545,7 +759,18 @@ const AdminIntegrations = () => {
       }
       const existing = merged.get(field.key);
       const label = field.label || existing?.label || formatLabel(field.key);
-      merged.set(field.key, { key: field.key, label });
+      const metadataType = field.metadataType || existing?.metadataType || '';
+      const isDate =
+        typeof field.isDate === 'boolean'
+          ? field.isDate
+          : typeof existing?.isDate === 'boolean'
+          ? existing.isDate
+          : determineIsDateField({
+              key: field.key,
+              label,
+              metadataType,
+            });
+      merged.set(field.key, { key: field.key, label, metadataType, isDate });
     };
 
     normalizedWriteInFields.forEach(addOption);
@@ -573,16 +798,32 @@ const AdminIntegrations = () => {
     const map = new Map();
 
     const addKey = (key) => {
-      if (!key) {
+      const trimmedKey = typeof key === 'string' ? key.trim() : '';
+      if (!trimmedKey || map.has(trimmedKey)) {
         return;
       }
       const option =
-        allCampfireFieldOptionMap.get(key) ||
-        availableCampfireFieldMap.get(key) || {
-          key,
-          label: key,
+        allCampfireFieldOptionMap.get(trimmedKey) ||
+        availableCampfireFieldMap.get(trimmedKey) || {
+          key: trimmedKey,
+          label: formatLabel(trimmedKey),
         };
-      map.set(option.key, { key: option.key, label: option.label || option.key });
+      const label = option.label || formatLabel(trimmedKey);
+      const metadataType = option.metadataType || '';
+      const isDate =
+        typeof option.isDate === 'boolean'
+          ? option.isDate
+          : determineIsDateField({
+              key: trimmedKey,
+              label,
+              metadataType,
+            });
+      map.set(trimmedKey, {
+        key: trimmedKey,
+        label,
+        metadataType,
+        isDate,
+      });
     };
 
     availableCampfireFields.forEach((field) => addKey(field.key));
@@ -597,6 +838,16 @@ const AdminIntegrations = () => {
     extraCampfireFieldKeys,
     formState.fieldMapping,
   ]);
+
+  const displayedCampfireFieldMap = useMemo(() => {
+    const map = new Map();
+    displayedCampfireFields.forEach((field) => {
+      if (field?.key) {
+        map.set(field.key, field);
+      }
+    });
+    return map;
+  }, [displayedCampfireFields]);
 
   const displayedCampfireFieldKeySet = useMemo(() => {
     return new Set(displayedCampfireFields.map((field) => field.key));
@@ -619,6 +870,31 @@ const AdminIntegrations = () => {
       })
       .slice(0, 12);
   }, [allCampfireFieldOptions, campfireFieldSearch, displayedCampfireFieldKeySet]);
+
+  const isDateFieldKey = useCallback(
+    (key) => {
+      const trimmed = typeof key === 'string' ? key.trim() : '';
+      if (!trimmed) {
+        return false;
+      }
+      const candidates = [
+        displayedCampfireFieldMap.get(trimmed),
+        availableCampfireFieldMap.get(trimmed),
+        allCampfireFieldOptionMap.get(trimmed),
+      ];
+      for (const candidate of candidates) {
+        if (candidate && typeof candidate.isDate === 'boolean') {
+          return candidate.isDate;
+        }
+      }
+      return determineIsDateField({ key: trimmed });
+    },
+    [
+      allCampfireFieldOptionMap,
+      availableCampfireFieldMap,
+      displayedCampfireFieldMap,
+    ],
+  );
 
   useEffect(() => {
     setExtraCampfireFieldKeys((prev) => {
@@ -646,19 +922,99 @@ const AdminIntegrations = () => {
     return [...integrations].sort((a, b) => a.name.localeCompare(b.name));
   }, [integrations]);
 
-  const updateFieldMapping = (campfireFieldKey, partnerFieldName) => {
+  const updateFieldMapping = (campfireFieldKey, partnerFieldName, options = {}) => {
     setFormState((prev) => {
       const nextMapping = { ...(prev.fieldMapping || {}) };
-      const trimmedCampfire = typeof campfireFieldKey === 'string' ? campfireFieldKey.trim() : '';
-      const trimmedPartner = typeof partnerFieldName === 'string' ? partnerFieldName.trim() : '';
+      const trimmedCampfire =
+        typeof campfireFieldKey === 'string' ? campfireFieldKey.trim() : '';
       if (!trimmedCampfire) {
         return prev;
       }
+
+      const trimmedPartner =
+        typeof partnerFieldName === 'string' ? partnerFieldName.trim() : '';
+      const existing = normalizeMappingEntry(nextMapping[trimmedCampfire]);
+      const dateField =
+        typeof options.isDate === 'boolean'
+          ? options.isDate
+          : isDateFieldKey(trimmedCampfire);
+      let format = dateField ? existing.format : '';
+      const hadEntry = Object.prototype.hasOwnProperty.call(
+        nextMapping,
+        trimmedCampfire,
+      );
+
+      if (dateField && trimmedPartner && !format) {
+        format = DEFAULT_DATE_FORMAT;
+      }
+
       if (!trimmedPartner) {
+        if (!dateField) {
+          if (!hadEntry) {
+            return prev;
+          }
+          delete nextMapping[trimmedCampfire];
+          return { ...prev, fieldMapping: nextMapping };
+        }
+
+        if (!format || existing.target) {
+          if (!hadEntry) {
+            return prev;
+          }
+          delete nextMapping[trimmedCampfire];
+        } else {
+          nextMapping[trimmedCampfire] = { format };
+        }
+      } else {
+        const entry = {};
+        if (trimmedPartner) {
+          entry.target = trimmedPartner;
+        }
+        if (format && dateField) {
+          entry.format = format;
+        }
+        nextMapping[trimmedCampfire] = entry;
+      }
+
+      return { ...prev, fieldMapping: nextMapping };
+    });
+  };
+
+  const updateFieldFormat = (campfireFieldKey, formatValue) => {
+    setFormState((prev) => {
+      const nextMapping = { ...(prev.fieldMapping || {}) };
+      const trimmedCampfire =
+        typeof campfireFieldKey === 'string' ? campfireFieldKey.trim() : '';
+      if (!trimmedCampfire) {
+        return prev;
+      }
+
+      const trimmedFormat =
+        typeof formatValue === 'string' ? formatValue.trim() : '';
+      const existing = normalizeMappingEntry(nextMapping[trimmedCampfire]);
+      const partner = existing.target;
+      const dateField = isDateFieldKey(trimmedCampfire);
+      const hadEntry = Object.prototype.hasOwnProperty.call(
+        nextMapping,
+        trimmedCampfire,
+      );
+
+      if ((!trimmedFormat || !dateField) && !partner) {
+        if (!hadEntry) {
+          return prev;
+        }
         delete nextMapping[trimmedCampfire];
       } else {
-        nextMapping[trimmedCampfire] = trimmedPartner;
+        const entry = {};
+        if (partner) {
+          entry.target = partner;
+        }
+        if (trimmedFormat && dateField) {
+          entry.format = trimmedFormat;
+        }
+        nextMapping[trimmedCampfire] = entry;
       }
+
       return { ...prev, fieldMapping: nextMapping };
     });
   };
@@ -723,7 +1079,7 @@ const AdminIntegrations = () => {
         ? integration.supportedFormats.join(', ')
         : '',
       recipeTypeId: integration.recipeTypeId || '',
-      fieldMapping: { ...(integration.fieldMapping || {}) },
+      fieldMapping: convertPartnerMappingToUi(integration.fieldMapping),
     });
     setEditingId(integration.id);
     setShowApiKey(false);
@@ -796,6 +1152,38 @@ const AdminIntegrations = () => {
       .map((value) => value.trim())
       .filter(Boolean);
 
+    const invalidFormattedFields = [];
+    Object.entries(formState.fieldMapping || {}).forEach(([campfireKey, entry]) => {
+      const trimmedKey = typeof campfireKey === 'string' ? campfireKey.trim() : '';
+      if (!trimmedKey) {
+        return;
+      }
+      const { target, format } = normalizeMappingEntry(entry);
+      if (isDateFieldKey(trimmedKey) && format && !target) {
+        invalidFormattedFields.push(trimmedKey);
+      }
+    });
+
+    if (invalidFormattedFields.length > 0) {
+      const labels = invalidFormattedFields
+        .map((key) => {
+          const fieldInfo =
+            availableCampfireFieldMap.get(key) ||
+            allCampfireFieldOptionMap.get(key);
+          return fieldInfo?.label || formatLabel(key);
+        })
+        .join(', ');
+      setValidationError(
+        `Provide partner field names for formatted date fields: ${labels}.`,
+      );
+      return;
+    }
+
+    const persistedFieldMapping = convertUiMappingToPartner(
+      formState.fieldMapping,
+      isDateFieldKey,
+    );
+
     const payload = {
       id: formState.id || undefined,
       name: trimmedName,
@@ -806,7 +1194,7 @@ const AdminIntegrations = () => {
       notes: formState.notes.trim(),
       supportedFormats,
       recipeTypeId: formState.recipeTypeId || '',
-      fieldMapping: formState.fieldMapping || {},
+      fieldMapping: persistedFieldMapping,
     };
 
     setSaving(true);
@@ -1075,26 +1463,74 @@ const AdminIntegrations = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 dark:divide-[var(--border-color-default)]">
-                        {displayedCampfireFields.map((field) => (
-                          <tr key={field.key}>
-                            <td className="px-3 py-2 align-top text-sm text-gray-700 dark:text-gray-200">
-                              <div className="font-medium">{field.label || field.key}</div>
-                              <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Key: {field.key}</div>
-                            </td>
-                            <td className="px-3 py-2 align-top">
-                              <input
-                                type="text"
-                                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
-                                value={formState.fieldMapping?.[field.key] || ''}
-                                onChange={(event) => updateFieldMapping(field.key, event.target.value)}
-                                placeholder="Partner field name"
-                              />
-                              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                Leave blank to omit this field from the payload.
-                              </p>
-                            </td>
-                          </tr>
-                        ))}
+                        {displayedCampfireFields.map((field) => {
+                          const mappingEntry = normalizeMappingEntry(
+                            formState.fieldMapping?.[field.key],
+                          );
+                          const partnerValue = mappingEntry.target;
+                          const showFormatDropdown = !!field.isDate;
+                          const effectiveFormat =
+                            mappingEntry.format || DEFAULT_DATE_FORMAT;
+                          const showPartnerError =
+                            showFormatDropdown &&
+                            !!mappingEntry.format &&
+                            !partnerValue;
+
+                          return (
+                            <tr key={field.key}>
+                              <td className="px-3 py-2 align-top text-sm text-gray-700 dark:text-gray-200">
+                                <div className="font-medium">{field.label || field.key}</div>
+                                <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Key: {field.key}</div>
+                              </td>
+                              <td className="px-3 py-2 align-top">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                                  <div className="flex-1">
+                                    <input
+                                      type="text"
+                                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                                      value={partnerValue || ''}
+                                      onChange={(event) =>
+                                        updateFieldMapping(field.key, event.target.value, {
+                                          isDate: field.isDate,
+                                        })
+                                      }
+                                      placeholder="Partner field name"
+                                    />
+                                    {showPartnerError ? (
+                                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                                        Enter a partner field name to apply the selected date format.
+                                      </p>
+                                    ) : (
+                                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        Leave blank to omit this field from the payload.
+                                      </p>
+                                    )}
+                                  </div>
+                                  {showFormatDropdown ? (
+                                    <div className="sm:w-48">
+                                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">
+                                        Date format
+                                        <select
+                                          className="mt-1 w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm text-gray-900 shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-input-bg)] dark:text-white"
+                                          value={effectiveFormat}
+                                          onChange={(event) =>
+                                            updateFieldFormat(field.key, event.target.value)
+                                          }
+                                        >
+                                          {DATE_FORMAT_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                              {option.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </label>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
