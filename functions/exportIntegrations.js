@@ -1,16 +1,6 @@
 import { URL } from 'url';
 import admin from 'firebase-admin';
-import {
-  COMPASS_REQUIRED_FIELDS,
-  COMPASS_OPTIONAL_FIELDS,
-  COMPASS_FIELD_LABELS,
-  getCampfireStandardFields,
-} from '../src/integrationFieldDefinitions.js';
-
-const DEFAULT_COMPASS_EXPORT_ENDPOINT =
-  'https://api.compass.statlas.io/compass/RA9cCzM5Ux';
-
-const COMPASS_INTEGRATION_KEY = 'compass';
+import { getCampfireStandardFields } from '../src/integrationFieldDefinitions.js';
 
 const EXPORTER_INTEGRATIONS_COLLECTION = 'settings';
 const EXPORTER_INTEGRATIONS_DOC = 'exporterIntegrations';
@@ -79,6 +69,10 @@ function isCampfireFieldCandidate(value) {
   }
   return false;
 }
+
+const RECIPE_NUMBER_KEY_ALIASES = new Set(['recipeno', 'recipeid']);
+const GO_LIVE_DATE_KEY_ALIASES = new Set(['golivedate', 'launchdate', 'startdate', 'flightdate', 'golive']);
+const ANGLE_KEY_ALIASES = new Set(['anglelabel', 'concept', 'conceptname', 'conceptid']);
 
 function normalizeFieldMappingObject(mapping) {
   if (!mapping || typeof mapping !== 'object') {
@@ -199,7 +193,23 @@ async function findIntegrationConfig(key) {
   }
 
   const settings = await getCachedIntegrationSettings();
-  return settings.find((config) => config.key === normalizedKey) || null;
+  return (
+    settings.find((config) => {
+      if (!config) return false;
+      if (config.key === normalizedKey) {
+        return true;
+      }
+      const normalizedId = normalizeString(config.id).toLowerCase();
+      if (normalizedId && normalizedId === normalizedKey) {
+        return true;
+      }
+      const normalizedPartnerKey = normalizeString(config.partnerKey).toLowerCase();
+      if (normalizedPartnerKey && normalizedPartnerKey === normalizedKey) {
+        return true;
+      }
+      return false;
+    }) || null
+  );
 }
 
 function resolveValueByPath(source, segments) {
@@ -277,7 +287,7 @@ function resolveValueForMappingKey(recipeField, context = {}) {
         .filter(Boolean)
     : [];
 
-  const assetKeyInfo = parseCompassAssetKey(rawKey);
+  const assetKeyInfo = parseAssetFieldKey(rawKey);
   const assetSlotIndex = assetKeyInfo && assetKeyInfo.hasIndex ? assetKeyInfo.index : 0;
   const baseCompassField = assetKeyInfo ? assetKeyInfo.baseKey : '';
   const isAssetField = baseCompassField === 'image_1x1' || baseCompassField === 'image_9x16';
@@ -455,15 +465,16 @@ function buildPayloadFromMapping({
 
   for (const [campfireField, partnerField] of entries) {
     const campfireKey = typeof campfireField === 'string' ? campfireField.trim() : '';
-    const partnerKey = typeof partnerField === 'string' ? partnerField.trim() : '';
-    if (!campfireKey || !partnerKey) {
+    const partnerKeyRaw = typeof partnerField === 'string' ? partnerField.trim() : '';
+    if (!campfireKey || !partnerKeyRaw) {
       continue;
     }
 
-    const assetInfo =
-      integrationKey === COMPASS_INTEGRATION_KEY ? parseCompassAssetKey(partnerKey) : null;
-    const basePartnerField = assetInfo ? assetInfo.baseKey : partnerKey.trim().toLowerCase();
-    const normalizedPartnerKey = normalizeKeyName(partnerKey);
+    const lowerPartnerField = partnerKeyRaw.toLowerCase();
+    const assetInfo = parseAssetFieldKey(partnerKeyRaw);
+    const basePartnerField = assetInfo ? assetInfo.baseKey : lowerPartnerField;
+    const normalizedPartnerKey = normalizeKeyName(partnerKeyRaw);
+    const normalizedBasePartnerKey = normalizeKeyName(basePartnerField);
     const isPartnerAssetField = !!assetInfo;
 
     const value = resolveValueForMappingKey(campfireKey, {
@@ -475,55 +486,58 @@ function buildPayloadFromMapping({
 
     let finalValue = value;
 
-    if (integrationKey === COMPASS_INTEGRATION_KEY) {
-      const matchesRecipeNumber =
-        basePartnerField === 'recipe_no' ||
-        normalizedPartnerKey === 'recipeno' ||
-        normalizedPartnerKey === 'recipeid';
-      const matchesGoLiveDate =
-        basePartnerField === 'go_live_date' ||
-        normalizedPartnerKey === 'golivedate' ||
-        normalizedPartnerKey === 'launchdate' ||
-        normalizedPartnerKey === 'startdate';
-      const matchesAngleField =
-        basePartnerField === 'angle' || normalizedPartnerKey.startsWith('angle');
+    const matchesRecipeNumber =
+      lowerPartnerField === 'recipe_no' ||
+      RECIPE_NUMBER_KEY_ALIASES.has(normalizedPartnerKey) ||
+      RECIPE_NUMBER_KEY_ALIASES.has(normalizedBasePartnerKey);
 
-      if (matchesRecipeNumber) {
-        if (finalValue !== undefined && finalValue !== null && finalValue !== '') {
-          const normalized = normalizeRecipeNumber(finalValue);
-          if (!normalized.error) {
-            finalValue = normalized.value;
-          } else {
-            finalValue = undefined;
-          }
-        }
-      } else if (matchesGoLiveDate) {
-        finalValue = formatDateString(finalValue);
-        if (!finalValue) {
-          finalValue = undefined;
-        }
-      } else if (matchesAngleField) {
-        finalValue = normalizeAngleValue(finalValue);
-        if (finalValue === '') {
-          finalValue = undefined;
-        }
-      } else if (isPartnerAssetField) {
-        const candidate = normalizeString(finalValue);
-        if (candidate) {
-          const { valid, url } = validateAssetUrl(candidate);
-          finalValue = valid ? url : undefined;
+    const matchesGoLiveDate =
+      lowerPartnerField === 'go_live_date' ||
+      GO_LIVE_DATE_KEY_ALIASES.has(normalizedPartnerKey) ||
+      GO_LIVE_DATE_KEY_ALIASES.has(normalizedBasePartnerKey);
+
+    const matchesAngleField =
+      lowerPartnerField === 'angle' ||
+      (normalizedPartnerKey && normalizedPartnerKey.startsWith('angle')) ||
+      (normalizedBasePartnerKey && normalizedBasePartnerKey.startsWith('angle')) ||
+      ANGLE_KEY_ALIASES.has(normalizedPartnerKey) ||
+      ANGLE_KEY_ALIASES.has(normalizedBasePartnerKey);
+
+    if (matchesRecipeNumber) {
+      if (finalValue !== undefined && finalValue !== null && finalValue !== '') {
+        const normalized = normalizeRecipeNumber(finalValue);
+        if (!normalized.error) {
+          finalValue = normalized.value;
         } else {
           finalValue = undefined;
         }
       }
+    } else if (matchesGoLiveDate) {
+      finalValue = formatDateString(finalValue);
+      if (!finalValue) {
+        finalValue = undefined;
+      }
+    } else if (matchesAngleField) {
+      finalValue = normalizeAngleValue(finalValue);
+      if (finalValue === '') {
+        finalValue = undefined;
+      }
+    } else if (isPartnerAssetField) {
+      const candidate = normalizeString(finalValue);
+      if (candidate) {
+        const { valid, url } = validateAssetUrl(candidate);
+        finalValue = valid ? url : undefined;
+      } else {
+        finalValue = undefined;
+      }
     }
 
     if (finalValue === undefined || finalValue === null || finalValue === '') {
-      missingFields.push(partnerKey);
+      missingFields.push(partnerKeyRaw);
       continue;
     }
 
-    payload[partnerKey] = finalValue;
+    payload[partnerKeyRaw] = finalValue;
   }
 
   if (missingFields.length > 0) {
@@ -646,409 +660,6 @@ export function validateAssetUrl(value) {
   return { valid: true, reason: '', url: normalized };
 }
 
-function resolveCompassEndpointFromDestinations(destinations = [], targetKey = '') {
-  const normalizedTargetKey = normalizeString(targetKey).toLowerCase();
-  const aliasKeys = ['compass', 'adlog'];
-
-  function keyMatches(candidate) {
-    const normalized = normalizeString(candidate).toLowerCase();
-    if (!normalized) {
-      return false;
-    }
-    if (aliasKeys.includes(normalized)) {
-      return true;
-    }
-    if (normalizedTargetKey && normalized === normalizedTargetKey) {
-      return true;
-    }
-    return false;
-  }
-
-  const queue = [];
-  const visited = new Set();
-
-  function enqueue(value, metaKey = '') {
-    if (value === undefined || value === null) {
-      return;
-    }
-    if (typeof value === 'object' && value !== null) {
-      if (visited.has(value)) {
-        return;
-      }
-      visited.add(value);
-    }
-    queue.push({ value, metaKey });
-  }
-
-  enqueue(destinations, '');
-
-  while (queue.length > 0) {
-    const { value, metaKey } = queue.shift();
-
-    if (typeof value === 'string') {
-      const normalized = normalizeHttpUrl(value);
-      if (!normalized) {
-        continue;
-      }
-      if (
-        !normalizedTargetKey ||
-        aliasKeys.includes(normalizedTargetKey) ||
-        keyMatches(metaKey)
-      ) {
-        return normalized;
-      }
-      continue;
-    }
-
-    if (Array.isArray(value)) {
-      for (const entry of value) {
-        enqueue(entry, metaKey);
-      }
-      continue;
-    }
-
-    if (typeof value !== 'object' || value === null) {
-      continue;
-    }
-
-    const candidateKeys = [
-      value.key,
-      value.integration,
-      value.integrationKey,
-      value.partner,
-      value.partnerKey,
-      value.provider,
-      value.id,
-      value.name,
-      value.type,
-      metaKey,
-    ];
-
-    const matchesCompass = candidateKeys.some((candidate) => keyMatches(candidate));
-
-    if (matchesCompass) {
-      const candidateValues = [
-        value.endpoint,
-        value.url,
-        value.webhookUrl,
-        value.partnerEndpoint,
-        value.partnerUrl,
-        value.partnerWebhook,
-        value.config && value.config.endpoint,
-        value.config && value.config.url,
-        value.value,
-      ];
-
-      for (const candidateValue of candidateValues) {
-        const normalized = normalizeHttpUrl(candidateValue);
-        if (normalized) {
-          return normalized;
-        }
-      }
-    }
-
-    for (const [childKey, childValue] of Object.entries(value)) {
-      if (
-        childValue === undefined ||
-        childValue === null ||
-        (typeof childValue === 'string' &&
-          ['endpoint', 'url', 'webhookUrl', 'partnerEndpoint', 'partnerUrl', 'partnerWebhook'].includes(childKey))
-      ) {
-        continue;
-      }
-
-      if (typeof childValue === 'object' || Array.isArray(childValue) || typeof childValue === 'string') {
-        enqueue(childValue, childKey);
-      }
-    }
-  }
-
-  return '';
-}
-
-function resolveCompassEndpointFromJobData(jobData = {}) {
-  if (!jobData || typeof jobData !== 'object') {
-    return '';
-  }
-
-  const targetKey =
-    jobData.targetIntegration ||
-    jobData.integrationKey ||
-    (jobData.integration && (jobData.integration.key || jobData.integration.integrationKey)) ||
-    jobData.partnerKey ||
-    (jobData.partner && (jobData.partner.key || jobData.partner.integrationKey)) ||
-    '';
-
-  const directCandidates = [
-    jobData.endpoint,
-    jobData.integrationEndpoint,
-    jobData.integrationUrl,
-    jobData.destinationUrl,
-    jobData.webhookUrl,
-    jobData.partnerEndpoint,
-    jobData.partnerUrl,
-    jobData.partnerWebhook,
-  ];
-
-  for (const value of directCandidates) {
-    const normalized = normalizeHttpUrl(value);
-    if (normalized) {
-      return normalized;
-    }
-  }
-
-  const nestedSources = [
-    jobData.integration,
-    jobData.partner,
-    jobData.partnerData,
-    jobData.destination,
-    jobData.compass,
-    jobData.export,
-    jobData.exportData,
-  ];
-
-  for (const source of nestedSources) {
-    if (!source || typeof source !== 'object') {
-      continue;
-    }
-
-    const candidateValues = [
-      source.endpoint,
-      source.url,
-      source.webhookUrl,
-      source.config && source.config.endpoint,
-      source.config && source.config.url,
-    ];
-
-    for (const value of candidateValues) {
-      const normalized = normalizeHttpUrl(value);
-      if (normalized) {
-        return normalized;
-      }
-    }
-  }
-
-  const destinationEndpoint = resolveCompassEndpointFromDestinations(jobData.destinations, targetKey);
-  if (destinationEndpoint) {
-    return destinationEndpoint;
-  }
-
-  const partnerDestinationEndpoint = resolveCompassEndpointFromDestinations(
-    jobData.partnerDestinations,
-    targetKey,
-  );
-  if (partnerDestinationEndpoint) {
-    return partnerDestinationEndpoint;
-  }
-
-  const partnersEndpoint = resolveCompassEndpointFromDestinations(jobData.partners, targetKey);
-  if (partnersEndpoint) {
-    return partnersEndpoint;
-  }
-
-  return '';
-}
-
-const COMPASS_ALL_FIELDS = [...new Set([...COMPASS_REQUIRED_FIELDS, ...COMPASS_OPTIONAL_FIELDS])];
-
-const COMPASS_FIELD_SYNONYMS = {
-  shop: [
-    'shop',
-    'shop_id',
-    'shopId',
-    'store',
-    'store_id',
-    'storeId',
-    'brand',
-    'brand_code',
-    'brandCode',
-    'brandId',
-  ],
-  group_desc: [
-    'group_desc',
-    'groupDesc',
-    'group_description',
-    'groupDescription',
-    'group',
-    'groupName',
-    'ad_group',
-    'adGroup',
-    'adGroupName',
-    'campaign',
-    'campaignName',
-    'campaign_group',
-    'campaignGroup',
-  ],
-  recipe_no: [
-    'recipe_no',
-    'recipeNo',
-    'recipe',
-    'recipe_number',
-    'recipeNumber',
-    'recipeId',
-    'recipe_id',
-    'build',
-    'buildId',
-    'build_id',
-    'buildNumber',
-    'version',
-  ],
-  product: ['product', 'productName', 'product_name', 'name', 'title', 'sku'],
-  product_url: [
-    'product_url',
-    'productUrl',
-    'product_link',
-    'productLink',
-    'landing_page',
-    'landingPage',
-    'landingPageUrl',
-    'landing_page_url',
-    'url',
-    'link',
-  ],
-  go_live_date: [
-    'go_live_date',
-    'goLiveDate',
-    'launch_date',
-    'launchDate',
-    'start_date',
-    'startDate',
-    'flightDate',
-    'flight_date',
-    'goLive',
-    'go_live',
-  ],
-  funnel: ['funnel', 'funnelStage', 'funnel_stage', 'stage'],
-  angle: ['angle', 'angleId', 'angle_id', 'angleName', 'concept', 'conceptName', 'angleLabel'],
-  persona: ['persona', 'personaName', 'audience', 'audienceName', 'audience_label'],
-  primary_text: [
-    'primary_text',
-    'primaryText',
-    'body',
-    'bodyCopy',
-    'body_copy',
-    'copy',
-    'copyPrimary',
-    'text',
-    'copyText',
-  ],
-  headline: ['headline', 'headlineText', 'headline_text', 'title', 'heading'],
-  image_1x1: [
-    'image_1x1',
-    'image1x1',
-    'imageSquare',
-    'squareImage',
-    'asset1x1',
-    'asset_1x1',
-    'creative1x1',
-    'squareAsset',
-  ],
-  image_9x16: [
-    'image_9x16',
-    'image9x16',
-    'verticalImage',
-    'storyImage',
-    'asset9x16',
-    'asset_9x16',
-    'creative9x16',
-    'verticalAsset',
-  ],
-  moment: ['moment', 'campaignMoment', 'theme', 'campaignTheme'],
-  description: ['description', 'notes', 'note', 'summary', 'comment'],
-  status: ['status', 'state', 'workflowStatus', 'workflow_state', 'workflow'],
-};
-
-function normalizeKeyName(name = '') {
-  if (!name) return '';
-  return String(name)
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
-}
-
-function parseCompassAssetKey(rawKey = '') {
-  if (!rawKey) {
-    return null;
-  }
-
-  const trimmed = String(rawKey).trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  const match = trimmed.match(/^(image[_]?1x1|image[_]?9x16)(?:[_\-]?([0-9]+))?$/i);
-  if (!match) {
-    return null;
-  }
-
-  const baseRaw = match[1].toLowerCase();
-  const baseKey = baseRaw.includes('9x16') ? 'image_9x16' : 'image_1x1';
-  const hasIndex = !!match[2];
-  let index = 0;
-  let rawIndex = 0;
-
-  if (hasIndex) {
-    const parsed = parseInt(match[2], 10);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      return null;
-    }
-    index = parsed - 1;
-    rawIndex = parsed;
-  }
-
-  return { baseKey, hasIndex, index, rawIndex };
-}
-
-function expandFieldKeySet(field) {
-  const variants = new Set();
-  variants.add(normalizeKeyName(field));
-  const synonyms = COMPASS_FIELD_SYNONYMS[field] || [];
-  for (const synonym of synonyms) {
-    const normalized = normalizeKeyName(synonym);
-    if (normalized) {
-      variants.add(normalized);
-    }
-  }
-  return variants;
-}
-
-function normalizeCompassFieldName(field = '') {
-  const trimmed = typeof field === 'string' ? field.trim() : '';
-  if (!trimmed) {
-    return '';
-  }
-
-  const assetInfo = parseCompassAssetKey(trimmed);
-  if (assetInfo) {
-    return assetInfo.baseKey;
-  }
-
-  const lower = trimmed.toLowerCase();
-  if (COMPASS_ALL_FIELDS.includes(lower)) {
-    return lower;
-  }
-
-  return '';
-}
-
-function findCompassFieldForKey(rawKey = '') {
-  const parsed = parseCompassAssetKey(rawKey);
-  const keyForMatch = parsed ? parsed.baseKey : rawKey;
-  const normalized = normalizeKeyName(keyForMatch);
-  if (!normalized) {
-    return '';
-  }
-
-  for (const field of COMPASS_ALL_FIELDS) {
-    const variants = expandFieldKeySet(field);
-    if (variants.has(normalized)) {
-      return field;
-    }
-  }
-
-  return '';
-}
-
 function extractPrimitiveValue(value) {
   if (value === null || value === undefined) {
     return undefined;
@@ -1135,39 +746,6 @@ function extractPrimitiveValue(value) {
         if (extracted !== undefined) {
           return extracted;
         }
-      }
-    }
-  }
-
-  return undefined;
-}
-
-function deepSearchForField(source, keyVariants, visited = new Set()) {
-  if (!source || typeof source !== 'object') {
-    return undefined;
-  }
-
-  if (visited.has(source)) {
-    return undefined;
-  }
-
-  visited.add(source);
-
-  const entries = Array.isArray(source) ? source.entries() : Object.entries(source);
-
-  for (const [rawKey, value] of entries) {
-    const key = normalizeKeyName(rawKey);
-    if (keyVariants.has(key)) {
-      const extracted = extractPrimitiveValue(value);
-      if (extracted !== undefined) {
-        return extracted;
-      }
-    }
-
-    if (value && typeof value === 'object') {
-      const nested = deepSearchForField(value, keyVariants, visited);
-      if (nested !== undefined) {
-        return nested;
       }
     }
   }
@@ -1576,396 +1154,32 @@ function normalizeRecipeNumber(value) {
   return { value: undefined, error: 'Invalid recipe_no' };
 }
 
-function resolveFieldFromSources(sources, keyVariants) {
-  for (const source of sources) {
-    if (!source || typeof source !== 'object') continue;
-    const value = deepSearchForField(source, keyVariants, new Set());
-    if (value !== undefined && value !== null && value !== '') {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-function gatherCompassFieldValues({ adData = {}, jobData = {}, adId }) {
-  const normalizedAdId = normalizeString(adId || adData.id);
-  const fieldValues = {};
-  const errors = [];
-
-  const adSources = [
-    adData,
-    adData.partnerFields,
-    adData.partnerData,
-    adData.compass,
-    adData.adlog,
-    adData.integration,
-    adData.integrationData,
-    adData.export,
-    adData.exportData,
-    adData.metadata,
-    adData.meta,
-    adData.details,
-    adData.info,
-    adData.fields,
-  ];
-
-  const jobSources = [
-    jobData.partnerFields,
-    jobData.partnerData,
-    jobData.compass,
-    jobData.adlog,
-    jobData.integration,
-    jobData.integrationData,
-    jobData.export,
-    jobData.exportData,
-    jobData.metadata,
-    jobData.meta,
-    jobData.details,
-    jobData.info,
-    jobData.fields,
-    jobData.group,
-    jobData.groupData,
-    jobData.brand,
-    jobData,
-  ];
-
-  const overrideSources = [];
-  if (normalizedAdId) {
-    if (jobData.fieldOverrides && typeof jobData.fieldOverrides === 'object') {
-      overrideSources.push(jobData.fieldOverrides[normalizedAdId]);
-      overrideSources.push(jobData.fieldOverrides[adId]);
-    }
-    if (jobData.assetOverrides && typeof jobData.assetOverrides === 'object') {
-      overrideSources.push(jobData.assetOverrides[normalizedAdId]);
-      overrideSources.push(jobData.assetOverrides[adId]);
-    }
-    if (jobData.compassOverrides && typeof jobData.compassOverrides === 'object') {
-      overrideSources.push(jobData.compassOverrides[normalizedAdId]);
-      overrideSources.push(jobData.compassOverrides[adId]);
-    }
-  }
-
-  const sourcesByPriority = [overrideSources, adSources, jobSources];
-
-  const getFieldValue = (field) => {
-    const keyVariants = expandFieldKeySet(field);
-    for (const sourceGroup of sourcesByPriority) {
-      const value = resolveFieldFromSources(sourceGroup, keyVariants);
-      if (value !== undefined && value !== null && value !== '') {
-        return value;
-      }
-    }
-    return undefined;
-  };
-
-  for (const field of [...COMPASS_REQUIRED_FIELDS, ...COMPASS_OPTIONAL_FIELDS]) {
-    let rawValue = getFieldValue(field);
-
-    if ((field === 'image_1x1' || field === 'image_9x16') && !rawValue) {
-      const desiredAspect = field === 'image_1x1' ? '1x1' : '9x16';
-      rawValue = extractAssetUrlByAspect(adData.assets, [desiredAspect]);
-    }
-
-    if (!rawValue && field === 'shop') {
-      rawValue = normalizeString(jobData.brandCode || adData.brandCode || jobData.shop);
-    }
-
-    const primitiveValue = extractPrimitiveValue(rawValue);
-    let finalValue = undefined;
-    let error = '';
-
-    switch (field) {
-      case 'recipe_no': {
-        const normalized = normalizeRecipeNumber(primitiveValue);
-        finalValue = normalized.value;
-        error = normalized.error;
-        break;
-      }
-      case 'go_live_date': {
-        const formatted = formatDateString(primitiveValue);
-        if (formatted) {
-          finalValue = formatted;
-        } else if (primitiveValue) {
-          error = 'Invalid go_live_date';
-        }
-        break;
-      }
-      case 'product_url': {
-        const candidate = normalizeString(primitiveValue);
-        if (candidate) {
-          try {
-            const parsed = new URL(candidate);
-            if (['http:', 'https:'].includes(parsed.protocol.toLowerCase())) {
-              finalValue = parsed.toString();
-            } else {
-              error = 'Invalid product_url';
-            }
-          } catch (err) {
-            error = 'Invalid product_url';
-          }
-        }
-        break;
-      }
-      case 'image_1x1':
-      case 'image_9x16': {
-        const candidate = normalizeString(primitiveValue);
-        if (candidate) {
-          const validation = validateAssetUrl(candidate);
-          if (validation.valid) {
-            finalValue = validation.url;
-          } else {
-            if (validation.reason === 'Missing asset URL') {
-              error = `Missing ${COMPASS_FIELD_LABELS[field]}`;
-            } else if (validation.reason && validation.reason !== 'Invalid asset URL.') {
-              error = `${COMPASS_FIELD_LABELS[field]}: ${validation.reason}`;
-            } else {
-              error = `Invalid ${COMPASS_FIELD_LABELS[field]} URL`;
-            }
-          }
-        }
-        break;
-      }
-      case 'angle': {
-        finalValue = normalizeAngleValue(primitiveValue);
-        break;
-      }
-      default: {
-        const candidate = primitiveValue;
-        if (candidate instanceof Date) {
-          finalValue = candidate.toISOString().slice(0, 10);
-        } else if (typeof candidate === 'number') {
-          finalValue = candidate;
-        } else {
-          finalValue = normalizeString(candidate);
-        }
-      }
-    }
-
-    if (error) {
-      errors.push(error);
-    }
-
-    const isRequired = COMPASS_REQUIRED_FIELDS.includes(field);
-
-    if ((finalValue === undefined || finalValue === null || finalValue === '' || (typeof finalValue === 'number' && !Number.isFinite(finalValue))) && !error) {
-      if (isRequired) {
-        errors.push(`Missing ${COMPASS_FIELD_LABELS[field]}`);
-      }
-    } else if (finalValue !== undefined && finalValue !== null && finalValue !== '') {
-      fieldValues[field] = finalValue;
-    }
-  }
-
-  return { fields: fieldValues, errors };
-}
-
-function parseCompassValidationError(error = '') {
-  const trimmed = typeof error === 'string' ? error.trim() : '';
-
-  if (!trimmed) {
-    return { field: 'unknown', issue: 'Unknown validation error', raw: error };
-  }
-
-  const colonIndex = trimmed.indexOf(':');
-  if (colonIndex > -1) {
-    const field = trimmed.slice(0, colonIndex).trim() || 'unknown';
-    const issue = trimmed.slice(colonIndex + 1).trim() || trimmed;
-    return { field, issue, raw: error };
-  }
-
-  const missingMatch = trimmed.match(/^Missing\s+(.+)$/i);
-  if (missingMatch) {
-    const field = missingMatch[1].trim() || 'unknown';
-    return { field, issue: `Missing ${field}`, raw: error };
-  }
-
-  const invalidUrlMatch = trimmed.match(/^Invalid\s+(.+?)\s+URL$/i);
-  if (invalidUrlMatch) {
-    const field = invalidUrlMatch[1].trim() || 'unknown';
-    return { field, issue: 'Invalid URL', raw: error };
-  }
-
-  return { field: 'unknown', issue: trimmed, raw: error };
-}
-
-function formatCompassValidationErrors({ errors = [], adId, adData = {} }) {
-  const adIdValue = adId !== undefined && adId !== null ? adId : 'unknown';
-  const adIdString = typeof adIdValue === 'string' ? adIdValue : String(adIdValue);
-  const parsedErrors = errors.map((error) => parseCompassValidationError(error));
-  const errorLines = parsedErrors.map(
-    ({ field, issue }) => `- Field: ${field} | Issue: ${issue || 'Unknown validation issue'}`,
-  );
-  const adDataKeys =
-    adData && typeof adData === 'object' && !Array.isArray(adData) ? Object.keys(adData) : [];
-
-  const messageLines = [
-    `Invalid Compass payload for adId=${adIdString}`,
-    ...errorLines,
-    `Ad data keys: ${JSON.stringify(adDataKeys)}`,
-  ];
-
-  return {
-    message: messageLines.join('\n'),
-    details: {
-      adId: adIdString,
-      errors: parsedErrors,
-      adDataKeys,
-      rawErrors: errors,
-    },
-  };
-}
-
-const compassIntegration = {
-  key: COMPASS_INTEGRATION_KEY,
-  label: 'Compass AdLog',
-  requiredFields: [],
-  getEndpoint(jobData = {}) {
-    const override = normalizeString(jobData.endpointOverride);
-    if (override) return override;
-
-    const jobDefinedEndpoint = resolveCompassEndpointFromJobData(jobData);
-    if (jobDefinedEndpoint) {
-      return jobDefinedEndpoint;
-    }
-
-    const targetEnvRaw =
-      normalizeString(jobData.targetEnv) || normalizeString(jobData.targetEnvironment);
-    const targetEnv = targetEnvRaw ? targetEnvRaw.toLowerCase() : '';
-
-    if (targetEnv === 'prod' || targetEnv === 'production') {
-      const prodEndpoint =
-        normalizeString(process.env.COMPASS_EXPORT_ENDPOINT_PROD) ||
-        normalizeString(process.env.ADLOG_EXPORT_ENDPOINT_PROD);
-      if (prodEndpoint) {
-        return prodEndpoint;
-      }
-    }
-
-    if (targetEnv === 'staging' || targetEnv === 'stage' || targetEnv === 'stg') {
-      const stagingEndpoint =
-        normalizeString(process.env.COMPASS_EXPORT_ENDPOINT_STAGING) ||
-        normalizeString(process.env.ADLOG_EXPORT_ENDPOINT_STAGING);
-      if (stagingEndpoint) {
-        return stagingEndpoint;
-      }
-    }
-
-    return (
-      normalizeString(process.env.COMPASS_EXPORT_ENDPOINT) ||
-      normalizeString(process.env.ADLOG_EXPORT_ENDPOINT) ||
-      DEFAULT_COMPASS_EXPORT_ENDPOINT
-    );
-  },
-  buildPayload({ adData = {}, jobData = {}, jobId }) {
-    const { fields, errors } = gatherCompassFieldValues({ adData, jobData, adId: adData.id || jobId });
-
-    if (Array.isArray(errors) && errors.length > 0) {
-      const adIdentifier =
-        adData && adData.id !== undefined && adData.id !== null ? adData.id : jobId;
-      const { message, details } = formatCompassValidationErrors({
-        errors,
-        adId: adIdentifier,
-        adData,
-      });
-
-      console.error('Compass payload validation error', details);
-      throw new Error(message);
-    }
-
-    const payload = {};
-
-    for (const field of COMPASS_REQUIRED_FIELDS) {
-      if (Object.prototype.hasOwnProperty.call(fields, field)) {
-        payload[field] = fields[field];
-      }
-    }
-
-    for (const field of COMPASS_OPTIONAL_FIELDS) {
-      if (Object.prototype.hasOwnProperty.call(fields, field)) {
-        payload[field] = fields[field];
-      }
-    }
-
-    return payload;
-  },
-  async handleResponse({ response, rawBody, parsedBody }) {
-    const messageFromBody =
-      (parsedBody && (parsedBody.message || parsedBody.detail || parsedBody.error)) || rawBody || response.statusText;
-
-    if (response.status === 202) {
-      return { state: 'sent', message: messageFromBody || 'Accepted by partner' };
-    }
-
-    if ([200, 201, 204].includes(response.status)) {
-      return { state: 'received', message: messageFromBody || 'Delivered to partner' };
-    }
-
-    if ([208, 409].includes(response.status)) {
-      return { state: 'duplicate', message: messageFromBody || 'Duplicate export' };
-    }
-
-    return {
-      state: 'error',
-      message: messageFromBody || `Unexpected status ${response.status}`,
-    };
-  },
-  validateAd({ adData = {}, jobData = {} }) {
-    const { errors } = gatherCompassFieldValues({ adData, jobData, adId: adData.id });
-
-    return {
-      errors: Array.isArray(errors) ? errors.filter(Boolean) : [],
-    };
-  },
-  aliases: ['adlog'],
-};
-
 function buildIntegrationFromConfig(config) {
   if (!config || !config.key) {
     return null;
   }
 
   const normalizedKey = config.key;
-  const hasMapping =
-    config.fieldMapping && Object.keys(config.fieldMapping).length > 0;
+  const fieldMapping = config.fieldMapping && typeof config.fieldMapping === 'object'
+    ? config.fieldMapping
+    : {};
 
-  let integration;
-
-  if (normalizedKey === COMPASS_INTEGRATION_KEY) {
-    integration = { ...compassIntegration };
-    integration.aliases = Array.isArray(compassIntegration.aliases)
-      ? [...compassIntegration.aliases]
-      : [];
-  } else if (!hasMapping) {
-    return null;
-  } else {
-    integration = {
-      key: normalizedKey,
-      label: config.label || config.partnerKey || normalizedKey,
-      requiredFields: [],
-    };
-  }
+  const integration = {
+    key: normalizedKey,
+    label: config.label || config.partnerKey || normalizedKey,
+    requiredFields: Array.isArray(config.requiredFields) ? [...config.requiredFields] : [],
+  };
 
   integration.partnerKey = config.partnerKey || normalizedKey;
   integration.label = config.label || integration.label || integration.partnerKey;
-  integration.recipeTypeId = config.recipeTypeId || '';
-  integration.fieldMapping = config.fieldMapping || {};
+  integration.recipeTypeId = typeof config.recipeTypeId === 'string' ? config.recipeTypeId : '';
+  integration.fieldMapping = fieldMapping;
   integration.config = config;
 
   const configuredEndpoint = normalizeHttpUrl(config.baseUrl) || normalizeString(config.baseUrl);
   if (configuredEndpoint) {
     integration.endpoint = configuredEndpoint;
-    integration.getEndpoint = (jobData = {}) => {
-      if (
-        normalizedKey === COMPASS_INTEGRATION_KEY &&
-        typeof compassIntegration.getEndpoint === 'function'
-      ) {
-        const jobDefined = compassIntegration.getEndpoint(jobData);
-        if (jobDefined) {
-          return jobDefined;
-        }
-      }
-      return configuredEndpoint;
-    };
+    integration.getEndpoint = () => configuredEndpoint;
   }
 
   const headers = buildHeadersForConfig(config);
@@ -1973,7 +1187,7 @@ function buildIntegrationFromConfig(config) {
     integration.buildHeaders = () => ({ ...headers });
   }
 
-  if (hasMapping) {
+  if (Object.keys(fieldMapping).length > 0) {
     integration.buildPayload = async ({
       adData = {},
       jobData = {},
@@ -1981,7 +1195,7 @@ function buildIntegrationFromConfig(config) {
       jobId,
     }) =>
       buildPayloadFromMapping({
-        fieldMapping: config.fieldMapping,
+        fieldMapping,
         adData,
         jobData,
         assetUrl,
@@ -1992,10 +1206,6 @@ function buildIntegrationFromConfig(config) {
 
   return integration;
 }
-
-const integrationRegistry = {
-  [compassIntegration.key]: compassIntegration,
-};
 
 export async function getIntegration(key) {
   const normalized = normalizeString(key).toLowerCase();
@@ -2015,16 +1225,6 @@ export async function getIntegration(key) {
     }
   } catch (err) {
     console.error('Failed to resolve integration from Firestore settings', err);
-  }
-
-  if (integrationRegistry[normalized]) {
-    return integrationRegistry[normalized];
-  }
-
-  for (const integration of Object.values(integrationRegistry)) {
-    if (Array.isArray(integration.aliases) && integration.aliases.includes(normalized)) {
-      return integration;
-    }
   }
 
   return null;
@@ -2051,14 +1251,6 @@ export async function listIntegrations() {
   } catch (err) {
     console.error('Failed to list exporter integrations from settings', err);
   }
-
-  Object.values(integrationRegistry).forEach((integration) => {
-    if (seen.has(integration.key)) {
-      return;
-    }
-    seen.add(integration.key);
-    entries.push({ key: integration.key, label: integration.label });
-  });
 
   return entries;
 }

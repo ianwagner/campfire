@@ -68,9 +68,7 @@ const buildCompassFieldDefinitions = () => {
   return [...requiredDefinitions, ...optionalDefinitions];
 };
 
-const INTEGRATION_FIELD_DEFINITIONS = {
-  compass: buildCompassFieldDefinitions(),
-};
+const INTEGRATION_FIELD_DEFINITIONS = {};
 
 export const CAMPFIRE_STANDARD_FIELDS = [
   createFieldDefinition({ key: 'brand.id', label: 'Brand ID' }),
@@ -80,19 +78,15 @@ export const CAMPFIRE_STANDARD_FIELDS = [
   createFieldDefinition({ key: 'storeId', label: 'Store ID' }),
   createFieldDefinition({ key: 'store.id', label: 'Store ID (nested)' }),
   createFieldDefinition({ key: 'assetUrl', label: 'Primary asset URL' }),
-  createFieldDefinition({ key: 'group_desc', label: 'Group description (Compass)' }),
   createFieldDefinition({ key: 'group.description', label: 'Group description' }),
   createFieldDefinition({ key: 'group.name', label: 'Group name' }),
   createFieldDefinition({ key: 'recipeNumber', label: 'Recipe number' }),
-  createFieldDefinition({ key: 'recipe_no', label: 'Recipe number (Compass)' }),
   createFieldDefinition({ key: 'recipe.recipe_no', label: 'Recipe number (Recipe data)' }),
   createFieldDefinition({ key: 'recipe.fields.recipe_no', label: 'Recipe number (Recipe fields)' }),
-  createFieldDefinition({ key: 'product', label: 'Product (Compass)' }),
   createFieldDefinition({ key: 'product_name', label: 'Product name (Recipe data)' }),
   createFieldDefinition({ key: 'productName', label: 'Product name (metadata)' }),
-  createFieldDefinition({ key: 'product_url', label: 'Product URL (Compass)' }),
   createFieldDefinition({ key: 'productUrl', label: 'Product URL (metadata)' }),
-  createFieldDefinition({ key: 'go_live_date', label: 'Go live date (Compass)' }),
+  createFieldDefinition({ key: 'go_live_date', label: 'Go live date' }),
   createFieldDefinition({ key: 'funnel', label: 'Funnel' }),
   createFieldDefinition({ key: 'angle', label: 'Angle' }),
   createFieldDefinition({ key: 'persona', label: 'Persona' }),
