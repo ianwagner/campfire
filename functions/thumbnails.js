@@ -11,7 +11,16 @@ import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
 
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+const ffmpegBinaryPath =
+  ffmpegInstaller?.path ||
+  (typeof ffmpegInstaller?.default === 'object' ? ffmpegInstaller.default.path : undefined);
+const hasFfmpegBinary = typeof ffmpegBinaryPath === 'string' && ffmpegBinaryPath.length > 0;
+
+if (hasFfmpegBinary) {
+  ffmpeg.setFfmpegPath(ffmpegBinaryPath);
+} else {
+  console.warn('⚠️  FFmpeg binary path could not be resolved. Video thumbnail extraction will be disabled.');
+}
 
 const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv']);
 
@@ -104,6 +113,10 @@ export const generateThumbnailsForAssets = onCallFn({ timeoutSeconds: 60, memory
       await fs.writeFile(tmp, Buffer.from(dl.data));
       let inputTmp = tmp;
       if (isVideo) {
+        if (!hasFfmpegBinary) {
+          console.warn('⚠️  Skipping video frame extraction because FFmpeg is unavailable.', { fileId, name });
+          throw new Error('FFmpeg is not available for video thumbnail generation.');
+        }
         const frameTmp = path.join(os.tmpdir(), `${fileId}-frame.jpg`);
         cleanupPaths.add(frameTmp);
         await extractVideoFrame(tmp, frameTmp);
