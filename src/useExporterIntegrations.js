@@ -403,4 +403,5 @@ const useExporterIntegrations = () => {
   };
 };
 
+export { normalizeFieldMapping };
 export default useExporterIntegrations;

@@ -9,7 +9,9 @@ import {
   query,
   where,
 } from 'firebase/firestore';
-import useExporterIntegrations from './useExporterIntegrations';
+import useExporterIntegrations, {
+  normalizeFieldMapping,
+} from './useExporterIntegrations';
 import Button from './components/Button.jsx';
 import { db } from './firebase/config';
 
@@ -136,16 +138,17 @@ const convertPartnerMappingToUi = (mapping) => {
     return {};
   }
 
+  const normalized = normalizeFieldMapping(mapping);
   const uiMapping = {};
 
-  Object.entries(mapping).forEach(([rawPartnerKey, rawValue]) => {
+  Object.entries(normalized).forEach(([rawPartnerKey, rawEntry]) => {
     const partnerKey = typeof rawPartnerKey === 'string' ? rawPartnerKey.trim() : '';
     if (!partnerKey) {
       return;
     }
 
-    if (typeof rawValue === 'string') {
-      const source = rawValue.trim();
+    if (typeof rawEntry === 'string') {
+      const source = rawEntry.trim();
       if (!source) {
         return;
       }
@@ -153,51 +156,19 @@ const convertPartnerMappingToUi = (mapping) => {
       return;
     }
 
-    if (rawValue && typeof rawValue === 'object') {
+    if (rawEntry && typeof rawEntry === 'object') {
       const source =
-        typeof rawValue.source === 'string'
-          ? rawValue.source.trim()
-          : typeof rawValue.campfire === 'string'
-          ? rawValue.campfire.trim()
-          : typeof rawValue.field === 'string'
-          ? rawValue.field.trim()
+        typeof rawEntry.source === 'string'
+          ? rawEntry.source.trim()
+          : typeof rawEntry.campfire === 'string'
+          ? rawEntry.campfire.trim()
+          : typeof rawEntry.field === 'string'
+          ? rawEntry.field.trim()
           : '';
-      const format = typeof rawValue.format === 'string' ? rawValue.format.trim() : '';
+      const format = typeof rawEntry.format === 'string' ? rawEntry.format.trim() : '';
 
       if (source) {
         uiMapping[source] = format ? { target: partnerKey, format } : { target: partnerKey };
-      }
-    }
-  });
-
-  Object.entries(mapping).forEach(([rawCampfireKey, rawValue]) => {
-    const campfireKey =
-      typeof rawCampfireKey === 'string' ? rawCampfireKey.trim() : '';
-    if (!campfireKey || uiMapping[campfireKey]) {
-      return;
-    }
-
-    if (typeof rawValue === 'string') {
-      const partner = rawValue.trim();
-      if (!partner) {
-        return;
-      }
-      uiMapping[campfireKey] = { target: partner };
-      return;
-    }
-
-    if (rawValue && typeof rawValue === 'object') {
-      const partner =
-        typeof rawValue.partner === 'string'
-          ? rawValue.partner.trim()
-          : typeof rawValue.target === 'string'
-          ? rawValue.target.trim()
-          : '';
-      const format = typeof rawValue.format === 'string' ? rawValue.format.trim() : '';
-      if (partner) {
-        uiMapping[campfireKey] = format
-          ? { target: partner, format }
-          : { target: partner };
       }
     }
   });
@@ -1639,4 +1610,5 @@ const AdminIntegrations = () => {
   );
 };
 
+export { convertPartnerMappingToUi };
 export default AdminIntegrations;
