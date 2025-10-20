@@ -19,55 +19,6 @@ const createFieldDefinition = ({ key = '', label = '', required = false } = {}) 
   };
 };
 
-export const COMPASS_REQUIRED_FIELDS = [
-  'shop',
-  'group_desc',
-  'recipe_no',
-  'product',
-  'product_url',
-  'go_live_date',
-  'funnel',
-  'angle',
-  'persona',
-  'primary_text',
-  'headline',
-  'image_1x1',
-  'image_9x16',
-];
-
-export const COMPASS_OPTIONAL_FIELDS = ['moment', 'description', 'status'];
-
-export const COMPASS_FIELD_LABELS = {
-  shop: 'Shop',
-  group_desc: 'Group description',
-  recipe_no: 'Recipe number',
-  product: 'Product',
-  product_url: 'Product URL',
-  go_live_date: 'Go live date',
-  funnel: 'Funnel',
-  angle: 'Angle',
-  persona: 'Persona',
-  primary_text: 'Primary text',
-  headline: 'Headline',
-  image_1x1: '1×1 creative',
-  image_9x16: '9×16 creative',
-  moment: 'Moment',
-  description: 'Description',
-  status: 'Status',
-};
-
-const buildCompassFieldDefinitions = () => {
-  const requiredDefinitions = COMPASS_REQUIRED_FIELDS.map((key) =>
-    createFieldDefinition({ key, label: COMPASS_FIELD_LABELS[key] || key, required: true }),
-  ).filter(Boolean);
-
-  const optionalDefinitions = COMPASS_OPTIONAL_FIELDS.map((key) =>
-    createFieldDefinition({ key, label: COMPASS_FIELD_LABELS[key] || key, required: false }),
-  ).filter(Boolean);
-
-  return [...requiredDefinitions, ...optionalDefinitions];
-};
-
 const INTEGRATION_FIELD_DEFINITIONS = {};
 
 export const CAMPFIRE_STANDARD_FIELDS = [

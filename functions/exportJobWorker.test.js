@@ -161,8 +161,8 @@ let processExportJobCallable;
 let runExportJobCallable;
 let resetIntegrationCache;
 
-const defaultCompassFields = {
-  shop: 'TESTSHOP',
+const defaultIntegrationFields = {
+  brandCode: 'TESTSHOP',
   group_desc: 'Group Description',
   recipe_no: 101,
   product: 'Product Name',
@@ -177,8 +177,8 @@ const defaultCompassFields = {
   image_9x16: 'https://cdn.example.com/default-9x16.png',
 };
 
-function buildCompassFields(overrides = {}) {
-  return { ...defaultCompassFields, ...overrides };
+function buildIntegrationFields(overrides = {}) {
+  return { ...defaultIntegrationFields, ...overrides };
 }
 
 function seedExportJob(jobId, jobData) {
@@ -216,17 +216,37 @@ beforeEach(() => {
   }
   adminMock.__FieldValue.serverTimestamp.mockClear();
   global.fetch = jest.fn();
-  process.env.COMPASS_EXPORT_ENDPOINT = 'https://partner.example.com/export';
-  delete process.env.COMPASS_EXPORT_ENDPOINT_STAGING;
-  delete process.env.COMPASS_EXPORT_ENDPOINT_PROD;
-  delete process.env.ADLOG_EXPORT_ENDPOINT;
-  delete process.env.ADLOG_EXPORT_ENDPOINT_PROD;
-  delete process.env.ADLOG_EXPORT_ENDPOINT_STAGING;
+  settingsStore.set('exporterIntegrations', {
+    integrations: [
+      {
+        id: 'test-partner',
+        partnerKey: 'test-partner',
+        name: 'Test Partner',
+        baseUrl: 'https://partner.example.com/export',
+        apiKey: 'secret-key',
+        enabled: true,
+        fieldMapping: {
+          shopId: 'brandCode',
+          groupName: 'group_desc',
+          recipeId: 'recipe_no',
+          productName: 'product',
+          productLink: 'product_url',
+          launchDate: 'go_live_date',
+          funnelStage: 'funnel',
+          angleName: 'angle',
+          personaName: 'persona',
+          primaryCopy: 'primary_text',
+          headlineCopy: 'headline',
+          squareOne: 'image_1x1',
+          storyImage: 'image_9x16',
+        },
+      },
+    ],
+  });
 });
 
 afterEach(() => {
   delete global.fetch;
-  delete process.env.COMPASS_EXPORT_ENDPOINT;
 });
 
 function getFinalWrite(writes) {
@@ -245,8 +265,8 @@ test('processes approved ads and records success summary', async () => {
     assetUrl: 'https://cdn.example.com/ad-1.png',
     status: 'approved',
     name: 'Ad 1',
-    compass: buildCompassFields({
-      shop: 'BRAND1',
+    fields: buildIntegrationFields({
+      group_desc: 'Group Description',
       image_1x1: 'https://cdn.example.com/ad-1-1x1.png',
       image_9x16: 'https://cdn.example.com/ad-1-9x16.png',
     }),
@@ -265,7 +285,7 @@ test('processes approved ads and records success summary', async () => {
     approvedAdIds: ['ad-1'],
     brandCode: 'BRAND1',
     targetEnv: 'staging',
-    targetIntegration: 'compass',
+    targetIntegration: 'test-partner',
   };
 
   seedExportJob('job-success', jobData);
@@ -295,8 +315,8 @@ test('falls back to ad group asset when mirror is missing', async () => {
       id: 'ad-fallback',
       brandCode: 'BRAND2',
       assetUrl: 'https://cdn.example.com/ad-fallback.png',
-      compass: buildCompassFields({
-        shop: 'BRAND2',
+      fields: buildIntegrationFields({
+        group_desc: 'Fallback Group',
         image_1x1: 'https://cdn.example.com/ad-fallback-1x1.png',
         image_9x16: 'https://cdn.example.com/ad-fallback-9x16.png',
       }),
@@ -317,7 +337,7 @@ test('falls back to ad group asset when mirror is missing', async () => {
     approvedAdIds: ['ad-fallback'],
     brandCode: 'BRAND2',
     targetEnv: 'staging',
-    targetIntegration: 'compass',
+    targetIntegration: 'test-partner',
   };
 
   seedExportJob('job-fallback', jobData);
@@ -421,7 +441,7 @@ test('builds payload using Firestore field mapping configuration', async () => {
   });
 });
 
-test('supports standard compass fields and carousel asset mappings', async () => {
+test('supports asset field mappings and carousel asset selections', async () => {
   settingsStore.set('exporterIntegrations', {
     integrations: [
       {
@@ -469,7 +489,7 @@ test('supports standard compass fields and carousel asset mappings', async () =>
         headline: 'Carousel headline',
       },
     },
-    compass: {
+    fields: {
       group_desc: 'Spring Launch Group',
       funnel: 'Awareness',
       angle: 'Angle 1',
@@ -554,241 +574,13 @@ test('supports standard compass fields and carousel asset mappings', async () =>
   });
 });
 
-test('uses production endpoint environment variable regardless of targetEnv casing', async () => {
-  adAssetsStore.set('ad-prod', {
-    id: 'ad-prod',
-    brandCode: 'BRAND1',
-    assetUrl: 'https://cdn.example.com/ad-prod.png',
-    status: 'approved',
-    name: 'Ad Prod',
-    compass: buildCompassFields({
-      shop: 'BRAND1',
-      image_1x1: 'https://cdn.example.com/ad-prod-1x1.png',
-      image_9x16: 'https://cdn.example.com/ad-prod-9x16.png',
-    }),
-  });
-
-  process.env.COMPASS_EXPORT_ENDPOINT = 'https://partner.example.com/default';
-  process.env.COMPASS_EXPORT_ENDPOINT_PROD = 'https://partner.example.com/prod';
-
-  global.fetch.mockResolvedValue(
-    mockFetchResponse({
-      status: 200,
-      ok: true,
-      statusText: 'OK',
-      body: JSON.stringify({ message: 'Processed successfully' }),
-    }),
-  );
-
-  const jobData = {
-    approvedAdIds: ['ad-prod'],
-    brandCode: 'BRAND1',
-    targetIntegration: 'compass',
-    targetEnv: 'Production',
-  };
-
-  seedExportJob('job-prod-env', jobData);
-
-  await processExportJobCallable.run({ data: { jobId: 'job-prod-env' } });
-
-  expect(global.fetch).toHaveBeenCalledTimes(1);
-  expect(global.fetch.mock.calls[0][0]).toBe('https://partner.example.com/prod');
-});
-
-test('uses integration endpoint from job data when environment variables are absent', async () => {
-  adAssetsStore.set('ad-1', {
-    id: 'ad-1',
-    brandCode: 'BRAND1',
-    assetUrl: 'https://cdn.example.com/ad-1.png',
-    status: 'approved',
-    name: 'Ad 1',
-    compass: buildCompassFields({
-      shop: 'BRAND1',
-      image_1x1: 'https://cdn.example.com/ad-1-1x1.png',
-      image_9x16: 'https://cdn.example.com/ad-1-9x16.png',
-    }),
-  });
-
-  const jobDefinedEndpoint = 'https://job-endpoint.example.com/export';
-
-  global.fetch.mockResolvedValue(
-    mockFetchResponse({
-      status: 200,
-      ok: true,
-      statusText: 'OK',
-      body: JSON.stringify({ message: 'Processed successfully' }),
-    }),
-  );
-
-  delete process.env.COMPASS_EXPORT_ENDPOINT;
-  delete process.env.ADLOG_EXPORT_ENDPOINT;
-  delete process.env.COMPASS_EXPORT_ENDPOINT_STAGING;
-  delete process.env.ADLOG_EXPORT_ENDPOINT_STAGING;
-  delete process.env.COMPASS_EXPORT_ENDPOINT_PROD;
-  delete process.env.ADLOG_EXPORT_ENDPOINT_PROD;
-
-  const jobData = {
-    approvedAdIds: ['ad-1'],
-    brandCode: 'BRAND1',
-    targetIntegration: 'compass',
-    targetEnv: 'staging',
-    integration: {
-      endpoint: jobDefinedEndpoint,
-    },
-  };
-
-  seedExportJob('job-job-endpoint', jobData);
-
-  await processExportJobCallable.run({ data: { jobId: 'job-job-endpoint' } });
-
-  expect(global.fetch).toHaveBeenCalledTimes(1);
-  expect(global.fetch.mock.calls[0][0]).toBe(jobDefinedEndpoint);
-
-  const finalWrite = getFinalWrite(getJobWrites('job-job-endpoint'));
-  expect(finalWrite.status).toBe('success');
-  expectSummaryCounts(finalWrite, {
-    total: 1,
-    received: 1,
-    duplicate: 0,
-    error: 0,
-    success: 1,
-  });
-});
-
-test('uses compass endpoint defined in destination map structure', async () => {
-  adAssetsStore.set('ad-map', {
-    id: 'ad-map',
-    brandCode: 'BRAND1',
-    assetUrl: 'https://cdn.example.com/ad-map.png',
-    status: 'approved',
-    name: 'Ad Map',
-    compass: buildCompassFields({
-      shop: 'BRAND1',
-      image_1x1: 'https://cdn.example.com/ad-map-1x1.png',
-      image_9x16: 'https://cdn.example.com/ad-map-9x16.png',
-    }),
-  });
-
-  const destinationEndpoint = 'https://destination-map.example.com/export';
-
-  global.fetch.mockResolvedValue(
-    mockFetchResponse({
-      status: 200,
-      ok: true,
-      statusText: 'OK',
-      body: JSON.stringify({ message: 'Processed successfully' }),
-    }),
-  );
-
-  delete process.env.COMPASS_EXPORT_ENDPOINT;
-  delete process.env.ADLOG_EXPORT_ENDPOINT;
-  delete process.env.COMPASS_EXPORT_ENDPOINT_STAGING;
-  delete process.env.ADLOG_EXPORT_ENDPOINT_STAGING;
-  delete process.env.COMPASS_EXPORT_ENDPOINT_PROD;
-  delete process.env.ADLOG_EXPORT_ENDPOINT_PROD;
-
-  const jobData = {
-    approvedAdIds: ['ad-map'],
-    brandCode: 'BRAND1',
-    targetIntegration: 'compass',
-    targetEnv: 'staging',
-    destinations: {
-      compass: {
-        endpoint: destinationEndpoint,
-      },
-    },
-  };
-
-  seedExportJob('job-destination-map', jobData);
-
-  await processExportJobCallable.run({ data: { jobId: 'job-destination-map' } });
-
-  expect(global.fetch).toHaveBeenCalledTimes(1);
-  expect(global.fetch.mock.calls[0][0]).toBe(destinationEndpoint);
-
-  const finalWrite = getFinalWrite(getJobWrites('job-destination-map'));
-  expect(finalWrite.status).toBe('success');
-  expectSummaryCounts(finalWrite, {
-    total: 1,
-    received: 1,
-    duplicate: 0,
-    error: 0,
-    success: 1,
-  });
-});
-
-test('uses compass partner endpoint defined under partners map', async () => {
-  adAssetsStore.set('ad-partner-map', {
-    id: 'ad-partner-map',
-    brandCode: 'BRAND1',
-    assetUrl: 'https://cdn.example.com/ad-partner-map.png',
-    status: 'approved',
-    name: 'Ad Partner Map',
-    compass: buildCompassFields({
-      shop: 'BRAND1',
-      image_1x1: 'https://cdn.example.com/ad-partner-map-1x1.png',
-      image_9x16: 'https://cdn.example.com/ad-partner-map-9x16.png',
-    }),
-  });
-
-  const partnerEndpoint = 'https://partners.example.com/compass-export';
-
-  global.fetch.mockResolvedValue(
-    mockFetchResponse({
-      status: 200,
-      ok: true,
-      statusText: 'OK',
-      body: JSON.stringify({ message: 'Processed successfully' }),
-    }),
-  );
-
-  delete process.env.COMPASS_EXPORT_ENDPOINT;
-  delete process.env.ADLOG_EXPORT_ENDPOINT;
-  delete process.env.COMPASS_EXPORT_ENDPOINT_STAGING;
-  delete process.env.ADLOG_EXPORT_ENDPOINT_STAGING;
-  delete process.env.COMPASS_EXPORT_ENDPOINT_PROD;
-  delete process.env.ADLOG_EXPORT_ENDPOINT_PROD;
-
-  const jobData = {
-    approvedAdIds: ['ad-partner-map'],
-    brandCode: 'BRAND1',
-    targetIntegration: 'compass',
-    targetEnv: 'staging',
-    destinations: {
-      partners: {
-        compass: {
-          partner: 'Compass',
-          partnerEndpoint,
-        },
-      },
-    },
-  };
-
-  seedExportJob('job-partner-map', jobData);
-
-  await processExportJobCallable.run({ data: { jobId: 'job-partner-map' } });
-
-  expect(global.fetch).toHaveBeenCalledTimes(1);
-  expect(global.fetch.mock.calls[0][0]).toBe(partnerEndpoint);
-
-  const finalWrite = getFinalWrite(getJobWrites('job-partner-map'));
-  expect(finalWrite.status).toBe('success');
-  expectSummaryCounts(finalWrite, {
-    total: 1,
-    received: 1,
-    duplicate: 0,
-    error: 0,
-    success: 1,
-  });
-});
-
 test('runExportJob returns status and counts in response', async () => {
   adAssetsStore.set('ad-http', {
     id: 'ad-http',
     brandCode: 'BRAND1',
     assetUrl: 'https://cdn.example.com/ad-http.png',
-    compass: buildCompassFields({
-      shop: 'BRAND1',
+    fields: buildIntegrationFields({
+      group_desc: 'HTTP Group',
       image_1x1: 'https://cdn.example.com/ad-http-1x1.png',
       image_9x16: 'https://cdn.example.com/ad-http-9x16.png',
     }),
@@ -806,7 +598,7 @@ test('runExportJob returns status and counts in response', async () => {
   const jobData = {
     approvedAdIds: ['ad-http'],
     brandCode: 'BRAND1',
-    targetIntegration: 'compass',
+    targetIntegration: 'test-partner',
   };
 
   seedExportJob('job-http', jobData);
@@ -833,8 +625,8 @@ test('marks duplicates as success with duplicate state', async () => {
     id: 'ad-dup',
     brandCode: 'BRAND2',
     assetUrl: 'https://cdn.example.com/ad-dup.png',
-    compass: buildCompassFields({
-      shop: 'BRAND2',
+    fields: buildIntegrationFields({
+      group_desc: 'Duplicate Group',
       image_1x1: 'https://cdn.example.com/ad-dup-1x1.png',
       image_9x16: 'https://cdn.example.com/ad-dup-9x16.png',
     }),
@@ -852,7 +644,7 @@ test('marks duplicates as success with duplicate state', async () => {
   const jobData = {
     approvedAdIds: ['ad-dup'],
     brandCode: 'BRAND2',
-    targetIntegration: 'compass',
+    targetIntegration: 'test-partner',
   };
 
   seedExportJob('job-duplicate', jobData);
@@ -879,8 +671,8 @@ test('rejects invalid asset urls and surfaces validation error', async () => {
     id: 'ad-bad',
     brandCode: 'BRAND3',
     assetUrl: 'https://drive.google.com/drive/folders/abc123',
-    compass: buildCompassFields({
-      shop: 'BRAND3',
+    fields: buildIntegrationFields({
+      group_desc: 'Invalid URL Group',
       image_1x1: 'https://cdn.example.com/ad-bad-1x1.png',
       image_9x16: 'https://cdn.example.com/ad-bad-9x16.png',
     }),
@@ -889,7 +681,7 @@ test('rejects invalid asset urls and surfaces validation error', async () => {
   const jobData = {
     approvedAdIds: ['ad-bad'],
     brandCode: 'BRAND3',
-    targetIntegration: 'compass',
+    targetIntegration: 'test-partner',
   };
 
   seedExportJob('job-invalid-url', jobData);
@@ -915,8 +707,8 @@ test('surfaces partner error responses for invalid brands', async () => {
     id: 'ad-brand',
     brandCode: 'WRONG',
     assetUrl: 'https://cdn.example.com/ad-brand.png',
-    compass: buildCompassFields({
-      shop: 'WRONG',
+    fields: buildIntegrationFields({
+      group_desc: 'Invalid Brand Group',
       image_1x1: 'https://cdn.example.com/ad-brand-1x1.png',
       image_9x16: 'https://cdn.example.com/ad-brand-9x16.png',
     }),
@@ -934,7 +726,7 @@ test('surfaces partner error responses for invalid brands', async () => {
   const jobData = {
     approvedAdIds: ['ad-brand'],
     brandCode: 'WRONG',
-    targetIntegration: 'compass',
+    targetIntegration: 'test-partner',
   };
 
   seedExportJob('job-invalid-brand', jobData);
