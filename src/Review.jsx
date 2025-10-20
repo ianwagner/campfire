@@ -915,6 +915,7 @@ const Review = forwardRef(
   const [copyCards, setCopyCards] = useState([]);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const actionsMenuRef = useRef(null);
+  const lastAssocRef = useRef({ groupId: '', key: '' });
   const [modalCopies, setModalCopies] = useState([]);
   const updateModalCopies = useCallback((next) => {
     if (typeof next === 'function') {
@@ -973,8 +974,48 @@ const Review = forwardRef(
       return recipeTypeId && normalizedGroupRecipeTypeTokens.has(recipeTypeId);
     });
   }, [enabledExporterIntegrations, normalizedGroupRecipeTypeTokens]);
-  const selectedExporterIntegration =
-    matchingExporterIntegrations.length === 1 ? matchingExporterIntegrations[0] : null;
+  const matchingExporterIntegration = useMemo(
+    () => (matchingExporterIntegrations.length === 1 ? matchingExporterIntegrations[0] : null),
+    [matchingExporterIntegrations],
+  );
+  const selectedExporterIntegration = matchingExporterIntegration;
+  // NEW: auto-associate integration with the ad group if recipe types match
+  useEffect(() => {
+    if (!groupId || !matchingExporterIntegration) return;
+
+    // derive normalized key + label
+    const key =
+      (matchingExporterIntegration.partnerKey ||
+        matchingExporterIntegration.key ||
+        '').trim().toLowerCase();
+    if (!key) return;
+
+    const label =
+      (matchingExporterIntegration.name ||
+        matchingExporterIntegration.label ||
+        key).trim();
+
+    const recipeTypeId = (matchingExporterIntegration.recipeTypeId || '').trim();
+
+    // avoid redundant writes
+    // keep a ref of the last key we wrote for this group
+    // (declare this near other refs: const lastAssocRef = useRef({ groupId:'', key:'' }))
+    if (lastAssocRef.current.groupId === groupId && lastAssocRef.current.key === key) {
+      return;
+    }
+
+    lastAssocRef.current = { groupId, key };
+
+    // persist minimal fields we already read elsewhere in the app
+    // NOTE: merge so we don't clobber unrelated fields
+    updateDoc(doc(db, 'adGroups', groupId), {
+      targetIntegration: key, // simple canonical key
+      integration: { key, label }, // human-friendly label
+      recipeTypeId, // helpful for downstream reads
+    }).catch((err) => {
+      console.warn('auto-associate integration failed', { groupId, key, err });
+    });
+  }, [groupId, matchingExporterIntegration]);
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [showVersionMenu, setShowVersionMenu] = useState(false);
   const [cardVersionIndices, setCardVersionIndices] = useState({});
