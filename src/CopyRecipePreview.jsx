@@ -22,6 +22,7 @@ const CopyRecipePreview = ({
   const [copies, setCopies] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [brands, setBrands] = useState([]);
   const [brandCode, setBrandCode] = useState(initialBrandCode);
   const [brandProducts, setBrandProducts] = useState([]);
@@ -503,10 +504,27 @@ const CopyRecipePreview = ({
         <div className="mt-4 text-right">
           <button
             type="button"
-            className="btn-primary"
-            onClick={() => onSave(copies)}
+            className={`btn-primary ${saving ? 'opacity-70 pointer-events-none' : ''}`}
+            onClick={async () => {
+              if (typeof onSave !== 'function') return;
+              try {
+                setSaving(true);
+                await Promise.resolve(onSave(copies));
+                setCopies((arr) =>
+                  arr.map((copy) => ({
+                    ...copy,
+                    editing: false,
+                  })),
+                );
+              } catch (err) {
+                console.error('Failed to save platform copy', err);
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={saving}
           >
-            Save Copy
+            {saving ? 'Saving…' : 'Save Copy'}
           </button>
         </div>
       )}
