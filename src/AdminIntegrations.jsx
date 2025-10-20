@@ -1,11 +1,101 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import {
+  collection,
+  collectionGroup,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  where,
+} from 'firebase/firestore';
 import useExporterIntegrations from './useExporterIntegrations';
 import Button from './components/Button.jsx';
 import { db } from './firebase/config';
-import {
-  getCampfireStandardFields,
-} from './integrationFieldDefinitions.js';
+
+const SAMPLE_AD_GROUP_LIMIT = 5;
+
+const UNIVERSAL_CAMPAIGN_IDENTIFIER_KEYS = [
+  'brand.id',
+  'brand.name',
+  'brand.code',
+  'storeId',
+  'recipeNumber',
+  'recipeId',
+];
+
+const formatLabel = (s) =>
+  (s || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_.-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+
+const BASE_COLUMN_KEYS = new Set([
+  'groupName',
+  'recipeNo',
+  'product',
+  'url',
+  'angle',
+  'audience',
+  'status',
+  'primary',
+  'headline',
+  'description',
+]);
+
+const STRUCTURAL_META_KEYS = new Set([
+  'components',
+  'metadata',
+  'assets',
+  'type',
+  'selected',
+  'brandCode',
+]);
+
+const shouldOmitKey = (key) => {
+  if (!key) {
+    return true;
+  }
+  const matchBase = Array.from(BASE_COLUMN_KEYS).some((baseKey) => {
+    if (baseKey === 'product') {
+      return key === baseKey;
+    }
+    return key === baseKey || key.startsWith(`${baseKey}.`);
+  });
+  if (matchBase) {
+    return true;
+  }
+  return Array.from(STRUCTURAL_META_KEYS).some((structuralKey) => {
+    if (structuralKey === 'components') {
+      return key === structuralKey;
+    }
+    return key === structuralKey || key.startsWith(`${structuralKey}.`);
+  });
+};
+
+const flattenMeta = (obj, prefix = '', res = {}) => {
+  Object.entries(obj || {}).forEach(([k, v]) => {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (v && typeof v === 'object') {
+      if (Array.isArray(v)) {
+        v.forEach((item, idx) => {
+          if (item && typeof item === 'object') {
+            flattenMeta(item, `${key}.${idx}`, res);
+          } else {
+            res[`${key}.${idx}`] = item;
+          }
+        });
+      } else {
+        flattenMeta(v, key, res);
+      }
+    } else {
+      res[key] = v;
+    }
+  });
+
+  return res;
+};
 
 const normalizeFieldEntry = (field) => {
   const key = typeof field?.key === 'string' ? field.key.trim() : '';
@@ -36,46 +126,6 @@ const expandFieldWithCarousel = (field, carouselSlots = 1) => {
   }
 
   return [field];
-};
-
-const collectNestedFieldPaths = (source, maxDepth = 4) => {
-  const paths = new Set();
-  const seen = new WeakSet();
-
-  const visit = (value, prefix = '', depth = 0) => {
-    if (depth > maxDepth) {
-      return;
-    }
-    if (!value || typeof value !== 'object') {
-      return;
-    }
-    if (seen.has(value)) {
-      return;
-    }
-    seen.add(value);
-
-    if (Array.isArray(value)) {
-      value.forEach((item) => visit(item, prefix, depth + 1));
-      return;
-    }
-
-    Object.entries(value).forEach(([rawKey, child]) => {
-      if (typeof rawKey !== 'string') {
-        return;
-      }
-      const key = rawKey.trim();
-      if (!key) {
-        return;
-      }
-      const nextPath = prefix ? `${prefix}.${key}` : key;
-      paths.add(nextPath);
-      visit(child, nextPath, depth + 1);
-    });
-  };
-
-  visit(source);
-
-  return Array.from(paths);
 };
 
 const arraysShallowEqual = (a, b) => {
@@ -236,6 +286,7 @@ const AdminIntegrations = () => {
   const [recipeTypesError, setRecipeTypesError] = useState('');
   const [extraCampfireFieldKeys, setExtraCampfireFieldKeys] = useState([]);
   const [campfireFieldSearch, setCampfireFieldSearch] = useState('');
+  const [sampleMetaKeys, setSampleMetaKeys] = useState(() => new Set());
 
   useEffect(() => {
     let active = true;
@@ -295,29 +346,145 @@ const AdminIntegrations = () => {
     ? recipeTypeMap[formState.recipeTypeId]
     : null;
 
-  const campfireStandardFields = useMemo(() => {
-    return getCampfireStandardFields().map((field) => ({
-      key: field?.key || '',
-      label: field?.label || field?.key || '',
-    })).filter((field) => field.key);
-  }, []);
+  useEffect(() => {
+    let active = true;
+    setSampleMetaKeys(new Set());
+
+    const recipeTypeId = formState.recipeTypeId;
+    if (!recipeTypeId) {
+      return () => {
+        active = false;
+      };
+    }
+
+    const loadSampleMetaKeys = async () => {
+      try {
+        const aggregatedKeys = new Set();
+
+        const addKeysFromObject = (value) => {
+          if (!value || typeof value !== 'object') {
+            return;
+          }
+          const flattened = flattenMeta(value || {});
+          Object.keys(flattened || {}).forEach((rawKey) => {
+            if (typeof rawKey !== 'string') {
+              return;
+            }
+            const trimmed = rawKey.trim();
+            if (trimmed && !shouldOmitKey(trimmed)) {
+              aggregatedKeys.add(trimmed);
+            }
+          });
+        };
+
+        const processAdGroupDocs = (docs) => {
+          docs.forEach((docSnap) => {
+            if (!docSnap) {
+              return;
+            }
+            const exists =
+              typeof docSnap.exists === 'function' ? docSnap.exists() : true;
+            if (!exists) {
+              return;
+            }
+            const data = typeof docSnap.data === 'function' ? docSnap.data() : docSnap.data;
+            const payload = data || {};
+            addKeysFromObject(payload.metadata);
+            addKeysFromObject(payload.components);
+            addKeysFromObject(payload.recipe);
+          });
+        };
+
+        const adGroupQuery = query(
+          collection(db, 'adGroups'),
+          where('recipeTypeId', '==', recipeTypeId),
+          limit(SAMPLE_AD_GROUP_LIMIT),
+        );
+        const adGroupSnap = await getDocs(adGroupQuery);
+        processAdGroupDocs(adGroupSnap.docs);
+
+        if (aggregatedKeys.size === 0) {
+          const recipeQuery = query(
+            collectionGroup(db, 'recipes'),
+            where('recipeTypeId', '==', recipeTypeId),
+            limit(SAMPLE_AD_GROUP_LIMIT),
+          );
+          const recipeSnap = await getDocs(recipeQuery);
+          const adGroupIds = new Set();
+
+          recipeSnap.docs.forEach((recipeDoc) => {
+            if (!recipeDoc) {
+              return;
+            }
+            const recipeExists =
+              typeof recipeDoc.exists === 'function' ? recipeDoc.exists() : true;
+            if (!recipeExists) {
+              return;
+            }
+            const recipeData =
+              typeof recipeDoc.data === 'function' ? recipeDoc.data() : recipeDoc.data;
+            const payload = recipeData || {};
+            addKeysFromObject(payload.metadata);
+            addKeysFromObject(payload.components);
+            addKeysFromObject(payload.recipe);
+
+            const segments = recipeDoc.ref?.path?.split('/') || [];
+            const adGroupsIndex = segments.indexOf('adGroups');
+            if (adGroupsIndex !== -1 && adGroupsIndex + 1 < segments.length) {
+              adGroupIds.add(segments[adGroupsIndex + 1]);
+            }
+          });
+
+          if (adGroupIds.size > 0) {
+            const ids = Array.from(adGroupIds).slice(0, SAMPLE_AD_GROUP_LIMIT);
+            const groupDocs = await Promise.all(
+              ids.map((groupId) => getDoc(doc(db, 'adGroups', groupId))),
+            );
+            processAdGroupDocs(groupDocs);
+          }
+        }
+
+        if (!active) {
+          return;
+        }
+
+        setSampleMetaKeys(aggregatedKeys);
+      } catch (err) {
+        console.error('Failed to load sample ad group metadata', err);
+        if (active) {
+          setSampleMetaKeys(new Set());
+        }
+      }
+    };
+
+    loadSampleMetaKeys();
+
+    return () => {
+      active = false;
+    };
+  }, [formState.recipeTypeId]);
+
+  const sampleMetaKeyList = useMemo(() => {
+    return Array.from(sampleMetaKeys);
+  }, [sampleMetaKeys]);
+
+  const normalizedWriteInFields = useMemo(() => {
+    if (!Array.isArray(currentRecipeType?.writeInFields)) {
+      return [];
+    }
+    const map = new Map();
+    currentRecipeType.writeInFields
+      .map((field) => normalizeFieldEntry(field))
+      .filter(Boolean)
+      .forEach((field) => {
+        const label = field.label || formatLabel(field.key);
+        map.set(field.key, { ...field, label });
+      });
+    return Array.from(map.values());
+  }, [currentRecipeType]);
 
   const availableCampfireFields = useMemo(() => {
     const carouselSlots = inferCarouselAssetCount(currentRecipeType);
-
-    const baseFields = campfireStandardFields.flatMap((field) =>
-      expandFieldWithCarousel(field, carouselSlots),
-    );
-
-    const writeInFields = Array.isArray(currentRecipeType?.writeInFields)
-      ? currentRecipeType.writeInFields
-      : [];
-
-    const customRecipeFields = writeInFields
-      .map((field) => normalizeFieldEntry(field))
-      .filter(Boolean)
-      .flatMap((field) => expandFieldWithCarousel(field, carouselSlots));
-
     const merged = new Map();
 
     const addField = (field) => {
@@ -325,24 +492,39 @@ const AdminIntegrations = () => {
         return;
       }
       const existing = merged.get(field.key);
-      if (existing) {
-        merged.set(field.key, {
-          key: existing.key,
-          label: field.label || existing.label || field.key,
-        });
-      } else {
-        merged.set(field.key, {
-          key: field.key,
-          label: field.label || field.key,
-        });
-      }
+      const label = field.label || existing?.label || formatLabel(field.key);
+      merged.set(field.key, { key: field.key, label });
     };
 
-    baseFields.forEach(addField);
-    customRecipeFields.forEach(addField);
+    const sampleFields = sampleMetaKeyList
+      .filter((key) => key && !shouldOmitKey(key))
+      .map((key) => ({ key, label: formatLabel(key) }));
+
+    const universalFields = UNIVERSAL_CAMPAIGN_IDENTIFIER_KEYS.map((key) => ({
+      key,
+      label: formatLabel(key),
+    }));
+
+    const groups =
+      sampleFields.length > 0
+        ? [sampleFields, normalizedWriteInFields, universalFields]
+        : [normalizedWriteInFields, universalFields];
+
+    groups.forEach((group) => {
+      group.forEach((field) => {
+        if (!field?.key) {
+          return;
+        }
+        const fieldsToAdd =
+          group === normalizedWriteInFields
+            ? expandFieldWithCarousel(field, carouselSlots)
+            : [field];
+        fieldsToAdd.forEach(addField);
+      });
+    });
 
     return Array.from(merged.values()).sort((a, b) => a.label.localeCompare(b.label));
-  }, [campfireStandardFields, currentRecipeType]);
+  }, [currentRecipeType, normalizedWriteInFields, sampleMetaKeyList]);
 
   const availableCampfireFieldMap = useMemo(() => {
     const map = new Map();
@@ -354,35 +536,28 @@ const AdminIntegrations = () => {
     return map;
   }, [availableCampfireFields]);
 
-  const recipeTypeFieldPaths = useMemo(() => {
-    if (!currentRecipeType) {
-      return [];
-    }
-    return collectNestedFieldPaths(currentRecipeType);
-  }, [currentRecipeType]);
-
   const allCampfireFieldOptions = useMemo(() => {
     const merged = new Map();
 
-    const addField = (field) => {
+    const addOption = (field) => {
       if (!field || !field.key) {
         return;
       }
       const existing = merged.get(field.key);
-      const label = field.label || existing?.label || field.key;
+      const label = field.label || existing?.label || formatLabel(field.key);
       merged.set(field.key, { key: field.key, label });
     };
 
-    campfireStandardFields.forEach(addField);
-    availableCampfireFields.forEach(addField);
-    recipeTypeFieldPaths.forEach((path) => {
-      if (typeof path === 'string' && path.trim()) {
-        addField({ key: path.trim(), label: path.trim() });
-      }
-    });
+    normalizedWriteInFields.forEach(addOption);
+    sampleMetaKeyList
+      .filter((key) => key && !shouldOmitKey(key))
+      .forEach((key) => addOption({ key, label: formatLabel(key) }));
+    UNIVERSAL_CAMPAIGN_IDENTIFIER_KEYS.forEach((key) =>
+      addOption({ key, label: formatLabel(key) }),
+    );
 
     return Array.from(merged.values()).sort((a, b) => a.label.localeCompare(b.label));
-  }, [availableCampfireFields, campfireStandardFields, recipeTypeFieldPaths]);
+  }, [normalizedWriteInFields, sampleMetaKeyList]);
 
   const allCampfireFieldOptionMap = useMemo(() => {
     const map = new Map();
