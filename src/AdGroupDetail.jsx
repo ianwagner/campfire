@@ -5621,8 +5621,14 @@ const AdGroupDetail = () => {
                     {copyCards.length} variation{copyCards.length === 1 ? '' : 's'}
                   </span>
                 )}
-                <Button type="button" variant="accent" size="sm" onClick={() => setShowCopyModal(true)}>
-                  Generate new copy
+                <Button
+                  type="button"
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setShowCopyModal(true)}
+                >
+                  <FiPlus className="h-4 w-4" aria-hidden="true" />
+                  Open copy builder
                 </Button>
               </div>
             </div>
@@ -5630,14 +5636,17 @@ const AdGroupDetail = () => {
               {copyCards.length > 0 ? (
                 <>
                   <div className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:bg-[var(--dark-sidebar)] dark:text-gray-300">
-                    <p className="font-medium text-gray-700 dark:text-gray-200">Assign copy variations or generate more options as campaigns evolve.</p>
-                    <p className="mt-1">Use the button above to open the builder whenever you need additional headlines or refreshed language.</p>
+                    <p className="font-medium text-gray-700 dark:text-gray-200">
+                      Assign copy variations or generate fresh options whenever you need a new angle.
+                    </p>
+                    <p className="mt-1">
+                      Open the copy builder any time you want additional headlines or refreshed language.
+                    </p>
                   </div>
                   <CopyRecipePreview
                     onSave={saveCopyCards}
                     initialResults={copyCards}
                     showOnlyResults
-                    onCopyClick={() => setShowCopyModal(true)}
                     brandCode={group?.brandCode}
                     hideBrandSelect
                     showSave
@@ -5667,8 +5676,14 @@ const AdGroupDetail = () => {
                     </li>
                   </ul>
                   <div className="mt-6 flex justify-center">
-                    <Button type="button" variant="accent" size="sm" onClick={() => setShowCopyModal(true)}>
-                      Generate platform copy
+                    <Button
+                      type="button"
+                      variant="accent"
+                      size="sm"
+                      onClick={() => setShowCopyModal(true)}
+                    >
+                      <FiPlus className="h-4 w-4" aria-hidden="true" />
+                      Open copy builder
                     </Button>
                   </div>
                 </div>
@@ -6481,15 +6496,6 @@ const AdGroupDetail = () => {
                       Unsaved changes
                     </span>
                   )}
-                  <Button
-                    type="button"
-                    variant="accent"
-                    size="sm"
-                    onClick={() => saveCopyCards(modalCopies, { append: true })}
-                    disabled={!copyChanges}
-                  >
-                    Save changes
-                  </Button>
                   <IconButton onClick={() => setShowCopyModal(false)} aria-label="Close platform copy modal">
                     Close
                   </IconButton>
@@ -6508,6 +6514,8 @@ const AdGroupDetail = () => {
                 brandCode={group?.brandCode}
                 hideBrandSelect
                 onCopiesChange={updateModalCopies}
+                saveLabel="Save changes"
+                canSave={copyChanges}
               />
             </div>
           </div>
