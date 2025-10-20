@@ -13,9 +13,10 @@ const CopyRecipePreview = ({
   showOnlyResults = false,
   brandCode: initialBrandCode = '',
   hideBrandSelect = false,
-  onCopyClick = null,
   onCopiesChange = null,
   showSave = !showOnlyResults,
+  saveLabel = 'Save changes',
+  canSave = true,
 }) => {
   const [types, setTypes] = useState([]);
   const [selectedType, setSelectedType] = useState('');
@@ -352,17 +353,6 @@ const CopyRecipePreview = ({
           </form>
         </>
       )}
-      {showOnlyResults && onCopyClick && (
-        <div>
-          <button
-            type="button"
-            className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-            onClick={onCopyClick}
-          >
-            Copy
-          </button>
-        </div>
-      )}
       <div className="space-y-4">
         {copies.map((c, index) => {
           const letter = getCopyLetter(index);
@@ -504,7 +494,7 @@ const CopyRecipePreview = ({
         <div className="mt-4 text-right">
           <button
             type="button"
-            className={`btn-primary ${saving ? 'opacity-70 pointer-events-none' : ''}`}
+            className={`btn-primary ${saving || !canSave ? 'opacity-70 pointer-events-none' : ''}`}
             onClick={async () => {
               if (typeof onSave !== 'function') return;
               try {
@@ -522,9 +512,9 @@ const CopyRecipePreview = ({
                 setSaving(false);
               }
             }}
-            disabled={saving}
+            disabled={saving || !canSave}
           >
-            {saving ? 'Saving…' : 'Save Copy'}
+            {saving ? 'Saving…' : saveLabel}
           </button>
         </div>
       )}
