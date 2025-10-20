@@ -181,6 +181,45 @@ function emptySummary(message = '') {
   };
 }
 
+async function loadAdAssetData(adId) {
+  if (!adId) return null;
+
+  try {
+    const directSnap = await db.collection('adAssets').doc(adId).get();
+    if (directSnap?.exists) {
+      return { ...directSnap.data(), id: adId };
+    }
+  } catch (err) {
+    console.error('Failed to load mirrored ad asset', { adId, error: err });
+  }
+
+  if (typeof db.collectionGroup === 'function' && admin.firestore?.FieldPath) {
+    try {
+      const querySnapshot = await db
+        .collectionGroup('assets')
+        .where(admin.firestore.FieldPath.documentId(), '==', adId)
+        .limit(1)
+        .get();
+
+      if (!querySnapshot.empty) {
+        const docSnap = querySnapshot.docs[0];
+        const data = docSnap.data() || {};
+        if (!data.adGroupId) {
+          const adGroupRef = docSnap.ref?.parent?.parent;
+          if (adGroupRef?.id) {
+            data.adGroupId = adGroupRef.id;
+          }
+        }
+        return { ...data, id: adId };
+      }
+    } catch (err) {
+      console.error('Failed to query ad asset collection group', { adId, error: err });
+    }
+  }
+
+  return null;
+}
+
 async function executeExportJob({ jobRef, jobData, jobId }) {
   const integrationKey = resolveIntegrationKey(jobData);
   const integration = await getIntegration(integrationKey);
@@ -289,11 +328,10 @@ async function executeExportJob({ jobRef, jobData, jobId }) {
     let assetUrl = '';
 
     try {
-      const adSnap = await db.collection('adAssets').doc(adId).get();
-      if (!adSnap.exists) {
+      const adData = await loadAdAssetData(adId);
+      if (!adData) {
         message = 'Ad asset not found';
       } else {
-        const adData = { ...adSnap.data(), id: adSnap.id };
         const validationErrors = [];
 
         assetUrl = normalizeString(jobData.assetOverrides?.[adId]?.assetUrl) || resolveAssetUrl(adData);
