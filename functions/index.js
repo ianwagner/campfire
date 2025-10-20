@@ -7,7 +7,7 @@ import {
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onObjectFinalized } from 'firebase-functions/v2/storage';
 import admin from 'firebase-admin';
-import sharp from 'sharp';
+import { getSharp } from './shared/lazySharp.js';
 import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
@@ -22,7 +22,11 @@ import { copyAssetToDrive, cleanupDriveFile } from './driveAssets.js';
 import { openaiProxy } from './openaiProxy.js';
 import { patchFirestoreProtobufDecoding } from './firestoreProtobufPatch.js';
 
-patchFirestoreProtobufDecoding();
+try {
+  patchFirestoreProtobufDecoding();
+} catch (err) {
+  console.error('Skipping Firestore protobuf patch due to initialization error', err);
+}
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -888,6 +892,7 @@ async function processUploadHandler(event) {
 
   const base = path.basename(name, path.extname(name));
   let inputTmp = temp;
+  const sharp = await getSharp();
   const meta = await sharp(temp).metadata().catch(() => ({}));
   if (meta.format === 'tiff') {
     const pngTmp = path.join(os.tmpdir(), `${base}.png`);

@@ -114,5 +114,3 @@ export function patchFirestoreProtobufDecoding() {
     patched = true;
   }
 }
-
-patchFirestoreProtobufDecoding();

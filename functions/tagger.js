@@ -2,7 +2,7 @@ import { onCall as onCallFn, HttpsError } from 'firebase-functions/v2/https';
 import { google } from 'googleapis';
 import vision from '@google-cloud/vision';
 import OpenAI from 'openai';
-import sharp from 'sharp';
+import { getSharp } from './shared/lazySharp.js';
 
 // Uses Google Drive API with supportsAllDrives so folders from shared drives
 // can be processed the same as My Drive folders.
@@ -58,6 +58,7 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
       createdAt: Date.now(),
     });
 
+    let sharpInstance;
     for (const file of files) {
       try {
         const dl = await drive.files.get({
@@ -68,7 +69,8 @@ export const tagger = onCallFn({ secrets: ['OPENAI_API_KEY'], memory: '512MiB', 
         let buffer = Buffer.from(dl.data);
         if (buffer.length > 2 * 1024 * 1024) {
           try {
-            buffer = await sharp(buffer)
+            sharpInstance = sharpInstance || (await getSharp());
+            buffer = await sharpInstance(buffer)
               .resize({ width: 1024, withoutEnlargement: true })
               .jpeg({ quality: 70 })
               .toBuffer();
