@@ -4814,34 +4814,81 @@ const AdGroupDetail = () => {
       )}
 
       {canManageCopy && tab === 'copy' && (
-        <div className="my-4">
-          {copyCards.length > 0 ? (
-            <CopyRecipePreview
-              onSave={saveCopyCards}
-              initialResults={copyCards}
-              showOnlyResults
-              onCopyClick={() => setShowCopyModal(true)}
-              brandCode={group?.brandCode}
-              hideBrandSelect
-              showSave
-            />
-          ) : (
-            <div className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
-                <FiType size={20} />
+        <section className="my-4">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+            <div className="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 dark:border-[var(--border-color-default)] sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+                  <FiType size={18} />
+                </span>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Platform copy</h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-300">
+                    Keep track of the copy variations assigned to this ad group and spin up fresh lines without leaving the page.
+                  </p>
+                </div>
               </div>
-              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">No platform copy yet</h3>
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                Generate ad-ready headlines and primary text for this group without leaving the page.
-              </p>
-              <div className="mt-4 flex justify-center">
+              <div className="flex flex-wrap items-center gap-2">
+                {copyCards.length > 0 && (
+                  <span className="rounded-full bg-[var(--accent-color-10)] px-3 py-1 text-xs font-semibold text-[var(--accent-color)]">
+                    {copyCards.length} variation{copyCards.length === 1 ? '' : 's'}
+                  </span>
+                )}
                 <Button type="button" variant="accent" size="sm" onClick={() => setShowCopyModal(true)}>
-                  Create Platform Copy
+                  Generate new copy
                 </Button>
               </div>
             </div>
-          )}
-        </div>
+            <div className="px-5 pb-5 pt-4">
+              {copyCards.length > 0 ? (
+                <>
+                  <div className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:bg-[var(--dark-sidebar)] dark:text-gray-300">
+                    <p className="font-medium text-gray-700 dark:text-gray-200">Assign copy variations or generate more options as campaigns evolve.</p>
+                    <p className="mt-1">Use the button above to open the builder whenever you need additional headlines or refreshed language.</p>
+                  </div>
+                  <CopyRecipePreview
+                    onSave={saveCopyCards}
+                    initialResults={copyCards}
+                    showOnlyResults
+                    onCopyClick={() => setShowCopyModal(true)}
+                    brandCode={group?.brandCode}
+                    hideBrandSelect
+                    showSave
+                  />
+                </>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+                    <FiType size={20} />
+                  </div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">No platform copy yet</h3>
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    Generate ad-ready primary text, headlines, and descriptions tailored to this ad group.
+                  </p>
+                  <ul className="mx-auto mt-4 max-w-md space-y-2 text-left text-sm text-gray-600 dark:text-gray-300">
+                    <li className="flex items-start gap-2">
+                      <FiCheckCircle className="mt-0.5 text-[var(--accent-color)]" size={14} />
+                      <span>Start with brand and product details that automatically flow into the prompt.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <FiCheckCircle className="mt-0.5 text-[var(--accent-color)]" size={14} />
+                      <span>Edit any generated line before saving it back to the ad group.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <FiCheckCircle className="mt-0.5 text-[var(--accent-color)]" size={14} />
+                      <span>Save multiple variations to test different angles with your audiences.</span>
+                    </li>
+                  </ul>
+                  <div className="mt-6 flex justify-center">
+                    <Button type="button" variant="accent" size="sm" onClick={() => setShowCopyModal(true)}>
+                      Generate platform copy
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
       )}
 
       {(isAdmin || isEditor || isDesigner || isManager || isClientPortalUser) &&
@@ -5515,30 +5562,56 @@ const AdGroupDetail = () => {
       )}
 
       {showCopyModal && (
-        <Modal sizeClass="max-w-[50rem] w-full max-h-[90vh] flex flex-col">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-semibold">Platform Copy</h2>
-            <div className="flex gap-2">
-              <button
-                onClick={() => saveCopyCards(modalCopies, { append: true })}
-                className={`btn-primary px-3 py-1 ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
-                disabled={!copyChanges}
-              >
-                Save
-              </button>
-              <IconButton onClick={() => setShowCopyModal(false)}>Close</IconButton>
+        <Modal sizeClass="max-w-[52rem] w-full" className="p-0">
+          <div className="flex h-full flex-col">
+            <div className="border-b border-gray-100 px-6 py-5 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+                    <FiType size={18} />
+                  </span>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Generate platform copy</h2>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                      Select a recipe type, tailor the prompt, and save new variations directly to this ad group.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {copyChanges && (
+                    <span className="rounded-full bg-[var(--accent-color-10)] px-3 py-1 text-xs font-semibold text-[var(--accent-color)]">
+                      Unsaved changes
+                    </span>
+                  )}
+                  <Button
+                    type="button"
+                    variant="accent"
+                    size="sm"
+                    onClick={() => saveCopyCards(modalCopies, { append: true })}
+                    disabled={!copyChanges}
+                  >
+                    Save changes
+                  </Button>
+                  <IconButton onClick={() => setShowCopyModal(false)} aria-label="Close platform copy modal">
+                    Close
+                  </IconButton>
+                </div>
+              </div>
             </div>
-          </div>
-          <p className="text-sm mb-2">
-            These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
-          </p>
-          <div className="overflow-auto flex-1">
-            <CopyRecipePreview
-              onSave={(copies) => saveCopyCards(copies, { append: true })}
-              brandCode={group?.brandCode}
-              hideBrandSelect
-              onCopiesChange={updateModalCopies}
-            />
+            <div className="flex-1 overflow-auto px-6 py-5">
+              <div className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:bg-[var(--dark-sidebar)] dark:text-gray-300">
+                <p className="font-medium text-gray-700 dark:text-gray-200">How it works</p>
+                <p className="mt-1">
+                  Choose a recipe template, tweak any of the inputs, and edit the generated copy before saving it back to the group.
+                </p>
+              </div>
+              <CopyRecipePreview
+                onSave={(copies) => saveCopyCards(copies, { append: true })}
+                brandCode={group?.brandCode}
+                hideBrandSelect
+                onCopiesChange={updateModalCopies}
+              />
+            </div>
           </div>
         </Modal>
       )}
