@@ -15,13 +15,16 @@ import { db } from './firebase/config';
 
 const SAMPLE_AD_GROUP_LIMIT = 5;
 
-const UNIVERSAL_CAMPAIGN_IDENTIFIER_KEYS = [
-  'brand.id',
-  'brand.name',
-  'brand.code',
-  'storeId',
-  'recipeNumber',
-  'recipeId',
+const STATIC_DATA_FIELDS = [
+  { key: 'storeId', label: 'Store ID' },
+  { key: 'groupName', label: 'Ad Group' },
+  { key: 'recipeNo', label: 'Recipe #' },
+  { key: 'status', label: 'Status' },
+  { key: 'primary', label: 'Primary' },
+  { key: 'headline', label: 'Headline' },
+  { key: 'description', label: 'Description' },
+  { key: '1x1', label: '1×1 Asset URL' },
+  { key: '9x16', label: '9×16 Asset URL' },
 ];
 
 const formatLabel = (s) =>
@@ -32,16 +35,15 @@ const formatLabel = (s) =>
     .trim();
 
 const BASE_COLUMN_KEYS = new Set([
+  'storeId',
   'groupName',
   'recipeNo',
-  'product',
-  'url',
-  'angle',
-  'audience',
   'status',
   'primary',
   'headline',
   'description',
+  '1x1',
+  '9x16',
 ]);
 
 const STRUCTURAL_META_KEYS = new Set([
@@ -241,12 +243,9 @@ const shouldOmitKey = (key) => {
   if (!key) {
     return true;
   }
-  const matchBase = Array.from(BASE_COLUMN_KEYS).some((baseKey) => {
-    if (baseKey === 'product') {
-      return key === baseKey;
-    }
-    return key === baseKey || key.startsWith(`${baseKey}.`);
-  });
+  const matchBase = Array.from(BASE_COLUMN_KEYS).some(
+    (baseKey) => key === baseKey || key.startsWith(`${baseKey}.`),
+  );
   if (matchBase) {
     return true;
   }
@@ -709,15 +708,19 @@ const AdminIntegrations = () => {
         };
       });
 
-    const universalFields = UNIVERSAL_CAMPAIGN_IDENTIFIER_KEYS.map((key) => {
-      const label = formatLabel(key);
+    const universalFields = STATIC_DATA_FIELDS.map(({ key, label }) => {
+      const resolvedKey = key || '';
+      if (!resolvedKey) {
+        return null;
+      }
+      const resolvedLabel = label || formatLabel(resolvedKey);
       return {
-        key,
-        label,
+        key: resolvedKey,
+        label: resolvedLabel,
         metadataType: '',
-        isDate: determineIsDateField({ key, label }),
+        isDate: determineIsDateField({ key: resolvedKey, label: resolvedLabel }),
       };
-    });
+    }).filter(Boolean);
 
     const groups =
       sampleFields.length > 0
@@ -777,9 +780,12 @@ const AdminIntegrations = () => {
     sampleMetaKeyList
       .filter((key) => key && !shouldOmitKey(key))
       .forEach((key) => addOption({ key, label: formatLabel(key) }));
-    UNIVERSAL_CAMPAIGN_IDENTIFIER_KEYS.forEach((key) =>
-      addOption({ key, label: formatLabel(key) }),
-    );
+    STATIC_DATA_FIELDS.forEach(({ key, label }) => {
+      if (!key) {
+        return;
+      }
+      addOption({ key, label: label || formatLabel(key) });
+    });
 
     return Array.from(merged.values()).sort((a, b) => a.label.localeCompare(b.label));
   }, [normalizedWriteInFields, sampleMetaKeyList]);
