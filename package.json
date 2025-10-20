@@ -42,7 +42,8 @@
     "sync": "node sync.js",
     "test": "jest",
     "backfill-adgroup-months": "node functions/backfillAdGroupMonths.js",
-    "backfill-project-agency": "node functions/backfillProjectAgency.js"
+    "backfill-project-agency": "node functions/backfillProjectAgency.js",
+    "backfill-ad-assets": "node scripts/backfillAdAssets.js"
   },
   "license": "UNLICENSED"
 }
