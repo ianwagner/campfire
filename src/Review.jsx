@@ -946,24 +946,31 @@ const Review = forwardRef(
   const normalizedGroupRecipeTypes = useMemo(
     () =>
       groupRecipeTypeIds
-        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .map((value) => normalizeKeyPart(value))
         .filter(Boolean),
     [groupRecipeTypeIds],
   );
+  const normalizedGroupRecipeTypeTokens = useMemo(() => {
+    const tokens = new Set();
+    normalizedGroupRecipeTypes.forEach((value) => {
+      const token = value.toLowerCase();
+      if (token) {
+        tokens.add(token);
+      }
+    });
+    return tokens;
+  }, [normalizedGroupRecipeTypes]);
   const matchingExporterIntegration = useMemo(() => {
-    if (normalizedGroupRecipeTypes.length === 0) {
+    if (normalizedGroupRecipeTypeTokens.size === 0) {
       return null;
     }
     return (
       enabledExporterIntegrations.find((integration) => {
-        const recipeTypeId =
-          typeof integration.recipeTypeId === 'string'
-            ? integration.recipeTypeId.trim()
-            : '';
-        return recipeTypeId && normalizedGroupRecipeTypes.includes(recipeTypeId);
+        const recipeTypeId = normalizeKeyPart(integration.recipeTypeId).toLowerCase();
+        return recipeTypeId && normalizedGroupRecipeTypeTokens.has(recipeTypeId);
       }) || null
     );
-  }, [enabledExporterIntegrations, normalizedGroupRecipeTypes]);
+  }, [enabledExporterIntegrations, normalizedGroupRecipeTypeTokens]);
   const selectedExporterIntegration = matchingExporterIntegration || null;
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [showVersionMenu, setShowVersionMenu] = useState(false);
