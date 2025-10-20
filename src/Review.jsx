@@ -904,6 +904,10 @@ const Review = forwardRef(
   const [recipesLoaded, setRecipesLoaded] = useState(false);
   const [groupBrandCode, setGroupBrandCode] = useState('');
   const [groupRecipeTypeIds, setGroupRecipeTypeIds] = useState([]);
+  const [groupIntegrationKey, setGroupIntegrationKey] = useState('');
+  const [groupIntegrationKeySource, setGroupIntegrationKeySource] = useState('');
+  const [groupHasTargetIntegration, setGroupHasTargetIntegration] = useState(false);
+  const [groupRecipeTypeId, setGroupRecipeTypeId] = useState('');
   const [exportedAdIds, setExportedAdIds] = useState([]);
   const [finalGallery, setFinalGallery] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
@@ -960,18 +964,17 @@ const Review = forwardRef(
     });
     return tokens;
   }, [normalizedGroupRecipeTypes]);
-  const matchingExporterIntegration = useMemo(() => {
+  const matchingExporterIntegrations = useMemo(() => {
     if (normalizedGroupRecipeTypeTokens.size === 0) {
-      return null;
+      return [];
     }
-    return (
-      enabledExporterIntegrations.find((integration) => {
-        const recipeTypeId = normalizeKeyPart(integration.recipeTypeId).toLowerCase();
-        return recipeTypeId && normalizedGroupRecipeTypeTokens.has(recipeTypeId);
-      }) || null
-    );
+    return enabledExporterIntegrations.filter((integration) => {
+      const recipeTypeId = normalizeKeyPart(integration.recipeTypeId).toLowerCase();
+      return recipeTypeId && normalizedGroupRecipeTypeTokens.has(recipeTypeId);
+    });
   }, [enabledExporterIntegrations, normalizedGroupRecipeTypeTokens]);
-  const selectedExporterIntegration = matchingExporterIntegration || null;
+  const selectedExporterIntegration =
+    matchingExporterIntegrations.length === 1 ? matchingExporterIntegrations[0] : null;
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [showVersionMenu, setShowVersionMenu] = useState(false);
   const [cardVersionIndices, setCardVersionIndices] = useState({});
@@ -1057,6 +1060,7 @@ const Review = forwardRef(
   const toastHistoryRef = useRef(new Set());
   const adSyncMetaRef = useRef({});
   const initialSyncLoadedRef = useRef(false);
+  const integrationAssociationInFlightRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -2330,6 +2334,88 @@ useEffect(() => {
   }, [currentIndex]);
 
   useEffect(() => {
+    if (!groupId || !canUpdateGroupDoc) {
+      return;
+    }
+    if (!selectedExporterIntegration) {
+      return;
+    }
+    if (normalizedGroupRecipeTypes.length === 0) {
+      return;
+    }
+
+    const integrationKeyCandidate =
+      normalizeKeyPart(selectedExporterIntegration.partnerKey) ||
+      normalizeKeyPart(selectedExporterIntegration.key) ||
+      '';
+    if (!integrationKeyCandidate) {
+      return;
+    }
+    const resolvedIntegrationKey = integrationKeyCandidate.toLowerCase();
+    if (!resolvedIntegrationKey) {
+      return;
+    }
+
+    const existingIntegrationKey = groupIntegrationKey || '';
+    const resolvedRecipeTypeId =
+      normalizeKeyPart(selectedExporterIntegration.recipeTypeId) || '';
+    const resolvedRecipeTypeIdLower = resolvedRecipeTypeId
+      ? resolvedRecipeTypeId.toLowerCase()
+      : '';
+    const existingRecipeTypeId = groupRecipeTypeId || '';
+    const updates = {};
+
+    if (
+      !existingIntegrationKey ||
+      existingIntegrationKey !== resolvedIntegrationKey ||
+      groupIntegrationKeySource !== 'integrationKey'
+    ) {
+      updates.integrationKey = resolvedIntegrationKey;
+    }
+
+    if (!groupHasTargetIntegration || existingIntegrationKey !== resolvedIntegrationKey) {
+      updates.targetIntegration = resolvedIntegrationKey;
+    }
+
+    if (
+      resolvedRecipeTypeIdLower &&
+      existingRecipeTypeId !== resolvedRecipeTypeIdLower
+    ) {
+      updates.recipeTypeId = resolvedRecipeTypeId;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return;
+    }
+
+    if (integrationAssociationInFlightRef.current) {
+      return;
+    }
+    integrationAssociationInFlightRef.current = true;
+
+    performGroupUpdate(groupId, updates, {
+      type: 'integration-association',
+      publicUpdate: {},
+    })
+      .catch((error) => {
+        console.error('Failed to persist exporter integration on ad group', error);
+      })
+      .finally(() => {
+        integrationAssociationInFlightRef.current = false;
+      });
+  }, [
+    canUpdateGroupDoc,
+    groupHasTargetIntegration,
+    groupId,
+    groupIntegrationKey,
+    groupIntegrationKeySource,
+    groupRecipeTypeId,
+    normalizedGroupRecipeTypes,
+    performGroupUpdate,
+    selectedExporterIntegration,
+  ]);
+
+  useEffect(() => {
     if (!groupId) {
       setGroupStatus(null);
       return;
@@ -2345,6 +2431,10 @@ useEffect(() => {
         setExportedAdIds([]);
         setGroupBrandCode('');
         setGroupRecipeTypeIds([]);
+        setGroupIntegrationKey('');
+        setGroupIntegrationKeySource('');
+        setGroupHasTargetIntegration(false);
+        setGroupRecipeTypeId('');
         return;
       }
       const data = snapshot.data();
@@ -2363,6 +2453,24 @@ useEffect(() => {
           .map((value) => (typeof value === 'string' ? value.trim() : ''))
           .filter(Boolean),
       );
+      const integrationKeyRaw = normalizeKeyPart(data?.integrationKey);
+      const targetIntegrationRaw = normalizeKeyPart(data?.targetIntegration);
+      const partnerKeyRaw = normalizeKeyPart(data?.partnerKey);
+      const resolvedIntegrationKeySource = integrationKeyRaw
+        ? 'integrationKey'
+        : targetIntegrationRaw
+          ? 'targetIntegration'
+          : partnerKeyRaw
+            ? 'partnerKey'
+            : '';
+      const resolvedIntegrationKey =
+        integrationKeyRaw || targetIntegrationRaw || partnerKeyRaw || '';
+      setGroupIntegrationKey(resolvedIntegrationKey ? resolvedIntegrationKey.toLowerCase() : '');
+      setGroupIntegrationKeySource(resolvedIntegrationKeySource);
+      setGroupHasTargetIntegration(Boolean(targetIntegrationRaw));
+      const resolvedRecipeTypeId =
+        normalizeKeyPart(data?.recipeTypeId) || normalizeKeyPart(data?.recipeType) || '';
+      setGroupRecipeTypeId(resolvedRecipeTypeId ? resolvedRecipeTypeId.toLowerCase() : '');
     };
 
     const fetchStatus = async () => {
@@ -2437,6 +2545,28 @@ useEffect(() => {
                   .map((value) => (typeof value === 'string' ? value.trim() : ''))
                   .filter(Boolean),
               );
+              const integrationKeyRaw = normalizeKeyPart(data?.integrationKey);
+              const targetIntegrationRaw = normalizeKeyPart(data?.targetIntegration);
+              const partnerKeyRaw = normalizeKeyPart(data?.partnerKey);
+              const resolvedIntegrationKeySource = integrationKeyRaw
+                ? 'integrationKey'
+                : targetIntegrationRaw
+                  ? 'targetIntegration'
+                  : partnerKeyRaw
+                    ? 'partnerKey'
+                    : '';
+              const resolvedIntegrationKey =
+                integrationKeyRaw || targetIntegrationRaw || partnerKeyRaw || '';
+              setGroupIntegrationKey(
+                resolvedIntegrationKey ? resolvedIntegrationKey.toLowerCase() : '',
+              );
+              setGroupIntegrationKeySource(resolvedIntegrationKeySource);
+              setGroupHasTargetIntegration(Boolean(targetIntegrationRaw));
+              const resolvedRecipeTypeId =
+                normalizeKeyPart(data?.recipeTypeId) || normalizeKeyPart(data?.recipeType) || '';
+              setGroupRecipeTypeId(
+                resolvedRecipeTypeId ? resolvedRecipeTypeId.toLowerCase() : '',
+              );
               if (rv === 2 || rv === 3) {
                 try {
                   const rSnap = await getDocs(
@@ -2487,12 +2617,21 @@ useEffect(() => {
             setGroupStatus(null);
             setExportedAdIds([]);
             setGroupRecipeTypeIds([]);
+            setGroupIntegrationKey('');
+            setGroupIntegrationKeySource('');
+            setGroupHasTargetIntegration(false);
+            setGroupRecipeTypeId('');
           }
           setInitialStatus(status);
           setReviewVersion(rv);
         } else {
           setGroupStatus(null);
           setExportedAdIds([]);
+          setGroupRecipeTypeIds([]);
+          setGroupIntegrationKey('');
+          setGroupIntegrationKeySource('');
+          setGroupHasTargetIntegration(false);
+          setGroupRecipeTypeId('');
           const normalizedBrandCodes = Array.from(
             new Set(
               brandCodes
