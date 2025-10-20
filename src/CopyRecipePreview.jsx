@@ -429,8 +429,8 @@ const CopyRecipePreview = ({
                 </div>
               </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                Primary Text
+              <label className="flex flex-col text-xs font-medium text-gray-500 dark:text-gray-300">
+                <span className="uppercase tracking-wide">Primary Text</span>
                 {c.editing ? (
                   <textarea
                     className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100"
@@ -450,8 +450,8 @@ const CopyRecipePreview = ({
                   </p>
                 )}
               </label>
-              <label className="flex flex-col text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                Headline
+              <label className="flex flex-col text-xs font-medium text-gray-500 dark:text-gray-300">
+                <span className="uppercase tracking-wide">Headline</span>
                 {c.editing ? (
                   <textarea
                     className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100"
@@ -472,8 +472,8 @@ const CopyRecipePreview = ({
                 )}
               </label>
             </div>
-            <label className="mt-3 flex flex-col text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
-              Description
+            <label className="mt-3 flex flex-col text-xs font-medium text-gray-500 dark:text-gray-300">
+              <span className="uppercase tracking-wide">Description</span>
               {c.editing ? (
                 <textarea
                   className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100"
