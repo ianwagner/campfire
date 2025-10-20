@@ -1,5 +1,6 @@
 import { URL } from 'url';
 import admin from 'firebase-admin';
+import { format as formatDate, isValid, parseISO } from 'date-fns';
 import { getCampfireStandardFields } from '../src/integrationFieldDefinitions.js';
 
 const EXPORTER_INTEGRATIONS_COLLECTION = 'settings';
@@ -80,39 +81,133 @@ function normalizeFieldMappingObject(mapping) {
   }
 
   const normalized = {};
+
   const entries = Object.entries(mapping)
     .map(([rawKey, rawValue]) => [
       typeof rawKey === 'string' ? rawKey.trim() : '',
-      typeof rawValue === 'string' ? rawValue.trim() : '',
+      rawValue,
     ])
-    .filter(([key, value]) => key && value);
+    .filter(([key]) => key);
 
   if (entries.length === 0) {
     return normalized;
   }
 
-  const keyCampfireMatches = entries.filter(([key]) => isCampfireFieldCandidate(key)).length;
-  const valueCampfireMatches = entries.filter(([, value]) => isCampfireFieldCandidate(value)).length;
-  const hasKeyDot = entries.some(([key]) => key.includes('.'));
-  const hasValueDot = entries.some(([, value]) => value.includes('.'));
+  const stringEntries = entries
+    .filter(([, value]) => typeof value === 'string')
+    .map(([key, value]) => ({
+      key,
+      value: value.trim(),
+    }))
+    .filter((entry) => entry.value);
 
-  let keysAreCampfire = true;
+  let keysAreCampfire = false;
 
-  if (hasKeyDot && !hasValueDot) {
-    keysAreCampfire = true;
-  } else if (hasValueDot && !hasKeyDot) {
-    keysAreCampfire = false;
-  } else if (valueCampfireMatches > keyCampfireMatches) {
-    keysAreCampfire = false;
+  if (stringEntries.length > 0) {
+    const keyCampfireMatches = stringEntries.filter(({ key }) => isCampfireFieldCandidate(key)).length;
+    const valueCampfireMatches = stringEntries.filter(({ value }) => isCampfireFieldCandidate(value)).length;
+    const hasKeyDot = stringEntries.some(({ key }) => key.includes('.'));
+    const hasValueDot = stringEntries.some(({ value }) => value.includes('.'));
+
+    if (hasKeyDot && !hasValueDot) {
+      keysAreCampfire = true;
+    } else if (hasValueDot && !hasKeyDot) {
+      keysAreCampfire = false;
+    } else if (valueCampfireMatches > keyCampfireMatches) {
+      keysAreCampfire = false;
+    } else if (keyCampfireMatches > 0) {
+      keysAreCampfire = true;
+    }
   }
 
-  entries.forEach(([key, value]) => {
-    const campfireField = keysAreCampfire ? key : value;
-    const partnerField = keysAreCampfire ? value : key;
-    if (!campfireField || !partnerField) {
+  const assignEntry = (partnerField, sourceField, format) => {
+    const partner = typeof partnerField === 'string' ? partnerField.trim() : '';
+    const source = typeof sourceField === 'string' ? sourceField.trim() : '';
+    const normalizedFormat = typeof format === 'string' ? format.trim() : '';
+    if (!partner || !source) {
       return;
     }
-    normalized[campfireField] = partnerField;
+    const entry = { source };
+    if (normalizedFormat) {
+      entry.format = normalizedFormat;
+    }
+    normalized[partner] = entry;
+  };
+
+  entries.forEach(([key, rawValue]) => {
+    if (typeof rawValue === 'string') {
+      const value = rawValue.trim();
+      if (!value) {
+        return;
+      }
+      if (keysAreCampfire) {
+        assignEntry(value, key);
+      } else {
+        assignEntry(key, value);
+      }
+      return;
+    }
+
+    if (!rawValue || typeof rawValue !== 'object') {
+      return;
+    }
+
+    const explicitSource =
+      typeof rawValue.source === 'string' ? rawValue.source.trim() : '';
+    const explicitPartner =
+      typeof rawValue.target === 'string' ? rawValue.target.trim() : '';
+    const partnerFallback =
+      typeof rawValue.partner === 'string' ? rawValue.partner.trim() : '';
+    const format =
+      typeof rawValue.format === 'string' ? rawValue.format.trim() : '';
+
+    if (explicitSource) {
+      assignEntry(explicitPartner || partnerFallback || key, explicitSource, format);
+      return;
+    }
+
+    const altSource =
+      typeof rawValue.field === 'string'
+        ? rawValue.field.trim()
+        : typeof rawValue.campfire === 'string'
+        ? rawValue.campfire.trim()
+        : '';
+
+    if (altSource) {
+      assignEntry(explicitPartner || partnerFallback || key, altSource, format);
+      return;
+    }
+
+    const altPartner =
+      explicitPartner ||
+      partnerFallback ||
+      (typeof rawValue.partnerField === 'string'
+        ? rawValue.partnerField.trim()
+        : '');
+
+    if (altPartner) {
+      const inferredSource = keysAreCampfire ? key : '';
+      assignEntry(altPartner, inferredSource || key, format);
+      return;
+    }
+
+    if (keysAreCampfire) {
+      const fallbackPartner =
+        typeof rawValue.field === 'string'
+          ? rawValue.field.trim()
+          : typeof rawValue.targetField === 'string'
+          ? rawValue.targetField.trim()
+          : '';
+      assignEntry(fallbackPartner || key, key, format);
+    } else {
+      const fallbackSource =
+        typeof rawValue.field === 'string'
+          ? rawValue.field.trim()
+          : typeof rawValue.campfire === 'string'
+          ? rawValue.campfire.trim()
+          : '';
+      assignEntry(key, fallbackSource || key, format);
+    }
   });
 
   return normalized;
@@ -451,6 +546,45 @@ function resolveValueForMappingKey(recipeField, context = {}) {
   return undefined;
 }
 
+function coerceDate(value) {
+  if (value instanceof Date) {
+    return isValid(value) ? value : null;
+  }
+
+  if (typeof value === 'number') {
+    const fromNumber = new Date(value);
+    return isValid(fromNumber) ? fromNumber : null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsedIso = parseISO(trimmed);
+    if (isValid(parsedIso)) {
+      return parsedIso;
+    }
+    const parsed = new Date(trimmed);
+    return isValid(parsed) ? parsed : null;
+  }
+
+  if (value && typeof value === 'object') {
+    if (typeof value.toDate === 'function') {
+      try {
+        const converted = value.toDate();
+        if (converted instanceof Date && isValid(converted)) {
+          return converted;
+        }
+      } catch (err) {
+        return null;
+      }
+    }
+  }
+
+  return null;
+}
+
 function buildPayloadFromMapping({
   fieldMapping = {},
   adData = {},
@@ -463,10 +597,31 @@ function buildPayloadFromMapping({
   const payload = {};
   const missingFields = [];
 
-  for (const [campfireField, partnerField] of entries) {
-    const campfireKey = typeof campfireField === 'string' ? campfireField.trim() : '';
+  for (const [partnerField, mappingValue] of entries) {
     const partnerKeyRaw = typeof partnerField === 'string' ? partnerField.trim() : '';
-    if (!campfireKey || !partnerKeyRaw) {
+    if (!partnerKeyRaw) {
+      continue;
+    }
+
+    let sourceField = '';
+    let formatOverride = '';
+
+    if (typeof mappingValue === 'string') {
+      sourceField = mappingValue.trim();
+    } else if (mappingValue && typeof mappingValue === 'object') {
+      if (typeof mappingValue.source === 'string') {
+        sourceField = mappingValue.source.trim();
+      } else if (typeof mappingValue.field === 'string') {
+        sourceField = mappingValue.field.trim();
+      } else if (typeof mappingValue.campfire === 'string') {
+        sourceField = mappingValue.campfire.trim();
+      }
+      if (typeof mappingValue.format === 'string') {
+        formatOverride = mappingValue.format.trim();
+      }
+    }
+
+    if (!sourceField) {
       continue;
     }
 
@@ -477,7 +632,7 @@ function buildPayloadFromMapping({
     const normalizedBasePartnerKey = normalizeKeyName(basePartnerField);
     const isPartnerAssetField = !!assetInfo;
 
-    const value = resolveValueForMappingKey(campfireKey, {
+    const value = resolveValueForMappingKey(sourceField, {
       adData,
       jobData,
       assetUrl,
@@ -485,6 +640,19 @@ function buildPayloadFromMapping({
     });
 
     let finalValue = value;
+
+    if (formatOverride) {
+      const parsedDate = coerceDate(value);
+      if (parsedDate) {
+        try {
+          finalValue = formatDate(parsedDate, formatOverride);
+        } catch (err) {
+          finalValue = undefined;
+        }
+      } else {
+        finalValue = undefined;
+      }
+    }
 
     const matchesRecipeNumber =
       lowerPartnerField === 'recipe_no' ||
@@ -512,7 +680,7 @@ function buildPayloadFromMapping({
           finalValue = undefined;
         }
       }
-    } else if (matchesGoLiveDate) {
+    } else if (!formatOverride && matchesGoLiveDate) {
       finalValue = formatDateString(finalValue);
       if (!finalValue) {
         finalValue = undefined;
