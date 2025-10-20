@@ -1,8 +1,9 @@
 let sharpPromise;
+const loadSharp = async () => (await import('@img/sharp')).default;
 
 export async function getSharp() {
   if (!sharpPromise) {
-    sharpPromise = import('sharp').then((mod) => mod.default || mod);
+    sharpPromise = loadSharp();
   }
   return sharpPromise;
 }

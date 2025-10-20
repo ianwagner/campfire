@@ -8,6 +8,22 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
+let visionClient;
+const getVisionClient = () => {
+  if (!visionClient) {
+    visionClient = new vision.ImageAnnotatorClient();
+  }
+  return visionClient;
+};
+
+let openAIClient;
+const getOpenAI = () => {
+  if (!openAIClient) {
+    openAIClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openAIClient;
+};
+
 async function downloadBuffer(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to download ${url}`);
@@ -20,8 +36,8 @@ export const generateTagsForAssets = onCallFn({ secrets: ['OPENAI_API_KEY'], mem
     throw new HttpsError('invalid-argument', 'assets array is required');
   }
 
-  const visionClient = new vision.ImageAnnotatorClient();
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const visionClient = getVisionClient();
+  const openai = getOpenAI();
   const results = [];
 
   let sharpInstance;
