@@ -41,7 +41,12 @@ const handler: ApiHandler<IntegrationTestRequestBody> = async (req, res) => {
   const { integration, reviewId, payload = {}, mode = "dry-run" } = req.body;
   const dryRun = mode === "dry-run";
 
-  const mappingContext = createMappingContext(integration, reviewId, payload, dryRun);
+  const mappingContext = await createMappingContext(
+    integration,
+    reviewId,
+    payload,
+    dryRun
+  );
   const mappingResult = await executeMapping(integration.mapping, mappingContext);
 
   const dispatchResult = await dispatchIntegrationRequest(

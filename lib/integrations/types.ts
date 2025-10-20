@@ -43,17 +43,52 @@ export interface AuthConfig {
   metadata?: Record<string, unknown>;
 }
 
-export type MappingEngineType = "liquid" | "handlebars" | "jmespath" | "javascript";
+export type MappingEngineType = "jsonata" | "handlebars" | "literal";
 
-export interface MappingEngine {
+interface BaseMappingEngine {
   type: MappingEngineType;
   /** Version of the mapping template or engine to evaluate. */
   version: string;
   /** Location of the mapping template (GCS URI, HTTPS URL, etc.). */
   sourceUri?: string;
-  /** Additional options made available to the mapping executor. */
-  options?: Record<string, unknown>;
 }
+
+export interface JsonataMappingEngine extends BaseMappingEngine {
+  type: "jsonata";
+  /** JSONata expression evaluated against the mapping context. */
+  expression: string;
+  /** When true, undefined results are allowed without throwing. */
+  allowUndefined?: boolean;
+}
+
+export interface HandlebarsMappingEngine extends BaseMappingEngine {
+  type: "handlebars";
+  /** Handlebars template expected to render a valid JSON document. */
+  template: string;
+  /** Inline partials keyed by name. */
+  partials?: Record<string, string>;
+  /** Inline helpers implemented as lookup paths within the mapping context. */
+  helpers?: Record<string, string>;
+}
+
+export interface LiteralMappingEngine extends BaseMappingEngine {
+  type: "literal";
+  /**
+   * Literal JSON-like structure containing token placeholders that will be
+   * replaced using the mapping context.
+   */
+  template: unknown;
+  /** Optional custom token delimiters. Defaults to "{{" and "}}". */
+  delimiters?: {
+    start: string;
+    end: string;
+  };
+}
+
+export type MappingEngine =
+  | JsonataMappingEngine
+  | HandlebarsMappingEngine
+  | LiteralMappingEngine;
 
 export interface ExportAttempt {
   attempt: number;
@@ -81,6 +116,8 @@ export interface Integration {
   auth: AuthConfig;
   /** Export payload mapping metadata. */
   mapping: MappingEngine;
+  /** Optional JSON Schema reference used to validate rendered payloads. */
+  schemaRef?: string | null;
   /** Delivery retry configuration for transient failures. */
   retryPolicy: RetryPolicy;
   /** Additional headers appended to outbound HTTP requests. */

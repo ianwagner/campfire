@@ -45,7 +45,12 @@ const handler: ApiHandler<IntegrationWorkerRequestBody> = async (req, res) => {
   }
 
   const { integration, reviewId, payload, attempt, dryRun = false, history = [] } = req.body;
-  const mappingContext = createMappingContext(integration, reviewId, payload, dryRun);
+  const mappingContext = await createMappingContext(
+    integration,
+    reviewId,
+    payload,
+    dryRun
+  );
   const mappingResult = await executeMapping(integration.mapping, mappingContext);
 
   const dispatchResult = await dispatchIntegrationRequest(
