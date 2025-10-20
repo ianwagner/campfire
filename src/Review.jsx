@@ -356,6 +356,32 @@ const SYNC_BADGE_STYLES = {
   },
 };
 
+const toFiniteNumber = (value, fallback = 0) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+};
+
+const createEmptyExportJobForm = () => ({
+  targetIntegration: '',
+  integrationLabel: '',
+  targetEnv: '',
+  recipeTypeId: '',
+  brandCode: '',
+  groupDesc: '',
+  adIdsText: '',
+  assetUrlOverrides: {},
+});
+
+const INITIAL_EXPORT_JOB_MODAL_STATE = {
+  open: false,
+  loading: false,
+  jobId: '',
+  adDocId: '',
+  entry: null,
+  jobData: null,
+  adLabel: '',
+};
+
 const normalizeRecipeCode = (value) => {
   const normalized = normalizeKeyPart(value);
   if (!normalized) return '';
@@ -967,6 +993,13 @@ const Review = forwardRef(
   const [manualStatus, setManualStatus] = useState({});
   const [adSyncStatus, setAdSyncStatus] = useState({});
   const [syncToasts, setSyncToasts] = useState([]);
+  const [exportJobModalState, setExportJobModalState] = useState(
+    INITIAL_EXPORT_JOB_MODAL_STATE,
+  );
+  const [exportJobForm, setExportJobForm] = useState(() => createEmptyExportJobForm());
+  const [exportJobModalError, setExportJobModalError] = useState('');
+  const [exportJobModalSuccess, setExportJobModalSuccess] = useState('');
+  const [resendingExport, setResendingExport] = useState(false);
   const statusBarSentinelRef = useRef(null);
   const statusBarRef = useRef(null);
   const toolbarRef = useRef(null);
@@ -989,6 +1022,354 @@ const Review = forwardRef(
       toastTimersRef.current.clear();
     };
   }, []);
+
+  const resetExportJobModal = useCallback(() => {
+    setExportJobModalState(INITIAL_EXPORT_JOB_MODAL_STATE);
+    setExportJobForm(createEmptyExportJobForm());
+    setExportJobModalError('');
+    setExportJobModalSuccess('');
+    setResendingExport(false);
+  }, []);
+
+  const closeExportJobModal = useCallback(() => {
+    resetExportJobModal();
+  }, [resetExportJobModal]);
+
+  const handleExportJobFieldChange = useCallback((field, value) => {
+    setExportJobForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
+
+  const handleAssetOverrideChange = useCallback((adId, value) => {
+    setExportJobForm((prev) => {
+      const nextOverrides = { ...(prev.assetUrlOverrides || {}) };
+      if (value) {
+        nextOverrides[adId] = value;
+      } else {
+        delete nextOverrides[adId];
+      }
+      return {
+        ...prev,
+        assetUrlOverrides: nextOverrides,
+      };
+    });
+  }, []);
+
+  const openExportJobModal = useCallback(
+    async (info) => {
+      if (!info?.jobId) {
+        return;
+      }
+
+      const docId = info.docId || '';
+      const meta = docId ? adSyncMetaRef.current[docId] || {} : {};
+      const adLabel = normalizeDisplayString(meta.label || meta.adName) || docId || 'Ad unit';
+
+      setExportJobModalState({
+        ...INITIAL_EXPORT_JOB_MODAL_STATE,
+        open: true,
+        loading: true,
+        jobId: info.jobId,
+        adDocId: docId,
+        entry: info,
+        adLabel,
+      });
+      setExportJobForm(createEmptyExportJobForm());
+      setExportJobModalError('');
+      setExportJobModalSuccess('');
+
+      try {
+        const jobRef = doc(db, 'exportJobs', info.jobId);
+        const jobSnap = await getDoc(jobRef);
+        if (!jobSnap.exists()) {
+          setExportJobModalState((prev) => ({
+            ...prev,
+            loading: false,
+          }));
+          setExportJobModalError(
+            'Export job was not found. It may have been archived or deleted.',
+          );
+          return;
+        }
+
+        const jobData = jobSnap.data() || {};
+        const adIds = normalizeUniqueIdList(
+          Array.isArray(jobData.approvedAdIds)
+            ? jobData.approvedAdIds
+            : Array.isArray(jobData.adIds)
+              ? jobData.adIds
+              : [],
+        );
+
+        const overrides = {};
+        if (jobData.assetOverrides && typeof jobData.assetOverrides === 'object') {
+          Object.entries(jobData.assetOverrides).forEach(([key, value]) => {
+            if (!key) return;
+            let url = '';
+            if (typeof value === 'string') {
+              url = normalizeDisplayString(value);
+            } else if (value && typeof value === 'object') {
+              url = normalizeDisplayString(value.assetUrl);
+            }
+            if (url) {
+              overrides[key] = url;
+            }
+          });
+        }
+
+        setExportJobForm({
+          targetIntegration:
+            normalizeDisplayString(jobData.targetIntegration) ||
+            normalizeDisplayString(jobData.integrationKey) ||
+            '',
+          integrationLabel: normalizeDisplayString(jobData.integration?.label) || '',
+          targetEnv: normalizeDisplayString(jobData.targetEnv) || '',
+          recipeTypeId: normalizeDisplayString(jobData.recipeTypeId) || '',
+          brandCode: normalizeDisplayString(jobData.brandCode) || '',
+          groupDesc: normalizeDisplayString(jobData.groupDesc) || '',
+          adIdsText: adIds.join('\n'),
+          assetUrlOverrides: overrides,
+        });
+
+        setExportJobModalState((prev) => ({
+          ...prev,
+          loading: false,
+          jobData: { ...jobData, id: info.jobId },
+        }));
+      } catch (err) {
+        console.error('Failed to load export job details', err);
+        setExportJobModalState((prev) => ({
+          ...prev,
+          loading: false,
+        }));
+        setExportJobModalError('Failed to load export job details. Please try again.');
+      }
+    },
+    [setExportJobForm],
+  );
+
+  const handleResendExportJob = useCallback(async () => {
+    if (!exportJobModalState?.jobData || !exportJobModalState.jobId) {
+      return;
+    }
+
+    setResendingExport(true);
+    setExportJobModalError('');
+    setExportJobModalSuccess('');
+
+    try {
+      const originalJob = exportJobModalState.jobData || {};
+      const rawAdIds = exportJobForm.adIdsText
+        .split(/[\s,]+/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      const adIds = normalizeUniqueIdList(rawAdIds);
+
+      if (adIds.length === 0) {
+        setExportJobModalError('Please provide at least one ad ID to resend.');
+        setResendingExport(false);
+        return;
+      }
+
+      const integrationKeyRaw =
+        normalizeKeyPart(exportJobForm.targetIntegration) ||
+        normalizeKeyPart(originalJob.targetIntegration) ||
+        normalizeKeyPart(originalJob.integrationKey) ||
+        normalizeKeyPart(originalJob.integration?.key) ||
+        DEFAULT_EXPORT_TARGET_INTEGRATION;
+      const integrationKey = integrationKeyRaw.toLowerCase();
+      const integrationLabel =
+        normalizeDisplayString(exportJobForm.integrationLabel) ||
+        simplifyPartnerLabel(originalJob.integration?.label, integrationKey) ||
+        simplifyPartnerLabel('', integrationKey);
+      const targetEnv =
+        normalizeKeyPart(exportJobForm.targetEnv).toLowerCase() ||
+        normalizeKeyPart(originalJob.targetEnv).toLowerCase() ||
+        DEFAULT_EXPORT_TARGET_ENV;
+      const recipeTypeId =
+        normalizeKeyPart(exportJobForm.recipeTypeId) ||
+        normalizeKeyPart(originalJob.recipeTypeId) ||
+        null;
+      const brandCode =
+        normalizeDisplayString(exportJobForm.brandCode) ||
+        normalizeDisplayString(originalJob.brandCode) ||
+        '';
+      const groupDesc =
+        normalizeDisplayString(exportJobForm.groupDesc) ||
+        normalizeDisplayString(originalJob.groupDesc) ||
+        '';
+
+      const metadata = { ...(originalJob.metadata || {}) };
+      const previousCounts = originalJob.counts || {};
+      const previouslyExported = toFiniteNumber(
+        previousCounts.previouslyExported,
+        toFiniteNumber(metadata.previouslyExported, 0),
+      );
+      const totalAds = toFiniteNumber(
+        metadata.totalAds,
+        toFiniteNumber(previousCounts.total, adIds.length),
+      ) || adIds.length;
+      const counts = {
+        approved: adIds.length,
+        total: totalAds,
+        previouslyExported,
+      };
+
+      const timestamp = serverTimestamp();
+
+      metadata.totalAds = counts.total;
+      metadata.totalApproved = counts.previouslyExported + counts.approved;
+      metadata.previouslyExported = counts.previouslyExported;
+      metadata.newlyApproved = counts.approved;
+      metadata.resendOf = exportJobModalState.jobId;
+      metadata.lastResendBy = reviewerIdentifier || originalJob.triggeredBy || '';
+      metadata.lastResendAt = timestamp;
+
+      const integration = {
+        ...(originalJob.integration || {}),
+        key: integrationKey,
+        label: integrationLabel,
+      };
+
+      const previousOverrides =
+        originalJob.assetOverrides && typeof originalJob.assetOverrides === 'object'
+          ? originalJob.assetOverrides
+          : {};
+      const assetOverrides = {};
+      Object.entries(previousOverrides).forEach(([key, value]) => {
+        if (!key) return;
+        const url = normalizeDisplayString(
+          typeof value === 'string' ? value : value?.assetUrl,
+        );
+        if (url) {
+          assetOverrides[key] = { assetUrl: url };
+        }
+      });
+      Object.entries(exportJobForm.assetUrlOverrides || {}).forEach(([key, value]) => {
+        const url = normalizeDisplayString(value);
+        if (url) {
+          assetOverrides[key] = { assetUrl: url };
+        } else if (assetOverrides[key]) {
+          delete assetOverrides[key];
+        }
+      });
+
+      const {
+        summary: _ignoredSummary,
+        syncStatus: _ignoredSyncStatus,
+        completedAt: _ignoredCompletedAt,
+        updatedAt: _ignoredUpdatedAt,
+        counts: _ignoredCounts,
+        createdAt: _ignoredCreatedAt,
+        requestedAt: _ignoredRequestedAt,
+        status: _ignoredStatus,
+        ...rest
+      } = originalJob;
+
+      const payload = {
+        ...rest,
+        adGroupId: originalJob.adGroupId || rest.adGroupId || '',
+        adGroupName: originalJob.adGroupName || rest.adGroupName || '',
+        brandCode,
+        groupDesc,
+        adIds,
+        approvedAdIds: adIds,
+        targetEnv,
+        targetIntegration: integrationKey,
+        integrationKey,
+        recipeTypeId,
+        status: 'pending',
+        triggeredBy: reviewerIdentifier || originalJob.triggeredBy || '',
+        createdBy: reviewerIdentifier || originalJob.createdBy || '',
+        createdAt: timestamp,
+        requestedAt: timestamp,
+        metadata,
+        integration,
+        counts,
+        source: originalJob.source || 'review-resend',
+        syncStatus: {},
+        summary: null,
+        completedAt: null,
+        updatedAt: null,
+        resendOf: exportJobModalState.jobId,
+      };
+
+      if (Object.keys(assetOverrides).length > 0) {
+        payload.assetOverrides = assetOverrides;
+      } else if (payload.assetOverrides) {
+        delete payload.assetOverrides;
+      }
+
+      const jobRef = await addDoc(collection(db, 'exportJobs'), payload);
+
+      try {
+        const runExportJobCallable = httpsCallable(functions, 'runExportJob', {
+          timeout: 540000,
+        });
+        const workerPayload = { jobId: jobRef.id };
+        if (EXPORT_WORKER_SECRET) {
+          workerPayload.secret = EXPORT_WORKER_SECRET;
+        }
+        await runExportJobCallable(workerPayload);
+      } catch (workerErr) {
+        console.error('Failed to trigger export job resend', workerErr);
+        throw workerErr;
+      }
+
+      setExportJobModalSuccess(`Resend queued. New export job ID: ${jobRef.id}`);
+      setExportJobModalState((prev) => ({
+        ...prev,
+        jobId: jobRef.id,
+        entry: prev.entry
+          ? {
+              ...prev.entry,
+              jobId: jobRef.id,
+              state: 'sent',
+              message: '',
+            }
+          : prev.entry,
+        jobData: { ...payload, id: jobRef.id },
+      }));
+    } catch (err) {
+      console.error('Failed to resend export job', err);
+      setExportJobModalError(
+        err?.message || 'Failed to resend export job. Please try again.',
+      );
+    } finally {
+      setResendingExport(false);
+    }
+  }, [
+    exportJobForm,
+    exportJobModalState,
+    reviewerIdentifier,
+  ]);
+
+  const exportJobSyncStatusEntries = useMemo(() => {
+    const jobData = exportJobModalState?.jobData;
+    if (!jobData || !jobData.syncStatus || typeof jobData.syncStatus !== 'object') {
+      return [];
+    }
+    const entries = Object.entries(jobData.syncStatus).map(([adId, value]) => {
+      const normalizedState = normalizeKeyPart(value?.state);
+      const state = normalizedState ? normalizedState.toLowerCase() : '';
+      return {
+        adId,
+        state,
+        message: normalizeDisplayString(value?.message),
+        assetUrl: normalizeDisplayString(value?.assetUrl),
+      };
+    });
+    entries.sort((a, b) => {
+      if (a.adId === exportJobModalState.adDocId) return -1;
+      if (b.adId === exportJobModalState.adDocId) return 1;
+      if (a.state === 'error' && b.state !== 'error') return -1;
+      if (b.state === 'error' && a.state !== 'error') return 1;
+      return a.adId.localeCompare(b.adId);
+    });
+    return entries;
+  }, [exportJobModalState]);
 
   const copyCardsWithMeta = useMemo(
     () =>
@@ -3581,23 +3962,53 @@ useEffect(() => {
 
       const fontSizeClass = size === 'compact' ? 'text-[11px]' : 'text-xs';
       const paddingClass = size === 'compact' ? 'px-2 py-0.5' : 'px-2.5 py-0.5';
-      const title = info.message
+      const messageTitle = info.message
         ? state === 'error'
           ? `${partnerName} error: ${info.message}`
           : `${partnerName}: ${info.message}`
-        : undefined;
+        : '';
+      const title = info.jobId
+        ? [messageTitle, 'Click to review export payload'].filter(Boolean).join('. ')
+        : messageTitle || undefined;
 
-      return (
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full border font-medium ${fontSizeClass} ${paddingClass} ${styles.container}`}
-          title={title}
-        >
+      const badgeContent = (
+        <>
           <span className={`h-2 w-2 rounded-full ${styles.dot}`} />
           <span>{text}</span>
-        </span>
+        </>
+      );
+
+      if (!info.jobId) {
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full border font-medium ${fontSizeClass} ${paddingClass} ${styles.container}`}
+            title={title}
+          >
+            {badgeContent}
+          </span>
+        );
+      }
+
+      const meta = info.docId ? adSyncMetaRef.current[info.docId] || {} : {};
+      const adLabel = normalizeDisplayString(meta.label || meta.adName) || 'Ad unit';
+      const ariaLabel = `View export job details for ${adLabel}`;
+      const handleClick = () => {
+        openExportJobModal({ ...info });
+      };
+
+      return (
+        <button
+          type="button"
+          onClick={handleClick}
+          className={`inline-flex items-center gap-1.5 rounded-full border font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--accent-color)] dark:focus-visible:ring-offset-gray-900 ${fontSizeClass} ${paddingClass} ${styles.container}`}
+          title={title}
+          aria-label={ariaLabel}
+        >
+          {badgeContent}
+        </button>
       );
     },
-    [resolveSyncStatusForAssets],
+    [openExportJobModal, resolveSyncStatusForAssets],
   );
 
   useEffect(() => {
@@ -6554,6 +6965,300 @@ useEffect(() => {
       )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
       {showCopyModal && renderCopyModal()}
+      {exportJobModalState.open && (
+        <Modal sizeClass="w-full max-w-3xl">
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                  Export job details
+                </h3>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                  Review the payload sent to partners and resend the export with updated details.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeExportJobModal}
+                className="btn-secondary rounded-full px-4"
+                disabled={resendingExport}
+              >
+                Close
+              </button>
+            </div>
+            {exportJobModalError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                {exportJobModalError}
+              </div>
+            )}
+            {exportJobModalSuccess && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200">
+                {exportJobModalSuccess}
+              </div>
+            )}
+            {exportJobModalState.loading ? (
+              <div className="flex items-center justify-center py-12 text-sm text-gray-500 dark:text-gray-300">
+                Loading export job…
+              </div>
+            ) : exportJobModalState.jobData ? (
+              <>
+                {(() => {
+                  const entry = exportJobModalState.entry || {};
+                  const entryState = normalizeKeyPart(entry.state).toLowerCase();
+                  const styles = SYNC_BADGE_STYLES[entryState] || SYNC_BADGE_STYLES.sent;
+                  const partnerName = entry.partnerName || 'Partner';
+                  let stateLabel = '';
+                  if (entryState === 'received') {
+                    stateLabel = `Received by ${partnerName}`;
+                  } else if (entryState === 'duplicate') {
+                    stateLabel = `Already received by ${partnerName}`;
+                  } else if (entryState === 'error') {
+                    stateLabel = 'Error';
+                  } else if (entryState === 'sent') {
+                    stateLabel = `Sent to ${partnerName}`;
+                  }
+                  const summary = exportJobModalState.jobData?.summary || null;
+                  const summaryStatus = normalizeKeyPart(summary?.status).toLowerCase();
+                  const summaryIsError = summaryStatus === 'failed';
+                  const summaryClass = summaryIsError
+                    ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200';
+                  return (
+                    <>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Job ID
+                          </p>
+                          <p className="mt-1 break-all font-mono text-sm text-gray-900 dark:text-gray-100">
+                            {exportJobModalState.jobId}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Current status
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${styles.container}`}
+                            >
+                              <span className={`h-2 w-2 rounded-full ${styles.dot}`} />
+                              <span>{stateLabel || 'Pending'}</span>
+                            </span>
+                            {entry.message && (
+                              <span className={`text-sm ${entryState === 'error' ? 'text-red-700 dark:text-red-300' : 'text-gray-600 dark:text-gray-300'}`}>
+                                {entry.message}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Partner
+                          </p>
+                          <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">{partnerName}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Ad asset
+                          </p>
+                          <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">
+                            {exportJobModalState.adLabel}
+                          </p>
+                          {exportJobModalState.adDocId ? (
+                            <p className="font-mono text-xs text-gray-500 dark:text-gray-400">
+                              {exportJobModalState.adDocId}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                      {summary?.message ? (
+                        <div className={`rounded-lg border p-3 text-sm ${summaryClass}`}>
+                          <p className="font-semibold">Last run summary</p>
+                          <p className="mt-1 whitespace-pre-line">{summary.message}</p>
+                        </div>
+                      ) : null}
+                    </>
+                  );
+                })()}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Integration key
+                    </label>
+                    <input
+                      type="text"
+                      value={exportJobForm.targetIntegration}
+                      onChange={(event) => handleExportJobFieldChange('targetIntegration', event.target.value)}
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Integration label
+                    </label>
+                    <input
+                      type="text"
+                      value={exportJobForm.integrationLabel}
+                      onChange={(event) => handleExportJobFieldChange('integrationLabel', event.target.value)}
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Target environment
+                    </label>
+                    <input
+                      type="text"
+                      value={exportJobForm.targetEnv}
+                      onChange={(event) => handleExportJobFieldChange('targetEnv', event.target.value)}
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Recipe type ID
+                    </label>
+                    <input
+                      type="text"
+                      value={exportJobForm.recipeTypeId}
+                      onChange={(event) => handleExportJobFieldChange('recipeTypeId', event.target.value)}
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Brand code
+                    </label>
+                    <input
+                      type="text"
+                      value={exportJobForm.brandCode}
+                      onChange={(event) => handleExportJobFieldChange('brandCode', event.target.value)}
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Group description
+                    </label>
+                    <input
+                      type="text"
+                      value={exportJobForm.groupDesc}
+                      onChange={(event) => handleExportJobFieldChange('groupDesc', event.target.value)}
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Ad IDs
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={exportJobForm.adIdsText}
+                    onChange={(event) => handleExportJobFieldChange('adIdsText', event.target.value)}
+                    className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Separate ad IDs with commas, spaces, or new lines.
+                  </p>
+                </div>
+                {exportJobSyncStatusEntries.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                      Ad delivery status
+                    </h4>
+                    <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                      {exportJobSyncStatusEntries.map((entry) => {
+                        const meta = adSyncMetaRef.current[entry.adId] || {};
+                        const label = normalizeDisplayString(meta.label || meta.adName) || entry.adId;
+                        const stateStyles = SYNC_BADGE_STYLES[entry.state] || SYNC_BADGE_STYLES.sent;
+                        const isError = entry.state === 'error';
+                        const stateLabel = entry.state
+                          ? entry.state.charAt(0).toUpperCase() + entry.state.slice(1)
+                          : 'Pending';
+                        return (
+                          <div
+                            key={entry.adId}
+                            className={`rounded-lg border p-3 ${
+                              isError
+                                ? 'border-red-200 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10'
+                                : 'border-gray-200 bg-gray-50 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]'
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</p>
+                                <p className="font-mono text-xs text-gray-500 dark:text-gray-400">{entry.adId}</p>
+                              </div>
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${stateStyles.container}`}
+                              >
+                                <span className={`h-2 w-2 rounded-full ${stateStyles.dot}`} />
+                                <span>{stateLabel}</span>
+                              </span>
+                            </div>
+                            {entry.message && (
+                              <p
+                                className={`mt-2 text-sm ${
+                                  isError
+                                    ? 'text-red-700 dark:text-red-300'
+                                    : 'text-gray-600 dark:text-gray-300'
+                                }`}
+                              >
+                                {entry.message}
+                              </p>
+                            )}
+                            {isError && (
+                              <div className="mt-3 space-y-1">
+                                <label className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                                  Override asset URL
+                                </label>
+                                <input
+                                  type="text"
+                                  value={exportJobForm.assetUrlOverrides?.[entry.adId] || ''}
+                                  onChange={(event) => handleAssetOverrideChange(entry.adId, event.target.value)}
+                                  placeholder={entry.assetUrl || 'https://example.com/ad.png'}
+                                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                                />
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  Provide a replacement asset URL if the partner rejected the original.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-wrap justify-end gap-3">
+                  <button
+                    type="button"
+                    className="btn-secondary rounded-full px-4"
+                    onClick={closeExportJobModal}
+                    disabled={resendingExport}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary rounded-full px-5"
+                    onClick={handleResendExportJob}
+                    disabled={resendingExport || exportJobModalState.loading}
+                  >
+                    {resendingExport ? 'Resending…' : 'Resend export'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300">
+                Export job details are unavailable.
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
       {inlineCopyModalContext && (
         <Modal sizeClass="max-w-md w-full">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">
