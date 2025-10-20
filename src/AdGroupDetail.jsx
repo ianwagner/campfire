@@ -4341,7 +4341,7 @@ const AdGroupDetail = () => {
                   )}
                 </div>
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div className="flex flex-col gap-1">
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Status
@@ -4373,23 +4373,6 @@ const AdGroupDetail = () => {
                     {(isAdmin || isEditor) && (
                       <div className="flex flex-col gap-1">
                         <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                          Review Type
-                        </span>
-                        <select
-                          aria-label="Review Type"
-                          value={group.reviewVersion || 1}
-                          onChange={handleReviewTypeChange}
-                          className="border p-1 text-sm"
-                        >
-                          <option value={1}>Legacy</option>
-                          <option value={2}>2.0</option>
-                          <option value={3}>Brief</option>
-                        </select>
-                      </div>
-                    )}
-                    {(isAdmin || isEditor) && (
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                           Recipe Type
                         </span>
                         <select
@@ -4412,6 +4395,23 @@ const AdGroupDetail = () => {
                               {t.name}
                             </option>
                           ))}
+                        </select>
+                      </div>
+                    )}
+                    {(isAdmin || isEditor) && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Review Type
+                        </span>
+                        <select
+                          aria-label="Review Type"
+                          value={group.reviewVersion || 1}
+                          onChange={handleReviewTypeChange}
+                          className="border p-1 text-sm"
+                        >
+                          <option value={1}>Legacy</option>
+                          <option value={2}>2.0</option>
+                          <option value={3}>Brief</option>
                         </select>
                       </div>
                     )}
