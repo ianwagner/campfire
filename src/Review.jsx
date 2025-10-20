@@ -5322,7 +5322,7 @@ useEffect(() => {
         onClick={openFinalizeModal}
         disabled={disabled}
         className={combineClasses(
-          'btn-primary whitespace-nowrap font-semibold',
+          'btn-primary relative z-40 whitespace-nowrap font-semibold',
           compact ? 'px-3 py-1.5 text-xs' : 'text-sm',
           fullWidth ? 'w-full' : '',
           disabled ? 'opacity-60 cursor-not-allowed' : '',
