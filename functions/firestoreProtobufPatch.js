@@ -18,6 +18,33 @@ function shouldIgnoreError(error) {
   return false;
 }
 
+function suppressDecodeErrorLogs(logger, callback) {
+  if (!logger || typeof logger.error !== 'function') {
+    return callback();
+  }
+
+  const targetedMessages = new Set([
+    'Failed to decode protobuf and create a snapshot.',
+    'Failed to decode protobuf and create a before snapshot.',
+  ]);
+
+  const originalLoggerError = logger.error;
+
+  logger.error = function patchedLoggerError(...args) {
+    const [message] = args;
+    if (typeof message === 'string' && targetedMessages.has(message)) {
+      return;
+    }
+    return originalLoggerError.apply(this, args);
+  };
+
+  try {
+    return callback();
+  } finally {
+    logger.error = originalLoggerError;
+  }
+}
+
 export function patchFirestoreProtobufDecoding() {
   if (patched) {
     return;
@@ -33,6 +60,7 @@ export function patchFirestoreProtobufDecoding() {
       'providers',
       'firestore.js',
     );
+    const loggerPath = path.join(firebaseFunctionsDir, 'logger', 'index.js');
 
     const firestoreCommon = require(firestoreCommonPath);
 
@@ -44,6 +72,15 @@ export function patchFirestoreProtobufDecoding() {
     if (firestoreCommon.__campfirePatched) {
       patched = true;
       return;
+    }
+
+    let firebaseLogger = null;
+    try {
+      firebaseLogger = require(loggerPath);
+    } catch (loggerErr) {
+      console.warn('Unable to load Firebase logger for decode suppression', {
+        error: loggerErr?.message || String(loggerErr),
+      });
     }
 
     const originalCreateSnapshot = firestoreCommon.createSnapshotFromProtobuf;
@@ -63,7 +100,9 @@ export function patchFirestoreProtobufDecoding() {
       databaseId,
     ) {
       try {
-        return originalCreateSnapshot.call(this, data, path, databaseId);
+        return suppressDecodeErrorLogs(firebaseLogger, () =>
+          originalCreateSnapshot.call(this, data, path, databaseId),
+        );
       } catch (err) {
         if (shouldIgnoreError(err)) {
           const key = `create:${path}`;
@@ -88,7 +127,9 @@ export function patchFirestoreProtobufDecoding() {
         databaseId,
       ) {
         try {
-          return originalCreateBeforeSnapshot.call(this, data, path, databaseId);
+          return suppressDecodeErrorLogs(firebaseLogger, () =>
+            originalCreateBeforeSnapshot.call(this, data, path, databaseId),
+          );
         } catch (err) {
           if (shouldIgnoreError(err)) {
             const key = `before:${path}`;
