@@ -43,8 +43,23 @@ const useAdGroups = (brandCodes = [], showArchived = false) => {
               let assetCount = 0;
               const recipeCodes = new Set();
               let assets = [];
-              try {
-                const assetSnap = await getDocs(collection(db, 'adGroups', d.id, 'assets'));
+
+              const assetsPromise = getDocs(collection(db, 'adGroups', d.id, 'assets')).catch(
+                (err) => {
+                  console.error('Failed to load assets', err);
+                  return null;
+                },
+              );
+              const recipesPromise = getDocs(collection(db, 'adGroups', d.id, 'recipes')).catch(
+                (err) => {
+                  console.error('Failed to load recipes', err);
+                  return null;
+                },
+              );
+
+              const [assetSnap, recipeSnap] = await Promise.all([assetsPromise, recipesPromise]);
+
+              if (assetSnap) {
                 assets = assetSnap.docs.map((adDoc) => {
                   const adData = adDoc.data();
                   const code =
@@ -53,20 +68,16 @@ const useAdGroups = (brandCodes = [], showArchived = false) => {
                   return { id: adDoc.id, ...adData };
                 });
                 assetCount = assets.length;
-              } catch (err) {
-                console.error('Failed to load assets', err);
               }
 
               let recipeIds = Array.from(recipeCodes);
-              try {
-                const recipeSnap = await getDocs(collection(db, 'adGroups', d.id, 'recipes'));
+              if (recipeSnap) {
                 if (recipeSnap.docs.length > 0) {
                   recipeIds = recipeSnap.docs.map((docSnap) => docSnap.id);
                 }
                 recipeCount =
                   recipeSnap.docs.length > 0 ? recipeSnap.docs.length : recipeCodes.size;
-              } catch (err) {
-                console.error('Failed to load recipes', err);
+              } else {
                 recipeCount = recipeCodes.size;
               }
 
@@ -75,8 +86,10 @@ const useAdGroups = (brandCodes = [], showArchived = false) => {
                 recipeIds,
               );
 
-              const designerName = data.designerId ? await getUserName(data.designerId) : '';
-              const editorName = data.editorId ? await getUserName(data.editorId) : '';
+              const [designerName, editorName] = await Promise.all([
+                data.designerId ? getUserName(data.designerId) : '',
+                data.editorId ? getUserName(data.editorId) : '',
+              ]);
 
               return {
                 id: d.id,
