@@ -271,16 +271,10 @@ const simplifyPartnerLabel = (label, key) => {
   const normalizedKey = normalizeKeyPart(key);
 
   if (normalizedLabel) {
-    if (/ad\s*log/i.test(normalizedLabel)) {
-      return 'AdLog';
-    }
     return normalizedLabel;
   }
 
   if (normalizedKey) {
-    if (normalizedKey === 'compass' || normalizedKey === 'adlog') {
-      return 'AdLog';
-    }
     return normalizedKey
       .split(/[-_\s]+/)
       .filter(Boolean)

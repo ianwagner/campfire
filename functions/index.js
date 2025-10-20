@@ -382,8 +382,6 @@ function buildNormalizedAssetDoc(assetId, groupId, assetData = {}, groupData = {
   }
 
   for (const key of [
-    'compass',
-    'adlog',
     'metadata',
     'details',
     'info',

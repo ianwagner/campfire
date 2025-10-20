@@ -384,12 +384,12 @@ function resolveValueForMappingKey(recipeField, context = {}) {
 
   const assetKeyInfo = parseAssetFieldKey(rawKey);
   const assetSlotIndex = assetKeyInfo && assetKeyInfo.hasIndex ? assetKeyInfo.index : 0;
-  const baseCompassField = assetKeyInfo ? assetKeyInfo.baseKey : '';
-  const isAssetField = baseCompassField === 'image_1x1' || baseCompassField === 'image_9x16';
+  const baseAssetField = assetKeyInfo ? assetKeyInfo.baseKey : '';
+  const isAssetField = baseAssetField === 'image_1x1' || baseAssetField === 'image_9x16';
   const assetAspectTargets =
-    baseCompassField === 'image_9x16'
+    baseAssetField === 'image_9x16'
       ? ['9x16']
-      : baseCompassField === 'image_1x1'
+      : baseAssetField === 'image_1x1'
       ? ['1x1']
       : [];
 
@@ -409,12 +409,6 @@ function resolveValueForMappingKey(recipeField, context = {}) {
         overrideSources.push(jobData.assetOverrides[adData.id]);
       }
     }
-    if (jobData.compassOverrides && typeof jobData.compassOverrides === 'object') {
-      overrideSources.push(jobData.compassOverrides[normalizedAdId]);
-      if (adData?.id && adData.id !== normalizedAdId) {
-        overrideSources.push(jobData.compassOverrides[adData.id]);
-      }
-    }
   }
 
   const adSources = [
@@ -425,8 +419,6 @@ function resolveValueForMappingKey(recipeField, context = {}) {
     adData.recipeData,
     adData.recipeFields,
     adData.recipe?.fields,
-    adData.compass,
-    adData.adlog,
     adData.integration,
     adData.integrationData,
     adData.export,
@@ -444,8 +436,6 @@ function resolveValueForMappingKey(recipeField, context = {}) {
     jobData.recipe,
     jobData.recipeData,
     jobData.recipeFields,
-    jobData.compass,
-    jobData.adlog,
     jobData.integration,
     jobData.integrationData,
     jobData.export,
@@ -473,7 +463,7 @@ function resolveValueForMappingKey(recipeField, context = {}) {
       }
       const overrideValue = resolveAssetOverrideValue(overrideSource, {
         rawKey,
-        baseKey: baseCompassField,
+        baseKey: baseAssetField,
         slotIndex: assetSlotIndex,
         aspectTargets: assetAspectTargets,
       });
