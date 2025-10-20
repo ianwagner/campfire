@@ -28,6 +28,61 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
+function ensureFirebaseConfig() {
+  let config = {};
+  const rawConfig = process.env.FIREBASE_CONFIG;
+  if (rawConfig) {
+    try {
+      config = JSON.parse(rawConfig);
+    } catch (err) {
+      console.warn('Failed to parse FIREBASE_CONFIG, falling back to defaults', err);
+      config = {};
+    }
+  }
+
+  const appOptions = admin.app().options || {};
+
+  const projectId =
+    config.projectId ||
+    process.env.GCLOUD_PROJECT ||
+    process.env.GOOGLE_CLOUD_PROJECT ||
+    appOptions.projectId ||
+    null;
+
+  let storageBucket =
+    process.env.FIREBASE_STORAGE_BUCKET ||
+    process.env.STORAGE_BUCKET ||
+    config.storageBucket ||
+    appOptions.storageBucket ||
+    null;
+
+  if (!storageBucket && projectId) {
+    storageBucket = `${projectId}.appspot.com`;
+  }
+
+  const updatedConfig = { ...config };
+  if (projectId && !updatedConfig.projectId) {
+    updatedConfig.projectId = projectId;
+  }
+  if (storageBucket && !updatedConfig.storageBucket) {
+    updatedConfig.storageBucket = storageBucket;
+  }
+
+  if (Object.keys(updatedConfig).length > 0) {
+    process.env.FIREBASE_CONFIG = JSON.stringify(updatedConfig);
+  } else if (!process.env.FIREBASE_CONFIG) {
+    process.env.FIREBASE_CONFIG = '{}';
+  }
+
+  if (storageBucket && !process.env.FIREBASE_STORAGE_BUCKET) {
+    process.env.FIREBASE_STORAGE_BUCKET = storageBucket;
+  }
+
+  return { projectId, storageBucket };
+}
+
+const { storageBucket: defaultStorageBucket } = ensureFirebaseConfig();
+
 const db = admin.firestore();
 
 
@@ -792,7 +847,27 @@ export const ensureAdGroupBrandCode = onDocumentWritten('adGroups/{groupId}', as
   return null;
 });
 
-export const processUpload = onObjectFinalized(async (event) => {
+function registerProcessUpload(handler) {
+  const register = (options) =>
+    options ? onObjectFinalized(options, handler) : onObjectFinalized(handler);
+
+  try {
+    if (defaultStorageBucket) {
+      return register({ bucket: defaultStorageBucket });
+    }
+    return register();
+  } catch (err) {
+    if (!defaultStorageBucket && err?.message?.includes('Missing bucket name')) {
+      console.warn(
+        'Missing storage bucket configuration. Using a placeholder bucket for processUpload trigger registration.',
+      );
+      return register({ bucket: 'placeholder-bucket' });
+    }
+    throw err;
+  }
+}
+
+async function processUploadHandler(event) {
   const object = event.data;
   const { bucket, name, contentType } = object;
   if (!contentType || (!contentType.startsWith('image/png') && !contentType.startsWith('image/tiff'))) {
@@ -870,7 +945,9 @@ export const processUpload = onObjectFinalized(async (event) => {
     thumbnailUrl: thumbUrl,
   });
   return null;
-});
+}
+
+export const processUpload = registerProcessUpload(processUploadHandler);
 
 export const signOutUser = onCall(async (data, context) => {
   if (!context.auth || !context.auth.token.admin) {
