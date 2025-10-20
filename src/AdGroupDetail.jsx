@@ -4823,6 +4823,7 @@ const AdGroupDetail = () => {
               onCopyClick={() => setShowCopyModal(true)}
               brandCode={group?.brandCode}
               hideBrandSelect
+              showSave
             />
           ) : (
             <div className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
