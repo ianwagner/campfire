@@ -6,6 +6,8 @@ export type ExportStatus =
   | "succeeded"
   | "failed";
 
+export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
 export interface RetryPolicy {
   /** Maximum number of delivery attempts before the export is marked as failed. */
   maxAttempts: number;
@@ -26,6 +28,8 @@ export type AuthStrategy =
   | "oauth2"
   | "signed_payload";
 
+export type AuthLocation = "header" | "query" | "body";
+
 export interface SecretReference {
   /** Fully-qualified Secret Manager resource name. */
   name: string;
@@ -35,6 +39,10 @@ export interface SecretReference {
 
 export interface AuthConfig {
   strategy: AuthStrategy;
+  /** Location where credentials should be injected when dispatching HTTP requests. */
+  location?: AuthLocation;
+  /** Key under which credentials should be stored (header, query param, etc.). */
+  keyName?: string;
   /** Reference to credentials stored in Secret Manager. */
   secret?: SecretReference;
   /** Optional scopes for OAuth based integrations. */
@@ -108,8 +116,14 @@ export interface Integration {
   slug: string;
   description?: string;
   active: boolean;
-  /** Endpoint that receives the exported payload. */
-  endpoint: string;
+  /** Base URL for integration HTTP requests. */
+  baseUrl: string;
+  /** Relative path appended to the base URL when dispatching requests. */
+  endpointPath: string;
+  /** HTTP method used when dispatching requests. */
+  method: HttpMethod;
+  /** Maximum time to wait for a response before timing out, in milliseconds. */
+  timeoutMs?: number;
   /** Optional idempotency key prefix to reduce duplication. */
   idempotencyKeyPrefix?: string;
   /** Strategy-specific authentication details. */

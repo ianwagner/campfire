@@ -1,4 +1,5 @@
 import {
+  buildIntegrationRequest,
   createMappingContext,
   dispatchIntegrationRequest,
   executeMapping,
@@ -49,15 +50,22 @@ const handler: ApiHandler<IntegrationTestRequestBody> = async (req, res) => {
   );
   const mappingResult = await executeMapping(integration.mapping, mappingContext);
 
-  const dispatchResult = await dispatchIntegrationRequest(
-    {
-      url: integration.endpoint,
-      method: "POST",
-      headers: integration.headers,
-      body: mappingResult.payload,
-    },
-    { integration, dryRun }
+  const request = buildIntegrationRequest(
+    integration,
+    mappingResult.payload,
+    dryRun
+      ? undefined
+      : {
+          headers: {
+            "X-Test": "true",
+          },
+        }
   );
+
+  const dispatchResult = await dispatchIntegrationRequest(request, {
+    integration,
+    dryRun,
+  });
 
   return res.status(200).json({
     mode,
@@ -66,6 +74,12 @@ const handler: ApiHandler<IntegrationTestRequestBody> = async (req, res) => {
     integrationId: integration.id,
     mapping: mappingResult,
     dispatch: dispatchResult,
+    request,
+    context: {
+      review: mappingContext.review,
+      ads: mappingContext.ads,
+      client: mappingContext.client,
+    },
   });
 };
 

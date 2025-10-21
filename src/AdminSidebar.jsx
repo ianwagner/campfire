@@ -17,6 +17,7 @@ import {
   FiUser,
   FiTool,
   FiType,
+  FiZap,
 } from 'react-icons/fi';
 
 const tabs = [
@@ -29,6 +30,7 @@ const tabs = [
   { label: 'Client Projects', path: '/ops/projects', icon: FiFolder },
   { label: 'Distribution', path: '/admin/distribution', icon: FiShare2 },
   { label: 'Capacity Planner', path: '/admin/capacity-planner', icon: FiCalendar },
+  { label: 'Integrations', path: '/admin/integrations', icon: FiZap },
   {
     label: 'Settings',
     children: [
