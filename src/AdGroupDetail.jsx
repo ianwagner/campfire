@@ -18,7 +18,6 @@ import {
   FiUpload,
   FiBookOpen,
   FiFileText,
-  FiFolder,
   FiArchive,
   FiDownload,
   FiRotateCcw,
@@ -29,6 +28,7 @@ import {
   FiType,
   FiCopy,
   FiPlus,
+  FiTag,
   FiGrid,
   FiMoreHorizontal,
   FiMessageSquare,
@@ -42,6 +42,7 @@ import RecipePreview from "./RecipePreview.jsx";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
 import BrandAssets from "./BrandAssets.jsx";
 import BrandAssetsLayout from "./BrandAssetsLayout.jsx";
+import AssetLibrary from "./AssetLibrary.jsx";
 import BrandNotesPanel from "./BrandNotesPanel.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
 import {
@@ -549,6 +550,177 @@ const resolveRecipeProductName = (recipe) => {
   return "";
 };
 
+const toFirstString = (value) => {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const resolved = toFirstString(item);
+      if (resolved) return resolved;
+    }
+    return "";
+  }
+  if (typeof value === "object") {
+    const keys = [
+      "value",
+      "text",
+      "label",
+      "name",
+      "title",
+      "description",
+      "details",
+      "summary",
+      "url",
+      "href",
+      "link",
+    ];
+    for (const key of keys) {
+      if (value[key] !== undefined) {
+        const resolved = toFirstString(value[key]);
+        if (resolved) return resolved;
+      }
+    }
+    return "";
+  }
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return "";
+};
+
+const toArrayOfStrings = (value) => {
+  if (value === null || value === undefined) return [];
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => toArrayOfStrings(item)).filter(Boolean);
+  }
+  if (typeof value === "object") {
+    const keys = [
+      "description",
+      "details",
+      "summary",
+      "text",
+      "value",
+      "label",
+      "name",
+      "title",
+      "items",
+      "list",
+      "benefits",
+      "points",
+      "highlights",
+    ];
+    const results = keys.flatMap((key) =>
+      value[key] !== undefined ? toArrayOfStrings(value[key]) : [],
+    );
+    if (results.length > 0) {
+      return results.filter(Boolean);
+    }
+    const fallback = toFirstString(value);
+    return fallback ? [fallback] : [];
+  }
+  const str = toFirstString(value);
+  if (!str) return [];
+  return str
+    .split(/[;\n]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+};
+
+const uniqueStrings = (values) => {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set();
+  const result = [];
+  values.forEach((value) => {
+    const normalized = typeof value === "string" ? value.trim() : "";
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  });
+  return result;
+};
+
+const isLikelyUrl = (value) =>
+  typeof value === "string" && /^https?:\/\//i.test(value.trim());
+
+const extractUrl = (value) => {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const resolved = extractUrl(item);
+      if (resolved) return resolved;
+    }
+    return "";
+  }
+  if (typeof value === "object") {
+    const keys = ["url", "href", "link", "value", "text"];
+    for (const key of keys) {
+      if (value[key] !== undefined) {
+        const resolved = extractUrl(value[key]);
+        if (resolved) return resolved;
+      }
+    }
+    return "";
+  }
+  const str = toFirstString(value);
+  if (isLikelyUrl(str)) return str.trim();
+  return "";
+};
+
+const toUrlArray = (value) => uniqueStrings(toArrayOfStrings(value).filter(isLikelyUrl));
+
+const selectFeaturedImage = (primaryCandidates, imageList) => {
+  const direct = extractUrl(primaryCandidates);
+  if (direct) return direct;
+  if (Array.isArray(imageList)) {
+    const first = imageList.find((url) => isLikelyUrl(url));
+    if (first) return first;
+  }
+  return "";
+};
+
+const addProductCandidate = (entry, candidate) => {
+  if (!candidate) return;
+  if (Array.isArray(candidate)) {
+    candidate.forEach((item) => addProductCandidate(entry, item));
+    return;
+  }
+  if (
+    typeof candidate === "string" ||
+    typeof candidate === "number" ||
+    typeof candidate === "boolean"
+  ) {
+    entry.descriptionSources.push(candidate);
+    return;
+  }
+  if (typeof candidate !== "object") return;
+  entry.descriptionSources.push(
+    candidate.description,
+    candidate.details,
+    candidate.summary,
+    candidate.descriptions,
+    candidate.copy,
+  );
+  entry.benefitSources.push(
+    candidate.benefits,
+    candidate.points,
+    candidate.highlights,
+    candidate.list,
+  );
+  entry.urlSources.push(candidate.url, candidate.link, candidate.href);
+  entry.imageSources.push(
+    candidate.images,
+    candidate.image,
+    candidate.imageGallery,
+  );
+  entry.featuredImageSources.push(
+    candidate.featuredImage,
+    candidate.thumbnail,
+    candidate.preview,
+    candidate.image,
+  );
+};
+
 const DESIGNER_EDITABLE_STATUSES = [
   "pending",
   "edit_requested",
@@ -563,6 +735,7 @@ const AdGroupDetail = () => {
   const [brandGuidelines, setBrandGuidelines] = useState("");
   const [brandId, setBrandId] = useState("");
   const [brandNotes, setBrandNotes] = useState([]);
+  const [brandProducts, setBrandProducts] = useState([]);
   const [brandHasAgency, setBrandHasAgency] = useState(false);
   const [assets, setAssets] = useState([]);
   const [briefAssets, setBriefAssets] = useState([]);
@@ -838,7 +1011,19 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     if (!isClientPortalUser) return;
-    if (!['brief', 'brandNotes', 'assets', 'ads', 'copy', 'feedback', 'blocker'].includes(tab)) {
+    if (
+      ![
+        'brief',
+        'brandNotes',
+        'guidelines',
+        'assetLibrary',
+        'products',
+        'ads',
+        'copy',
+        'feedback',
+        'blocker',
+      ].includes(tab)
+    ) {
       setTab('brief');
     }
   }, [isClientPortalUser, tab]);
@@ -1481,7 +1666,10 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     const loadBrand = async () => {
-      if (!group?.brandCode) return;
+      if (!group?.brandCode) {
+        setBrandProducts([]);
+        return;
+      }
       try {
         const q = query(
           collection(db, "brands"),
@@ -1493,11 +1681,13 @@ const AdGroupDetail = () => {
           const data = brandDoc.data();
           setBrandName(data.name || group.brandCode);
           setBrandGuidelines(data.guidelinesUrl || "");
+          setBrandProducts(Array.isArray(data.products) ? data.products : []);
           setBrandHasAgency(Boolean(data.agencyId));
           setBrandId(brandDoc.id);
         } else {
           setBrandName(group.brandCode);
           setBrandGuidelines("");
+          setBrandProducts([]);
           setBrandHasAgency(false);
           setBrandId("");
         }
@@ -1505,6 +1695,7 @@ const AdGroupDetail = () => {
         console.error("Failed to fetch brand name", err);
         setBrandName(group.brandCode);
         setBrandGuidelines("");
+        setBrandProducts([]);
         setBrandHasAgency(false);
         setBrandId("");
       }
@@ -1874,6 +2065,118 @@ const AdGroupDetail = () => {
     },
     [getRecipeMetaByCode],
   );
+
+  const productsUsed = useMemo(() => {
+    const brandProductMap = new Map();
+    (Array.isArray(brandProducts) ? brandProducts : []).forEach((product) => {
+      const key = normalizeProductKey(product?.name);
+      if (!key) return;
+      if (!brandProductMap.has(key)) {
+        brandProductMap.set(key, product);
+      }
+    });
+
+    const entries = new Map();
+
+    const ensureEntry = (key, defaultName) => {
+      if (entries.has(key)) return entries.get(key);
+      const entry = {
+        name: defaultName,
+        recipeCodes: new Set(),
+        descriptionSources: [],
+        benefitSources: [],
+        urlSources: [],
+        imageSources: [],
+        featuredImageSources: [],
+      };
+      entries.set(key, entry);
+      return entry;
+    };
+
+    Object.values(recipesMeta).forEach((meta) => {
+      if (!meta) return;
+      const productName = resolveRecipeProductName(meta);
+      if (!productName) return;
+      const key = normalizeProductKey(productName);
+      if (!key) return;
+      const entry = ensureEntry(key, productName);
+
+      const recipeCandidates = [
+        meta.recipeCode,
+        meta.recipeNo,
+        meta.code,
+        meta.components?.recipeCode,
+        meta.components?.code,
+        meta.id,
+      ];
+      recipeCandidates.forEach((candidate) => {
+        if (!candidate) return;
+        const normalized = normalizeRecipeCode(candidate);
+        if (normalized) {
+          entry.recipeCodes.add(normalized);
+        } else {
+          const fallback = toFirstString(candidate);
+          if (fallback) entry.recipeCodes.add(fallback);
+        }
+      });
+
+      addProductCandidate(entry, meta.product);
+      addProductCandidate(entry, meta.metadata?.product);
+      addProductCandidate(entry, meta.components?.product);
+      addProductCandidate(entry, meta.details?.product);
+
+      entry.descriptionSources.push(
+        meta.metadata?.productDescription,
+        meta.components?.["product.description"],
+      );
+      entry.benefitSources.push(
+        meta.metadata?.productBenefits,
+        meta.components?.["product.benefits"],
+      );
+      entry.urlSources.push(
+        meta.metadata?.productUrl,
+        meta.components?.["product.url"],
+      );
+      entry.imageSources.push(
+        meta.metadata?.productImages,
+        meta.components?.["product.images"],
+      );
+      entry.featuredImageSources.push(
+        meta.metadata?.productFeaturedImage,
+        meta.components?.["product.featuredImage"],
+      );
+    });
+
+    entries.forEach((entry, key) => {
+      const brandProduct = brandProductMap.get(key);
+      if (!brandProduct) return;
+      entry.name = brandProduct.name || entry.name;
+      addProductCandidate(entry, brandProduct);
+    });
+
+    const products = Array.from(entries.values()).map((entry) => {
+      const descriptions = uniqueStrings(toArrayOfStrings(entry.descriptionSources));
+      const benefits = uniqueStrings(toArrayOfStrings(entry.benefitSources));
+      const images = toUrlArray(entry.imageSources);
+      const featuredImage = selectFeaturedImage(entry.featuredImageSources, images);
+      const url = extractUrl(entry.urlSources);
+      const recipes = Array.from(entry.recipeCodes).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true }),
+      );
+      return {
+        name: entry.name,
+        descriptions,
+        benefits,
+        images,
+        featuredImage,
+        url,
+        recipes,
+      };
+    });
+
+    products.sort((a, b) => a.name.localeCompare(b.name));
+    return products;
+  }, [brandProducts, recipesMeta]);
 
   useEffect(() => {
     setCopyAssignments((prev) => {
@@ -4160,9 +4463,20 @@ const AdGroupDetail = () => {
             <FiFileText size={18} />
             Brand Notes
           </TabButton>
-          <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
-            <FiFolder size={18} />
-            Brand Assets
+          <TabButton active={tab === 'guidelines'} onClick={() => setTab('guidelines')}>
+            <FiBookOpen size={18} />
+            Brand Guidelines
+          </TabButton>
+          <TabButton
+            active={tab === 'assetLibrary'}
+            onClick={() => setTab('assetLibrary')}
+          >
+            <FiGrid size={18} />
+            Asset Library
+          </TabButton>
+          <TabButton active={tab === 'products'} onClick={() => setTab('products')}>
+            <FiTag size={18} />
+            Products
           </TabButton>
           <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
             <FiType size={18} />
@@ -4203,9 +4517,20 @@ const AdGroupDetail = () => {
           <FiFileText size={18} />
           Brand Notes
         </TabButton>
-        <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
-          <FiFolder size={18} />
-          Brand Assets
+        <TabButton active={tab === 'guidelines'} onClick={() => setTab('guidelines')}>
+          <FiBookOpen size={18} />
+          Brand Guidelines
+        </TabButton>
+        <TabButton
+          active={tab === 'assetLibrary'}
+          onClick={() => setTab('assetLibrary')}
+        >
+          <FiGrid size={18} />
+          Asset Library
+        </TabButton>
+        <TabButton active={tab === 'products'} onClick={() => setTab('products')}>
+          <FiTag size={18} />
+          Products
         </TabButton>
         {copyTab}
         <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
@@ -4471,9 +4796,16 @@ const AdGroupDetail = () => {
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Brand
                       </span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {group.brandCode}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {brandName || group.brandCode || '—'}
+                        </span>
+                        {group.brandCode ? (
+                          <span className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200">
+                            {group.brandCode}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="flex flex-col gap-1">
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -6053,7 +6385,7 @@ const AdGroupDetail = () => {
       )}
 
       {usesTabs
-        ? tab === "assets" && (
+        ? tab === "guidelines" && (
             <BrandAssetsLayout
               brandCode={group?.brandCode}
               guidelinesUrl={brandGuidelines}
@@ -6067,6 +6399,103 @@ const AdGroupDetail = () => {
               onClose={() => setShowBrandAssets(false)}
             />
           )}
+
+      {usesTabs && tab === "assetLibrary" && (
+        <div className="my-4 space-y-4">
+          <AssetLibrary brandCode={group?.brandCode || ""} />
+        </div>
+      )}
+
+      {usesTabs && tab === "products" && (
+        <div className="my-4 space-y-4">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+            <div className="space-y-4">
+              <div className="flex flex-col gap-1">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Brief Products</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Review the products referenced across this brief. Each entry lists the recipes that rely on it along with any available context.
+                </p>
+              </div>
+              {productsUsed.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No products have been selected for this brief yet.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {productsUsed.map((product) => (
+                    <div
+                      key={product.name}
+                      className="rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                    >
+                      <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                        {product.featuredImage ? (
+                          <div className="md:w-32 md:flex-shrink-0">
+                            <img
+                              src={product.featuredImage}
+                              alt={`${product.name} asset`}
+                              className="h-24 w-24 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-[var(--border-color-default)]"
+                            />
+                          </div>
+                        ) : null}
+                        <div className="flex-1 space-y-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                              {product.name}
+                            </h4>
+                            {product.recipes.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {product.recipes.map((code) => (
+                                  <span
+                                    key={code}
+                                    className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 dark:bg-[var(--dark-sidebar)] dark:text-gray-200 dark:ring-[var(--border-color-default)]"
+                                  >
+                                    Recipe {code}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {product.descriptions.length > 0 && (
+                            <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                              {product.descriptions.map((desc, idx) => (
+                                <p key={idx} className="whitespace-pre-wrap">
+                                  {desc}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                          {product.benefits.length > 0 && (
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                Key Benefits
+                              </p>
+                              <ul className="list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
+                                {product.benefits.map((benefit, idx) => (
+                                  <li key={idx}>{benefit}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {product.url && (
+                            <a
+                              href={product.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center text-sm font-medium text-blue-600 hover:underline"
+                            >
+                              View product details
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
         </div>
       </div>
     </div>
