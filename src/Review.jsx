@@ -37,6 +37,7 @@ import {
   setDoc,
   arrayUnion,
   deleteDoc,
+  writeBatch,
   onSnapshot,
   orderBy,
   deleteField,
@@ -735,6 +736,8 @@ const Review = forwardRef(
   const [recipes, setRecipes] = useState([]); // ad recipes for brief review
   const [recipesLoaded, setRecipesLoaded] = useState(false);
   const [groupBrandCode, setGroupBrandCode] = useState('');
+  const [assignedIntegrationId, setAssignedIntegrationId] = useState('');
+  const [assignedIntegrationName, setAssignedIntegrationName] = useState('');
   const [finalGallery, setFinalGallery] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
@@ -1763,10 +1766,22 @@ useEffect(() => {
     const applyStatus = (snapshot) => {
       if (!snapshot || !snapshot.exists()) {
         setGroupStatus(null);
+        setAssignedIntegrationId('');
+        setAssignedIntegrationName('');
         return;
       }
       const data = snapshot.data();
       setGroupStatus(data?.status || null);
+      const integrationId =
+        typeof data?.assignedIntegrationId === 'string'
+          ? data.assignedIntegrationId
+          : '';
+      const integrationName =
+        typeof data?.assignedIntegrationName === 'string'
+          ? data.assignedIntegrationName
+          : '';
+      setAssignedIntegrationId(integrationId);
+      setAssignedIntegrationName(integrationName);
     };
 
     const fetchStatus = async () => {
@@ -1828,6 +1843,16 @@ useEffect(() => {
               status = rawStatus;
               rv = data.reviewVersion || 1;
               setGroupBrandCode(data.brandCode || '');
+              const integrationId =
+                typeof data.assignedIntegrationId === 'string'
+                  ? data.assignedIntegrationId
+                  : '';
+              const integrationName =
+                typeof data.assignedIntegrationName === 'string'
+                  ? data.assignedIntegrationName
+                  : '';
+              setAssignedIntegrationId(integrationId);
+              setAssignedIntegrationName(integrationName);
               if (rv === 2 || rv === 3) {
                 try {
                   const rSnap = await getDocs(
@@ -4003,6 +4028,135 @@ useEffect(() => {
     }
   };
 
+  const updateIntegrationStatusForAssets = useCallback(
+    async (targetAssets, nextState, options = {}) => {
+      if (
+        !groupId ||
+        !assignedIntegrationId ||
+        !Array.isArray(targetAssets) ||
+        targetAssets.length === 0
+      ) {
+        return;
+      }
+
+      const { errorMessage = '' } = options;
+
+      try {
+        const batch = writeBatch(db);
+        const timestamp = serverTimestamp();
+        let hasUpdates = false;
+
+        targetAssets.forEach((asset) => {
+          const docId = getAssetDocumentId(asset);
+          if (!docId) {
+            return;
+          }
+          const ref = doc(db, 'adGroups', groupId, 'assets', docId);
+          const payload = {
+            state: nextState,
+            integrationId: assignedIntegrationId,
+            integrationName: assignedIntegrationName || '',
+            updatedAt: timestamp,
+          };
+          if (nextState === 'error') {
+            payload.errorMessage = errorMessage || '';
+          } else {
+            payload.errorMessage = '';
+          }
+          batch.update(ref, {
+            [`integrationStatuses.${assignedIntegrationId}`]: payload,
+          });
+          hasUpdates = true;
+        });
+
+        if (hasUpdates) {
+          await batch.commit();
+        }
+      } catch (err) {
+        console.error('Failed to update integration statuses', err);
+      }
+    },
+    [assignedIntegrationId, assignedIntegrationName, groupId],
+  );
+
+  const dispatchIntegrationForApprovedAds = useCallback(
+    async (approvedAssets) => {
+      if (!groupId || !assignedIntegrationId) {
+        return;
+      }
+
+      const assetsList = Array.isArray(approvedAssets)
+        ? approvedAssets.filter((asset) => getAssetDocumentId(asset))
+        : [];
+
+      if (!assetsList.length) {
+        return;
+      }
+
+      await updateIntegrationStatusForAssets(assetsList, 'sending');
+
+      try {
+        const payload = {
+          adGroupId: groupId,
+          integrationId: assignedIntegrationId,
+          integrationName: assignedIntegrationName || '',
+          approvedAssetIds: assetsList
+            .map((asset) => getAssetDocumentId(asset))
+            .filter(Boolean),
+          approvedAssets: assetsList.map((asset) => ({
+            id: getAssetDocumentId(asset),
+            filename: asset.filename || '',
+            status: asset.status || '',
+            firebaseUrl: asset.firebaseUrl || '',
+            cdnUrl: asset.cdnUrl || '',
+            thumbnailUrl: asset.thumbnailUrl || '',
+            aspectRatio: asset.aspectRatio || '',
+            recipeCode: asset.recipeCode || '',
+            version: getVersion(asset),
+          })),
+        };
+
+        const response = await fetch('/api/integration-worker', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            integrationId: assignedIntegrationId,
+            reviewId: groupId,
+            attempt: 1,
+            payload,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => ({}));
+          const message =
+            errorBody?.error ||
+            errorBody?.message ||
+            response.statusText ||
+            'Integration request failed.';
+          throw new Error(message);
+        }
+
+        await updateIntegrationStatusForAssets(assetsList, 'received');
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Integration dispatch failed.';
+        await updateIntegrationStatusForAssets(assetsList, 'error', {
+          errorMessage: message,
+        });
+        throw error;
+      }
+    },
+    [
+      assignedIntegrationId,
+      assignedIntegrationName,
+      groupId,
+      updateIntegrationStatusForAssets,
+    ],
+  );
+
   const handleFinalizeReview = async (approvePending = false) => {
     if (!groupId) {
       setShowFinalizeModal(null);
@@ -4014,6 +4168,11 @@ useEffect(() => {
       if (approvePending) {
         await approveAllPending();
       }
+
+      const approvedAssets =
+        assignedIntegrationId
+          ? ads.filter((asset) => asset.status === 'approved')
+          : [];
 
       const updateData = {
         status: 'reviewed',
@@ -4056,6 +4215,16 @@ useEffect(() => {
       setInitialStatus('done');
       setStarted(false);
       setShowFinalizeModal(null);
+
+      if (assignedIntegrationId && approvedAssets.length > 0) {
+        try {
+          await dispatchIntegrationForApprovedAds(approvedAssets);
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : 'Integration dispatch failed.';
+          window.alert(`Integration dispatch failed: ${message}`);
+        }
+      }
     } catch (err) {
       console.error('Failed to finalize review', err);
     } finally {

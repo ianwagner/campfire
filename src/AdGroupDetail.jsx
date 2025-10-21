@@ -66,6 +66,7 @@ import {
 import { deleteObject, ref } from "firebase/storage";
 import { auth, db, storage } from "./firebase/config";
 import useUserRole from "./useUserRole";
+import useIntegrations from "./useIntegrations";
 import createArchiveTicket from "./utils/createArchiveTicket";
 import { uploadFile } from "./uploadFile";
 import ShareLinkModal from "./components/ShareLinkModal.jsx";
@@ -518,6 +519,20 @@ const AdGroupDetail = () => {
     () => assets.some((a) => a.scrubbedFrom),
     [assets],
   );
+  const { integrations } = useIntegrations();
+  const integrationById = useMemo(() => {
+    const map = {};
+    integrations.forEach((integration) => {
+      if (integration?.id) {
+        map[integration.id] = integration;
+      }
+    });
+    return map;
+  }, [integrations]);
+  const activeIntegrations = useMemo(
+    () => integrations.filter((integration) => integration?.active),
+    [integrations],
+  );
   const [metadataRecipe, setMetadataRecipe] = useState(null);
   const [metadataForm, setMetadataForm] = useState({
     copy: "",
@@ -593,6 +608,7 @@ const AdGroupDetail = () => {
   const isAdmin = userRole === "admin";
   const isEditor = userRole === "editor";
   const isProjectManager = userRole === "project-manager";
+  const isOps = userRole === "ops";
   const isManager =
     userRole === "manager" ||
     userRole === "editor" ||
@@ -600,11 +616,92 @@ const AdGroupDetail = () => {
   const canManageStaff = isAdmin || (isManager && !isEditor);
   const isAgency = userRole === "agency";
   const isClientPortalUser = ["client", "ops"].includes(userRole) || isProjectManager;
+  const canManageIntegrations = isAdmin || isOps;
   const usesTabs = isAdmin || isDesigner || isManager || isClientPortalUser;
   const canEditBriefNote = isAdmin || isClientPortalUser;
   const canAddBriefAssets = isAdmin || isClientPortalUser;
   const canManageCopy = isAdmin || isManager || isClientPortalUser;
   const canUploadAds = isAdmin || isDesigner || isAgency;
+  const assignedIntegrationId =
+    typeof group?.assignedIntegrationId === "string"
+      ? group.assignedIntegrationId
+      : "";
+  const assignedIntegration = assignedIntegrationId
+    ? integrationById[assignedIntegrationId] || null
+    : null;
+  const assignedIntegrationName = assignedIntegration?.name ||
+    (typeof group?.assignedIntegrationName === "string"
+      ? group.assignedIntegrationName
+      : "");
+  const getIntegrationBadgeDetails = useCallback(
+    (asset) => {
+      if (!assignedIntegrationId || !asset || typeof asset !== "object") {
+        return null;
+      }
+
+      const rawStatuses =
+        (asset.integrationStatuses &&
+          typeof asset.integrationStatuses === "object"
+          ? asset.integrationStatuses
+          : null) ||
+        (asset.integrationStatus &&
+          typeof asset.integrationStatus === "object"
+          ? asset.integrationStatus
+          : null);
+
+      if (!rawStatuses || typeof rawStatuses !== "object") {
+        return null;
+      }
+
+      const statusEntry = rawStatuses[assignedIntegrationId];
+      if (!statusEntry || typeof statusEntry !== "object") {
+        return null;
+      }
+
+      const state =
+        typeof statusEntry.state === "string"
+          ? statusEntry.state.toLowerCase()
+          : "";
+      const badgeName =
+        statusEntry.integrationName || assignedIntegrationName || "";
+      const resolvedName = badgeName ? `"${badgeName}"` : "integration";
+
+      if (["sending", "sent", "in_progress", "queued", "pending"].includes(state)) {
+        return {
+          text: `Sent to ${resolvedName}`,
+          className: "bg-indigo-600 text-white",
+          title: "",
+        };
+      }
+
+      if (["received", "succeeded", "completed", "delivered"].includes(state)) {
+        return {
+          text: `Received by ${resolvedName}`,
+          className: "bg-emerald-600 text-white",
+          title: "",
+        };
+      }
+
+      if (["error", "failed", "rejected"].includes(state)) {
+        const errorMessage =
+          typeof statusEntry.errorMessage === "string"
+            ? statusEntry.errorMessage.trim()
+            : "";
+        return {
+          text: "Error",
+          className: "bg-red-600 text-white",
+          title: errorMessage,
+        };
+      }
+
+      return null;
+    },
+    [assignedIntegrationId, assignedIntegrationName],
+  );
+  const previewBadge = useMemo(
+    () => getIntegrationBadgeDetails(previewAsset),
+    [getIntegrationBadgeDetails, previewAsset],
+  );
   const tableVisible = usesTabs ? tab === "ads" : showTable;
   const recipesTableVisible = usesTabs ? tab === "brief" : showRecipesTable;
   const brandNotesVisible = usesTabs ? tab === "brandNotes" : false;
@@ -1163,12 +1260,27 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     const load = async () => {
-      const snap = await getDoc(doc(db, "adGroups", id));
+      const groupRef = doc(db, "adGroups", id);
+      const snap = await getDoc(groupRef);
       if (snap.exists()) {
         setGroup({ id: snap.id, ...snap.data() });
       }
     };
     load();
+    const groupRef = doc(db, "adGroups", id);
+    const unsubGroup = onSnapshot(
+      groupRef,
+      (snap) => {
+        if (snap.exists()) {
+          setGroup({ id: snap.id, ...snap.data() });
+        } else {
+          setGroup(null);
+        }
+      },
+      (error) => {
+        console.error("Failed to subscribe to ad group", error);
+      },
+    );
     const unsub = onSnapshot(
       collection(db, "adGroups", id, "assets"),
       (snap) => {
@@ -1184,6 +1296,7 @@ const AdGroupDetail = () => {
       },
     );
     return () => {
+      unsubGroup();
       unsub();
       unsubBrief();
     };
@@ -3337,6 +3450,32 @@ const AdGroupDetail = () => {
       .replace(/\s+/g, " ")
       .trim() || "unknown";
 
+  const handleIntegrationChange = async (event) => {
+    if (!id) return;
+    const value = event.target.value;
+    const integrationId = value === "none" ? null : value;
+    const integrationName = integrationId
+      ? integrationById[integrationId]?.name || ""
+      : "";
+    try {
+      await updateDoc(doc(db, "adGroups", id), {
+        assignedIntegrationId: integrationId,
+        assignedIntegrationName: integrationName,
+      });
+      setGroup((prev) =>
+        prev
+          ? {
+              ...prev,
+              assignedIntegrationId: integrationId,
+              assignedIntegrationName: integrationName,
+            }
+          : prev,
+      );
+    } catch (err) {
+      console.error("Failed to update integration", err);
+    }
+  };
+
   const computeExportGroups = () => {
     const approved = assets.filter((a) => a.status === "approved");
     return approved.map((a) => {
@@ -3628,6 +3767,7 @@ const AdGroupDetail = () => {
                   const aspectLabel = asset.aspectRatio
                     ? String(asset.aspectRatio).toUpperCase()
                     : "";
+                  const badge = getIntegrationBadgeDetails(asset);
                   return (
                     <button
                       type="button"
@@ -3651,6 +3791,14 @@ const AdGroupDetail = () => {
                           : "Preview unavailable"
                       }
                     >
+                      {badge?.text && (
+                        <span
+                          className={`absolute left-1 top-1 rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none shadow-sm ${badge.className}`}
+                          title={badge.title || undefined}
+                        >
+                          {badge.text}
+                        </span>
+                      )}
                       {previewImage ? (
                         <OptimizedImage
                           pngUrl={previewImage}
@@ -4322,7 +4470,11 @@ const AdGroupDetail = () => {
                   )}
                 </div>
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div
+                    className={`grid gap-4 ${
+                      isAdmin || isEditor ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
+                    }`}
+                  >
                     <div className="flex flex-col gap-1">
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Status
@@ -4350,6 +4502,43 @@ const AdGroupDetail = () => {
                           <StatusBadge status={group.status} />
                         )}
                       </div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Integration
+                      </span>
+                      {canManageIntegrations ? (
+                        <select
+                          aria-label="Integration"
+                          value={assignedIntegrationId || 'none'}
+                          onChange={handleIntegrationChange}
+                          className="border p-1 text-sm"
+                        >
+                          <option value="none">None</option>
+                          {activeIntegrations.map((integration) => (
+                            <option key={integration.id} value={integration.id}>
+                              {integration.name || integration.id}
+                            </option>
+                          ))}
+                          {assignedIntegrationId &&
+                            !activeIntegrations.some(
+                              (integration) => integration.id === assignedIntegrationId,
+                            ) && (
+                              <option value={assignedIntegrationId}>
+                                {assignedIntegrationName || assignedIntegrationId}
+                              </option>
+                            )}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-700 dark:text-gray-200">
+                          {assignedIntegrationName || 'None'}
+                        </span>
+                      )}
+                      {assignedIntegrationId && assignedIntegration && !assignedIntegration.active && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                          This integration is disabled.
+                        </span>
+                      )}
                     </div>
                     {(isAdmin || isEditor) && (
                       <div className="flex flex-col gap-1">
@@ -5176,9 +5365,22 @@ const AdGroupDetail = () => {
                   const hasPreview = Boolean(
                     a.firebaseUrl || a.thumbnailUrl || a.cdnUrl,
                   );
+                  const badge = getIntegrationBadgeDetails(a);
                   return (
                     <tr key={a.id}>
-                      <td className="break-all">{a.filename}</td>
+                      <td className="break-all">
+                        <div className="flex flex-col items-start gap-1">
+                          <span>{a.filename}</span>
+                          {badge?.text && (
+                            <span
+                              className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.className}`}
+                              title={badge.title || undefined}
+                            >
+                              {badge.text}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="text-center">
                         {isAdmin || designerEditable ? (
                           <select
@@ -5245,9 +5447,19 @@ const AdGroupDetail = () => {
           <h3 className="mb-2 font-semibold break-all">
             {previewAsset.filename || "Ad Preview"}
           </h3>
-          {previewAsset.status && (
-            <div className="mb-3">
-              <StatusBadge status={previewAsset.status} />
+          {(previewAsset.status || previewBadge?.text) && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {previewAsset.status && (
+                <StatusBadge status={previewAsset.status} />
+              )}
+              {previewBadge?.text && (
+                <span
+                  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide shadow-sm ${previewBadge.className}`}
+                  title={previewBadge.title || undefined}
+                >
+                  {previewBadge.text}
+                </span>
+              )}
             </div>
           )}
           <div className="flex justify-center bg-gray-100 rounded-lg p-4">
