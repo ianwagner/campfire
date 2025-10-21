@@ -132,6 +132,8 @@ export interface Integration {
   mapping: MappingEngine;
   /** Optional JSON Schema reference used to validate rendered payloads. */
   schemaRef?: string | null;
+  /** Recipe type that provides the source fields for this integration. */
+  recipeTypeId?: string | null;
   /** Delivery retry configuration for transient failures. */
   retryPolicy: RetryPolicy;
   /** Additional headers appended to outbound HTTP requests. */
