@@ -31,6 +31,7 @@ import {
   FiTag,
   FiGrid,
   FiMoreHorizontal,
+  FiMessageCircle,
   FiMessageSquare,
   FiAlertTriangle,
   FiPlay,
@@ -197,6 +198,30 @@ const flattenRichText = (value) => {
   }
   return '';
 };
+
+const sanitizeToneList = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[\n,]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const createEmptyBrandTone = () => ({
+  voice: '',
+  phrasing: '',
+  wordBank: [],
+  noGos: [],
+  ctaStyle: '',
+  toneOfVoice: '',
+});
 
 const summaryInlineTokenPattern = /\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^\)]+\)/;
 
@@ -665,6 +690,7 @@ const AdGroupDetail = () => {
   const [brandGuidelines, setBrandGuidelines] = useState("");
   const [brandId, setBrandId] = useState("");
   const [brandNotes, setBrandNotes] = useState([]);
+  const [brandTone, setBrandTone] = useState(() => createEmptyBrandTone());
   const [brandProducts, setBrandProducts] = useState([]);
   const [brandHasAgency, setBrandHasAgency] = useState(false);
   const [assets, setAssets] = useState([]);
@@ -787,6 +813,38 @@ const AdGroupDetail = () => {
     [assets],
   );
   const showAdsEmptyState = usesTabs && tab === "ads" && activeAdsCount === 0;
+  const toneWordBank = useMemo(
+    () => (Array.isArray(brandTone.wordBank) ? brandTone.wordBank : []),
+    [brandTone.wordBank],
+  );
+  const toneNoGos = useMemo(
+    () => (Array.isArray(brandTone.noGos) ? brandTone.noGos : []),
+    [brandTone.noGos],
+  );
+  const tonePrompt = useMemo(
+    () =>
+      typeof brandTone.toneOfVoice === "string"
+        ? brandTone.toneOfVoice.trim()
+        : "",
+    [brandTone.toneOfVoice],
+  );
+  const hasStructuredToneDetails = useMemo(
+    () =>
+      Boolean(
+        (brandTone.voice && brandTone.voice.trim()) ||
+          (brandTone.phrasing && brandTone.phrasing.trim()) ||
+          toneWordBank.length ||
+          toneNoGos.length ||
+          (brandTone.ctaStyle && brandTone.ctaStyle.trim()),
+      ),
+    [
+      brandTone.voice,
+      brandTone.phrasing,
+      brandTone.ctaStyle,
+      toneWordBank,
+      toneNoGos,
+    ],
+  );
 
   useEffect(() => {
     if (!isClientPortalUser) return;
@@ -795,6 +853,7 @@ const AdGroupDetail = () => {
         'brief',
         'brandNotes',
         'guidelines',
+        'tone',
         'assetLibrary',
         'products',
         'ads',
@@ -1431,6 +1490,7 @@ const AdGroupDetail = () => {
     const loadBrand = async () => {
       if (!group?.brandCode) {
         setBrandProducts([]);
+        setBrandTone(createEmptyBrandTone());
         return;
       }
       try {
@@ -1447,12 +1507,22 @@ const AdGroupDetail = () => {
           setBrandProducts(Array.isArray(data.products) ? data.products : []);
           setBrandHasAgency(Boolean(data.agencyId));
           setBrandId(brandDoc.id);
+          setBrandTone({
+            voice: data.voice || "",
+            phrasing: data.phrasing || "",
+            wordBank: sanitizeToneList(data.wordBank),
+            noGos: sanitizeToneList(data.noGos),
+            ctaStyle: data.ctaStyle || "",
+            toneOfVoice:
+              typeof data.toneOfVoice === "string" ? data.toneOfVoice : "",
+          });
         } else {
           setBrandName(group.brandCode);
           setBrandGuidelines("");
           setBrandProducts([]);
           setBrandHasAgency(false);
           setBrandId("");
+          setBrandTone(createEmptyBrandTone());
         }
       } catch (err) {
         console.error("Failed to fetch brand name", err);
@@ -1461,6 +1531,7 @@ const AdGroupDetail = () => {
         setBrandProducts([]);
         setBrandHasAgency(false);
         setBrandId("");
+        setBrandTone(createEmptyBrandTone());
       }
     };
     loadBrand();
@@ -4154,6 +4225,10 @@ const AdGroupDetail = () => {
             <FiBookOpen size={18} />
             Brand Guidelines
           </TabButton>
+          <TabButton active={tab === 'tone'} onClick={() => setTab('tone')}>
+            <FiMessageCircle size={18} />
+            Tone of Voice
+          </TabButton>
           <TabButton
             active={tab === 'assetLibrary'}
             onClick={() => setTab('assetLibrary')}
@@ -4208,6 +4283,10 @@ const AdGroupDetail = () => {
           <FiBookOpen size={18} />
           Brand Guidelines
         </TabButton>
+        <TabButton active={tab === 'tone'} onClick={() => setTab('tone')}>
+          <FiMessageCircle size={18} />
+          Tone of Voice
+        </TabButton>
         <TabButton
           active={tab === 'assetLibrary'}
           onClick={() => setTab('assetLibrary')}
@@ -4231,6 +4310,28 @@ const AdGroupDetail = () => {
           </TabButton>
         )}
       </>
+    );
+  };
+
+  const renderToneChipList = (items, emptyLabel) => {
+    if (!items.length) {
+      return (
+        <p className="text-sm italic text-gray-500 dark:text-gray-400">
+          {emptyLabel}
+        </p>
+      );
+    }
+    return (
+      <div className="flex flex-wrap gap-2">
+        {items.map((item, index) => (
+          <span
+            key={`${item}-${index}`}
+            className="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 dark:bg-[var(--dark-sidebar)] dark:text-gray-200 dark:ring-[var(--border-color-default)]"
+          >
+            {item}
+          </span>
+        ))}
+      </div>
     );
   };
 
@@ -5995,6 +6096,74 @@ const AdGroupDetail = () => {
           onClose={() => setShareModal(false)}
           onUpdate={(u) => setGroup((p) => ({ ...p, ...u }))}
         />
+      )}
+
+      {usesTabs && tab === 'tone' && (
+        <div className="my-4 space-y-4">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+            <div className="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 dark:border-[var(--border-color-default)] sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+                  <FiMessageCircle size={18} />
+                </span>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Tone of voice</h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-300">
+                    Share the brand&apos;s voice guardrails with anyone reviewing this ad group.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 pb-5 pt-4 space-y-6">
+              {tonePrompt || hasStructuredToneDetails ? (
+                <>
+                  {tonePrompt && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Brand tone of voice</h4>
+                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                        {tonePrompt}
+                      </p>
+                    </div>
+                  )}
+                  {hasStructuredToneDetails && (
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Voice &amp; personality</h4>
+                        <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                          {brandTone.voice || 'No voice guidance documented.'}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Preferred phrasing</h4>
+                        <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                          {brandTone.phrasing || 'No phrasing guidance documented.'}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Word bank</h4>
+                        {renderToneChipList(toneWordBank, 'No preferred words documented.')}
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Language to avoid</h4>
+                        {renderToneChipList(toneNoGos, 'No restrictions documented.')}
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Call-to-action style</h4>
+                        <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                          {brandTone.ctaStyle || 'No CTA guidance documented.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-300">
+                  No tone of voice details have been documented yet. Visit the brand profile to add guidance.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {brandNotesVisible && (
