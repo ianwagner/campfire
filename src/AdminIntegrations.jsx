@@ -3,6 +3,7 @@ import Editor from "@monaco-editor/react";
 import {
   collection,
   doc,
+  getDocs,
   onSnapshot,
   setDoc,
 } from "firebase/firestore";
@@ -106,6 +107,12 @@ function normalizeIntegration(docId, raw) {
       delimiters: mapping.delimiters,
     },
     schemaRef: raw?.schemaRef ?? "",
+    recipeTypeId:
+      typeof raw?.recipeTypeId === "string"
+        ? raw.recipeTypeId
+        : raw?.recipeTypeId
+        ? String(raw.recipeTypeId)
+        : "",
     retryPolicy: cloneRetryPolicy(raw?.retryPolicy),
     headers:
       raw?.headers && typeof raw.headers === "object"
@@ -149,6 +156,7 @@ function createNewIntegration() {
       allowUndefined: false,
     },
     schemaRef: "",
+    recipeTypeId: "",
     retryPolicy: { ...DEFAULT_RETRY_POLICY },
     headers: {},
     latestExportAttempt: undefined,
@@ -198,6 +206,7 @@ function buildIntegrationPayload(form, headerRows) {
   const headers = rowsToHeaders(headerRows);
   const authSecretName = form.auth?.secret?.name?.trim();
   const authSecretVersion = form.auth?.secret?.version?.trim();
+  const recipeTypeId = form.recipeTypeId?.trim();
 
   const payload = {
     id: form.id.trim(),
@@ -233,6 +242,7 @@ function buildIntegrationPayload(form, headerRows) {
     },
     mapping: form.mapping,
     schemaRef: form.schemaRef?.trim() ? form.schemaRef.trim() : null,
+    recipeTypeId: recipeTypeId ? recipeTypeId : null,
     retryPolicy: {
       maxAttempts: Number(form.retryPolicy?.maxAttempts ?? 0) || 0,
       initialIntervalMs: Number(form.retryPolicy?.initialIntervalMs ?? 0) || 0,
@@ -285,6 +295,9 @@ const AdminIntegrations = () => {
   const [integrations, setIntegrations] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [form, setForm] = useState(null);
+  const [recipeTypes, setRecipeTypes] = useState([]);
+  const [recipeTypesLoading, setRecipeTypesLoading] = useState(true);
+  const [recipeTypesError, setRecipeTypesError] = useState(null);
   const [headerRows, setHeaderRows] = useState([{ key: "", value: "" }]);
   const [mappingDrafts, setMappingDrafts] = useState({
     jsonata: "",
@@ -310,6 +323,40 @@ const AdminIntegrations = () => {
   const [testError, setTestError] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [liveLoading, setLiveLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const loadRecipeTypes = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "recipeTypes"));
+        if (!active) return;
+        const items = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...(docSnap.data() || {}),
+        }));
+        items.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+        setRecipeTypes(items);
+        setRecipeTypesError(null);
+      } catch (error) {
+        if (!active) return;
+        setRecipeTypes([]);
+        setRecipeTypesError(
+          error instanceof Error ? error.message : String(error)
+        );
+      } finally {
+        if (active) {
+          setRecipeTypesLoading(false);
+        }
+      }
+    };
+
+    loadRecipeTypes();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "integrations"), (snapshot) => {
       const items = snapshot.docs.map((docSnap) => {
@@ -921,6 +968,42 @@ const AdminIntegrations = () => {
                       rows={3}
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">Recipe Type</label>
+                    <select
+                      value={form.recipeTypeId || ""}
+                      onChange={(event) =>
+                        setForm((current) =>
+                          current
+                            ? { ...current, recipeTypeId: event.target.value }
+                            : current
+                        )
+                      }
+                      disabled={recipeTypesLoading}
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                    >
+                      <option value="">Select a recipe type</option>
+                      {recipeTypes.map((type) => (
+                        <option key={type.id} value={type.id}>
+                          {type.name || type.id}
+                        </option>
+                      ))}
+                    </select>
+                    {recipeTypesError && (
+                      <p className="mt-1 text-xs text-red-600">{recipeTypesError}</p>
+                    )}
+                    {!recipeTypesLoading && !recipeTypesError && recipeTypes.length === 0 && (
+                      <p className="mt-1 text-xs text-slate-500">No recipe types found.</p>
+                    )}
+                    {form.recipeTypeId &&
+                      !recipeTypesLoading &&
+                      !recipeTypesError &&
+                      !recipeTypes.some((type) => type.id === form.recipeTypeId) && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          Selected recipe type is no longer available.
+                        </p>
+                      )}
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
                       <input
@@ -1522,6 +1605,23 @@ const AdminIntegrations = () => {
                     {formatJson(sampleData?.client, "{}")}
                   </pre>
                 </div>
+                {sampleData?.recipeType && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-700">Recipe Type</h3>
+                    <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+                      {formatJson(sampleData.recipeType, "{}")}
+                    </pre>
+                  </div>
+                )}
+                {Array.isArray(sampleData?.recipeFieldKeys) &&
+                  sampleData.recipeFieldKeys.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-700">Recipe Field Keys</h3>
+                      <pre className="bg-slate-100 rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap">
+                        {sampleData.recipeFieldKeys.join("\n")}
+                      </pre>
+                    </div>
+                  )}
               </div>
             </div>
           </div>

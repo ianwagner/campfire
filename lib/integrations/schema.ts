@@ -3,6 +3,7 @@ import { getFirestore } from "../firebase/admin";
 
 export const REVIEW_ADS_SUBCOLLECTION = "ads";
 export const CLIENTS_COLLECTION = "clients";
+export const RECIPE_TYPES_COLLECTION = "recipeTypes";
 
 export const INTEGRATIONS_COLLECTION = "integrations";
 export const INTEGRATION_VERSIONS_SUBCOLLECTION = "versions";

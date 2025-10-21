@@ -10,6 +10,7 @@ import type {
 
 import {
   CLIENTS_COLLECTION,
+  RECIPE_TYPES_COLLECTION,
   REVIEW_ADS_SUBCOLLECTION,
   loadIntegrationSchema,
   reviewDocPath,
@@ -41,6 +42,8 @@ export interface MappingContext {
   review: FirestoreRecord;
   ads: FirestoreRecord[];
   client: FirestoreRecord | null;
+  recipeType: FirestoreRecord | null;
+  recipeFieldKeys: string[];
   generatedAt: string;
   data: Record<string, unknown>;
 }
@@ -274,6 +277,668 @@ function sanitizeFirestoreRecord(snapshot: DocumentSnapshot): FirestoreRecord {
   return { id: snapshot.id, ...(data as Record<string, unknown>) };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function generateKeyCandidates(key: string): string[] {
+  const trimmed = key.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const normalizedWhitespace = trimmed.replace(/\s+/g, " ");
+  const tokenSource = normalizedWhitespace
+    .split(/[^A-Za-z0-9]+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  const lowerTokens = tokenSource.map((token) => token.toLowerCase());
+  const snake = lowerTokens.join("_");
+  const dashed = lowerTokens.join("-");
+  const combined = lowerTokens.join("");
+  const camel = lowerTokens
+    .map((token, index) =>
+      index === 0 ? token : token.charAt(0).toUpperCase() + token.slice(1)
+    )
+    .join("");
+  const pascal = camel ? camel.charAt(0).toUpperCase() + camel.slice(1) : camel;
+
+  const candidates = new Set<string>([
+    trimmed,
+    normalizedWhitespace,
+    normalizedWhitespace.toLowerCase(),
+    snake,
+    dashed,
+    combined,
+    camel,
+    pascal,
+  ]);
+
+  return Array.from(candidates).filter(Boolean);
+}
+
+function collectCandidateContainers(ad: FirestoreRecord): Record<string, unknown>[] {
+  const candidates = [
+    ad,
+    ad.fields,
+    ad.metadata,
+    ad.components,
+    ad.data,
+    ad.details,
+    ad.payload,
+    ad.recipe,
+    isRecord(ad.recipe) ? ad.recipe.fields : undefined,
+    isRecord(ad.recipe) ? ad.recipe.metadata : undefined,
+    ad.writeInValues,
+    ad.values,
+  ];
+
+  const seen = new Set<Record<string, unknown>>();
+  const containers: Record<string, unknown>[] = [];
+  for (const candidate of candidates) {
+    if (isRecord(candidate) && !seen.has(candidate)) {
+      seen.add(candidate);
+      containers.push(candidate);
+    }
+  }
+  return containers;
+}
+
+function findRecipeFieldValue(ad: FirestoreRecord, key: string): unknown {
+  const candidates = generateKeyCandidates(key);
+  if (!candidates.length) {
+    return undefined;
+  }
+
+  const containers = collectCandidateContainers(ad);
+  for (const candidate of candidates) {
+    for (const container of containers) {
+      const resolved = resolvePath(container, candidate);
+      if (resolved !== undefined) {
+        return resolved;
+      }
+
+      if (!candidate.includes(".")) {
+        const loweredCandidate = candidate.toLowerCase();
+        for (const [rawKey, value] of Object.entries(container)) {
+          if (typeof rawKey !== "string") continue;
+          const normalizedKeys = generateKeyCandidates(rawKey).map((entry) =>
+            entry.toLowerCase()
+          );
+          if (normalizedKeys.includes(loweredCandidate)) {
+            return value;
+          }
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeStandardFieldKey(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const aspectCandidate = trimmed
+    .replace(/[×:]/gi, "x")
+    .replace(/\s+/g, "")
+    .toLowerCase();
+  if (/^\d+x\d+$/.test(aspectCandidate)) {
+    return aspectCandidate;
+  }
+
+  return trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+type StandardFieldContext = {
+  ad: FirestoreRecord;
+  review: FirestoreRecord;
+  client: FirestoreRecord | null;
+  recipeType: FirestoreRecord | null;
+};
+
+const STANDARD_FIELD_ALIASES = {
+  storeId: ["Store ID", "storeId", "StoreID", "store.id", "store"],
+  recipeNumber: [
+    "Recipe Number",
+    "Recipe No",
+    "Recipe #",
+    "recipeNumber",
+    "recipeNo",
+    "recipe.id",
+    "recipe.number",
+    "recipe.code",
+  ],
+  adGroup: ["Ad Group", "groupName", "Group Name", "adGroup"],
+  product: ["Product", "product", "product.name", "productName"],
+  moment: ["Moment", "moment"],
+  funnel: ["Funnel", "funnel"],
+  goLive: ["Go Live", "goLive", "Launch Date", "launchDate", "goLiveDate"],
+  url: ["URL", "Url", "url", "product.url", "destinationUrl", "link"],
+  angle: ["Angle", "angle"],
+  audience: ["Audience", "audience", "audienceName", "targetAudience"],
+  status: ["Status", "status", "state"],
+  primary: ["Primary", "primary", "primaryText"],
+  headline: ["Headline", "headline"],
+  description: ["Description", "description", "body"],
+  assetSquare: ["1x1", "Square", "1:1", "squareAsset"],
+  assetVertical: ["9x16", "Vertical", "Story", "9:16", "verticalAsset"],
+} as const;
+
+type StandardFieldKey = keyof typeof STANDARD_FIELD_ALIASES;
+
+function extractFromSources(
+  keys: readonly string[],
+  sources: ReadonlyArray<unknown>
+): unknown {
+  for (const key of keys) {
+    for (const source of sources) {
+      if (!isRecord(source)) continue;
+      const value = findRecipeFieldValue(source as FirestoreRecord, key);
+      if (value !== undefined) {
+        return value;
+      }
+    }
+  }
+  return undefined;
+}
+
+function normalizeAssetLabel(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const lowered = trimmed.toLowerCase();
+  if (lowered === "square") {
+    return "1x1";
+  }
+  if (["vertical", "portrait", "story", "stories", "reel", "reels"].includes(lowered)) {
+    return "9x16";
+  }
+
+  const normalized = lowered.replace(/[×:]/g, "x").replace(/\s+/g, "");
+  if (/^\d+x\d+$/.test(normalized)) {
+    return normalized;
+  }
+
+  return lowered.replace(/[^a-z0-9]+/g, "");
+}
+
+function extractUrlFromAssetRecord(record: Record<string, unknown>): string | undefined {
+  const candidates = [
+    record.url,
+    record.href,
+    record.link,
+    record.downloadUrl,
+    record.assetUrl,
+    record.path,
+    record.source,
+    record.value,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate;
+    }
+    if (isRecord(candidate)) {
+      const nested = extractUrlFromAssetRecord(candidate);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function resolveAssetUrl(
+  context: StandardFieldContext,
+  labels: readonly string[]
+): unknown {
+  const targets = labels
+    .map((label) => normalizeAssetLabel(label))
+    .filter(Boolean);
+
+  if (!targets.length) {
+    return undefined;
+  }
+
+  const inspect = (source: unknown): string | undefined => {
+    if (!source) {
+      return undefined;
+    }
+
+    if (typeof source === "string") {
+      const normalized = normalizeAssetLabel(source);
+      return targets.includes(normalized) ? source : undefined;
+    }
+
+    if (Array.isArray(source)) {
+      for (const entry of source) {
+        if (!isRecord(entry)) continue;
+        const labelCandidates = [
+          entry.label,
+          entry.name,
+          entry.key,
+          entry.type,
+          entry.aspect,
+          entry.aspectRatio,
+        ];
+        for (const candidate of labelCandidates) {
+          const normalized = normalizeAssetLabel(candidate);
+          if (normalized && targets.includes(normalized)) {
+            const resolved = extractUrlFromAssetRecord(entry);
+            if (resolved) {
+              return resolved;
+            }
+          }
+        }
+      }
+      return undefined;
+    }
+
+    if (isRecord(source)) {
+      for (const [key, value] of Object.entries(source)) {
+        const normalizedKey = normalizeAssetLabel(key);
+        if (normalizedKey && targets.includes(normalizedKey)) {
+          if (typeof value === "string" && value.trim()) {
+            return value;
+          }
+          if (isRecord(value)) {
+            const resolved = extractUrlFromAssetRecord(value);
+            if (resolved) {
+              return resolved;
+            }
+          }
+        }
+      }
+    }
+
+    return undefined;
+  };
+
+  const adRecord = context.ad as Record<string, unknown>;
+  const adFields = isRecord(adRecord.fields)
+    ? (adRecord.fields as Record<string, unknown>)
+    : undefined;
+  const adMetadata = isRecord(adRecord.metadata)
+    ? (adRecord.metadata as Record<string, unknown>)
+    : undefined;
+  const adComponents = isRecord(adRecord.components)
+    ? (adRecord.components as Record<string, unknown>)
+    : undefined;
+  const adRecipe = isRecord(adRecord.recipe)
+    ? (adRecord.recipe as Record<string, unknown>)
+    : undefined;
+  const reviewRecord = context.review as Record<string, unknown>;
+  const recipeTypeRecord = context.recipeType
+    ? (context.recipeType as Record<string, unknown>)
+    : undefined;
+  const clientRecord = context.client
+    ? (context.client as Record<string, unknown>)
+    : undefined;
+
+  const sources: unknown[] = [
+    adRecord.assets,
+    adRecord.media,
+    adFields?.assets,
+    adMetadata?.assets,
+    adComponents?.assets,
+    adRecipe?.assets,
+    reviewRecord.assets,
+    reviewRecord.media,
+    recipeTypeRecord?.assets,
+    clientRecord?.assets,
+    clientRecord?.media,
+  ];
+
+  for (const source of sources) {
+    const resolved = inspect(source);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return undefined;
+}
+
+type StandardFieldExtractor = (context: StandardFieldContext) => unknown;
+
+const STANDARD_FIELD_EXTRACTORS: Record<StandardFieldKey, StandardFieldExtractor> = {
+  storeId: (context) =>
+    extractFromSources(
+      [
+        "storeId",
+        "store.id",
+        "store.code",
+        "store",
+        "client.storeId",
+        "client.store.id",
+      ],
+      [context.ad, context.ad.recipe, context.review, context.client]
+    ),
+  recipeNumber: (context) =>
+    extractFromSources(
+      [
+        "recipeNo",
+        "recipeNumber",
+        "recipeId",
+        "recipeCode",
+        "recipe.id",
+        "recipe.number",
+        "recipe.code",
+      ],
+      [context.ad, context.ad.recipe, context.review]
+    ),
+  adGroup: (context) =>
+    extractFromSources(
+      ["groupName", "adGroup", "adGroupName", "group.name", "group"],
+      [context.ad, context.review]
+    ),
+  product: (context) =>
+    extractFromSources(
+      ["product", "product.name", "productName", "product_title"],
+      [context.ad, context.ad.recipe, context.review]
+    ),
+  moment: (context) =>
+    extractFromSources(["moment"], [context.ad, context.ad.recipe, context.review]),
+  funnel: (context) =>
+    extractFromSources(["funnel"], [context.ad, context.ad.recipe, context.review]),
+  goLive: (context) =>
+    extractFromSources(
+      ["goLive", "launchDate", "goLiveDate", "liveDate", "goLiveAt"],
+      [context.ad, context.ad.recipe, context.review]
+    ),
+  url: (context) =>
+    extractFromSources(
+      ["url", "destinationUrl", "product.url", "link", "href"],
+      [context.ad, context.ad.recipe, context.review]
+    ),
+  angle: (context) =>
+    extractFromSources(["angle"], [context.ad, context.ad.recipe, context.review]),
+  audience: (context) =>
+    extractFromSources(
+      ["audience", "audienceName", "targetAudience", "audience.name"],
+      [context.ad, context.ad.recipe, context.review]
+    ),
+  status: (context) =>
+    extractFromSources(["status", "state"], [context.ad, context.review]),
+  primary: (context) =>
+    extractFromSources(["primary", "primaryText", "copy.primary"], [context.ad, context.review]),
+  headline: (context) =>
+    extractFromSources(["headline", "copy.headline"], [context.ad, context.review]),
+  description: (context) =>
+    extractFromSources(["description", "body", "copy.description"], [context.ad, context.review]),
+  assetSquare: (context) => resolveAssetUrl(context, ["1x1", "1:1", "square"]),
+  assetVertical: (context) => resolveAssetUrl(context, ["9x16", "9:16", "vertical", "story"]),
+};
+
+const STANDARD_FIELD_LOOKUP: Map<string, StandardFieldExtractor> = (() => {
+  const lookup = new Map<string, StandardFieldExtractor>();
+  for (const [canonical, aliases] of Object.entries(STANDARD_FIELD_ALIASES)) {
+    const extractor = STANDARD_FIELD_EXTRACTORS[canonical as StandardFieldKey];
+    if (!extractor) {
+      continue;
+    }
+    for (const alias of aliases) {
+      const normalized = normalizeStandardFieldKey(alias);
+      if (normalized) {
+        lookup.set(normalized, extractor);
+      }
+    }
+  }
+  return lookup;
+})();
+
+function collectRecipeFieldValues(
+  ad: FirestoreRecord,
+  fieldKeys: string[],
+  context: Omit<StandardFieldContext, "ad">
+): Record<string, unknown> | null {
+  if (!fieldKeys.length) {
+    return null;
+  }
+
+  const values: Record<string, unknown> = {};
+  for (const key of fieldKeys) {
+    const normalized = normalizeStandardFieldKey(key);
+    const extractor = normalized ? STANDARD_FIELD_LOOKUP.get(normalized) : undefined;
+    if (extractor) {
+      const extracted = extractor({ ad, ...context });
+      if (extracted !== undefined) {
+        values[key] = extracted;
+        continue;
+      }
+    }
+
+    let value = findRecipeFieldValue(ad, key);
+    if (value === undefined) {
+      value = findRecipeFieldValue(context.review, key);
+    }
+    if (value === undefined && context.client) {
+      value = findRecipeFieldValue(context.client, key);
+    }
+
+    if (value !== undefined) {
+      values[key] = value;
+    }
+  }
+
+  return Object.keys(values).length ? values : null;
+}
+
+function extractRecipeFieldKeys(recipeType: FirestoreRecord | null): string[] {
+  const result = new Set<string>();
+  const addKey = (value: unknown) => {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) {
+        result.add(trimmed);
+      }
+    }
+  };
+
+  for (const aliases of Object.values(STANDARD_FIELD_ALIASES)) {
+    if (Array.isArray(aliases) && aliases.length) {
+      addKey(aliases[0]);
+    }
+  }
+
+  if (!recipeType) {
+    return Array.from(result);
+  }
+
+  const writeInSources = [
+    recipeType.writeInFields,
+    (recipeType as Record<string, unknown>).write_in_fields,
+    recipeType.fields,
+  ];
+  for (const source of writeInSources) {
+    if (!Array.isArray(source)) continue;
+    for (const entry of source) {
+      if (isRecord(entry)) {
+        addKey(entry.key);
+        addKey(entry.name);
+      }
+    }
+  }
+
+  const clientSources = [
+    recipeType.clientFormComponents,
+    (recipeType as Record<string, unknown>).client_form_components,
+  ];
+  for (const source of clientSources) {
+    if (!Array.isArray(source)) continue;
+    for (const entry of source) {
+      if (typeof entry === "string") {
+        addKey(entry);
+        continue;
+      }
+      if (!isRecord(entry)) continue;
+      addKey(entry.key);
+      addKey(entry.name);
+      if (Array.isArray(entry.fields)) {
+        for (const field of entry.fields) {
+          if (typeof field === "string") {
+            addKey(field);
+          } else if (isRecord(field)) {
+            addKey(field.key);
+            addKey(field.name);
+          }
+        }
+      }
+    }
+  }
+
+  return Array.from(result);
+}
+
+function enrichAdsWithRecipeFields(
+  ads: FirestoreRecord[],
+  fieldKeys: string[],
+  context: Omit<StandardFieldContext, "ad">
+): FirestoreRecord[] {
+  if (!fieldKeys.length) {
+    return ads;
+  }
+
+  return ads.map((ad) => {
+    const collected = collectRecipeFieldValues(ad, fieldKeys, context);
+    if (!collected) {
+      return ad;
+    }
+
+    const existing = isRecord(ad.recipeFields) ? ad.recipeFields : undefined;
+    const merged = {
+      ...(existing ?? {}),
+      ...collected,
+    } as Record<string, unknown>;
+
+    if (!Object.keys(merged).length) {
+      return ad;
+    }
+
+    return {
+      ...ad,
+      recipeFields: merged,
+    };
+  });
+}
+
+function normalizeRecipeTypeCandidate(value: string): string {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) {
+    return "";
+  }
+  if (trimmed.includes("/")) {
+    const segments = trimmed.split("/").filter(Boolean);
+    return segments.length ? segments[segments.length - 1] : trimmed;
+  }
+  return trimmed;
+}
+
+function matchesRecipeType(
+  ad: FirestoreRecord,
+  recipeTypeId: string,
+  recipeType: FirestoreRecord | null
+): boolean {
+  const target = normalizeRecipeTypeCandidate(recipeTypeId);
+  if (!target) {
+    return false;
+  }
+
+  const candidates = new Set<string>();
+  const register = (value: unknown) => {
+    if (typeof value === "string") {
+      const normalized = normalizeRecipeTypeCandidate(value);
+      if (normalized) {
+        candidates.add(normalized);
+      }
+    }
+  };
+
+  register(ad.recipeTypeId);
+  register((ad as Record<string, unknown>).recipeType);
+  register((ad as Record<string, unknown>).recipe_type);
+  register((ad as Record<string, unknown>).recipeTypeSlug);
+  register((ad as Record<string, unknown>).recipeTypeKey);
+  register((ad as Record<string, unknown>).recipeTypeName);
+  register((ad as Record<string, unknown>).recipeTypeCode);
+  register((ad as Record<string, unknown>).recipeTypeRef);
+  register((ad as Record<string, unknown>).recipe_type_ref);
+  register((ad as Record<string, unknown>).recipe_type_id);
+  register((ad as Record<string, unknown>).recipe_type_slug);
+  register((ad as Record<string, unknown>).recipe_type_key);
+  register((ad as Record<string, unknown>).recipe_type_name);
+  register((ad as Record<string, unknown>).recipe_type_code);
+
+  if (isRecord(ad.recipeType)) {
+    Object.values(ad.recipeType).forEach(register);
+  }
+
+  if (isRecord(recipeType)) {
+    register(recipeType.id);
+    register((recipeType as Record<string, unknown>).slug);
+    register((recipeType as Record<string, unknown>).key);
+    register((recipeType as Record<string, unknown>).code);
+    register((recipeType as Record<string, unknown>).name);
+    register((recipeType as Record<string, unknown>).shortName);
+  }
+
+  return candidates.has(target);
+}
+
+function filterAdsByRecipeType(
+  ads: FirestoreRecord[],
+  recipeTypeId: string,
+  recipeType: FirestoreRecord | null
+): FirestoreRecord[] {
+  const filtered = ads.filter((ad) => matchesRecipeType(ad, recipeTypeId, recipeType));
+  return filtered.length ? filtered : ads;
+}
+
+async function loadRecipeType(recipeTypeId: string): Promise<FirestoreRecord> {
+  const db = getFirestore();
+  try {
+    const snapshot = await db
+      .collection(RECIPE_TYPES_COLLECTION)
+      .doc(recipeTypeId)
+      .get();
+
+    if (!snapshot.exists) {
+      throw new IntegrationDataError(
+        "Recipe type not found.",
+        "mapping/recipe_type_not_found",
+        { recipeTypeId }
+      );
+    }
+
+    return sanitizeFirestoreRecord(snapshot);
+  } catch (error) {
+    if (error instanceof IntegrationError) {
+      throw error;
+    }
+    throw new IntegrationDataError(
+      error instanceof Error ? error.message : "Failed to load recipe type.",
+      "mapping/recipe_type_load_failed",
+      { recipeTypeId }
+    );
+  }
+}
+
 function dedupe<T>(values: Iterable<T>): T[] {
   const result: T[] = [];
   const seen = new Set<T>();
@@ -464,11 +1129,38 @@ export async function createMappingContext(
   const reviewData = await getReviewData(reviewId);
   const generatedAt = new Date().toISOString();
 
+  const recipeTypeId =
+    typeof integration.recipeTypeId === "string"
+      ? integration.recipeTypeId.trim()
+      : "";
+
+  let recipeType: FirestoreRecord | null = null;
+  let recipeFieldKeys: string[] = [];
+  let ads = reviewData.ads;
+
+  if (recipeTypeId) {
+    recipeType = await loadRecipeType(recipeTypeId);
+    ads = filterAdsByRecipeType(reviewData.ads, recipeTypeId, recipeType);
+  }
+
+  recipeFieldKeys = extractRecipeFieldKeys(recipeType);
+
+  const enrichedAds = recipeFieldKeys.length
+    ? enrichAdsWithRecipeFields(ads, recipeFieldKeys, {
+        review: reviewData.review,
+        client: reviewData.client,
+        recipeType,
+      })
+    : ads;
+
   const data = {
     integration,
     review: reviewData.review,
-    ads: reviewData.ads,
+    ads: enrichedAds,
     client: reviewData.client,
+    recipeType,
+    recipeTypeId: recipeType?.id ?? (recipeTypeId || undefined),
+    recipeFieldKeys,
     payload,
     reviewId,
     dryRun,
@@ -481,8 +1173,10 @@ export async function createMappingContext(
     payload,
     dryRun,
     review: reviewData.review,
-    ads: reviewData.ads,
+    ads: enrichedAds,
     client: reviewData.client,
+    recipeType,
+    recipeFieldKeys,
     generatedAt,
     data,
   };
