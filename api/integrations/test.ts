@@ -54,12 +54,12 @@ const handler: ApiHandler<IntegrationTestRequestBody> = async (req, res) => {
     integration,
     mappingResult.payload,
     dryRun
-      ? undefined
-      : {
+      ? {
           headers: {
             "X-Test": "true",
           },
         }
+      : undefined
   );
 
   const dispatchResult = await dispatchIntegrationRequest(request, {
