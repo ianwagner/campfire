@@ -12,6 +12,7 @@ import {
   CLIENTS_COLLECTION,
   RECIPE_TYPES_COLLECTION,
   REVIEW_ADS_SUBCOLLECTION,
+  REVIEWS_COLLECTION,
   loadIntegrationSchema,
   reviewDocPath,
 } from "./schema";
@@ -27,6 +28,9 @@ import { getFirestore } from "../firebase/admin";
 export interface FirestoreRecord extends Record<string, unknown> {
   id: string;
 }
+
+const AD_GROUPS_COLLECTION = "adGroups";
+const AD_GROUP_ASSETS_SUBCOLLECTION = "assets";
 
 export interface ReviewData {
   review: FirestoreRecord;
@@ -1092,17 +1096,71 @@ export async function getReviewData(reviewId: string): Promise<ReviewData> {
   const reviewRef = db.doc(reviewDocPath(reviewId));
   const reviewSnap = await reviewRef.get();
 
-  if (!reviewSnap.exists) {
-    throw new IntegrationDataError("Review not found.", "mapping/review_not_found", {
-      reviewId,
-    });
+  if (reviewSnap.exists) {
+    const review = sanitizeFirestoreRecord(reviewSnap);
+
+    let ads: FirestoreRecord[] = [];
+    try {
+      const adsSnap = await reviewRef.collection(REVIEW_ADS_SUBCOLLECTION).get();
+      ads = adsSnap.docs.map(sanitizeFirestoreRecord);
+    } catch (error) {
+      throw new IntegrationDataError(
+        "Failed to load ads for review.",
+        "mapping/review_ads_unavailable",
+        {
+          reviewId,
+          source: REVIEWS_COLLECTION,
+          cause: error instanceof Error ? error.message : String(error),
+        }
+      );
+    }
+
+    const client = await resolveClientRecord(db, review);
+    return { review, ads, client };
   }
 
-  const review = sanitizeFirestoreRecord(reviewSnap);
+  const fallback = await loadReviewDataFromAdGroup(db, reviewId);
+  if (fallback) {
+    return fallback;
+  }
+
+  throw new IntegrationDataError("Review not found.", "mapping/review_not_found", {
+    reviewId,
+  });
+}
+
+async function loadReviewDataFromAdGroup(
+  db: AdminFirestore,
+  reviewId: string
+): Promise<ReviewData | null> {
+  const adGroupRef = db.collection(AD_GROUPS_COLLECTION).doc(reviewId);
+
+  let adGroupSnap: DocumentSnapshot;
+  try {
+    adGroupSnap = await adGroupRef.get();
+  } catch (error) {
+    throw new IntegrationDataError(
+      error instanceof Error ? error.message : "Failed to load review.",
+      "mapping/review_load_failed",
+      {
+        reviewId,
+        source: AD_GROUPS_COLLECTION,
+        cause: error instanceof Error ? error.message : String(error),
+      }
+    );
+  }
+
+  if (!adGroupSnap.exists) {
+    return null;
+  }
+
+  const review = sanitizeFirestoreRecord(adGroupSnap);
 
   let ads: FirestoreRecord[] = [];
   try {
-    const adsSnap = await reviewRef.collection(REVIEW_ADS_SUBCOLLECTION).get();
+    const adsSnap = await adGroupRef
+      .collection(AD_GROUP_ASSETS_SUBCOLLECTION)
+      .get();
     ads = adsSnap.docs.map(sanitizeFirestoreRecord);
   } catch (error) {
     throw new IntegrationDataError(
@@ -1110,13 +1168,13 @@ export async function getReviewData(reviewId: string): Promise<ReviewData> {
       "mapping/review_ads_unavailable",
       {
         reviewId,
+        source: AD_GROUPS_COLLECTION,
         cause: error instanceof Error ? error.message : String(error),
       }
     );
   }
 
   const client = await resolveClientRecord(db, review);
-
   return { review, ads, client };
 }
 
