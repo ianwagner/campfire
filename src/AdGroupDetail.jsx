@@ -792,13 +792,14 @@ const AdGroupDetail = () => {
   const isAdmin = userRole === "admin";
   const isEditor = userRole === "editor";
   const isProjectManager = userRole === "project-manager";
+  const isOps = userRole === "ops";
   const isManager =
     userRole === "manager" ||
     userRole === "editor" ||
     isProjectManager;
   const canManageStaff = isAdmin || (isManager && !isEditor);
   const isAgency = userRole === "agency";
-  const isClientPortalUser = ["client", "ops"].includes(userRole) || isProjectManager;
+  const isClientPortalUser = isOps || userRole === "client" || isProjectManager;
   const usesTabs = isAdmin || isDesigner || isManager || isClientPortalUser;
   const canEditBriefNote = isAdmin || isClientPortalUser;
   const canAddBriefAssets = isAdmin || isClientPortalUser;
@@ -4802,73 +4803,77 @@ const AdGroupDetail = () => {
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Designer
-                    </span>
-                    {canManageStaff ? (
-                      <select
-                        aria-label="Designer Assignment"
-                        value={group.designerId || ''}
-                        onChange={async (e) => {
-                          const value = e.target.value || null;
-                          try {
-                            await updateDoc(doc(db, 'adGroups', id), { designerId: value });
-                            setGroup((p) => ({ ...p, designerId: value }));
-                          } catch (err) {
-                            console.error('Failed to update designer', err);
-                          }
-                        }}
-                        className="rounded border p-1"
-                      >
-                        <option value="">Unassigned</option>
-                        {designers.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span>{designerName || 'Unassigned'}</span>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                      Designer Due Date
-                    </span>
-                    {canManageStaff ? (
-                      <input
-                        type="date"
-                        value={
-                          group.designDueDate
-                            ? (group.designDueDate.toDate
-                                ? group.designDueDate.toDate().toISOString().slice(0, 10)
-                                : new Date(group.designDueDate).toISOString().slice(0, 10))
-                            : ''
-                        }
-                        onChange={async (e) => {
-                          const date = e.target.value
-                            ? Timestamp.fromDate(new Date(e.target.value))
-                            : null;
-                          try {
-                            await updateDoc(doc(db, 'adGroups', id), { designDueDate: date });
-                            setGroup((p) => ({ ...p, designDueDate: date }));
-                          } catch (err) {
-                            console.error('Failed to update design due date', err);
-                          }
-                        }}
-                        className="border tag-pill px-2 py-1 text-sm"
-                      />
-                    ) : (
-                      <span>
-                        {group.designDueDate
-                          ? (group.designDueDate.toDate
-                              ? group.designDueDate.toDate().toLocaleDateString()
-                              : new Date(group.designDueDate).toLocaleDateString())
-                          : 'N/A'}
+                  {!isOps && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Designer
                       </span>
-                    )}
-                  </div>
+                      {canManageStaff ? (
+                        <select
+                          aria-label="Designer Assignment"
+                          value={group.designerId || ''}
+                          onChange={async (e) => {
+                            const value = e.target.value || null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { designerId: value });
+                              setGroup((p) => ({ ...p, designerId: value }));
+                            } catch (err) {
+                              console.error('Failed to update designer', err);
+                            }
+                          }}
+                          className="rounded border p-1"
+                        >
+                          <option value="">Unassigned</option>
+                          {designers.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{designerName || 'Unassigned'}</span>
+                      )}
+                    </div>
+                  )}
+                  {!isOps && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Designer Due Date
+                      </span>
+                      {canManageStaff ? (
+                        <input
+                          type="date"
+                          value={
+                            group.designDueDate
+                              ? (group.designDueDate.toDate
+                                  ? group.designDueDate.toDate().toISOString().slice(0, 10)
+                                  : new Date(group.designDueDate).toISOString().slice(0, 10))
+                              : ''
+                          }
+                          onChange={async (e) => {
+                            const date = e.target.value
+                              ? Timestamp.fromDate(new Date(e.target.value))
+                              : null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { designDueDate: date });
+                              setGroup((p) => ({ ...p, designDueDate: date }));
+                            } catch (err) {
+                              console.error('Failed to update design due date', err);
+                            }
+                          }}
+                          className="border tag-pill px-2 py-1 text-sm"
+                        />
+                      ) : (
+                        <span>
+                          {group.designDueDate
+                            ? (group.designDueDate.toDate
+                                ? group.designDueDate.toDate().toLocaleDateString()
+                                : new Date(group.designDueDate).toLocaleDateString())
+                            : 'N/A'}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
