@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import useAgencyTheme from './useAgencyTheme';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { db } from './firebase/config';
 import OptimizedImage from './components/OptimizedImage.jsx';
+import useIntegrations from './useIntegrations';
 
 const AgencySettings = ({ agencyId }) => {
   const { agency, saveAgency } = useAgencyTheme(agencyId);
@@ -13,11 +14,36 @@ const AgencySettings = ({ agencyId }) => {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('success');
   const [loading, setLoading] = useState(false);
+  const [selectedIntegrationId, setSelectedIntegrationId] = useState('none');
+  const { integrations, loading: integrationsLoading } = useIntegrations();
+
+  const activeIntegrations = useMemo(
+    () => integrations.filter((integration) => integration?.active),
+    [integrations],
+  );
+
+  const normalizedSelection =
+    selectedIntegrationId && selectedIntegrationId !== 'none'
+      ? selectedIntegrationId
+      : '';
+
+  const selectedIntegration = useMemo(
+    () =>
+      normalizedSelection
+        ? integrations.find((integration) => integration.id === normalizedSelection) || null
+        : null,
+    [integrations, normalizedSelection],
+  );
 
   useEffect(() => {
     setDescribeEnabled(agency.enableDescribeProject !== false);
     setBriefEnabled(agency.enableGenerateBrief !== false);
     setSelectedTypes(Array.isArray(agency.allowedRecipeTypes) ? agency.allowedRecipeTypes : []);
+    const defaultId =
+      typeof agency.defaultIntegrationId === 'string'
+        ? agency.defaultIntegrationId.trim()
+        : '';
+    setSelectedIntegrationId(defaultId || 'none');
   }, [agency]);
 
   useEffect(() => {
@@ -46,12 +72,24 @@ const AgencySettings = ({ agencyId }) => {
     setLoading(true);
     setMessage('');
     setMessageType('success');
+    const integrationId =
+      selectedIntegrationId && selectedIntegrationId !== 'none'
+        ? selectedIntegrationId
+        : null;
+    const integrationName = integrationId
+      ? selectedIntegration?.name || agency.defaultIntegrationName || ''
+      : '';
     try {
       await saveAgency({
         enableDescribeProject: describeEnabled,
         enableGenerateBrief: briefEnabled,
         allowedRecipeTypes: selectedTypes,
+        defaultIntegrationId: integrationId,
+        defaultIntegrationName: integrationName,
       });
+      if (agencyId) {
+        await applyIntegrationSelection(agencyId, integrationId, integrationName);
+      }
       setMessage('Settings saved');
       setMessageType('success');
     } catch (err) {
@@ -60,6 +98,59 @@ const AgencySettings = ({ agencyId }) => {
       setMessageType('error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const applyIntegrationSelection = async (id, integrationId, integrationName) => {
+    try {
+      const brandSnap = await getDocs(
+        query(collection(db, 'brands'), where('agencyId', '==', id)),
+      );
+      const processedCodes = new Set();
+      for (const brandDoc of brandSnap.docs) {
+        const brandData = brandDoc.data() || {};
+        const brandCodeRaw = brandData.code || brandData.codeId || '';
+        const brandCode = typeof brandCodeRaw === 'string' ? brandCodeRaw.trim() : '';
+        const brandRef = doc(db, 'brands', brandDoc.id);
+        await updateDoc(brandRef, {
+          defaultIntegrationId: integrationId || null,
+          defaultIntegrationName: integrationName || '',
+        });
+        if (!brandCode || processedCodes.has(brandCode)) {
+          continue;
+        }
+        processedCodes.add(brandCode);
+        const groupSnap = await getDocs(
+          query(collection(db, 'adGroups'), where('brandCode', '==', brandCode)),
+        );
+        const updates = groupSnap.docs
+          .map((groupDoc) => {
+            const data = groupDoc.data() || {};
+            const currentId =
+              typeof data.assignedIntegrationId === 'string'
+                ? data.assignedIntegrationId
+                : data.assignedIntegrationId ?? null;
+            const currentName =
+              typeof data.assignedIntegrationName === 'string'
+                ? data.assignedIntegrationName
+                : '';
+            const desiredId = integrationId || null;
+            const desiredName = integrationName || '';
+            if (currentId === desiredId && currentName === desiredName) {
+              return null;
+            }
+            return updateDoc(doc(db, 'adGroups', groupDoc.id), {
+              assignedIntegrationId: desiredId,
+              assignedIntegrationName: desiredName,
+            });
+          })
+          .filter(Boolean);
+        if (updates.length) {
+          await Promise.all(updates);
+        }
+      }
+    } catch (err) {
+      throw err;
     }
   };
 
@@ -136,6 +227,41 @@ const AgencySettings = ({ agencyId }) => {
                 <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-xs text-gray-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-400">
                   No external recipe types found.
                 </div>
+              )}
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Integration</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                Select an integration to automatically apply it to all brands managed by this agency.
+              </p>
+            </div>
+            <div className="max-w-xs">
+              <select
+                className="w-full rounded border border-gray-300 bg-white px-2 py-2 text-sm text-gray-700 focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-200"
+                value={selectedIntegrationId}
+                onChange={(event) => setSelectedIntegrationId(event.target.value)}
+                disabled={loading || integrationsLoading}
+                aria-label="Select integration"
+              >
+                <option value="none">None</option>
+                {activeIntegrations.map((integration) => (
+                  <option key={integration.id} value={integration.id}>
+                    {integration.name || integration.id}
+                  </option>
+                ))}
+                {normalizedSelection &&
+                  !activeIntegrations.some((integration) => integration.id === normalizedSelection) && (
+                    <option value={normalizedSelection}>
+                      {selectedIntegration?.name || agency.defaultIntegrationName || normalizedSelection}
+                    </option>
+                  )}
+              </select>
+              {normalizedSelection && !selectedIntegration?.active && (
+                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  This integration is currently disabled.
+                </p>
               )}
             </div>
           </div>

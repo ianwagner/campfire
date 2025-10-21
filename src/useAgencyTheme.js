@@ -10,6 +10,8 @@ const defaultAgency = {
   enableDescribeProject: true,
   enableGenerateBrief: true,
   allowedRecipeTypes: [],
+  defaultIntegrationId: null,
+  defaultIntegrationName: '',
 };
 
 const getStoredAgency = (id) => {
