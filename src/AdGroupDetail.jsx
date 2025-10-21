@@ -6114,53 +6114,55 @@ const AdGroupDetail = () => {
                 </div>
               </div>
             </div>
-            <div className="px-5 pb-5 pt-4">
-              {hasStructuredToneDetails ? (
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Voice &amp; personality</h4>
-                    <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                      {brandTone.voice || 'No voice guidance documented.'}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Preferred phrasing</h4>
-                    <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                      {brandTone.phrasing || 'No phrasing guidance documented.'}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Word bank</h4>
-                    {renderToneChipList(toneWordBank, 'No preferred words documented.')}
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Language to avoid</h4>
-                    {renderToneChipList(toneNoGos, 'No restrictions documented.')}
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Call-to-action style</h4>
-                    <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                      {brandTone.ctaStyle || 'No CTA guidance documented.'}
-                    </p>
-                  </div>
-                </div>
+            <div className="px-5 pb-5 pt-4 space-y-6">
+              {tonePrompt || hasStructuredToneDetails ? (
+                <>
+                  {tonePrompt && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Brand tone of voice</h4>
+                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                        {tonePrompt}
+                      </p>
+                    </div>
+                  )}
+                  {hasStructuredToneDetails && (
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Voice &amp; personality</h4>
+                        <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                          {brandTone.voice || 'No voice guidance documented.'}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Preferred phrasing</h4>
+                        <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                          {brandTone.phrasing || 'No phrasing guidance documented.'}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Word bank</h4>
+                        {renderToneChipList(toneWordBank, 'No preferred words documented.')}
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Language to avoid</h4>
+                        {renderToneChipList(toneNoGos, 'No restrictions documented.')}
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Call-to-action style</h4>
+                        <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                          {brandTone.ctaStyle || 'No CTA guidance documented.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <p className="text-sm text-gray-500 dark:text-gray-300">
-                  {tonePrompt
-                    ? 'Tone of voice guidance is available as a prompt snippet below.'
-                    : 'No tone of voice details have been documented yet. Visit the brand profile to add guidance.'}
+                  No tone of voice details have been documented yet. Visit the brand profile to add guidance.
                 </p>
               )}
             </div>
           </div>
-          {tonePrompt && (
-            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-5 text-sm text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-200">
-              <h4 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">Prompt snippet</h4>
-              <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-gray-700 dark:text-gray-200">
-                {tonePrompt}
-              </pre>
-            </div>
-          )}
         </div>
       )}
 
