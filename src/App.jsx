@@ -80,6 +80,7 @@ import useTaggerJobWatcher from "./useTaggerJobWatcher";
 import AdminClaimDebug from "./AdminClaimDebug";
 import AdminDistribution from "./AdminDistribution";
 import AdminCapacityPlanner from "./AdminCapacityPlanner";
+import AdminIntegrations from "./AdminIntegrations";
 import MiniGame from "./MiniGame.jsx";
 import AdminIntegrations from "./AdminIntegrations";
 
@@ -635,6 +636,22 @@ const App = () => {
                     loading={roleLoading}
                   >
                     <AdminCapacityPlanner />
+                  </RoleGuard>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/admin/integrations"
+              element={
+                user ? (
+                  <RoleGuard
+                    requiredRole={["admin", "manager"]}
+                    userRole={role} isAdmin={isAdmin}
+                    loading={roleLoading}
+                  >
+                    <AdminIntegrations />
                   </RoleGuard>
                 ) : (
                   <Navigate to="/login" replace />
