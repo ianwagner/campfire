@@ -4040,6 +4040,22 @@ useEffect(() => {
       }
 
       const { errorMessage = '' } = options;
+      const hasRequestPayload = Object.prototype.hasOwnProperty.call(
+        options,
+        'requestPayload',
+      );
+      const hasResponsePayload = Object.prototype.hasOwnProperty.call(
+        options,
+        'responsePayload',
+      );
+      const hasResponseStatus = Object.prototype.hasOwnProperty.call(
+        options,
+        'responseStatus',
+      );
+      const hasResponseHeaders = Object.prototype.hasOwnProperty.call(
+        options,
+        'responseHeaders',
+      );
 
       try {
         const batch = writeBatch(db);
@@ -4062,6 +4078,22 @@ useEffect(() => {
             payload.errorMessage = errorMessage || '';
           } else {
             payload.errorMessage = '';
+          }
+          if (hasRequestPayload) {
+            payload.requestPayload =
+              options.requestPayload === undefined ? null : options.requestPayload;
+          }
+          if (hasResponsePayload) {
+            payload.responsePayload =
+              options.responsePayload === undefined ? null : options.responsePayload;
+          }
+          if (hasResponseStatus) {
+            payload.responseStatus =
+              options.responseStatus === undefined ? null : options.responseStatus;
+          }
+          if (hasResponseHeaders) {
+            payload.responseHeaders =
+              options.responseHeaders === undefined ? null : options.responseHeaders;
           }
           batch.update(ref, {
             [`integrationStatuses.${assignedIntegrationId}`]: payload,
@@ -4093,29 +4125,43 @@ useEffect(() => {
         return;
       }
 
-      await updateIntegrationStatusForAssets(assetsList, 'sending');
+      await updateIntegrationStatusForAssets(assetsList, 'sending', {
+        requestPayload: null,
+        responsePayload: null,
+        responseStatus: null,
+        responseHeaders: null,
+        errorMessage: '',
+      });
+
+      const payload = {
+        adGroupId: groupId,
+        integrationId: assignedIntegrationId,
+        integrationName: assignedIntegrationName || '',
+        approvedAssetIds: assetsList
+          .map((asset) => getAssetDocumentId(asset))
+          .filter(Boolean),
+        approvedAssets: assetsList.map((asset) => ({
+          id: getAssetDocumentId(asset),
+          filename: asset.filename || '',
+          status: asset.status || '',
+          firebaseUrl: asset.firebaseUrl || '',
+          cdnUrl: asset.cdnUrl || '',
+          thumbnailUrl: asset.thumbnailUrl || '',
+          aspectRatio: asset.aspectRatio || '',
+          recipeCode: asset.recipeCode || '',
+          version: getVersion(asset),
+        })),
+      };
+
+      let responsePayloadSnapshot = null;
+      let responseHeadersSnapshot = null;
+      let responseStatusCode = null;
+      let requestPayloadSnapshot = payload;
+      let responseText = '';
+      let parsedResponse = null;
+      let errorHandled = false;
 
       try {
-        const payload = {
-          adGroupId: groupId,
-          integrationId: assignedIntegrationId,
-          integrationName: assignedIntegrationName || '',
-          approvedAssetIds: assetsList
-            .map((asset) => getAssetDocumentId(asset))
-            .filter(Boolean),
-          approvedAssets: assetsList.map((asset) => ({
-            id: getAssetDocumentId(asset),
-            filename: asset.filename || '',
-            status: asset.status || '',
-            firebaseUrl: asset.firebaseUrl || '',
-            cdnUrl: asset.cdnUrl || '',
-            thumbnailUrl: asset.thumbnailUrl || '',
-            aspectRatio: asset.aspectRatio || '',
-            recipeCode: asset.recipeCode || '',
-            version: getVersion(asset),
-          })),
-        };
-
         const response = await fetch('/api/integration-worker', {
           method: 'POST',
           headers: {
@@ -4129,23 +4175,117 @@ useEffect(() => {
           }),
         });
 
+        responseStatusCode = response.status;
+        responseText = await response.text();
+        if (responseText) {
+          try {
+            parsedResponse = JSON.parse(responseText);
+          } catch (err) {
+            parsedResponse = null;
+          }
+        }
+
+        if (
+          parsedResponse &&
+          typeof parsedResponse === 'object' &&
+          parsedResponse !== null
+        ) {
+          if (
+            parsedResponse.request &&
+            typeof parsedResponse.request === 'object' &&
+            parsedResponse.request !== null &&
+            Object.prototype.hasOwnProperty.call(parsedResponse.request, 'body')
+          ) {
+            requestPayloadSnapshot = parsedResponse.request.body;
+          } else if (
+            parsedResponse.mapping &&
+            typeof parsedResponse.mapping === 'object' &&
+            parsedResponse.mapping !== null &&
+            Object.prototype.hasOwnProperty.call(parsedResponse.mapping, 'payload')
+          ) {
+            requestPayloadSnapshot = parsedResponse.mapping.payload;
+          }
+
+          if (
+            parsedResponse.dispatch &&
+            typeof parsedResponse.dispatch === 'object' &&
+            parsedResponse.dispatch !== null
+          ) {
+            const dispatchData = parsedResponse.dispatch;
+            if (Object.prototype.hasOwnProperty.call(dispatchData, 'body')) {
+              responsePayloadSnapshot = dispatchData.body;
+            }
+            if (Object.prototype.hasOwnProperty.call(dispatchData, 'headers')) {
+              responseHeadersSnapshot = dispatchData.headers;
+            }
+            if (
+              Object.prototype.hasOwnProperty.call(dispatchData, 'status') &&
+              typeof dispatchData.status === 'number'
+            ) {
+              responseStatusCode = dispatchData.status;
+            }
+          }
+        }
+
+        if (responsePayloadSnapshot === null && responseText) {
+          try {
+            responsePayloadSnapshot = JSON.parse(responseText);
+          } catch (err) {
+            responsePayloadSnapshot = responseText;
+          }
+        }
+
+        if (responseStatusCode === null) {
+          responseStatusCode = response.status;
+        }
+
         if (!response.ok) {
-          const errorBody = await response.json().catch(() => ({}));
-          const message =
-            errorBody?.error ||
-            errorBody?.message ||
-            response.statusText ||
-            'Integration request failed.';
+          const message = (() => {
+            if (
+              parsedResponse &&
+              typeof parsedResponse === 'object' &&
+              parsedResponse !== null
+            ) {
+              if (typeof parsedResponse.error === 'string') {
+                return parsedResponse.error;
+              }
+              if (typeof parsedResponse.message === 'string') {
+                return parsedResponse.message;
+              }
+            }
+            return response.statusText || 'Integration request failed.';
+          })();
+
+          errorHandled = true;
+          await updateIntegrationStatusForAssets(assetsList, 'error', {
+            errorMessage: message,
+            requestPayload: requestPayloadSnapshot,
+            responsePayload: responsePayloadSnapshot,
+            responseStatus: responseStatusCode,
+            responseHeaders: responseHeadersSnapshot,
+          });
           throw new Error(message);
         }
 
-        await updateIntegrationStatusForAssets(assetsList, 'received');
+        await updateIntegrationStatusForAssets(assetsList, 'received', {
+          requestPayload: requestPayloadSnapshot,
+          responsePayload: responsePayloadSnapshot,
+          responseStatus: responseStatusCode,
+          responseHeaders: responseHeadersSnapshot,
+          errorMessage: '',
+        });
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Integration dispatch failed.';
-        await updateIntegrationStatusForAssets(assetsList, 'error', {
-          errorMessage: message,
-        });
+        if (!errorHandled) {
+          await updateIntegrationStatusForAssets(assetsList, 'error', {
+            errorMessage: message,
+            requestPayload: requestPayloadSnapshot,
+            responsePayload: responsePayloadSnapshot,
+            responseStatus: responseStatusCode,
+            responseHeaders: responseHeadersSnapshot,
+          });
+        }
         throw error;
       }
     },
