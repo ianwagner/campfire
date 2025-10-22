@@ -82,7 +82,6 @@ import AdminDistribution from "./AdminDistribution";
 import AdminCapacityPlanner from "./AdminCapacityPlanner";
 import AdminIntegrations from "./AdminIntegrations";
 import MiniGame from "./MiniGame.jsx";
-import AdminIntegrations from "./AdminIntegrations";
 
 const ThemeWatcher = () => {
   useTheme();
