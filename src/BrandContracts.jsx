@@ -5,6 +5,7 @@ import useUserRole from './useUserRole';
 import FormField from './components/FormField.jsx';
 import SaveButton from './components/SaveButton.jsx';
 import MonthSelector from './components/MonthSelector.jsx';
+import TabButton from './components/TabButton.jsx';
 import { FiRefreshCw } from 'react-icons/fi';
 import useUnsavedChanges from './useUnsavedChanges.js';
 
@@ -14,6 +15,7 @@ const emptyContract = {
   stills: '',
   videos: '',
   renews: false,
+  mode: 'production',
 };
 
 const inputClassName =
@@ -50,6 +52,7 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
                     stills: c.stills || '',
                     videos: c.videos || '',
                     renews: c.renews || false,
+                    mode: c.mode === 'brief' ? 'brief' : 'production',
                   }))
                 : [{ ...emptyContract }]
             );
@@ -70,6 +73,7 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
                     stills: c.stills || '',
                     videos: c.videos || '',
                     renews: c.renews || false,
+                    mode: c.mode === 'brief' ? 'brief' : 'production',
                   }))
                 : [{ ...emptyContract }]
             );
@@ -108,6 +112,7 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
         ...c,
         startDate: c.startDate ? c.startDate.slice(0, 7) : '',
         endDate: c.endDate ? c.endDate.slice(0, 7) : '',
+        mode: c.mode === 'brief' ? 'brief' : 'production',
       }));
       await setDoc(doc(db, 'brands', brandId), { contracts: normalized }, { merge: true });
       setContracts(normalized);
@@ -167,6 +172,28 @@ const BrandContracts = ({ brandId: propId = null, brandCode: propCode = '' }) =>
                   />
                 </FormField>
               </div>
+              <FormField label="Workflow Type">
+                <div className="inline-flex overflow-hidden rounded border border-gray-300 dark:border-gray-600">
+                  <TabButton
+                    type="button"
+                    active={c.mode !== 'brief'}
+                    onClick={() => updateContract(idx, { mode: 'production' })}
+                    className="rounded-none border-0 border-r border-gray-300 dark:border-gray-600"
+                    aria-pressed={c.mode !== 'brief'}
+                  >
+                    Production
+                  </TabButton>
+                  <TabButton
+                    type="button"
+                    active={c.mode === 'brief'}
+                    onClick={() => updateContract(idx, { mode: 'brief' })}
+                    className="rounded-none border-0"
+                    aria-pressed={c.mode === 'brief'}
+                  >
+                    Brief
+                  </TabButton>
+                </div>
+              </FormField>
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField label="Number of Stills">
                   <input

@@ -347,7 +347,45 @@
         font-weight: var(--font-weight-semibold);
         margin-right: var(--space-sm);
       }
+      .dashboard-table td.notes-cell {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .dashboard-table td.notes-cell::before {
+        margin-bottom: var(--space-xs);
+      }
+      .dashboard-table td.notes-cell textarea {
+        width: 100%;
+      }
+      .dashboard-table td.notes-cell .note-status {
+        margin-top: var(--space-xs);
+      }
     }
+  .dashboard-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    background-color: var(--table-head-bg);
+  }
+  .dashboard-table thead th {
+    background-color: inherit;
+  }
+  .dashboard-table .metric-col {
+    width: 6.5rem;
+    max-width: 6.5rem;
+    white-space: nowrap;
+  }
+  .dashboard-table td.notes-cell {
+    vertical-align: top;
+  }
+  .dashboard-table td.notes-cell textarea {
+    min-height: 2.5rem;
+    height: auto;
+    padding: var(--space-xs) var(--space-sm);
+  }
+  .dashboard-table td.notes-cell .note-status {
+    font-size: 0.75rem;
+  }
   .cmf-table tbody tr.alt-row {
     background-color: var(--table-row-alt-bg);
   }
