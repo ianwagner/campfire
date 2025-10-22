@@ -18,7 +18,6 @@ import {
   FiUpload,
   FiBookOpen,
   FiFileText,
-  FiFolder,
   FiArchive,
   FiDownload,
   FiRotateCcw,
@@ -29,8 +28,10 @@ import {
   FiType,
   FiCopy,
   FiPlus,
+  FiTag,
   FiGrid,
   FiMoreHorizontal,
+  FiMessageCircle,
   FiMessageSquare,
   FiAlertTriangle,
   FiPlay,
@@ -42,6 +43,7 @@ import RecipePreview from "./RecipePreview.jsx";
 import CopyRecipePreview from "./CopyRecipePreview.jsx";
 import BrandAssets from "./BrandAssets.jsx";
 import BrandAssetsLayout from "./BrandAssetsLayout.jsx";
+import AssetLibrary from "./AssetLibrary.jsx";
 import BrandNotesPanel from "./BrandNotesPanel.jsx";
 import { Link, useParams, useLocation } from "react-router-dom";
 import {
@@ -266,6 +268,30 @@ const flattenRichText = (value) => {
   }
   return '';
 };
+
+const sanitizeToneList = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[\n,]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const createEmptyBrandTone = () => ({
+  voice: '',
+  phrasing: '',
+  wordBank: [],
+  noGos: [],
+  ctaStyle: '',
+  toneOfVoice: '',
+});
 
 const summaryInlineTokenPattern = /\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[[^\]]+\]\([^\)]+\)/;
 
@@ -549,6 +575,177 @@ const resolveRecipeProductName = (recipe) => {
   return "";
 };
 
+const toFirstString = (value) => {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const resolved = toFirstString(item);
+      if (resolved) return resolved;
+    }
+    return "";
+  }
+  if (typeof value === "object") {
+    const keys = [
+      "value",
+      "text",
+      "label",
+      "name",
+      "title",
+      "description",
+      "details",
+      "summary",
+      "url",
+      "href",
+      "link",
+    ];
+    for (const key of keys) {
+      if (value[key] !== undefined) {
+        const resolved = toFirstString(value[key]);
+        if (resolved) return resolved;
+      }
+    }
+    return "";
+  }
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return "";
+};
+
+const toArrayOfStrings = (value) => {
+  if (value === null || value === undefined) return [];
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => toArrayOfStrings(item)).filter(Boolean);
+  }
+  if (typeof value === "object") {
+    const keys = [
+      "description",
+      "details",
+      "summary",
+      "text",
+      "value",
+      "label",
+      "name",
+      "title",
+      "items",
+      "list",
+      "benefits",
+      "points",
+      "highlights",
+    ];
+    const results = keys.flatMap((key) =>
+      value[key] !== undefined ? toArrayOfStrings(value[key]) : [],
+    );
+    if (results.length > 0) {
+      return results.filter(Boolean);
+    }
+    const fallback = toFirstString(value);
+    return fallback ? [fallback] : [];
+  }
+  const str = toFirstString(value);
+  if (!str) return [];
+  return str
+    .split(/[;\n]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+};
+
+const uniqueStrings = (values) => {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set();
+  const result = [];
+  values.forEach((value) => {
+    const normalized = typeof value === "string" ? value.trim() : "";
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  });
+  return result;
+};
+
+const isLikelyUrl = (value) =>
+  typeof value === "string" && /^https?:\/\//i.test(value.trim());
+
+const extractUrl = (value) => {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const resolved = extractUrl(item);
+      if (resolved) return resolved;
+    }
+    return "";
+  }
+  if (typeof value === "object") {
+    const keys = ["url", "href", "link", "value", "text"];
+    for (const key of keys) {
+      if (value[key] !== undefined) {
+        const resolved = extractUrl(value[key]);
+        if (resolved) return resolved;
+      }
+    }
+    return "";
+  }
+  const str = toFirstString(value);
+  if (isLikelyUrl(str)) return str.trim();
+  return "";
+};
+
+const toUrlArray = (value) => uniqueStrings(toArrayOfStrings(value).filter(isLikelyUrl));
+
+const selectFeaturedImage = (primaryCandidates, imageList) => {
+  const direct = extractUrl(primaryCandidates);
+  if (direct) return direct;
+  if (Array.isArray(imageList)) {
+    const first = imageList.find((url) => isLikelyUrl(url));
+    if (first) return first;
+  }
+  return "";
+};
+
+const addProductCandidate = (entry, candidate) => {
+  if (!candidate) return;
+  if (Array.isArray(candidate)) {
+    candidate.forEach((item) => addProductCandidate(entry, item));
+    return;
+  }
+  if (
+    typeof candidate === "string" ||
+    typeof candidate === "number" ||
+    typeof candidate === "boolean"
+  ) {
+    entry.descriptionSources.push(candidate);
+    return;
+  }
+  if (typeof candidate !== "object") return;
+  entry.descriptionSources.push(
+    candidate.description,
+    candidate.details,
+    candidate.summary,
+    candidate.descriptions,
+    candidate.copy,
+  );
+  entry.benefitSources.push(
+    candidate.benefits,
+    candidate.points,
+    candidate.highlights,
+    candidate.list,
+  );
+  entry.urlSources.push(candidate.url, candidate.link, candidate.href);
+  entry.imageSources.push(
+    candidate.images,
+    candidate.image,
+    candidate.imageGallery,
+  );
+  entry.featuredImageSources.push(
+    candidate.featuredImage,
+    candidate.thumbnail,
+    candidate.preview,
+    candidate.image,
+  );
+};
+
 const DESIGNER_EDITABLE_STATUSES = [
   "pending",
   "edit_requested",
@@ -563,6 +760,8 @@ const AdGroupDetail = () => {
   const [brandGuidelines, setBrandGuidelines] = useState("");
   const [brandId, setBrandId] = useState("");
   const [brandNotes, setBrandNotes] = useState([]);
+  const [brandTone, setBrandTone] = useState(() => createEmptyBrandTone());
+  const [brandProducts, setBrandProducts] = useState([]);
   const [brandHasAgency, setBrandHasAgency] = useState(false);
   const [assets, setAssets] = useState([]);
   const [briefAssets, setBriefAssets] = useState([]);
@@ -835,10 +1034,55 @@ const AdGroupDetail = () => {
     [assets],
   );
   const showAdsEmptyState = usesTabs && tab === "ads" && activeAdsCount === 0;
+  const toneWordBank = useMemo(
+    () => (Array.isArray(brandTone.wordBank) ? brandTone.wordBank : []),
+    [brandTone.wordBank],
+  );
+  const toneNoGos = useMemo(
+    () => (Array.isArray(brandTone.noGos) ? brandTone.noGos : []),
+    [brandTone.noGos],
+  );
+  const tonePrompt = useMemo(
+    () =>
+      typeof brandTone.toneOfVoice === "string"
+        ? brandTone.toneOfVoice.trim()
+        : "",
+    [brandTone.toneOfVoice],
+  );
+  const hasStructuredToneDetails = useMemo(
+    () =>
+      Boolean(
+        (brandTone.voice && brandTone.voice.trim()) ||
+          (brandTone.phrasing && brandTone.phrasing.trim()) ||
+          toneWordBank.length ||
+          toneNoGos.length ||
+          (brandTone.ctaStyle && brandTone.ctaStyle.trim()),
+      ),
+    [
+      brandTone.voice,
+      brandTone.phrasing,
+      brandTone.ctaStyle,
+      toneWordBank,
+      toneNoGos,
+    ],
+  );
 
   useEffect(() => {
     if (!isClientPortalUser) return;
-    if (!['brief', 'brandNotes', 'assets', 'ads', 'copy', 'feedback', 'blocker'].includes(tab)) {
+    if (
+      ![
+        'brief',
+        'brandNotes',
+        'guidelines',
+        'tone',
+        'assetLibrary',
+        'products',
+        'ads',
+        'copy',
+        'feedback',
+        'blocker',
+      ].includes(tab)
+    ) {
       setTab('brief');
     }
   }, [isClientPortalUser, tab]);
@@ -1481,7 +1725,11 @@ const AdGroupDetail = () => {
 
   useEffect(() => {
     const loadBrand = async () => {
-      if (!group?.brandCode) return;
+      if (!group?.brandCode) {
+        setBrandProducts([]);
+        setBrandTone(createEmptyBrandTone());
+        return;
+      }
       try {
         const q = query(
           collection(db, "brands"),
@@ -1493,20 +1741,34 @@ const AdGroupDetail = () => {
           const data = brandDoc.data();
           setBrandName(data.name || group.brandCode);
           setBrandGuidelines(data.guidelinesUrl || "");
+          setBrandProducts(Array.isArray(data.products) ? data.products : []);
           setBrandHasAgency(Boolean(data.agencyId));
           setBrandId(brandDoc.id);
+          setBrandTone({
+            voice: data.voice || "",
+            phrasing: data.phrasing || "",
+            wordBank: sanitizeToneList(data.wordBank),
+            noGos: sanitizeToneList(data.noGos),
+            ctaStyle: data.ctaStyle || "",
+            toneOfVoice:
+              typeof data.toneOfVoice === "string" ? data.toneOfVoice : "",
+          });
         } else {
           setBrandName(group.brandCode);
           setBrandGuidelines("");
+          setBrandProducts([]);
           setBrandHasAgency(false);
           setBrandId("");
+          setBrandTone(createEmptyBrandTone());
         }
       } catch (err) {
         console.error("Failed to fetch brand name", err);
         setBrandName(group.brandCode);
         setBrandGuidelines("");
+        setBrandProducts([]);
         setBrandHasAgency(false);
         setBrandId("");
+        setBrandTone(createEmptyBrandTone());
       }
     };
     loadBrand();
@@ -1874,6 +2136,118 @@ const AdGroupDetail = () => {
     },
     [getRecipeMetaByCode],
   );
+
+  const productsUsed = useMemo(() => {
+    const brandProductMap = new Map();
+    (Array.isArray(brandProducts) ? brandProducts : []).forEach((product) => {
+      const key = normalizeProductKey(product?.name);
+      if (!key) return;
+      if (!brandProductMap.has(key)) {
+        brandProductMap.set(key, product);
+      }
+    });
+
+    const entries = new Map();
+
+    const ensureEntry = (key, defaultName) => {
+      if (entries.has(key)) return entries.get(key);
+      const entry = {
+        name: defaultName,
+        recipeCodes: new Set(),
+        descriptionSources: [],
+        benefitSources: [],
+        urlSources: [],
+        imageSources: [],
+        featuredImageSources: [],
+      };
+      entries.set(key, entry);
+      return entry;
+    };
+
+    Object.values(recipesMeta).forEach((meta) => {
+      if (!meta) return;
+      const productName = resolveRecipeProductName(meta);
+      if (!productName) return;
+      const key = normalizeProductKey(productName);
+      if (!key) return;
+      const entry = ensureEntry(key, productName);
+
+      const recipeCandidates = [
+        meta.recipeCode,
+        meta.recipeNo,
+        meta.code,
+        meta.components?.recipeCode,
+        meta.components?.code,
+        meta.id,
+      ];
+      recipeCandidates.forEach((candidate) => {
+        if (!candidate) return;
+        const normalized = normalizeRecipeCode(candidate);
+        if (normalized) {
+          entry.recipeCodes.add(normalized);
+        } else {
+          const fallback = toFirstString(candidate);
+          if (fallback) entry.recipeCodes.add(fallback);
+        }
+      });
+
+      addProductCandidate(entry, meta.product);
+      addProductCandidate(entry, meta.metadata?.product);
+      addProductCandidate(entry, meta.components?.product);
+      addProductCandidate(entry, meta.details?.product);
+
+      entry.descriptionSources.push(
+        meta.metadata?.productDescription,
+        meta.components?.["product.description"],
+      );
+      entry.benefitSources.push(
+        meta.metadata?.productBenefits,
+        meta.components?.["product.benefits"],
+      );
+      entry.urlSources.push(
+        meta.metadata?.productUrl,
+        meta.components?.["product.url"],
+      );
+      entry.imageSources.push(
+        meta.metadata?.productImages,
+        meta.components?.["product.images"],
+      );
+      entry.featuredImageSources.push(
+        meta.metadata?.productFeaturedImage,
+        meta.components?.["product.featuredImage"],
+      );
+    });
+
+    entries.forEach((entry, key) => {
+      const brandProduct = brandProductMap.get(key);
+      if (!brandProduct) return;
+      entry.name = brandProduct.name || entry.name;
+      addProductCandidate(entry, brandProduct);
+    });
+
+    const products = Array.from(entries.values()).map((entry) => {
+      const descriptions = uniqueStrings(toArrayOfStrings(entry.descriptionSources));
+      const benefits = uniqueStrings(toArrayOfStrings(entry.benefitSources));
+      const images = toUrlArray(entry.imageSources);
+      const featuredImage = selectFeaturedImage(entry.featuredImageSources, images);
+      const url = extractUrl(entry.urlSources);
+      const recipes = Array.from(entry.recipeCodes).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true }),
+      );
+      return {
+        name: entry.name,
+        descriptions,
+        benefits,
+        images,
+        featuredImage,
+        url,
+        recipes,
+      };
+    });
+
+    products.sort((a, b) => a.name.localeCompare(b.name));
+    return products;
+  }, [brandProducts, recipesMeta]);
 
   useEffect(() => {
     setCopyAssignments((prev) => {
@@ -4160,9 +4534,24 @@ const AdGroupDetail = () => {
             <FiFileText size={18} />
             Brand Notes
           </TabButton>
-          <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
-            <FiFolder size={18} />
-            Brand Assets
+          <TabButton active={tab === 'guidelines'} onClick={() => setTab('guidelines')}>
+            <FiBookOpen size={18} />
+            Brand Guidelines
+          </TabButton>
+          <TabButton active={tab === 'tone'} onClick={() => setTab('tone')}>
+            <FiMessageCircle size={18} />
+            Tone of Voice
+          </TabButton>
+          <TabButton
+            active={tab === 'assetLibrary'}
+            onClick={() => setTab('assetLibrary')}
+          >
+            <FiGrid size={18} />
+            Asset Library
+          </TabButton>
+          <TabButton active={tab === 'products'} onClick={() => setTab('products')}>
+            <FiTag size={18} />
+            Products
           </TabButton>
           <TabButton active={tab === 'copy'} onClick={() => setTab('copy')}>
             <FiType size={18} />
@@ -4203,9 +4592,24 @@ const AdGroupDetail = () => {
           <FiFileText size={18} />
           Brand Notes
         </TabButton>
-        <TabButton active={tab === 'assets'} onClick={() => setTab('assets')}>
-          <FiFolder size={18} />
-          Brand Assets
+        <TabButton active={tab === 'guidelines'} onClick={() => setTab('guidelines')}>
+          <FiBookOpen size={18} />
+          Brand Guidelines
+        </TabButton>
+        <TabButton active={tab === 'tone'} onClick={() => setTab('tone')}>
+          <FiMessageCircle size={18} />
+          Tone of Voice
+        </TabButton>
+        <TabButton
+          active={tab === 'assetLibrary'}
+          onClick={() => setTab('assetLibrary')}
+        >
+          <FiGrid size={18} />
+          Asset Library
+        </TabButton>
+        <TabButton active={tab === 'products'} onClick={() => setTab('products')}>
+          <FiTag size={18} />
+          Products
         </TabButton>
         {copyTab}
         <TabButton active={tab === 'ads'} onClick={() => setTab('ads')}>
@@ -4219,6 +4623,28 @@ const AdGroupDetail = () => {
           </TabButton>
         )}
       </>
+    );
+  };
+
+  const renderToneChipList = (items, emptyLabel) => {
+    if (!items.length) {
+      return (
+        <p className="text-sm italic text-gray-500 dark:text-gray-400">
+          {emptyLabel}
+        </p>
+      );
+    }
+    return (
+      <div className="flex flex-wrap gap-2">
+        {items.map((item, index) => (
+          <span
+            key={`${item}-${index}`}
+            className="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 dark:bg-[var(--dark-sidebar)] dark:text-gray-200 dark:ring-[var(--border-color-default)]"
+          >
+            {item}
+          </span>
+        ))}
+      </div>
     );
   };
 
@@ -4809,6 +5235,349 @@ const AdGroupDetail = () => {
             <p className="text-sm text-gray-600 dark:text-gray-300">Uploading...</p>
           )}
 
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-[var(--dark-bg)]">
+      <div className="px-4 py-6">
+        <div className="mx-auto max-w-6xl space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Link to={backPath} className="btn-arrow" aria-label="Back">
+                &lt;
+              </Link>
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                {group.name}
+              </h1>
+              {userRole === "project-manager" && (
+                <Link
+                  to={ganttPath}
+                  className="btn-secondary"
+                  aria-label="View Gantt Chart"
+                >
+                  Gantt
+                </Link>
+              )}
+            </div>
+            <div className="ml-auto flex flex-wrap items-center gap-2 justify-end text-right">
+              {renderActionButtons()}
+            </div>
+          </div>
+          <section className="space-y-4">
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)] dark:text-gray-300">
+              <div className="space-y-6">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Brand
+                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {brandName || group.brandCode || '—'}
+                        </span>
+                        {group.brandCode ? (
+                          <span className="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-gray-700 dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-200">
+                            {group.brandCode}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Due Date
+                      </span>
+                      {userRole === 'admin' || userRole === 'agency' ? (
+                        <input
+                          type="date"
+                          value={
+                            group.dueDate
+                              ? group.dueDate.toDate().toISOString().slice(0, 10)
+                              : ''
+                          }
+                          onChange={async (e) => {
+                            const date = e.target.value
+                              ? Timestamp.fromDate(new Date(e.target.value))
+                              : null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { dueDate: date });
+                              setGroup((p) => ({ ...p, dueDate: date }));
+                              if (group.requestId) {
+                                try {
+                                  await updateDoc(doc(db, 'requests', group.requestId), {
+                                    dueDate: date,
+                                  });
+                                } catch (err) {
+                                  console.error('Failed to sync ticket due date', err);
+                                }
+                              }
+                            } catch (err) {
+                              console.error('Failed to update due date', err);
+                            }
+                          }}
+                          className="border tag-pill px-2 py-1 text-sm"
+                        />
+                      ) : (
+                        <span>
+                          {group.dueDate
+                            ? group.dueDate.toDate().toLocaleDateString()
+                            : 'N/A'}
+                        </span>
+                      )}
+                    </div>
+                    {(brandHasAgency || userRole === 'admin') && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Month
+                        </span>
+                        <input
+                          type="month"
+                          value={group.month || ''}
+                          onChange={async (e) => {
+                            const value = e.target.value;
+                            try {
+                              if (value) {
+                                await updateDoc(doc(db, 'adGroups', id), { month: value });
+                                setGroup((p) => ({ ...p, month: value }));
+                                if (group.requestId) {
+                                  try {
+                                    await updateDoc(doc(db, 'requests', group.requestId), { month: value });
+                                  } catch (err) {
+                                    console.error('Failed to sync ticket month', err);
+                                  }
+                                }
+                              } else {
+                                await updateDoc(doc(db, 'adGroups', id), { month: deleteField() });
+                                setGroup((p) => {
+                                  const u = { ...p };
+                                  delete u.month;
+                                  return u;
+                                });
+                                if (group.requestId) {
+                                  try {
+                                    await updateDoc(doc(db, 'requests', group.requestId), { month: deleteField() });
+                                  } catch (err) {
+                                    console.error('Failed to sync ticket month', err);
+                                  }
+                                }
+                              }
+                            } catch (err) {
+                              console.error('Failed to update month', err);
+                            }
+                          }}
+                          className="border tag-pill px-2 py-1 text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {(!isClientPortalUser || isProjectManager) && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Editor
+                      </span>
+                      {canManageStaff ? (
+                        <select
+                          aria-label="Editor Assignment"
+                          value={group.editorId || ''}
+                          onChange={async (e) => {
+                            const value = e.target.value || null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { editorId: value });
+                              setGroup((p) => ({ ...p, editorId: value }));
+                            } catch (err) {
+                              console.error('Failed to update editor', err);
+                            }
+                          }}
+                          className="rounded border p-1"
+                        >
+                          <option value="">Unassigned</option>
+                          {editors.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{editorName || 'Unassigned'}</span>
+                      )}
+                    </div>
+                  )}
+                  {(!isClientPortalUser || isProjectManager) && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Editor Due Date
+                      </span>
+                      {canManageStaff ? (
+                        <input
+                          type="date"
+                          value={
+                            group.editorDueDate
+                              ? (group.editorDueDate.toDate
+                                  ? group.editorDueDate.toDate().toISOString().slice(0, 10)
+                                  : new Date(group.editorDueDate).toISOString().slice(0, 10))
+                              : ''
+                          }
+                          onChange={async (e) => {
+                            const date = e.target.value
+                              ? Timestamp.fromDate(new Date(e.target.value))
+                              : null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { editorDueDate: date });
+                              setGroup((p) => ({ ...p, editorDueDate: date }));
+                            } catch (err) {
+                              console.error('Failed to update editor due date', err);
+                            }
+                          }}
+                          className="border tag-pill px-2 py-1 text-sm"
+                        />
+                      ) : (
+                        <span>
+                          {group.editorDueDate
+                            ? (group.editorDueDate.toDate
+                                ? group.editorDueDate.toDate().toLocaleDateString()
+                                : new Date(group.editorDueDate).toLocaleDateString())
+                            : 'N/A'}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Status
+                      </span>
+                      <div className="text-sm">
+                        {isAdmin || isEditor || isDesigner ? (
+                          <select
+                            aria-label="Status"
+                            value={group.status}
+                            onChange={handleStatusChange}
+                            className={`status-select status-${(group.status || '').replace(/\s+/g, '_')}`}
+                          >
+                            {statusOptions.map((s) => (
+                              <option
+                                key={s}
+                                value={s}
+                                disabled={isDesigner && s === 'briefed'}
+                                hidden={isDesigner && s === 'briefed'}
+                              >
+                                {s}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <StatusBadge status={group.status} />
+                        )}
+                      </div>
+                    </div>
+                    {(isAdmin || isEditor) && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          Review Type
+                        </span>
+                        <select
+                          aria-label="Review Type"
+                          value={group.reviewVersion || 1}
+                          onChange={handleReviewTypeChange}
+                          className="border p-1 text-sm"
+                        >
+                          <option value={1}>Legacy</option>
+                          <option value={2}>2.0</option>
+                          <option value={3}>Brief</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  {!isOps && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Designer
+                      </span>
+                      {canManageStaff ? (
+                        <select
+                          aria-label="Designer Assignment"
+                          value={group.designerId || ''}
+                          onChange={async (e) => {
+                            const value = e.target.value || null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { designerId: value });
+                              setGroup((p) => ({ ...p, designerId: value }));
+                            } catch (err) {
+                              console.error('Failed to update designer', err);
+                            }
+                          }}
+                          className="rounded border p-1"
+                        >
+                          <option value="">Unassigned</option>
+                          {designers.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{designerName || 'Unassigned'}</span>
+                      )}
+                    </div>
+                  )}
+                  {!isOps && (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Designer Due Date
+                      </span>
+                      {canManageStaff ? (
+                        <input
+                          type="date"
+                          value={
+                            group.designDueDate
+                              ? (group.designDueDate.toDate
+                                  ? group.designDueDate.toDate().toISOString().slice(0, 10)
+                                  : new Date(group.designDueDate).toISOString().slice(0, 10))
+                              : ''
+                          }
+                          onChange={async (e) => {
+                            const date = e.target.value
+                              ? Timestamp.fromDate(new Date(e.target.value))
+                              : null;
+                            try {
+                              await updateDoc(doc(db, 'adGroups', id), { designDueDate: date });
+                              setGroup((p) => ({ ...p, designDueDate: date }));
+                            } catch (err) {
+                              console.error('Failed to update design due date', err);
+                            }
+                          }}
+                          className="border tag-pill px-2 py-1 text-sm"
+                        />
+                      ) : (
+                        <span>
+                          {group.designDueDate
+                            ? (group.designDueDate.toDate
+                                ? group.designDueDate.toDate().toLocaleDateString()
+                                : new Date(group.designDueDate).toLocaleDateString())
+                            : 'N/A'}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            {group.status === 'archived' && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                This ad group is archived and read-only.
+              </div>
+            )}
+            <div className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+              <div className="flex flex-wrap gap-2">
+                {renderTabNavigation()}
+              </div>
+            </div>
+          </section>
+
+          {uploading && (
+            <p className="text-sm text-gray-600 dark:text-gray-300">Uploading...</p>
+          )}
+
       {showStats && (
         <>
           <div className="flex flex-wrap justify-center gap-4 mb-4">
@@ -5146,7 +5915,7 @@ const AdGroupDetail = () => {
                 showOnlyResults
                 onSelectChange={toggleRecipeSelect}
                 onRecipesClick={() => setShowRecipes(true)}
-                externalOnly
+                externalOnly={userRole === "client"}
                 hideActions={isClientPortalUser}
               />
             </div>
@@ -5168,33 +5937,96 @@ const AdGroupDetail = () => {
       )}
 
       {canManageCopy && tab === 'copy' && (
-        <div className="my-4">
-          {copyCards.length > 0 ? (
-            <CopyRecipePreview
-              onSave={saveCopyCards}
-              initialResults={copyCards}
-              showOnlyResults
-              onCopyClick={() => setShowCopyModal(true)}
-              brandCode={group?.brandCode}
-              hideBrandSelect
-            />
-          ) : (
-            <div className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
-                <FiType size={20} />
+        <section className="my-4">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+            <div className="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 dark:border-[var(--border-color-default)] sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+                  <FiType size={18} />
+                </span>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Platform copy</h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-300">
+                    Keep track of the copy variations assigned to this ad group and spin up fresh lines without leaving the page.
+                  </p>
+                </div>
               </div>
-              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">No platform copy yet</h3>
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                Generate ad-ready headlines and primary text for this group without leaving the page.
-              </p>
-              <div className="mt-4 flex justify-center">
-                <Button type="button" variant="accent" size="sm" onClick={() => setShowCopyModal(true)}>
-                  Create Platform Copy
+              <div className="flex flex-wrap items-center gap-2">
+                {copyCards.length > 0 && (
+                  <span className="rounded-full bg-[var(--accent-color-10)] px-3 py-1 text-xs font-semibold text-[var(--accent-color)]">
+                    {copyCards.length} variation{copyCards.length === 1 ? '' : 's'}
+                  </span>
+                )}
+                <Button
+                  type="button"
+                  variant="accent"
+                  size="sm"
+                  onClick={() => setShowCopyModal(true)}
+                >
+                  <FiPlus className="h-4 w-4" aria-hidden="true" />
+                  Open copy builder
                 </Button>
               </div>
             </div>
-          )}
-        </div>
+            <div className="px-5 pb-5 pt-4">
+              {copyCards.length > 0 ? (
+                <>
+                  <div className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:bg-[var(--dark-sidebar)] dark:text-gray-300">
+                    <p className="font-medium text-gray-700 dark:text-gray-200">
+                      Assign copy variations or generate fresh options whenever you need a new angle.
+                    </p>
+                    <p className="mt-1">
+                      Open the copy builder any time you want additional headlines or refreshed language.
+                    </p>
+                  </div>
+                  <CopyRecipePreview
+                    onSave={saveCopyCards}
+                    initialResults={copyCards}
+                    showOnlyResults
+                    brandCode={group?.brandCode}
+                    hideBrandSelect
+                    showSave
+                  />
+                </>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+                    <FiType size={20} />
+                  </div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">No platform copy yet</h3>
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    Generate ad-ready primary text, headlines, and descriptions tailored to this ad group.
+                  </p>
+                  <ul className="mx-auto mt-4 max-w-md space-y-2 text-left text-sm text-gray-600 dark:text-gray-300">
+                    <li className="flex items-start gap-2">
+                      <FiCheckCircle className="mt-0.5 text-[var(--accent-color)]" size={14} />
+                      <span>Start with brand and product details that automatically flow into the prompt.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <FiCheckCircle className="mt-0.5 text-[var(--accent-color)]" size={14} />
+                      <span>Edit any generated line before saving it back to the ad group.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <FiCheckCircle className="mt-0.5 text-[var(--accent-color)]" size={14} />
+                      <span>Save multiple variations to test different angles with your audiences.</span>
+                    </li>
+                  </ul>
+                  <div className="mt-6 flex justify-center">
+                    <Button
+                      type="button"
+                      variant="accent"
+                      size="sm"
+                      onClick={() => setShowCopyModal(true)}
+                    >
+                      <FiPlus className="h-4 w-4" aria-hidden="true" />
+                      Open copy builder
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
       )}
 
       {(isAdmin || isEditor || isDesigner || isManager || isClientPortalUser) &&
@@ -5972,37 +6804,56 @@ const AdGroupDetail = () => {
             onSave={saveRecipes}
             brandCode={group?.brandCode}
             hideBrandSelect
-            externalOnly
+            externalOnly={userRole === "client"}
             showBriefExtras
           />
         </Modal>
       )}
 
       {showCopyModal && (
-        <Modal sizeClass="max-w-[50rem] w-full max-h-[90vh] flex flex-col">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-semibold">Platform Copy</h2>
-            <div className="flex gap-2">
-              <button
-                onClick={() => saveCopyCards(modalCopies, { append: true })}
-                className={`btn-primary px-3 py-1 ${copyChanges ? '' : 'opacity-50 cursor-not-allowed'}`}
-                disabled={!copyChanges}
-              >
-                Save
-              </button>
-              <IconButton onClick={() => setShowCopyModal(false)}>Close</IconButton>
+        <Modal sizeClass="max-w-[52rem] w-full" className="p-0">
+          <div className="flex h-full flex-col">
+            <div className="border-b border-gray-100 px-6 py-5 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+                    <FiType size={18} />
+                  </span>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Generate platform copy</h2>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                      Select a recipe type, tailor the prompt, and save new variations directly to this ad group.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {copyChanges && (
+                    <span className="rounded-full bg-[var(--accent-color-10)] px-3 py-1 text-xs font-semibold text-[var(--accent-color)]">
+                      Unsaved changes
+                    </span>
+                  )}
+                  <IconButton onClick={() => setShowCopyModal(false)} aria-label="Close platform copy modal">
+                    Close
+                  </IconButton>
+                </div>
+              </div>
             </div>
-          </div>
-          <p className="text-sm mb-2">
-            These lines appear as the primary text, headline, and description on your Meta ads. Feel free to tweak or remove any of the options.
-          </p>
-          <div className="overflow-auto flex-1">
-            <CopyRecipePreview
-              onSave={(copies) => saveCopyCards(copies, { append: true })}
-              brandCode={group?.brandCode}
-              hideBrandSelect
-              onCopiesChange={updateModalCopies}
-            />
+            <div className="flex-1 overflow-auto px-6 py-5">
+              <div className="mb-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:bg-[var(--dark-sidebar)] dark:text-gray-300">
+                <p className="font-medium text-gray-700 dark:text-gray-200">How it works</p>
+                <p className="mt-1">
+                  Choose a recipe template, tweak any of the inputs, and edit the generated copy before saving it back to the group.
+                </p>
+              </div>
+              <CopyRecipePreview
+                onSave={(copies) => saveCopyCards(copies, { append: true })}
+                brandCode={group?.brandCode}
+                hideBrandSelect
+                onCopiesChange={updateModalCopies}
+                saveLabel="Save changes"
+                canSave={copyChanges}
+              />
+            </div>
           </div>
         </Modal>
       )}
@@ -6048,12 +6899,80 @@ const AdGroupDetail = () => {
         />
       )}
 
+      {usesTabs && tab === 'tone' && (
+        <div className="my-4 space-y-4">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]">
+            <div className="flex flex-col gap-3 border-b border-gray-100 px-5 py-4 dark:border-[var(--border-color-default)] sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-color-10)] text-[var(--accent-color)]">
+                  <FiMessageCircle size={18} />
+                </span>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Tone of voice</h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-300">
+                    Share the brand&apos;s voice guardrails with anyone reviewing this ad group.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 pb-5 pt-4 space-y-6">
+              {tonePrompt || hasStructuredToneDetails ? (
+                <>
+                  {tonePrompt && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Brand tone of voice</h4>
+                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                        {tonePrompt}
+                      </p>
+                    </div>
+                  )}
+                  {hasStructuredToneDetails && (
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Voice &amp; personality</h4>
+                        <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                          {brandTone.voice || 'No voice guidance documented.'}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Preferred phrasing</h4>
+                        <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                          {brandTone.phrasing || 'No phrasing guidance documented.'}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Word bank</h4>
+                        {renderToneChipList(toneWordBank, 'No preferred words documented.')}
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Language to avoid</h4>
+                        {renderToneChipList(toneNoGos, 'No restrictions documented.')}
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Call-to-action style</h4>
+                        <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                          {brandTone.ctaStyle || 'No CTA guidance documented.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-300">
+                  No tone of voice details have been documented yet. Visit the brand profile to add guidance.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {brandNotesVisible && (
         <BrandNotesPanel brandCode={group?.brandCode} brandNotes={brandNotes} />
       )}
 
       {usesTabs
-        ? tab === "assets" && (
+        ? tab === "guidelines" && (
             <BrandAssetsLayout
               brandCode={group?.brandCode}
               guidelinesUrl={brandGuidelines}
@@ -6067,6 +6986,103 @@ const AdGroupDetail = () => {
               onClose={() => setShowBrandAssets(false)}
             />
           )}
+
+      {usesTabs && tab === "assetLibrary" && (
+        <div className="my-4 space-y-4">
+          <AssetLibrary brandCode={group?.brandCode || ""} />
+        </div>
+      )}
+
+      {usesTabs && tab === "products" && (
+        <div className="my-4 space-y-4">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar)]">
+            <div className="space-y-4">
+              <div className="flex flex-col gap-1">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Brief Products</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Review the products referenced across this brief. Each entry lists the recipes that rely on it along with any available context.
+                </p>
+              </div>
+              {productsUsed.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No products have been selected for this brief yet.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {productsUsed.map((product) => (
+                    <div
+                      key={product.name}
+                      className="rounded-xl border border-gray-200 bg-gray-50 p-4 shadow-sm dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)]"
+                    >
+                      <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                        {product.featuredImage ? (
+                          <div className="md:w-32 md:flex-shrink-0">
+                            <img
+                              src={product.featuredImage}
+                              alt={`${product.name} asset`}
+                              className="h-24 w-24 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-[var(--border-color-default)]"
+                            />
+                          </div>
+                        ) : null}
+                        <div className="flex-1 space-y-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                              {product.name}
+                            </h4>
+                            {product.recipes.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {product.recipes.map((code) => (
+                                  <span
+                                    key={code}
+                                    className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-xs font-medium text-gray-700 shadow-sm ring-1 ring-gray-200 dark:bg-[var(--dark-sidebar)] dark:text-gray-200 dark:ring-[var(--border-color-default)]"
+                                  >
+                                    Recipe {code}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {product.descriptions.length > 0 && (
+                            <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                              {product.descriptions.map((desc, idx) => (
+                                <p key={idx} className="whitespace-pre-wrap">
+                                  {desc}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                          {product.benefits.length > 0 && (
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                Key Benefits
+                              </p>
+                              <ul className="list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
+                                {product.benefits.map((benefit, idx) => (
+                                  <li key={idx}>{benefit}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {product.url && (
+                            <a
+                              href={product.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center text-sm font-medium text-blue-600 hover:underline"
+                            >
+                              View product details
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
         </div>
       </div>
     </div>

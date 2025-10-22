@@ -20,6 +20,8 @@ import {
   FiHome,
   FiDownload,
   FiMoreHorizontal,
+  FiAlertCircle,
+  FiX,
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -42,10 +44,13 @@ import {
   orderBy,
   deleteField,
   documentId,
+  limit,
 } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from './firebase/config';
 import useAgencyTheme from './useAgencyTheme';
 import { DEFAULT_LOGO_URL } from './constants';
+import useExporterIntegrations from './useExporterIntegrations';
 import OptimizedImage from './components/OptimizedImage.jsx';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import GalleryModal from './components/GalleryModal.jsx';
@@ -76,10 +81,58 @@ import { isRealtimeReviewerEligible } from './utils/realtimeEligibility';
 import notifySlackStatusChange from './utils/notifySlackStatusChange';
 import { toDateSafe, countUnreadHelpdeskTickets } from './utils/helpdesk';
 
+const resolveEnvValue = (key, fallback = '') => {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    const value = import.meta.env[key];
+    if (value !== undefined) {
+      return value;
+    }
+  }
+  return fallback;
+};
+
+const DEFAULT_EXPORT_TARGET_ENV = (() => {
+  const raw = `${resolveEnvValue('VITE_EXPORT_TARGET_ENV', resolveEnvValue('MODE', ''))}`
+    .trim()
+    .toLowerCase();
+
+  if (raw.startsWith('prod')) {
+    return 'prod';
+  }
+
+  if (raw.startsWith('stage')) {
+    return 'staging';
+  }
+
+  return 'staging';
+})();
+
+const EXPORT_WORKER_SECRET = (() => {
+  const raw = resolveEnvValue('VITE_EXPORT_WORKER_SECRET', '').trim();
+  return raw;
+})();
+
 const normalizeKeyPart = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
   return String(value);
+};
+
+const normalizeUniqueIdList = (values) => {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set();
+  const normalized = [];
+  values.forEach((value) => {
+    const candidate =
+      typeof value === 'string' ? value : value?.id ?? value?.assetId ?? value;
+    const key = normalizeKeyPart(candidate);
+    if (!key || seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    normalized.push(key);
+  });
+  return normalized;
 };
 
 const normalizeReviewAssetData = (raw, overrides = {}) => {
@@ -206,6 +259,121 @@ const normalizeCopyText = (value) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
   return String(value);
+};
+
+const normalizeDisplayString = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim();
+  return String(value).trim();
+};
+
+const simplifyPartnerLabel = (label, key) => {
+  const normalizedLabel = normalizeDisplayString(label);
+  const normalizedKey = normalizeKeyPart(key);
+
+  if (normalizedLabel) {
+    if (/ad\s*log/i.test(normalizedLabel)) {
+      return 'AdLog';
+    }
+    return normalizedLabel;
+  }
+
+  if (normalizedKey) {
+    if (normalizedKey === 'compass' || normalizedKey === 'adlog') {
+      return 'AdLog';
+    }
+    return normalizedKey
+      .split(/[-_\s]+/)
+      .filter(Boolean)
+      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+      .join(' ');
+  }
+
+  return 'Partner';
+};
+
+const getMillis = (value) => {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') {
+    return value.toMillis();
+  }
+  const date = new Date(value);
+  const time = date.getTime();
+  return Number.isFinite(time) ? time : 0;
+};
+
+const getAdReviewLabel = (ad) => {
+  if (!ad) return 'Ad Unit';
+  const info = parseAdFilename(ad.filename || '');
+  return (
+    normalizeDisplayString(ad.recipeCode) ||
+    normalizeDisplayString(info.recipeCode) ||
+    normalizeDisplayString(ad.name) ||
+    'Ad Unit'
+  );
+};
+
+const getSyncStatePriority = (state) => {
+  switch (state) {
+    case 'error':
+      return 3;
+    case 'received':
+    case 'duplicate':
+      return 2;
+    case 'sent':
+      return 1;
+    default:
+      return 0;
+  }
+};
+
+const SYNC_BADGE_STYLES = {
+  sent: {
+    container:
+      'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-700/60 dark:bg-indigo-500/10 dark:text-indigo-200',
+    dot: 'bg-indigo-400 dark:bg-indigo-300',
+  },
+  received: {
+    container:
+      'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/60 dark:bg-emerald-500/10 dark:text-emerald-200',
+    dot: 'bg-emerald-500 dark:bg-emerald-300',
+  },
+  duplicate: {
+    container:
+      'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-500/10 dark:text-amber-200',
+    dot: 'bg-amber-500 dark:bg-amber-300',
+  },
+  error: {
+    container:
+      'border-red-200 bg-red-50 text-red-700 dark:border-red-700/60 dark:bg-red-500/10 dark:text-red-200',
+    dot: 'bg-red-500 dark:bg-red-300',
+  },
+};
+
+const toFiniteNumber = (value, fallback = 0) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+};
+
+const createEmptyExportJobForm = () => ({
+  targetIntegration: '',
+  integrationLabel: '',
+  targetEnv: '',
+  recipeTypeId: '',
+  brandCode: '',
+  groupDesc: '',
+  adIdsText: '',
+  assetUrlOverrides: {},
+});
+
+const INITIAL_EXPORT_JOB_MODAL_STATE = {
+  open: false,
+  loading: false,
+  jobId: '',
+  adDocId: '',
+  entry: null,
+  jobData: null,
+  adLabel: '',
 };
 
 const normalizeRecipeCode = (value) => {
@@ -771,6 +939,33 @@ const Review = forwardRef(
   const [started, setStarted] = useState(false);
   const [allHeroAds, setAllHeroAds] = useState([]); // hero list for all ads
   const [versionMode, setVersionMode] = useState(false); // reviewing new versions
+  const { integrations: exporterIntegrations } = useExporterIntegrations();
+  const enabledExporterIntegrations = useMemo(
+    () => exporterIntegrations.filter((integration) => integration.enabled !== false),
+    [exporterIntegrations],
+  );
+  const normalizedGroupRecipeTypes = useMemo(
+    () =>
+      groupRecipeTypeIds
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .filter(Boolean),
+    [groupRecipeTypeIds],
+  );
+  const matchingExporterIntegration = useMemo(() => {
+    if (normalizedGroupRecipeTypes.length === 0) {
+      return null;
+    }
+    return (
+      enabledExporterIntegrations.find((integration) => {
+        const recipeTypeId =
+          typeof integration.recipeTypeId === 'string'
+            ? integration.recipeTypeId.trim()
+            : '';
+        return recipeTypeId && normalizedGroupRecipeTypes.includes(recipeTypeId);
+      }) || null
+    );
+  }, [enabledExporterIntegrations, normalizedGroupRecipeTypes]);
+  const selectedExporterIntegration = matchingExporterIntegration || null;
   const [animating, setAnimating] = useState(null); // 'approve' | 'reject'
   const [showVersionMenu, setShowVersionMenu] = useState(false);
   const [cardVersionIndices, setCardVersionIndices] = useState({});
@@ -780,17 +975,445 @@ const Review = forwardRef(
   const [expandedRequests, setExpandedRequests] = useState({});
   const [pendingResponseContext, setPendingResponseContext] = useState(null);
   const [manualStatus, setManualStatus] = useState({});
+  const [adSyncStatus, setAdSyncStatus] = useState({});
+  const [syncToasts, setSyncToasts] = useState([]);
+
+  const resolvedReviewerName = useMemo(() => {
+    if (typeof reviewerName === 'string' && reviewerName.trim()) {
+      return reviewerName.trim();
+    }
+    if (typeof user?.displayName === 'string' && user.displayName.trim()) {
+      return user.displayName.trim();
+    }
+    if (user?.email) {
+      return user.email;
+    }
+    if (user?.uid) {
+      return user.uid;
+    }
+    return '';
+  }, [reviewerName, user]);
+
+  const reviewerIdentifier = useMemo(
+    () => resolvedReviewerName || 'anonymous',
+    [resolvedReviewerName],
+  );
+
+  const helpdeskBrandCode = useMemo(() => {
+    const normalizedGroup =
+      typeof groupBrandCode === 'string'
+        ? groupBrandCode.trim()
+        : '';
+    if (normalizedGroup) return normalizedGroup;
+    if (Array.isArray(brandCodes)) {
+      const found = brandCodes.find(
+        (code) => typeof code === 'string' && code.trim(),
+      );
+      if (found) return found.trim();
+    }
+    return '';
+  }, [groupBrandCode, brandCodes]);
+
+  const canUpdateGroupDoc = !isPublicReviewer;
+  const reviewerNameValue = resolvedReviewerName;
+  const userUid = user?.uid || null;
+  const realtimeEnabled = useMemo(
+    () => {
+      return isRealtimeReviewerEligible({
+        allowPublicListeners,
+        isPublicReviewer,
+        isAuthenticated: Boolean(userUid),
+        reviewerName: reviewerNameValue,
+      });
+    },
+    [allowPublicListeners, isPublicReviewer, userUid, reviewerNameValue],
+  );
+
+  const [exportJobModalState, setExportJobModalState] = useState(
+    INITIAL_EXPORT_JOB_MODAL_STATE,
+  );
+  const [exportJobForm, setExportJobForm] = useState(() => createEmptyExportJobForm());
+  const [exportJobModalError, setExportJobModalError] = useState('');
+  const [exportJobModalSuccess, setExportJobModalSuccess] = useState('');
+  const [resendingExport, setResendingExport] = useState(false);
   const statusBarSentinelRef = useRef(null);
   const statusBarRef = useRef(null);
   const toolbarRef = useRef(null);
   const recipePreviewRef = useRef(null);
   const [statusBarPinned, setStatusBarPinned] = useState(false);
   const [toolbarOffset, setToolbarOffset] = useState(0);
+  const safeToolbarOffset = Number.isFinite(toolbarOffset)
+    ? Math.max(0, toolbarOffset)
+    : 0;
   const preloads = useRef([]);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const touchEndX = useRef(0);
   const touchEndY = useRef(0);
+  const toastTimersRef = useRef(new Map());
+  const toastHistoryRef = useRef(new Set());
+  const adSyncMetaRef = useRef({});
+  const initialSyncLoadedRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      toastTimersRef.current.forEach((timer) => clearTimeout(timer));
+      toastTimersRef.current.clear();
+    };
+  }, []);
+
+  const resetExportJobModal = useCallback(() => {
+    setExportJobModalState(INITIAL_EXPORT_JOB_MODAL_STATE);
+    setExportJobForm(createEmptyExportJobForm());
+    setExportJobModalError('');
+    setExportJobModalSuccess('');
+    setResendingExport(false);
+  }, []);
+
+  const closeExportJobModal = useCallback(() => {
+    resetExportJobModal();
+  }, [resetExportJobModal]);
+
+  const handleExportJobFieldChange = useCallback((field, value) => {
+    setExportJobForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
+
+  const handleAssetOverrideChange = useCallback((adId, value) => {
+    setExportJobForm((prev) => {
+      const nextOverrides = { ...(prev.assetUrlOverrides || {}) };
+      if (value) {
+        nextOverrides[adId] = value;
+      } else {
+        delete nextOverrides[adId];
+      }
+      return {
+        ...prev,
+        assetUrlOverrides: nextOverrides,
+      };
+    });
+  }, []);
+
+  const openExportJobModal = useCallback(
+    async (info) => {
+      if (!info?.jobId) {
+        return;
+      }
+
+      const docId = info.docId || '';
+      const meta = docId ? adSyncMetaRef.current[docId] || {} : {};
+      const adLabel = normalizeDisplayString(meta.label || meta.adName) || docId || 'Ad unit';
+
+      setExportJobModalState({
+        ...INITIAL_EXPORT_JOB_MODAL_STATE,
+        open: true,
+        loading: true,
+        jobId: info.jobId,
+        adDocId: docId,
+        entry: info,
+        adLabel,
+      });
+      setExportJobForm(createEmptyExportJobForm());
+      setExportJobModalError('');
+      setExportJobModalSuccess('');
+
+      try {
+        const jobRef = doc(db, 'exportJobs', info.jobId);
+        const jobSnap = await getDoc(jobRef);
+        if (!jobSnap.exists()) {
+          setExportJobModalState((prev) => ({
+            ...prev,
+            loading: false,
+          }));
+          setExportJobModalError(
+            'Export job was not found. It may have been archived or deleted.',
+          );
+          return;
+        }
+
+        const jobData = jobSnap.data() || {};
+        const adIds = normalizeUniqueIdList(
+          Array.isArray(jobData.approvedAdIds)
+            ? jobData.approvedAdIds
+            : Array.isArray(jobData.adIds)
+              ? jobData.adIds
+              : [],
+        );
+
+        const overrides = {};
+        if (jobData.assetOverrides && typeof jobData.assetOverrides === 'object') {
+          Object.entries(jobData.assetOverrides).forEach(([key, value]) => {
+            if (!key) return;
+            let url = '';
+            if (typeof value === 'string') {
+              url = normalizeDisplayString(value);
+            } else if (value && typeof value === 'object') {
+              url = normalizeDisplayString(value.assetUrl);
+            }
+            if (url) {
+              overrides[key] = url;
+            }
+          });
+        }
+
+        setExportJobForm({
+          targetIntegration:
+            normalizeDisplayString(jobData.targetIntegration) ||
+            normalizeDisplayString(jobData.integrationKey) ||
+            '',
+          integrationLabel: normalizeDisplayString(jobData.integration?.label) || '',
+          targetEnv: normalizeDisplayString(jobData.targetEnv) || '',
+          recipeTypeId: normalizeDisplayString(jobData.recipeTypeId) || '',
+          brandCode: normalizeDisplayString(jobData.brandCode) || '',
+          groupDesc: normalizeDisplayString(jobData.groupDesc) || '',
+          adIdsText: adIds.join('\n'),
+          assetUrlOverrides: overrides,
+        });
+
+        setExportJobModalState((prev) => ({
+          ...prev,
+          loading: false,
+          jobData: { ...jobData, id: info.jobId },
+        }));
+      } catch (err) {
+        console.error('Failed to load export job details', err);
+        setExportJobModalState((prev) => ({
+          ...prev,
+          loading: false,
+        }));
+        setExportJobModalError('Failed to load export job details. Please try again.');
+      }
+    },
+    [setExportJobForm],
+  );
+
+  const handleResendExportJob = useCallback(async () => {
+    if (!exportJobModalState?.jobData || !exportJobModalState.jobId) {
+      return;
+    }
+
+    setResendingExport(true);
+    setExportJobModalError('');
+    setExportJobModalSuccess('');
+
+    try {
+      const originalJob = exportJobModalState.jobData || {};
+      const rawAdIds = exportJobForm.adIdsText
+        .split(/[\s,]+/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      const adIds = normalizeUniqueIdList(rawAdIds);
+
+      if (adIds.length === 0) {
+        setExportJobModalError('Please provide at least one ad ID to resend.');
+        setResendingExport(false);
+        return;
+      }
+
+      const integrationKeyRaw =
+        normalizeKeyPart(exportJobForm.targetIntegration) ||
+        normalizeKeyPart(originalJob.targetIntegration) ||
+        normalizeKeyPart(originalJob.integrationKey) ||
+        normalizeKeyPart(originalJob.integration?.key) ||
+        '';
+      if (!integrationKeyRaw) {
+        setExportJobModalError('Please select a target integration to resend.');
+        setResendingExport(false);
+        return;
+      }
+      const integrationKey = integrationKeyRaw.toLowerCase();
+      const integrationLabel =
+        normalizeDisplayString(exportJobForm.integrationLabel) ||
+        simplifyPartnerLabel(originalJob.integration?.label, integrationKey) ||
+        simplifyPartnerLabel('', integrationKey);
+      const targetEnv =
+        normalizeKeyPart(exportJobForm.targetEnv).toLowerCase() ||
+        normalizeKeyPart(originalJob.targetEnv).toLowerCase() ||
+        DEFAULT_EXPORT_TARGET_ENV;
+      const recipeTypeId =
+        normalizeKeyPart(exportJobForm.recipeTypeId) ||
+        normalizeKeyPart(originalJob.recipeTypeId) ||
+        null;
+      const brandCode =
+        normalizeDisplayString(exportJobForm.brandCode) ||
+        normalizeDisplayString(originalJob.brandCode) ||
+        '';
+      const groupDesc =
+        normalizeDisplayString(exportJobForm.groupDesc) ||
+        normalizeDisplayString(originalJob.groupDesc) ||
+        '';
+
+      const metadata = { ...(originalJob.metadata || {}) };
+      const previousCounts = originalJob.counts || {};
+      const previouslyExported = toFiniteNumber(
+        previousCounts.previouslyExported,
+        toFiniteNumber(metadata.previouslyExported, 0),
+      );
+      const totalAds = toFiniteNumber(
+        metadata.totalAds,
+        toFiniteNumber(previousCounts.total, adIds.length),
+      ) || adIds.length;
+      const counts = {
+        approved: adIds.length,
+        total: totalAds,
+        previouslyExported,
+      };
+
+      const timestamp = serverTimestamp();
+
+      metadata.totalAds = counts.total;
+      metadata.totalApproved = counts.previouslyExported + counts.approved;
+      metadata.previouslyExported = counts.previouslyExported;
+      metadata.newlyApproved = counts.approved;
+      metadata.resendOf = exportJobModalState.jobId;
+      metadata.lastResendBy = reviewerIdentifier || originalJob.triggeredBy || '';
+      metadata.lastResendAt = timestamp;
+
+      const integration = {
+        ...(originalJob.integration || {}),
+        key: integrationKey,
+        label: integrationLabel,
+      };
+
+      const previousOverrides =
+        originalJob.assetOverrides && typeof originalJob.assetOverrides === 'object'
+          ? originalJob.assetOverrides
+          : {};
+      const assetOverrides = {};
+      Object.entries(previousOverrides).forEach(([key, value]) => {
+        if (!key) return;
+        const url = normalizeDisplayString(
+          typeof value === 'string' ? value : value?.assetUrl,
+        );
+        if (url) {
+          assetOverrides[key] = { assetUrl: url };
+        }
+      });
+      Object.entries(exportJobForm.assetUrlOverrides || {}).forEach(([key, value]) => {
+        const url = normalizeDisplayString(value);
+        if (url) {
+          assetOverrides[key] = { assetUrl: url };
+        } else if (assetOverrides[key]) {
+          delete assetOverrides[key];
+        }
+      });
+
+      const {
+        summary: _ignoredSummary,
+        syncStatus: _ignoredSyncStatus,
+        completedAt: _ignoredCompletedAt,
+        updatedAt: _ignoredUpdatedAt,
+        counts: _ignoredCounts,
+        createdAt: _ignoredCreatedAt,
+        requestedAt: _ignoredRequestedAt,
+        status: _ignoredStatus,
+        ...rest
+      } = originalJob;
+
+      const payload = {
+        ...rest,
+        adGroupId: originalJob.adGroupId || rest.adGroupId || '',
+        adGroupName: originalJob.adGroupName || rest.adGroupName || '',
+        brandCode,
+        groupDesc,
+        adIds,
+        approvedAdIds: adIds,
+        targetEnv,
+        targetIntegration: integrationKey,
+        integrationKey,
+        recipeTypeId,
+        status: 'pending',
+        triggeredBy: reviewerIdentifier || originalJob.triggeredBy || '',
+        createdBy: reviewerIdentifier || originalJob.createdBy || '',
+        createdAt: timestamp,
+        requestedAt: timestamp,
+        metadata,
+        integration,
+        counts,
+        source: originalJob.source || 'review-resend',
+        syncStatus: {},
+        summary: null,
+        completedAt: null,
+        updatedAt: null,
+        resendOf: exportJobModalState.jobId,
+      };
+
+      if (Object.keys(assetOverrides).length > 0) {
+        payload.assetOverrides = assetOverrides;
+      } else if (payload.assetOverrides) {
+        delete payload.assetOverrides;
+      }
+
+      const jobRef = await addDoc(collection(db, 'exportJobs'), payload);
+
+      try {
+        const runExportJobCallable = httpsCallable(functions, 'runExportJob', {
+          timeout: 540000,
+        });
+        const workerPayload = { jobId: jobRef.id };
+        if (EXPORT_WORKER_SECRET) {
+          workerPayload.secret = EXPORT_WORKER_SECRET;
+        }
+        await runExportJobCallable(workerPayload);
+      } catch (workerErr) {
+        console.error('Failed to trigger export job resend', workerErr);
+        throw workerErr;
+      }
+
+      setExportJobModalSuccess(`Resend queued. New export job ID: ${jobRef.id}`);
+      setExportJobModalState((prev) => ({
+        ...prev,
+        jobId: jobRef.id,
+        entry: prev.entry
+          ? {
+              ...prev.entry,
+              jobId: jobRef.id,
+              state: 'sent',
+              message: '',
+            }
+          : prev.entry,
+        jobData: { ...payload, id: jobRef.id },
+      }));
+    } catch (err) {
+      console.error('Failed to resend export job', err);
+      setExportJobModalError(
+        err?.message || 'Failed to resend export job. Please try again.',
+      );
+    } finally {
+      setResendingExport(false);
+    }
+  }, [
+    exportJobForm,
+    exportJobModalState,
+    reviewerIdentifier,
+  ]);
+
+  const exportJobSyncStatusEntries = useMemo(() => {
+    const jobData = exportJobModalState?.jobData;
+    if (!jobData || !jobData.syncStatus || typeof jobData.syncStatus !== 'object') {
+      return [];
+    }
+    const entries = Object.entries(jobData.syncStatus).map(([adId, value]) => {
+      const normalizedState = normalizeKeyPart(value?.state);
+      const state = normalizedState ? normalizedState.toLowerCase() : '';
+      return {
+        adId,
+        state,
+        message: normalizeDisplayString(value?.message),
+        assetUrl: normalizeDisplayString(value?.assetUrl),
+      };
+    });
+    entries.sort((a, b) => {
+      if (a.adId === exportJobModalState.adDocId) return -1;
+      if (b.adId === exportJobModalState.adDocId) return 1;
+      if (a.state === 'error' && b.state !== 'error') return -1;
+      if (b.state === 'error' && a.state !== 'error') return 1;
+      return a.adId.localeCompare(b.adId);
+    });
+    return entries;
+  }, [exportJobModalState]);
 
   const copyCardsWithMeta = useMemo(
     () =>
@@ -932,56 +1555,6 @@ const Review = forwardRef(
 
     return assignments;
   }, [recipes]);
-
-  const resolvedReviewerName = useMemo(() => {
-    if (typeof reviewerName === 'string' && reviewerName.trim()) {
-      return reviewerName.trim();
-    }
-    if (typeof user?.displayName === 'string' && user.displayName.trim()) {
-      return user.displayName.trim();
-    }
-    if (user?.email) {
-      return user.email;
-    }
-    if (user?.uid) {
-      return user.uid;
-    }
-    return '';
-  }, [reviewerName, user]);
-
-  const reviewerIdentifier = useMemo(
-    () => resolvedReviewerName || 'anonymous',
-    [resolvedReviewerName],
-  );
-
-  const helpdeskBrandCode = useMemo(() => {
-    const normalizedGroup = typeof groupBrandCode === 'string'
-      ? groupBrandCode.trim()
-      : '';
-    if (normalizedGroup) return normalizedGroup;
-    if (Array.isArray(brandCodes)) {
-      const found = brandCodes.find(
-        (code) => typeof code === 'string' && code.trim(),
-      );
-      if (found) return found.trim();
-    }
-    return '';
-  }, [groupBrandCode, brandCodes]);
-
-  const canUpdateGroupDoc = !isPublicReviewer;
-  const reviewerNameValue = resolvedReviewerName;
-  const userUid = user?.uid || null;
-  const realtimeEnabled = useMemo(
-    () => {
-      return isRealtimeReviewerEligible({
-        allowPublicListeners,
-        isPublicReviewer,
-        isAuthenticated: Boolean(userUid),
-        reviewerName: reviewerNameValue,
-      });
-    },
-    [allowPublicListeners, isPublicReviewer, userUid, reviewerNameValue],
-  );
 
   const performGroupUpdate = useCallback(
     async (
@@ -1838,6 +2411,7 @@ useEffect(() => {
             if (cancelled) return;
             if (groupSnap.exists()) {
               const data = groupSnap.data();
+              setExportedAdIds(normalizeUniqueIdList(data?.exportedAdIds));
               const rawStatus = data.status || 'pending';
               setGroupStatus(rawStatus);
               status = rawStatus;
@@ -1901,11 +2475,14 @@ useEffect(() => {
               );
           } else {
             setGroupStatus(null);
+            setExportedAdIds([]);
+            setGroupRecipeTypeIds([]);
           }
           setInitialStatus(status);
           setReviewVersion(rv);
         } else {
           setGroupStatus(null);
+          setExportedAdIds([]);
           const normalizedBrandCodes = Array.from(
             new Set(
               brandCodes
@@ -3258,6 +3835,392 @@ useEffect(() => {
     return counts;
   }, [reviewAds, buildStatusMeta]);
 
+  const canFinalizeReview = useMemo(() => {
+    if (isGroupReviewed) {
+      return false;
+    }
+    if (!groupId) {
+      return false;
+    }
+    if (!Array.isArray(reviewAds) || reviewAds.length === 0) {
+      return false;
+    }
+    if (initialStatus === 'done') {
+      return false;
+    }
+    return true;
+  }, [
+    groupId,
+    initialStatus,
+    isGroupReviewed,
+    reviewAds,
+  ]);
+
+  const adSyncMetaByDocId = useMemo(() => {
+    const map = {};
+    reviewAds.forEach((ad, index) => {
+      if (!ad) return;
+      const { statusAssets } = buildStatusMeta(ad, index);
+      const label = getAdReviewLabel(ad);
+      const adName = normalizeDisplayString(ad?.name || ad?.title);
+      statusAssets.forEach((asset) => {
+        const docId = getAssetDocumentId(asset);
+        if (!docId || map[docId]) return;
+        map[docId] = {
+          label,
+          adName,
+          recipeCode: normalizeDisplayString(ad?.recipeCode),
+        };
+      });
+    });
+    return map;
+  }, [reviewAds, buildStatusMeta]);
+
+  useEffect(() => {
+    adSyncMetaRef.current = adSyncMetaByDocId;
+  }, [adSyncMetaByDocId]);
+
+  useEffect(() => {
+    initialSyncLoadedRef.current = false;
+  }, [groupId, allowPublicListeners]);
+
+  const removeToast = useCallback((id) => {
+    setSyncToasts((prev) => prev.filter((toast) => toast.id !== id));
+    const timer = toastTimersRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      toastTimersRef.current.delete(id);
+    }
+  }, []);
+
+  const enqueueToast = useCallback(
+    ({ type = 'info', title, description = '', duration = 6000 }) => {
+      if (!title) return;
+      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setSyncToasts((prev) => [...prev, { id, type, title, description }]);
+      const timer = setTimeout(() => {
+        removeToast(id);
+      }, duration);
+      toastTimersRef.current.set(id, timer);
+    },
+    [removeToast],
+  );
+
+  const resolveSyncStatusForAssets = useCallback(
+    (assets = []) => {
+      if (!Array.isArray(assets) || assets.length === 0) {
+        return null;
+      }
+      const entries = [];
+      assets.forEach((asset) => {
+        const docId = getAssetDocumentId(asset);
+        if (!docId) return;
+        const entry = adSyncStatus[docId];
+        if (entry) {
+          entries.push({ ...entry, docId });
+        }
+      });
+      if (entries.length === 0) {
+        return null;
+      }
+      entries.sort((a, b) => {
+        const priorityDiff =
+          getSyncStatePriority(b.state) - getSyncStatePriority(a.state);
+        if (priorityDiff !== 0) {
+          return priorityDiff;
+        }
+        return (b.jobTimestamp || 0) - (a.jobTimestamp || 0);
+      });
+      return entries[0];
+    },
+    [adSyncStatus],
+  );
+
+  const renderSyncStatusBadge = useCallback(
+    (assets, { size = 'regular' } = {}) => {
+      const info = resolveSyncStatusForAssets(assets);
+      if (!info) {
+        return null;
+      }
+      const state = info.state;
+      const styles = SYNC_BADGE_STYLES[state] || SYNC_BADGE_STYLES.sent;
+      if (!styles) {
+        return null;
+      }
+
+      const partnerName = info.partnerName || 'Partner';
+      let text = '';
+      if (state === 'received') {
+        text = `Received by ${partnerName}`;
+      } else if (state === 'duplicate') {
+        text = `Already received by ${partnerName}`;
+      } else if (state === 'error') {
+        text = 'Error';
+      } else if (state === 'sent') {
+        text = `Sent to ${partnerName}`;
+      } else {
+        return null;
+      }
+
+      const fontSizeClass = size === 'compact' ? 'text-[11px]' : 'text-xs';
+      const paddingClass = size === 'compact' ? 'px-2 py-0.5' : 'px-2.5 py-0.5';
+      const messageTitle = info.message
+        ? state === 'error'
+          ? `${partnerName} error: ${info.message}`
+          : `${partnerName}: ${info.message}`
+        : '';
+      const title = info.jobId
+        ? [messageTitle, 'Click to review export payload'].filter(Boolean).join('. ')
+        : messageTitle || undefined;
+
+      const badgeContent = (
+        <>
+          <span className={`h-2 w-2 rounded-full ${styles.dot}`} />
+          <span>{text}</span>
+        </>
+      );
+
+      if (!info.jobId) {
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full border font-medium ${fontSizeClass} ${paddingClass} ${styles.container}`}
+            title={title}
+          >
+            {badgeContent}
+          </span>
+        );
+      }
+
+      const meta = info.docId ? adSyncMetaRef.current[info.docId] || {} : {};
+      const adLabel = normalizeDisplayString(meta.label || meta.adName) || 'Ad unit';
+      const ariaLabel = `View export job details for ${adLabel}`;
+      const handleClick = () => {
+        openExportJobModal({ ...info });
+      };
+
+      return (
+        <button
+          type="button"
+          onClick={handleClick}
+          className={`inline-flex items-center gap-1.5 rounded-full border font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--accent-color)] dark:focus-visible:ring-offset-gray-900 ${fontSizeClass} ${paddingClass} ${styles.container}`}
+          title={title}
+          aria-label={ariaLabel}
+        >
+          {badgeContent}
+        </button>
+      );
+    },
+    [openExportJobModal, resolveSyncStatusForAssets],
+  );
+
+  useEffect(() => {
+    if (!groupId) {
+      setAdSyncStatus((prev) => (Object.keys(prev).length > 0 ? {} : prev));
+      return undefined;
+    }
+
+    const jobsRef = query(
+      collection(db, 'exportJobs'),
+      where('adGroupId', '==', groupId),
+      orderBy('createdAt', 'desc'),
+      limit(20),
+    );
+
+    const unsubscribe = onSnapshot(
+      jobsRef,
+      (snapshot) => {
+        const isInitialLoad = !initialSyncLoadedRef.current;
+        initialSyncLoadedRef.current = true;
+        const aggregated = {};
+
+        const triggerToastForEntry = (adId, entry, { skip } = {}) => {
+          if (skip) {
+            return;
+          }
+          const state = entry.state;
+          if (!['received', 'duplicate', 'error'].includes(state)) {
+            return;
+          }
+          const toastKey = `${entry.jobId}:${adId}:${state}`;
+          if (toastHistoryRef.current.has(toastKey)) {
+            return;
+          }
+          toastHistoryRef.current.add(toastKey);
+
+          const meta = adSyncMetaRef.current[adId] || {};
+          const adLabel = normalizeDisplayString(meta.label || meta.adName) || 'This ad';
+          const partnerName = entry.partnerName || 'Partner';
+          const description = entry.message || '';
+
+          if (state === 'error') {
+            enqueueToast({
+              type: 'error',
+              title: `${adLabel} failed at ${partnerName}`,
+              description: description || 'Partner reported an error.',
+            });
+            return;
+          }
+
+          if (state === 'duplicate') {
+            enqueueToast({
+              type: 'success',
+              title: `${adLabel} already received by ${partnerName}`,
+              description: description || 'Partner marked the export as a duplicate.',
+            });
+            return;
+          }
+
+          enqueueToast({
+            type: 'success',
+            title: `${adLabel} received by ${partnerName}`,
+            description: description || 'Partner acknowledged the export.',
+          });
+        };
+
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data() || {};
+          const jobId = docSnap.id;
+          const integrationKey =
+            normalizeKeyPart(
+              data.integration?.key ||
+                data.integrationKey ||
+                data.targetIntegration ||
+                data.partnerKey ||
+                data.partner ||
+                data.destination,
+            ) || '';
+          const partnerName = simplifyPartnerLabel(
+            data.integration?.label || data.integrationLabel,
+            integrationKey || data.targetIntegration,
+          );
+          const syncStatusMap = data.syncStatus || {};
+          const jobStatus = normalizeKeyPart(data.status);
+          const timestampCandidates = [
+            data.completedAt,
+            data.updatedAt,
+            data.startedAt,
+            data.requestedAt,
+            data.createdAt,
+          ];
+          let jobTimestamp = 0;
+          timestampCandidates.forEach((candidate) => {
+            const ms = getMillis(candidate);
+            if (ms > jobTimestamp) {
+              jobTimestamp = ms;
+            }
+          });
+          if (!jobTimestamp) {
+            jobTimestamp = getMillis(docSnap.updateTime) || getMillis(docSnap.createTime);
+          }
+
+          const approvedIds = Array.isArray(data.approvedAdIds)
+            ? data.approvedAdIds
+            : [];
+          const fallbackIds = Array.isArray(data.adIds) ? data.adIds : [];
+          const embeddedIds = Array.isArray(data.ads)
+            ? data.ads
+                .map((item) => (typeof item === 'string' ? item : item?.id))
+                .filter(Boolean)
+            : [];
+          const combinedIds = [...approvedIds, ...fallbackIds, ...embeddedIds];
+
+          combinedIds.forEach((rawId) => {
+            const adId = normalizeKeyPart(rawId);
+            if (!adId) return;
+            const rawEntry = syncStatusMap[rawId] || syncStatusMap[adId] || {};
+            let state = normalizeKeyPart(rawEntry.state);
+            let message = normalizeDisplayString(rawEntry.message);
+            if (!state) {
+              if (jobStatus === 'pending' || jobStatus === 'processing') {
+                state = 'sent';
+              } else if (jobStatus === 'failed') {
+                state = 'error';
+                if (!message) {
+                  message = normalizeDisplayString(data.summary?.message) || 'Export failed';
+                }
+              }
+            }
+            if (!state) {
+              return;
+            }
+            const normalizedState = state.toLowerCase();
+            const entry = {
+              state: normalizedState,
+              message,
+              jobId,
+              jobTimestamp,
+              partnerName,
+            };
+            const existing = aggregated[adId];
+            if (!existing || (existing.jobTimestamp || 0) <= jobTimestamp) {
+              aggregated[adId] = entry;
+            }
+          });
+        });
+
+        const aggregatedEntries = Object.entries(aggregated);
+
+        setAdSyncStatus((prev) => {
+          if (snapshot.empty) {
+            if (Object.keys(prev).length === 0) {
+              return prev;
+            }
+            return {};
+          }
+
+          const next = {};
+          let shouldUpdate = false;
+
+          aggregatedEntries.forEach(([adId, entry]) => {
+            next[adId] = entry;
+            const prevEntry = prev[adId];
+            const stateChanged =
+              !prevEntry || prevEntry.jobId !== entry.jobId || prevEntry.state !== entry.state;
+            if (
+              stateChanged ||
+              prevEntry?.message !== entry.message ||
+              prevEntry?.partnerName !== entry.partnerName ||
+              prevEntry?.jobTimestamp !== entry.jobTimestamp
+            ) {
+              shouldUpdate = true;
+            }
+            if (stateChanged) {
+              triggerToastForEntry(adId, entry, { skip: isInitialLoad });
+            }
+          });
+
+          const prevKeys = Object.keys(prev);
+          if (!shouldUpdate) {
+            if (prevKeys.length !== aggregatedEntries.length) {
+              shouldUpdate = true;
+            } else {
+              for (const key of prevKeys) {
+                if (!next[key]) {
+                  shouldUpdate = true;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (!shouldUpdate) {
+            return prev;
+          }
+
+          return next;
+        });
+      },
+      (error) => {
+        console.error('Failed to subscribe to export job status', error);
+      },
+    );
+
+    return () => unsubscribe();
+  }, [
+    groupId,
+    enqueueToast,
+  ]);
+
   const handleDownloadBrief = useCallback(() => {
     if (
       !recipePreviewRef.current ||
@@ -3359,6 +4322,66 @@ useEffect(() => {
   const reviewMenuButtonAriaLabel = hasUnreadHelpdesk
     ? 'Open review actions menu (unread helpdesk messages)'
     : 'Open review actions menu';
+
+  const toastVariantStyles = {
+    success: {
+      container:
+        'border-emerald-200 bg-white/95 text-emerald-900 shadow-lg backdrop-blur dark:border-emerald-500/40 dark:bg-slate-900/90 dark:text-emerald-200',
+      iconBg: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-200',
+      Icon: FiCheckCircle,
+    },
+    error: {
+      container:
+        'border-red-200 bg-white/95 text-red-900 shadow-lg backdrop-blur dark:border-red-500/40 dark:bg-slate-900/90 dark:text-red-200',
+      iconBg: 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-200',
+      Icon: FiAlertCircle,
+    },
+    info: {
+      container:
+        'border-indigo-200 bg-white/95 text-indigo-900 shadow-lg backdrop-blur dark:border-indigo-500/40 dark:bg-slate-900/90 dark:text-indigo-200',
+      iconBg: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-200',
+      Icon: FiCheckCircle,
+    },
+  };
+
+  const toastElements = (
+    <div className="pointer-events-none fixed top-4 right-4 z-[1100] flex w-full max-w-xs flex-col gap-3 sm:max-w-sm">
+      {syncToasts.map((toast) => {
+        const variant = toastVariantStyles[toast.type] || toastVariantStyles.info;
+        const Icon = variant.Icon;
+        return (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto overflow-hidden rounded-xl border ${variant.container}`}
+            role="status"
+            aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+          >
+            <div className="flex items-start gap-3 p-4">
+              <span
+                className={`mt-0.5 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${variant.iconBg}`}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">{toast.title}</p>
+                {toast.description ? (
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{toast.description}</p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => removeToast(toast.id)}
+                className="inline-flex flex-shrink-0 items-center rounded-md p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-gray-300 dark:hover:bg-white/10"
+                aria-label="Dismiss notification"
+              >
+                <FiX className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   // Preload upcoming ads to keep transitions smooth
   useEffect(() => {
@@ -4011,10 +5034,23 @@ useEffect(() => {
 
   const approveAllPending = async () => {
     const pendingEntries = [];
+    const pendingDocIds = new Set();
+
+    const collectDocIds = (assets, fallbackAd) => {
+      const candidates = Array.isArray(assets) && assets.length > 0 ? assets : fallbackAd ? [fallbackAd] : [];
+      candidates.forEach((asset) => {
+        const docId = getAssetDocumentId(asset);
+        if (docId) {
+          pendingDocIds.add(docId);
+        }
+      });
+    };
+
     reviewAds.forEach((ad, index) => {
       const { statusValue, statusAssets } = buildStatusMeta(ad, index);
       if (statusValue === 'pending') {
         pendingEntries.push({ ad, assets: statusAssets, index });
+        collectDocIds(statusAssets, ad);
       }
     });
 
@@ -4026,6 +5062,8 @@ useEffect(() => {
         skipAdvance: true,
       });
     }
+
+    return Array.from(pendingDocIds);
   };
 
   const updateIntegrationStatusForAssets = useCallback(
@@ -4305,8 +5343,60 @@ useEffect(() => {
 
     setFinalizeProcessing(true);
     try {
+      let autoApprovedDocIds = [];
       if (approvePending) {
-        await approveAllPending();
+        autoApprovedDocIds = await approveAllPending();
+      }
+
+      const approvedDocIdSet = new Set(autoApprovedDocIds.filter(Boolean));
+      const appendDocId = (asset) => {
+        if (!asset) return;
+        const docId = getAssetDocumentId(asset);
+        if (docId) {
+          approvedDocIdSet.add(docId);
+        }
+      };
+
+      reviewAds.forEach((ad, index) => {
+        const { statusValue, statusAssets } = buildStatusMeta(ad, index);
+        if (statusValue === 'approve') {
+          if (Array.isArray(statusAssets) && statusAssets.length > 0) {
+            statusAssets.forEach(appendDocId);
+          } else {
+            appendDocId(ad);
+          }
+        }
+      });
+
+      const allApprovedAdIds = normalizeUniqueIdList(Array.from(approvedDocIdSet));
+      const previouslyExportedIds = normalizeUniqueIdList(exportedAdIds);
+      const previouslyExportedSet = new Set(previouslyExportedIds);
+      const exportAdIds = allApprovedAdIds.filter(
+        (id) => !previouslyExportedSet.has(id),
+      );
+      const { reviewUrl: detailUrl, adGroupUrl } = buildDetailLinks();
+
+      const timestamp = serverTimestamp();
+      const jobBrandCode = normalizeKeyPart(groupBrandCode || brandCode || '');
+      const jobGroupDesc =
+        normalizeKeyPart(adGroupDisplayName || '') ||
+        normalizeKeyPart(groupId ? `Ad Group ${groupId}` : '');
+
+      const jobMetadata = {
+        source: 'review-finalize',
+        totalAds: reviewAds.length,
+        totalApproved: allApprovedAdIds.length,
+        newlyApproved: exportAdIds.length,
+        previouslyExported: Math.max(
+          0,
+          allApprovedAdIds.length - exportAdIds.length,
+        ),
+      };
+      if (detailUrl) {
+        jobMetadata.reviewUrl = detailUrl;
+      }
+      if (adGroupUrl) {
+        jobMetadata.adGroupUrl = adGroupUrl;
       }
 
       const approvedAssets =
@@ -4319,13 +5409,99 @@ useEffect(() => {
         reviewProgress: null,
         lastUpdated: serverTimestamp(),
       };
+      let exportJobDocRef = null;
+      if (exportAdIds.length > 0) {
+        if (!selectedExporterIntegration) {
+          console.info('Skipping export job creation: no matching exporter integration found', {
+            groupId,
+            recipeTypeIds: normalizedGroupRecipeTypes,
+            exportAdCount: exportAdIds.length,
+          });
+        } else {
+          const integrationKeyCandidate =
+            normalizeKeyPart(selectedExporterIntegration.partnerKey) ||
+            normalizeKeyPart(selectedExporterIntegration.key) ||
+            '';
+
+          if (!integrationKeyCandidate) {
+            console.warn('Skipping export job creation: integration key is missing', {
+              groupId,
+              integration: selectedExporterIntegration,
+            });
+          } else {
+            const resolvedIntegrationKey = integrationKeyCandidate.toLowerCase();
+            const resolvedIntegrationLabel =
+              selectedExporterIntegration.name ||
+              selectedExporterIntegration.label ||
+              integrationKeyCandidate;
+            const resolvedRecipeTypeId =
+              normalizeKeyPart(selectedExporterIntegration.recipeTypeId) || null;
+
+            const exportJobPayload = {
+              adGroupId: groupId,
+              adGroupName: adGroupDisplayName || '',
+              brandCode: jobBrandCode,
+              groupDesc: jobGroupDesc,
+              adIds: exportAdIds,
+              approvedAdIds: exportAdIds,
+              targetEnv: DEFAULT_EXPORT_TARGET_ENV,
+              targetIntegration: resolvedIntegrationKey,
+              integrationKey: resolvedIntegrationKey,
+              recipeTypeId: resolvedRecipeTypeId,
+              status: 'pending',
+              triggeredBy: reviewerIdentifier || '',
+              createdBy: reviewerIdentifier || '',
+              createdAt: timestamp,
+              requestedAt: timestamp,
+              metadata: jobMetadata,
+              integration: {
+                key: resolvedIntegrationKey,
+                label: resolvedIntegrationLabel,
+              },
+              counts: {
+                approved: exportAdIds.length,
+                total: reviewAds.length,
+                previouslyExported: Math.max(
+                  0,
+                  allApprovedAdIds.length - exportAdIds.length,
+                ),
+              },
+            };
+
+            exportJobDocRef = await addDoc(collection(db, 'exportJobs'), exportJobPayload);
+
+            try {
+              const runExportJobCallable = httpsCallable(functions, 'runExportJob', {
+                timeout: 540000,
+              });
+              const workerPayload = { jobId: exportJobDocRef.id };
+              if (EXPORT_WORKER_SECRET) {
+                workerPayload.secret = EXPORT_WORKER_SECRET;
+              }
+              await runExportJobCallable(workerPayload);
+            } catch (workerErr) {
+              console.error('Failed to trigger export job', workerErr);
+              throw workerErr;
+            }
+          }
+        }
+      }
+
+      if (exportJobDocRef) {
+        updateData.exportedAdIds = normalizeUniqueIdList([
+          ...previouslyExportedIds,
+          ...exportAdIds,
+        ]);
+      }
 
       await updateDoc(doc(db, 'adGroups', groupId), updateData);
 
-      const { reviewUrl: detailUrl, adGroupUrl } = buildDetailLinks();
+      if (updateData.exportedAdIds) {
+        setExportedAdIds(updateData.exportedAdIds);
+      }
 
       await notifySlackStatusChange({
-        brandCode: groupBrandCode || brandCode || '',
+        brandCode: jobBrandCode || '',
         adGroupId: groupId,
         adGroupName: adGroupDisplayName,
         status: 'reviewed',
@@ -4366,14 +5542,33 @@ useEffect(() => {
         }
       }
     } catch (err) {
-      console.error('Failed to finalize review', err);
+      if (err?.code === 'permission-denied') {
+        console.info(
+          'Finalize review is not available for this reviewer due to Firestore permissions.',
+        );
+        enqueueToast({
+          type: 'error',
+          title: 'Unable to finalize review',
+          description:
+            'You do not have permission to finalize this review. Please contact your Campfire team for help.',
+        });
+        setShowFinalizeModal(null);
+      } else {
+        console.error('Failed to finalize review', err);
+        enqueueToast({
+          type: 'error',
+          title: 'Unable to finalize review',
+          description: 'Something went wrong while finalizing. Please try again.',
+        });
+        setShowFinalizeModal(null);
+      }
     } finally {
       setFinalizeProcessing(false);
     }
   };
 
   const openFinalizeModal = () => {
-    if (finalizeProcessing || !groupId) return;
+    if (finalizeProcessing || !groupId || !canFinalizeReview) return;
     const pendingCount = reviewStatusCounts?.pending ?? 0;
     setShowFinalizeModal(pendingCount > 0 ? 'pending' : 'confirm');
   };
@@ -4408,6 +5603,10 @@ useEffect(() => {
       );
     }
 
+    if (!canFinalizeReview) {
+      return null;
+    }
+
     const disabled = finalizeProcessing || submitting || !groupId;
 
     return (
@@ -4416,7 +5615,7 @@ useEffect(() => {
         onClick={openFinalizeModal}
         disabled={disabled}
         className={combineClasses(
-          'btn-primary whitespace-nowrap font-semibold',
+          'btn-primary relative z-40 whitespace-nowrap font-semibold',
           compact ? 'px-3 py-1.5 text-xs' : 'text-sm',
           fullWidth ? 'w-full' : '',
           disabled ? 'opacity-60 cursor-not-allowed' : '',
@@ -4435,13 +5634,20 @@ useEffect(() => {
     (started && !firstAdLoaded) ||
     ((reviewVersion === 2 || reviewVersion === 3) && !recipesLoaded)
   ) {
-    return <LoadingOverlay />;
+    return (
+      <>
+        {toastElements}
+        <LoadingOverlay />
+      </>
+    );
   }
 
 
   if (!started && reviewVersion !== 2) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
+      <>
+        {toastElements}
+        <div className="flex flex-col items-center justify-center min-h-screen space-y-4 text-center">
         {timedOut && (
           <p className="text-red-600">Review timed out due to inactivity.</p>
         )}
@@ -4511,27 +5717,36 @@ useEffect(() => {
         </div>
         {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
         {showCopyModal && renderCopyModal()}
-      </div>
+        </div>
+      </>
     );
   }
 
   if (reviewVersion === 3 && (!recipes || recipes.length === 0)) {
     return (
-      <div className="text-center mt-10">No briefs assigned to your account.</div>
+      <>
+        {toastElements}
+        <div className="text-center mt-10">No briefs assigned to your account.</div>
+      </>
     );
   }
 
   if (reviewVersion !== 3 && (!ads || ads.length === 0)) {
     return (
-      <div className="text-center mt-10">
-        {hasPending ? 'ads are pending' : 'No ads assigned to your account.'}
-      </div>
+      <>
+        {toastElements}
+        <div className="text-center mt-10">
+          {hasPending ? 'ads are pending' : 'No ads assigned to your account.'}
+        </div>
+      </>
     );
   }
 
   if (pendingOnly) {
     return (
-      <div className="flex flex-col items-center justify-center space-y-4 text-center min-h-screen">
+      <>
+        {toastElements}
+        <div className="flex flex-col items-center justify-center space-y-4 text-center min-h-screen">
           {reviewLogoUrl && (
             <OptimizedImage
               pngUrl={reviewLogoUrl}
@@ -4545,14 +5760,16 @@ useEffect(() => {
         <h1 className="text-2xl font-bold">Ads Pending Review</h1>
         <p className="text-lg">We'll notify you when your ads are ready.</p>
         {showCopyModal && renderCopyModal()}
-      </div>
+        </div>
+      </>
     );
   }
 
 
   return (
     <div className="relative flex flex-col items-center justify-center space-y-4 min-h-screen">
-      {showFinalizeModal && (
+      {toastElements}
+      {showFinalizeModal && canFinalizeReview && (
         <Modal>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3">
@@ -4767,11 +5984,7 @@ useEffect(() => {
                   statusBarPinned ? 'mt-0' : 'mt-2',
                 )}
                 style={{
-                  top: statusBarPinned
-                    ? 0
-                    : toolbarOffset
-                      ? `${toolbarOffset}px`
-                      : 0,
+                  top: safeToolbarOffset,
                 }}
               >
                 <div
@@ -5401,6 +6614,9 @@ useEffect(() => {
                   if (isMobile) {
                     const assetCount = sortedAssets.length;
                     const statusLabel = statusLabelMap[statusValue] || statusValue;
+                    const syncStatusBadge = renderSyncStatusBadge(statusAssets, {
+                      size: 'compact',
+                    });
 
                     return (
                       <div
@@ -5438,6 +6654,7 @@ useEffect(() => {
                                 style={statusDotStyles[statusValue] || statusDotStyles.pending}
                               />
                               <span className="font-medium">{statusLabel}</span>
+                              {syncStatusBadge}
                             </div>
                           </div>
                           <div
@@ -5631,6 +6848,8 @@ useEffect(() => {
                     );
                   }
 
+                  const desktopSyncStatusBadge = renderSyncStatusBadge(statusAssets);
+
                   return (
                     <div
                       key={cardKey}
@@ -5751,6 +6970,7 @@ useEffect(() => {
                                 ))}
                               </select>
                             </div>
+                            {desktopSyncStatusBadge}
                           </div>
                           {showEditButton && (
                             <button
@@ -5845,9 +7065,11 @@ useEffect(() => {
               </div>
               <div className="mt-6 px-4 pt-8 pb-12 text-center text-sm text-gray-500 dark:text-gray-300">
                 <p className="mb-2">Thank you for taking the time to review these!</p>
-                <p className="mb-0">
-                  When you are all set, just click Finalize Review so we can keep things moving.
-                </p>
+                {canFinalizeReview ? (
+                  <p className="mb-0">
+                    When you are all set, just click Finalize Review so we can keep things moving.
+                  </p>
+                ) : null}
               </div>
             </div>
           ) : (
@@ -6040,6 +7262,300 @@ useEffect(() => {
       )}
       {showGallery && <GalleryModal ads={ads} onClose={() => setShowGallery(false)} />}
       {showCopyModal && renderCopyModal()}
+      {exportJobModalState.open && (
+        <Modal sizeClass="w-full max-w-3xl">
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                  Export job details
+                </h3>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                  Review the payload sent to partners and resend the export with updated details.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeExportJobModal}
+                className="btn-secondary rounded-full px-4"
+                disabled={resendingExport}
+              >
+                Close
+              </button>
+            </div>
+            {exportJobModalError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+                {exportJobModalError}
+              </div>
+            )}
+            {exportJobModalSuccess && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-200">
+                {exportJobModalSuccess}
+              </div>
+            )}
+            {exportJobModalState.loading ? (
+              <div className="flex items-center justify-center py-12 text-sm text-gray-500 dark:text-gray-300">
+                Loading export job…
+              </div>
+            ) : exportJobModalState.jobData ? (
+              <>
+                {(() => {
+                  const entry = exportJobModalState.entry || {};
+                  const entryState = normalizeKeyPart(entry.state).toLowerCase();
+                  const styles = SYNC_BADGE_STYLES[entryState] || SYNC_BADGE_STYLES.sent;
+                  const partnerName = entry.partnerName || 'Partner';
+                  let stateLabel = '';
+                  if (entryState === 'received') {
+                    stateLabel = `Received by ${partnerName}`;
+                  } else if (entryState === 'duplicate') {
+                    stateLabel = `Already received by ${partnerName}`;
+                  } else if (entryState === 'error') {
+                    stateLabel = 'Error';
+                  } else if (entryState === 'sent') {
+                    stateLabel = `Sent to ${partnerName}`;
+                  }
+                  const summary = exportJobModalState.jobData?.summary || null;
+                  const summaryStatus = normalizeKeyPart(summary?.status).toLowerCase();
+                  const summaryIsError = summaryStatus === 'failed';
+                  const summaryClass = summaryIsError
+                    ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200';
+                  return (
+                    <>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Job ID
+                          </p>
+                          <p className="mt-1 break-all font-mono text-sm text-gray-900 dark:text-gray-100">
+                            {exportJobModalState.jobId}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Current status
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${styles.container}`}
+                            >
+                              <span className={`h-2 w-2 rounded-full ${styles.dot}`} />
+                              <span>{stateLabel || 'Pending'}</span>
+                            </span>
+                            {entry.message && (
+                              <span className={`text-sm ${entryState === 'error' ? 'text-red-700 dark:text-red-300' : 'text-gray-600 dark:text-gray-300'}`}>
+                                {entry.message}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Partner
+                          </p>
+                          <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">{partnerName}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Ad asset
+                          </p>
+                          <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">
+                            {exportJobModalState.adLabel}
+                          </p>
+                          {exportJobModalState.adDocId ? (
+                            <p className="font-mono text-xs text-gray-500 dark:text-gray-400">
+                              {exportJobModalState.adDocId}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                      {summary?.message ? (
+                        <div className={`rounded-lg border p-3 text-sm ${summaryClass}`}>
+                          <p className="font-semibold">Last run summary</p>
+                          <p className="mt-1 whitespace-pre-line">{summary.message}</p>
+                        </div>
+                      ) : null}
+                    </>
+                  );
+                })()}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Integration key
+                    </label>
+                    <input
+                      type="text"
+                      value={exportJobForm.targetIntegration}
+                      onChange={(event) => handleExportJobFieldChange('targetIntegration', event.target.value)}
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Integration label
+                    </label>
+                    <input
+                      type="text"
+                      value={exportJobForm.integrationLabel}
+                      onChange={(event) => handleExportJobFieldChange('integrationLabel', event.target.value)}
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Target environment
+                    </label>
+                    <input
+                      type="text"
+                      value={exportJobForm.targetEnv}
+                      onChange={(event) => handleExportJobFieldChange('targetEnv', event.target.value)}
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Recipe type ID
+                    </label>
+                    <input
+                      type="text"
+                      value={exportJobForm.recipeTypeId}
+                      onChange={(event) => handleExportJobFieldChange('recipeTypeId', event.target.value)}
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Brand code
+                    </label>
+                    <input
+                      type="text"
+                      value={exportJobForm.brandCode}
+                      onChange={(event) => handleExportJobFieldChange('brandCode', event.target.value)}
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Group description
+                    </label>
+                    <input
+                      type="text"
+                      value={exportJobForm.groupDesc}
+                      onChange={(event) => handleExportJobFieldChange('groupDesc', event.target.value)}
+                      className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Ad IDs
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={exportJobForm.adIdsText}
+                    onChange={(event) => handleExportJobFieldChange('adIdsText', event.target.value)}
+                    className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Separate ad IDs with commas, spaces, or new lines.
+                  </p>
+                </div>
+                {exportJobSyncStatusEntries.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-[var(--dark-text)]">
+                      Ad delivery status
+                    </h4>
+                    <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                      {exportJobSyncStatusEntries.map((entry) => {
+                        const meta = adSyncMetaRef.current[entry.adId] || {};
+                        const label = normalizeDisplayString(meta.label || meta.adName) || entry.adId;
+                        const stateStyles = SYNC_BADGE_STYLES[entry.state] || SYNC_BADGE_STYLES.sent;
+                        const isError = entry.state === 'error';
+                        const stateLabel = entry.state
+                          ? entry.state.charAt(0).toUpperCase() + entry.state.slice(1)
+                          : 'Pending';
+                        return (
+                          <div
+                            key={entry.adId}
+                            className={`rounded-lg border p-3 ${
+                              isError
+                                ? 'border-red-200 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10'
+                                : 'border-gray-200 bg-gray-50 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)]'
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</p>
+                                <p className="font-mono text-xs text-gray-500 dark:text-gray-400">{entry.adId}</p>
+                              </div>
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${stateStyles.container}`}
+                              >
+                                <span className={`h-2 w-2 rounded-full ${stateStyles.dot}`} />
+                                <span>{stateLabel}</span>
+                              </span>
+                            </div>
+                            {entry.message && (
+                              <p
+                                className={`mt-2 text-sm ${
+                                  isError
+                                    ? 'text-red-700 dark:text-red-300'
+                                    : 'text-gray-600 dark:text-gray-300'
+                                }`}
+                              >
+                                {entry.message}
+                              </p>
+                            )}
+                            {isError && (
+                              <div className="mt-3 space-y-1">
+                                <label className="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">
+                                  Override asset URL
+                                </label>
+                                <input
+                                  type="text"
+                                  value={exportJobForm.assetUrlOverrides?.[entry.adId] || ''}
+                                  onChange={(event) => handleAssetOverrideChange(entry.adId, event.target.value)}
+                                  placeholder={entry.assetUrl || 'https://example.com/ad.png'}
+                                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-bg)] dark:text-gray-100"
+                                />
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  Provide a replacement asset URL if the partner rejected the original.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <div className="flex flex-wrap justify-end gap-3">
+                  <button
+                    type="button"
+                    className="btn-secondary rounded-full px-4"
+                    onClick={closeExportJobModal}
+                    disabled={resendingExport}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary rounded-full px-5"
+                    onClick={handleResendExportJob}
+                    disabled={resendingExport || exportJobModalState.loading}
+                  >
+                    {resendingExport ? 'Resending…' : 'Resend export'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-300">
+                Export job details are unavailable.
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
       {inlineCopyModalContext && (
         <Modal sizeClass="max-w-md w-full">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-[var(--dark-text)]">

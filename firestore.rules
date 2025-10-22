@@ -84,7 +84,8 @@ match /assets/{assetId} {
         'thumbnailUrl',
         'clientNote',
         'clientNoteTimestamp',
-        'hasClientNote'
+        'hasClientNote',
+        'exportedAdIds'
       ];
     }
 
@@ -314,6 +315,12 @@ match /{path=**} {
 
     match /notificationRules/{docId} {
       allow read, write: if isAdmin();
+    }
+
+    match /exportJobs/{jobId} {
+      allow create: if true;
+      allow read: if request.auth != null || isPublicReviewer();
+      allow update, delete: if false;
     }
 
     match /taggerJobs/{jobId} {

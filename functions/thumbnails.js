@@ -1,9 +1,7 @@
 import { onCall as onCallFn, HttpsError } from 'firebase-functions/v2/https';
 import { google } from 'googleapis';
-import sharp from 'sharp';
 import admin from 'firebase-admin';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import { getSharp } from './shared/lazySharp.js';
 
 // Generates thumbnails for Drive files and supports shared drives via
 // supportsAllDrives on download calls.
@@ -11,7 +9,37 @@ import os from 'os';
 import path from 'path';
 import { promises as fs } from 'fs';
 
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+let ffmpegInitPromise;
+
+async function getFfmpegInstance() {
+  if (!ffmpegInitPromise) {
+    ffmpegInitPromise = (async () => {
+      try {
+        const [ffmpegModule, ffmpegInstaller] = await Promise.all([
+          import('fluent-ffmpeg'),
+          import('@ffmpeg-installer/ffmpeg'),
+        ]);
+        const ffmpeg = ffmpegModule.default || ffmpegModule;
+        const installerPath =
+          ffmpegInstaller?.path ||
+          (typeof ffmpegInstaller?.default === 'object' ? ffmpegInstaller.default.path : undefined);
+        const hasBinary = typeof installerPath === 'string' && installerPath.length > 0;
+        if (hasBinary) {
+          ffmpeg.setFfmpegPath(installerPath);
+        } else {
+          console.warn(
+            '⚠️  FFmpeg binary path could not be resolved. Video thumbnail extraction will be disabled.',
+          );
+        }
+        return { ffmpeg, hasBinary };
+      } catch (err) {
+        console.warn('⚠️  Failed to load FFmpeg, video thumbnail extraction will be disabled.', err);
+        return { ffmpeg: null, hasBinary: false };
+      }
+    })();
+  }
+  return ffmpegInitPromise;
+}
 
 const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv']);
 
@@ -25,6 +53,10 @@ function looksLikeVideo(value) {
 }
 
 async function extractVideoFrame(inputPath, outputPath) {
+  const { ffmpeg, hasBinary } = await getFfmpegInstance();
+  if (!hasBinary || !ffmpeg) {
+    throw new Error('FFmpeg is not available for video thumbnail generation.');
+  }
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
       .inputOptions(['-ss', '00:00:01'])
@@ -69,6 +101,7 @@ export const generateThumbnailsForAssets = onCallFn({ timeoutSeconds: 60, memory
   }
   const results = [];
 
+  let sharpInstance;
   for (const asset of assets) {
     const { url, name } = asset || {};
     const result = { url, name };
@@ -104,22 +137,29 @@ export const generateThumbnailsForAssets = onCallFn({ timeoutSeconds: 60, memory
       await fs.writeFile(tmp, Buffer.from(dl.data));
       let inputTmp = tmp;
       if (isVideo) {
+        const { hasBinary } = await getFfmpegInstance();
+        if (!hasBinary) {
+          console.warn('⚠️  Skipping video frame extraction because FFmpeg is unavailable.', { fileId, name });
+          throw new Error('FFmpeg is not available for video thumbnail generation.');
+        }
         const frameTmp = path.join(os.tmpdir(), `${fileId}-frame.jpg`);
         cleanupPaths.add(frameTmp);
         await extractVideoFrame(tmp, frameTmp);
         inputTmp = frameTmp;
       } else {
-        const meta = await sharp(tmp).metadata().catch(() => ({}));
+        sharpInstance = sharpInstance || (await getSharp());
+        const meta = await sharpInstance(tmp).metadata().catch(() => ({}));
         if (meta.format === 'tiff') {
           const pngTmp = path.join(os.tmpdir(), `${fileId}.png`);
           cleanupPaths.add(pngTmp);
-          await sharp(tmp).toFormat('png').toFile(pngTmp);
+          await sharpInstance(tmp).toFormat('png').toFile(pngTmp);
           inputTmp = pngTmp;
         }
       }
       const thumbTmp = path.join(os.tmpdir(), `${fileId}.webp`);
       cleanupPaths.add(thumbTmp);
-      await sharp(inputTmp).resize({ width: 300 }).toFormat('webp').toFile(thumbTmp);
+      sharpInstance = sharpInstance || (await getSharp());
+      await sharpInstance(inputTmp).resize({ width: 300 }).toFormat('webp').toFile(thumbTmp);
       const dest = `thumbnails/${name}.webp`;
       await bucket.upload(thumbTmp, { destination: dest, contentType: 'image/webp', resumable: false });
       await bucket.file(dest).makePublic();

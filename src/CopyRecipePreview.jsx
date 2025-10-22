@@ -13,15 +13,17 @@ const CopyRecipePreview = ({
   showOnlyResults = false,
   brandCode: initialBrandCode = '',
   hideBrandSelect = false,
-  onCopyClick = null,
   onCopiesChange = null,
   showSave = !showOnlyResults,
+  saveLabel = 'Save changes',
+  canSave = true,
 }) => {
   const [types, setTypes] = useState([]);
   const [selectedType, setSelectedType] = useState('');
   const [copies, setCopies] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [brands, setBrands] = useState([]);
   const [brandCode, setBrandCode] = useState(initialBrandCode);
   const [brandProducts, setBrandProducts] = useState([]);
@@ -351,17 +353,6 @@ const CopyRecipePreview = ({
           </form>
         </>
       )}
-      {showOnlyResults && onCopyClick && (
-        <div>
-          <button
-            type="button"
-            className="btn-secondary px-2 py-0.5 flex items-center gap-1"
-            onClick={onCopyClick}
-          >
-            Copy
-          </button>
-        </div>
-      )}
       <div className="space-y-4">
         {copies.map((c, index) => {
           const letter = getCopyLetter(index);
@@ -429,8 +420,8 @@ const CopyRecipePreview = ({
                 </div>
               </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                Primary Text
+              <label className="flex flex-col text-xs font-medium text-gray-500 dark:text-gray-300">
+                <span className="uppercase tracking-wide">Primary Text</span>
                 {c.editing ? (
                   <textarea
                     className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100"
@@ -450,8 +441,8 @@ const CopyRecipePreview = ({
                   </p>
                 )}
               </label>
-              <label className="flex flex-col text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
-                Headline
+              <label className="flex flex-col text-xs font-medium text-gray-500 dark:text-gray-300">
+                <span className="uppercase tracking-wide">Headline</span>
                 {c.editing ? (
                   <textarea
                     className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100"
@@ -472,8 +463,8 @@ const CopyRecipePreview = ({
                 )}
               </label>
             </div>
-            <label className="mt-3 flex flex-col text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-300">
-              Description
+            <label className="mt-3 flex flex-col text-xs font-medium text-gray-500 dark:text-gray-300">
+              <span className="uppercase tracking-wide">Description</span>
               {c.editing ? (
                 <textarea
                   className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-[var(--border-color-default)] dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-100"
@@ -503,10 +494,27 @@ const CopyRecipePreview = ({
         <div className="mt-4 text-right">
           <button
             type="button"
-            className="btn-primary"
-            onClick={() => onSave(copies)}
+            className={`btn-primary ${saving || !canSave ? 'opacity-70 pointer-events-none' : ''}`}
+            onClick={async () => {
+              if (typeof onSave !== 'function') return;
+              try {
+                setSaving(true);
+                await Promise.resolve(onSave(copies));
+                setCopies((arr) =>
+                  arr.map((copy) => ({
+                    ...copy,
+                    editing: false,
+                  })),
+                );
+              } catch (err) {
+                console.error('Failed to save platform copy', err);
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={saving || !canSave}
           >
-            Save Copy
+            {saving ? 'Saving…' : saveLabel}
           </button>
         </div>
       )}
