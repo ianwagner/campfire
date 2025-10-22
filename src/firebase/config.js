@@ -106,14 +106,8 @@ const firestoreSettings = shouldForceLongPolling
   : {
       // Allow modern Safari to auto-detect the optimal transport so it can use
       // streaming by default yet fall back gracefully if needed.
-      ...(shouldAutoDetectLongPolling
-        ? { experimentalAutoDetectLongPolling: true }
-        : {}),
-      // Keep fetch-based streams enabled so modern browsers stay on the
-      // streaming transport. Disabling this flag forced a fallback to the
-      // WebChannel transport, which reintroduced the 400 errors we were trying
-      // to avoid.
-      useFetchStreams: true,
+      experimentalAutoDetectLongPolling: shouldAutoDetectLongPolling,
+      useFetchStreams: false,
     };
 
 initializeFirestore(app, firestoreSettings);

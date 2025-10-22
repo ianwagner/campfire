@@ -15,15 +15,6 @@ import RecipeTypeCard from './RecipeTypeCard.jsx';
 import { db } from '../firebase/config';
 import { uploadRecipeIcon } from '../uploadRecipeIcon';
 
-const OPS_VIEW_OPTIONS = [
-  { value: 'default', label: 'Default Columns' },
-  { value: 'designer', label: 'Designer Columns' },
-  { value: 'editor', label: 'Editor Columns' },
-  { value: 'client', label: 'Client Columns' },
-];
-
-const OPS_VIEW_VALUES = new Set(OPS_VIEW_OPTIONS.map((opt) => opt.value));
-
 const RecipeTypes = () => {
   const componentsData = useComponentTypes();
   const [types, setTypes] = useState([]);
@@ -43,9 +34,6 @@ const RecipeTypes = () => {
   const [assetFields, setAssetFields] = useState([]);
   const [defaultColumns, setDefaultColumns] = useState([]);
   const [clientVisibleColumns, setClientVisibleColumns] = useState([]);
-  const [designerVisibleColumns, setDesignerVisibleColumns] = useState([]);
-  const [editorVisibleColumns, setEditorVisibleColumns] = useState([]);
-  const [opsVisibleView, setOpsVisibleView] = useState('default');
   const [external, setExternal] = useState(false);
   const [creditCost, setCreditCost] = useState(0);
   const [iconUrl, setIconUrl] = useState('');
@@ -79,9 +67,6 @@ const RecipeTypes = () => {
     setAssetFields([]);
     setDefaultColumns([]);
     setClientVisibleColumns([]);
-    setDesignerVisibleColumns([]);
-    setEditorVisibleColumns([]);
-    setOpsVisibleView('default');
     setExternal(false);
     setCreditCost(0);
     setIconUrl('');
@@ -108,9 +93,6 @@ const RecipeTypes = () => {
     const order = componentOrder.filter(Boolean);
     const defaultCols = defaultColumns.filter(Boolean);
     const clientCols = clientVisibleColumns.filter(Boolean);
-    const designerCols = designerVisibleColumns.filter(Boolean);
-    const editorCols = editorVisibleColumns.filter(Boolean);
-    const opsView = OPS_VIEW_VALUES.has(opsVisibleView) ? opsVisibleView : 'default';
     const writeFields = fields
       .map((f) => ({
         label: f.label.trim(),
@@ -137,9 +119,6 @@ const RecipeTypes = () => {
           writeInFields: writeFields,
           defaultColumns: defaultCols,
           clientVisibleColumns: clientCols,
-          designerVisibleColumns: designerCols,
-          editorVisibleColumns: editorCols,
-          opsVisibleView: opsView,
           external,
           creditCost: Number(creditCost) || 0,
           iconUrl: icon,
@@ -160,9 +139,6 @@ const RecipeTypes = () => {
                   writeInFields: writeFields,
                   defaultColumns: defaultCols,
                   clientVisibleColumns: clientCols,
-                  designerVisibleColumns: designerCols,
-                  editorVisibleColumns: editorCols,
-                  opsVisibleView: opsView,
                   iconUrl: icon,
                   creditCost: Number(creditCost) || 0,
                 }
@@ -182,9 +158,6 @@ const RecipeTypes = () => {
           writeInFields: writeFields,
           defaultColumns: defaultCols,
           clientVisibleColumns: clientCols,
-          designerVisibleColumns: designerCols,
-          editorVisibleColumns: editorCols,
-          opsVisibleView: opsView,
           external,
           creditCost: Number(creditCost) || 0,
           iconUrl: icon,
@@ -204,9 +177,6 @@ const RecipeTypes = () => {
             writeInFields: writeFields,
             defaultColumns: defaultCols,
             clientVisibleColumns: clientCols,
-            designerVisibleColumns: designerCols,
-            editorVisibleColumns: editorCols,
-            opsVisibleView: opsView,
             external,
             creditCost: Number(creditCost) || 0,
             iconUrl: icon,
@@ -232,9 +202,6 @@ const RecipeTypes = () => {
     setClientComponents(t.clientFormComponents || []);
     setDefaultColumns(t.defaultColumns || []);
     setClientVisibleColumns(t.clientVisibleColumns || []);
-    setDesignerVisibleColumns(t.designerVisibleColumns || []);
-    setEditorVisibleColumns(t.editorVisibleColumns || []);
-    setOpsVisibleView(OPS_VIEW_VALUES.has(t.opsVisibleView) ? t.opsVisibleView : 'default');
     setExternal(!!t.external);
     setCreditCost(typeof t.creditCost === 'number' ? t.creditCost : 0);
     setIconUrl(t.iconUrl || '');
@@ -350,9 +317,6 @@ const RecipeTypes = () => {
                 <th>Asset Fields</th>
                 <th>Default Columns</th>
                 <th>Client Columns</th>
-                <th>Designer Columns</th>
-                <th>Editor Columns</th>
-                <th>Ops View</th>
                 <th>External</th>
                 <th>Credits</th>
                 <th>Actions</th>
@@ -402,22 +366,6 @@ const RecipeTypes = () => {
                     {t.clientVisibleColumns && t.clientVisibleColumns.length > 0
                       ? t.clientVisibleColumns.join(', ')
                       : '-'}
-                  </td>
-                  <td>
-                    {t.designerVisibleColumns && t.designerVisibleColumns.length > 0
-                      ? t.designerVisibleColumns.join(', ')
-                      : '-'}
-                  </td>
-                  <td>
-                    {t.editorVisibleColumns && t.editorVisibleColumns.length > 0
-                      ? t.editorVisibleColumns.join(', ')
-                      : '-'}
-                  </td>
-                  <td>
-                    {
-                      OPS_VIEW_OPTIONS.find((opt) => opt.value === (t.opsVisibleView || 'default'))?.label ||
-                      'Default Columns'
-                    }
                   </td>
                   <td>{t.external ? 'Yes' : 'No'}</td>
                   <td>{typeof t.creditCost === 'number' ? t.creditCost : 0}</td>
@@ -557,42 +505,6 @@ const RecipeTypes = () => {
             onChange={setClientVisibleColumns}
             suggestions={columnOptions}
           />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Visible Columns for Designers</label>
-          <TagInput
-            id="designer-columns"
-            value={designerVisibleColumns}
-            onChange={setDesignerVisibleColumns}
-            suggestions={columnOptions}
-          />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Visible Columns for Editors</label>
-          <TagInput
-            id="editor-columns"
-            value={editorVisibleColumns}
-            onChange={setEditorVisibleColumns}
-            suggestions={columnOptions}
-          />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Visible View for Ops</label>
-          <select
-            id="ops-visible-view"
-            className="w-full p-2 border rounded"
-            value={opsVisibleView}
-            onChange={(e) => {
-              const value = OPS_VIEW_VALUES.has(e.target.value) ? e.target.value : 'default';
-              setOpsVisibleView(value);
-            }}
-          >
-            {OPS_VIEW_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
         </div>
         <div>
           <label className="block text-sm">
