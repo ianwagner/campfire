@@ -1268,6 +1268,46 @@ const RecipePreview = forwardRef(({
     () => currentType?.writeInFields || [],
     [currentType],
   );
+  const columnPreferences = useMemo(() => {
+    if (!currentType) return { order: null, source: null };
+    const hasValues = (arr) => Array.isArray(arr) && arr.length > 0;
+    const opsViewValue =
+      typeof currentType.opsVisibleView === 'string' ? currentType.opsVisibleView : 'default';
+    const opsView = opsViewValue.toLowerCase();
+
+    if ((userRole === 'client' || externalOnly) && hasValues(currentType.clientVisibleColumns)) {
+      return { order: currentType.clientVisibleColumns, source: 'client' };
+    }
+
+    if (userRole === 'designer' && hasValues(currentType.designerVisibleColumns)) {
+      return { order: currentType.designerVisibleColumns, source: 'designer' };
+    }
+
+    if (userRole === 'editor' && hasValues(currentType.editorVisibleColumns)) {
+      return { order: currentType.editorVisibleColumns, source: 'editor' };
+    }
+
+    if (userRole === 'ops') {
+      if (opsView === 'client' && hasValues(currentType.clientVisibleColumns)) {
+        return { order: currentType.clientVisibleColumns, source: 'client' };
+      }
+      if (opsView === 'designer' && hasValues(currentType.designerVisibleColumns)) {
+        return { order: currentType.designerVisibleColumns, source: 'designer' };
+      }
+      if (opsView === 'editor' && hasValues(currentType.editorVisibleColumns)) {
+        return { order: currentType.editorVisibleColumns, source: 'editor' };
+      }
+      if (opsView === 'default' && hasValues(currentType.defaultColumns)) {
+        return { order: currentType.defaultColumns, source: 'default' };
+      }
+    }
+
+    if (hasValues(currentType.defaultColumns)) {
+      return { order: currentType.defaultColumns, source: 'default' };
+    }
+
+    return { order: null, source: null };
+  }, [currentType, userRole, externalOnly]);
   const columnMeta = useMemo(() => {
     const columnMap = new Map();
     const addColumn = (key, label, inputType = 'text') => {
@@ -1332,24 +1372,22 @@ const RecipePreview = forwardRef(({
 
     let cols = Array.from(columnMap.values());
 
-    const useClientColumns =
-      (userRole === 'client' || externalOnly) && currentType?.clientVisibleColumns?.length;
-    const clientOrder = useClientColumns ? currentType.clientVisibleColumns : null;
-    if (clientOrder && !showColumnButton) {
-      const allowed = new Set(clientOrder);
+    const preferredOrder = columnPreferences.order;
+    const preferredSource = columnPreferences.source;
+    const restrictToPreferred =
+      !!preferredOrder &&
+      preferredSource === 'client' &&
+      (userRole === 'client' || externalOnly) &&
+      !showColumnButton;
+    if (restrictToPreferred) {
+      const allowed = new Set(preferredOrder);
       cols = cols.filter((col) => allowed.has(col.key));
     }
 
-    const defaultOrder = clientOrder
-      ? clientOrder
-      : currentType?.defaultColumns && currentType.defaultColumns.length > 0
-      ? currentType.defaultColumns
-      : null;
-
-    if (defaultOrder) {
+    if (preferredOrder && preferredOrder.length > 0) {
       cols.sort((a, b) => {
-        const ai = defaultOrder.indexOf(a.key);
-        const bi = defaultOrder.indexOf(b.key);
+        const ai = preferredOrder.indexOf(a.key);
+        const bi = preferredOrder.indexOf(b.key);
         if (ai === -1 && bi === -1) return 0;
         if (ai === -1) return 1;
         if (bi === -1) return -1;
@@ -1367,17 +1405,14 @@ const RecipePreview = forwardRef(({
     results,
     externalOnly,
     showColumnButton,
+    columnPreferences,
   ]);
 
   useEffect(() => {
     setVisibleColumns((prev) => {
       const availableKeys = ['recipeNo', ...columnMeta.map((c) => c.key), 'copy'];
-      const hasClientColumns =
-        (userRole === 'client' || externalOnly) && currentType?.clientVisibleColumns?.length > 0;
-      const defaultOrder = hasClientColumns
-        ? currentType.clientVisibleColumns
-        : currentType?.defaultColumns && currentType.defaultColumns.length > 0
-        ? currentType.defaultColumns
+      const defaultOrder = Array.isArray(columnPreferences.order)
+        ? columnPreferences.order
         : [];
       const defaultSet = new Set(defaultOrder);
       if (!showColumnButton) {
@@ -1402,7 +1437,7 @@ const RecipePreview = forwardRef(({
       return changed ? updated : prev;
     });
     setColumnsReady(true);
-  }, [columnMeta, currentType, showColumnButton, userRole]);
+  }, [columnMeta, columnPreferences, showColumnButton, userRole]);
   const imageColumnKeys = useMemo(() => {
     const keys = new Set();
     columnMeta.forEach((col) => {
