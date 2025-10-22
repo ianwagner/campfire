@@ -116,6 +116,7 @@ const RecipePreview = forwardRef(({
   const briefFileInputRef = useRef(null);
   const [month, setMonth] = useState(getMonthString());
   const [dueDate, setDueDate] = useState('');
+  const roleColumnSignatureRef = useRef(null);
 
   const handleBriefNoteChange = (e) => {
     setBriefNote(e.target.value);
@@ -146,13 +147,13 @@ const RecipePreview = forwardRef(({
   }, [step, onStepChange]);
 
 
-  // Reset visible columns when the selected recipe type changes or when the
-  // recipe type details load so defaults for the type can be applied in the
-  // column initialization effect below.
+  // Reset visible columns when the selected recipe type or user role changes so
+  // the initialization effect below can apply the correct defaults for the
+  // active role.
   useEffect(() => {
     setVisibleColumns({});
     setColumnsReady(false);
-  }, [selectedType, currentType]);
+  }, [selectedType, currentType, userRole, externalOnly]);
 
   const allInstances = useMemo(() => [...instances, ...brandProducts, ...brandCampaigns], [instances, brandProducts, brandCampaigns]);
   const filteredAssetRows = useMemo(() => {
@@ -1268,7 +1269,7 @@ const RecipePreview = forwardRef(({
     () => currentType?.writeInFields || [],
     [currentType],
   );
-  const columnPreferences = useMemo(() => {
+  const roleColumnDefaults = useMemo(() => {
     if (!currentType) return { order: null, source: null };
     const hasValues = (arr) => Array.isArray(arr) && arr.length > 0;
     const opsViewValue =
@@ -1372,22 +1373,22 @@ const RecipePreview = forwardRef(({
 
     let cols = Array.from(columnMap.values());
 
-    const preferredOrder = columnPreferences.order;
-    const preferredSource = columnPreferences.source;
-    const restrictToPreferred =
-      !!preferredOrder &&
-      preferredSource === 'client' &&
+    const roleColumnOrder = roleColumnDefaults.order;
+    const roleColumnSource = roleColumnDefaults.source;
+    const restrictToRoleColumns =
+      !!roleColumnOrder &&
+      roleColumnSource === 'client' &&
       (userRole === 'client' || externalOnly) &&
       !showColumnButton;
-    if (restrictToPreferred) {
-      const allowed = new Set(preferredOrder);
+    if (restrictToRoleColumns) {
+      const allowed = new Set(roleColumnOrder);
       cols = cols.filter((col) => allowed.has(col.key));
     }
 
-    if (preferredOrder && preferredOrder.length > 0) {
+    if (roleColumnOrder && roleColumnOrder.length > 0) {
       cols.sort((a, b) => {
-        const ai = preferredOrder.indexOf(a.key);
-        const bi = preferredOrder.indexOf(b.key);
+        const ai = roleColumnOrder.indexOf(a.key);
+        const bi = roleColumnOrder.indexOf(b.key);
         if (ai === -1 && bi === -1) return 0;
         if (ai === -1) return 1;
         if (bi === -1) return -1;
@@ -1405,39 +1406,50 @@ const RecipePreview = forwardRef(({
     results,
     externalOnly,
     showColumnButton,
-    columnPreferences,
+    roleColumnDefaults,
   ]);
 
   useEffect(() => {
+    const signature = JSON.stringify({
+      source: roleColumnDefaults.source || null,
+      order: Array.isArray(roleColumnDefaults.order)
+        ? roleColumnDefaults.order
+        : null,
+    });
+    const roleDefaultsChanged = roleColumnSignatureRef.current !== signature;
+    roleColumnSignatureRef.current = signature;
+
     setVisibleColumns((prev) => {
       const availableKeys = ['recipeNo', ...columnMeta.map((c) => c.key), 'copy'];
-      const defaultOrder = Array.isArray(columnPreferences.order)
-        ? columnPreferences.order
+      const defaultOrder = Array.isArray(roleColumnDefaults.order)
+        ? roleColumnDefaults.order
         : [];
       const defaultSet = new Set(defaultOrder);
       if (!showColumnButton) {
         availableKeys.forEach((key) => defaultSet.add(key));
       }
 
+      const baseState = roleDefaultsChanged ? {} : prev;
       const updated = {};
-      let changed = false;
+      let changed = roleDefaultsChanged;
+
       availableKeys.forEach((key) => {
-        const prevValue = prev[key];
+        const prevValue = baseState[key];
         const nextValue = prevValue !== undefined ? prevValue : defaultSet.has(key);
         updated[key] = nextValue;
         if (nextValue !== prevValue) changed = true;
       });
 
-      Object.keys(prev).forEach((key) => {
+      Object.keys(baseState).forEach((key) => {
         if (!availableKeys.includes(key)) {
           changed = true;
         }
       });
 
-      return changed ? updated : prev;
+      return changed ? updated : baseState;
     });
     setColumnsReady(true);
-  }, [columnMeta, columnPreferences, showColumnButton, userRole]);
+  }, [columnMeta, roleColumnDefaults, showColumnButton, userRole]);
   const imageColumnKeys = useMemo(() => {
     const keys = new Set();
     columnMeta.forEach((col) => {
