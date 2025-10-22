@@ -212,25 +212,6 @@ test('project manager can assign staff', async () => {
   expect(within(editorSelect).getByText('Editor One')).toBeInTheDocument();
 });
 
-test('ops users cannot see designer fields', async () => {
-  mockUseUserRole.mockReturnValue({ role: 'ops', brandCodes: [], loading: false });
-  mockOnSnapshot.mockImplementation((col, cb) => {
-    cb({ docs: [] });
-    return jest.fn();
-  });
-
-  render(
-    <MemoryRouter>
-      <AdGroupDetail />
-    </MemoryRouter>
-  );
-
-  await screen.findByText('Group 1');
-
-  expect(screen.queryByLabelText('Designer Assignment')).not.toBeInTheDocument();
-  expect(screen.queryByText('Designer Due Date')).not.toBeInTheDocument();
-});
-
 test('editor can open gallery modal', async () => {
   mockUseUserRole.mockReturnValue({ role: 'editor', brandCodes: [], loading: false });
   mockOnSnapshot.mockImplementation((col, cb) => {

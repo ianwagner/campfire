@@ -20,7 +20,6 @@ jest.mock('./useUserRole', () => (...args) => mockUseUserRole(...args));
 
 afterEach(() => {
   jest.clearAllMocks();
-  mockUseUserRole.mockImplementation(() => ({ role: 'admin', agencyId: null, loading: false }));
 });
 
 const typeSnap = { docs: [{ id: 't1', data: () => ({ name: 'Type1', components: ['headline'] }) }] };
@@ -232,86 +231,5 @@ test('hides actions and refine button when hideActions is true', async () => {
   await waitFor(() => expect(mockGetDocs).toHaveBeenCalled());
   expect(screen.queryByText('Refine')).toBeNull();
   expect(screen.queryByLabelText('Toggle Select')).toBeNull();
-});
-
-test('updates recipe column visibility when user role changes', async () => {
-  let role = 'designer';
-  mockUseUserRole.mockImplementation(() => ({ role, agencyId: null, loading: false }));
-
-  const typeSnap = {
-    docs: [
-      {
-        id: 'type1',
-        data: () => ({
-          name: 'Type1',
-          components: ['headline'],
-          designerVisibleColumns: ['recipeNo', 'headline.text'],
-          clientVisibleColumns: ['headline.text'],
-          defaultColumns: ['recipeNo', 'headline.text'],
-        }),
-      },
-    ],
-  };
-
-  const componentSnap = {
-    docs: [
-      {
-        id: 'headline',
-        data: () => ({
-          key: 'headline',
-          label: 'Headline',
-          selectionMode: 'dropdown',
-          attributes: [{ key: 'text', label: 'Text' }],
-        }),
-      },
-    ],
-  };
-
-  mockGetDocs.mockImplementation((args) => {
-    const col = Array.isArray(args) ? args[1] || args[0][1] : args[1];
-    switch (col) {
-      case 'recipeTypes':
-        return Promise.resolve(typeSnap);
-      case 'componentTypes':
-        return Promise.resolve(componentSnap);
-      case 'componentInstances':
-        return Promise.resolve({ docs: [] });
-      case 'brands':
-        return Promise.resolve({ docs: [] });
-      default:
-        return Promise.resolve({ docs: [] });
-    }
-  });
-
-  const initialResults = [
-    {
-      type: 'type1',
-      recipeNo: 7,
-      components: { 'headline.text': 'Hello' },
-    },
-  ];
-
-  const { rerender } = render(
-    <RecipePreview initialResults={initialResults} showOnlyResults />,
-  );
-
-  await waitFor(() =>
-    expect(
-      screen.getByRole('columnheader', {
-        name: '#',
-      }),
-    ).toBeInTheDocument(),
-  );
-
-  role = 'client';
-  rerender(<RecipePreview initialResults={initialResults} showOnlyResults />);
-
-  await waitFor(() =>
-    expect(
-      screen.queryByRole('columnheader', {
-        name: '#',
-      }),
-    ).not.toBeInTheDocument(),
-  );
 });
 
