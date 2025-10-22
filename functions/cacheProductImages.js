@@ -1,7 +1,7 @@
 import { onCall as onCallFn, HttpsError } from 'firebase-functions/v2/https';
 import admin from 'firebase-admin';
 import path from 'path';
-import { getSharp } from './shared/lazySharp.js';
+import sharp from 'sharp';
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -23,7 +23,6 @@ export const cacheProductImages = onCallFn({ timeoutSeconds: 120, memory: '1GiB'
     const bucket = admin.storage().bucket();
     const uploaded = [];
 
-    let sharpInstance;
     for (const u of urls) {
       try {
         const res = await fetch(u);
@@ -41,8 +40,7 @@ export const cacheProductImages = onCallFn({ timeoutSeconds: 120, memory: '1GiB'
         try {
           const base = path.basename(filename, path.extname(filename));
           const thumbDest = `Campfire/Brands/${safeBrand}/Products/${slug}/Images/${base}_thumb.webp`;
-          sharpInstance = sharpInstance || (await getSharp());
-          const thumbBuf = await sharpInstance(buffer).resize({ width: 300 }).toFormat('webp').toBuffer();
+          const thumbBuf = await sharp(buffer).resize({ width: 300 }).toFormat('webp').toBuffer();
           const thumbFile = bucket.file(thumbDest);
           await thumbFile.save(thumbBuf, { contentType: 'image/webp' });
           await thumbFile.makePublic();
