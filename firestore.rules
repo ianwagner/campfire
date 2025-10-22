@@ -42,10 +42,6 @@ match /assets/{assetId} {
       );
     }
 
-    function isIntegrationPrivileged() {
-      return isAdmin() || isOps();
-    }
-
     function isClient() {
       return request.auth != null && userData() != null && userData().role == 'client';
     }
@@ -261,33 +257,9 @@ match /assets/{assetId} {
 
     // ✅ Reviews
     match /reviews/{reviewId} {
-      function isIntegrationExportUpdate() {
-        return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'assignedIntegrationId',
-          'exportStatus',
-          'lastExport'
-        ]);
-      }
-
       allow read: if false;
       allow create: if true;
-      allow update: if isAdmin() || (isOps() && isIntegrationExportUpdate());
-      allow delete: if isAdmin();
-    }
-
-    match /integrations/{integrationId} {
-      allow read: if isIntegrationPrivileged();
-      allow create, update, delete: if isAdmin();
-
-      match /versions/{versionId} {
-        allow read: if isIntegrationPrivileged();
-        allow create: if isAdmin();
-        allow update, delete: if false;
-      }
-    }
-
-    match /integration_failures/{docId} {
-      allow read, write: if isIntegrationPrivileged();
+      allow update, delete: if isAdmin();
     }
 
     match /recipes/{id} {

@@ -10,9 +10,6 @@ import {
   doc,
   getDoc,
   Timestamp,
-  query,
-  where,
-  getDocs,
 } from 'firebase/firestore';
 import { db, auth } from './firebase/config';
 import RecipePreview from './RecipePreview.jsx';
@@ -55,44 +52,6 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
     }
     if (!title.trim()) return;
     try {
-      let defaultIntegrationId = null;
-      let defaultIntegrationName = '';
-      if (brandCode) {
-        try {
-          const brandSnap = await getDocs(
-            query(collection(db, 'brands'), where('code', '==', brandCode)),
-          );
-          if (!brandSnap.empty) {
-            const brandData = brandSnap.docs[0].data() || {};
-            if (typeof brandData.defaultIntegrationId === 'string') {
-              defaultIntegrationId = brandData.defaultIntegrationId;
-            }
-            if (typeof brandData.defaultIntegrationName === 'string') {
-              defaultIntegrationName = brandData.defaultIntegrationName;
-            }
-            const agencyId = typeof brandData.agencyId === 'string' ? brandData.agencyId : '';
-            if (!defaultIntegrationId && agencyId) {
-              try {
-                const agencySnap = await getDoc(doc(db, 'agencies', agencyId));
-                if (agencySnap.exists()) {
-                  const agencyData = agencySnap.data() || {};
-                  if (typeof agencyData.defaultIntegrationId === 'string') {
-                    defaultIntegrationId = agencyData.defaultIntegrationId;
-                  }
-                  if (typeof agencyData.defaultIntegrationName === 'string') {
-                    defaultIntegrationName = agencyData.defaultIntegrationName;
-                  }
-                }
-              } catch (err) {
-                console.error('Failed to load agency defaults for integration', err);
-              }
-            }
-          }
-        } catch (err) {
-          console.error('Failed to load brand defaults for integration', err);
-        }
-      }
-
       const groupRef = await addDoc(collection(db, 'adGroups'), {
         name: title.trim(),
         brandCode,
@@ -114,8 +73,6 @@ const CreateAdGroup = ({ showSidebar = true, asModal = false }) => {
         month: month || null,
         dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
         ...(briefNote ? { notes: briefNote } : {}),
-        assignedIntegrationId: defaultIntegrationId || null,
-        assignedIntegrationName: defaultIntegrationName || '',
       });
 
       if (Array.isArray(briefAssets) && briefAssets.length > 0) {
