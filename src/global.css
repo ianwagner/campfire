@@ -361,11 +361,19 @@
         margin-top: var(--space-xs);
       }
     }
-  .dashboard-table thead th {
+  .dashboard-table thead {
     position: sticky;
     top: 0;
-    z-index: 5;
+    z-index: 6;
     background-color: var(--table-head-bg);
+  }
+  .dashboard-table thead th {
+    background-color: inherit;
+  }
+  .dashboard-table .metric-col {
+    width: 6.5rem;
+    max-width: 6.5rem;
+    white-space: nowrap;
   }
   .dashboard-table td.notes-cell {
     vertical-align: top;

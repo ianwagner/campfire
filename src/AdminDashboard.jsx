@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiCheck } from 'react-icons/fi';
 import {
@@ -14,14 +14,14 @@ import {
   deleteDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from './firebase/config';
-import { getAuth } from 'firebase/auth';
+import { auth, db } from './firebase/config';
 import PageWrapper from './components/PageWrapper.jsx';
 import Table from './components/common/Table';
 import MonthSelector from './components/MonthSelector.jsx';
 import getMonthString from './utils/getMonthString.js';
 import TabButton from './components/TabButton.jsx';
 import { normalizeReviewVersion } from './utils/reviewVersion';
+import useUserRole from './useUserRole';
 
 function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = {}) {
   const thisMonth = getMonthString();
@@ -34,12 +34,17 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   const [savingNotes, setSavingNotes] = useState({});
   const [noteErrors, setNoteErrors] = useState({});
 
+  const user = auth.currentUser;
+  const { role } = useUserRole(user?.uid);
+  const canEditNotes = role === 'admin' || role === 'ops';
+
   const getNoteKey = (brand) => {
     const rawKey = brand?.noteKey || brand?.code || brand?.id;
     return rawKey ? String(rawKey) : '';
   };
 
   const handleNoteChange = (key, value) => {
+    if (!canEditNotes) return;
     if (!key) return;
     setNoteDrafts((prev) => ({ ...prev, [key]: value }));
     setNoteErrors((prev) => {
@@ -51,6 +56,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
   };
 
   const handleNoteBlur = async (row) => {
+    if (!canEditNotes) return;
     const key = getNoteKey(row);
     if (!key) return;
     const draftValue = (noteDrafts[key] ?? '').trim();
@@ -108,21 +114,6 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
       });
     }
   };
-
-  useEffect(() => {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) return;
-
-    user.getIdTokenResult(true)
-      .then((token) => {
-        console.log(token.claims);
-        if (!token.claims.admin) {
-          // optionally handle missing admin claim
-        }
-      })
-      .catch((err) => console.error(err));
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -461,6 +452,14 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
     };
   }, [month, agencyId, brandCodes, briefOnly]);
 
+  const columnWidths = useMemo(
+    () =>
+      briefOnly
+        ? ['auto', '6.5rem', '6.5rem', '6.5rem', 'auto']
+        : ['auto', '6.5rem', '6.5rem', '6.5rem', '6.5rem', '6.5rem', 'auto'],
+    [briefOnly]
+  );
+
   return (
     <PageWrapper title="Dashboard">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -496,15 +495,15 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
       ) : rows.length === 0 ? (
         <p>No contracts found.</p>
       ) : (
-        <Table className="dashboard-table">
+        <Table className="dashboard-table" columns={columnWidths}>
           <thead>
             <tr>
               <th>Brand</th>
-              <th>Contracted</th>
-              <th>Briefed</th>
-              <th>Delivered</th>
-              {!briefOnly && <th>Approved</th>}
-              {!briefOnly && <th>Rejected</th>}
+              <th className="metric-col">Contracted</th>
+              <th className="metric-col">Briefed</th>
+              <th className="metric-col">Delivered</th>
+              {!briefOnly && <th className="metric-col">Approved</th>}
+              {!briefOnly && <th className="metric-col">Rejected</th>}
               <th>Notes</th>
             </tr>
           </thead>
@@ -522,10 +521,11 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                     {r.code ? (
                       <Link
                         to={`/admin/ad-groups?brandCode=${encodeURIComponent(r.code)}`}
-                        className="inline-flex flex-wrap items-center gap-2 font-medium text-blue-600 hover:underline dark:text-blue-400"
+                        className="inline-flex flex-wrap items-center gap-2 font-medium hover:underline"
+                        style={{ color: 'inherit' }}
                       >
                         <span>{r.name || r.code}</span>
-                        <span className="tag tag-pill border border-gray-300 bg-gray-100 text-xs uppercase tracking-wide text-gray-700 dark:border-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
+                        <span className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-700 dark:border-gray-600 dark:bg-[var(--dark-sidebar-hover)] dark:text-gray-200">
                           {r.code}
                         </span>
                       </Link>
@@ -535,11 +535,11 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                       </div>
                     )}
                   </td>
-                  <td className="text-center" data-label="Contracted">
+                  <td className="metric-col text-center" data-label="Contracted">
                     {r.contracted}
                   </td>
                   <td
-                    className={`text-center ${briefedMatch ? 'bg-approve-10' : ''}`}
+                    className={`metric-col text-center ${briefedMatch ? 'bg-approve-10' : ''}`}
                     data-label="Briefed"
                   >
                     {r.briefed}
@@ -548,7 +548,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                     )}
                   </td>
                   <td
-                    className={`text-center ${deliveredMatch ? 'bg-approve-10' : ''}`}
+                    className={`metric-col text-center ${deliveredMatch ? 'bg-approve-10' : ''}`}
                     data-label="Delivered"
                   >
                     {r.delivered}
@@ -558,7 +558,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                   </td>
                   {!briefOnly && (
                     <td
-                      className={`text-center ${approvedMatch ? 'bg-approve-10' : ''}`}
+                      className={`metric-col text-center ${approvedMatch ? 'bg-approve-10' : ''}`}
                       data-label="Approved"
                     >
                       {r.approved}
@@ -568,7 +568,7 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                     </td>
                   )}
                   {!briefOnly && (
-                    <td className="text-center text-reject" data-label="Rejected">
+                    <td className="metric-col text-center text-reject" data-label="Rejected">
                       {r.rejected}
                     </td>
                   )}
@@ -581,10 +581,12 @@ function AdminDashboard({ agencyId, brandCodes = [], requireFilters = false } = 
                         value={noteValue}
                         onChange={(e) => handleNoteChange(noteKey, e.target.value)}
                         onBlur={() => handleNoteBlur(r)}
-                        placeholder="Add a note"
+                        placeholder={canEditNotes ? 'Add a note' : 'Notes are view only'}
                         rows={2}
                         style={{ height: 'auto' }}
-                        className="w-full resize-y rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-[var(--dark-sidebar-bg)] dark:text-white"
+                        disabled={!canEditNotes}
+                        aria-disabled={!canEditNotes}
+                        className="w-full resize-y rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-600 dark:bg-[var(--dark-sidebar-bg)] dark:text-white dark:disabled:bg-[var(--dark-sidebar-hover)] dark:disabled:text-gray-400"
                       />
                       {savingNotes[noteKey] && (
                         <span className="note-status text-xs text-gray-500">Saving...</span>
